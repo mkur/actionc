@@ -2141,3 +2141,16 @@ fn arithmetic_helpers_reenter_from_two_tasks_and_irq_at_every_reached_instructio
         }
     }
 }
+
+#[test]
+fn long_sign_carry_materialization_and_branch_flags_survive_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n","\n").replace("CARD FUNC Read(",
+        "BYTE FUNC LongNegative(LONGINT x) RETURN(x<0)\nCARD FUNC LongSignBranch(LONGINT x) BYTE b b=LongNegative(x) IF x>=0 THEN RETURN(CARD(b)+7) FI RETURN(CARD(b)+3)\nCARD FUNC Read(")
+        .replace("  work.done=1","  work.result==+LongSignBranch(LONGINT(0))+LongSignBranch(LONGINT($7fffffff))+LongSignBranch(LONGINT($80000000))+LongSignBranch(LONGINT($ffffffff))-22\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["LONGNEGATIVE", "LONGSIGNBRANCH"], "long-sign");
+}

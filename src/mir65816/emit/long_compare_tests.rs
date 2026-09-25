@@ -344,3 +344,82 @@ fn long_fusion_uses_existing_sole_use_proof_and_keeps_both_edges() {
         assert_eq!(b.frame.extent, frame);
     }
 }
+
+#[test]
+fn long_sign_checks_complete_homes_and_only_admits_sign_only_predicates() {
+    let p = program("BYTE FUNC Work(LONGINT a,b) RETURN(a<b)");
+    let r = &p.routines[0];
+    let (dest, left, right) = operands(r);
+    let zero = Mir65816Value::U32(0);
+    for signed in [false, true] {
+        for op in [
+            NirCompareOp::Lt,
+            NirCompareOp::Le,
+            NirCompareOp::Gt,
+            NirCompareOp::Ge,
+        ] {
+            for reverse in [false, true] {
+                let mut b = builder(r);
+                let (a, c) = if reverse {
+                    (&zero, &left)
+                } else {
+                    (&left, &zero)
+                };
+                let admitted = signed
+                    && if reverse {
+                        matches!(op, NirCompareOp::Gt | NirCompareOp::Le)
+                    } else {
+                        matches!(op, NirCompareOp::Lt | NirCompareOp::Ge)
+                    };
+                let before = format!("{:?}", b.code);
+                assert_eq!(
+                    b.native_compare(dest, 4, signed, op, a, c).unwrap(),
+                    admitted
+                );
+                if admitted {
+                    assert!(b.code.code().bytes.len() <= 14);
+                } else {
+                    assert_eq!(format!("{:?}", b.code), before);
+                }
+            }
+        }
+    }
+    let Mir65816Value::Temp(id, _) = left else {
+        panic!()
+    };
+    for (offset, valid) in [(1, true), (252, true), (253, false), (0, false)] {
+        let mut b = builder(r);
+        b.frame
+            .temps
+            .insert(id, Location::Stack(Slot { offset, width: 4 }));
+        let before = format!("{:?}", b.code);
+        let c = b.condition(dest, 4, true, NirCompareOp::Lt, &left, &zero);
+        assert_eq!(c.is_ok(), valid);
+        if valid {
+            let Some(Condition::LongSign(c)) = c.unwrap() else {
+                panic!()
+            };
+            assert_eq!(c.source, ByteOperand::Stack(offset as u8 + 3));
+        }
+        assert_eq!(format!("{:?}", b.code), before);
+    }
+    let mut b = builder(r);
+    b.frame.temps.insert(
+        id,
+        Location::DirectPage(Slot {
+            offset: 0,
+            width: 4,
+        }),
+    );
+    let before = format!("{:?}", b.code);
+    assert!(
+        !b.native_compare(dest, 4, true, NirCompareOp::Lt, &left, &zero)
+            .unwrap()
+    );
+    assert_eq!(format!("{:?}", b.code), before);
+    assert!(
+        b.condition(dest, 4, true, NirCompareOp::Lt, &right, &zero)
+            .unwrap()
+            .is_some()
+    );
+}

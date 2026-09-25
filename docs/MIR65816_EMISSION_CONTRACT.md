@@ -621,13 +621,23 @@ no sign bias. U32 zero on either side is normalized to the right; both word
 loads use Z directly without CMP-zero. Both halves are checked independently,
 including byte 3 and transient S movement. Exact four-byte stack temps and
 authoritative parameter homes, plus U32 constants, are eligible. Narrower
-constants/homes, direct symbolic addresses, DP operands and four-byte ordering
-retain their previous paths. Preflight checks both operands and the one-byte
+constants/homes, direct symbolic addresses and DP operands retain their previous
+paths. Preflight checks both operands and the one-byte
 destination before any emission or state change. No half-word temp identity or
 persistent forwarding witness is introduced. The existing operation barrier,
 source-memory accesses, allocation and guards remain intact. A materialized
 result uses the existing two canonical BYTE outcomes; source reads still capture
 all four bytes before private-home comparisons can short-circuit.
+
+Signed four-byte `< 0`/`>= 0` and their reversed forms may inspect only the top
+byte of a complete captured input. Both four-byte operands and the one-byte
+result home are preflighted first. Materialization compares that byte with $80,
+loads zero without changing carry, and uses ADC-zero to obtain canonical 0/1;
+nonnegative tests invert that bit. A sole-use branch consumes the top byte's N
+through BMI/BPL, restoring A16 without changing N before edge dispatch.
+The full external capture remains, including volatile reads and reads around
+calls. General four-byte ordering and constant-widening temps retain fallback.
+See the [ordering plan](MIR65816_LONG_ORDERING_PLAN.md).
 
 A final eligible byte, word, pointer or long Compare followed immediately by
 Branch may consume C/Z flags (or corrected N for signed words) directly when a

@@ -50,6 +50,8 @@ mod call_copies;
 mod constant_stores;
 #[path = "long_arithmetic.rs"]
 mod long_arithmetic;
+#[path = "long_order.rs"]
+mod long_order;
 #[path = "parameter.rs"]
 mod parameter;
 #[path = "pointer_values.rs"]
@@ -207,11 +209,18 @@ struct LongCondition {
     predicate: Branch,
 }
 
+struct LongSignCondition {
+    source: ByteOperand,
+    destination: u8,
+    negative: bool,
+}
+
 enum Condition {
     Word(WordCondition),
     Byte(ByteCondition),
     Pointer(PointerCondition),
     Long(LongCondition),
+    LongSign(LongSignCondition),
 }
 
 impl Condition {
@@ -221,6 +230,7 @@ impl Condition {
             Self::Byte(c) => c.destination,
             Self::Pointer(c) => c.destination,
             Self::Long(c) => c.destination,
+            Self::LongSign(c) => c.destination,
         }
     }
 }
@@ -709,6 +719,11 @@ impl Builder<'_> {
                 .map(|c| c.map(Condition::Word));
         }
         let equality = matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne);
+        if bytes == 4 && signed && !equality {
+            return self
+                .long_sign_condition(dest, operation, left, right)
+                .map(|c| c.map(Condition::LongSign));
+        }
         if !((bytes == 1 && (!signed || equality)) || (matches!(bytes, 3 | 4) && equality)) {
             return Ok(None);
         }
@@ -974,6 +989,7 @@ impl Builder<'_> {
             Condition::Word(condition) => self.branch_on_word(condition, yes, dispatch),
             Condition::Pointer(condition) => self.branch_on_pointer(condition, yes, dispatch),
             Condition::Long(condition) => self.branch_on_long(condition, yes, dispatch),
+            Condition::LongSign(condition) => self.branch_on_long_sign(condition, yes, dispatch),
             Condition::Byte(condition) => {
                 self.code.barrier(); // Retain the original operation's value/flag barrier.
                 self.code.a8();
@@ -1079,6 +1095,10 @@ impl Builder<'_> {
         let Some(condition) = self.condition(dest, bytes, signed, operation, left, right)? else {
             return Ok(false);
         };
+        if let Condition::LongSign(condition) = &condition {
+            self.materialize_long_sign(condition);
+            return Ok(true);
+        }
         let yes = self.code.label();
         let done = self.code.label();
         self.branch_on_condition(&condition, yes, false);
