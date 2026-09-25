@@ -101,22 +101,82 @@ fn incoming(
     }))
 }
 
+fn barrier(op: &Mir65816Op) -> bool {
+    match op {
+        Mir65816Op::Call { .. } | Mir65816Op::Store { .. } | Mir65816Op::Copy { .. } => true,
+        Mir65816Op::Load { volatile, .. } => *volatile,
+        Mir65816Op::AddressOf { .. }
+        | Mir65816Op::Unary { .. }
+        | Mir65816Op::Cast { .. }
+        | Mir65816Op::PointerOffset { .. }
+        | Mir65816Op::Binary { .. }
+        | Mir65816Op::Compare { .. } => false,
+    }
+}
+
+/// Only read paths that resolve complete native pointer homes participate.
+/// In particular, identity casts and edge-copy schedules retain their captures.
+fn supported(op: &Mir65816Op, temp: TempId) -> bool {
+    let is_pointer = |value: &Mir65816Value| matches!(value, Mir65816Value::Temp(id,w) if *id==temp && w.get()==3);
+    let contains = |value: &Mir65816Value| matches!(value, Mir65816Value::Temp(id,_) if *id==temp);
+    match op {
+        Mir65816Op::Load {
+            address,
+            volatile: false,
+            ..
+        }
+        | Mir65816Op::AddressOf { address, .. } => {
+            matches!(&address.base, Mir65816AddressBase::Indirect(v) if is_pointer(v))
+                && address.displacement.get() <= u16::MAX.into()
+                && address
+                    .index
+                    .as_ref()
+                    .is_none_or(|index| !contains(&index.value))
+        }
+        Mir65816Op::Compare {
+            width, left, right, ..
+        } => {
+            width.get() == 3
+                && (!contains(left) || is_pointer(left))
+                && (!contains(right) || is_pointer(right))
+        }
+        Mir65816Op::PointerOffset {
+            width,
+            base,
+            offset,
+            ..
+        } => width.get() == 3 && is_pointer(base) && !contains(offset),
+        Mir65816Op::Binary {
+            width,
+            left,
+            right,
+            operation: NirBinaryOp::Add | NirBinaryOp::Sub,
+            ..
+        } => {
+            width.get() == 3
+                && (!contains(left) || is_pointer(left))
+                && (!contains(right) || is_pointer(right))
+        }
+        _ => false,
+    }
+}
+
 impl Plan {
     pub(super) fn new(routine: &Mir65816Routine, frame: &AllocatedFrame) -> Result<Self, String> {
         let mut plan = Self::default();
         let counts = liveness::input_counts(routine);
         for block in &routine.blocks {
-            for (index, pair) in block.ops.windows(2).enumerate() {
+            for (index, op) in block.ops.iter().enumerate() {
                 let Mir65816Op::Load {
                     dest,
                     width,
                     address,
                     volatile: false,
-                } = &pair[0]
+                } = op
                 else {
                     continue;
                 };
-                if width.get() != 3 || counts.get(dest) != Some(&1) {
+                if width.get() != 3 || counts.get(dest).copied().unwrap_or(0) == 0 {
                     continue;
                 }
                 let Some(Location::Stack(capture)) = frame.temps.get(dest) else {
@@ -128,22 +188,6 @@ impl Plan {
                 let Some(source) = incoming(routine, frame, address)? else {
                     continue;
                 };
-                let Mir65816Op::Load {
-                    address,
-                    volatile: false,
-                    ..
-                } = &pair[1]
-                else {
-                    continue;
-                };
-                if !matches!(address.base, Mir65816AddressBase::Indirect(Mir65816Value::Temp(id,w)) if id == *dest && w.get() == 3)
-                    || address.index.is_some()
-                    || address.displacement.get() > u16::MAX.into()
-                {
-                    continue;
-                }
-                // Both the original and substituted pointer setup use exactly
-                // two native private reads; every byte fits d,S at body depth.
                 abi::stack::access_displacement(
                     ByteOffset::new(capture.offset.into()),
                     ByteSize::new(3),
@@ -153,11 +197,53 @@ impl Plan {
                 if Location::Stack(*capture).overlaps(Location::Stack(source.home)) {
                     return Err("pointer capture overlaps authoritative source".into());
                 }
+                let mut uses = BTreeSet::new();
+                let mut covered = 0;
+                for (at, consumer) in block.ops.iter().enumerate().skip(index + 1) {
+                    // Even a final call/store use is excluded. Unknown writes
+                    // cannot extend a private source's proven stable window.
+                    if barrier(consumer) {
+                        break;
+                    }
+                    let occurrences = liveness::operation_inputs(consumer)
+                        .iter()
+                        .filter(|id| **id == *dest)
+                        .count();
+                    if occurrences != 0 {
+                        if !supported(consumer, *dest) {
+                            break;
+                        }
+                        uses.insert(at);
+                        covered += occurrences;
+                    }
+                    if covered == counts[dest] {
+                        break;
+                    }
+                }
+                if covered != counts[dest]
+                    && !block.ops[index + 1..].iter().any(barrier)
+                    && matches!(
+                        routine.result_home,
+                        Some(Mir65816AbiHome::NativeResult(
+                            abi::ResultLocation::A16X8ZeroExtended
+                        ))
+                    )
+                    && matches!(&block.terminator, Mir65816Terminator::Return {value:Some(Mir65816Value::Temp(id,w)),..} if id==dest && w.get()==3)
+                {
+                    uses.insert(block.ops.len());
+                    covered += 1;
+                }
+                // The exhaustive routine-wide count includes hidden address and
+                // index uses, all terminators/edges and other blocks. Any use
+                // not explicitly admitted retains the entire original capture.
+                if covered != counts[dest] {
+                    continue;
+                }
                 plan.bindings.push(Binding {
                     temp: *dest,
                     source,
                     definition: (block.id, index),
-                    uses: [index + 1].into(),
+                    uses,
                 });
             }
         }

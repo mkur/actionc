@@ -12,16 +12,25 @@ all writes still use the allocated temporary home. Allocation, frame extent,
 guards and reserved homes are unchanged. Selected instructions, home analysis
 and replay see the actual source reads and no fictitious capture definition.
 
-Initially the source is an immutable incoming parameter with no authoritative
-frame copy, followed immediately by its sole indirect-load consumer. A closed
+The source is an immutable incoming parameter with no authoritative frame copy.
+All uses must lie in the defining block within a stable window. A closed
 routine-wide input count includes address/index operands, terminators and edge
-arguments. The consumer retains the same native pointer setup, with both private
+arguments. Consumers retain the same native pointer setup and operand widths, with private
 word reads inside the checked three-byte source and all d,S bytes in 1..255.
+Substitution changes only fixed-size stack operands, preserving native selection;
+removing the capture cannot make the complete sequence larger.
 Every external dereference retains its original width, order and volatility.
 
 Parameter admission checks both frame metadata and typed operations. Writes,
 address escape, aggregate Copy, partial or displaced/indexed parameter accesses,
 volatile access and mutable parameter frame homes reject the source. DP captures
-and unsupported consumers retain their complete original capture. Calls and
-stores are not consumer candidates. No source-language alias promise, incoming
+and unsupported consumers retain their complete original capture. Supported consumers are indirect loads (including indexed loads), address
+formation, three-byte comparisons, pointer offsets and three-byte Add/Sub. A
+matching native A16/X8 return may use the binding through preparation before
+frame teardown. All uses are planned together; a missing or unsupported use
+retains the entire capture. Edge-copy schedules remain unsupported.
+
+Calls, stores, aggregate copies and volatile loads end the window, including
+when they would be the last consumer. Intervening pure computations and ordinary
+loads may clobber registers but cannot change the immutable owned source. No source-language alias promise, incoming
 home allocation exception, cross-call residence or public ABI change is added.

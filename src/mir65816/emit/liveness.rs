@@ -145,6 +145,11 @@ impl Uses {
     }
 }
 
+/// Exhaustive typed operands shared with bounded private-source selection.
+pub(super) fn operation_inputs(op: &Mir65816Op) -> Vec<TempId> {
+    Uses::operation(op).occurrences
+}
+
 /// Every operand occurrence, including repeated address/value operands. Shared
 /// with address selection so new MIR operations cannot hide a live producer.
 pub(super) fn input_counts(routine: &Mir65816Routine) -> BTreeMap<TempId, usize> {

@@ -14,14 +14,47 @@ LONGCARD result=$7200
 PROC Main() result=Read(LONGCARD POINTER($12fffe)) RETURN
 "#;
 
+// Exercise a single captured pointer twice, with a separate harmless capture
+// between uses. The typed fixture is verified after adding fresh definitions.
+fn prepared(source: &str, optimize: bool) -> actionc::compiler::native65816::Prepared {
+    let mut p = prepare(source, optimize);
+    for r in &mut p.mir.routines {
+        if !r.name.to_ascii_uppercase().contains("READ")
+            && !r.name.to_ascii_uppercase().contains("FORWARD")
+        {
+            continue;
+        }
+        for b in &mut r.blocks {
+            let Some(i)=b.ops.windows(2).position(|pair| matches!(&pair[0], Mir65816Op::Load{width,address,volatile:false,..} if width.get()==3 && matches!(address.base,Mir65816AddressBase::Parameter(_)))
+                && matches!(&pair[1],Mir65816Op::Load{address,volatile:false,..} if matches!(address.base,Mir65816AddressBase::Indirect(_)))) else {continue};
+            let next = r.temps.iter().map(|(id, _)| id.0).max().unwrap() + 1;
+            for (at, mut op, id) in [
+                (i + 2, b.ops[i].clone(), next),
+                (i + 3, b.ops[i + 1].clone(), next + 1),
+            ] {
+                let Mir65816Op::Load { dest, .. } = &mut op else {
+                    unreachable!()
+                };
+                let ty = r.temps.iter().find(|(id, _)| id == dest).unwrap().1.clone();
+                *dest = actionc::nir::TempId(id);
+                r.temps.push((*dest, ty));
+                b.ops.insert(at, op);
+            }
+            break;
+        }
+    }
+    actionc::mir65816::verify_program(&p.mir).unwrap();
+    p
+}
+
 #[test]
 fn borrowed_pointer_reads_preserve_banked_accesses_and_replay() {
     for optimize in [false, true] {
-        let p = prepare(SOURCE, optimize);
+        let p = prepared(SOURCE, optimize);
         let compiled = p.compile(&layout()).unwrap();
         assert_eq!(
             compiled.image.to_json().unwrap(),
-            prepare(&SOURCE.replace('\n', "\r\n"), optimize)
+            prepared(&SOURCE.replace('\n', "\r\n"), optimize)
                 .compile(&layout())
                 .unwrap()
                 .image
@@ -87,6 +120,7 @@ fn borrowed_pointer_reads_preserve_banked_accesses_and_replay() {
                             .map(|&(_, a, k)| (a, k))
                             .collect::<Vec<_>>(),
                         (0x12fffe..0x130002)
+                            .chain(0x12fffe..0x130002)
                             .map(|a| (a, Access::Read))
                             .collect::<Vec<_>>()
                     );
@@ -110,7 +144,7 @@ fn borrowed_pointer_consumers_survive_irq_and_nmi_at_each_instruction() {
                     optimize,
                     "Task",
                     &[0x7100, 0x7120],
-                    prepare(&source, optimize),
+                    prepared(&source, optimize),
                 );
                 let mut r = h.cpu.registers();
                 r.a = h.first[domain].saved_s;
