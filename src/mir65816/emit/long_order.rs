@@ -2,6 +2,69 @@
 use super::*;
 
 impl Builder<'_> {
+    pub(super) fn long_unsigned_condition(
+        &self,
+        dest: TempId,
+        operation: NirCompareOp,
+        left: &Mir65816Value,
+        right: &Mir65816Value,
+    ) -> Result<Option<LongOrderCondition>, String> {
+        let Some((destination, mut left, mut right)) =
+            self.long_comparison_operands(dest, left, right)?
+        else {
+            return Ok(None);
+        };
+        let predicate = match operation {
+            NirCompareOp::Lt => Branch::CarryClear,
+            NirCompareOp::Ge => Branch::CarrySet,
+            NirCompareOp::Gt | NirCompareOp::Le => {
+                std::mem::swap(&mut left, &mut right);
+                if operation == NirCompareOp::Gt {
+                    Branch::CarryClear
+                } else {
+                    Branch::CarrySet
+                }
+            }
+            _ => return Ok(None),
+        };
+        Ok(Some(LongOrderCondition {
+            left,
+            right,
+            destination,
+            predicate,
+        }))
+    }
+
+    pub(super) fn branch_on_long_order(
+        &mut self,
+        condition: &LongOrderCondition,
+        yes: Label,
+        dispatch: bool,
+    ) {
+        self.code.barrier();
+        self.code.a16();
+        let decide = self.code.label();
+        for high in [true, false] {
+            self.edge_load(condition.left.word(high));
+            match condition.right.word(high) {
+                WordOperand::Immediate(value) => self.code.word(WordOp::CmpImm, value),
+                WordOperand::Stack(offset) => self.code.byte(ByteOp::CmpStack, offset),
+                WordOperand::DirectPage(_) => unreachable!("long operands are stack or immediate"),
+            }
+            if high {
+                // Unequal high words decide ordering; equal highs require the
+                // unsigned low-word comparison. Both paths produce the same C meaning.
+                self.code.branch(Branch::NotEqual, decide);
+            }
+        }
+        self.code.mark(decide);
+        if dispatch {
+            self.code.dispatch(condition.predicate, yes);
+        } else {
+            self.code.branch(condition.predicate, yes);
+        }
+    }
+
     fn long_comparison_operands(
         &self,
         dest: TempId,

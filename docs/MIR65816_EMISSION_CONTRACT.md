@@ -636,8 +636,16 @@ loads zero without changing carry, and uses ADC-zero to obtain canonical 0/1;
 nonnegative tests invert that bit. A sole-use branch consumes the top byte's N
 through BMI/BPL, restoring A16 without changing N before edge dispatch.
 The full external capture remains, including volatile reads and reads around
-calls. General four-byte ordering and constant-widening temps retain fallback.
+calls. Other signed four-byte ordering, including constant-widening temps,
+retains fallback.
 See the [ordering plan](MIR65816_LONG_ORDERING_PLAN.md).
+
+Unsigned four-byte ordering compares captured high words in A16, then low words
+only if the high words match. `>` and `<=` swap the private operands before
+selection; the resulting C drives BCC/BCS for both materialization and fused
+branches. Both complete operands and the BYTE result home use the same preflight
+as sign tests. No external capture is shortened or reordered, and no scratch,
+frame or DP allocation is added.
 
 A final eligible byte, word, pointer or long Compare followed immediately by
 Branch may consume C/Z flags (or corrected N for signed words) directly when a

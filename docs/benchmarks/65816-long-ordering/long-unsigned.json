@@ -1,0 +1,382 @@
+{
+  "slice": "long-unsigned",
+  "baseline": "long-sign",
+  "code_before": 410152,
+  "code_after": 404149,
+  "guard_bytes": 72252,
+  "initialized_data_bytes": 951,
+  "routine_contracts_unchanged_except_address_and_size": true,
+  "bank_zero_delta": {
+    "fixed": 0,
+    "per_task": 0
+  },
+  "frozen_inputs_sha256": "4bd36e0e631bef8a8e4f57dc37bb6f9cc078942288bf15c2ec3c4f11757d44c9",
+  "images": {
+    "long-sign": "03a227e5073fce757e8edd9ee0b39656a73a3e9b0e71860711ee454f726e4356",
+    "long-unsigned": "b067b1161a54d7deefcb8cf61e6c12a8f54556f521b6bcc849ec96ef08c24caa"
+  },
+  "changed_routines": [
+    {
+      "routine": "M_HEAPCORE_ROUNDED_9D79FA03",
+      "before": 236,
+      "after": 176,
+      "saved": 60
+    },
+    {
+      "routine": "M_HEAPCORE_BOUNDS_2387CB05",
+      "before": 1141,
+      "after": 900,
+      "saved": 241
+    },
+    {
+      "routine": "M_HEAPCORE_CHUNKADDRESS_A551D41B",
+      "before": 532,
+      "after": 412,
+      "saved": 120
+    },
+    {
+      "routine": "M_HEAPCORE_NEXTADDRESS_E32592FF",
+      "before": 448,
+      "after": 324,
+      "saved": 124
+    },
+    {
+      "routine": "M_HEAPCORE_CHUNKEND_0E0C27CE",
+      "before": 787,
+      "after": 725,
+      "saved": 62
+    },
+    {
+      "routine": "M_HEAPCORE_CANDIDATE_07CF3557",
+      "before": 341,
+      "after": 281,
+      "saved": 60
+    },
+    {
+      "routine": "M_HEAPCORE_RESERVE_2192E9C0",
+      "before": 1078,
+      "after": 832,
+      "saved": 246
+    },
+    {
+      "routine": "M_HEAPCORE_LARGEST_AA9886E8",
+      "before": 1693,
+      "after": 1377,
+      "saved": 316
+    },
+    {
+      "routine": "M_HEAPCORE_RETURNRANGE_11C95A83",
+      "before": 1482,
+      "after": 1115,
+      "saved": 367
+    },
+    {
+      "routine": "M_HEAPCORE_DEALLOCATE_60F97CF2",
+      "before": 634,
+      "after": 572,
+      "saved": 62
+    },
+    {
+      "routine": "M_HEAPPOLICY_DESCRIPTOR_8971C45E",
+      "before": 520,
+      "after": 401,
+      "saved": 119
+    },
+    {
+      "routine": "M_HEAPPOLICY_RESERVE_42F2499D",
+      "before": 993,
+      "after": 933,
+      "saved": 60
+    },
+    {
+      "routine": "M_HEAPPOLICY_LOCATE_7B91FF59",
+      "before": 679,
+      "after": 559,
+      "saved": 120
+    },
+    {
+      "routine": "M_HEAPPOLICY_FREE_3EA2E1EF",
+      "before": 822,
+      "after": 760,
+      "saved": 62
+    },
+    {
+      "routine": "M_HEAPPOLICY_AVAIL_22774B2C",
+      "before": 1606,
+      "after": 1542,
+      "saved": 64
+    },
+    {
+      "routine": "M_HEAPPOLICY_VECTORBYTES_E6541B8F",
+      "before": 266,
+      "after": 206,
+      "saved": 60
+    },
+    {
+      "routine": "M_HEAPPOLICY_FREEVECTOR_698EC5DE",
+      "before": 1291,
+      "after": 1109,
+      "saved": 182
+    },
+    {
+      "routine": "M_TASKPOLICY_PORTSTORAGE_D3468DA2",
+      "before": 195,
+      "after": 157,
+      "saved": 38
+    },
+    {
+      "routine": "M_TASKPOLICY_VALIDMESSAGE_C0DE7739",
+      "before": 257,
+      "after": 219,
+      "saved": 38
+    },
+    {
+      "routine": "M_TASKPOLICY_IOEXTENT_9818C08A",
+      "before": 372,
+      "after": 334,
+      "saved": 38
+    },
+    {
+      "routine": "M_TASKPOLICY_IOENQUEUE_EC975914",
+      "before": 1188,
+      "after": 1125,
+      "saved": 63
+    },
+    {
+      "routine": "M_TASKPOLICY_SIOBOUND_346E47DB",
+      "before": 790,
+      "after": 670,
+      "saved": 120
+    },
+    {
+      "routine": "M_TASKPOLICY_SIOOPEN_38E97F75",
+      "before": 1207,
+      "after": 1087,
+      "saved": 120
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEIMMEDIATE_DAE617FC",
+      "before": 751,
+      "after": 688,
+      "saved": 63
+    },
+    {
+      "routine": "M_CONSOLECORE_EXTENT_83D9960B",
+      "before": 783,
+      "after": 418,
+      "saved": 365
+    },
+    {
+      "routine": "M_CONSOLEDRIVER_MAPPED_DAA6A481",
+      "before": 595,
+      "after": 532,
+      "saved": 63
+    },
+    {
+      "routine": "M_CONSOLEDRIVER_VALIDATE_72D30322",
+      "before": 864,
+      "after": 801,
+      "saved": 63
+    },
+    {
+      "routine": "M_CONSOLEDRIVER_WRITEQUANTUM_AEE13626",
+      "before": 1759,
+      "after": 1699,
+      "saved": 60
+    },
+    {
+      "routine": "M_CONSOLEDRIVER_READQUANTUM_10EBF725",
+      "before": 957,
+      "after": 897,
+      "saved": 60
+    },
+    {
+      "routine": "M_SIODRIVER_SIOMAPPED_D1D9A9D6",
+      "before": 595,
+      "after": 532,
+      "saved": 63
+    },
+    {
+      "routine": "M_SIODRIVER_PAYLOADLENGTH_9F5C9B06",
+      "before": 446,
+      "after": 386,
+      "saved": 60
+    },
+    {
+      "routine": "M_SIODRIVER_SIOVALIDATE_7D355271",
+      "before": 1294,
+      "after": 1113,
+      "saved": 181
+    },
+    {
+      "routine": "M_SIODRIVER_DEADLINETICKS_83CDA5CA",
+      "before": 466,
+      "after": 404,
+      "saved": 62
+    },
+    {
+      "routine": "M_IOCORE_CREATEIOREQUEST_DE10015D",
+      "before": 586,
+      "after": 465,
+      "saved": 121
+    },
+    {
+      "routine": "M_BLOCKIO_GEOMETRY_4529DFEE",
+      "before": 369,
+      "after": 307,
+      "saved": 62
+    },
+    {
+      "routine": "M_BLOCKIO_SECTORBYTES_B8369631",
+      "before": 556,
+      "after": 373,
+      "saved": 183
+    },
+    {
+      "routine": "M_BLOCKIO_MAPPED_A9EEA713",
+      "before": 628,
+      "after": 566,
+      "saved": 62
+    },
+    {
+      "routine": "M_BLOCKIO_READSECTOR_D918C668",
+      "before": 952,
+      "after": 894,
+      "saved": 58
+    },
+    {
+      "routine": "M_FSNAMES_MAPPED_324F42A3",
+      "before": 575,
+      "after": 355,
+      "saved": 220
+    },
+    {
+      "routine": "M_DOSRAW_COMPLETE_0FD428DA",
+      "before": 1050,
+      "after": 925,
+      "saved": 125
+    },
+    {
+      "routine": "M_DOSCOOKED_WIRE_7D812E8B",
+      "before": 1031,
+      "after": 973,
+      "saved": 58
+    },
+    {
+      "routine": "M_MYDOS_DATASECTOR_95277D3B",
+      "before": 599,
+      "after": 298,
+      "saved": 301
+    },
+    {
+      "routine": "M_MYDOS_VALIDDIRECTORY_1CF8F62E",
+      "before": 612,
+      "after": 495,
+      "saved": 117
+    },
+    {
+      "routine": "M_MYDOS_EXTENT_5BCD29B5",
+      "before": 960,
+      "after": 838,
+      "saved": 122
+    },
+    {
+      "routine": "M_MYDOS_HEADER_A95A323A",
+      "before": 836,
+      "after": 773,
+      "saved": 63
+    },
+    {
+      "routine": "M_MYDOS_BEGINMOUNT_AA58F6DF",
+      "before": 372,
+      "after": 312,
+      "saved": 60
+    },
+    {
+      "routine": "M_MYDOS_DESCEND_C497F8DD",
+      "before": 937,
+      "after": 812,
+      "saved": 125
+    },
+    {
+      "routine": "M_FSINIT_CONFIG_A7C873FA",
+      "before": 2551,
+      "after": 2491,
+      "saved": 60
+    },
+    {
+      "routine": "M_FSRELATIVE_VALIDATE_0372B7FC",
+      "before": 1581,
+      "after": 1457,
+      "saved": 124
+    },
+    {
+      "routine": "M_MYDOSFILE_SECTORALLOWED_E72DFCC7",
+      "before": 576,
+      "after": 456,
+      "saved": 120
+    },
+    {
+      "routine": "M_MYDOSFILE_VISIT_2F7F40D0",
+      "before": 731,
+      "after": 673,
+      "saved": 58
+    },
+    {
+      "routine": "M_MYDOSFILE_LINK_86A70D17",
+      "before": 652,
+      "after": 594,
+      "saved": 58
+    },
+    {
+      "routine": "M_MYDOSFILE_VALIDATE_CCD11D35",
+      "before": 1017,
+      "after": 955,
+      "saved": 62
+    },
+    {
+      "routine": "M_SHELLAPP_SHELLNUMBER_7C65BFBB",
+      "before": 1116,
+      "after": 1054,
+      "saved": 62
+    }
+  ],
+  "full_qualification": false,
+  "saved_bytes": 6003,
+  "shrunk_routines": 54,
+  "grown_routines": 0,
+  "checks": [
+    {
+      "log": "long-unsigned-unit.log",
+      "sha256": "97aa326f5acee6df701aa1955fd2de00784f2d6f6f9de268e4bbab47abdb4eb1",
+      "passed": 6,
+      "ignored": 0
+    },
+    {
+      "log": "long-unsigned-integration.log",
+      "sha256": "eb9f7b171638158cabfd14e031a85db234da6cffeb1547b4c4b6e0a5838c8b9a",
+      "passed": 34,
+      "ignored": 0
+    },
+    {
+      "log": "long-unsigned-vm.log",
+      "sha256": "bbaa294737749a46e150168b97ecb90878f99bf1f186998e82733bdaa8c0447f",
+      "passed": 14,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-9gx0jz10/manifest.json",
+      "manifest_sha256": "256b2ffc2cada25a5472bd3e9225c264430db41d8495341a1df05b99951d48d0",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+    },
+    {
+      "log": "long-unsigned-preemption.log",
+      "sha256": "249ec52db02c931bb5bd71b38e2311980b8f15be75650eae20f30208118b2590",
+      "passed": 4,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-srpllhka/manifest.json",
+      "manifest_sha256": "eea99ea7baddcf622f9463ff0ef64d10e459fece4de4773d81c7a0cb8afb9be4",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+    }
+  ]
+}

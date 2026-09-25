@@ -9,6 +9,7 @@ compiler-only size builds; no final backend or Exec qualification is run.
 | --- | ---: | ---: |
 | Baseline `2f52fc65` | 411,160 B | — |
 | LONGINT sign tests | 410,152 B | 1,008 B |
+| LONGCARD ordering | 404,149 B | 6,003 B |
 
 All 2,676 compiler guards remain (72,252 bytes). Compiler initialized data stays
 951 bytes; routine contracts, frames and zero-fill are unchanged. Reserved
@@ -29,3 +30,17 @@ Boolean consumers, mutable values, complete bank-crossing volatile captures,
 call mutation, ca65 encodings, private access traces, independent o65 placements,
 and LF/CRLF compilation/instrumentation. The [measurement record](long-sign.json)
 contains artifact hashes, changed routines and focused check manifests.
+
+Unsigned ordering compares the high words first and the low words only on a
+tie. Swapping captured operands implements `>` and `<=` with the same C-based
+decision. Both canonical Boolean materialization and sole-use branches select
+this form without additional scratch storage.
+
+Slice 2 checks: six selector tests; 34 emission/o65/boundary integration tests;
+seven ordering/sign execution tests, five equality regressions and two replay
+tests in debug; three unsigned execution tests and one IRQ/NMI test in release.
+Ordering coverage includes all four predicates, 240 boundary/seeded pairs,
+constants on either side, mutable parameter homes, ca65 encodings, exact private
+read traces, independent o65 placements and LF/CRLF inputs. The
+[unsigned measurement](long-unsigned.json) records the unchanged guards, data,
+routine contracts and zero bank-zero delta.

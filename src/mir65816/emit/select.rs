@@ -215,12 +215,20 @@ struct LongSignCondition {
     negative: bool,
 }
 
+struct LongOrderCondition {
+    left: LongOperand,
+    right: LongOperand,
+    destination: u8,
+    predicate: Branch,
+}
+
 enum Condition {
     Word(WordCondition),
     Byte(ByteCondition),
     Pointer(PointerCondition),
     Long(LongCondition),
     LongSign(LongSignCondition),
+    LongOrder(LongOrderCondition),
 }
 
 impl Condition {
@@ -231,6 +239,7 @@ impl Condition {
             Self::Pointer(c) => c.destination,
             Self::Long(c) => c.destination,
             Self::LongSign(c) => c.destination,
+            Self::LongOrder(c) => c.destination,
         }
     }
 }
@@ -724,6 +733,11 @@ impl Builder<'_> {
                 .long_sign_condition(dest, operation, left, right)
                 .map(|c| c.map(Condition::LongSign));
         }
+        if bytes == 4 && !signed && !equality {
+            return self
+                .long_unsigned_condition(dest, operation, left, right)
+                .map(|c| c.map(Condition::LongOrder));
+        }
         if !((bytes == 1 && (!signed || equality)) || (matches!(bytes, 3 | 4) && equality)) {
             return Ok(None);
         }
@@ -990,6 +1004,7 @@ impl Builder<'_> {
             Condition::Pointer(condition) => self.branch_on_pointer(condition, yes, dispatch),
             Condition::Long(condition) => self.branch_on_long(condition, yes, dispatch),
             Condition::LongSign(condition) => self.branch_on_long_sign(condition, yes, dispatch),
+            Condition::LongOrder(condition) => self.branch_on_long_order(condition, yes, dispatch),
             Condition::Byte(condition) => {
                 self.code.barrier(); // Retain the original operation's value/flag barrier.
                 self.code.a8();

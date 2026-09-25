@@ -217,7 +217,7 @@ fn long_preflight_fallbacks_and_errors_do_not_partially_emit() {
         }
         assert_eq!(format!("{:?}", b.code), before, "{problem}");
     }
-    for signed in [false, true] {
+    for signed in [true] {
         for op in [
             NirCompareOp::Lt,
             NirCompareOp::Le,
@@ -291,7 +291,14 @@ fn long_fusion_uses_existing_sole_use_proof_and_keeps_both_edges() {
     let r = &p.routines[0];
     let block = &r.blocks[0];
     let sole = liveness::sole_branch_conditions(r);
-    for op in [NirCompareOp::Eq, NirCompareOp::Ne] {
+    for op in [
+        NirCompareOp::Eq,
+        NirCompareOp::Ne,
+        NirCompareOp::Lt,
+        NirCompareOp::Le,
+        NirCompareOp::Gt,
+        NirCompareOp::Ge,
+    ] {
         let mut operation = block.ops.last().unwrap().clone();
         let Mir65816Op::Compare {
             operation: predicate,
@@ -321,7 +328,7 @@ fn long_fusion_uses_existing_sole_use_proof_and_keeps_both_edges() {
                 .iter()
                 .filter(|s| s.dispatch)
                 .count(),
-            if op == NirCompareOp::Eq { 1 } else { 2 }
+            if op == NirCompareOp::Ne { 2 } else { 1 }
         );
         let Mir65816Terminator::Branch {
             then_edge,
@@ -372,14 +379,12 @@ fn long_sign_checks_complete_homes_and_only_admits_sign_only_predicates() {
                         matches!(op, NirCompareOp::Lt | NirCompareOp::Ge)
                     };
                 let before = format!("{:?}", b.code);
-                assert_eq!(
-                    b.native_compare(dest, 4, signed, op, a, c).unwrap(),
-                    admitted
-                );
+                let condition = b.condition(dest, 4, signed, op, a, c).unwrap();
+                assert_eq!(matches!(condition, Some(Condition::LongSign(_))), admitted);
+                assert_eq!(format!("{:?}", b.code), before);
                 if admitted {
+                    assert!(b.native_compare(dest, 4, signed, op, a, c).unwrap());
                     assert!(b.code.code().bytes.len() <= 14);
-                } else {
-                    assert_eq!(format!("{:?}", b.code), before);
                 }
             }
         }
@@ -422,4 +427,63 @@ fn long_sign_checks_complete_homes_and_only_admits_sign_only_predicates() {
             .unwrap()
             .is_some()
     );
+}
+
+#[test]
+fn unsigned_long_ordering_normalizes_relations_before_emission() {
+    let p = program("BYTE FUNC Work(LONGCARD a,b) RETURN(a<b)");
+    let r = &p.routines[0];
+    let (dest, left, right) = operands(r);
+    for op in [
+        NirCompareOp::Lt,
+        NirCompareOp::Le,
+        NirCompareOp::Gt,
+        NirCompareOp::Ge,
+    ] {
+        let mut b = builder(r);
+        let expected_left = b.long_operand(&left).unwrap().unwrap();
+        let expected_right = b.long_operand(&right).unwrap().unwrap();
+        let Some(Condition::LongOrder(c)) = b.condition(dest, 4, false, op, &left, &right).unwrap()
+        else {
+            panic!()
+        };
+        let swap = matches!(op, NirCompareOp::Gt | NirCompareOp::Le);
+        assert_eq!(c.left, if swap { expected_right } else { expected_left });
+        assert_eq!(c.right, if swap { expected_left } else { expected_right });
+        assert_eq!(
+            c.predicate,
+            if matches!(op, NirCompareOp::Lt | NirCompareOp::Gt) {
+                Branch::CarryClear
+            } else {
+                Branch::CarrySet
+            }
+        );
+        assert!(b.native_compare(dest, 4, false, op, &left, &right).unwrap());
+        assert!(b.code.code().bytes.len() <= 40);
+    }
+    let mut b = builder(r);
+    let before = format!("{:?}", b.code);
+    assert!(
+        !b.native_compare(
+            dest,
+            4,
+            false,
+            NirCompareOp::Lt,
+            &left,
+            &Mir65816Value::U16(0)
+        )
+        .unwrap()
+    );
+    assert!(
+        b.native_compare(
+            dest,
+            4,
+            false,
+            NirCompareOp::Lt,
+            &Mir65816Value::U8(0),
+            &Mir65816Value::Temp(TempId(9999), ByteSize::new(4))
+        )
+        .is_err()
+    );
+    assert_eq!(format!("{:?}", b.code), before);
 }

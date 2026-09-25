@@ -1,6 +1,6 @@
 # Native 32-bit ordering
 
-Status: slice 1 implemented and checked. Slices 2–3 planned.
+Status: slices 1–2 implemented and checked. Slice 3 planned.
 
 Implement and commit three MIR65816 selector slices:
 

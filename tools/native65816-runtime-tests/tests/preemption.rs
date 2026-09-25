@@ -2154,3 +2154,20 @@ fn long_sign_carry_materialization_and_branch_flags_survive_irq_nmi() {
     assert_eq!(source, modify(&original.replace('\n', "\r\n")));
     check_narrow_preemption(&source, ["LONGNEGATIVE", "LONGSIGNBRANCH"], "long-sign");
 }
+
+#[test]
+fn unsigned_long_ordering_restores_both_word_decisions_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n","\n").replace("CARD FUNC Read(",
+        "BYTE FUNC UnsignedLess(LONGCARD a,b) RETURN(a<b)\nCARD FUNC UnsignedBranch(LONGCARD a,b) BYTE v v=UnsignedLess(a,b) IF a<b THEN RETURN(CARD(v)+3) FI RETURN(CARD(v)+7)\nCARD FUNC Read(")
+        .replace("  work.done=1","  work.result==+UnsignedBranch(0,0)+UnsignedBranch(0,1)+UnsignedBranch($ffff,$10000)+UnsignedBranch($ffffffff,0)+UnsignedBranch($80000000,$7fffffff)-29\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(
+        &source,
+        ["UNSIGNEDLESS", "UNSIGNEDBRANCH"],
+        "unsigned-long-order",
+    );
+}
