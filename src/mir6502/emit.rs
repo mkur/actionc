@@ -1358,6 +1358,7 @@ fn emit_storage(ctx: &mut MirEmitContext<'_>, emitter: &mut TrackedEmitter) {
                     continue;
                 };
                 emit_global_storage(ctx, global, emitter);
+                record_runtime_storage_range(ctx, &global.name, address, emitter);
             }
             MirStorageItem::Static { id, address } => {
                 bind_data_label(ctx, emitter, static_label(id), address);
@@ -1376,6 +1377,7 @@ fn emit_storage(ctx: &mut MirEmitContext<'_>, emitter: &mut TrackedEmitter) {
                     continue;
                 };
                 emit_data_image(ctx, &static_data.image, emitter);
+                record_runtime_storage_range(ctx, &static_data.name, address, emitter);
             }
             MirStorageItem::RoutineSlot {
                 routine,
@@ -1384,8 +1386,28 @@ fn emit_storage(ctx: &mut MirEmitContext<'_>, emitter: &mut TrackedEmitter) {
             } => {
                 bind_data_label(ctx, emitter, routine_slot_label(routine, &slot), address);
                 emit_storage_init(ctx, slot.init.as_ref(), slot_size(&slot), emitter);
+                if let Some(owner) = ctx.mir.routines.iter().find(|owner| owner.id == routine) {
+                    record_runtime_storage_range(ctx, &owner.name, address, emitter);
+                }
             }
         }
+    }
+}
+
+fn record_runtime_storage_range(
+    ctx: &mut MirEmitContext<'_>,
+    owner: &str,
+    start: u16,
+    emitter: &TrackedEmitter,
+) {
+    if crate::codegen::is_embedded_runtime_symbol(owner) {
+        ctx.summary.source_ranges.push(CodegenSourceRange {
+            kind: CodegenSourceRangeKind::StorageInitializer,
+            name: Some(owner.to_string()),
+            source_span: SYNTHETIC_SPAN,
+            start,
+            end: current_address(ctx, emitter),
+        });
     }
 }
 

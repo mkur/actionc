@@ -7,6 +7,7 @@ use crate::codegen::{
 };
 use crate::map_query::MapQuery;
 
+mod runtime_summary;
 mod sargs;
 
 pub(crate) fn format_link_plan(
@@ -250,9 +251,8 @@ fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> Str
                 .unwrap_or_default()
         )));
     }
-    if !output.map.runtime_bindings.is_empty() {
-        lines.push(String::new());
-    }
+    runtime_summary::push_summary(output, &mut lines);
+    lines.push(String::new());
     display_symbols.push_equates(&mut lines);
 
     for item in items {

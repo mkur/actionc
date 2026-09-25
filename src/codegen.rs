@@ -204,6 +204,20 @@ pub enum CodegenSourceRangeKind {
     MachineBlock,
 }
 
+// Reserved identities used by linked runtime providers and generated helpers.
+// Classic projections mangle module separators; MIR retains qualified names.
+pub(crate) fn is_embedded_runtime_symbol(name: &str) -> bool {
+    let name = name.to_ascii_uppercase();
+    ["SYSLIB", "RESIDENT", "ACTIONC"].iter().any(|module| {
+        name.starts_with(&format!("ACTION.RUNTIME.{module}::"))
+            || name.starts_with(&format!("M_ACTION_RUNTIME_{module}_"))
+            || name.strip_prefix("__NIR_STR_").is_some_and(|owner| {
+                owner.starts_with(&format!("ACTION_RUNTIME_{module}_"))
+                    || owner.starts_with(&format!("M_ACTION_RUNTIME_{module}_"))
+            })
+    })
+}
+
 pub(crate) fn suppress_source_ranges_for_routines(
     output: &mut CodegenOutput,
     routine_names: &BTreeSet<String>,

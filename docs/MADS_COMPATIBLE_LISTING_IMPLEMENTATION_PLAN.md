@@ -84,6 +84,17 @@ omit classic's internal projection hashes. Application routine comments retain
 their source spelling. These are presentation rules; map identities and emitted
 binary bytes are unchanged.
 
+An `Embedded runtime` header totals the emitted code and data for linked
+runtime providers and compiler-owned helpers, including their transitive
+dependencies. Direct binding comments remain unchanged. Ranges use inclusive
+start/end addresses; byte counts use `$`-prefixed hexadecimal and a decimal
+total. Disjoint ranges are listed separately and their sizes are summed without
+counting gaps or overlapping aliases twice. ROM services, application routines
+(including local helper overrides), deferred/uninitialized storage outside the
+load image, and generic program-layout bytes are excluded. MIR records physical
+runtime storage initializer ranges so array backing bytes and parameter homes
+are included even when their public symbols describe only an element or pointer.
+
 SArgs calls identify their three-byte inline descriptor through the resolved
 runtime helper binding (or the cartridge ABI entry). A standalone
 `; Parameter frame follows: ...` comment precedes the payload, followed by a

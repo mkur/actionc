@@ -1,0 +1,11 @@
+; Runtime closure: MultI brings in MultB; Graphics brings in Open and device data.
+BYTE ARRAY applicationData(5)=[1 2 3 4 5]
+CARD dividend=$0600,quotient=$0602
+INT left=$0604,right=$0606,product=$0608
+
+PROC Main()
+  product=left*right
+  quotient=dividend/3
+  Graphics(0)
+  PrintE("runtime summary")
+RETURN
