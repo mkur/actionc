@@ -272,8 +272,8 @@ fn assembly_observes_complete_arguments_and_zero_padding_in_both_modes() {
                     {
                         assert_eq!(
                             writes,
-                            [1, 2, 1],
-                            "the direct pointer probe must use native packing"
+                            [1, 1, 1],
+                            "the direct pointer probe must push each payload byte once"
                         );
                     }
                     h.run();

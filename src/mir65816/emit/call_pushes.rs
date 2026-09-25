@@ -69,11 +69,11 @@ impl Plan {
         padding: &[u8],
         outgoing: u16,
     ) -> Option<Self> {
-        // First slice: exact BYTE/word captures and numeric constants. The
+        // Exact scalar captures and numeric constants. The
         // existing complete reservation strategy handles all other calls.
         if arguments
             .iter()
-            .any(|arg| arg.bytes > 2 || matches!(arg.source, Source::Bytes))
+            .any(|arg| matches!(arg.source, Source::Bytes))
         {
             return None;
         }

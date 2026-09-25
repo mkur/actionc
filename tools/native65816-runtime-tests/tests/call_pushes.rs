@@ -4,9 +4,9 @@ use support::{context::*, *};
 
 #[test]
 fn incremental_argument_pushes_survive_irq_and_nmi_at_each_instruction() {
-    for &(ty, width) in &[("CARD", 2u8)] {
+    for &(ty, width) in &[("CARD", 2u8), ("ADDRESS", 3), ("LONGCARD", 4)] {
         let source = format!(
-            "MODULE TEST\nBYTE irqAck=$7800\n{ty} scratch\nCARD FUNC Echo(BYTE a CARD b BYTE c) RETURN(CARD(a)+b+CARD(c))\nCARD FUNC Forward(CARD value) RETURN(Echo(BYTE(value),value,BYTE(value)))\nCARD FUNC Dispatch(CARD saved BYTE reason) scratch=Forward({ty}(7)) irqAck=1 RETURN(saved)\nPROC Task({ty} POINTER argument) argument^=Forward(argument^) RETURN\nPROC Main() RETURN\nENDMODULE\n"
+            "MODULE TEST\nBYTE irqAck=$7800\n{ty} scratch\n{ty} FUNC Echo(BYTE a {ty} b BYTE c) RETURN({ty}(LONGCARD(a)+LONGCARD(b)+LONGCARD(c)))\n{ty} FUNC Forward({ty} value) RETURN(Echo(BYTE(value),value,BYTE(value)))\nCARD FUNC Dispatch(CARD saved BYTE reason) scratch=Forward({ty}(7)) irqAck=1 RETURN(saved)\nPROC Task({ty} POINTER argument) argument^=Forward(argument^) RETURN\nPROC Main() RETURN\nENDMODULE\n"
         );
         for optimize in [false, true] {
             for domain in 0..2 {
@@ -126,7 +126,7 @@ fn incremental_argument_pushes_survive_irq_and_nmi_at_each_instruction() {
                 h.guards();
                 assert_eq!(
                     h.bus.value(argument as u32, width.into()),
-                    (value + 2 * (value & 255)) & 65535
+                    value.wrapping_add(2 * (value & 255)) & (u32::MAX >> (8 * (4 - width)))
                 );
             }
         }

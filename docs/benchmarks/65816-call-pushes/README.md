@@ -47,3 +47,27 @@ each reached construction instruction in both task domains and I states against
 independent execution, including reentry of the same routine from the dispatcher.
 
 Full/final backend and hosted Exec qualification were not run.
+
+## Slice 5: mixed native widths
+
+Exact three/four-byte captures and numeric constants now participate in the
+same complete-call plan. Chunks stay inside their source argument; a pointer
+uses exactly three bytes and never reads a fourth. Width-mismatched operands
+and symbolic byte fixups still retain full reservation/stores.
+
+Against `348f2f04`, frozen Exec shrinks **380,648 → 370,027 B**: **10,621 B**,
+including 10,583 bytes in 1,351 call spans and 38 branch relaxations. All 120
+input hashes, frames, temporary homes, ABI metadata, initialized data and guards
+are unchanged; guard-subtracted code is **297,775 B**. No routine grows.
+[Size and hashes](mixed/exec-summary.json), [routines](mixed/exec-routines.csv),
+and [spans](mixed/exec-spans.csv) retain the evidence.
+
+Validation: 14 emitter call tests (including 1,024 independently decoded mixed
+layouts), 22 emission and 11 o65 integration tests, and the unchanged boundary
+snapshot pass. Eighteen focused native debug tests cover copies, padding,
+pushes, replay and state tracking; five push/padding tests pass in release.
+IRQ/NMI injection now covers CARD, ADDRESS and LONGCARD construction at every
+reached instruction, both task domains, both I states and both frontend modes.
+The independent callee observes exact pointer writes and padding, including
+bank-boundary source canaries and maximum outgoing displacement. Full/final
+qualification was not run.

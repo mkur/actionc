@@ -35,7 +35,7 @@ fn layout() -> image::LinkOptions {
 }
 
 #[test]
-fn native_calls_clear_internal_and_tail_padding_before_unchanged_payload_writes() {
+fn native_calls_push_mixed_payload_with_zero_padding_and_unchanged_peak() {
     for optimize in [false, true] {
         let p = mir(
             "PROC Sink(BYTE a CARD b BYTE POINTER p LONGINT c) RETURN PROC Main() Sink($12,$3456,BYTE POINTER($AB789A),LONGINT($BCDEF012)) RETURN",
@@ -61,17 +61,21 @@ fn native_calls_clear_internal_and_tail_padding_before_unchanged_payload_writes(
             .unwrap();
         assert_eq!(plan.outgoing_bytes.get(), 13);
         let bytes = &code.bytes[code.mir_spans[&(block, index)].clone()];
-        // A8/zero setup, only the three padding bytes, then the first payload.
-        let expected = [
-            0xe2, 0x20, 0xa9, 0, 0x83, 2, 0x83, 8, 0x83, 13, 0xa9, 0x12, 0x83, 1,
-        ];
-        assert_eq!(
-            bytes
-                .windows(expected.len())
-                .filter(|w| *w == expected)
-                .count(),
-            1
-        );
+        // Downward construction starts with the zero tail byte. The independent
+        // native ABI observer checks all payload and internal padding bytes.
+        let expected = [0xe2, 0x20, 0xa9, 0, 0x48];
+        let payload = code
+            .fixups
+            .iter()
+            .find(|f| {
+                f.target == emit::Target::StackOverflow
+                    && code.mir_spans[&(block, index)].contains(&f.offset)
+            })
+            .unwrap()
+            .offset
+            + 3;
+        assert_eq!(&code.bytes[payload..payload + expected.len()], expected);
+        assert!(bytes.contains(&0x48));
         let linked = image::link(&p, &machine, &layout()).unwrap();
         let main = linked.routines.iter().find(|r| r.name == "Main").unwrap();
         assert_eq!(main.local_stack_peak, main.fixed_frame + 13 + 3);

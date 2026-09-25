@@ -4,27 +4,27 @@ use super::*;
 fn pushes_place_each_payload_and_padding_byte_once_at_dynamic_stack_offsets() {
     // Enumerate independent layouts/values, then decode the emitted LDA/PHA
     // stream into a tiny stack oracle. No selector choices drive the oracle.
-    for pattern in 0..32u32 {
+    for pattern in 0..1024u32 {
         let mut arguments = vec![];
         let mut padding = vec![];
         let mut expected = vec![];
         for i in 0..5 {
-            let bytes = 1 + ((pattern >> i) & 1) as u8;
-            if bytes == 2 && expected.len() % 2 != 0 {
+            let bytes = 1 + ((pattern >> (i * 2)) & 3) as u8;
+            if bytes != 1 && expected.len() % 2 != 0 {
                 padding.push(expected.len() as u8 + 1);
                 expected.push(0);
             }
             arguments.push(Argument {
                 source: if i % 2 == 0 {
-                    Source::Immediate(0x8172 + i)
+                    Source::Immediate(0x89ab8172 + i)
                 } else {
-                    Source::Home(Memory::Stack(32 + i * 2))
+                    Source::Home(Memory::Stack(32 + i * 4))
                 },
                 displacement: expected.len() as u8 + 1,
                 bytes,
                 copy: ArgumentCopy::Bytes,
             });
-            expected.extend_from_slice(&(0x8172u16 + i as u16).to_le_bytes()[..bytes as usize]);
+            expected.extend_from_slice(&(0x89ab8172u32 + i as u32).to_le_bytes()[..bytes as usize]);
         }
         if expected.len() % 2 == 0 {
             padding.push(expected.len() as u8 + 1);
@@ -44,8 +44,8 @@ fn pushes_place_each_payload_and_padding_byte_once_at_dynamic_stack_offsets() {
         let (mut at, mut word, mut a, mut s) = (0, false, 0u16, 200usize);
         let mut stack = [0xa5u8; 512];
         for i in 0..5 {
-            stack[200 + 32 + i * 2..200 + 34 + i * 2]
-                .copy_from_slice(&(0x8172u16 + i as u16).to_le_bytes());
+            stack[200 + 32 + i * 4..200 + 36 + i * 4]
+                .copy_from_slice(&(0x89ab8172u32 + i as u32).to_le_bytes());
         }
         let mut writes = vec![];
         while at < code.len() {
@@ -94,13 +94,9 @@ fn pushes_place_each_payload_and_padding_byte_once_at_dynamic_stack_offsets() {
 
 #[test]
 fn unsupported_push_plans_keep_complete_store_construction() {
-    for (source, bytes) in [
-        (Source::Bytes, 1),
-        (Source::Immediate(0), 3),
-        (Source::Immediate(0), 4),
-    ] {
+    for bytes in 1..=4 {
         let arg = Argument {
-            source,
+            source: Source::Bytes,
             bytes,
             displacement: 1,
             copy: ArgumentCopy::Bytes,
