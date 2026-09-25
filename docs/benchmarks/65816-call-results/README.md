@@ -4,6 +4,11 @@ Phase 1 implements unused call-result cleanup, then direct forwarding of an
 immediately returned native call result. Each slice retains allocated homes,
 the public ABI, stack guards and declared callee effects.
 
+The three slices save **4,011 bytes (3.9 KiB)** on the same frozen Exec workload.
+The forecast was 4,004 bytes; seven bytes of additional branch relaxation
+account for the difference. Compiler code is **389,725 → 385,714 B**, or
+**317,473 → 313,462 B** with guard ranges subtracted.
+
 ## Slice 1: unused result cleanup
 
 Outgoing-area release omits TAY/TYA when no result is captured. Discarding a
@@ -74,3 +79,60 @@ live stack bytes and the suspended DP domain with one independently executed
 instruction; released stack bytes are correctly excluded after TCS/RTL. The IRQ
 dispatcher reenters the same forwarding routine. The reviewed snapshot is
 unchanged. Full backend and hosted Exec qualification remain excluded.
+
+## Slice 3: immediate 24/32-bit returns
+
+The same checked selection now retains matching A/X results through both
+releases. Pointer results preserve the zero-extended high X byte; LONG results
+preserve both full words. Cleanup uses Y for A preservation and leaves X alone.
+The original capture/reload path still handles indirect calls and intervening
+casts or operations.
+
+Against `38fd97eb`, compiler code shrinks **386,222 → 385,714 B**: **508 B**
+saved, exactly matching the model. All 42 audited pairs qualify: 11 pointer
+results save 18 bytes each and 31 LONG results save ten each. Thirty routines
+shrink, none grow, and no further branch encoding changes. The same frozen
+inputs, MIR operations, ABI metadata, frames, temporary homes, local stack peaks,
+2,676 guards (72,252 B) and initialized data remain unchanged.
+
+[Size and hashes](wide/exec-summary.json),
+[routine deltas](wide/exec-routines.csv), and
+[changed spans](wide/exec-spans.csv) retain the measurement.
+
+Three focused emitter tests cover all native widths, including pointer-typed
+returns, precise savings, refusal cases and preflight failures. The 34 affected
+emission/o65/state-boundary integration tests pass with the snapshot unchanged.
+Seventeen native debug tests pass across `call_returns`, `wide_returns`,
+`replay` and `state_tracking`; all six `call_returns`/`wide_returns` tests also
+pass in release. Independent ca65 execution checks A/X lanes, zero extension,
+exact tail instructions, no private result traffic, recursion and two o65
+placements. IRQ/NMI checks cover every cleanup/return instruction for BYTE,
+CARD, INT, ADDRESS, SIZE, LONGCARD and LONGINT in both task domains and I states.
+
+Some raw wide source returns retain an identity integer cast. Their ordinary
+source and exact-tail tests retain and execute the fallback. Separate
+verifier-clean MIR probes remove only that identity cast to exercise the
+direct-call/return shape in both frontend modes; this test preparation does not
+change production admission. Actual LF/CRLF compilation agrees.
+
+The interim loaded-code/data estimate becomes **324,069 B (316.5 KiB)** after
+carrying forward the frozen package's 8,300 B of assembly and 2,307 B of all
+initialized data. The compiler's 951 B of initialized data is already included
+in that allowance. This remains an estimate rather than a guard-disabled
+release build; the 256 KiB cap still has a **61,925-byte (60.5 KiB)** gap.
+
+Phase 1 is complete. Argument pushes and bounded pointer forwarding remain
+separate phases. Full/final backend and hosted Exec qualification were not run.
+[Validation provenance](validation.json) records the focused native manifests
+and successful unit/integration runs. Native commands used explicit targets:
+
+```sh
+python3 -B tools/native65816-runtime-tests/qualify.py --test call_copies --test call_padding --test replay --test state_tracking
+python3 -B tools/native65816-runtime-tests/qualify.py --release --test call_copies
+python3 -B tools/native65816-runtime-tests/qualify.py --test call_returns --test captured_byte_returns --test word_returns --test replay --test state_tracking
+python3 -B tools/native65816-runtime-tests/qualify.py --release --test call_returns
+python3 -B tools/native65816-runtime-tests/qualify.py --test call_returns --test wide_returns --test replay --test state_tracking
+python3 -B tools/native65816-runtime-tests/qualify.py --release --test call_returns --test wide_returns
+```
+
+Runs used `CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0`.

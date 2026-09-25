@@ -1,11 +1,74 @@
 mod support;
-use actionc::mir65816::{Mir65816Op, abi, emit::proof, image::AssemblyImport, o65 as format};
+use actionc::mir65816::{
+    Mir65816Op, Mir65816Terminator, Mir65816Value, abi, emit::proof, image::AssemblyImport,
+    o65 as format,
+};
 use actionc::nir::runtime_symbol_id;
 use actionc_vm::native65816::{Inputs, Machine};
 use support::{context::*, *};
 
-const TYPES: &[(&str, u8)] = &[("BYTE", 1), ("CARD", 2), ("INT", 2)];
-const VALUES: &[u32] = &[0, 1, 0x7f, 0x80, 0xff, 0x100, 0x7fff, 0x8000, 0xffff];
+const TYPES: &[(&str, u8)] = &[
+    ("BYTE", 1),
+    ("CARD", 2),
+    ("INT", 2),
+    ("ADDRESS", 3),
+    ("SIZE", 3),
+    ("LONGCARD", 4),
+    ("LONGINT", 4),
+];
+const VALUES: &[u32] = &[
+    0, 1, 0x7f, 0x80, 0xff, 0x100, 0x7fff, 0x8000, 0xffff, 0x10000, 0x7fffff, 0x800000, 0xffffff,
+    0x1000000, 0x7fffffff, 0x80000000, 0x89abcdef, 0xffffffff,
+];
+
+fn prepared(source: &str, optimize: bool) -> actionc::compiler::native65816::Prepared {
+    let mut p = prepare(source, optimize);
+    // The raw frontend retains identity integer casts on some wide returns.
+    // Ordinary source behavior/fallback is covered by wide_returns. These
+    // verified-MIR probes exercise direct call/return selection in both modes,
+    // independently of whether frontend optimization removes that cast.
+    for r in &mut p.mir.routines {
+        for block in &mut r.blocks {
+            let [
+                ..,
+                Mir65816Op::Call {
+                    result: Some((source, bytes)),
+                    ..
+                },
+                Mir65816Op::Cast {
+                    dest,
+                    from,
+                    to,
+                    kind: actionc::nir::NirCastKind::Integer,
+                    value: Mir65816Value::Temp(value, width),
+                    ..
+                },
+            ] = block.ops.as_slice()
+            else {
+                continue;
+            };
+            if from != to || from != bytes || width != bytes || source != value {
+                continue;
+            }
+            let Mir65816Terminator::Return {
+                value: Some(returned),
+                ..
+            } = &mut block.terminator
+            else {
+                continue;
+            };
+            if *returned != Mir65816Value::Temp(*dest, *bytes) {
+                continue;
+            }
+            let removed = *dest;
+            *returned = Mir65816Value::Temp(*source, *bytes);
+            block.ops.pop();
+            r.temps.retain(|(id, _)| *id != removed);
+        }
+    }
+    actionc::mir65816::verify_program(&p.mir).unwrap();
+    p
+}
 
 fn reach(h: &mut Harness, pc: u32) {
     assert!(
@@ -41,7 +104,15 @@ fn echo(width: u8) -> Vec<u8> {
     if width == 1 {
         s.push_str("lda 4,s\nrep #$20\n.a16\nand #$00ff\nldx #$beef\n");
     } else {
-        s.push_str("rep #$20\n.a16\nldx #$beef\nlda 4,s\n");
+        if width == 3 {
+            s.push_str("lda 6,s\nrep #$20\n.a16\nand #$00ff\ntax\n");
+        } else {
+            s.push_str("rep #$20\n.a16\nldx #$beef\n");
+            if width == 4 {
+                s.push_str("lda 6,s\ntax\n");
+            }
+        }
+        s.push_str("lda 4,s\n");
     }
     s.push_str("ldy #$dead\nrtl\nnop\n");
     assemble(&s, 0x041000)
@@ -55,7 +126,7 @@ fn forwarded_results_match_ca65_without_private_spills_or_reloads() {
         );
         let leaf = echo(width);
         for optimize in [false, true] {
-            let p = prepare(&source, optimize);
+            let p = prepared(&source, optimize);
             let external = p
                 .mir
                 .routines
@@ -76,7 +147,7 @@ fn forwarded_results_match_ca65_without_private_spills_or_reloads() {
             let c = p.compile(&options).unwrap();
             assert_eq!(
                 c.image.to_json().unwrap(),
-                prepare(&source.replace('\n', "\r\n"), optimize)
+                prepared(&source.replace('\n', "\r\n"), optimize)
                     .compile(&options)
                     .unwrap()
                     .image
@@ -99,7 +170,7 @@ fn forwarded_results_match_ca65_without_private_spills_or_reloads() {
                 ..
             } = &block.ops[i]
             else {
-                panic!()
+                panic!("{ty}/{optimize}: {:?}", block.ops)
             };
             assert!(m.frame.temps.contains_key(id));
             let call_span = &m.code.mir_spans[&(block.id, i)];
@@ -143,7 +214,14 @@ fn forwarded_results_match_ca65_without_private_spills_or_reloads() {
                     reach(&mut h, ir.address + jsl as u32 + 4);
                     let before = h.cpu.registers();
                     assert_eq!(before.a, expected as u16);
-                    assert_eq!(before.x, 0xbeef);
+                    assert_eq!(
+                        before.x,
+                        if width > 2 {
+                            (expected >> 16) as u16
+                        } else {
+                            0xbeef
+                        }
+                    );
                     let reads = h.bus.reads.len();
                     let writes = h.bus.writes.len();
                     reach(&mut h, caller.symbols["returned"]);
@@ -198,7 +276,10 @@ fn forwarded_calls_and_recursive_returns_execute_at_two_o65_placements() {
             "{ty} FUNC Echo({ty} value) RETURN(value)\n{ty} FUNC Rec({ty} value CARD depth) IF depth=0 THEN RETURN(Echo(value)) FI RETURN(Rec(value,depth-1))\n{ty} FUNC Forward({ty} value) RETURN(Rec(value,3))\nPROC Main() RETURN\n"
         );
         for optimize in [false, true] {
-            let object = o65::compile(&source, optimize, vec![]);
+            let object = prepared(&source, optimize)
+                .compile_o65(&Default::default())
+                .unwrap()
+                .bytes;
             for variant in 0..2 {
                 let placed = format::relocate(
                     &object,
@@ -231,7 +312,13 @@ fn forwarded_result_cleanup_survives_irq_and_nmi_at_each_instruction() {
         );
         for optimize in [false, true] {
             for domain in 0..2 {
-                let mut h = ContextHarness::new(&source, optimize, "Task", &[0x7100, 0x7120]);
+                let mut h = ContextHarness::from_prepared(
+                    &source,
+                    optimize,
+                    "Task",
+                    &[0x7100, 0x7120],
+                    prepared(&source, optimize),
+                );
                 let mut r = h.cpu.registers();
                 r.a = h.first[domain].saved_s;
                 h.cpu = Machine::start_at(r);

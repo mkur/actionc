@@ -51,6 +51,14 @@ impl Builder<'_> {
                 ) | (
                     2,
                     Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16))
+                ) | (
+                    3,
+                    Some(Mir65816AbiHome::NativeResult(
+                        abi::ResultLocation::A16X8ZeroExtended
+                    ))
+                ) | (
+                    4,
+                    Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16X16))
                 )
             )
         {

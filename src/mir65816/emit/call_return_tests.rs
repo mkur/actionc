@@ -30,8 +30,54 @@ fn builder(routine: &Mir65816Routine) -> Builder<'_> {
 
 #[test]
 fn immediate_call_returns_remove_only_the_capture_and_reload() {
-    for (ty, saving) in [("BYTE", 15), ("CARD", 4), ("INT", 4)] {
-        let p = program(ty);
+    for (ty, saving) in [
+        ("BYTE", 15),
+        ("CARD", 4),
+        ("INT", 4),
+        ("ADDRESS", 18),
+        ("SIZE", 18),
+        ("BYTE POINTER", 18),
+        ("LONGCARD", 10),
+        ("LONGINT", 10),
+    ] {
+        let mut p = program(ty);
+        // Raw numeric wide returns may retain an explicit identity cast.
+        // Verify that boundary refuses forwarding, then prepare the legal
+        // direct-result MIR shape to exercise selection in every native width.
+        let r = &mut p.routines[1];
+        if let Some(Mir65816Op::Cast {
+            dest,
+            from,
+            to,
+            kind,
+            value,
+            ..
+        }) = r.blocks[0].ops.last()
+        {
+            assert_eq!(from, to);
+            assert_eq!(*kind, crate::nir::NirCastKind::Integer);
+            let mut b = builder(r);
+            assert!(
+                !b.call_return(
+                    r.blocks[0].ops.last().unwrap(),
+                    &r.blocks[0].terminator,
+                    &liveness::input_counts(r)
+                )
+                .unwrap()
+            );
+            let (dest, value) = (*dest, value.clone());
+            let Mir65816Terminator::Return {
+                value: returned, ..
+            } = &mut r.blocks[0].terminator
+            else {
+                panic!()
+            };
+            assert!(matches!(returned, Some(Mir65816Value::Temp(id, _)) if *id == dest));
+            *returned = Some(value);
+            r.blocks[0].ops.pop();
+            r.temps.retain(|(id, _)| *id != dest);
+        }
+        crate::mir65816::verify_program(&p).unwrap();
         let r = &p.routines[1];
         let block = &r.blocks[0];
         let call = block.ops.last().unwrap();
@@ -46,7 +92,9 @@ fn immediate_call_returns_remove_only_the_capture_and_reload() {
         assert!(
             forwarded
                 .call_return(call, &block.terminator, &counts)
-                .unwrap()
+                .unwrap(),
+            "{ty}: {call:?}; {:?}",
+            block.terminator
         );
         forwarded.return_tail(true).unwrap();
         assert_eq!(ordinary.code.position() - forwarded.code.position(), saving);

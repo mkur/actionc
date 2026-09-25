@@ -161,6 +161,16 @@ fn wide_return_tails_match_ca65_touch_only_private_bytes_and_restore_both_lanes(
                 let r = p.mir.routines.iter().find(|r| r.name == name).unwrap();
                 let m = c.machine.routines.iter().find(|m| m.id == r.id).unwrap();
                 let block = r.blocks.last().unwrap();
+                // A bare final call now forwards its ABI lanes; call_returns
+                // checks that tail. Retained casts still exercise the fallback.
+                if name == "Direct"
+                    && matches!(
+                        block.ops.last(),
+                        Some(actionc::mir65816::Mir65816Op::Call { .. })
+                    )
+                {
+                    continue;
+                }
                 let span = &m.code.mir_spans[&(block.id, block.ops.len())];
                 let Mir65816Terminator::Return {
                     value: Some(value), ..
