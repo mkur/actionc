@@ -69,6 +69,18 @@ fn sargs_descriptors_and_parameter_storage_are_typed_and_named() {
                 assert_parameter(&listing, "param_sumframe_word:", ".WORD $0000", "word");
                 assert_parameter(&listing, "param_indirect_ptr:", ".WORD $0000", "ptr");
                 assert_parameter(&listing, "param_indirect_items:", ".WORD $0000", "items");
+                if runtime == Runtime::Standalone {
+                    let lines = listing.lines().collect::<Vec<_>>();
+                    let at = lines
+                        .iter()
+                        .position(|line| line.trim_start().starts_with("DTA D'(c)1983ACS'"))
+                        .expect("SArgs copyright must be readable screen-code data");
+                    assert!(lines[at].ends_with("08 63 09 11 19 18 13 21 23 33"));
+                    assert!(lines[at + 1].starts_with("loc_syslib_sargs_"));
+                    assert!(lines[at + 2].trim_start().starts_with("RTS "));
+                } else {
+                    assert!(!listing.contains("DTA D'(c)1983ACS'"));
+                }
                 if mode == CompileMode::Compatibility {
                     assert!(listing.contains("; Parameter frame follows: x, y, col"));
                     assert!(listing.contains("| frame size: 3 bytes"));
@@ -142,6 +154,7 @@ fn sargs_overrides_are_recognized_by_binding_instead_of_implementation_name() {
                     .any(|line| line.trim_start().starts_with("JSR.A proc_copyframe "))
             );
             assert!(listing.contains("; Parameter frame follows: first, word, last, extra"));
+            assert!(!listing.contains("DTA D'(c)1983ACS'"));
         }
     }
 }

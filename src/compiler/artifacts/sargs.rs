@@ -1,9 +1,40 @@
 use super::*;
 
+const COPYRIGHT_BYTES: [u8; 10] = [0x08, 0x63, 0x09, 0x11, 0x19, 0x18, 0x13, 0x21, 0x23, 0x33];
+
+pub(super) fn copyright_ranges(output: &CodegenOutput) -> Vec<StorageListingRange> {
+    let targets = inline_jsr_data_lengths(output);
+    output
+        .map
+        .routine_ranges
+        .iter()
+        .filter(|range| targets.contains_key(&range.start))
+        .filter_map(|range| {
+            let start = output_offset(output, range.start)?;
+            let end = output_end_offset(output, range.end)?;
+            let bytes = output.bytes.get(start..end)?;
+            // The original SArgs skips this screen-code message via BNE to
+            // RTS or JMP Break. Require both the bytes and that surrounding
+            // code so a different helper implementation is not misclassified.
+            let offset = bytes.windows(18).position(|window| {
+                window[..5] == [0xD0, 0x0F, 0xE6, 0x11, 0x4C]
+                    && window[7..17] == COPYRIGHT_BYTES
+                    && window[17] == 0x60
+            })?;
+            Some(StorageListingRange {
+                address: range.start.checked_add(u16::try_from(offset + 7).ok()?)?,
+                bytes: COPYRIGHT_BYTES.to_vec(),
+                name: "sargs copyright (Atari screen codes)".to_string(),
+            })
+        })
+        .collect()
+}
+
 #[derive(Default)]
 pub(super) struct SArgsListing {
     descriptors: BTreeMap<u16, Vec<FrameParameter>>,
     parameters: BTreeMap<u16, FrameParameter>,
+    copyright_addresses: BTreeSet<u16>,
 }
 
 #[derive(Clone)]
@@ -19,7 +50,13 @@ impl SArgsListing {
         output: &CodegenOutput,
         instructions: &[DisassembledInstruction],
     ) -> Self {
-        let mut listing = Self::default();
+        let mut listing = Self {
+            copyright_addresses: copyright_ranges(output)
+                .iter()
+                .map(|range| range.address)
+                .collect(),
+            ..Self::default()
+        };
         for pair in instructions.windows(2) {
             let [call, data] = pair else { unreachable!() };
             // The disassembler marks the three-byte payload only for a known
@@ -119,6 +156,33 @@ impl SArgsListing {
             }
         }
         true
+    }
+
+    pub(super) fn push_copyright(
+        &self,
+        address: u16,
+        bytes: &[u8],
+        symbols: &MadsDisplaySymbols,
+        relocations: &MadsRelocations<'_>,
+        lines: &mut Vec<String>,
+    ) -> Option<u16> {
+        if !self.copyright_addresses.contains(&address) || !bytes.starts_with(&COPYRIGHT_BYTES) {
+            return None;
+        }
+        let width = COPYRIGHT_BYTES.len() as u16;
+        let end = address.checked_add(width)?;
+        if symbols.next_definition_after(address, end).is_some()
+            || relocations.next_at_or_after(address, end).is_some()
+        {
+            return None;
+        }
+        lines.push(format_assembly_line(
+            "DTA D'(c)1983ACS'",
+            address,
+            &COPYRIGHT_BYTES,
+            None,
+        ));
+        Some(width)
     }
 
     pub(super) fn push_parameter(

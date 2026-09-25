@@ -990,6 +990,7 @@ fn storage_listing_ranges(output: &CodegenOutput) -> Vec<StorageListingRange> {
         })
         .collect::<Vec<_>>();
     ranges.extend(storage_source_listing_ranges(output));
+    ranges.extend(sargs::copyright_ranges(output));
     ranges.sort_by_key(|range| range.address);
     ranges
 }
@@ -1017,6 +1018,7 @@ fn disassemble_code_ranges(output: &CodegenOutput) -> Vec<DisassembledInstructio
     let mut ranges = output.map.routine_ranges.clone();
     ranges.sort_by_key(|range| range.start);
     let mut storage = storage_source_listing_ranges(output);
+    storage.extend(sargs::copyright_ranges(output));
     storage.sort_by_key(|range| range.address);
     let inline_jsr_data_lengths = inline_jsr_data_lengths(output);
     let mut instructions = Vec::new();
@@ -1200,6 +1202,16 @@ fn push_data_listing(
     while cursor < end {
         display_symbols.push_definitions(cursor, lines);
         let offset = usize::from(cursor - address);
+        if let Some(width) = sargs.push_copyright(
+            cursor,
+            &bytes[offset..],
+            display_symbols,
+            relocations,
+            lines,
+        ) {
+            cursor = cursor.saturating_add(width);
+            continue;
+        }
         if let Some(width) = sargs.push_parameter(
             output,
             cursor,

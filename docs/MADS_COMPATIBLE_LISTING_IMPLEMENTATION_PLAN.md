@@ -101,6 +101,12 @@ If layout metadata is absent or inconsistent, the descriptor remains readable
 with a generic frame comment and its encoded size. These rules apply to both
 plain and source-annotated listings and do not change emitted program bytes.
 
+The original SArgs implementation's embedded copyright message is displayed as
+`DTA D'(c)1983ACS'`, preserving its ten Atari screen-code bytes. Its runtime
+binding, exact message bytes, and surrounding branch/JMP/RTS sequence identify
+the data range before disassembly, so the following return remains an
+instruction. Custom helpers without that sequence retain their usual listing.
+
 No new listing option or output path is added. The existing object/listing path
 collision checks and atomic-write behavior remain in effect.
 
