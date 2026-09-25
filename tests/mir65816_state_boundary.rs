@@ -10,6 +10,8 @@
 //! two A16 EORs; only those byte streams and their later MIR span offsets change.
 //! Unused call cleanup removes TAY/TYA at the two calls to the void procedure,
 //! with the corresponding label, fixup and span remapping.
+//! Native argument pushes replace eight BYTE/word call constructions; symbolic
+//! stack execution independently checks payload identity, padding and final S.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]

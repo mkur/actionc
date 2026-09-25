@@ -422,43 +422,47 @@ fn mixed_padding_and_indirect_continuations_execute_at_both_o65_placements() {
 #[test]
 fn checked_outgoing_extents_fault_before_any_payload_or_transfer_write() {
     use actionc_vm::native65816::Machine;
-    let case = cases().into_iter().find(|c| c.name == "mixed").unwrap();
-    for optimize in [false, true] {
-        for indirect in [false, true] {
-            let (compiled, start, outgoing) = compile_case(&source(&case, indirect), optimize);
-            let image = &compiled.image;
-            let need = outgoing as u16 + if indirect { 6 } else { 3 };
-            for (s, floor, ceiling) in [
-                (0x4100u16, 0x4100 - need + 1, 0x5ff0u16),
-                (0x4100, 0x4019, 0x40ff),
-                (need - 1, 0, 0x5ff0),
-            ] {
+    for case in cases()
+        .into_iter()
+        .filter(|c| ["empty", "word", "mixed"].contains(&c.name))
+    {
+        for optimize in [false, true] {
+            for indirect in [false, true] {
+                let (compiled, start, outgoing) = compile_case(&source(&case, indirect), optimize);
+                let image = &compiled.image;
+                let need = outgoing as u16 + if indirect { 6 } else { 3 };
+                for (s, floor, ceiling) in [
+                    (0x4100u16, 0x4100 - need + 1, 0x5ff0u16),
+                    (0x4100, 0x4019, 0x40ff),
+                    (need - 1, 0, 0x5ff0),
+                ] {
+                    let mut h = Harness::new(image, &caller(image.entry), 0);
+                    reach(&mut h, start);
+                    let mut r = h.cpu.registers();
+                    r.s = s;
+                    h.cpu = Machine::start_at(r);
+                    h.bus.ram[0x2044..0x2046].copy_from_slice(&floor.to_le_bytes());
+                    h.bus.ram[0x2046..0x2048].copy_from_slice(&ceiling.to_le_bytes());
+                    let before = h.bus.writes.len();
+                    reach(&mut h, image.stack_overflow);
+                    let r = h.cpu.registers();
+                    assert_eq!((r.a, r.x, r.s), (need, s, s));
+                    assert_eq!(h.bus.writes.len(), before);
+                }
+                // Exact guard floor is admitted. Stop at callee entry, before it
+                // can add an independent frame reservation of its own.
                 let mut h = Harness::new(image, &caller(image.entry), 0);
+                h.bus.map(OBSERVE, &observer(13), false);
                 reach(&mut h, start);
-                let mut r = h.cpu.registers();
-                r.s = s;
-                h.cpu = Machine::start_at(r);
-                h.bus.ram[0x2044..0x2046].copy_from_slice(&floor.to_le_bytes());
-                h.bus.ram[0x2046..0x2048].copy_from_slice(&ceiling.to_le_bytes());
-                let before = h.bus.writes.len();
-                reach(&mut h, image.stack_overflow);
-                let r = h.cpu.registers();
-                assert_eq!((r.a, r.x, r.s), (need, s, s));
-                assert_eq!(h.bus.writes.len(), before);
+                let s = h.cpu.registers().s;
+                h.bus.ram[0x2044..0x2046].copy_from_slice(&(s - need).to_le_bytes());
+                reach(&mut h, OBSERVE);
+                assert_eq!(h.cpu.registers().s, s - outgoing as u16 - 3);
+                assert_eq!(
+                    &h.bus.ram[usize::from(s) - outgoing + 1..=usize::from(s)],
+                    case.expected
+                );
             }
-            // Exact guard floor is admitted. Stop at callee entry, before it
-            // can add an independent frame reservation of its own.
-            let mut h = Harness::new(image, &caller(image.entry), 0);
-            h.bus.map(OBSERVE, &observer(13), false);
-            reach(&mut h, start);
-            let s = h.cpu.registers().s;
-            h.bus.ram[0x2044..0x2046].copy_from_slice(&(s - need).to_le_bytes());
-            reach(&mut h, OBSERVE);
-            assert_eq!(h.cpu.registers().s, s - outgoing as u16 - 3);
-            assert_eq!(
-                &h.bus.ram[usize::from(s) - outgoing + 1..=usize::from(s)],
-                case.expected
-            );
         }
     }
 }

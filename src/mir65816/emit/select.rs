@@ -2307,6 +2307,10 @@ impl Builder<'_> {
                 abi::FarTransfer::StackRtl
             },
         )?;
+        let pushes = direct
+            .is_some()
+            .then(|| call_copies::pushes::Plan::new(&arguments, &padding, outgoing))
+            .flatten();
         self.code.barrier();
         self.code.a16();
         self.check_stack(
@@ -2314,18 +2318,22 @@ impl Builder<'_> {
                 .checked_add(transfer)
                 .ok_or("call stack overflow")?,
         );
-        self.reserve(outgoing);
-        assert_eq!(self.code.delta(), u32::from(outgoing));
-        if !padding.is_empty() {
-            self.code.a8();
-            self.code.byte(ByteOp::LdaImm, 0);
-            for displacement in padding {
-                self.code.byte(ByteOp::StaStack, displacement);
+        if let Some(pushes) = pushes {
+            pushes.emit(self)?;
+        } else {
+            self.reserve(outgoing);
+            if !padding.is_empty() {
+                self.code.a8();
+                self.code.byte(ByteOp::LdaImm, 0);
+                for displacement in padding {
+                    self.code.byte(ByteOp::StaStack, displacement);
+                }
+            }
+            for (value, argument) in args.iter().zip(&arguments) {
+                self.copy_call_argument(value, argument)?;
             }
         }
-        for (value, argument) in args.iter().zip(&arguments) {
-            self.copy_call_argument(value, argument)?;
-        }
+        assert_eq!(self.code.delta(), u32::from(outgoing));
         if let Some(target) = direct {
             self.code.a16();
             self.code.native_call(target, plan)?; // JSL

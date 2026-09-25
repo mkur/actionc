@@ -127,6 +127,7 @@ pub struct EffectRecord {
 /// Constructed only from the verified MIR call plan; no caller-provided masks.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct CallContract {
+    pub(super) outgoing: u16,
     arguments: Vec<(u16, u16)>,
     result: Option<ResultLocation>,
 }
@@ -166,6 +167,8 @@ impl CallContract {
             ));
         }
         Ok(Self {
+            outgoing: u16::try_from(plan.outgoing_bytes.get())
+                .map_err(|_| "outgoing effect extent overflow")?,
             arguments,
             result: Self::result(plan.result)?,
         })
@@ -286,6 +289,7 @@ impl Instruction {
         let m = state.m;
         let index = state.index;
         match *self {
+            Self::ArgumentPush => return Self::Implied(Implied::Pha).effects(state),
             Self::Implied(op) => match op {
                 Implied::Clc | Implied::Sec => e.flag_writes = C,
                 Implied::Tsc => {

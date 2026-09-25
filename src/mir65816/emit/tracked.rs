@@ -673,8 +673,36 @@ impl TrackedEmitter65816 {
             }
             Instruction::Branch(op, label) => self.emit_branch(op, label),
             Instruction::PushReturn(label) => self.emit_push_return(label),
+            Instruction::ArgumentPush => {
+                self.live();
+                if self.state.env.pushes != 0
+                    || self
+                        .state
+                        .env
+                        .anchor
+                        .is_none_or(|a| self.state.env.depth < a)
+                {
+                    return Err("argument push outside body stack phase".into());
+                }
+                // The physical PHA effects are identical, but these bytes belong
+                // to outgoing storage. Frame operands use the new S delta.
+                let bytes = self.state.env.m.bytes();
+                self.state.push(bytes);
+                self.state.env.pushes = 0;
+                self.code.op(Implied::Pha.opcode());
+                self.observe();
+            }
             Instruction::IndirectTransfer(_) => self.emit_indirect_transfer(),
-            Instruction::NativeCall(target, _) => {
+            Instruction::NativeCall(target, ref contract) => {
+                if self.state.env.pushes != 0
+                    || self
+                        .state
+                        .env
+                        .anchor
+                        .is_none_or(|a| self.state.env.depth - a != i64::from(contract.outgoing))
+                {
+                    return Err("direct call requires its complete outgoing area".into());
+                }
                 self.emit_reference(ReferenceOp::Jsl, target, 0, None)
             }
             Instruction::NativeReturn(_) => self.emit_implied(Implied::Rtl),

@@ -5,6 +5,9 @@ use super::*;
 #[path = "call_copies_tests.rs"]
 mod tests;
 
+#[path = "call_pushes.rs"]
+pub(super) mod pushes;
+
 #[derive(Clone, Copy)]
 enum Source {
     Immediate(u32),

@@ -1,6 +1,6 @@
 use super::*;
 
-fn program() -> Mir65816Program {
+pub(super) fn program() -> Mir65816Program {
     program_for(
         "LONGCARD FUNC Echo(LONGCARD x) x==+1 RETURN(x) PROC Main() LONGCARD x x=Echo(LONGCARD($ABCDEF12)) RETURN",
     )
@@ -17,7 +17,7 @@ fn program_for(source: &str) -> Mir65816Program {
     crate::nir::verify_program(&nir).unwrap();
     crate::mir65816::lower_program(&nir).unwrap()
 }
-fn builder(routine: &Mir65816Routine) -> Builder<'_> {
+pub(super) fn builder(routine: &Mir65816Routine) -> Builder<'_> {
     let frame = AllocatedFrame::new(routine).unwrap();
     let code = TrackedEmitter65816::for_test(&frame);
     Builder {

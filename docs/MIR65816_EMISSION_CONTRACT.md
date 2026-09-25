@@ -147,7 +147,23 @@ return-stack phases; the indirect RTL is a call, not a routine return. Unannotat
 probe calls retain all register/flag inputs and unknown memory effects.
 
 Call construction checks the complete outgoing and transfer reservation before
-changing S, clears only alignment/tail padding, then defines every argument byte.
+changing S, then defines every argument byte and zeroes alignment/tail padding.
+Direct calls with exact-width captured/numeric BYTE/word operands can construct
+the complete area downward using native PHA chunks. A complete-call width plan
+includes padding, post-guard width permission and final A16 restoration; it must
+beat reservation/stores in encoded bytes. Every source byte is checked before
+emission at the conservative full outgoing delta, which also bounds each
+smaller incremental delta. Sources remain above the fresh outgoing area.
+Other calls keep full reservation followed by stores. Source evaluation occurs
+before either private construction strategy; the completed ABI layout is identical.
+
+Selected `ArgumentPush` encodes PHA with its ordinary width-sensitive physical
+effects. It increases outgoing depth without entering the indirect-transfer
+push phase. Replay and selected-CFG validation check that phase separately;
+native direct calls retain their checked outgoing extent and require exactly
+that depth at transfer. Home effects use the actual S before each instruction,
+including the descending writes of word PHA. Partial construction remains
+interruptible with the existing stack/DP context contract.
 The verified stack argument homes,
 not their aggregate extent, identify payload: holes within that extent remain
 zero and are written exactly once. No-argument calls retain their one-byte zero
@@ -976,9 +992,9 @@ outgoing space. No displacement is truncated.
 
 At entry, emitted code checks the frame reservation against the current
 domain's stack floor and ceiling. Before a call it checks `O + 3` (direct) or `O + 6` (indirect), then
-reserves O, zeroes only padding and fills the payload under the checked call-copy
-contract above. There are no
-additional temporary pushes beyond the declared transfer in emitted operations.
+constructs O bytes using either reservation/stores or checked argument pushes
+under the contract above. Argument pushes replace the outgoing reservation;
+they add no temporary stack peak beyond O and the declared transfer.
 The source memory helpers use ordinary checked calls. Indirect calls capture the callable before PHK/PER and the
 stack-synthesized RTL transfer; decrementing the target PC does not borrow
 from its bank. Same-bank PER continuation/range checks run after placement.

@@ -38,6 +38,8 @@ pub(super) enum Instruction {
     Reference(ReferenceOp, Target, u32, Option<u8>),
     Branch(Branch, Label),
     PushReturn(Label),
+    /// PHA reserves outgoing payload, rather than an indirect transfer frame.
+    ArgumentPush,
     IndirectTransfer(Option<CallContract>),
     NativeCall(Target, CallContract),
     NativeReturn(Option<ResultLocation>),

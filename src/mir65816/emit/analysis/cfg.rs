@@ -390,6 +390,12 @@ fn validate_instruction(r: &Record, form: &Instruction) -> Result<(), String> {
                 .stack_a
                 .ok_or("selected TCS without stack equation")?;
         }
+        Instruction::ArgumentPush => {
+            if before.pushes != 0 || before.anchor.is_none_or(|a| before.depth < a) {
+                return Err("selected argument push outside body stack phase".into());
+            }
+            expected.depth += i64::from(before.m.bytes());
+        }
         Instruction::Implied(Implied::Phk | Implied::Pha) | Instruction::PushReturn(_) => {
             if matches!(form, Instruction::PushReturn(_)) && before.pushes != 1 {
                 return Err("selected PER without PHK phase".into());
@@ -419,6 +425,13 @@ fn validate_instruction(r: &Record, form: &Instruction) -> Result<(), String> {
                 expected.pushes = 0;
             } else if before.pushes != 0 {
                 return Err("direct selected call during indirect setup".into());
+            }
+            if let Instruction::NativeCall(_, contract) = form
+                && before
+                    .anchor
+                    .is_none_or(|a| before.depth - a != i64::from(contract.outgoing))
+            {
+                return Err("selected call has incomplete outgoing area".into());
             }
             expected.irq_preserved = false;
             expected.decimal = Some(false);
@@ -549,6 +562,7 @@ pub(in crate::mir65816::emit) fn reconcile(records: &[Record], code: &Code) -> R
                     reference(op.opcode(), *target, *addend, *byte)
                 }
                 Instruction::NativeCall(target, _) => reference(0x22, *target, 0, None),
+                Instruction::ArgumentPush => vec![0x48],
                 Instruction::NativeReturn(_) | Instruction::IndirectTransfer(_) => vec![0x6b],
                 Instruction::PushReturn(label) => {
                     returns.push((at + 1, *label));
