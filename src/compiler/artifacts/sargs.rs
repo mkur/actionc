@@ -93,9 +93,9 @@ impl SArgsListing {
             .map(|param| param.name.as_str())
             .collect::<Vec<_>>();
         lines.push(sanitize_assembly_comment(&if names.is_empty() {
-            "; Parameter frame follows".to_string()
+            "; SArgs descriptor".to_string()
         } else {
-            format!("; Parameter frame follows: {}", names.join(", "))
+            format!("; SArgs descriptor for parameters: {}", names.join(", "))
         }));
         let mut payload = Vec::new();
         if let Some(word) = word_directive(output, data.address, &data.bytes, symbols, relocations)
@@ -119,6 +119,9 @@ impl SArgsListing {
                 &mut payload,
             );
         }
+        for line in payload.iter_mut().filter(|line| line.contains(';')) {
+            line.push_str(" | parameter frame address");
+        }
         let count_address = data.address + 2;
         push_data_listing(
             output,
@@ -131,7 +134,7 @@ impl SArgsListing {
         );
         if let Some(line) = payload.last_mut() {
             line.push_str(&format!(
-                " | frame size: {} bytes",
+                " | copy {} parameter bytes",
                 u16::from(data.bytes[2]) + 1
             ));
         }
@@ -323,13 +326,13 @@ mod tests {
             assert_eq!(
                 listing
                     .lines()
-                    .filter(|line| *line == "; Parameter frame follows")
+                    .filter(|line| *line == "; SArgs descriptor")
                     .count(),
                 3
             );
-            assert!(!listing.contains("; Parameter frame follows:"));
+            assert!(!listing.contains("; SArgs descriptor for parameters:"));
             assert_eq!(listing.matches(".WORD param_").count(), 3);
-            assert_eq!(listing.matches("| frame size: 5 bytes").count(), 2);
+            assert_eq!(listing.matches("| copy 5 parameter bytes").count(), 2);
         }
     }
 
@@ -341,8 +344,8 @@ mod tests {
         let address = *frames.descriptors.keys().next().unwrap();
         output.bytes[usize::from(address - output.origin) + 2] = 0xFF;
         let listing = format_listing_with_boundaries(&output);
-        assert!(listing.contains("| frame size: 256 bytes"));
-        assert!(!listing.contains("; Parameter frame follows: x, y, col"));
+        assert!(listing.contains("| copy 256 parameter bytes"));
+        assert!(!listing.contains("; SArgs descriptor for parameters: x, y, col"));
     }
 
     #[test]
@@ -358,7 +361,7 @@ mod tests {
             address: 0x9000,
         });
         let listing = format_listing_with_boundaries(&output);
-        assert_eq!(listing.matches("; Parameter frame follows").count(), 2);
-        assert!(!listing.contains("; Parameter frame follows: x, y, col"));
+        assert_eq!(listing.matches("; SArgs descriptor").count(), 2);
+        assert!(!listing.contains("; SArgs descriptor for parameters: x, y, col"));
     }
 }

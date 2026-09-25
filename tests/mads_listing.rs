@@ -518,7 +518,7 @@ fn user_names_follow_declarations_in_every_mode_and_runtime() {
                 if mode == CompileMode::Compatibility {
                     assert!(
                         listing
-                            .contains("; Parameter frame follows: StartX, StepSize, Shade, Flags"),
+                            .contains("; SArgs descriptor for parameters: StartX, StepSize, Shade, Flags"),
                         "{listing}"
                     );
                 }

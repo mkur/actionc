@@ -1906,11 +1906,11 @@ mod tests {
 
         assert!(listing.contains("JSR.A proc_r_Par"));
         assert!(listing.contains("; $3A99: 20 81 32 ; r_Par"));
-        assert!(listing.contains("; Parameter frame follows"));
+        assert!(listing.contains("; SArgs descriptor"));
         assert!(listing.contains(".WORD $2EDF"), "{listing}");
-        assert!(listing.contains("; $3A9C: DF 2E"));
+        assert!(listing.contains("; $3A9C: DF 2E | parameter frame address"));
         assert!(listing.contains(".BYTE $02"), "{listing}");
-        assert!(listing.contains("; $3A9E: 02 | frame size: 3 bytes"));
+        assert!(listing.contains("; $3A9E: 02 | copy 3 parameter bytes"));
         assert!(listing.contains("loc_FindItem_1:\n        LDA.A $2EDF"));
         assert!(!listing.contains("ROL $AD02"));
     }

@@ -17,15 +17,17 @@ fn assert_payloads(listing: &str, expected: usize) {
     let lines = listing.lines().collect::<Vec<_>>();
     let mut found = 0;
     for (i, line) in lines.iter().enumerate() {
-        if !line.starts_with("; Parameter frame follows") {
+        if !line.starts_with("; SArgs descriptor") {
             continue;
         }
         found += 1;
         assert!(lines[i - 1].trim_start().starts_with("JSR.A "));
         assert!(lines[i + 1].trim_start().starts_with(".WORD param_"));
+        assert!(lines[i + 1].ends_with("| parameter frame address"));
         assert!(lines[i + 2].trim_start().starts_with(".BYTE $"));
         assert_eq!(lines[i + 1].find(';'), lines[i + 2].find(';'), "{listing}");
-        assert!(lines[i + 2].contains("| frame size: "));
+        assert!(lines[i + 2].contains("| copy "));
+        assert!(lines[i + 2].ends_with(" parameter bytes"));
         assert!(!lines[i + 2].contains("minus one"));
     }
     assert_eq!(found, expected, "{listing}");
@@ -62,9 +64,9 @@ fn sargs_descriptors_and_parameter_storage_are_typed_and_named() {
                         2
                     },
                 );
-                assert!(listing.contains("; Parameter frame follows: first, word, last, extra"));
-                assert!(listing.contains("; Parameter frame follows: tag, ptr, items"));
-                assert_eq!(listing.matches("| frame size: 5 bytes").count(), 2);
+                assert!(listing.contains("; SArgs descriptor for parameters: first, word, last, extra"));
+                assert!(listing.contains("; SArgs descriptor for parameters: tag, ptr, items"));
+                assert_eq!(listing.matches("| copy 5 parameter bytes").count(), 2);
                 assert_parameter(&listing, "param_SumFrame_first:", ".BYTE $00", "first");
                 assert_parameter(&listing, "param_SumFrame_word:", ".WORD $0000", "word");
                 assert_parameter(&listing, "param_Indirect_ptr:", ".WORD $0000", "ptr");
@@ -82,8 +84,8 @@ fn sargs_descriptors_and_parameter_storage_are_typed_and_named() {
                     assert!(!listing.contains("DTA D'(c)1983ACS'"));
                 }
                 if mode == CompileMode::Compatibility {
-                    assert!(listing.contains("; Parameter frame follows: x, y, col"));
-                    assert!(listing.contains("| frame size: 3 bytes"));
+                    assert!(listing.contains("; SArgs descriptor for parameters: x, y, col"));
+                    assert!(listing.contains("| copy 3 parameter bytes"));
                 }
             }
         }
@@ -117,7 +119,7 @@ fn long_parameter_labels_keep_payload_comments_aligned_with_lf_and_crlf() {
                 },
             );
             assert!(listing.contains(
-                "; Parameter frame follows: firstParameterWithALongName, word, last, extra"
+                "; SArgs descriptor for parameters: firstParameterWithALongName, word, last, extra"
             ));
         }
     }
@@ -153,7 +155,7 @@ fn sargs_overrides_are_recognized_by_binding_instead_of_implementation_name() {
                     .lines()
                     .any(|line| line.trim_start().starts_with("JSR.A proc_CopyFrame "))
             );
-            assert!(listing.contains("; Parameter frame follows: first, word, last, extra"));
+            assert!(listing.contains("; SArgs descriptor for parameters: first, word, last, extra"));
             assert!(!listing.contains("DTA D'(c)1983ACS'"));
         }
     }

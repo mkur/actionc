@@ -113,10 +113,11 @@ are excluded from this embedded dependency inventory.
 
 SArgs calls identify their three-byte inline descriptor through the resolved
 runtime helper binding (or the cartridge ABI entry). A standalone
-`; Parameter frame follows: ...` comment precedes the payload, followed by a
-`.WORD` frame address and a `.BYTE` count. The count comment states the actual
-frame size in bytes; the encoded count remains size minus one. Both payload
-address comments start in the same column, including for long symbolic names.
+`; SArgs descriptor for parameters: ...` comment precedes the payload, followed
+by a `.WORD` pointer labeled `parameter frame address` and a `.BYTE` count labeled
+`copy N parameter bytes`. These fields describe the separately stored parameter
+frame; the encoded count remains size minus one. Both payload address comments
+start in the same column, including for long symbolic names.
 Word addresses retain their relocations, including paired MIR low/high fixups.
 
 Parameter names are attached only when the final signature and storage map
@@ -125,8 +126,9 @@ use `.BYTE` or `.WORD` according to their physical width, with variable names
 in the comments. Array parameters occupy an address word. MIR's available
 BYTE/WORD type descriptions are retained rather than guessing a source type.
 If layout metadata is absent or inconsistent, the descriptor remains readable
-with a generic frame comment and its encoded size. These rules apply to both
-plain and source-annotated listings and do not change emitted program bytes.
+with a generic `SArgs descriptor` comment, its frame address and its copy count.
+These rules apply to both plain and source-annotated listings and do not change
+emitted program bytes.
 
 The original SArgs implementation's embedded copyright message is displayed as
 `DTA D'(c)1983ACS'`, preserving its ten Atari screen-code bytes. Its runtime
