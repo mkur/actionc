@@ -1065,3 +1065,12 @@ interior symbol offsets. Each replacement retains exactly one target-byte access
 and the original value capture/order. Store sources are byte immediates or
 complete captured stack homes. Volatile accesses keep their existing selection;
 contents are never inferred from an initializer or reused across calls.
+
+Ordinary stride-one BYTE loads with zero residual displacement may use a
+captured unsigned 16-bit index in Y16. Eligibility reads the MIR temp's integer
+type, not just its width. The base is a complete stack-held pointer or proven
+symbolic address, materialized in existing PTR scratch before loading the
+complete index in A16 and transferring it to Y. The single A8 long-indirect
+indexed load preserves 24-bit carry/wrap. Capturing the result does not alter Y.
+Signed/wide/scaled indices, volatile accesses and unsupported homes retain the
+fallback. No allocator whitelist or physical ABI changes are implied.

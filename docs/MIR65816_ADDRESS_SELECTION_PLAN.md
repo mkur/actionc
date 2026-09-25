@@ -1,6 +1,6 @@
 # Native 65816 constant addresses and BYTE indexing
 
-Status: slices 1–3 implemented and checked; slices 4–5 remain planned.
+Status: slices 1–4 implemented and checked; slice 5 remains planned.
 
 Implement five small compiler slices, committing each after its focused checks.
 The last implementation commit carries final qualification and measurements.
@@ -191,6 +191,12 @@ both code and relocation-count changes; fewer instructions can also reduce the
 o65 descriptor, but no format change is part of this work.
 
 ## Slice 4 — CARD-indexed BYTE loads using Y
+
+Implemented for ordinary BYTE loads with captured CARD indices and stack-held
+or proven symbolic bases. CAT saves 121 code/file bytes in both modes; HELLO is
+unchanged. Exact read traces cover both halves of CARD, bank carries, 24-bit
+wrap and two serialized symbol placements. Wider/signed/scaled and volatile
+forms retain their existing paths. No homes or scratch reservations change.
 
 Commit intent: `65816: use Y for CARD-indexed BYTE loads`.
 

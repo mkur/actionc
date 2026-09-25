@@ -11,6 +11,7 @@ Code bytes include unchanged debug guards; o65 files also include loader metadat
 | Slice 1: direct symbolic AddressOf | 881 / 2,311 | 3,689 / 7,343 |
 | Slice 2: constant address chains | 826 / 2,256 | 3,634 / 7,288 |
 | Slice 3: direct constant-index BYTE access | 714 / 2,066 | 3,634 / 7,288 |
+| Slice 4: CARD-indexed BYTE loads | 714 / 2,066 | 3,513 / 7,167 |
 
 Slice 1 saves 48/60 bytes in HELLO/CAT in both raw and optimized modes. Frames,
 guard bytes, relocation counts, initialized data, BSS and DP reservations are
@@ -43,3 +44,10 @@ pass. New traces check every target byte read/write around a mutating call in
 both ordinary and volatile cases, including untouched array neighbors. One-past
 accesses retain the existing path. Frames, guards and bank-zero reservations
 remain unchanged.
+
+Slice 4 saves 121 CAT code/file bytes in both modes, with HELLO unchanged.
+Four focused integration tests cover admission and signed/wide/scaled fallback.
+Fourteen native VM tests across `address_selection`, `loop_x`,
+`checked_rewrites` and `instruction_effects` pass. Full CARD boundaries,
+bank carries, 24-bit wrap and relocated symbols preserve exact BYTE read traces.
+Frames, guards, relocation counts and bank-zero reservations remain unchanged.

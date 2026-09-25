@@ -79,6 +79,66 @@ struct Symbol {
     addend: u32,
 }
 
+#[derive(Clone)]
+enum IndexedBase {
+    Symbol(Symbol),
+    Captured(Mir65816Value),
+}
+
+struct Indexed {
+    base: IndexedBase,
+    index: Slot,
+}
+
+fn indexed_address(
+    routine: &Mir65816Routine,
+    frame: &AllocatedFrame,
+    address: &Mir65816Address,
+    known: &BTreeMap<TempId, Symbol>,
+    data: &[Mir65816Data],
+) -> Result<Option<Indexed>, String> {
+    let Some(index) = &address.index else {
+        return Ok(None);
+    };
+    if index.stride != ByteSize::ONE || address.displacement.get() != 0 {
+        return Ok(None);
+    }
+    let Mir65816Value::Temp(id, width) = index.value else {
+        return Ok(None);
+    };
+    if width.get() != 2
+        || !routine.temps.iter().any(|(temp, ty)| {
+            *temp == id
+                && ty.width == Some(width)
+                && ty.kind.integer().is_some_and(|i| i.bits == 16 && !i.signed)
+        })
+    {
+        return Ok(None);
+    }
+    let Some(index) = checked_stack_home(frame, id, 2)? else {
+        return Ok(None);
+    };
+    let mut unindexed = address.clone();
+    unindexed.index = None;
+    let base = if let Some(symbol) = resolve(&unindexed, known, data) {
+        IndexedBase::Symbol(symbol)
+    } else {
+        let Mir65816AddressBase::Indirect(value) = &address.base else {
+            return Ok(None);
+        };
+        match value {
+            Mir65816Value::Temp(id, width) if width.get() == 3 => {
+                if checked_stack_home(frame, *id, 3)?.is_none() {
+                    return Ok(None);
+                }
+            }
+            _ => return Ok(None),
+        }
+        IndexedBase::Captured(value.clone())
+    };
+    Ok(Some(Indexed { base, index }))
+}
+
 fn symbolic_value(value: &Mir65816Value, known: &BTreeMap<TempId, Symbol>) -> Option<Symbol> {
     let target = match value {
         Mir65816Value::GlobalAddress(id, w) if w.get() == 3 => Mir65816DataId::Global(*id),
@@ -134,6 +194,7 @@ fn resolve(
 pub(super) struct Plan {
     symbols: BTreeMap<(BlockId, usize), (TempId, Symbol)>,
     accesses: BTreeMap<(BlockId, usize), Symbol>,
+    indexed: BTreeMap<(BlockId, usize), Indexed>,
     omitted: BTreeSet<TempId>,
 }
 
@@ -163,6 +224,22 @@ impl Plan {
                         }
                 ) {
                     known.clear();
+                }
+                if let Mir65816Op::Load {
+                    dest,
+                    address,
+                    width,
+                    volatile: false,
+                } = op
+                    && width.get() == 1
+                    && checked_stack_home(frame, *dest, 1)?.is_some()
+                    && let Some(indexed) = indexed_address(routine, frame, address, &known, data)?
+                {
+                    if matches!(indexed.base, IndexedBase::Symbol(_)) {
+                        remove_base_use(address, &mut uses)?;
+                    }
+                    plan.indexed.insert((block.id, i), indexed);
+                    continue;
                 }
                 let access = match op {
                     Mir65816Op::Load {
@@ -242,6 +319,26 @@ impl Plan {
         index: usize,
         op: &Mir65816Op,
     ) -> Result<(), String> {
+        if let Some(indexed) = self.indexed.get(&(block, index)) {
+            b.code.barrier();
+            match &indexed.base {
+                IndexedBase::Symbol(symbol) => b.address_to_pointer(Memory::Symbol(
+                    Target::Data(symbol.target),
+                    symbol.addend,
+                ))?,
+                IndexedBase::Captured(value) => b.pointer_value(value, PTR)?,
+            }
+            b.code.a16();
+            b.load_memory(Memory::Stack(indexed.index.offset.into()), 0)?;
+            b.code.op(Implied::Tay);
+            b.code.a8();
+            let Mir65816Op::Load { dest, .. } = op else {
+                return Err("indexed BYTE load lost its operation".into());
+            };
+            b.code.byte(ByteOp::LdaIndirectY, PTR);
+            b.save_byte(*dest, 0)?;
+            return Ok(());
+        }
         if let Some(symbol) = self.accesses.get(&(block, index)) {
             b.code.barrier();
             b.code.a8();

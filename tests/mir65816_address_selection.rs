@@ -171,3 +171,54 @@ fn constant_byte_accesses_are_direct_but_volatile_and_one_past_keep_fallback() {
         }
     }
 }
+
+#[test]
+fn y_byte_loads_require_captured_card_indices_and_unit_stride() {
+    for optimize in [false, true] {
+        for ty in ["BYTE", "CARD", "INT", "SIZE", "LONGCARD"] {
+            for stride in [1, 2] {
+                let mut p = mir(
+                    &format!(
+                        "BYTE FUNC Read(BYTE POINTER p {ty} index) RETURN(p(index)) PROC Main() RETURN"
+                    ),
+                    optimize,
+                );
+                for op in p
+                    .routines
+                    .iter_mut()
+                    .flat_map(|r| &mut r.blocks)
+                    .flat_map(|b| &mut b.ops)
+                {
+                    if let Mir65816Op::Load { address, .. } = op
+                        && let Some(index) = &mut address.index
+                    {
+                        index.stride = actionc::target::ByteSize::new(stride);
+                    }
+                }
+                let m = emit::materialize(&p).unwrap();
+                let r = p.routines.iter().find(|r| r.name == "Read").unwrap();
+                let code = &m.routines.iter().find(|m| m.id == r.id).unwrap().code;
+                let mut count = 0;
+                for block in &r.blocks {
+                    for (i, op) in block.ops.iter().enumerate() {
+                        if let Mir65816Op::Load { address, .. } = op
+                            && address.index.is_some()
+                        {
+                            count += 1;
+                            let bytes = &code.bytes[code.mir_spans[&(block.id, i)].clone()];
+                            if ty == "CARD" && stride == 1 {
+                                assert!(bytes.len() <= 23, "{ty}/{optimize}: {bytes:02x?}");
+                                assert!(bytes.contains(&0xa8)); // TAY
+                                assert!(bytes.windows(2).any(|b| b == [0xb7, 0]));
+                                assert!(!bytes.windows(2).any(|b| b == [0x65, 20]));
+                            } else {
+                                assert!(bytes.len() > 23);
+                            }
+                        }
+                    }
+                }
+                assert_eq!(count, 1);
+            }
+        }
+    }
+}

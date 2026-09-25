@@ -141,3 +141,77 @@ fn constant_byte_accesses_keep_mutation_across_calls_and_exact_access_order() {
         }
     }
 }
+
+#[test]
+fn card_byte_loads_use_full_y_and_preserve_24_bit_carry_and_wrap() {
+    let source = "BYTE POINTER base=$7100 CARD index=$7104 BYTE result=$7106 BYTE FUNC Read(BYTE POINTER p CARD i) RETURN(p(i)) PROC Main() result=Read(base,index) RETURN";
+    for optimize in [false, true] {
+        let image = compile(source, optimize);
+        for base in [0x22fffeu32, 0x23ffff, 0x320001, 0xff1234] {
+            for index in [0u16, 1, 255, 256, 32767, 32768, 65534, 65535] {
+                let target = (base + u32::from(index)) & 0xffffff;
+                let value = (index as u8).wrapping_add(53);
+                for mask in [0, 4] {
+                    let mut h = Harness::new(&image, &caller(image.entry), mask);
+                    h.bus.ram[0x7100..0x7103].copy_from_slice(&base.to_le_bytes()[..3]);
+                    h.bus.ram[0x7104..0x7106].copy_from_slice(&index.to_le_bytes());
+                    h.bus.map(target - 1, &[0xa5, value, 0xa5], true);
+                    h.bus.watched.extend(target - 1..target + 2);
+                    h.run();
+                    h.guards(mask);
+                    assert_eq!(h.bus.ram[0x7106], value, "{base:x}/{index}/{optimize}");
+                    assert_eq!(
+                        h.bus
+                            .trace
+                            .iter()
+                            .map(|&(_, at, op)| (at, op))
+                            .collect::<Vec<_>>(),
+                        vec![(target, Access::Read)]
+                    );
+                    assert_eq!(
+                        (
+                            h.bus.ram[target as usize - 1],
+                            h.bus.ram[target as usize + 1]
+                        ),
+                        (0xa5, 0xa5)
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn card_indices_load_relocated_symbols_without_losing_the_bank_carry() {
+    let source = "BYTE ARRAY bytes(300) CARD index=$7100 BYTE result=$7102 PROC Main() result=bytes(index) RETURN";
+    for optimize in [false, true] {
+        let bytes = o65::compile(source, optimize, vec![]);
+        for variant in 0..2 {
+            let image = format::relocate(
+                &bytes,
+                &o65::placement(&bytes, variant, vec![o65::fault(variant)]),
+            )
+            .unwrap();
+            for index in [0u16, 1, 255, 256, 299] {
+                for mask in [0, 4] {
+                    let mut h = Harness::new_o65(&image, &caller(image.entry()), mask);
+                    let target = o65::object(&image, "bytes") + u32::from(index);
+                    h.bus.ram[0x7100..0x7102].copy_from_slice(&index.to_le_bytes());
+                    h.bus.ram[target as usize] = 217;
+                    h.bus.watched.insert(target);
+                    h.run();
+                    h.guards(mask);
+                    assert_eq!(h.bus.ram[0x7102], 217);
+                    assert_eq!(
+                        h.bus
+                            .trace
+                            .iter()
+                            .map(|&(_, at, op)| (at, op))
+                            .collect::<Vec<_>>(),
+                        vec![(target, Access::Read)]
+                    );
+                }
+            }
+        }
+    }
+}
