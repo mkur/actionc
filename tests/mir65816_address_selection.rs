@@ -109,3 +109,65 @@ fn constant_address_chains_fold_only_interior_offsets_and_keep_frames() {
         }
     }
 }
+
+#[test]
+fn constant_byte_accesses_are_direct_but_volatile_and_one_past_keep_fallback() {
+    for optimize in [false, true] {
+        for volatile in [false, true] {
+            for offset in [0, 299, 300] {
+                let mut p = mir(
+                    &format!(
+                        "BYTE ARRAY bytes(300) BYTE input=$7100,output=$7101 PROC Main() output=bytes({offset}) bytes({offset})=input RETURN"
+                    ),
+                    optimize,
+                );
+                if volatile {
+                    for op in p
+                        .routines
+                        .iter_mut()
+                        .flat_map(|r| &mut r.blocks)
+                        .flat_map(|b| &mut b.ops)
+                    {
+                        match op {
+                            Mir65816Op::Load { volatile, .. }
+                            | Mir65816Op::Store { volatile, .. } => *volatile = true,
+                            _ => {}
+                        }
+                    }
+                }
+                let m = emit::materialize(&p).unwrap();
+                let mut selected = 0;
+                for r in &p.routines {
+                    let code = &m.routines.iter().find(|m| m.id == r.id).unwrap().code;
+                    for block in &r.blocks {
+                        for (i, op) in block.ops.iter().enumerate() {
+                            let address = match op {
+                                Mir65816Op::Load { address, .. }
+                                | Mir65816Op::Store { address, .. } => address,
+                                _ => continue,
+                            };
+                            if address.index.is_none() {
+                                continue;
+                            }
+                            selected += 1;
+                            let span = &code.mir_spans[&(block.id, i)];
+                            if !volatile && offset < 300 {
+                                assert!(span.len() <= 8);
+                                assert_eq!(
+                                    code.fixups
+                                        .iter()
+                                        .filter(|f| span.contains(&f.offset))
+                                        .count(),
+                                    1
+                                );
+                            } else {
+                                assert!(span.len() > 8);
+                            }
+                        }
+                    }
+                }
+                assert_eq!(selected, 2);
+            }
+        }
+    }
+}

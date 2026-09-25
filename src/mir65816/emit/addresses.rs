@@ -133,6 +133,7 @@ fn resolve(
 #[derive(Default)]
 pub(super) struct Plan {
     symbols: BTreeMap<(BlockId, usize), (TempId, Symbol)>,
+    accesses: BTreeMap<(BlockId, usize), Symbol>,
     omitted: BTreeSet<TempId>,
 }
 
@@ -162,6 +163,37 @@ impl Plan {
                         }
                 ) {
                     known.clear();
+                }
+                let access = match op {
+                    Mir65816Op::Load {
+                        dest,
+                        address,
+                        width,
+                        volatile: false,
+                    } if width.get() == 1 => checked_stack_home(frame, *dest, 1)?.map(|_| address),
+                    Mir65816Op::Store {
+                        address,
+                        value,
+                        width,
+                        volatile: false,
+                    } if width.get() == 1 => {
+                        let admitted = match value {
+                            Mir65816Value::U8(_) => true,
+                            Mir65816Value::Temp(id, w) if w.get() == 1 => {
+                                checked_stack_home(frame, *id, 1)?.is_some()
+                            }
+                            _ => false,
+                        };
+                        admitted.then_some(address)
+                    }
+                    _ => None,
+                };
+                if let Some(address) = access {
+                    if let Some(symbol) = resolve(address, &known, data) {
+                        plan.accesses.insert((block.id, i), symbol);
+                        remove_base_use(address, &mut uses)?;
+                    }
+                    continue;
                 }
                 let Mir65816Op::AddressOf {
                     dest,
@@ -193,9 +225,7 @@ impl Plan {
                 plan.symbols.insert((block.id, i), (*dest, symbol));
                 // resolve has replaced this exact address operand. Index
                 // operands are constants; no other temp occurrence is removed.
-                if let Mir65816AddressBase::Indirect(Mir65816Value::Temp(id, _)) = address.base {
-                    *uses.get_mut(&id).ok_or("missing symbolic base use")? -= 1;
-                }
+                remove_base_use(address, &mut uses)?;
             }
         }
         for (dest, _) in plan.symbols.values() {
@@ -212,6 +242,32 @@ impl Plan {
         index: usize,
         op: &Mir65816Op,
     ) -> Result<(), String> {
+        if let Some(symbol) = self.accesses.get(&(block, index)) {
+            b.code.barrier();
+            b.code.a8();
+            match op {
+                Mir65816Op::Load { dest, .. } => {
+                    b.code.reference(
+                        ReferenceOp::LdaLong,
+                        Target::Data(symbol.target),
+                        symbol.addend,
+                        None,
+                    );
+                    b.save_byte(*dest, 0)?;
+                }
+                Mir65816Op::Store { value, .. } => {
+                    b.value_byte(value, 0)?;
+                    b.code.reference(
+                        ReferenceOp::StaLong,
+                        Target::Data(symbol.target),
+                        symbol.addend,
+                        None,
+                    );
+                }
+                _ => return Err("direct BYTE access plan lost its operation".into()),
+            }
+            return Ok(());
+        }
         if let Some(&(dest, symbol)) = self.symbols.get(&(block, index)) {
             if !self.omitted.contains(&dest) {
                 if !b.write_symbol_address(dest, Target::Data(symbol.target), symbol.addend)? {
@@ -222,4 +278,39 @@ impl Plan {
         }
         b.operation(op)
     }
+}
+
+fn checked_stack_home(
+    frame: &AllocatedFrame,
+    id: TempId,
+    bytes: u8,
+) -> Result<Option<Slot>, String> {
+    let home = frame
+        .temps
+        .get(&id)
+        .ok_or("missing address-selection home")?;
+    if home.slot().width != bytes {
+        return Err("address-selection home width mismatch".into());
+    }
+    let Location::Stack(slot) = home else {
+        return Ok(None);
+    };
+    abi::stack::access_displacement(
+        ByteOffset::new(slot.offset.into()),
+        ByteSize::new(bytes.into()),
+        ByteSize::ZERO,
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(Some(*slot))
+}
+
+fn remove_base_use(
+    address: &Mir65816Address,
+    uses: &mut BTreeMap<TempId, usize>,
+) -> Result<(), String> {
+    if let Mir65816AddressBase::Indirect(Mir65816Value::Temp(id, _)) = address.base {
+        let count = uses.get_mut(&id).ok_or("missing symbolic base use")?;
+        *count = count.checked_sub(1).ok_or("symbolic base use underflow")?;
+    }
+    Ok(())
 }

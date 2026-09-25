@@ -1,6 +1,6 @@
 # Native 65816 constant addresses and BYTE indexing
 
-Status: slices 1–2 implemented and checked; slices 3–5 remain planned.
+Status: slices 1–3 implemented and checked; slices 4–5 remain planned.
 
 Implement five small compiler slices, committing each after its focused checks.
 The last implementation commit carries final qualification and measurements.
@@ -163,6 +163,12 @@ exceed the proven extent. The HELLO `@greeting(1)` chain must stop using a
 three-byte runtime addition and redundant base materialization.
 
 ## Slice 3 — Direct constant-index BYTE accesses
+
+Implemented for ordinary one-byte loads and immediate/captured stack-byte
+stores. Volatile accesses conservatively retain their established paths. HELLO
+saves another 112 code bytes and 190 file bytes in both modes, including four
+fewer relocation proofs; CAT is unchanged. Exact traces verify that reads around
+a mutating call remain distinct, with matching volatile fallback behavior.
 
 Commit intent: `65816: select direct BYTE accesses at constant symbol offsets`.
 

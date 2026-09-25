@@ -10,6 +10,7 @@ Code bytes include unchanged debug guards; o65 files also include loader metadat
 | Baseline | 929 / 2,359 | 3,749 / 7,403 |
 | Slice 1: direct symbolic AddressOf | 881 / 2,311 | 3,689 / 7,343 |
 | Slice 2: constant address chains | 826 / 2,256 | 3,634 / 7,288 |
+| Slice 3: direct constant-index BYTE access | 714 / 2,066 | 3,634 / 7,288 |
 
 Slice 1 saves 48/60 bytes in HELLO/CAT in both raw and optimized modes. Frames,
 guard bytes, relocation counts, initialized data, BSS and DP reservations are
@@ -33,4 +34,12 @@ at the 24-bit bus boundary. Shared/repeated uses, returned bases, calls, loaded
 pointers and cross-block uses preserve producers or reject folding. The native
 o65 suite covers independent ABI providers, banked data, tasks and IRQ/NMI;
 fresh replay passes. Frames, guards, relocation counts and bank-zero reservations
+remain unchanged.
+
+Slice 3 saves another 112 HELLO code bytes in each mode. Its file saves 190:
+112 code, 64 relocation-proof bytes and 14 ordinary relocation bytes. CAT is
+unchanged. Three selector tests, 14 integration/o65 tests and 13 native VM tests
+pass. New traces check every target byte read/write around a mutating call in
+both ordinary and volatile cases, including untouched array neighbors. One-past
+accesses retain the existing path. Frames, guards and bank-zero reservations
 remain unchanged.

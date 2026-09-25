@@ -1,5 +1,7 @@
 mod support;
+use actionc::mir65816::Mir65816Op;
 use actionc::mir65816::o65 as format;
+use actionc_vm::native65816::Access;
 use support::*;
 
 #[test]
@@ -68,6 +70,72 @@ fn constant_address_chains_relocate_with_bank_carry_and_one_past_fallback() {
                         (o65::object(&image, "bytes") + offset) & 0xffffff
                     );
                     assert_eq!((h.bus.ram[0x70ff], h.bus.ram[0x7103]), (0xa5, 0xa5));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn constant_byte_accesses_keep_mutation_across_calls_and_exact_access_order() {
+    let source = "BYTE ARRAY bytes(300) BYTE before=$7100,after=$7101 PROC Change() bytes(0)=7 RETURN PROC Main() bytes(0)=3 before=bytes(0) Change() after=bytes(0) bytes(299)=after RETURN";
+    for optimize in [false, true] {
+        for volatile in [false, true] {
+            let mut p = prepare(source, optimize);
+            if volatile {
+                for op in p
+                    .mir
+                    .routines
+                    .iter_mut()
+                    .flat_map(|r| &mut r.blocks)
+                    .flat_map(|b| &mut b.ops)
+                {
+                    match op {
+                        Mir65816Op::Load {
+                            width, volatile, ..
+                        }
+                        | Mir65816Op::Store {
+                            width, volatile, ..
+                        } if width.get() == 1 => *volatile = true,
+                        _ => {}
+                    }
+                }
+            }
+            let bytes = p.compile_o65(&Default::default()).unwrap().bytes;
+            for variant in 0..2 {
+                let image = format::relocate(
+                    &bytes,
+                    &o65::placement(&bytes, variant, vec![o65::fault(variant)]),
+                )
+                .unwrap();
+                let start = o65::object(&image, "bytes");
+                for mask in [0, 4] {
+                    let mut h = Harness::new_o65(&image, &caller(image.entry()), mask);
+                    h.bus.ram[start as usize..start as usize + 300].fill(0xa5);
+                    h.bus.watched.extend(start..start + 300);
+                    h.run();
+                    h.guards(mask);
+                    assert_eq!(&h.bus.ram[0x7100..0x7102], &[3, 7]);
+                    assert_eq!(h.bus.ram[start as usize + 299], 7);
+                    assert!(
+                        h.bus.ram[start as usize + 1..start as usize + 299]
+                            .iter()
+                            .all(|&b| b == 0xa5)
+                    );
+                    assert_eq!(
+                        h.bus
+                            .trace
+                            .iter()
+                            .map(|&(_, at, op)| (at, op))
+                            .collect::<Vec<_>>(),
+                        vec![
+                            (start, Access::Write(3)),
+                            (start, Access::Read),
+                            (start, Access::Write(7)),
+                            (start, Access::Read),
+                            (start + 299, Access::Write(7))
+                        ]
+                    );
                 }
             }
         }

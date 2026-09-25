@@ -1059,3 +1059,9 @@ their established paths. The plan counts every MIR operand occurrence, including
 terminators and edge arguments, before omitting a pure producer whose consumers
 all use symbolic replacements. Prepared MIR and frame allocation stay intact;
 omitted operations retain empty source spans and normal replay bookkeeping.
+
+The same plan selects A8 long loads/stores for ordinary BYTE accesses at proven
+interior symbol offsets. Each replacement retains exactly one target-byte access
+and the original value capture/order. Store sources are byte immediates or
+complete captured stack homes. Volatile accesses keep their existing selection;
+contents are never inferred from an initializer or reused across calls.
