@@ -40,6 +40,8 @@ use copies::acyclic_word_order;
 
 #[path = "accumulator.rs"]
 mod accumulator;
+#[path = "addresses.rs"]
+mod addresses;
 #[path = "arithmetic.rs"]
 mod arithmetic;
 #[path = "long_arithmetic.rs"]
@@ -1669,7 +1671,7 @@ impl Builder<'_> {
             width,
         } = op
             && width.get() == 3
-            && self.pointer_address(*dest, address)?
+            && (self.symbol_address(*dest, address)? || self.pointer_address(*dest, address)?)
         {
             return Ok(());
         }

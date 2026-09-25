@@ -1038,3 +1038,15 @@ liveness, using central effects and native result boundaries. Queries validate
 site ownership and reachability. Environment operations, X reservations and
 forward witnesses remain separate protected obligations; deadness does not
 authorize their removal. See [machine liveness](MIR65816_MACHINE_LIVENESS.md).
+
+### Symbolic address materialization
+
+Direct symbolic AddressOf writes three independently relocated immediate bytes
+to its checked stack home without staging through pointer scratch. It retains
+the stable data target and complete addend on each byte fixup, and checks the
+entire destination before emission. Direct symbolic places preserve their
+existing checked-addend behavior. Indirect symbolic values currently admit
+only zero displacement; nonzero modular arithmetic needs an extent proof.
+Captured pointers, unsupported homes and indexed forms retain their existing
+selection. No pointed-to byte is read, and no fourth destination byte is touched.
+See the [address-selection plan](MIR65816_ADDRESS_SELECTION_PLAN.md).
