@@ -65,10 +65,10 @@ fn sargs_descriptors_and_parameter_storage_are_typed_and_named() {
                 assert!(listing.contains("; Parameter frame follows: first, word, last, extra"));
                 assert!(listing.contains("; Parameter frame follows: tag, ptr, items"));
                 assert_eq!(listing.matches("| frame size: 5 bytes").count(), 2);
-                assert_parameter(&listing, "param_sumframe_first:", ".BYTE $00", "first");
-                assert_parameter(&listing, "param_sumframe_word:", ".WORD $0000", "word");
-                assert_parameter(&listing, "param_indirect_ptr:", ".WORD $0000", "ptr");
-                assert_parameter(&listing, "param_indirect_items:", ".WORD $0000", "items");
+                assert_parameter(&listing, "param_SumFrame_first:", ".BYTE $00", "first");
+                assert_parameter(&listing, "param_SumFrame_word:", ".WORD $0000", "word");
+                assert_parameter(&listing, "param_Indirect_ptr:", ".WORD $0000", "ptr");
+                assert_parameter(&listing, "param_Indirect_items:", ".WORD $0000", "items");
                 if runtime == Runtime::Standalone {
                     let lines = listing.lines().collect::<Vec<_>>();
                     let at = lines
@@ -76,7 +76,7 @@ fn sargs_descriptors_and_parameter_storage_are_typed_and_named() {
                         .position(|line| line.trim_start().starts_with("DTA D'(c)1983ACS'"))
                         .expect("SArgs copyright must be readable screen-code data");
                     assert!(lines[at].ends_with("08 63 09 11 19 18 13 21 23 33"));
-                    assert!(lines[at + 1].starts_with("loc_syslib_sargs_"));
+                    assert!(lines[at + 1].starts_with("loc_syslib_SArgs_"));
                     assert!(lines[at + 2].trim_start().starts_with("RTS "));
                 } else {
                     assert!(!listing.contains("DTA D'(c)1983ACS'"));
@@ -151,7 +151,7 @@ fn sargs_overrides_are_recognized_by_binding_instead_of_implementation_name() {
             assert!(
                 listing
                     .lines()
-                    .any(|line| line.trim_start().starts_with("JSR.A proc_copyframe "))
+                    .any(|line| line.trim_start().starts_with("JSR.A proc_CopyFrame "))
             );
             assert!(listing.contains("; Parameter frame follows: first, word, last, extra"));
             assert!(!listing.contains("DTA D'(c)1983ACS'"));

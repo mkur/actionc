@@ -182,6 +182,8 @@ impl Generator {
         let map = CodegenMap {
             runtime: crate::runtime::Runtime::ActionCart,
             runtime_bindings,
+            runtime_routine_names: BTreeMap::new(),
+            declaration_names: Default::default(),
             origin,
             run_address,
             skipped_ranges: skipped_ranges.clone(),

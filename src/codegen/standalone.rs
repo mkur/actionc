@@ -181,6 +181,8 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         &external_interfaces,
         &local_helper_overrides,
     );
+    projection.append_routine_display_names(&mut output);
+    syslib.append_routine_display_names(&mut output);
     suppress_source_ranges_for_routines(&mut output, &runtime_routine_names);
     suppress_source_ranges_for_declarations(&mut output, &runtime_declaration_names);
     if let Some(program_entry) = program_entry {
@@ -314,6 +316,7 @@ pub(crate) fn generate_semir_cart_profile_at_origin(
         profile,
         RuntimeTarget::Cartridge,
     )?;
+    projection.append_routine_display_names(&mut output);
     suppress_source_ranges_for_routines(&mut output, &runtime_routine_names);
     suppress_source_ranges_for_declarations(&mut output, &runtime_declaration_names);
     if let Some(program_entry) = program_entry {
@@ -420,6 +423,12 @@ struct RuntimeProjection {
 }
 
 impl RuntimeProjection {
+    fn append_routine_display_names(&self, output: &mut CodegenOutput) {
+        output.map.runtime_routine_names.extend(
+            crate::runtime_source::routine_declaration_names(&self.semir),
+        );
+    }
+
     fn routine_names(&self) -> BTreeMap<String, String> {
         self.semir
             .modules

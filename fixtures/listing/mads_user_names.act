@@ -1,0 +1,24 @@
+; Declaration spelling wins over mixed-case references, including ASM operands.
+BYTE PlayerX=$0600,OutputByte=$0601,_PlayerX=$0602
+BYTE ARRAY PixelData(3)=[1 2 3]
+
+CARD StepInput=$0603
+
+PROC DrawLine(BYTE StartX CARD StepSize BYTE Shade,Flags)
+  BYTE TempValue
+  ASM
+      lda startx
+      sta TEMPVALUE
+      lda pixeldata
+      beq done
+      lda STEPSIZE
+      sta outputbyte
+      sta _playerx
+done:
+  ENDASM
+  outputbyte=tempvalue+shade+flags
+RETURN
+
+PROC MainLoop()
+  drawline(playerx,stepinput,playerx,playerx)
+RETURN

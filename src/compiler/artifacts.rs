@@ -7,8 +7,12 @@ use crate::codegen::{
 };
 use crate::map_query::MapQuery;
 
+mod names;
 mod runtime_summary;
 mod sargs;
+
+use names::ListingNames;
+pub(crate) use names::record_declaration_names;
 
 pub(crate) fn format_link_plan(
     selected: &CodegenOutput,
@@ -213,6 +217,7 @@ pub(crate) fn format_listing_with_boundaries(output: &CodegenOutput) -> String {
 }
 
 fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> String {
+    let names = ListingNames::from_output(output);
     let boundary_comments = routine_boundary_comments(output);
     let instructions = disassemble_code_ranges(output);
     let sargs = sargs::SArgsListing::from_output(output, &instructions);
@@ -237,17 +242,17 @@ fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> Str
         let target = binding
             .address
             .map(|address| format!("${address:04X}"))
-            .unwrap_or_else(|| runtime_display_name(&binding.implementation));
+            .unwrap_or_else(|| names.display(&binding.implementation));
         lines.push(sanitize_assembly_comment(&format!(
             "; Runtime binding: {} -> {} [{}] ({}){}",
-            binding.helper.to_ascii_lowercase(),
+            names.binding_helper(binding),
             target,
             binding.origin,
             binding.reason,
             binding
                 .suppressed_default
                 .as_ref()
-                .map(|default| format!("; suppresses {}", runtime_display_name(default)))
+                .map(|default| format!("; suppresses {}", names.display(default)))
                 .unwrap_or_default()
         )));
     }
@@ -272,7 +277,13 @@ fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> Str
                 }
                 display_symbols.push_definitions(instruction.address, &mut lines);
                 if let Some(query) = &query {
-                    push_source_comment(query, instruction.address, &mut last_source, &mut lines);
+                    push_source_comment(
+                        query,
+                        instruction.address,
+                        &names,
+                        &mut last_source,
+                        &mut lines,
+                    );
                 }
                 lines.push(format_instruction_listing(
                     &instruction,
@@ -291,12 +302,12 @@ fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> Str
                     push_assembly_comments(&mut lines, comments);
                 }
                 if let Some(query) = &query {
-                    push_source_comment(query, address, &mut last_source, &mut lines);
+                    push_source_comment(query, address, &names, &mut last_source, &mut lines);
                 }
                 if let Some(name) = name {
                     lines.push(sanitize_assembly_comment(&format!(
                         "; ===== DATA {} ${address:04X} =====",
-                        runtime_display_name(&name)
+                        names.display(&name)
                     )));
                 }
                 push_data_listing(
@@ -358,6 +369,7 @@ enum SyntheticTargetKind {
 
 impl MadsDisplaySymbols {
     fn from_output(output: &CodegenOutput, instructions: &[DisassembledInstruction]) -> Self {
+        let names = ListingNames::from_output(output);
         let mut used_names = BTreeSet::new();
         let relocation_targets = output
             .relocations
@@ -369,7 +381,7 @@ impl MadsDisplaySymbols {
                 .map
                 .routine_ranges
                 .iter()
-                .map(|range| (range.start, range.end, range.name.to_ascii_lowercase()))
+                .map(|range| (range.start, range.end, range.name.clone()))
                 .collect(),
             output_origin: output.origin,
             output_len: output.bytes.len(),
@@ -386,7 +398,7 @@ impl MadsDisplaySymbols {
             if is_pseudo_routine_name(&routine.name) {
                 continue;
             }
-            let base = routine_symbol_base(&routine.name);
+            let base = routine_symbol_base(&routine.name, &names);
             let name = allocate_mads_symbol(&base, &mut used_names);
             symbols
                 .code_references
@@ -403,10 +415,13 @@ impl MadsDisplaySymbols {
         storage.sort_by(|left, right| {
             left.address
                 .cmp(&right.address)
-                .then_with(|| storage_symbol_base(left).cmp(&storage_symbol_base(right)))
+                .then_with(|| {
+                    storage_symbol_base(left, &names)
+                        .cmp(&storage_symbol_base(right, &names))
+                })
         });
         for symbol in storage {
-            let base = storage_symbol_base(symbol);
+            let base = storage_symbol_base(symbol, &names);
             let name = allocate_mads_symbol(&base, &mut used_names);
             let routine = match &symbol.scope {
                 CodegenSymbolScope::Global => None,
@@ -498,7 +513,7 @@ impl MadsDisplaySymbols {
                 SyntheticTargetKind::Code => {
                     let scope = symbols
                         .routine_name_at(target)
-                        .map(routine_symbol_component)
+                        .map(|name| routine_symbol_component(name, &names))
                         .unwrap_or_else(|| "program".to_string());
                     let ordinal = scope_ordinals.entry(scope.clone()).or_default();
                     *ordinal += 1;
@@ -588,7 +603,7 @@ impl MadsDisplaySymbols {
             .filter(|(start, end, _)| instruction_address >= *start && instruction_address < *end)
             .find_map(|(_, _, routine)| {
                 self.routine_storage_references
-                    .get(&(routine.clone(), address))
+                    .get(&(routine.to_ascii_lowercase(), address))
             })
             .or_else(|| self.global_storage_references.get(&address))
             .map(String::as_str)
@@ -718,16 +733,18 @@ fn is_pseudo_routine_name(name: &str) -> bool {
     name.starts_with('<') && name.ends_with('>')
 }
 
-fn routine_symbol_base(name: &str) -> String {
-    format!("proc_{}", routine_symbol_component(name))
+fn routine_symbol_base(name: &str, names: &ListingNames) -> String {
+    format!("proc_{}", routine_symbol_component(name, names))
 }
 
-fn routine_symbol_component(name: &str) -> String {
-    runtime_symbol_component(name).unwrap_or_else(|| sanitize_mads_component(name))
+fn routine_symbol_component(name: &str, names: &ListingNames) -> String {
+    names
+        .component(name)
+        .unwrap_or_else(|| sanitize_mads_component(&names.display(name)))
 }
 
 fn runtime_symbol_component(name: &str) -> Option<String> {
-    let name = sanitize_mads_component(name);
+    let name = sanitize_mads_component(name).to_ascii_lowercase();
     for (prefix, short_prefix, has_semantic_hash) in [
         ("m_action_runtime_syslib_", "syslib_", true),
         ("m_action_runtime_resident_", "resident_", true),
@@ -748,16 +765,6 @@ fn runtime_symbol_component(name: &str) -> Option<String> {
     None
 }
 
-// Keep runtime spelling consistent with assembly labels without exposing
-// classic's projection hashes. Application source names retain their spelling.
-fn runtime_display_name(name: &str) -> String {
-    let Some(component) = runtime_symbol_component(name) else {
-        return name.to_string();
-    };
-    let (module, routine) = component.split_once('_').expect("runtime module prefix");
-    format!("ACTION.RUNTIME.{}::{routine}", module.to_ascii_uppercase())
-}
-
 fn strip_semantic_hash(name: &str) -> &str {
     let Some((stem, suffix)) = name.rsplit_once('_') else {
         return name;
@@ -769,23 +776,27 @@ fn strip_semantic_hash(name: &str) -> &str {
     }
 }
 
-fn storage_symbol_base(symbol: &crate::codegen::CodegenStorageSymbol) -> String {
+fn storage_symbol_base(
+    symbol: &crate::codegen::CodegenStorageSymbol,
+    names: &ListingNames,
+) -> String {
+    let display_name = names.storage_name(symbol);
     match &symbol.scope {
         CodegenSymbolScope::Global => {
-            if let Some(static_name) = symbol.name.strip_prefix("__nir_str_") {
+            if let Some(static_name) = display_name.strip_prefix("__nir_str_") {
                 format!("static_string_{}", sanitize_mads_component(static_name))
             } else {
-                let name = runtime_symbol_component(&symbol.name)
-                    .unwrap_or_else(|| sanitize_mads_component(&symbol.name));
+                let name = runtime_symbol_component(display_name)
+                    .unwrap_or_else(|| sanitize_mads_component(display_name));
                 format!("global_{name}")
             }
         }
         CodegenSymbolScope::Routine(routine) => {
-            let routine = routine_symbol_component(routine);
-            let display_name = strip_routine_lexical_prefix(&symbol.name, &routine);
+            let display_name = strip_routine_lexical_prefix(display_name, &names.display(routine));
+            let routine = routine_symbol_component(routine, names);
             let name = runtime_symbol_component(display_name)
                 .and_then(|name| {
-                    name.strip_prefix(&routine)
+                    name.strip_prefix(&routine.to_ascii_lowercase())
                         .and_then(|name| name.strip_prefix('_'))
                         .map(str::to_string)
                 })
@@ -803,11 +814,12 @@ fn storage_symbol_base(symbol: &crate::codegen::CodegenStorageSymbol) -> String 
 }
 
 fn strip_routine_lexical_prefix<'a>(name: &'a str, routine: &str) -> &'a str {
-    let Some((prefix, rest)) = name.split_once("::") else {
-        return name;
-    };
-    if prefix.eq_ignore_ascii_case(routine) {
-        rest
+    let prefix = format!("{}::", routine.replace('.', "::"));
+    if name
+        .get(..prefix.len())
+        .is_some_and(|head| head.eq_ignore_ascii_case(&prefix))
+    {
+        &name[prefix.len()..]
     } else {
         name
     }
@@ -818,7 +830,7 @@ fn sanitize_mads_component(value: &str) -> String {
     let mut previous_was_separator = false;
     for character in value.chars() {
         if character.is_ascii_alphanumeric() || character == '_' {
-            sanitized.push(character.to_ascii_lowercase());
+            sanitized.push(character);
             previous_was_separator = false;
         } else if !previous_was_separator {
             sanitized.push('_');
@@ -1123,6 +1135,7 @@ fn output_end_offset(output: &CodegenOutput, address: u16) -> Option<usize> {
 fn push_source_comment(
     query: &MapQuery<'_>,
     address: u16,
+    names: &ListingNames,
     last_source: &mut Option<(usize, usize, u16, u16)>,
     lines: &mut Vec<String>,
 ) {
@@ -1149,7 +1162,7 @@ fn push_source_comment(
             range
                 .name
                 .as_ref()
-                .map(|name| format!(" {name}"))
+                .map(|name| format!(" {}", names.display(name)))
                 .unwrap_or_default(),
             location.excerpt
         )));
@@ -1485,11 +1498,12 @@ fn format_assembly_line(
 }
 
 fn routine_address_labels(output: &CodegenOutput) -> BTreeMap<u16, String> {
+    let names = ListingNames::from_output(output);
     output
         .map
         .routine_addresses
         .iter()
-        .map(|routine| (routine.address, runtime_display_name(&routine.name)))
+        .map(|routine| (routine.address, names.display(&routine.name)))
         .collect()
 }
 
@@ -1519,6 +1533,7 @@ fn le_u16_from_slice(bytes: &[u8]) -> Option<u16> {
 }
 
 fn routine_boundary_comments(output: &CodegenOutput) -> BTreeMap<u16, Vec<String>> {
+    let names = ListingNames::from_output(output);
     let mut comments: BTreeMap<u16, Vec<String>> = BTreeMap::new();
     for routine in &output.map.routine_ranges {
         let entry = output
@@ -1531,14 +1546,14 @@ fn routine_boundary_comments(output: &CodegenOutput) -> BTreeMap<u16, Vec<String
             .entry(routine.start)
             .or_default()
             .push(format_routine_start_comment(
-                &runtime_display_name(&routine.name),
+                &names.display(&routine.name),
                 routine.start,
                 routine.end,
                 entry,
             ));
         comments.entry(routine.end).or_default().push(format!(
             "; ===== END PROC {} =====",
-            runtime_display_name(&routine.name)
+            names.display(&routine.name)
         ));
     }
     comments
@@ -1612,13 +1627,14 @@ mod tests {
 
     #[test]
     fn shortens_runtime_routine_and_storage_components() {
+        let names = ListingNames::default();
         assert_eq!(
-            routine_symbol_component("M_ACTION_RUNTIME_SYSLIB_REMI_7A64A35C"),
+            routine_symbol_component("M_ACTION_RUNTIME_SYSLIB_REMI_7A64A35C", &names),
             "syslib_remi"
         );
         assert_eq!(
-            routine_symbol_component("ACTION.RUNTIME.RESIDENT::PrintC"),
-            "resident_printc"
+            routine_symbol_component("ACTION.RUNTIME.RESIDENT::PrintC", &names),
+            "resident_PrintC"
         );
         assert_eq!(
             runtime_symbol_component("M_ACTION_RUNTIME_RESIDENT_PRINTC_N_27014C22"),

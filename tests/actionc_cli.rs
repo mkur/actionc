@@ -222,7 +222,7 @@ fn lexical_block_listings_use_readable_scope_paths() {
 
         let listing = fs::read_to_string(listing).expect("read lexical block listing");
         assert!(
-            listing.contains("local_main_block0_block1_value"),
+            listing.contains("local_Main_block0_block1_value"),
             "missing nested lexical path in {mode} listing:\n{listing}"
         );
         assert!(
@@ -822,22 +822,22 @@ fn standalone_source_listings_omit_library_source_annotations() {
         assert!(listing.contains("STA.Z $A0"), "{backend}: {listing}");
         assert!(!listing.contains("PUBLIC EXTERNAL PROC Poke"));
         assert!(
-            listing.contains("proc_syslib_sargs:"),
+            listing.contains("proc_syslib_SArgs:"),
             "{backend}: {listing}"
         );
         assert!(
-            listing.contains("proc_resident_print:"),
+            listing.contains("proc_resident_Print:"),
             "{backend}: {listing}"
         );
         assert!(!listing.contains("proc_m_action_runtime_"));
         assert!(!listing.contains("proc_action_runtime_"));
         assert!(
-            listing.contains("loc_resident_in_1"),
+            listing.contains("loc_resident_In_1"),
             "{backend}: {listing}"
         );
         assert!(!listing.contains("loc_m_action_runtime_"));
         assert!(!listing.contains("loc_action_runtime_"));
-        assert!(listing.contains("param_syslib_error_err"));
+        assert!(listing.contains("param_syslib_Error_err"));
         assert!(!listing.contains("param_m_action_runtime_"));
         assert!(!listing.contains("param_action_runtime_"));
         if backend == "classic" {

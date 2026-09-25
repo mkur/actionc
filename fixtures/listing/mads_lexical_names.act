@@ -1,0 +1,25 @@
+MODULE ScopedDemo
+BYTE OutputByte=$0600
+
+PROC MainLoop()
+  BYTE TempValue
+  ASM
+      lda outputbyte
+      sta tempvalue
+  ENDASM
+  BEGIN
+    BYTE TempValue
+    ASM
+        lda outputbyte
+        sta TEMPVALUE
+    ENDASM
+    BEGIN
+      BYTE TempValue
+      ASM
+          lda outputbyte
+          sta tempvalue
+      ENDASM
+    END
+  END
+RETURN
+ENDMODULE

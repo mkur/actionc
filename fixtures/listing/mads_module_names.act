@@ -1,0 +1,20 @@
+MODULE DrawDemo
+BYTE PlayerX=$0600,OutputByte=$0601
+
+CARD StepInput=$0603
+
+PROC DrawLine(BYTE StartX CARD StepSize BYTE Shade,Flags)
+  BYTE TempValue
+  ASM
+      lda startx
+      sta TEMPVALUE
+      beq done
+      sta outputbyte
+done:
+  ENDASM
+RETURN
+
+PROC MainLoop()
+  drawline(playerx,stepinput,playerx,playerx)
+RETURN
+ENDMODULE

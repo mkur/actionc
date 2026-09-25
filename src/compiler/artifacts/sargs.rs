@@ -24,7 +24,7 @@ pub(super) fn copyright_ranges(output: &CodegenOutput) -> Vec<StorageListingRang
             Some(StorageListingRange {
                 address: range.start.checked_add(u16::try_from(offset + 7).ok()?)?,
                 bytes: COPYRIGHT_BYTES.to_vec(),
-                name: "sargs copyright (Atari screen codes)".to_string(),
+                name: "SArgs copyright (Atari screen codes)".to_string(),
             })
         })
         .collect()
@@ -227,6 +227,7 @@ fn frame_parameters(
         .find(|signature| signature.name.eq_ignore_ascii_case(&owner.name))?;
     let base = le_u16_from_slice(&data.bytes)?;
     let count = u16::from(data.bytes[2]) + 1;
+    let names = ListingNames::from_output(output);
     let mut cursor = base;
     let mut params = Vec::new();
     for param in &signature.params {
@@ -244,7 +245,7 @@ fn frame_parameters(
         params.push(FrameParameter {
             address: cursor,
             width: param.width,
-            name: name.to_string(),
+            name: names.parameter_name(&owner.name, name).to_string(),
             // Array parameters carry an address, not an array element.
             type_name: if symbol.array.is_some() {
                 "WORD".to_string()

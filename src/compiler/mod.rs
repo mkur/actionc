@@ -345,7 +345,7 @@ pub(crate) fn compile_file_with_request_and_link_policy(
         ));
     }
 
-    let output = match request.backend {
+    let mut output = match request.backend {
         Backend::Classic => compile_classic(
             program,
             &semir,
@@ -367,6 +367,7 @@ pub(crate) fn compile_file_with_request_and_link_policy(
             &loaded.source_map,
         )?,
     };
+    artifacts::record_declaration_names(&mut output, &semir);
     let warnings = compile_warnings(&semir, &output);
     let object = format_load_file(&output);
 

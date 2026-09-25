@@ -243,7 +243,7 @@ for runtime in cart standalone; do
     "fixtures/listing/mads_storage_runtime.act" '$3000' '$41C7' ast "$runtime"
   run_reorigin_case "storage-runtime-mir6502-$runtime" "mir6502" "modern" "mir6502" \
     "fixtures/listing/mads_storage_runtime.act" '$3000' '$41C7' ast "$runtime"
-  for fixture in mads_sargs mads_sargs_override mads_runtime_summary; do
+  for fixture in mads_sargs mads_sargs_override mads_runtime_summary mads_user_names mads_module_names; do
     run_reorigin_case "$fixture-compatibility-$runtime" "compatibility" "legacy" "classic" \
       "fixtures/listing/$fixture.act" '$3000' '$41C7' ast "$runtime"
     run_reorigin_case "$fixture-optimized-$runtime" "optimized" "modern" "classic" \
@@ -251,6 +251,10 @@ for runtime in cart standalone; do
     run_reorigin_case "$fixture-mir6502-$runtime" "mir6502" "modern" "mir6502" \
       "fixtures/listing/$fixture.act" '$3000' '$41C7' ast "$runtime"
   done
+  run_reorigin_case "lexical-names-optimized-$runtime" "optimized" "modern" "classic" \
+    "fixtures/listing/mads_lexical_names.act" '$3000' '$41C7' ast "$runtime"
+  run_reorigin_case "lexical-names-mir6502-$runtime" "mir6502" "modern" "mir6502" \
+    "fixtures/listing/mads_lexical_names.act" '$3000' '$41C7' ast "$runtime"
 done
 
-echo "MADS listing oracle passed: 37 compiler cases, 140 assembled listings"
+echo "MADS listing oracle passed: 53 compiler cases, 204 assembled listings"

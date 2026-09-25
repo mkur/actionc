@@ -77,12 +77,19 @@ ranges describe one data region; an array's element width must not truncate its
 initializer coverage. Routine-end comments precede labels at the following
 storage boundary, including deferred storage at the end of the saved segment.
 
-Runtime routine names use lowercase spelling consistently in binding headers,
-assembly labels, call annotations and routine-boundary comments. Comments keep
-the runtime module qualifier (for example, `ACTION.RUNTIME.SYSLIB::multi`) and
-omit classic's internal projection hashes. Application routine comments retain
-their source spelling. These are presentation rules; map identities and emitted
-binary bytes are unchanged.
+Runtime routine names retain their declaration spelling consistently in binding
+headers, assembly labels, local-label scopes, call annotations and routine-boundary
+comments. For example, SYSLIB's `MultI` appears as `proc_syslib_MultI` and
+`ACTION.RUNTIME.SYSLIB::MultI`. Classic's runtime linker retains the spelling for
+every selected routine, including transitive dependencies, as display metadata;
+internal projection hashes are omitted from the listing. MIR and compiler-owned
+helpers retain their qualified routine names. User routines, globals, parameters
+and locals also use declaration spelling in labels and references, irrespective
+of the spelling at a use site: `proc_DrawLine`, `global_PlayerX`, and
+`param_DrawLine_StartX`. Module and lexical scopes remain part of display names.
+Source spelling is retained as display metadata even when classic storage keys
+are case-folded. Label collision detection and lookup/relocation identities
+remain case-insensitive, and emitted binary bytes are unchanged.
 
 An `Embedded runtime` header totals the emitted code and data for linked
 runtime providers and compiler-owned helpers, including their transitive

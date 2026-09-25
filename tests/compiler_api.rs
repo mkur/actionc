@@ -285,7 +285,7 @@ fn compiled_program_formats_a_mads_compatible_source_listing() {
     assert!(listing.contains("; ===== PROC Main"));
     assert!(listing.contains("JSR.A $A46C"));
     assert!(listing.contains("| PrintE(\"Hello, world!\")"));
-    assert!(listing.contains("ORG $02E2\n        DTA A(proc_main)"));
+    assert!(listing.contains("ORG $02E2\n        DTA A(proc_Main)"));
 }
 
 #[test]
@@ -373,7 +373,7 @@ fn linked_runtime_listing_does_not_borrow_application_source_lines() {
                 }),
                 "{mode:?}/{newline:?}: runtime borrowed application source locations\n{listing}"
             );
-            assert!(listing.contains("proc_main:"));
+            assert!(listing.contains("proc_Main:"));
         }
     }
 }
@@ -382,10 +382,10 @@ fn linked_runtime_listing_does_not_borrow_application_source_lines() {
 fn classic_listing_renders_arithmetic_helpers_as_code() {
     let temp = TestDir::new();
     for (types, names) in [
-        ("INT", ["divi", "remi"].as_slice()),
-        ("CARD", ["divu16", "remu16"].as_slice()),
-        ("LONGINT", ["div32", "mod32"].as_slice()),
-        ("LONGCARD", ["udiv32", "umod32"].as_slice()),
+        ("INT", ["DivI", "RemI"].as_slice()),
+        ("CARD", ["DivU16", "RemU16"].as_slice()),
+        ("LONGINT", ["Div32", "Mod32"].as_slice()),
+        ("LONGCARD", ["UDiv32", "UMod32"].as_slice()),
     ] {
         let path = write_source(
             &temp,
@@ -730,7 +730,7 @@ fn native_real_core_arithmetic_compiles_with_both_backends_and_runtimes() {
                 "expected FADD call for {mode:?}/{runtime}"
             );
             let listing = compiled.source_listing();
-            assert!(listing.contains("atari_fpp_fadd"));
+            assert!(listing.contains("ATARI_FPP_FADD"));
             assert!(listing.contains("Atari OS ROM"));
         }
     }
@@ -1020,12 +1020,12 @@ fn standalone_runtime_linking_preserves_the_last_application_proc_as_runad() {
 
         assert_eq!(compiled.run_address(), start_entry, "{mode:?}");
         assert_eq!(
-            listing.contains("proc_syslib_sargs:"),
+            listing.contains("proc_syslib_SArgs:"),
             mode == CompileMode::Compatibility,
             "{mode:?}: {listing}"
         );
         assert!(
-            listing.contains("ORG $02E2\n        DTA A(proc_start)"),
+            listing.contains("ORG $02E2\n        DTA A(proc_Start)"),
             "{mode:?}: {listing}"
         );
     }

@@ -771,16 +771,19 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                 &mir_config,
                 runtime,
             ) {
-                Ok(output) => emit_output(
-                    &output,
-                    &loaded.source,
-                    emit_load,
-                    emit_map,
-                    emit_proofs,
-                    emit_proof_attempts,
-                    emit_listing,
-                    emit_source_listing,
-                ),
+                Ok(mut output) => {
+                    crate::compiler::artifacts::record_declaration_names(&mut output, &semir);
+                    emit_output(
+                        &output,
+                        &loaded.source,
+                        emit_load,
+                        emit_map,
+                        emit_proofs,
+                        emit_proof_attempts,
+                        emit_listing,
+                        emit_source_listing,
+                    );
+                }
                 Err(diagnostics) => {
                     print_mir6502_diagnostics(diagnostics);
                     process::exit(1);
@@ -799,16 +802,19 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                 program_default_origin_from_semir(&semir, origin)
             };
             match generate_semir_standalone_profile_at_origin(&semir, standalone_origin, profile) {
-                Ok(output) => emit_output(
-                    &output,
-                    &loaded.source,
-                    emit_load,
-                    emit_map,
-                    emit_proofs,
-                    emit_proof_attempts,
-                    emit_listing,
-                    emit_source_listing,
-                ),
+                Ok(mut output) => {
+                    crate::compiler::artifacts::record_declaration_names(&mut output, &semir);
+                    emit_output(
+                        &output,
+                        &loaded.source,
+                        emit_load,
+                        emit_map,
+                        emit_proofs,
+                        emit_proof_attempts,
+                        emit_listing,
+                        emit_source_listing,
+                    );
+                }
                 Err(diagnostics) => {
                     print_diagnostics_with_source(
                         diagnostics,
@@ -829,16 +835,19 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                 generate_semir_profile_with_origin(&semir, origin, profile)
             };
             match result {
-                Ok(output) => emit_output(
-                    &output,
-                    &loaded.source,
-                    emit_load,
-                    emit_map,
-                    emit_proofs,
-                    emit_proof_attempts,
-                    emit_listing,
-                    emit_source_listing,
-                ),
+                Ok(mut output) => {
+                    crate::compiler::artifacts::record_declaration_names(&mut output, &semir);
+                    emit_output(
+                        &output,
+                        &loaded.source,
+                        emit_load,
+                        emit_map,
+                        emit_proofs,
+                        emit_proof_attempts,
+                        emit_listing,
+                        emit_source_listing,
+                    );
+                }
                 Err(diagnostics) => {
                     print_diagnostics_with_source(
                         diagnostics,
@@ -864,16 +873,19 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
             generate_profile_with_origin(program, origin, profile)
         };
         match result {
-            Ok(output) => emit_output(
-                &output,
-                &loaded.source,
-                emit_load,
-                emit_map,
-                emit_proofs,
-                emit_proof_attempts,
-                emit_listing,
-                emit_source_listing,
-            ),
+            Ok(mut output) => {
+                crate::compiler::artifacts::record_declaration_names(&mut output, &semir);
+                emit_output(
+                    &output,
+                    &loaded.source,
+                    emit_load,
+                    emit_map,
+                    emit_proofs,
+                    emit_proof_attempts,
+                    emit_listing,
+                    emit_source_listing,
+                );
+            }
             Err(diagnostics) => {
                 print_diagnostics_with_source(
                     diagnostics,
@@ -1872,6 +1884,8 @@ mod tests {
             map: CodegenMap {
                 runtime: crate::runtime::Runtime::ActionCart,
                 runtime_bindings: Vec::new(),
+                runtime_routine_names: Default::default(),
+                declaration_names: Default::default(),
                 origin,
                 run_address: origin,
                 skipped_ranges: Vec::new(),

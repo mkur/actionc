@@ -61,6 +61,10 @@ pub(crate) struct FinalizedEmission {
 pub struct CodegenMap {
     pub runtime: Runtime,
     pub runtime_bindings: Vec<CodegenRuntimeBinding>,
+    /// Original declaration spelling keyed by internal linked routine name.
+    /// Display metadata only; lookup and relocation identities are unchanged.
+    pub runtime_routine_names: BTreeMap<String, String>,
+    pub declaration_names: CodegenDeclarationNames,
     pub origin: u16,
     pub run_address: u16,
     pub skipped_ranges: Vec<SkippedRange>,
@@ -74,6 +78,15 @@ pub struct CodegenMap {
     pub optimizations: Vec<CodegenOptimization>,
     pub proofs: Vec<CodegenProof>,
     pub proof_attempts: Vec<CodegenProofAttempt>,
+}
+
+/// Source spelling for listing symbols, separate from case-insensitive identities.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CodegenDeclarationNames {
+    /// Routines and module-qualified symbols, keyed by case-folded link identity.
+    pub symbols: BTreeMap<String, String>,
+    /// Globals and routine storage, keyed by case-folded owner and identity.
+    pub storage: BTreeMap<(Option<String>, String), String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
