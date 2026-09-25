@@ -179,7 +179,9 @@ emission. After result-preserving caller cleanup, BYTE capture stores A's low
 byte, word capture stores A16, three-byte capture stores A16 plus X's low byte,
 and four-byte capture stores A16/X16. Captures write only their owned bytes,
 finish in A16 and introduce no DP staging or forwarding permission. Discarded
-results retain declared call effects but need no capture stores. Calls remain
+results retain declared call effects but need no capture stores or A preservation
+during outgoing-area cleanup. Used results retain the Y-based preservation of
+the complete A/X result. Calls remain
 barriers and all guards, allocations and ABI stack costs are unchanged. See the
 [native call measurements](benchmarks/65816-native-calls/README.md).
 

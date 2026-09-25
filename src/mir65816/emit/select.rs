@@ -2324,7 +2324,9 @@ impl Builder<'_> {
             self.code.native_indirect_transfer(plan)?; // RTL: enter callee with ordinary three-byte return frame
             self.code.mark(resume);
         }
-        self.release(outgoing, true);
+        // Discarded results retain the callee's declared ABI effects, but A
+        // need not survive caller cleanup when there is no capture.
+        self.release(outgoing, capture.is_some());
         assert_eq!(self.code.delta(), 0);
         if let Some((home, bytes)) = capture {
             self.capture_call_result(home, bytes)?;

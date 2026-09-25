@@ -1,0 +1,38 @@
+{
+  "baseline_compiler": "9bff177b",
+  "workload": "frozen Exec 622b139-dirty, optimized, 631 routines",
+  "compiler_code_before": 389725,
+  "compiler_code_after": 388095,
+  "saved": 1630,
+  "call_sites": 2045,
+  "calls_shortened": 813,
+  "call_span_savings": 1626,
+  "local_brl_to_bra": 4,
+  "other_span_savings": {
+    "Compare/1/false/Eq": 1,
+    "Compare/1/false/Ne": 2,
+    "Compare/2/false/Eq": 1
+  },
+  "smaller_routines": 291,
+  "larger_routines": 0,
+  "guards": 2676,
+  "guard_bytes": 72252,
+  "compiler_initialized_data_bytes": 951,
+  "same_mir_operations": true,
+  "same_public_abi_and_temporary_homes": true,
+  "frame_changes": [],
+  "guard_amount_changes": [],
+  "same_guard_sizes": true,
+  "added_bank_zero_reservation_bytes": 0,
+  "full_qualification_run": false,
+  "release_guard_disabled_build": false,
+  "frozen_input_files": 120,
+  "hashes": {
+    "target/exec-current-audit/frozen-inputs.json": "4bd36e0e631bef8a8e4f57dc37bb6f9cc078942288bf15c2ec3c4f11757d44c9",
+    "target/exec-current-audit/cyclic-pointer-copies.image.json": "ce10ecf1c4db59cf44fba8a0856fdc62971de854801ab4f0c7719de201291c3c",
+    "target/exec-current-audit/cyclic-pointer-copies.inventory.json": "b1d2c3c958dc28ca43d80bba009c7f8578565cd552db8ef6f7e202bd2f25bad3",
+    "target/exec-current-audit/call-cleanup.image.json": "975a6b510952543cf0e49ef11e07cd6c7b5582e82ec8836acc7f46d8fd238880",
+    "target/exec-current-audit/call-cleanup.inventory.json": "7a6ae61d5db3006f8a899ca797680d8967ea71a9ed501df96b691538bfba8009",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/call-results/measure.py": "cda6b5e0a39a9ba49f00b8ba267dc16bcc3d1ee030bb831e1edc6b05dc17944e"
+  }
+}

@@ -393,3 +393,72 @@ fn native_result_capture_uses_only_declared_lanes_and_exact_owned_bytes() {
         assert_eq!(&b.code.code().bytes[start..], expected);
     }
 }
+
+#[test]
+fn discarded_call_cleanup_omits_preservation_for_every_native_result_width() {
+    for ty in ["BYTE", "CARD", "ADDRESS", "LONGCARD"] {
+        let p = program_for(&format!(
+            "{ty} FUNC Echo({ty} x) RETURN(x) PROC Main() {ty} x x=Echo({ty}(1)) RETURN"
+        ));
+        let r = &p.routines[1];
+        let (target, args, result, plan) = r
+            .blocks
+            .iter()
+            .flat_map(|b| &b.ops)
+            .find_map(|op| {
+                if let Mir65816Op::Call {
+                    target,
+                    args,
+                    result,
+                    plan,
+                    ..
+                } = op
+                {
+                    Some((target, args, *result, plan))
+                } else {
+                    None
+                }
+            })
+            .unwrap();
+        for indirect in [false, true] {
+            let mut plan = plan.clone();
+            let target = if indirect {
+                plan.native.as_mut().unwrap().transfer = abi::FarTransfer::StackRtl;
+                Mir65816CallTarget::Indirect(Mir65816Value::U24(0x041000), ByteSize::new(3))
+            } else {
+                target.clone()
+            };
+            let mut used = builder(r);
+            used.call(&target, args, result, &plan).unwrap();
+            let mut discarded = builder(r);
+            discarded.call(&target, args, None, &plan).unwrap();
+            let outgoing = plan.outgoing_bytes.get() as u16;
+            let [lo, hi] = outgoing.to_le_bytes();
+            assert!(
+                discarded
+                    .code
+                    .code()
+                    .bytes
+                    .ends_with(&[0x3b, 0x18, 0x69, lo, hi, 0x1b])
+            );
+            let capture_bytes = match result.unwrap().1.get() {
+                1 => 6,
+                2 => 2,
+                3 => 9,
+                4 => 5,
+                _ => unreachable!(),
+            };
+            // The indirect resume label drops mode permission. A wide
+            // capture restates A16; discarded cleanup needs no such request.
+            let capture_bytes =
+                capture_bytes + usize::from(indirect && result.unwrap().1.get() > 1) * 2;
+            assert_eq!(
+                used.code.code().bytes.len() - discarded.code.code().bytes.len(),
+                capture_bytes + 2
+            );
+            assert_eq!(discarded.code.delta(), 0);
+            // The declaration is preserved even though no result is captured.
+            assert!(plan.result.is_some());
+        }
+    }
+}
