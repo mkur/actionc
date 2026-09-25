@@ -5,10 +5,16 @@ use super::*;
 #[path = "pointer_forwarding_tests.rs"]
 mod tests;
 
-/// An incoming home is never registered as a writable temporary allocation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SourceKind {
+    Parameter(ParamId),
+    FrameObject(Mir65816FrameObjectId),
+}
+
+/// A source home is never registered as a writable temporary allocation.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Source {
-    parameter: ParamId,
+    kind: SourceKind,
     home: Slot,
 }
 
@@ -93,9 +99,89 @@ fn incoming(
     abi::stack::access_displacement(ByteOffset::new(offset), ByteSize::new(3), ByteSize::ZERO)
         .map_err(|e| e.to_string())?;
     Ok(Some(Source {
-        parameter: id,
+        kind: SourceKind::Parameter(id),
         home: Slot {
             offset: offset as u16,
+            width: 3,
+        },
+    }))
+}
+
+fn local(routine: &Mir65816Routine, address: &Mir65816Address) -> Result<Option<Source>, String> {
+    let Mir65816AddressBase::AutomaticFrame(id) = address.base else {
+        return Ok(None);
+    };
+    if !canonical(address) {
+        return Ok(None);
+    }
+    let object = routine
+        .frame
+        .objects
+        .iter()
+        .find(|o| o.id == id)
+        .ok_or("unknown pointer source object")?;
+    if object.addressable
+        || object.size.get() != 3
+        || !matches!(object.owner, Mir65816FrameObjectOwner::Local(_))
+        || routine
+            .frame
+            .parameters
+            .iter()
+            .any(|p| p.frame_object == Some(id))
+    {
+        return Ok(None);
+    }
+    let refers = |a: &Mir65816Address| a.base == Mir65816AddressBase::AutomaticFrame(id);
+    if routine
+        .blocks
+        .iter()
+        .flat_map(|b| &b.ops)
+        .any(|op| match op {
+            Mir65816Op::Load {
+                address,
+                width,
+                volatile,
+                ..
+            }
+            | Mir65816Op::Store {
+                address,
+                width,
+                volatile,
+                ..
+            } => refers(address) && (*volatile || width.get() != 3 || !canonical(address)),
+            Mir65816Op::AddressOf { address, .. } => refers(address),
+            Mir65816Op::Copy {
+                source,
+                destination,
+                ..
+            } => refers(source) || refers(destination),
+            _ => false,
+        })
+    {
+        return Ok(None);
+    }
+    let offset = object.stack_offset;
+    let end = offset
+        .get()
+        .checked_add(2)
+        .ok_or("pointer source extent overflow")?;
+    if offset.get() == 0 || end > routine.frame.extent.get() {
+        return Err("pointer source exceeds automatic frame extent".into());
+    }
+    if routine.frame.objects.iter().any(|other| {
+        other.id != id
+            && u64::from(offset.get())
+                < u64::from(other.stack_offset.get()) + u64::from(other.size.get())
+            && u64::from(other.stack_offset.get()) <= u64::from(end)
+    }) {
+        return Err("pointer source overlaps another frame object".into());
+    }
+    abi::stack::access_displacement(offset, ByteSize::new(3), ByteSize::ZERO)
+        .map_err(|e| e.to_string())?;
+    Ok(Some(Source {
+        kind: SourceKind::FrameObject(id),
+        home: Slot {
+            offset: offset.get() as u16,
             width: 3,
         },
     }))
@@ -185,7 +271,11 @@ impl Plan {
                 if capture.width != 3 {
                     return Err("pointer capture width mismatch".into());
                 }
-                let Some(source) = incoming(routine, frame, address)? else {
+                let Some(source) = (match address.base {
+                    Mir65816AddressBase::Parameter(_) => incoming(routine, frame, address)?,
+                    Mir65816AddressBase::AutomaticFrame(_) => local(routine, address)?,
+                    _ => None,
+                }) else {
                     continue;
                 };
                 abi::stack::access_displacement(
@@ -194,8 +284,12 @@ impl Plan {
                     ByteSize::ZERO,
                 )
                 .map_err(|e| e.to_string())?;
-                if Location::Stack(*capture).overlaps(Location::Stack(source.home)) {
-                    return Err("pointer capture overlaps authoritative source".into());
+                if frame
+                    .temps
+                    .values()
+                    .any(|home| home.overlaps(Location::Stack(source.home)))
+                {
+                    return Err("temporary overlaps authoritative pointer source".into());
                 }
                 let mut uses = BTreeSet::new();
                 let mut covered = 0;
@@ -257,9 +351,10 @@ impl Plan {
         for binding in &self.bindings {
             if binding.definition.0 == block && binding.uses.contains(&index) {
                 debug_assert_eq!(
-                    b.frame
-                        .incoming_home(b.routine, binding.source.parameter)
-                        .unwrap(),
+                    match binding.source.kind {
+                        SourceKind::Parameter(id) => b.frame.incoming_home(b.routine, id).unwrap(),
+                        SourceKind::FrameObject(id) => b.object(id).unwrap(),
+                    },
                     u32::from(binding.source.home.offset)
                 );
                 b.borrowed.insert(binding.temp, binding.source);

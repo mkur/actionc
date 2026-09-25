@@ -57,3 +57,67 @@ fresh typed definitions, and executes two exact external reads with a harmless
 capture between them. Flat/two-placement o65 execution, LF/CRLF instrumentation,
 canaries and exhaustive consumer-window IRQ/NMI injection remain covered.
 Eight pointer/comparison tests pass in release. Full/final qualification was not run.
+
+## Slice 9: bounded local-frame sources
+
+Against `658b8cd2`, **663 local captures** disappear. Code shrinks
+**360,259 → 354,944 B**, saving **5,315 B**: 5,308 instruction bytes and seven
+branch bytes. Guard-subtracted compiler code is **282,692 B**. There are 210
+smaller routines and none larger; frames, peaks, guards, initialized data and
+all 120 frozen hashes remain unchanged.
+[Size and hashes](local/exec-summary.json), [routines](local/exec-routines.csv),
+[spans](local/exec-spans.csv).
+
+The 672-site / 5,376-byte model included nine parameter-owned frame copies in
+`TaskPolicy.SameName`, `IOSettledCall` and `ConsoleTakeArrival`. Those are
+intentionally excluded by the local-ownership rule. The 663 admitted local
+sites save eight transfer bytes each, plus four bytes of mode interactions.
+No ownership assumptions were widened to admit the remaining nine sites.
+
+Validation: seven focused binding tests cover local ownership, escapes, partial
+homes, overlap, bounds, source writes, calls, Copy and forged parameter metadata.
+The 22 emission tests, 11 o65 tests and unchanged boundary snapshot pass.
+Thirty-one focused native debug tests cover frame/pointer forwarding, pointer
+values/coalescing/edges, home analysis/definitions, state tracking and replay.
+Four focused tests pass in release, including the multi-use/preemption fixture
+for both parameter and local sources. These retain raw/optimized and LF/CRLF
+coverage, exact bank-crossing reads, canaries, flat/two-placement o65 execution,
+and IRQ/NMI injection with reentry. Full/final qualification was not run.
+
+## Completed phases and release estimate
+
+| Work | Measured saving |
+|---|---:|
+| Phase 1: call cleanup/results (previous commits) | 4,011 B |
+| Phase 2: direct argument pushes | 15,687 B |
+| Phase 3: bounded pointer bindings | 15,083 B |
+| **Phases 2–3 implemented here** | **30,770 B** |
+| **All three phases since `9bff177b`** | **34,781 B** |
+
+The complete plan's 34,819-byte model is within 38 bytes of the measured result.
+The differences are the explicitly retained width-mismatch calls, one pointer
+edge use, nine parameter-owned frame captures, and mode/branch interactions.
+Phase 3 removes 1,880 captures in total and retains the original reservations.
+
+The release estimate is now **293,299 bytes (286.4 KiB)**: 282,692 bytes of
+compiler code after subtracting guards, plus the carried-forward 8,300 bytes of
+package assembly and 2,307 bytes of initialized data. The compiler's 951 data
+bytes are already included in that data total. The gap to 256 KiB is
+**31,155 bytes (30.4 KiB)**. This remains guard-range subtraction from the frozen
+guarded build, not a separately linked guard-disabled release.
+
+The current image still has 2,229 private pointer captures occupying 18,712
+bytes, outside these admitted windows. Further removal needs separate lifetime
+or ownership proofs. The next bounded size opportunities, recounted against the
+new image, are:
+
+| Next work | Current footprint | Modeled saving |
+|---|---:|---:|
+| Shared epilogues: 1,488 tails in 383 routines | 13,164 B | 6,488 B |
+| Bounded BYTE-index access using Y: 124 sites | 7,937 B | 4,266 B |
+| Unsigned integer casts: 219 sites | 3,338 B | 924 B |
+
+Shared epilogues add a branch on redirected returns. BYTE-index selection
+retains the checked 16-bit offset bound and exact source accesses. These remain
+models; they are not implemented or credited to the release estimate.
+[Completed-plan summary](completed-plan-summary.json) records these totals.
