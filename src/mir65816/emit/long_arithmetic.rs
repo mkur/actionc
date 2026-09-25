@@ -28,7 +28,16 @@ impl Builder<'_> {
         left: &Mir65816Value,
         right: &Mir65816Value,
     ) -> Result<bool, String> {
-        if bytes != 4 || !matches!(operation, NirBinaryOp::Add | NirBinaryOp::Sub) {
+        if bytes != 4
+            || !matches!(
+                operation,
+                NirBinaryOp::Add
+                    | NirBinaryOp::Sub
+                    | NirBinaryOp::And
+                    | NirBinaryOp::Or
+                    | NirBinaryOp::Xor
+            )
+        {
             return Ok(false);
         }
         // Validate every complete extent, including transient S movement, before
@@ -54,32 +63,9 @@ impl Builder<'_> {
 
         self.code.barrier();
         self.code.a16();
-        let subtract = operation == NirBinaryOp::Sub;
         for upper in [false, true] {
             self.edge_load(left.word(upper));
-            if !upper {
-                self.code
-                    .op(if subtract { Implied::Sec } else { Implied::Clc });
-            }
-            match right.word(upper) {
-                WordOperand::Immediate(value) => self.code.word(
-                    if subtract {
-                        WordOp::SbcImm
-                    } else {
-                        WordOp::AdcImm
-                    },
-                    value,
-                ),
-                WordOperand::Stack(offset) => self.code.byte(
-                    if subtract {
-                        ByteOp::SbcStack
-                    } else {
-                        ByteOp::AdcStack
-                    },
-                    offset,
-                ),
-                WordOperand::DirectPage(_) => unreachable!("long operands are stack or immediate"),
-            }
+            self.word_binary_rhs(operation, right.word(upper), !upper);
             // STA and the next LDA preserve the low-word carry/borrow. The
             // final A contains only the high half, never a whole-temp identity.
             self.code

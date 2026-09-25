@@ -10,6 +10,9 @@ and Exec qualification remain off at the user's request.
 | --- | ---: | ---: |
 | Baseline `c4ea5514` | 403,239 B | — |
 | Pointer-copy coalescing | 399,225 B | 4,014 B |
+| Native 16/32-bit AND/OR/XOR | 397,368 B | 1,857 B |
+
+Total compiler-code reduction: **5,871 bytes (1.46%)**.
 
 Pointer coalescing eliminates the transfers at 497 three-byte cast sites. Total
 three-byte cast spans decrease from 6,474 to 2,182 bytes; surrounding mode/layout
@@ -35,6 +38,23 @@ only private stack temp offsets may move. Reserved bank-zero delta is zero.
 Assembly/packaging are not rebuilt, and this is not a guard-free release-size
 measurement.
 
-The planned second slice selects A16 AND/OR/XOR for captured 16/32-bit values, with one
+The second slice selects A16 AND/OR/XOR for captured 16/32-bit values, with one
 word operation per 16-bit lane. It retains full operand preflight, exact source
-captures and the existing fallback for unsupported homes.
+captures and the existing fallback for unsupported homes. The 69 relevant MIR
+spans shrink from 2,560 to 819 bytes, with surrounding mode/forwarding/layout
+changes giving the net 1,857-byte reduction. No homes or frame allocations change
+in this slice. See the [bitwise measurement](native-bitwise.json).
+
+Bitwise checks cover signed/unsigned 16/32-bit values, walking bits, boundary and
+seeded pairs, constants on both sides, mutable parameters and values across
+calls. Independent ca65 encodings and exact memory traces check complete private
+words with no DP staging; C/V and X/Y remain intact. Instruction-effect probes
+check every declared read/write and preserved register/flag bit, including both
+accumulator widths. Direct/replayed images and proof observations match.
+Relocation, volatile bank-crossing captures, LF/CRLF source inputs and IRQ/NMI
+restoration pass in focused runs. Existing word/long arithmetic and accumulator/
+frame-forwarding regressions also pass; nine disassembler tests pass.
+
+The emission snapshot changes only `wide_shift`'s raw/optimized 32-bit XOR
+sequence (30/32 bytes smaller) and its subsequent MIR span offsets. This is an
+intentional backend code-generation change, with no NIR contract/printer change.

@@ -201,7 +201,7 @@ fn long_arithmetic_fallbacks_and_bad_homes_leave_emitter_untouched() {
         (1, NirBinaryOp::Add),
         (2, NirBinaryOp::Sub),
         (3, NirBinaryOp::Add),
-        (4, NirBinaryOp::And),
+        (4, NirBinaryOp::Mul),
     ] {
         let mut b = builder(r);
         let before = format!("{:?}", b.code);
@@ -224,7 +224,13 @@ fn long_arithmetic_admits_identity_and_disjoint_homes_but_not_partial_overlap() 
     let Mir65816Value::Temp(b, _) = right else {
         panic!()
     };
-    for operation in [NirBinaryOp::Add, NirBinaryOp::Sub] {
+    for operation in [
+        NirBinaryOp::Add,
+        NirBinaryOp::Sub,
+        NirBinaryOp::And,
+        NirBinaryOp::Or,
+        NirBinaryOp::Xor,
+    ] {
         for (first, second, valid) in [
             (32, 40, true),
             (40, 32, true),
@@ -254,5 +260,64 @@ fn long_arithmetic_admits_identity_and_disjoint_homes_but_not_partial_overlap() 
                 assert_eq!(format!("{:?}", builder.code), before);
             }
         }
+    }
+}
+
+#[test]
+fn native_long_bitwise_reads_two_checked_words_without_carry_or_scratch() {
+    let p = program();
+    let r = &p.routines[0];
+    let (dest, left, right) = operands(r);
+    let Mir65816Value::Temp(a, _) = left else {
+        panic!()
+    };
+    let Mir65816Value::Temp(b, _) = right else {
+        panic!()
+    };
+    for (op, stack, imm) in [
+        (NirBinaryOp::And, 0x23, 0x29),
+        (NirBinaryOp::Or, 0x03, 0x09),
+        (NirBinaryOp::Xor, 0x43, 0x49),
+    ] {
+        for literal in [false, true] {
+            let mut s = builder(r);
+            for (id, offset) in [(a, 32), (b, 40), (dest, 48)] {
+                s.frame
+                    .temps
+                    .insert(id, Location::Stack(Slot { offset, width: 4 }));
+            }
+            let rhs = if literal {
+                Mir65816Value::U32(0x800100ff)
+            } else {
+                right.clone()
+            };
+            assert!(s.long_binary(dest, 4, op, &left, &rhs).unwrap());
+            let mut expected = vec![0xc2, 0x20];
+            for half in [0, 2] {
+                expected.extend([0xa3, 32 + half]);
+                if literal {
+                    expected.extend([
+                        imm,
+                        if half == 0 { 0xff } else { 1 },
+                        if half == 0 { 0 } else { 0x80 },
+                    ]);
+                } else {
+                    expected.extend([stack, 40 + half]);
+                }
+                expected.extend([0x83, 48 + half]);
+            }
+            assert_eq!(s.code.code().bytes, expected);
+        }
+        let mut s = builder(r);
+        s.frame.temps.insert(
+            b,
+            Location::Stack(Slot {
+                offset: 253,
+                width: 4,
+            }),
+        );
+        let before = format!("{:?}", s.code);
+        assert!(s.long_binary(dest, 4, op, &left, &right).is_err());
+        assert_eq!(before, format!("{:?}", s.code));
     }
 }

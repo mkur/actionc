@@ -548,7 +548,16 @@ impl Builder<'_> {
         left: &Mir65816Value,
         right: &Mir65816Value,
     ) -> Result<bool, String> {
-        if bytes != 2 || !matches!(operation, NirBinaryOp::Add | NirBinaryOp::Sub) {
+        if bytes != 2
+            || !matches!(
+                operation,
+                NirBinaryOp::Add
+                    | NirBinaryOp::Sub
+                    | NirBinaryOp::And
+                    | NirBinaryOp::Or
+                    | NirBinaryOp::Xor
+            )
+        {
             return Ok(false);
         }
         // Preflight every operand, including the last byte after any S movement,
@@ -579,38 +588,34 @@ impl Builder<'_> {
             }
         }
         self.load_checked_word(left, left_temp);
-        let subtract = operation == NirBinaryOp::Sub;
-        self.code
-            .op(if subtract { Implied::Sec } else { Implied::Clc }); // SEC / CLC
-        match right {
-            WordOperand::Immediate(value) => self.code.word(
-                if subtract {
-                    WordOp::SbcImm
-                } else {
-                    WordOp::AdcImm
-                },
-                value,
-            ),
-            WordOperand::DirectPage(offset) => self.code.byte(
-                if subtract {
-                    ByteOp::SbcDp
-                } else {
-                    ByteOp::AdcDp
-                },
-                offset,
-            ),
-            WordOperand::Stack(offset) => self.code.byte(
-                if subtract {
-                    ByteOp::SbcStack
-                } else {
-                    ByteOp::AdcStack
-                },
-                offset,
-            ),
-        }
+        self.word_binary_rhs(operation, right, true);
         self.code.store_word(destination); // Capture into the verified private home.
         self.remember_word(dest);
         Ok(true)
+    }
+    /// Both selectors preflight complete operands before choosing this typed
+    /// word ALU form. Only arithmetic initializes/propagates carry.
+    fn word_binary_rhs(&mut self, operation: NirBinaryOp, right: WordOperand, first: bool) {
+        let (immediate, stack, dp) = match operation {
+            NirBinaryOp::Add => (WordOp::AdcImm, ByteOp::AdcStack, ByteOp::AdcDp),
+            NirBinaryOp::Sub => (WordOp::SbcImm, ByteOp::SbcStack, ByteOp::SbcDp),
+            NirBinaryOp::And => (WordOp::AndImm, ByteOp::AndStack, ByteOp::AndDp),
+            NirBinaryOp::Or => (WordOp::OraImm, ByteOp::OraStack, ByteOp::OraDp),
+            NirBinaryOp::Xor => (WordOp::EorImm, ByteOp::EorStack, ByteOp::EorDp),
+            _ => unreachable!("checked native binary operation"),
+        };
+        if first {
+            match operation {
+                NirBinaryOp::Add => self.code.op(Implied::Clc),
+                NirBinaryOp::Sub => self.code.op(Implied::Sec),
+                _ => (),
+            }
+        }
+        match right {
+            WordOperand::Immediate(value) => self.code.word(immediate, value),
+            WordOperand::Stack(offset) => self.code.byte(stack, offset),
+            WordOperand::DirectPage(offset) => self.code.byte(dp, offset),
+        }
     }
     fn word_condition(
         &self,

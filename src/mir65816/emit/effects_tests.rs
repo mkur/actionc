@@ -104,6 +104,8 @@ fn memory_arithmetic_and_rmw_have_exact_carry_and_ordered_accesses() {
         }
         for op in [
             ByteOp::AndDp,
+            ByteOp::AndStack,
+            ByteOp::EorStack,
             ByteOp::OraDp,
             ByteOp::OraStack,
             ByteOp::EorDp,
@@ -111,7 +113,7 @@ fn memory_arithmetic_and_rmw_have_exact_carry_and_ordered_accesses() {
             let e = fx(Instruction::Byte(op, 8), width, Width::Word);
             assert_eq!((e.flag_reads, e.flag_writes), (0, NZ));
             assert_eq!(e.memory[0].access, Access::Read);
-            if op == ByteOp::OraStack {
+            if matches!(op, ByteOp::AndStack | ByteOp::OraStack | ByteOp::EorStack) {
                 assert_eq!(
                     e.memory[0].memory,
                     Memory::Stack {
@@ -177,6 +179,7 @@ fn immediate_forms_and_index_comparison_do_not_invent_memory_reads() {
         (WordOp::SbcImm, 0xffff, 0xffff, C, NZCV),
         (WordOp::CmpImm, 0xffff, 0, 0, NZ | C),
         (WordOp::AndImm, 0xffff, 0xffff, 0, NZ),
+        (WordOp::OraImm, 0xffff, 0xffff, 0, NZ),
         (WordOp::EorImm, 0xffff, 0xffff, 0, NZ),
     ] {
         let e = fx(Instruction::Word(op, 7), Width::Word, Width::Word);

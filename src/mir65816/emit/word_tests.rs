@@ -160,7 +160,7 @@ fn unsupported_operands_do_not_emit_a_prefix_or_change_mode_knowledge() {
     }
     let mut b = builder(r);
     assert!(
-        !b.word_binary(dest, 2, NirBinaryOp::Xor, &left, &left)
+        !b.word_binary(dest, 2, NirBinaryOp::Mul, &left, &left)
             .unwrap()
     );
     assert!(
@@ -596,4 +596,64 @@ fn native_return_diagnostics_and_procedure_teardown_remain_strict() {
         b.code.code().bytes,
         [0x3b, 0x18, 0x69, b.frame.extent as u8, 0, 0x1b, 0x6b]
     );
+}
+
+#[test]
+fn native_word_bitwise_uses_checked_stack_dp_and_immediate_forms() {
+    let p = program();
+    let r = &p.routines[0];
+    let (dest, left, right) = operands(r);
+    let Mir65816Value::Temp(a, _) = left else {
+        panic!()
+    };
+    let Mir65816Value::Temp(b, _) = right else {
+        panic!()
+    };
+    for (op, stack, dp, imm) in [
+        (NirBinaryOp::And, 0x23, 0x25, 0x29),
+        (NirBinaryOp::Or, 0x03, 0x05, 0x09),
+        (NirBinaryOp::Xor, 0x43, 0x45, 0x49),
+    ] {
+        for direct in [false, true] {
+            for literal in [false, true] {
+                let mut s = builder(r);
+                for (id, offset) in [(a, 32), (b, 36), (dest, 40)] {
+                    let slot = Slot { offset, width: 2 };
+                    s.frame.temps.insert(
+                        id,
+                        if direct {
+                            Location::DirectPage(slot)
+                        } else {
+                            Location::Stack(slot)
+                        },
+                    );
+                }
+                let rhs = if literal {
+                    Mir65816Value::U16(0x8001)
+                } else {
+                    right.clone()
+                };
+                assert!(s.word_binary(dest, 2, op, &left, &rhs).unwrap());
+                let mut expected = vec![0xc2, 0x20, if direct { 0xa5 } else { 0xa3 }, 32];
+                if literal {
+                    expected.extend([imm, 1, 0x80]);
+                } else {
+                    expected.extend([if direct { dp } else { stack }, 36]);
+                }
+                expected.extend([if direct { 0x85 } else { 0x83 }, 40]);
+                assert_eq!(s.code.code().bytes, expected);
+            }
+        }
+        let mut s = builder(r);
+        s.frame.temps.insert(
+            b,
+            Location::Stack(Slot {
+                offset: 255,
+                width: 2,
+            }),
+        );
+        let before = format!("{:?}", s.code);
+        assert!(s.word_binary(dest, 2, op, &left, &right).is_err());
+        assert_eq!(before, format!("{:?}", s.code));
+    }
 }

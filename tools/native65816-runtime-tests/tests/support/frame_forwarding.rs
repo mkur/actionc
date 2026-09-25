@@ -123,7 +123,7 @@ pub fn index(
                 let store = p.end - 2;
                 assert_eq!(&code[store..p.end], &[0x83, source]);
                 // Walk only consecutive word STA instructions back to a word
-                // LDA/ADC/SBC. Every intervening operation preserves A and N/Z.
+                // LDA or native arithmetic/logic. Every intervening operation preserves A and N/Z.
                 let mut producer = store;
                 loop {
                     assert_eq!(ins[&producer].1, false);
@@ -134,7 +134,23 @@ pub fn index(
                 }
                 assert!(matches!(
                     code[producer],
-                    0xa3 | 0xa5 | 0xaf | 0x69 | 0x63 | 0x65 | 0xe9 | 0xe3 | 0xe5
+                    0xa3 | 0xa5
+                        | 0xaf
+                        | 0x69
+                        | 0x63
+                        | 0x65
+                        | 0xe9
+                        | 0xe3
+                        | 0xe5
+                        | 0x23
+                        | 0x03
+                        | 0x43
+                        | 0x25
+                        | 0x05
+                        | 0x45
+                        | 0x29
+                        | 0x09
+                        | 0x49
                 ));
                 assert!(
                     !m.code

@@ -112,7 +112,7 @@ pub fn instructions(code: &[u8]) -> BTreeMap<usize, (usize, bool)> {
         let n = match op {
             0x18 | 0x38 | 0x1b | 0x3b | 0xaa | 0xa8 | 0x98 | 0x8a | 0xeb | 0x4b | 0x48 | 0x3a
             | 0x6b | 0xca | 0xe8 => 1,
-            0xa9 | 0x69 | 0xe9 | 0xc9 | 0x29 | 0x49 => {
+            0xa9 | 0x69 | 0xe9 | 0xc9 | 0x29 | 0x09 | 0x49 => {
                 if m8 {
                     2
                 } else {
@@ -123,7 +123,9 @@ pub fn instructions(code: &[u8]) -> BTreeMap<usize, (usize, bool)> {
             0xaf | 0x8f | 0x5c | 0x22 => 4,
             0xc2 | 0xe2 | 0xa6 | 0xa5 | 0x85 | 0x65 | 0xe5 | 0xc5 | 0x25 | 0x05 | 0x45 | 0x06
             | 0x26 | 0x46 | 0x66 | 0xa3 | 0x83 | 0x63 | 0xe3 | 0xc3 | 0xa7 | 0x87 | 0xb7 | 0x97
-            | 0x03 | 0x80 | 0x10 | 0x30 | 0x50 | 0x70 | 0x90 | 0xb0 | 0xd0 | 0xf0 => 2,
+            | 0x23 | 0x03 | 0x43 | 0x80 | 0x10 | 0x30 | 0x50 | 0x70 | 0x90 | 0xb0 | 0xd0 | 0xf0 => {
+                2
+            }
             _ => panic!("unknown instruction {op:02x} at {at}"),
         };
         assert!(at + n <= code.len());
@@ -182,7 +184,14 @@ pub fn index(
                         right,
                         ..
                     } if width.get() == 2
-                        && matches!(operation, NirBinaryOp::Add | NirBinaryOp::Sub)
+                        && matches!(
+                            operation,
+                            NirBinaryOp::Add
+                                | NirBinaryOp::Sub
+                                | NirBinaryOp::And
+                                | NirBinaryOp::Or
+                                | NirBinaryOp::Xor
+                        )
                         && word(left)
                         && word(right) =>
                     {
@@ -201,7 +210,14 @@ pub fn index(
                             right,
                             ..
                         } if width.get() == 2
-                            && matches!(operation, NirBinaryOp::Add | NirBinaryOp::Sub)
+                            && matches!(
+                                operation,
+                                NirBinaryOp::Add
+                                    | NirBinaryOp::Sub
+                                    | NirBinaryOp::And
+                                    | NirBinaryOp::Or
+                                    | NirBinaryOp::Xor
+                            )
                             && word(left)
                             && word(right) =>
                         {
@@ -283,7 +299,23 @@ pub fn index(
                 assert!(
                     matches!(
                         code[last],
-                        0xa3 | 0xa5 | 0xaf | 0x63 | 0x65 | 0x69 | 0xe3 | 0xe5 | 0xe9
+                        0xa3 | 0xa5
+                            | 0xaf
+                            | 0x63
+                            | 0x65
+                            | 0x69
+                            | 0xe3
+                            | 0xe5
+                            | 0xe9
+                            | 0x23
+                            | 0x03
+                            | 0x43
+                            | 0x25
+                            | 0x05
+                            | 0x45
+                            | 0x29
+                            | 0x09
+                            | 0x49
                     ),
                     "producer must establish full word and N/Z"
                 );
@@ -298,7 +330,10 @@ pub fn index(
                 let consumer = c.start + if loaded { 2 } else { 0 };
                 assert_eq!(ins[&consumer].1, false);
                 assert!(match kind {
-                    Kind::Arithmetic => matches!(code[consumer], 0x18 | 0x38),
+                    Kind::Arithmetic => matches!(
+                        code[consumer],
+                        0x18 | 0x38 | 0x23 | 0x03 | 0x43 | 0x25 | 0x05 | 0x45 | 0x29 | 0x09 | 0x49
+                    ),
                     Kind::Compare => matches!(code[consumer], 0xc3 | 0xc5 | 0xc9),
                     Kind::Store => matches!(code[consumer], 0x83 | 0x8f),
                     Kind::Return => matches!(code[consumer], 0xa8 | 0x6b),

@@ -864,7 +864,10 @@ impl TrackedEmitter65816 {
         }
         let rhs = if immediate {
             State65816::constant(value.into(), width)
-        } else if matches!(op, LdaStack | AdcStack | SbcStack | CmpStack | OraStack) {
+        } else if matches!(
+            op,
+            LdaStack | AdcStack | SbcStack | CmpStack | AndStack | OraStack | EorStack
+        ) {
             self.state.read_stack(value, width)
         } else if matches!(op, LdaDp | AdcDp | SbcDp | CmpDp) {
             self.state.read_dp(value, width)
@@ -885,7 +888,7 @@ impl TrackedEmitter65816 {
             AdcImm | AdcStack | AdcDp => self.state.arithmetic(rhs, false),
             SbcImm | SbcStack | SbcDp => self.state.arithmetic(rhs, true),
             CmpImm | CmpStack | CmpDp => self.state.compare(rhs),
-            AndDp | OraDp | OraStack | EorDp | EorImm => {
+            AndDp | AndStack | OraDp | OraStack | EorDp | EorStack | EorImm => {
                 let result = match (op, self.state.a, rhs) {
                     (EorImm, Value::Constant(a, w), Value::Constant(b, _)) => {
                         State65816::constant(a ^ b, w)
@@ -939,10 +942,14 @@ impl TrackedEmitter65816 {
             CpxImm => self
                 .state
                 .compare_value(self.state.x, rhs, self.state.env.index),
-            AndImm | EorImm => {
+            AndImm | OraImm | EorImm => {
                 let result = match self.state.a {
                     Value::Constant(a, Width::Word) => State65816::constant(
-                        if op == EorImm { a ^ value } else { a & value },
+                        match op {
+                            EorImm => a ^ value,
+                            OraImm => a | value,
+                            _ => a & value,
+                        },
                         Width::Word,
                     ),
                     _ => self.state.fresh(Width::Word),

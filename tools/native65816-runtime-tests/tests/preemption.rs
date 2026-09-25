@@ -2201,3 +2201,16 @@ fn pointer_coalescing_keeps_private_values_under_irq_nmi() {
         "pointer-coalescing",
     );
 }
+
+#[test]
+fn native_bitwise_preserves_word_and_long_values_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n","\n")
+        .replace("CARD FUNC Read(","CARD FUNC WordBits(CARD a,b) BYTE low low=BYTE(a) RETURN(((a&b)%(a XOR b)) XOR CARD(low))\nLONGCARD FUNC LongBits(LONGCARD a,b) BYTE low low=BYTE(a) RETURN(((a&b)%(a XOR b)) XOR LONGCARD(low))\nCARD FUNC Read(")
+        .replace("  work.done=1","  work.result==+WordBits($a55a,$0ff0)+CARD(LongBits($12345678,$8000a55a))-$a6a2\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["WORDBITS", "LONGBITS"], "native-bitwise");
+}

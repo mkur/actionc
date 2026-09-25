@@ -6,6 +6,8 @@
 //! operands. Parameter forwarding removes one raw-recursion LDA and remaps
 //! its later labels, fixups and spans. Scalar DP promotion changes admitted
 //! homes/operands and removes zero-frame teardown; guards remain present.
+//! Native bitwise selection replaces wide_shift's four bytewise XOR lanes with
+//! two A16 EORs; only those byte streams and their later MIR span offsets change.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]

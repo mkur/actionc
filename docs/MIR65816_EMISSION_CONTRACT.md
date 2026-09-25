@@ -545,6 +545,23 @@ frame homes. No DP allocation, scratch, X/Y use, pushes, helper call, frame/ABI
 change or additional external access is introduced. Original volatile and
 aliased captures remain separate and unchanged. Guard policy is unaffected.
 
+Two- and four-byte AND/OR/XOR use the same complete-operand preflight as native
+ADD/SUB, with one A16 operation and result store per word. Two-byte operands may
+also use already-admitted scalar DP homes; this does not expand DP allocation
+eligibility. Four-byte operands retain the stack/immediate restriction and
+whole-identity-or-disjoint geometry. Numeric widening, unsupported forms and
+malformed-home handling are unchanged. Signedness does not change the bitwise
+representation or result. No DP staging, carry setup, helper or extra source
+access is needed.
+
+Typed stack-relative AND/EOR and word-immediate ORA participate in tracked
+selection, effects and replay. Stack operand encoding remains one byte while
+its memory extent follows M. Logical operations read/write A and write N/Z,
+preserving C/V, X/Y and environment state. A four-byte result leaves only its
+high word in A/N/Z and never establishes a whole-long accumulator identity.
+External/volatile captures remain complete and in source order. See the
+[pointer/bitwise measurements](benchmarks/65816-pointer-bitwise/README.md).
+
 Nonvolatile two-, three- and four-byte constant stores use A16 word pairs,
 with an exact A8 tail for three-byte destinations. Numeric constants, numeric
 addresses and NULL are eligible; source-width masking preserves bytewise
