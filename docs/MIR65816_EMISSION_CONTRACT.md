@@ -1050,3 +1050,12 @@ only zero displacement; nonzero modular arithmetic needs an extent proof.
 Captured pointers, unsupported homes and indexed forms retain their existing
 selection. No pointed-to byte is read, and no fourth destination byte is touched.
 See the [address-selection plan](MIR65816_ADDRESS_SELECTION_PLAN.md).
+
+Before selection, a per-routine plan follows same-block AddressOf chains to
+allocated data identities. Constant stride-one indices and displacements fold
+only to interior object offsets, where every valid placement is nonwrapping.
+One-past, alias/absolute geometry, loads, calls and cross-block provenance keep
+their established paths. The plan counts every MIR operand occurrence, including
+terminators and edge arguments, before omitting a pure producer whose consumers
+all use symbolic replacements. Prepared MIR and frame allocation stay intact;
+omitted operations retain empty source spans and normal replay bookkeeping.

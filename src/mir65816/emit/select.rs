@@ -44,12 +44,12 @@ mod accumulator;
 mod addresses;
 #[path = "arithmetic.rs"]
 mod arithmetic;
-#[path = "long_arithmetic.rs"]
-mod long_arithmetic;
 #[path = "call_copies.rs"]
 mod call_copies;
 #[path = "constant_stores.rs"]
 mod constant_stores;
+#[path = "long_arithmetic.rs"]
+mod long_arithmetic;
 #[path = "parameter.rs"]
 mod parameter;
 #[path = "pointer_values.rs"]
@@ -259,8 +259,23 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
         true,
     )
 }
-pub(super) fn routine_with_replay(
+#[cfg(test)]
+fn routine_with_replay(
     routine: &Mir65816Routine,
+    _trace: bool,
+    #[cfg(feature = "native65816-state-proof")] replay: bool,
+) -> Result<MachineRoutine, String> {
+    routine_with_data(
+        routine,
+        &[],
+        _trace,
+        #[cfg(feature = "native65816-state-proof")]
+        replay,
+    )
+}
+pub(super) fn routine_with_data(
+    routine: &Mir65816Routine,
+    data: &[Mir65816Data],
     _trace: bool,
     #[cfg(feature = "native65816-state-proof")] replay: bool,
 ) -> Result<MachineRoutine, String> {
@@ -268,6 +283,7 @@ pub(super) fn routine_with_replay(
         return arithmetic::emit(routine, helper, _trace);
     }
     let frame = AllocatedFrame::new(routine)?;
+    let addresses = addresses::Plan::new(routine, &frame, data)?;
     let loop_x = loop_x::LoopXPlan::new(routine, &frame)?;
     let mut b = Builder {
         routine,
@@ -378,7 +394,8 @@ pub(super) fn routine_with_replay(
             for (op_index, op) in prefix.iter().enumerate() {
                 let start = b.code.code().bytes.len();
                 b.code.begin_source(block.id, op_index);
-                b.operation(op)
+                addresses
+                    .emit(&mut b, block.id, op_index, op)
                     .map_err(|e| format!("b{}: {e}", block.id.0))?;
                 b.code.span(block.id, op_index, start);
             }
@@ -391,7 +408,8 @@ pub(super) fn routine_with_replay(
                     .fused_span(block.id, prefix.len(), start, block.ops.len());
                 continue;
             }
-            b.operation(last)
+            addresses
+                .emit(&mut b, block.id, prefix.len(), last)
                 .map_err(|e| format!("b{}: {e}", block.id.0))?;
             b.code.span(block.id, prefix.len(), start);
         }

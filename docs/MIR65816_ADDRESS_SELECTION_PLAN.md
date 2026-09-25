@@ -1,6 +1,6 @@
 # Native 65816 constant addresses and BYTE indexing
 
-Status: slice 1 implemented and checked; slices 2–5 remain planned.
+Status: slices 1–2 implemented and checked; slices 3–5 remain planned.
 
 Implement five small compiler slices, committing each after its focused checks.
 The last implementation commit carries final qualification and measurements.
@@ -134,6 +134,13 @@ Check serialized o65 execution as well as fixed linking so split-byte addends
 and bank carries are tested through the real relocation path.
 
 ## Slice 2 — Fold constant address chains
+
+Implemented. Both commands save another 55 code/file bytes in both modes.
+The 81-byte baseline HELLO address chain now occupies 14 bytes, including its
+entry width change. Pure producers disappear only after complete operand-use
+accounting; allocated homes remain unchanged. One-past folding is conservatively
+deferred because an object may end at `$1000000`; a relocated execution at that
+placement confirms the fallback wraps to zero instead of failing at link time.
 
 Commit intent: `65816: fold local symbol and constant-index address chains`.
 

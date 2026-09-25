@@ -62,3 +62,50 @@ fn symbolic_addresses_use_exact_direct_fixups_without_pointer_scratch() {
         .unwrap();
     }
 }
+
+#[test]
+fn constant_address_chains_fold_only_interior_offsets_and_keep_frames() {
+    for optimize in [false, true] {
+        for offset in [0, 1, 255, 256, 299, 300, 65535] {
+            let p = mir(
+                &format!(
+                    "BYTE ARRAY bytes(300) ADDRESS result PROC Main() result=ADDRESS(@bytes({offset})) RETURN"
+                ),
+                optimize,
+            );
+            let machine = emit::materialize(&p).unwrap();
+            let r = p.routines.iter().find(|r| r.name == "Main").unwrap();
+            let m = machine.routines.iter().find(|m| m.id == r.id).unwrap();
+            m.frame.verify_stack(r).unwrap();
+            assert_eq!(m.frame.temps.len(), r.temps.len());
+            assert_eq!(machine.prepared, p);
+            let sites: Vec<_> = r
+                .blocks
+                .iter()
+                .flat_map(|b| {
+                    b.ops.iter().enumerate().filter_map(move |(i, op)| {
+                        matches!(op, Mir65816Op::AddressOf { .. }).then_some((b.id, i))
+                    })
+                })
+                .collect();
+            assert_eq!(sites.len(), 2);
+            let producer = &m.code.mir_spans[&sites[0]];
+            let consumer = &m.code.mir_spans[&sites[1]];
+            if offset < 300 {
+                assert!(producer.is_empty());
+                assert!(consumer.len() <= 14);
+                let refs: Vec<_> = m
+                    .code
+                    .fixups
+                    .iter()
+                    .filter(|f| consumer.contains(&f.offset))
+                    .collect();
+                assert_eq!(refs.len(), 3);
+                assert!(refs.iter().all(|f| f.addend == offset));
+            } else {
+                assert!(!producer.is_empty());
+                assert!(consumer.len() > 14);
+            }
+        }
+    }
+}

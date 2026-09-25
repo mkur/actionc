@@ -56,6 +56,7 @@ mod branch_use_tests;
 #[derive(Default)]
 struct Uses {
     inputs: Live,
+    occurrences: Vec<TempId>,
     output: Option<TempId>,
 }
 
@@ -63,6 +64,7 @@ impl Uses {
     fn value(&mut self, value: &Mir65816Value) {
         if let Mir65816Value::Temp(id, _) = value {
             self.inputs.insert(*id);
+            self.occurrences.push(*id);
         }
     }
 
@@ -139,6 +141,49 @@ impl Uses {
         }
         uses
     }
+}
+
+/// Every operand occurrence, including repeated address/value operands. Shared
+/// with address selection so new MIR operations cannot hide a live producer.
+pub(super) fn input_counts(routine: &Mir65816Routine) -> BTreeMap<TempId, usize> {
+    let mut all = Vec::new();
+    for block in &routine.blocks {
+        for op in &block.ops {
+            all.extend(Uses::operation(op).occurrences);
+        }
+        let mut term = Uses::default();
+        let edges = match &block.terminator {
+            Mir65816Terminator::Goto(edge) => vec![edge],
+            Mir65816Terminator::Branch {
+                condition,
+                then_edge,
+                else_edge,
+            } => {
+                term.value(condition);
+                vec![then_edge, else_edge]
+            }
+            Mir65816Terminator::Return { value, .. } => {
+                if let Some(value) = value {
+                    term.value(value);
+                }
+                vec![]
+            }
+            Mir65816Terminator::Fallthrough
+            | Mir65816Terminator::Exit
+            | Mir65816Terminator::ArithmeticFault => vec![],
+        };
+        for edge in edges {
+            for value in &edge.args {
+                term.value(value);
+            }
+        }
+        all.extend(term.occurrences);
+    }
+    let mut counts = BTreeMap::new();
+    for id in all {
+        *counts.entry(id).or_default() += 1;
+    }
+    counts
 }
 
 struct Block {

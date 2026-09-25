@@ -86,8 +86,9 @@ fn materialize_path(
             ));
         }
         routines.push(
-            select::routine_with_replay(
+            select::routine_with_data(
                 routine,
+                &program.data,
                 trace,
                 #[cfg(feature = "native65816-state-proof")]
                 replay,

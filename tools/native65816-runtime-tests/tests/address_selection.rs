@@ -43,3 +43,33 @@ fn symbolic_addresses_preserve_all_lanes_in_fixed_and_relocated_images() {
         }
     }
 }
+
+#[test]
+fn constant_address_chains_relocate_with_bank_carry_and_one_past_fallback() {
+    for offset in [0, 1, 255, 256, 299, 300, 65535] {
+        let source = format!(
+            "BYTE ARRAY bytes(300) ADDRESS result=$7100 PROC Main() result=ADDRESS(@bytes({offset})) RETURN"
+        );
+        for optimize in [false, true] {
+            let bytes = o65::compile(&source, optimize, vec![]);
+            for variant in 0..3 {
+                let mut placement = o65::placement(&bytes, variant, vec![o65::fault(variant)]);
+                if variant == 2 {
+                    placement.bases[2] = 0x1000000 - 300;
+                }
+                let image = format::relocate(&bytes, &placement).unwrap();
+                for mask in [0, 4] {
+                    let mut h = Harness::new_o65(&image, &caller(image.entry()), mask);
+                    h.bus.ram[0x70ff..0x7104].fill(0xa5);
+                    h.run();
+                    h.guards(mask);
+                    assert_eq!(
+                        h.bus.value(0x7100, 3),
+                        (o65::object(&image, "bytes") + offset) & 0xffffff
+                    );
+                    assert_eq!((h.bus.ram[0x70ff], h.bus.ram[0x7103]), (0xa5, 0xa5));
+                }
+            }
+        }
+    }
+}
