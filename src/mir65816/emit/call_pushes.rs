@@ -13,6 +13,7 @@ struct Cell {
 
 struct Chunk {
     source: Source,
+    argument: Option<usize>,
     byte: u8,
     width: u8,
 }
@@ -66,15 +67,20 @@ fn store_cost(arguments: &[Argument], padding: &[u8]) -> usize {
 impl Plan {
     pub(in crate::mir65816::emit::select) fn new(
         arguments: &[Argument],
+        values: &[Mir65816Value],
         padding: &[u8],
         outgoing: u16,
     ) -> Option<Self> {
-        // Exact scalar captures and numeric constants. The
-        // existing complete reservation strategy handles all other calls.
-        if arguments
-            .iter()
-            .any(|arg| matches!(arg.source, Source::Bytes))
-        {
+        // Relocatable operands retain their existing BYTE selectors. Width
+        // extension and unsupported sources keep the complete store fallback.
+        if arguments.iter().enumerate().any(|(i, arg)| {
+            matches!(arg.source, Source::Bytes)
+                && !matches!(values.get(i), Some(
+                    Mir65816Value::StaticAddress(_, w)
+                    | Mir65816Value::GlobalAddress(_, w)
+                    | Mir65816Value::RoutineAddress(_, w)
+                ) if w.get() == u32::from(arg.bytes))
+        }) {
             return None;
         }
         let extent = usize::from(outgoing);
@@ -109,7 +115,8 @@ impl Plan {
                     let low = cells[remaining - width];
                     let high = cells[remaining - 1];
                     if width == 2
-                        && (low.argument != high.argument
+                        && (matches!(source(low), Source::Bytes)
+                            || low.argument != high.argument
                             || low.argument.is_some() && low.byte + 1 != high.byte)
                     {
                         continue;
@@ -142,6 +149,7 @@ impl Plan {
             let cell = cells[remaining - width];
             chunks.push(Chunk {
                 source: source(cell),
+                argument: cell.argument,
                 byte: cell.byte,
                 width: width as u8,
             });
@@ -154,6 +162,7 @@ impl Plan {
     pub(in crate::mir65816::emit::select) fn emit(
         &self,
         b: &mut Builder<'_>,
+        values: &[Mir65816Value],
     ) -> Result<(), String> {
         let start = b.code.position();
         for chunk in &self.chunks {
@@ -170,7 +179,7 @@ impl Plan {
                     .code
                     .byte(ByteOp::LdaImm, (value >> (8 * chunk.byte)) as u8),
                 Source::Home(memory) => b.load_memory(memory, chunk.byte.into())?,
-                Source::Bytes => unreachable!("unsupported push operand"),
+                Source::Bytes => b.value_byte(&values[chunk.argument.unwrap()], chunk.byte)?,
             }
             b.code.instruction(Instruction::ArgumentPush)?;
         }

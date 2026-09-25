@@ -148,8 +148,10 @@ probe calls retain all register/flag inputs and unknown memory effects.
 
 Call construction checks the complete outgoing and transfer reservation before
 changing S, then defines every argument byte and zeroes alignment/tail padding.
-Direct calls with exact-width captured/numeric one-to-four-byte operands can construct
-the complete area downward using native PHA chunks. A complete-call width plan
+Direct calls with exact-width captured/numeric one-to-four-byte operands and
+exact-width symbolic byte-fixup operands can construct the complete area
+downward using native PHA chunks. Symbolic bytes retain their target, addend
+and byte selector; adjacent symbolic bytes are never combined into a word. A complete-call width plan
 includes padding, post-guard width permission and final A16 restoration; it must
 beat reservation/stores in encoded bytes. Every source byte is checked before
 emission at the conservative full outgoing delta, which also bounds each

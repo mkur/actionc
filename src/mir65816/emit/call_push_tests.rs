@@ -31,7 +31,7 @@ fn pushes_place_each_payload_and_padding_byte_once_at_dynamic_stack_offsets() {
             expected.push(0);
         }
         select_widths(&mut arguments, (!padding.is_empty()).then_some(false), true);
-        let plan = Plan::new(&arguments, &padding, expected.len() as u16).unwrap();
+        let plan = Plan::new(&arguments, &[], &padding, expected.len() as u16).unwrap();
         let p = super::super::tests::program();
         let mut b = super::super::tests::builder(&p.routines[1]);
         // Emission begins without width permission, just as after a guard join.
@@ -39,7 +39,7 @@ fn pushes_place_each_payload_and_padding_byte_once_at_dynamic_stack_offsets() {
         let label = b.code.label();
         b.code.mark(label);
         let start = b.code.position();
-        plan.emit(&mut b).unwrap();
+        plan.emit(&mut b, &[]).unwrap();
         let code = &b.code.code().bytes[start..];
         let (mut at, mut word, mut a, mut s) = (0, false, 0u16, 200usize);
         let mut stack = [0xa5u8; 512];
@@ -101,7 +101,7 @@ fn unsupported_push_plans_keep_complete_store_construction() {
             displacement: 1,
             copy: ArgumentCopy::Bytes,
         };
-        assert!(Plan::new(&[arg], &[], 5).is_none());
+        assert!(Plan::new(&[arg], &[], &[], 5).is_none());
     }
     let p = super::super::tests::program();
     let mut b = super::super::tests::builder(&p.routines[1]);
@@ -110,4 +110,44 @@ fn unsupported_push_plans_keep_complete_store_construction() {
     let before = format!("{:?}", b.code);
     assert!(b.code.instruction(Instruction::ArgumentPush).is_err());
     assert_eq!(format!("{:?}", b.code), before);
+}
+
+#[test]
+fn symbolic_pushes_keep_individual_byte_fixup_identity_and_order() {
+    let values = [
+        Mir65816Value::GlobalAddress(crate::nir::SymbolId(7), ByteSize::new(3)),
+        Mir65816Value::StaticAddress(crate::nir::SymbolId(9), ByteSize::new(3)),
+        Mir65816Value::RoutineAddress(0, ByteSize::new(3)),
+    ];
+    let arguments: Vec<_> = (0..3)
+        .map(|i| Argument {
+            source: Source::Bytes,
+            bytes: 3,
+            displacement: 1 + 3 * i,
+            copy: ArgumentCopy::Bytes,
+        })
+        .collect();
+    let plan = Plan::new(&arguments, &values, &[], 9).unwrap();
+    let p = super::super::tests::program();
+    let mut b = super::super::tests::builder(&p.routines[1]);
+    b.code.barrier();
+    let label = b.code.label();
+    b.code.mark(label);
+    plan.emit(&mut b, &values).unwrap();
+    let fixups = &b.code.code().fixups;
+    assert_eq!(fixups.len(), 9);
+    for (i, f) in fixups.iter().enumerate() {
+        let target = match i / 3 {
+            0 => Target::Routine(RoutineId(0)),
+            1 => Target::Data(Mir65816DataId::Static(crate::nir::SymbolId(9))),
+            _ => Target::Data(Mir65816DataId::Global(crate::nir::SymbolId(7))),
+        };
+        assert_eq!(
+            (f.target, f.addend, f.byte),
+            (target, 0, Some((2 - i % 3) as u8))
+        );
+        assert_eq!(b.code.code().bytes[f.offset - 1], 0xa9);
+        assert_eq!(b.code.code().bytes[f.offset + 1], 0x48);
+    }
+    assert_eq!(b.code.delta(), 9);
 }

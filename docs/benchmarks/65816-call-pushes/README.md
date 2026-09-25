@@ -71,3 +71,28 @@ reached instruction, both task domains, both I states and both frontend modes.
 The independent callee observes exact pointer writes and padding, including
 bank-boundary source canaries and maximum outgoing displacement. Full/final
 qualification was not run.
+
+## Slice 6: symbolic byte relocations
+
+Exact-width static/global/routine addresses now use their existing LDA byte
+fixups in complete push plans. Symbols are never packed into word relocations.
+Symbol-plus-offset producers keep their checked addends and push the captured
+three-byte value through slice 5's path. Width mismatches still fall back.
+
+This slice changes **zero bytes** in frozen Exec: its symbolic call operands
+were already captured before the call. Code remains **370,027 B**, with unchanged
+frames, guards, data and all 120 input hashes. [Evidence](symbolic/exec-summary.json).
+Phase 2 in total selects **2,040 of 2,045 calls** and saves **15,687 B**: 15,633
+in call spans and 54 from branch relaxation. The 15,695-byte call-only model
+exceeded the measured call saving by 62 bytes: four direct calls have U24 numeric
+operands in word ABI slots and intentionally retain the mismatch fallback.
+The fifth unchanged call is indirect. No profitability fallback remains in
+this workload among the admitted exact-width direct calls.
+
+Validation: 15 emitter call tests, 11 o65 integration tests and the unchanged
+boundary snapshot pass. Sixteen focused native debug tests cover argument
+pushes/padding, address selection and replay; both argument-push tests pass in
+release. Tests inspect all nine byte selectors/targets of a three-symbol plan,
+execute static-string and symbol-plus-offset calls at two rebased o65 placements,
+and preserve bank carry, neighboring canaries and exact widths. Full/final
+qualification was not run.

@@ -132,3 +132,33 @@ fn incremental_argument_pushes_survive_irq_and_nmi_at_each_instruction() {
         }
     }
 }
+
+#[test]
+fn symbolic_arguments_keep_relocations_and_bank_carry_at_two_placements() {
+    let source = r#"BYTE ARRAY bytes(300) ADDRESS result=$7100 BYTE letter=$7103 ADDRESS FUNC Echo(ADDRESS p BYTE b LONGCARD n) RETURN(p) BYTE FUNC First(BYTE POINTER p) RETURN(p^) PROC Main() result=Echo(ADDRESS(@bytes(255)),7,LONGCARD($89abcdef)) letter=First("abc") RETURN"#;
+    for optimize in [false, true] {
+        let p = prepare(source, optimize);
+        let bytes = p.compile_o65(&Default::default()).unwrap().bytes;
+        assert_eq!(
+            bytes,
+            prepare(&source.replace('\n', "\r\n"), optimize)
+                .compile_o65(&Default::default())
+                .unwrap()
+                .bytes
+        );
+        for variant in 0..2 {
+            let mut placement = o65::placement(&bytes, variant, vec![o65::fault(variant)]);
+            placement.bases[2] = if variant == 0 { 0x12ff80 } else { 0xabff80 };
+            let image = actionc::mir65816::o65::relocate(&bytes, &placement).unwrap();
+            for mask in [0, 4] {
+                let mut h = Harness::new_o65(&image, &caller(image.entry()), mask);
+                h.bus.ram[0x70ff..0x7105].fill(0xa5);
+                h.run();
+                h.guards(mask);
+                assert_eq!(h.bus.value(0x7100, 3), o65::object(&image, "bytes") + 255);
+                assert_eq!(h.bus.ram[0x7103], 3); // Action! counted string.
+                assert_eq!((h.bus.ram[0x70ff], h.bus.ram[0x7104]), (0xa5, 0xa5));
+            }
+        }
+    }
+}

@@ -2309,7 +2309,7 @@ impl Builder<'_> {
         )?;
         let pushes = direct
             .is_some()
-            .then(|| call_copies::pushes::Plan::new(&arguments, &padding, outgoing))
+            .then(|| call_copies::pushes::Plan::new(&arguments, args, &padding, outgoing))
             .flatten();
         self.code.barrier();
         self.code.a16();
@@ -2319,7 +2319,7 @@ impl Builder<'_> {
                 .ok_or("call stack overflow")?,
         );
         if let Some(pushes) = pushes {
-            pushes.emit(self)?;
+            pushes.emit(self, args)?;
         } else {
             self.reserve(outgoing);
             if !padding.is_empty() {
