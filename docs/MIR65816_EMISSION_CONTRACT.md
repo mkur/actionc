@@ -636,8 +636,8 @@ loads zero without changing carry, and uses ADC-zero to obtain canonical 0/1;
 nonnegative tests invert that bit. A sole-use branch consumes the top byte's N
 through BMI/BPL, restoring A16 without changing N before edge dispatch.
 The full external capture remains, including volatile reads and reads around
-calls. Other signed four-byte ordering, including constant-widening temps,
-retains fallback.
+calls. A retained constant-widening temp uses general ordering instead of this
+sign-only specialization.
 See the [ordering plan](MIR65816_LONG_ORDERING_PLAN.md).
 
 Unsigned four-byte ordering compares captured high words in A16, then low words
@@ -647,8 +647,16 @@ branches. Both complete operands and the BYTE result home use the same preflight
 as sign tests. No external capture is shortened or reordered, and no scratch,
 frame or DP allocation is added.
 
+Other signed four-byte ordering subtracts the low words with SEC/SBC, then
+loads the left high word without changing carry and subtracts the right high
+word with the propagated borrow. BVC/EOR-$8000 corrects the final high-word N
+for signed overflow. BMI/BPL makes the normalized `<`/`>=` decision; `>`/`<=`
+swap captured operands first. This includes signed `<= 0` and `> 0`, which need
+both halves. The same full preflight, canonical BYTE outcomes and branch-use
+proof apply. No subtraction result is stored and no extra scratch is reserved.
+
 A final eligible byte, word, pointer or long Compare followed immediately by
-Branch may consume C/Z flags (or corrected N for signed words) directly when a
+Branch may consume C/Z flags (or corrected N for signed words/longs) directly when a
 routine-wide use proof establishes exactly one use: that Branch condition.
 Other block conditions, edge arguments, returns and all
 operation inputs (including addresses and indirect calls) disqualify fusion.

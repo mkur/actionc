@@ -1,13 +1,15 @@
 # Native 32-bit ordering
 
-Status: slices 1–2 implemented and checked. Slice 3 planned.
+Status: all three slices implemented and focused checks passed. Final backend
+and Exec qualification remains intentionally unrun.
 
 Implement and commit three MIR65816 selector slices:
 
 1. Captured LONGINT sign tests: `x<0`, `x>=0` and reversed equivalents.
    Validate the complete four-byte source, then inspect its private top byte.
    Materialized results are canonical BYTE 0/1; sole-use branch conditions use
-   N directly. `x<=0` and `x>0` also need a zero decision and retain fallback.
+   N directly. `x<=0` and `x>0` also need a zero decision and are handled
+   by the general signed ordering in slice 3.
 2. Unsigned LONGCARD ordering: compare high words first, and low words only
    when the high words match. Normalize `>`/`<=` by swapping captured operands.
    Share one preflight between materialized results and branch-only conditions.
@@ -19,8 +21,8 @@ All slices accept complete private stack temps/authoritative parameter homes and
 U32 constants. Preflight both inputs and the BYTE result home before emission.
 Unsupported geometry keeps the existing path; malformed homes remain errors.
 Raw lowering may retain an explicit widening temp instead of a U32 zero, in
-which case slice 1 keeps its ordinary comparison. Later general ordering can
-consume those captured operands without constant propagation.
+which case general ordering consumes those captured operands without constant
+propagation.
 
 Keep every external source capture, volatile access, source evaluation order,
 call barrier, frame allocation, DP reservation, ABI and guard policy intact.

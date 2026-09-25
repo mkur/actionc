@@ -2,9 +2,10 @@
 use super::*;
 
 impl Builder<'_> {
-    pub(super) fn long_unsigned_condition(
+    pub(super) fn long_order_condition(
         &self,
         dest: TempId,
+        signed: bool,
         operation: NirCompareOp,
         left: &Mir65816Value,
         right: &Mir65816Value,
@@ -14,24 +15,27 @@ impl Builder<'_> {
         else {
             return Ok(None);
         };
-        let predicate = match operation {
-            NirCompareOp::Lt => Branch::CarryClear,
-            NirCompareOp::Ge => Branch::CarrySet,
+        let less = match operation {
+            NirCompareOp::Lt => true,
+            NirCompareOp::Ge => false,
             NirCompareOp::Gt | NirCompareOp::Le => {
                 std::mem::swap(&mut left, &mut right);
-                if operation == NirCompareOp::Gt {
-                    Branch::CarryClear
-                } else {
-                    Branch::CarrySet
-                }
+                operation == NirCompareOp::Gt
             }
             _ => return Ok(None),
+        };
+        let predicate = match (signed, less) {
+            (false, true) => Branch::CarryClear,
+            (false, false) => Branch::CarrySet,
+            (true, true) => Branch::Minus,
+            (true, false) => Branch::Plus,
         };
         Ok(Some(LongOrderCondition {
             left,
             right,
             destination,
             predicate,
+            signed,
         }))
     }
 
@@ -44,17 +48,39 @@ impl Builder<'_> {
         self.code.barrier();
         self.code.a16();
         let decide = self.code.label();
-        for high in [true, false] {
-            self.edge_load(condition.left.word(high));
-            match condition.right.word(high) {
-                WordOperand::Immediate(value) => self.code.word(WordOp::CmpImm, value),
-                WordOperand::Stack(offset) => self.code.byte(ByteOp::CmpStack, offset),
-                WordOperand::DirectPage(_) => unreachable!("long operands are stack or immediate"),
+        if condition.signed {
+            // A full low-to-high subtraction carries the low-word borrow into
+            // the high result. Its N xor V is the signed 32-bit comparison.
+            for high in [false, true] {
+                self.edge_load(condition.left.word(high));
+                if !high {
+                    self.code.op(Implied::Sec);
+                }
+                match condition.right.word(high) {
+                    WordOperand::Immediate(value) => self.code.word(WordOp::SbcImm, value),
+                    WordOperand::Stack(offset) => self.code.byte(ByteOp::SbcStack, offset),
+                    WordOperand::DirectPage(_) => {
+                        unreachable!("long operands are stack or immediate")
+                    }
+                }
             }
-            if high {
-                // Unequal high words decide ordering; equal highs require the
-                // unsigned low-word comparison. Both paths produce the same C meaning.
-                self.code.branch(Branch::NotEqual, decide);
+            self.code.branch(Branch::OverflowClear, decide);
+            self.code.word(WordOp::EorImm, 0x8000);
+        } else {
+            for high in [true, false] {
+                self.edge_load(condition.left.word(high));
+                match condition.right.word(high) {
+                    WordOperand::Immediate(value) => self.code.word(WordOp::CmpImm, value),
+                    WordOperand::Stack(offset) => self.code.byte(ByteOp::CmpStack, offset),
+                    WordOperand::DirectPage(_) => {
+                        unreachable!("long operands are stack or immediate")
+                    }
+                }
+                if high {
+                    // Unequal high words decide ordering; equal highs require the
+                    // unsigned low-word comparison. Both paths produce the same C meaning.
+                    self.code.branch(Branch::NotEqual, decide);
+                }
             }
         }
         self.code.mark(decide);

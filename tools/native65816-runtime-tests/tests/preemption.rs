@@ -2171,3 +2171,16 @@ fn unsigned_long_ordering_restores_both_word_decisions_under_irq_nmi() {
         "unsigned-long-order",
     );
 }
+
+#[test]
+fn signed_long_ordering_restores_borrow_and_overflow_flags_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n", "\n").replace("CARD FUNC Read(",
+        "BYTE FUNC SignedLess(LONGINT a,b) RETURN(a<b)\nCARD FUNC SignedBranch(LONGINT a,b) BYTE v v=SignedLess(a,b) IF a<b THEN RETURN(CARD(v)+3) FI RETURN(CARD(v)+7)\nCARD FUNC Read(")
+        .replace("  work.done=1","  work.result==+SignedBranch(0,0)+SignedBranch($ffff,$10000)+SignedBranch($10000,$ffff)+SignedBranch($80000000,$7fffffff)+SignedBranch($7fffffff,$80000000)+SignedBranch($ffffffff,0)-33\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["SIGNEDLESS", "SIGNEDBRANCH"], "signed-long-order");
+}

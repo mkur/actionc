@@ -220,6 +220,7 @@ struct LongOrderCondition {
     right: LongOperand,
     destination: u8,
     predicate: Branch,
+    signed: bool,
 }
 
 enum Condition {
@@ -728,14 +729,14 @@ impl Builder<'_> {
                 .map(|c| c.map(Condition::Word));
         }
         let equality = matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne);
-        if bytes == 4 && signed && !equality {
+        if bytes == 4 && !equality {
+            if signed {
+                if let Some(condition) = self.long_sign_condition(dest, operation, left, right)? {
+                    return Ok(Some(Condition::LongSign(condition)));
+                }
+            }
             return self
-                .long_sign_condition(dest, operation, left, right)
-                .map(|c| c.map(Condition::LongSign));
-        }
-        if bytes == 4 && !signed && !equality {
-            return self
-                .long_unsigned_condition(dest, operation, left, right)
+                .long_order_condition(dest, signed, operation, left, right)
                 .map(|c| c.map(Condition::LongOrder));
         }
         if !((bytes == 1 && (!signed || equality)) || (matches!(bytes, 3 | 4) && equality)) {

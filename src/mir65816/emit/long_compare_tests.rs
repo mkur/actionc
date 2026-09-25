@@ -110,127 +110,122 @@ fn long_preflight_fallbacks_and_errors_do_not_partially_emit() {
     let Mir65816Value::Temp(input, _) = left else {
         panic!()
     };
-    for problem in 0..17 {
-        let mut b = builder(r);
-        let mut a = left.clone();
-        let mut c = right.clone();
-        match problem {
-            0 => a = Mir65816Value::U8(0),
-            1 => a = Mir65816Value::U16(0),
-            2 => a = Mir65816Value::U24(0),
-            3 => a = Mir65816Value::RoutineAddress(0, ByteSize::new(4)),
-            4 => a = Mir65816Value::Null(ByteSize::new(4)),
-            5 => {
-                b.frame.temps.insert(
-                    input,
-                    Location::DirectPage(Slot {
-                        offset: 0,
-                        width: 4,
-                    }),
-                );
-            }
-            6 => {
-                b.frame.temps.insert(
-                    dest,
-                    Location::DirectPage(Slot {
-                        offset: 0,
-                        width: 1,
-                    }),
-                );
-            }
-            7 => {
-                b.frame.temps.remove(&dest);
-            }
-            8 => {
-                b.frame.temps.insert(
-                    dest,
-                    Location::Stack(Slot {
-                        offset: 1,
-                        width: 2,
-                    }),
-                );
-            }
-            9 => {
-                b.frame.temps.remove(&input);
-            }
-            10 => {
-                b.frame.temps.insert(
-                    input,
-                    Location::Stack(Slot {
-                        offset: 1,
-                        width: 3,
-                    }),
-                );
-            }
-            11 => {
-                b.frame.temps.insert(
-                    input,
-                    Location::Stack(Slot {
-                        offset: 253,
-                        width: 4,
-                    }),
-                );
-            }
-            12 => {
-                b.frame.temps.insert(
-                    input,
-                    Location::Stack(Slot {
-                        offset: 252,
-                        width: 4,
-                    }),
-                );
-                b.code.test_delta(1);
-            }
-            13 => {
-                b.frame.temps.insert(
-                    dest,
-                    Location::Stack(Slot {
-                        offset: 255,
-                        width: 1,
-                    }),
-                );
-                b.code.test_delta(1);
-            }
-            14 => {
-                a = Mir65816Value::U8(0);
-                c = Mir65816Value::Temp(TempId(9999), ByteSize::new(4));
-            }
-            15 => a = Mir65816Value::Param(ParamId(9999)),
-            16 => {
-                b.frame.temps.insert(
-                    input,
-                    Location::DirectPage(Slot {
-                        offset: 0,
-                        width: 3,
-                    }),
-                );
-            }
-            _ => unreachable!(),
-        }
-        b.code.a8();
-        let before = format!("{:?}", b.code);
-        let result = b.native_compare(dest, 4, false, NirCompareOp::Eq, &a, &c);
-        if problem < 7 {
-            assert_eq!(result, Ok(false));
-        } else {
-            assert!(result.is_err(), "{problem}");
-        }
-        assert_eq!(format!("{:?}", b.code), before, "{problem}");
-    }
-    for signed in [true] {
+    for signed in [false, true] {
         for op in [
+            NirCompareOp::Eq,
+            NirCompareOp::Ne,
             NirCompareOp::Lt,
             NirCompareOp::Le,
             NirCompareOp::Gt,
             NirCompareOp::Ge,
         ] {
-            let mut b = builder(r);
-            let before = format!("{:?}", b.code);
-            assert!(
-                !b.native_compare(dest, 4, signed, op, &left, &right)
-                    .unwrap()
-            );
-            assert_eq!(format!("{:?}", b.code), before);
+            for problem in 0..17 {
+                let mut b = builder(r);
+                let mut a = left.clone();
+                let mut c = right.clone();
+                match problem {
+                    0 => a = Mir65816Value::U8(0),
+                    1 => a = Mir65816Value::U16(0),
+                    2 => a = Mir65816Value::U24(0),
+                    3 => a = Mir65816Value::RoutineAddress(0, ByteSize::new(4)),
+                    4 => a = Mir65816Value::Null(ByteSize::new(4)),
+                    5 => {
+                        b.frame.temps.insert(
+                            input,
+                            Location::DirectPage(Slot {
+                                offset: 0,
+                                width: 4,
+                            }),
+                        );
+                    }
+                    6 => {
+                        b.frame.temps.insert(
+                            dest,
+                            Location::DirectPage(Slot {
+                                offset: 0,
+                                width: 1,
+                            }),
+                        );
+                    }
+                    7 => {
+                        b.frame.temps.remove(&dest);
+                    }
+                    8 => {
+                        b.frame.temps.insert(
+                            dest,
+                            Location::Stack(Slot {
+                                offset: 1,
+                                width: 2,
+                            }),
+                        );
+                    }
+                    9 => {
+                        b.frame.temps.remove(&input);
+                    }
+                    10 => {
+                        b.frame.temps.insert(
+                            input,
+                            Location::Stack(Slot {
+                                offset: 1,
+                                width: 3,
+                            }),
+                        );
+                    }
+                    11 => {
+                        b.frame.temps.insert(
+                            input,
+                            Location::Stack(Slot {
+                                offset: 253,
+                                width: 4,
+                            }),
+                        );
+                    }
+                    12 => {
+                        b.frame.temps.insert(
+                            input,
+                            Location::Stack(Slot {
+                                offset: 252,
+                                width: 4,
+                            }),
+                        );
+                        b.code.test_delta(1);
+                    }
+                    13 => {
+                        b.frame.temps.insert(
+                            dest,
+                            Location::Stack(Slot {
+                                offset: 255,
+                                width: 1,
+                            }),
+                        );
+                        b.code.test_delta(1);
+                    }
+                    14 => {
+                        a = Mir65816Value::U8(0);
+                        c = Mir65816Value::Temp(TempId(9999), ByteSize::new(4));
+                    }
+                    15 => a = Mir65816Value::Param(ParamId(9999)),
+                    16 => {
+                        b.frame.temps.insert(
+                            input,
+                            Location::DirectPage(Slot {
+                                offset: 0,
+                                width: 3,
+                            }),
+                        );
+                    }
+                    _ => unreachable!(),
+                }
+                b.code.a8();
+                let before = format!("{:?}", b.code);
+                let result = b.native_compare(dest, 4, signed, op, &a, &c);
+                if problem < 7 {
+                    assert_eq!(result, Ok(false));
+                } else {
+                    assert!(result.is_err(), "{problem}");
+                }
+                assert_eq!(format!("{:?}", b.code), before, "{problem}");
+            }
         }
     }
 }
@@ -291,64 +286,68 @@ fn long_fusion_uses_existing_sole_use_proof_and_keeps_both_edges() {
     let r = &p.routines[0];
     let block = &r.blocks[0];
     let sole = liveness::sole_branch_conditions(r);
-    for op in [
-        NirCompareOp::Eq,
-        NirCompareOp::Ne,
-        NirCompareOp::Lt,
-        NirCompareOp::Le,
-        NirCompareOp::Gt,
-        NirCompareOp::Ge,
-    ] {
-        let mut operation = block.ops.last().unwrap().clone();
-        let Mir65816Op::Compare {
-            operation: predicate,
-            ..
-        } = &mut operation
-        else {
-            panic!()
-        };
-        *predicate = op;
-        let mut b = builder(r);
-        let before = format!("{:?}", b.code);
-        assert!(
-            !b.compare_branch(&operation, &block.terminator, &BTreeSet::new())
-                .unwrap()
-        );
-        assert_eq!(format!("{:?}", b.code), before);
-        let homes = b.frame.temps.clone();
-        let frame = b.frame.extent;
-        assert!(
-            b.compare_branch(&operation, &block.terminator, &sole)
-                .unwrap()
-        );
-        assert_eq!(
-            b.code
-                .code()
-                .conditional_branches
-                .iter()
-                .filter(|s| s.dispatch)
-                .count(),
-            if op == NirCompareOp::Ne { 2 } else { 1 }
-        );
-        let Mir65816Terminator::Branch {
-            then_edge,
-            else_edge,
-            ..
-        } = &block.terminator
-        else {
-            panic!()
-        };
-        for target in [then_edge.target, else_edge.target] {
+    for signed in [false, true] {
+        for op in [
+            NirCompareOp::Eq,
+            NirCompareOp::Ne,
+            NirCompareOp::Lt,
+            NirCompareOp::Le,
+            NirCompareOp::Gt,
+            NirCompareOp::Ge,
+        ] {
+            let mut operation = block.ops.last().unwrap().clone();
+            let Mir65816Op::Compare {
+                operation: predicate,
+                signed: is_signed,
+                ..
+            } = &mut operation
+            else {
+                panic!()
+            };
+            *predicate = op;
+            *is_signed = signed;
+            let mut b = builder(r);
+            let before = format!("{:?}", b.code);
             assert!(
+                !b.compare_branch(&operation, &block.terminator, &BTreeSet::new())
+                    .unwrap()
+            );
+            assert_eq!(format!("{:?}", b.code), before);
+            let homes = b.frame.temps.clone();
+            let frame = b.frame.extent;
+            assert!(
+                b.compare_branch(&operation, &block.terminator, &sole)
+                    .unwrap()
+            );
+            assert_eq!(
                 b.code
                     .code()
-                    .fixups
+                    .conditional_branches
                     .iter()
-                    .any(|f| f.target == Target::Label(b.blocks[&target]))
+                    .filter(|s| s.dispatch)
+                    .count(),
+                if op == NirCompareOp::Ne { 2 } else { 1 }
             );
+            let Mir65816Terminator::Branch {
+                then_edge,
+                else_edge,
+                ..
+            } = &block.terminator
+            else {
+                panic!()
+            };
+            for target in [then_edge.target, else_edge.target] {
+                assert!(
+                    b.code
+                        .code()
+                        .fixups
+                        .iter()
+                        .any(|f| f.target == Target::Label(b.blocks[&target]))
+                );
+            }
+            assert_eq!(b.frame.temps, homes);
+            assert_eq!(b.frame.extent, frame);
         }
-        assert_eq!(b.frame.temps, homes);
-        assert_eq!(b.frame.extent, frame);
     }
 }
 
@@ -431,6 +430,15 @@ fn long_sign_checks_complete_homes_and_only_admits_sign_only_predicates() {
 
 #[test]
 fn unsigned_long_ordering_normalizes_relations_before_emission() {
+    check_ordering(false);
+}
+
+#[test]
+fn signed_long_ordering_normalizes_relations_before_emission() {
+    check_ordering(true);
+}
+
+fn check_ordering(signed: bool) {
     let p = program("BYTE FUNC Work(LONGCARD a,b) RETURN(a<b)");
     let r = &p.routines[0];
     let (dest, left, right) = operands(r);
@@ -443,23 +451,36 @@ fn unsigned_long_ordering_normalizes_relations_before_emission() {
         let mut b = builder(r);
         let expected_left = b.long_operand(&left).unwrap().unwrap();
         let expected_right = b.long_operand(&right).unwrap().unwrap();
-        let Some(Condition::LongOrder(c)) = b.condition(dest, 4, false, op, &left, &right).unwrap()
+        let Some(Condition::LongOrder(c)) =
+            b.condition(dest, 4, signed, op, &left, &right).unwrap()
         else {
             panic!()
         };
+        assert_eq!(c.signed, signed);
         let swap = matches!(op, NirCompareOp::Gt | NirCompareOp::Le);
         assert_eq!(c.left, if swap { expected_right } else { expected_left });
         assert_eq!(c.right, if swap { expected_left } else { expected_right });
         assert_eq!(
             c.predicate,
             if matches!(op, NirCompareOp::Lt | NirCompareOp::Gt) {
-                Branch::CarryClear
+                if signed {
+                    Branch::Minus
+                } else {
+                    Branch::CarryClear
+                }
             } else {
-                Branch::CarrySet
+                if signed {
+                    Branch::Plus
+                } else {
+                    Branch::CarrySet
+                }
             }
         );
-        assert!(b.native_compare(dest, 4, false, op, &left, &right).unwrap());
-        assert!(b.code.code().bytes.len() <= 40);
+        assert!(
+            b.native_compare(dest, 4, signed, op, &left, &right)
+                .unwrap()
+        );
+        assert!(b.code.code().bytes.len() <= 44);
     }
     let mut b = builder(r);
     let before = format!("{:?}", b.code);
@@ -467,7 +488,7 @@ fn unsigned_long_ordering_normalizes_relations_before_emission() {
         !b.native_compare(
             dest,
             4,
-            false,
+            signed,
             NirCompareOp::Lt,
             &left,
             &Mir65816Value::U16(0)
@@ -478,7 +499,7 @@ fn unsigned_long_ordering_normalizes_relations_before_emission() {
         b.native_compare(
             dest,
             4,
-            false,
+            signed,
             NirCompareOp::Lt,
             &Mir65816Value::U8(0),
             &Mir65816Value::Temp(TempId(9999), ByteSize::new(4))

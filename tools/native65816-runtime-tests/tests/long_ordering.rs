@@ -436,8 +436,26 @@ fn unsigned_long_ordering_executes_after_o65_relocation() {
 
 #[test]
 fn unsigned_long_ordering_matches_ca65_and_short_circuits_only_private_reads() {
+    check_order_encodings(false);
+}
+#[test]
+fn signed_long_ordering_covers_overflow_borrow_and_all_consumers() {
+    exercise_order("LONGINT");
+}
+#[test]
+fn signed_long_ordering_executes_after_o65_relocation() {
+    relocated_order("LONGINT");
+}
+#[test]
+fn signed_long_ordering_matches_ca65_and_reads_complete_private_words() {
+    check_order_encodings(true);
+}
+fn check_order_encodings(signed: bool) {
     for optimize in [false, true] {
-        let p = prepare(&order_source("LONGCARD"), optimize);
+        let p = prepare(
+            &order_source(if signed { "LONGINT" } else { "LONGCARD" }),
+            optimize,
+        );
         let c = p.compile(&layout()).unwrap();
         for name in ["Less", "AtMost", "Greater", "AtLeast"] {
             let r = p.mir.routines.iter().find(|r| r.name == name).unwrap();
@@ -468,20 +486,37 @@ fn unsigned_long_ordering_matches_ca65_and_short_circuits_only_private_reads() {
                 std::mem::swap(&mut left, &mut right);
             }
             let branch = if matches!(name, "Less" | "Greater") {
-                "bcc"
+                if signed { "bmi" } else { "bcc" }
             } else {
-                "bcs"
+                if signed { "bpl" } else { "bcs" }
+            };
+            let calculation = if signed {
+                format!(
+                    "lda {left},s\nsec\nsbc {right},s\nlda {},s\nsbc {},s\nbvc decide\neor #$8000",
+                    left + 2,
+                    right + 2
+                )
+            } else {
+                format!(
+                    "lda {},s\ncmp {},s\nbne decide\nlda {left},s\ncmp {right},s",
+                    left + 2,
+                    right + 2
+                )
             };
             let reference = assemble(
                 &format!(
-                    "lda {},s\ncmp {},s\nbne decide\nlda {left},s\ncmp {right},s\ndecide:\n{branch} yes\nsep #$20\n.a8\nlda #0\nbra done\nyes:\nsep #$20\nlda #1\ndone:\nsep #$20\nsta {dest},s",
-                    left + 2,
-                    right + 2
+                    "{calculation}\ndecide:\n{branch} yes\nsep #$20\n.a8\nlda #0\nbra done\nyes:\nsep #$20\nlda #1\ndone:\nsep #$20\nsta {dest},s"
                 ),
                 start,
             );
             assert_eq!(&m.code.bytes[span.clone()], reference);
-            for (a, b) in [(0u32, 0u32), (0x10000, 0xffff), (0x10001, 0x10000)] {
+            for (a, b) in [
+                (0u32, 0u32),
+                (0x10000, 0xffff),
+                (0x10001, 0x10000),
+                (0x7fffffff, 0x80000000),
+                (0x80000000, 0x7fffffff),
+            ] {
                 let mut h = Harness::new(&c.image, &caller(c.image.entry), 0);
                 h.bus.ram[0x7100..0x7104].copy_from_slice(&a.to_le_bytes());
                 h.bus.ram[0x7104..0x7108].copy_from_slice(&b.to_le_bytes());
@@ -507,20 +542,24 @@ fn unsigned_long_ordering_matches_ca65_and_short_circuits_only_private_reads() {
                         )
                         .unwrap()
                 );
-                let mut expected = vec![
-                    stack + u32::from(left) + 2,
-                    stack + u32::from(left) + 3,
-                    stack + u32::from(right) + 2,
-                    stack + u32::from(right) + 3,
-                ];
-                if a >> 16 == b >> 16 {
-                    expected.extend([
-                        stack + u32::from(left),
-                        stack + u32::from(left) + 1,
-                        stack + u32::from(right),
-                        stack + u32::from(right) + 1,
-                    ]);
-                }
+                let halves: &[u32] = if signed {
+                    &[0, 2]
+                } else if a >> 16 == b >> 16 {
+                    &[2, 0]
+                } else {
+                    &[2]
+                };
+                let expected: Vec<_> = halves
+                    .iter()
+                    .flat_map(|half| {
+                        [
+                            stack + u32::from(left) + half,
+                            stack + u32::from(left) + half + 1,
+                            stack + u32::from(right) + half,
+                            stack + u32::from(right) + half + 1,
+                        ]
+                    })
+                    .collect();
                 assert_eq!(
                     h.bus.reads[reads..]
                         .iter()
@@ -529,6 +568,219 @@ fn unsigned_long_ordering_matches_ca65_and_short_circuits_only_private_reads() {
                         .collect::<Vec<_>>(),
                     expected
                 );
+            }
+        }
+    }
+}
+
+#[test]
+fn long_ordering_keeps_complete_external_captures_and_call_mutation() {
+    for ty in ["LONGCARD", "LONGINT"] {
+        let source = format!(
+            "{ty} POINTER input VOLATILE {ty} io=$d000 BYTE ARRAY out=$7200 PROC Change() input^=0 RETURN PROC Main() {ty} saved input={ty} POINTER($12ffff) saved=input^ out(0)=(saved<io) Change() out(2)=(saved>=io) out(4)=(input^<=io) RETURN"
+        );
+        for optimize in [false, true] {
+            let mut p = prepare(&source, optimize);
+            for op in p
+                .mir
+                .routines
+                .iter_mut()
+                .flat_map(|r| &mut r.blocks)
+                .flat_map(|b| &mut b.ops)
+            {
+                if let Mir65816Op::Load {
+                    width, volatile, ..
+                }
+                | Mir65816Op::Store {
+                    width, volatile, ..
+                } = op
+                {
+                    if width.get() == 4 {
+                        *volatile = true;
+                    }
+                }
+            }
+            let image = p.compile(&layout()).unwrap().image;
+            for (a, b) in [
+                (0u32, 0u32),
+                (0xffff, 0x10000),
+                (0x80000000, 0x7fffffff),
+                (0xffffffff, 0x80000000),
+            ] {
+                for mask in [0, 4] {
+                    let mut h = Harness::new(&image, &caller(image.entry), mask);
+                    h.bus.map(0x12fffe, &[0xa5, 0, 0, 0, 0, 0xa5], true);
+                    h.bus.map(0xd000, &b.to_le_bytes(), true);
+                    h.bus.ram[0x12ffff..0x130003].copy_from_slice(&a.to_le_bytes());
+                    h.bus.watched.extend(0x12fffe..0x130004);
+                    h.bus.watched.extend(0xd000..0xd004);
+                    h.run();
+                    h.guards(mask);
+                    let less = if ty == "LONGINT" {
+                        (a as i32) < (b as i32)
+                    } else {
+                        a < b
+                    };
+                    assert_eq!(
+                        [h.bus.ram[0x7200], h.bus.ram[0x7202], h.bus.ram[0x7204]],
+                        [
+                            u8::from(less),
+                            u8::from(!less),
+                            u8::from(ty == "LONGCARD" || b as i32 >= 0)
+                        ]
+                    );
+                    let expected: Vec<_> = (0x12ffff..0x130003)
+                        .map(|a| (a, Access::Read))
+                        .chain((0xd000..0xd004).map(|a| (a, Access::Read)))
+                        .chain((0x12ffff..0x130003).map(|a| (a, Access::Write(0))))
+                        .chain((0xd000..0xd004).map(|a| (a, Access::Read)))
+                        .chain((0x12ffff..0x130003).map(|a| (a, Access::Read)))
+                        .chain((0xd000..0xd004).map(|a| (a, Access::Read)))
+                        .collect();
+                    assert_eq!(
+                        h.bus
+                            .trace
+                            .iter()
+                            .map(|&(_, a, k)| (a, k))
+                            .collect::<Vec<_>>(),
+                        expected
+                    );
+                    assert_eq!((h.bus.ram[0x12fffe], h.bus.ram[0x130003]), (0xa5, 0xa5));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn long_ordering_keeps_same_target_parallel_edges_and_backedges() {
+    use actionc::mir65816;
+    use actionc::nir::{NirCastKind, NirCompareOp, TempId};
+    use actionc::target::ByteSize;
+    for signed in [false, true] {
+        let ty = if signed { "LONGINT" } else { "LONGCARD" };
+        let typed = prepare(
+            &format!("BYTE FUNC F({ty} a,b) RETURN(a<b) PROC Main() RETURN"),
+            false,
+        );
+        let ty = typed.mir.routines[0]
+            .temps
+            .iter()
+            .find(|(_, t)| t.width == Some(ByteSize::new(4)))
+            .unwrap()
+            .1
+            .clone();
+        for optimize in [false, true] {
+            for backedge in [false, true] {
+                for op in [
+                    NirCompareOp::Lt,
+                    NirCompareOp::Le,
+                    NirCompareOp::Gt,
+                    NirCompareOp::Ge,
+                ] {
+                    let mut p = edges::program(optimize, backedge);
+                    let r = p
+                        .mir
+                        .routines
+                        .iter_mut()
+                        .find(|r| r.name == "Work")
+                        .unwrap();
+                    r.temps.push((TempId(100), ty.clone()));
+                    for block in &mut r.blocks {
+                        let Some(Mir65816Op::Compare { left, .. }) = block.ops.last() else {
+                            continue;
+                        };
+                        let input = left.clone();
+                        let mut compare = block.ops.pop().unwrap();
+                        block.ops.push(Mir65816Op::Cast {
+                            dest: TempId(100),
+                            from: ByteSize::new(2),
+                            from_signed: false,
+                            to: ByteSize::new(4),
+                            kind: NirCastKind::Integer,
+                            value: input,
+                        });
+                        let Mir65816Op::Compare {
+                            left,
+                            right,
+                            width,
+                            operation,
+                            signed: is_signed,
+                            ..
+                        } = &mut compare
+                        else {
+                            unreachable!()
+                        };
+                        let value = Mir65816Value::Temp(TempId(100), ByteSize::new(4));
+                        // Equivalent to count != 0 on the loop; x == 0 on the
+                        // same-target fork. Inputs are zero-extended CARDs.
+                        let constant = Mir65816Value::U32(u32::from(
+                            matches!(op, NirCompareOp::Le | NirCompareOp::Ge) == backedge,
+                        ));
+                        let swap = matches!(op, NirCompareOp::Lt | NirCompareOp::Le) == backedge;
+                        (*left, *right) = if swap {
+                            (constant, value)
+                        } else {
+                            (value, constant)
+                        };
+                        *width = ByteSize::new(4);
+                        *operation = op;
+                        *is_signed = signed;
+                        block.ops.push(compare);
+                    }
+                    mir65816::verify_program(&p.mir).unwrap();
+                    let image = p.compile(&layout()).unwrap().image;
+                    for (a, b) in [(0u16, 41u16), (0x100, 0x1234), (0xffff, 1)] {
+                        for mask in [0, 4] {
+                            let mut h = Harness::new(&image, &caller(image.entry), mask);
+                            h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
+                            h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
+                            h.run();
+                            h.guards(mask);
+                            assert_eq!(
+                                h.bus.value(0x7200, 2),
+                                u32::from(if backedge || a == 0 {
+                                    b.wrapping_sub(a)
+                                } else {
+                                    a.wrapping_sub(b)
+                                }),
+                                "{signed}/{optimize}/{backedge}/{op:?}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn long_ordering_replays_live_carry_and_overflow_decisions() {
+    use actionc::mir65816::emit::{self, proof};
+    for ty in ["LONGCARD", "LONGINT"] {
+        for optimize in [false, true] {
+            let p = prepare(&order_source(ty), optimize);
+            let plain = emit::materialize(&p.mir).unwrap();
+            let (reference, old) = proof::materialize_reference(&p.mir, true).unwrap();
+            let (replayed, new) = proof::materialize_replayed(&p.mir, true).unwrap();
+            // Ordinary builds omit proof observations. Compare their linked
+            // image, then compare the two traced paths including proof metadata.
+            let linked = |machine| {
+                actionc::mir65816::image::link(&p.mir, machine, &layout())
+                    .unwrap()
+                    .to_json()
+                    .unwrap()
+            };
+            assert_eq!(linked(&plain), linked(&reference));
+            assert_eq!(linked(&reference), linked(&replayed));
+            for ((a, b), (old, new)) in reference
+                .routines
+                .iter()
+                .zip(&replayed.routines)
+                .zip(old.iter().zip(&new))
+            {
+                proof::compare_replay_output(&a.code, &b.code).unwrap();
+                assert_eq!(old.snapshots, new.snapshots);
             }
         }
     }
