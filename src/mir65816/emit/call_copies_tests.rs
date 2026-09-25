@@ -27,6 +27,7 @@ pub(super) fn builder(routine: &Mir65816Routine) -> Builder<'_> {
         blocks: BTreeMap::new(),
         next_block: None,
         loop_x: None,
+        borrowed: BTreeMap::new(),
     }
 }
 

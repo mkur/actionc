@@ -56,6 +56,8 @@ mod long_arithmetic;
 mod long_order;
 #[path = "parameter.rs"]
 mod parameter;
+#[path = "pointer_forwarding.rs"]
+mod pointer_forwarding;
 #[path = "pointer_values.rs"]
 mod pointer_values;
 #[path = "shifts.rs"]
@@ -276,6 +278,7 @@ struct Builder<'a> {
     blocks: BTreeMap<BlockId, Label>,
     next_block: Option<BlockId>,
     loop_x: Option<loop_x::LoopXPlan>,
+    borrowed: BTreeMap<TempId, pointer_forwarding::Source>,
 }
 
 #[cfg(test)]
@@ -312,11 +315,13 @@ pub(super) fn routine_with_data(
     }
     let frame = AllocatedFrame::new(routine)?;
     let addresses = addresses::Plan::new(routine, &frame, data)?;
+    let pointers = pointer_forwarding::Plan::new(routine, &frame)?;
     let loop_x = loop_x::LoopXPlan::new(routine, &frame)?;
     let mut b = Builder {
         routine,
         frame,
         loop_x,
+        borrowed: BTreeMap::new(),
         code: TrackedEmitter65816::for_entry(routine.prologue.required_mode),
         blocks: BTreeMap::new(),
         next_block: None,
@@ -424,15 +429,19 @@ pub(super) fn routine_with_data(
             for (op_index, op) in prefix.iter().enumerate() {
                 let start = b.code.code().bytes.len();
                 b.code.begin_source(block.id, op_index);
-                addresses
-                    .emit(&mut b, block.id, op_index, op)
-                    .map_err(|e| format!("b{}: {e}", block.id.0))?;
+                if !pointers.enter(&mut b, block.id, op_index) {
+                    addresses
+                        .emit(&mut b, block.id, op_index, op)
+                        .map_err(|e| format!("b{}: {e}", block.id.0))?;
+                }
                 b.code.span(block.id, op_index, start);
             }
             let start = b.code.code().bytes.len();
             b.code.begin_source(block.id, prefix.len());
-            if b.compare_branch(last, &block.terminator, &sole_conditions)
-                .map_err(|e| format!("b{}: {e}", block.id.0))?
+            let omitted = pointers.enter(&mut b, block.id, prefix.len());
+            if !omitted
+                && b.compare_branch(last, &block.terminator, &sole_conditions)
+                    .map_err(|e| format!("b{}: {e}", block.id.0))?
             {
                 b.code
                     .fused_span(block.id, prefix.len(), start, block.ops.len());
@@ -441,7 +450,7 @@ pub(super) fn routine_with_data(
             forwarded_return = b
                 .call_return(last, &block.terminator, &input_counts)
                 .map_err(|e| format!("b{}: {e}", block.id.0))?;
-            if !forwarded_return {
+            if !omitted && !forwarded_return {
                 addresses
                     .emit(&mut b, block.id, prefix.len(), last)
                     .map_err(|e| format!("b{}: {e}", block.id.0))?;
@@ -450,6 +459,7 @@ pub(super) fn routine_with_data(
         }
         let start = b.code.code().bytes.len();
         b.code.begin_source(block.id, block.ops.len());
+        pointers.enter(&mut b, block.id, block.ops.len());
         b.code.a16(); // Every MIR control-flow boundary has the ABI width.
         match &block.terminator {
             Mir65816Terminator::Goto(edge) => b.edge_last(edge)?,
@@ -931,17 +941,14 @@ impl Builder<'_> {
             Mir65816Value::Address(value, size) if size.get() == 3 && value.value <= 0xffffff => {
                 return Ok(Some(PointerOperand::Immediate(value.value as u32)));
             }
-            Mir65816Value::Temp(id, size) => {
-                let location = self.temp(*id)?;
-                if location.slot().width != width(*size)? {
-                    return Err("temporary width mismatch".into());
-                }
+            Mir65816Value::Temp(_, size) => {
+                let memory = self.value_memory(value)?.unwrap();
                 if size.get() != 3 {
                     return Ok(None);
                 }
-                match location {
-                    Location::Stack(slot) => u32::from(slot.offset),
-                    Location::DirectPage(_) => return Ok(None),
+                match memory {
+                    Memory::Stack(offset) => offset,
+                    _ => return Ok(None),
                 }
             }
             Mir65816Value::Param(id) => {
@@ -1279,7 +1286,11 @@ impl Builder<'_> {
                 if slot.slot().width != width(*bytes)? {
                     return Err("temporary width mismatch".into());
                 }
-                Some(slot.into())
+                Some(
+                    self.borrowed
+                        .get(id)
+                        .map_or_else(|| slot.into(), |source| source.memory()),
+                )
             }
             Mir65816Value::Param(id) => Some(Memory::Stack(self.parameter(*id)?.0)),
             _ => None,
@@ -1306,15 +1317,8 @@ impl Builder<'_> {
             Mir65816Value::Address(v, _) => self
                 .code
                 .byte(ByteOp::LdaImm, (v.value >> (byte * 8)) as u8),
-            Mir65816Value::Temp(id, w) => {
-                let slot = self.temp(*id)?;
-                if slot.slot().width != width(*w)? {
-                    return Err("temporary width mismatch".into());
-                }
-                self.load_memory(slot.into(), byte.into())?;
-            }
-            Mir65816Value::Param(id) => {
-                self.load_memory(Memory::Stack(self.parameter(*id)?.0), byte.into())?
+            Mir65816Value::Temp(..) | Mir65816Value::Param(_) => {
+                self.load_memory(self.value_memory(value)?.unwrap(), byte.into())?;
             }
             Mir65816Value::StaticAddress(id, _) => self.code.reference(
                 ReferenceOp::LdaByte,

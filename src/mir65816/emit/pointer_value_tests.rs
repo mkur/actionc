@@ -22,6 +22,7 @@ fn builder(routine: &Mir65816Routine) -> Builder<'_> {
         blocks: BTreeMap::new(),
         next_block: None,
         loop_x: None,
+        borrowed: BTreeMap::new(),
     }
 }
 fn input(b: &mut Builder<'_>, src: Location, dst: Location) -> Mir65816Value {

@@ -12,6 +12,7 @@ fn builder(routine: &Mir65816Routine, offset: u16, width: u8) -> Builder<'_> {
         blocks: BTreeMap::new(),
         next_block: None,
         loop_x: None,
+        borrowed: BTreeMap::new(),
     }
 }
 

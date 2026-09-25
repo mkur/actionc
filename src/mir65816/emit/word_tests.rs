@@ -20,6 +20,7 @@ fn builder(routine: &Mir65816Routine) -> Builder<'_> {
     Builder {
         next_block: None,
         loop_x: None,
+        borrowed: BTreeMap::new(),
         routine,
         frame: AllocatedFrame::stack(routine).unwrap(),
         code: TrackedEmitter65816::for_test(&AllocatedFrame::stack(routine).unwrap()),

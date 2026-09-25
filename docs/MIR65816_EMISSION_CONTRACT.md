@@ -1187,3 +1187,9 @@ loading that source after TAY cannot change Y or the prepared PTR. The original
 source captures retain their order and the target receives exactly one write.
 Signed/wide/scaled indices, volatile accesses and unsupported homes retain the
 fallback. No allocator whitelist or physical ABI changes are implied.
+
+Bounded three-byte source bindings are defined in
+[MIR65816_POINTER_FORWARDING.md](MIR65816_POINTER_FORWARDING.md). They omit only
+proved private captures, retain allocated writable homes, and substitute checked
+authoritative source reads at explicit consumer sites. They do not manufacture
+home definitions or reuse the incoming/frame word A/N/Z witness.
