@@ -1904,11 +1904,14 @@ mod tests {
 
         let listing = format_listing_with_boundaries(&output);
 
-        assert!(listing.contains("JSR.A proc_r_par"));
+        assert!(listing.contains("JSR.A proc_r_Par"));
         assert!(listing.contains("; $3A99: 20 81 32 ; r_Par"));
-        assert!(listing.contains(".BYTE $DF,$2E,$02"));
-        assert!(listing.contains("; $3A9C: DF 2E 02"));
-        assert!(listing.contains("loc_finditem_1:\n        LDA.A $2EDF"));
+        assert!(listing.contains("; Parameter frame follows"));
+        assert!(listing.contains(".WORD $2EDF"), "{listing}");
+        assert!(listing.contains("; $3A9C: DF 2E"));
+        assert!(listing.contains(".BYTE $02"), "{listing}");
+        assert!(listing.contains("; $3A9E: 02 | frame size: 3 bytes"));
+        assert!(listing.contains("loc_FindItem_1:\n        LDA.A $2EDF"));
         assert!(!listing.contains("ROL $AD02"));
     }
 
@@ -1930,7 +1933,7 @@ mod tests {
         assert!(listing.contains("; $3006: 0D 48 65 6C 6C 6F 2C 20"));
         assert!(listing.contains(".BYTE $77,$6F,$72,$6C,$64,$21"));
         assert!(listing.contains("; $300E: 77 6F 72 6C 64 21"));
-        assert!(listing.contains("ORG $02E2\n        DTA A(proc_main)"));
+        assert!(listing.contains("ORG $02E2\n        DTA A(proc_Main)"));
         assert!(!listing.contains("ORA $6548"));
         assert!(!listing.contains("JMP ($6F6C)"));
         assert!(!listing.contains("BIT $7720"));
