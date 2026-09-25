@@ -222,3 +222,38 @@ fn y_byte_loads_require_captured_card_indices_and_unit_stride() {
         }
     }
 }
+
+#[test]
+fn y_byte_stores_keep_y_while_loading_captured_and_immediate_values() {
+    for optimize in [false, true] {
+        for value in ["v", "0", "255"] {
+            for ty in ["CARD", "INT"] {
+                let p = mir(
+                    &format!(
+                        "PROC Write(BYTE POINTER p {ty} i BYTE v) p(i)={value} RETURN PROC Main() RETURN"
+                    ),
+                    optimize,
+                );
+                let m = emit::materialize(&p).unwrap();
+                let r = p.routines.iter().find(|r| r.name == "Write").unwrap();
+                let code = &m.routines.iter().find(|m| m.id == r.id).unwrap().code;
+                for block in &r.blocks {
+                    for (i, op) in block.ops.iter().enumerate() {
+                        if let Mir65816Op::Store { address, .. } = op
+                            && address.index.is_some()
+                        {
+                            let bytes = &code.bytes[code.mir_spans[&(block.id, i)].clone()];
+                            if ty == "CARD" {
+                                assert!(bytes.len() <= 23, "{bytes:02x?}");
+                                assert!(bytes.contains(&0xa8));
+                                assert!(bytes.ends_with(&[0x97, 0]));
+                            } else {
+                                assert!(bytes.len() > 23);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

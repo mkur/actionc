@@ -1,0 +1,233 @@
+{
+  "source": "BYTE ARRAY data(300) BYTE POINTER input=$7100 CARD index=$7104 BYTE value=$7106,output=$7107 ADDRESS addressResult=$7108 PROC Main() addressResult=ADDRESS(@data(5)) data(0)=value output=data(0) input(index)=output output=input(index) RETURN\n",
+  "layout": {
+    "code_origin": 98304,
+    "data_origin": 1179648,
+    "stack_overflow": 294912,
+    "nmi_extra_stack": 0,
+    "imports": []
+  },
+  "caller": "support::caller, identical for all images",
+  "checks": "output217; data+5; exactly write/read data(0), write/read input(256); canaries; stack/DP guards",
+  "base": 2359295,
+  "index": 256,
+  "byte": 217,
+  "measurements": [
+    {
+      "slice": "baseline",
+      "revision": "7b078ea157e8986b0bfcfa281ea6312abf4d9bd3",
+      "mode": "raw",
+      "probes": [
+        {
+          "incoming_i": 0,
+          "cycles": 761
+        },
+        {
+          "incoming_i": 4,
+          "cycles": 761
+        }
+      ],
+      "image_sha256": "1a30440b119b7a32d5e700d857847dea356ae7e1efab56767d705f7353204c3a",
+      "compiler_binary_sha256": "0351eff7e3374cb27462203f4d594bbab614649ea6348977f7f0cc7d1df9641e",
+      "code_bytes": 442
+    },
+    {
+      "slice": "baseline",
+      "revision": "7b078ea157e8986b0bfcfa281ea6312abf4d9bd3",
+      "mode": "opt",
+      "probes": [
+        {
+          "incoming_i": 0,
+          "cycles": 761
+        },
+        {
+          "incoming_i": 4,
+          "cycles": 761
+        }
+      ],
+      "image_sha256": "1a30440b119b7a32d5e700d857847dea356ae7e1efab56767d705f7353204c3a",
+      "compiler_binary_sha256": "0351eff7e3374cb27462203f4d594bbab614649ea6348977f7f0cc7d1df9641e",
+      "code_bytes": 442
+    },
+    {
+      "slice": "slice1",
+      "revision": "420186c21377fb687c4e3a11c36e7adb9975517b",
+      "mode": "raw",
+      "probes": [
+        {
+          "incoming_i": 0,
+          "cycles": 707
+        },
+        {
+          "incoming_i": 4,
+          "cycles": 707
+        }
+      ],
+      "image_sha256": "2ec577853d394e12d5cfdf598b058f9d92d112961db6c0e7ee48cba48a183b6e",
+      "compiler_binary_sha256": "47f8f074fde94053d8eab444bacbf28822452d9160223db596fe6245f167cc77",
+      "code_bytes": 406
+    },
+    {
+      "slice": "slice1",
+      "revision": "420186c21377fb687c4e3a11c36e7adb9975517b",
+      "mode": "opt",
+      "probes": [
+        {
+          "incoming_i": 0,
+          "cycles": 707
+        },
+        {
+          "incoming_i": 4,
+          "cycles": 707
+        }
+      ],
+      "image_sha256": "2ec577853d394e12d5cfdf598b058f9d92d112961db6c0e7ee48cba48a183b6e",
+      "compiler_binary_sha256": "47f8f074fde94053d8eab444bacbf28822452d9160223db596fe6245f167cc77",
+      "code_bytes": 406
+    },
+    {
+      "slice": "slice2",
+      "revision": "bc99d91168b216dca4fff71ec36dee7d0b15de03",
+      "mode": "raw",
+      "probes": [
+        {
+          "incoming_i": 0,
+          "cycles": 618
+        },
+        {
+          "incoming_i": 4,
+          "cycles": 618
+        }
+      ],
+      "image_sha256": "ce0de4d1b11d5374e8969cc1e01955b5980970799b21443a7d22889a77a7fcfe",
+      "compiler_binary_sha256": "50b3df01c23758a0d8e79345308a50c50deef7b3af2a6de89f37002f10fdc0f3",
+      "code_bytes": 351
+    },
+    {
+      "slice": "slice2",
+      "revision": "bc99d91168b216dca4fff71ec36dee7d0b15de03",
+      "mode": "opt",
+      "probes": [
+        {
+          "incoming_i": 0,
+          "cycles": 618
+        },
+        {
+          "incoming_i": 4,
+          "cycles": 618
+        }
+      ],
+      "image_sha256": "ce0de4d1b11d5374e8969cc1e01955b5980970799b21443a7d22889a77a7fcfe",
+      "compiler_binary_sha256": "50b3df01c23758a0d8e79345308a50c50deef7b3af2a6de89f37002f10fdc0f3",
+      "code_bytes": 351
+    },
+    {
+      "slice": "slice3",
+      "revision": "70dd34979a2581cc2f8b5293dbf773c91982d7a4",
+      "mode": "raw",
+      "probes": [
+        {
+          "incoming_i": 0,
+          "cycles": 444
+        },
+        {
+          "incoming_i": 4,
+          "cycles": 444
+        }
+      ],
+      "image_sha256": "0d4549dbb328e4b89908eb3cf3da0b6ca3ea4b9445944d0c148e5c1dc3fd61f6",
+      "compiler_binary_sha256": "ed382780a5600a60db4c82cbc39aa77268715072b7fa1b6ecbf3069043771e0a",
+      "code_bytes": 245
+    },
+    {
+      "slice": "slice3",
+      "revision": "70dd34979a2581cc2f8b5293dbf773c91982d7a4",
+      "mode": "opt",
+      "probes": [
+        {
+          "incoming_i": 0,
+          "cycles": 444
+        },
+        {
+          "incoming_i": 4,
+          "cycles": 444
+        }
+      ],
+      "image_sha256": "0d4549dbb328e4b89908eb3cf3da0b6ca3ea4b9445944d0c148e5c1dc3fd61f6",
+      "compiler_binary_sha256": "ed382780a5600a60db4c82cbc39aa77268715072b7fa1b6ecbf3069043771e0a",
+      "code_bytes": 245
+    },
+    {
+      "slice": "slice4",
+      "revision": "5ce48021817313e9b3c72186034f81dd2f6acc00",
+      "mode": "raw",
+      "probes": [
+        {
+          "incoming_i": 0,
+          "cycles": 408
+        },
+        {
+          "incoming_i": 4,
+          "cycles": 408
+        }
+      ],
+      "image_sha256": "5470c06b55ce5c320feb2403d9c4d05c1644b4c78b0879a6ba51c01d8a9861c6",
+      "compiler_binary_sha256": "cbe176aa2b8582c2cf1078fde82a8ef138f6b58f6f630d15451bc0affa8af830",
+      "code_bytes": 221
+    },
+    {
+      "slice": "slice4",
+      "revision": "5ce48021817313e9b3c72186034f81dd2f6acc00",
+      "mode": "opt",
+      "probes": [
+        {
+          "incoming_i": 0,
+          "cycles": 408
+        },
+        {
+          "incoming_i": 4,
+          "cycles": 408
+        }
+      ],
+      "image_sha256": "5470c06b55ce5c320feb2403d9c4d05c1644b4c78b0879a6ba51c01d8a9861c6",
+      "compiler_binary_sha256": "cbe176aa2b8582c2cf1078fde82a8ef138f6b58f6f630d15451bc0affa8af830",
+      "code_bytes": 221
+    },
+    {
+      "slice": "slice5",
+      "revision": "dcec73b6b4e3e197f82cf2855330a3f2ec7723af",
+      "mode": "raw",
+      "probes": [
+        {
+          "incoming_i": 0,
+          "cycles": 372
+        },
+        {
+          "incoming_i": 4,
+          "cycles": 372
+        }
+      ],
+      "image_sha256": "b4560afa4325973152be6be60783a103a9b0b2786e1d372bb728a332e05cc41e",
+      "compiler_binary_sha256": "2d6c4150981978a3830fb4b6d9fc54b84e5f8f34e2c4043e1f7a18b676dd1168",
+      "code_bytes": 197
+    },
+    {
+      "slice": "slice5",
+      "revision": "dcec73b6b4e3e197f82cf2855330a3f2ec7723af",
+      "mode": "opt",
+      "probes": [
+        {
+          "incoming_i": 0,
+          "cycles": 372
+        },
+        {
+          "incoming_i": 4,
+          "cycles": 372
+        }
+      ],
+      "image_sha256": "b4560afa4325973152be6be60783a103a9b0b2786e1d372bb728a332e05cc41e",
+      "compiler_binary_sha256": "2d6c4150981978a3830fb4b6d9fc54b84e5f8f34e2c4043e1f7a18b676dd1168",
+      "code_bytes": 197
+    }
+  ]
+}

@@ -1,9 +1,11 @@
 # Native 65816 constant addresses and BYTE indexing
 
-Status: slices 1–4 implemented and checked; slice 5 remains planned.
+Status: all five slices implemented with focused checks. Final qualification
+was stopped at the user's request; no full qualification result is claimed.
 
 Implement five small compiler slices, committing each after its focused checks.
-The last implementation commit carries final qualification and measurements.
+The last implementation commit carries measurements and the completed check
+record, including the explicitly incomplete final qualification.
 Keep the existing ABI, stack guards, image formats and Exec compiler pin.
 
 ## Objective and baseline
@@ -96,8 +98,8 @@ that machine code belongs to the prepared program.
   operations, and verify replay and final layout metadata.
 - Distinguish modular runtime pointer arithmetic from checked relocation
   addends. Fold a nonzero symbolic offset only when MIR storage/placement facts
-  prove it remains within the valid object extent, allowing one-past for
-  AddressOf only. Unproved aliases, wrapping offsets and unsupported geometry
+  prove it remains strictly inside the valid object extent. One-past,
+  unproved aliases, wrapping offsets and unsupported geometry
   use runtime arithmetic. Do not convert a valid wrapping computation into a
   relocation overflow error or relax existing link/load checks.
 - BYTE loads/stores remain exactly one byte. Do not cache contents, widen a
@@ -229,6 +231,13 @@ with loop-X, mode tracking and checked rewrites.
 
 ## Slice 5 — CARD-indexed BYTE stores using Y
 
+Implemented for ordinary BYTE stores from complete captured stack bytes and
+BYTE constants. CAT saves another 64 optimized code/file bytes; HELLO is
+unchanged. Focused traces cover all 256 values, full CARD boundaries, bank carry,
+24-bit wrap and source read-before-write order. Relocated symbol stores and
+IRQ/NMI re-entry through task and interrupt contexts pass. Frames, guards,
+relocations and bank-zero reservations remain unchanged.
+
 Commit intent: `65816: use Y for CARD-indexed BYTE stores`.
 
 Reuse slice 4's address/index eligibility. Prepare the base, capture the full
@@ -282,12 +291,14 @@ For each slice:
 5. Update the [emission contract](MIR65816_EMISSION_CONTRACT.md), this plan's
    status and the slice measurements, then commit only that slice's work.
 
-Before the final slice's commit, run the full affected native 65816 unit,
-integration/CLI and VM suites in the required host modes, plus one final full
-Exec qualification against a frozen source tree and explicitly recorded
-compiler override. Include real HELLO output/error behavior and CAT filename,
-short-write, cancellation and error paths. Do not advance Exec's pin as part of
-this compiler series. Keep inputs stable while qualification records hashes.
+The original final gate called for full native 65816 unit, integration/CLI and
+VM suites in the required host modes, plus a frozen full Exec qualification and
+real HELLO/CAT command behavior. The user subsequently requested that final
+qualification not run. Active qualification processes were stopped. The full
+compiler unit/integration checks and five Exec groups had completed; the native
+VM and Exec matrices remain incomplete. See the
+[check record](benchmarks/65816-address-selection/qualification.json).
+Exec's pin is unchanged.
 
 Follow [AGENTS.md](../AGENTS.md) for test scoping. If shared NIR, semantic,
 verifier or printer contracts change despite this plan's backend scope, also
@@ -302,8 +313,9 @@ is introduced or changed. Use the
 The series is complete when all five slices have focused regression coverage,
 HELLO's constant address chains and BYTE accesses use direct symbolic forms,
 CAT's eligible parser loads/stores use Y without bytewise pointer addition,
-both output formats execute correctly at distinct placements, and final
-qualification/measurements are recorded.
+both output formats execute correctly at distinct placements, and measurements
+and actual validation scope are recorded. Final qualification was explicitly
+removed from the completion gate by the user's later instruction.
 
 Deferred: general address CSE, cross-block provenance, pointer-descriptor
 constant propagation, register allocation/frame compaction, Y loop residency,

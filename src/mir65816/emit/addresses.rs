@@ -241,6 +241,22 @@ impl Plan {
                     plan.indexed.insert((block.id, i), indexed);
                     continue;
                 }
+                if let Mir65816Op::Store {
+                    address,
+                    value,
+                    width,
+                    volatile: false,
+                } = op
+                    && width.get() == 1
+                    && captured_byte(frame, value)?
+                    && let Some(indexed) = indexed_address(routine, frame, address, &known, data)?
+                {
+                    if matches!(indexed.base, IndexedBase::Symbol(_)) {
+                        remove_base_use(address, &mut uses)?;
+                    }
+                    plan.indexed.insert((block.id, i), indexed);
+                    continue;
+                }
                 let access = match op {
                     Mir65816Op::Load {
                         dest,
@@ -253,16 +269,7 @@ impl Plan {
                         value,
                         width,
                         volatile: false,
-                    } if width.get() == 1 => {
-                        let admitted = match value {
-                            Mir65816Value::U8(_) => true,
-                            Mir65816Value::Temp(id, w) if w.get() == 1 => {
-                                checked_stack_home(frame, *id, 1)?.is_some()
-                            }
-                            _ => false,
-                        };
-                        admitted.then_some(address)
-                    }
+                    } if width.get() == 1 => captured_byte(frame, value)?.then_some(address),
                     _ => None,
                 };
                 if let Some(address) = access {
@@ -332,11 +339,19 @@ impl Plan {
             b.load_memory(Memory::Stack(indexed.index.offset.into()), 0)?;
             b.code.op(Implied::Tay);
             b.code.a8();
-            let Mir65816Op::Load { dest, .. } = op else {
-                return Err("indexed BYTE load lost its operation".into());
-            };
-            b.code.byte(ByteOp::LdaIndirectY, PTR);
-            b.save_byte(*dest, 0)?;
+            match op {
+                Mir65816Op::Load { dest, .. } => {
+                    b.code.byte(ByteOp::LdaIndirectY, PTR);
+                    b.save_byte(*dest, 0)?;
+                }
+                Mir65816Op::Store { value, .. } => {
+                    // Only an immediate or captured stack byte was admitted.
+                    // Loading it cannot change Y or the prepared PTR bytes.
+                    b.value_byte(value, 0)?;
+                    b.code.byte(ByteOp::StaIndirectY, PTR);
+                }
+                _ => return Err("indexed BYTE access lost its operation".into()),
+            }
             return Ok(());
         }
         if let Some(symbol) = self.accesses.get(&(block, index)) {
@@ -410,4 +425,14 @@ fn remove_base_use(
         *count = count.checked_sub(1).ok_or("symbolic base use underflow")?;
     }
     Ok(())
+}
+
+fn captured_byte(frame: &AllocatedFrame, value: &Mir65816Value) -> Result<bool, String> {
+    match value {
+        Mir65816Value::U8(_) => Ok(true),
+        Mir65816Value::Temp(id, width) if width.get() == 1 => {
+            Ok(checked_stack_home(frame, *id, 1)?.is_some())
+        }
+        _ => Ok(false),
+    }
 }

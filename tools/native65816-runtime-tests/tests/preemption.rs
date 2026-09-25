@@ -268,8 +268,48 @@ fn two_live_contexts_reenter_recursive_and_memory_helpers_with_seeded_interrupts
 }
 #[test]
 fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
+    use actionc::mir65816::{Mir65816Op, emit};
+    use actionc::nir::NirBinaryOp;
     for optimize in [false, true] {
-        let mut h = machine(optimize);
+        let source = fixture("preemption.act");
+        let prepared = prepare(&source, optimize);
+        let materialized = emit::materialize(&prepared.mir).unwrap();
+        let mut h = initialize(ContextHarness::from_prepared(
+            &source,
+            optimize,
+            "Task",
+            &[0x7100, 0x7120],
+            prepared.clone(),
+        ));
+        // MIR spans identify which physical instructions belong to standalone
+        // word operations. LONGCARD's upper ADC/SBC intentionally has no new
+        // CLC/SEC: it consumes the carry/borrow from the lower word.
+        let mut word_ranges = Vec::new();
+        for r in &prepared.mir.routines {
+            if r.entry.external {
+                continue;
+            }
+            let base = routine(&h.image, &r.name);
+            let code = &materialized
+                .routines
+                .iter()
+                .find(|m| m.id == r.id)
+                .unwrap()
+                .code;
+            for block in &r.blocks {
+                for (i, op) in block.ops.iter().enumerate() {
+                    if let Mir65816Op::Binary {
+                        width, operation, ..
+                    } = op
+                        && width.get() == 2
+                        && matches!(operation, NirBinaryOp::Add | NirBinaryOp::Sub)
+                    {
+                        let span = &code.mir_spans[&(block.id, i)];
+                        word_ranges.push(base + span.start as u32..base + span.end as u32);
+                    }
+                }
+            }
+        }
         let mut seen = BTreeSet::new();
         let mut word_windows = BTreeSet::new();
         let mut return_windows = BTreeSet::new();
@@ -292,7 +332,9 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
                     return_windows.insert(window);
                 }
                 let opcode = h.bus.ram[pc as usize];
-                if matches!(opcode, 0x63 | 0xe3) {
+                if matches!(opcode, 0x63 | 0xe3)
+                    && word_ranges.iter().any(|range| range.contains(&pc))
+                {
                     // Decode only at a reached instruction boundary. These
                     // stack-relative forms are emitted by word arithmetic;
                     // immediate arithmetic in stack guards is not counted.
