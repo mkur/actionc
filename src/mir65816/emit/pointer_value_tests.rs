@@ -285,7 +285,7 @@ fn single_pointer_edges_preserve_hidden_b_and_repair_identity_flags() {
         let at = b.code.position();
         let plan = b.frame.pointer_copies(&r, &edge, 0).unwrap().unwrap();
         assert_eq!(
-            b.frame.pointer_staging(&plan, 0).unwrap(),
+            b.frame.pointer_staging(&plan, 0).unwrap().map(|s| s.a),
             if src == dst { None } else { Some(80) }
         );
         assert!(b.pointer_edge(&edge, false).unwrap());
@@ -459,6 +459,103 @@ fn multiple_pointer_edges_reorder_complete_moves_and_repair_original_final_state
 }
 
 #[test]
+fn cyclic_pointer_edges_capture_once_and_preflight_all_staging() {
+    let mut r = edge_routine();
+    r.temps.push((TempId(997), r.temps[0].1.clone()));
+    r.blocks
+        .last_mut()
+        .unwrap()
+        .params
+        .push((TempId(997), ByteSize::new(3)));
+    for (left, right) in [(stack(10), stack(20)), (dp(0), dp(3)), (stack(10), dp(3))] {
+        for byte in [false, true] {
+            for problem in 0..10 {
+                let mut b = builder(&r);
+                let first = input(&mut b, left, right);
+                b.frame.temps.insert(TempId(996), right);
+                b.frame.temps.insert(TempId(997), left);
+                b.frame.edge_copies = vec![
+                    Slot {
+                        offset: 80,
+                        width: 2,
+                    },
+                    Slot {
+                        offset: 82,
+                        width: 3,
+                    },
+                ];
+                b.blocks.insert(BlockId(99), b.code.label());
+                let edge = Mir65816Edge {
+                    target: BlockId(99),
+                    args: vec![first, Mir65816Value::Temp(TempId(996), ByteSize::new(3))],
+                };
+                match problem {
+                    0 => (),
+                    1 => {
+                        b.frame.edge_copies.pop();
+                    }
+                    2 => b.frame.edge_copies[1].width = 2,
+                    3 => b.frame.edge_copies[1].offset = 81,
+                    4 => b.frame.edge_copies[1].offset = 78,
+                    5 => b.frame.edge_copies[1].offset = 254,
+                    6 => {
+                        b.frame.edge_copies[1].offset = 253;
+                        b.code.test_delta(1);
+                    }
+                    7 => {
+                        b.frame.edge_copies[1].offset = 252;
+                        b.code.test_delta(1);
+                    }
+                    8 => b.blocks.clear(),
+                    9 => {
+                        b.frame.temps.insert(TempId(998), stack(10));
+                        b.frame.temps.insert(TempId(997), stack(10));
+                        b.frame.edge_copies[1].offset = 12;
+                    }
+                    _ => unreachable!(),
+                }
+                if byte {
+                    b.code.a8();
+                } else {
+                    b.code.a16();
+                }
+                let before = format!("{:?}", b.code);
+                let at = b.code.position();
+                let result = b.pointer_edge(&edge, false);
+                if problem != 0 && problem != 7 {
+                    assert!(result.is_err(), "{problem}");
+                    assert_eq!(format!("{:?}", b.code), before);
+                    continue;
+                }
+                assert_eq!(result, Ok(true));
+                let delta = u16::from(problem == 7);
+                let shifted = |home: Location| match home {
+                    Location::Stack(s) => stack(s.offset + delta),
+                    _ => home,
+                };
+                let capture = stack(if problem == 7 { 253 } else { 82 });
+                let mut expected = if byte { vec![0xc2, 0x20] } else { vec![] };
+                expected.extend([0x83, 80 + delta as u8]);
+                for (s, d) in [
+                    (shifted(right), capture),
+                    (shifted(left), shifted(right)),
+                    (capture, shifted(left)),
+                ] {
+                    for offset in [0, 1] {
+                        expected.extend(encoding(s.into(), true, offset));
+                        expected.extend(encoding(d.into(), false, offset));
+                    }
+                }
+                expected.extend([0xa3, 80 + delta as u8, 0xe2, 0x20]);
+                expected.extend(encoding(shifted(left).into(), true, 2));
+                expected.extend([0xc2, 0x20, 0x5c, 0, 0, 0]);
+                assert_eq!(&b.code.code().bytes[at..], expected);
+            }
+        }
+    }
+}
+
+#[test]
 fn multiple_pointer_edges_preflight_every_home_before_mutation() {
     let mut r = edge_routine();
     r.temps.push((TempId(997), r.temps[0].1.clone()));
@@ -468,7 +565,7 @@ fn multiple_pointer_edges_preflight_every_home_before_mutation() {
         .params
         .push((TempId(997), ByteSize::new(3)));
     for (source, destination, stage, fallback) in [
-        (20, 10, 80, true),   // cycle
+        (20, 10, 80, false),  // cycle missing its capture slot
         (21, 30, 80, true),   // partial source overlap
         (40, 22, 80, true),   // partial destination overlap
         (40, 30, 42, false),  // A-save overlaps a later source

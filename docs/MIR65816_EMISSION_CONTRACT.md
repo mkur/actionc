@@ -457,21 +457,29 @@ access order may change; source-language memory access order remains unchanged.
 Nonempty edges containing only captured three-byte Temp/Param arguments may use
 overlapping A16 word copies between complete private stack/DP homes. Destinations
 must be disjoint, and source/destination overlaps must be exact identities.
-After removing identities, a stable acyclic schedule consumes each complete
-source before another move overwrites it. Both word pieces of a pointer move
-finish together; they are never scheduled independently. Authoritative parameter
+After removing identities, a stable schedule consumes each complete source
+before another move overwrites it. When only cycles remain, it captures one
+destination's old pointer in a private three-byte staging slot and redirects
+its pending uses there. The resulting chain consumes that capture before the
+slot is reused for another cycle. Both word pieces of a pointer move finish
+together; they are never scheduled independently. Authoritative parameter
 homes, transient S movement, the target and every accessed byte pass preflight
-before emission. Cycles, partial overlaps, constants and mixed-width edges retain
+before emission. Partial overlaps, constants and mixed-width edges retain
 their existing fallback.
 An edge with any nonidentity moves reserves one invocation-owned two-byte staging
-word to save the original full A. After the scheduled copies, it reloads that
+word to save the original full A. Cyclic edges additionally reserve one
+three-byte capture slot, shared by all cycles on that edge. Both staging slots
+belong to the invocation's fixed frame, so interruption and reentrant calls
+cannot overwrite them. After the scheduled copies, it reloads the A-save
 word, loads the original final assignment's destination bank byte in A8, and
 restores A16. This preserves the bytewise fallback's full A, including hidden B,
 and final N/Z even when moves were reordered or the final assignment is an
 identity. All-identity edges reserve no staging and omit the copies, but retain
 the final bank-byte load and width repair. C/V, X/Y, S, D, DBR and I are preserved. Allocation, final verification
 and emission share the same checked copy/staging plan, including rejection of
-an A-save word overlapping any live pointer home. No fourth pointer byte,
+either staging slot overlapping a live pointer home or the other slot. Compact
+staging is reflected in the frame extent, incoming argument displacements,
+stack peak and guard amounts. No fourth pointer byte,
 new DP reservation, external access, push or call is introduced.
 
 Empty edges validate the target and arity and restore A16 only when local mode
