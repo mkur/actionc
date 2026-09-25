@@ -147,24 +147,31 @@ return-stack phases; the indirect RTL is a call, not a routine return. Unannotat
 probe calls retain all register/flag inputs and unknown memory effects.
 
 Call construction checks the complete outgoing and transfer reservation before
-changing S, clears only alignment/tail padding, then defines each argument byte
-once. The verified stack argument homes,
+changing S, clears only alignment/tail padding, then defines every argument byte.
+The verified stack argument homes,
 not their aggregate extent, identify payload: holes within that extent remain
-zero. No-argument calls retain their one-byte zero area. The A8 padding setup,
-source order and extension, indirect target capture, transfer and cleanup are
-unchanged. All bytes are initialized before transfer.
+zero and are written exactly once. No-argument calls retain their one-byte zero
+area. Nonempty padding is initialized in A8; an unpadded reservation omits that
+setup. The first payload width is still stated explicitly after the guard join.
+Source order and extension, indirect target capture, transfer and cleanup
+are unchanged. All bytes are initialized before transfer.
 Caller home accesses retain the outgoing S delta and cannot overlap the fresh
 outgoing area. Context restoration may resume partially constructed arguments;
 no new helper, persistent scratch or interrupt-masking assumption is introduced.
 
 Call payload selection preflights captured temp/parameter homes and numeric
 constants against their declared widths, the complete outgoing extent and the
-prospective S delta. Native copies use A16 pairs and an A8 tail for three-byte
-values; they never read a fourth pointer byte or overlap outgoing stores.
+prospective S delta. Native copies use A16 pairs. Complete three-byte private
+homes and numeric constants may use two words at offsets zero and one, remaining
+in A16. Only the private middle byte repeats; the destination remains within its
+own argument slot, disjoint from all source homes, other arguments and padding.
+No fourth pointer byte is accessed. The word-plus-A8-tail form remains available
+when smaller. All other payload bytes retain exactly one write.
 Symbolic and mixed-width operands keep bytewise fixups and extension behavior.
 A bounded two-state width choice minimizes encoded argument bytes, including
-mode changes and the next direct-transfer or indirect-target preparation width.
-It preserves declaration order and prefers the existing byte path on a tie.
+mode changes, the initial mode permission and the next direct-transfer or indirect-
+target preparation width. It preserves declaration order and prefers the byte
+path on a tie, then the non-overlapping native path over overlapping words.
 Source-memory reads remain separate MIR operations and keep their ordering.
 
 Result homes are checked against the declared ABI lanes before any call
@@ -945,7 +952,8 @@ outgoing space. No displacement is truncated.
 
 At entry, emitted code checks the frame reservation against the current
 domain's stack floor and ceiling. Before a call it checks `O + 3` (direct) or `O + 6` (indirect), then
-reserves O, zeroes only padding and writes each argument payload byte once. There are no
+reserves O, zeroes only padding and fills the payload under the checked call-copy
+contract above. There are no
 additional temporary pushes beyond the declared transfer in emitted operations.
 The source memory helpers use ordinary checked calls. Indirect calls capture the callable before PHK/PER and the
 stack-synthesized RTL transfer; decrementing the target PC does not borrow

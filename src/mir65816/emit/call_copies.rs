@@ -16,15 +16,22 @@ pub(super) struct Argument {
     source: Source,
     displacement: u8,
     bytes: u8,
-    wide: bool,
+    copy: ArgumentCopy,
 }
 
-// Padding leaves A8. Minimize encoded bytes through the argument sequence and
-// the next required width, preserving argument order. Each state is A8 or A16;
-// a three-byte native copy ends in A8 after its exact, non-overlapping tail.
-fn select_widths(arguments: &mut [Argument], next_word: bool) {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ArgumentCopy {
+    Bytes,
+    Native,
+    OverlappingWords,
+}
+
+// Padding grants A8 mode permission. Without padding, the guard's join requires
+// the first width to be stated explicitly (None), even though physical M is 0.
+// Minimize encoded bytes through the argument sequence and next required width.
+fn select_widths(arguments: &mut [Argument], first_word: Option<bool>, next_word: bool) {
     let mut suffix = if next_word { [2, 0] } else { [0, 2] };
-    let mut choices = vec![[false; 2]; arguments.len()];
+    let mut choices = vec![[ArgumentCopy::Bytes; 2]; arguments.len()];
     for (arg, choices) in arguments.iter().zip(&mut choices).rev() {
         let mut costs = [0; 2];
         for state in 0..2 {
@@ -40,16 +47,29 @@ fn select_widths(arguments: &mut [Argument], next_word: bool) {
                 let native = 2 * (1 - state) + pairs * pair_cost + tail * 6 + suffix[1 - tail];
                 if native < costs[state] {
                     costs[state] = native;
-                    choices[state] = true;
+                    choices[state] = ArgumentCopy::Native;
+                }
+                if arg.bytes == 3 {
+                    let overlapping = 2 * (1 - state) + 2 * pair_cost + suffix[1];
+                    if overlapping < costs[state] {
+                        costs[state] = overlapping;
+                        choices[state] = ArgumentCopy::OverlappingWords;
+                    }
                 }
             }
         }
         suffix = costs;
     }
-    let mut state = 0;
+    // With no mode permission either first width costs the same two bytes.
+    // Pick the cheaper starting width, keeping the byte path on a tie.
+    let mut state = first_word.map_or_else(|| usize::from(suffix[1] < suffix[0]), usize::from);
     for (arg, choices) in arguments.iter_mut().zip(choices) {
-        arg.wide = choices[state];
-        state = usize::from(arg.wide && arg.bytes % 2 == 0);
+        arg.copy = choices[state];
+        state = usize::from(match arg.copy {
+            ArgumentCopy::Bytes => false,
+            ArgumentCopy::Native => arg.bytes % 2 == 0,
+            ArgumentCopy::OverlappingWords => true,
+        });
     }
 }
 
@@ -76,6 +96,7 @@ impl Builder<'_> {
         args: &[Mir65816Value],
         plan: &Mir65816CallPlan,
         target: &Mir65816CallTarget,
+        first_word: Option<bool>,
     ) -> Result<Vec<Argument>, String> {
         if self.code.delta() != 0 || args.len() != plan.arguments.len() {
             return Err("invalid call argument count or stack phase".into());
@@ -122,7 +143,7 @@ impl Builder<'_> {
                 source,
                 displacement,
                 bytes,
-                wide: false,
+                copy: ArgumentCopy::Bytes,
             });
         }
         let next_word = if let Mir65816CallTarget::Indirect(value, bytes) = target {
@@ -138,7 +159,7 @@ impl Builder<'_> {
         } else {
             true
         };
-        select_widths(&mut arguments, next_word);
+        select_widths(&mut arguments, first_word, next_word);
         Ok(arguments)
     }
 
@@ -171,7 +192,7 @@ impl Builder<'_> {
         value: &Mir65816Value,
         arg: &Argument,
     ) -> Result<(), String> {
-        if !arg.wide {
+        if arg.copy == ArgumentCopy::Bytes {
             self.code.a8();
             for byte in 0..arg.bytes {
                 self.value_byte(value, byte)?;
@@ -180,7 +201,16 @@ impl Builder<'_> {
             return Ok(());
         }
         self.code.a16();
-        for byte in (0..arg.bytes - 1).step_by(2) {
+        // The complete source home and destination slot were checked before
+        // reserving O. Caller homes lie above O, so the two extents are disjoint.
+        // Repeating byte one touches only private payload, never padding or a
+        // fourth byte. No source-language memory read is widened or repeated.
+        let step = if arg.copy == ArgumentCopy::OverlappingWords {
+            1
+        } else {
+            2
+        };
+        for byte in (0..arg.bytes - 1).step_by(step) {
             match arg.source {
                 Source::Immediate(value) => {
                     self.code.word(WordOp::LdaImm, (value >> (8 * byte)) as u16)
@@ -190,7 +220,7 @@ impl Builder<'_> {
             }
             self.code.byte(ByteOp::StaStack, arg.displacement + byte);
         }
-        if arg.bytes % 2 != 0 {
+        if arg.copy == ArgumentCopy::Native && arg.bytes % 2 != 0 {
             self.code.a8();
             self.value_byte(value, arg.bytes - 1)?;
             self.code

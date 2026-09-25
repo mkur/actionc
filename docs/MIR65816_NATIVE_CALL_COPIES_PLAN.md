@@ -26,7 +26,9 @@ Discarded results need no stores. Keep call barriers and introduce no persistent
 register/flag relation across calls. Reuse typed instructions and existing replay,
 effects and relocation machinery.
 
-Qualification covers exact argument bytes and one write per outgoing byte,
+Qualification covers exact argument bytes and one write per outgoing byte
+(the later native 24-bit packing slice permits the private middle payload byte
+to repeat, as specified by the [emission contract](MIR65816_EMISSION_CONTRACT.md)),
 all result widths and canaries, full call clobbers, mutable/incoming parameters,
 direct/indirect calls, boundary displacements, zero/maximum constants, source
 effects, relocation and IRQ/NMI during construction/cleanup/capture. Check LF

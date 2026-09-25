@@ -90,6 +90,28 @@ fn direct_and_indirect_result_captures_match_ca65_and_preserve_neighbor_bytes() 
                 irq_effect: Default::default(),
             });
             let compiled = p.compile(&options).unwrap();
+            // Include repeated private middle-byte writes in the call replay
+            // and state proof, alongside the direct/indirect result captures.
+            let (direct, direct_traces) =
+                actionc::mir65816::emit::proof::materialize_reference(&p.mir, true).unwrap();
+            let (replayed, replayed_traces) =
+                actionc::mir65816::emit::proof::materialize_replayed(&p.mir, true).unwrap();
+            for ((a, b), (x, y)) in direct
+                .routines
+                .iter()
+                .zip(&replayed.routines)
+                .zip(direct_traces.iter().zip(&replayed_traces))
+            {
+                actionc::mir65816::emit::proof::compare_replay_output(&a.code, &b.code).unwrap();
+                assert_eq!(x.snapshots, y.snapshots);
+            }
+            assert_eq!(
+                compiled.image.to_json().unwrap(),
+                actionc::mir65816::image::link(&p.mir, &replayed, &options)
+                    .unwrap()
+                    .to_json()
+                    .unwrap()
+            );
             assert_eq!(
                 compiled.image.to_json().unwrap(),
                 prepare_calls(&source.replace('\n', "\r\n"))

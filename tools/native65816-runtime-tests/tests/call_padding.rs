@@ -26,6 +26,27 @@ fn cases() -> Vec<Case> {
         ("zero", "BYTE a", "0", vec![0], vec![]),
         ("word", "CARD a", "$3456", vec![0x56, 0x34, 0], vec![2]),
         (
+            "pointer",
+            "BYTE POINTER p",
+            "BYTE POINTER($AB789A)",
+            vec![0x9a, 0x78, 0xab],
+            vec![],
+        ),
+        (
+            "captured_pointer",
+            "ADDRESS p",
+            "input",
+            vec![0x9a, 0x78, 0xab],
+            vec![],
+        ),
+        (
+            "banked_pointer",
+            "ADDRESS p",
+            "input^",
+            vec![0x9a, 0x78, 0xab],
+            vec![],
+        ),
+        (
             "mixed",
             "BYTE a CARD b BYTE POINTER p LONGINT c",
             "$12,$3456,BYTE POINTER($AB789A),LONGINT($BCDEF012)",
@@ -82,6 +103,14 @@ fn cases() -> Vec<Case> {
 }
 
 fn source(case: &Case, indirect: bool) -> String {
+    let (declarations, setup) = match case.name {
+        "captured_pointer" => ("VOLATILE ADDRESS input=$7100\n", ""),
+        "banked_pointer" => (
+            "ADDRESS POINTER input\n",
+            "input=ADDRESS POINTER($12FFFE)\n",
+        ),
+        _ => ("", ""),
+    };
     let callback = if indirect {
         format!("LONGCARD FUNC POINTER callback({})\n", case.parameters)
     } else {
@@ -89,7 +118,7 @@ fn source(case: &Case, indirect: bool) -> String {
     };
     format!(
         "MODULE TEST\nPUBLIC EXTERNAL LONGCARD FUNC Observe({})\n{callback}\
-         LONGCARD result\nPROC Main()\n{}result={}({})\nRETURN\nENDMODULE\n",
+         {declarations}LONGCARD result\nPROC Main()\n{setup}{}result={}({})\nRETURN\nENDMODULE\n",
         case.parameters,
         if indirect { "callback=@Observe\n" } else { "" },
         if indirect { "callback" } else { "Observe" },
@@ -195,6 +224,8 @@ fn assembly_observes_complete_arguments_and_zero_padding_in_both_modes() {
                 for mask in [0, 4] {
                     let mut h = Harness::new(&image, &caller, mask);
                     h.bus.map(OBSERVE, &leaf, false);
+                    h.bus.map(0x12fffe, &[0x9a, 0x78, 0xab, 0xe5], false);
+                    h.bus.ram[0x7100..0x7104].copy_from_slice(&[0x9a, 0x78, 0xab, 0xe5]);
                     reach(&mut h, start);
                     let body_s = usize::from(h.cpu.registers().s);
                     let area = body_s - outgoing + 1..body_s + 1;
@@ -206,24 +237,66 @@ fn assembly_observes_complete_arguments_and_zero_padding_in_both_modes() {
                     assert_eq!(&h.bus.ram[body_s + 1..0x6000], preserved);
                     assert_eq!(usize::from(h.cpu.registers().s), body_s - outgoing - 3);
                     let mut writes = vec![0; outgoing];
-                    for &(address, _) in &h.bus.writes[write_start..] {
+                    for &(address, value) in &h.bus.writes[write_start..] {
                         if area.contains(&(address as usize)) {
-                            writes[address as usize - area.start] += 1;
+                            let at = address as usize - area.start;
+                            writes[at] += 1;
+                            assert_eq!(
+                                value, case.expected[at],
+                                "each payload/padding write is final"
+                            );
                         }
                     }
                     for &pad in &case.padding {
                         assert_eq!(writes[pad], 1);
                     }
-                    assert_eq!(
-                        writes,
-                        vec![1; outgoing],
-                        "{} indirect={indirect} optimized={optimize}",
-                        case.name
-                    );
+                    // Only the middle byte of an admitted private pointer slot
+                    // repeats. Padding and neighboring arguments still get one
+                    // write; the external capture remains three exact reads.
+                    let repeated: &[usize] = match case.name {
+                        "pointer" | "captured_pointer" | "banked_pointer" => &[1],
+                        "mixed" => &[5],
+                        "pointers" => &[1, 4],
+                        "address_size" => &[3, 7],
+                        _ => &[],
+                    };
+                    for (at, &count) in writes.iter().enumerate() {
+                        assert!(
+                            count == 1 || (count == 2 && repeated.contains(&at)),
+                            "{} byte {at}: {count} writes, indirect={indirect} optimized={optimize}",
+                            case.name
+                        );
+                    }
+                    if !indirect
+                        && matches!(case.name, "pointer" | "captured_pointer" | "banked_pointer")
+                    {
+                        assert_eq!(
+                            writes,
+                            [1, 2, 1],
+                            "the direct pointer probe must use native packing"
+                        );
+                    }
                     h.run();
                     h.guards(mask);
                     assert_eq!(&h.bus.ram[RECORD..RECORD + outgoing], case.expected);
                     assert_eq!(h.global(&image, "result", 4), 0x89abcdef);
+                    let reads: Vec<_> = h
+                        .bus
+                        .reads
+                        .iter()
+                        .copied()
+                        .filter(|a| {
+                            (0x12fffe..0x130002).contains(a) || (0x7100..0x7104).contains(a)
+                        })
+                        .collect();
+                    assert_eq!(
+                        reads,
+                        match case.name {
+                            "captured_pointer" => vec![0x7100, 0x7101, 0x7102],
+                            "banked_pointer" => vec![0x12fffe, 0x12ffff, 0x130000],
+                            _ => vec![],
+                        }
+                    );
                     records.push(json!({"case":case.name,"indirect":indirect,"optimize":optimize,"incoming_i":mask,"outgoing":outgoing,"padding":case.padding,"writes":writes,"code_bytes":image.routines.iter().map(|r|r.size).sum::<u32>(),"cycles":h.cpu.cycles()}));
                 }
                 // Exercise the real source parser with host CRLF, not a text-only comparison.

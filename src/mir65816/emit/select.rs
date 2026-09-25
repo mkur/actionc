@@ -2245,7 +2245,8 @@ impl Builder<'_> {
         plan: &Mir65816CallPlan,
     ) -> Result<(), String> {
         let padding = outgoing_padding(&plan.arguments, plan.outgoing_bytes)?;
-        let arguments = self.call_arguments(args, plan, target)?;
+        let arguments =
+            self.call_arguments(args, plan, target, (!padding.is_empty()).then_some(false))?;
         let capture = self.call_result(result, plan)?;
         let direct = match target {
             Mir65816CallTarget::Direct(id) => Some(Target::Routine(RoutineId(*id))),
@@ -2281,10 +2282,12 @@ impl Builder<'_> {
         );
         self.reserve(outgoing);
         assert_eq!(self.code.delta(), u32::from(outgoing));
-        self.code.a8();
-        self.code.byte(ByteOp::LdaImm, 0);
-        for displacement in padding {
-            self.code.byte(ByteOp::StaStack, displacement);
+        if !padding.is_empty() {
+            self.code.a8();
+            self.code.byte(ByteOp::LdaImm, 0);
+            for displacement in padding {
+                self.code.byte(ByteOp::StaStack, displacement);
+            }
         }
         for (value, argument) in args.iter().zip(&arguments) {
             self.copy_call_argument(value, argument)?;
