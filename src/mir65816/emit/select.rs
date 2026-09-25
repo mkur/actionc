@@ -46,6 +46,8 @@ mod addresses;
 mod arithmetic;
 #[path = "call_copies.rs"]
 mod call_copies;
+#[path = "call_returns.rs"]
+mod call_returns;
 #[path = "constant_stores.rs"]
 mod constant_stores;
 #[path = "long_arithmetic.rs"]
@@ -132,6 +134,12 @@ enum Memory {
         slot: u8,
         offset: u16,
     },
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CallResultUse {
+    Capture,
+    Return,
 }
 
 /// A complete preflight, shared by materialized and branch-only comparisons.
@@ -407,7 +415,9 @@ pub(super) fn routine_with_data(
         });
     }
     let sole_conditions = liveness::sole_branch_conditions(routine);
+    let input_counts = liveness::input_counts(routine);
     for (index, block) in routine.blocks.iter().enumerate() {
+        let mut forwarded_return = false;
         b.next_block = routine.blocks.get(index + 1).map(|b| b.id);
         b.code.mark(b.blocks[&block.id]);
         if let Some((last, prefix)) = block.ops.split_last() {
@@ -428,9 +438,14 @@ pub(super) fn routine_with_data(
                     .fused_span(block.id, prefix.len(), start, block.ops.len());
                 continue;
             }
-            addresses
-                .emit(&mut b, block.id, prefix.len(), last)
+            forwarded_return = b
+                .call_return(last, &block.terminator, &input_counts)
                 .map_err(|e| format!("b{}: {e}", block.id.0))?;
+            if !forwarded_return {
+                addresses
+                    .emit(&mut b, block.id, prefix.len(), last)
+                    .map_err(|e| format!("b{}: {e}", block.id.0))?;
+            }
             b.code.span(block.id, prefix.len(), start);
         }
         let start = b.code.code().bytes.len();
@@ -453,7 +468,13 @@ pub(super) fn routine_with_data(
                 b.code.mark(yes);
                 b.edge_last(then_edge)?;
             }
-            Mir65816Terminator::Return { value, .. } => b.return_value(value.as_ref())?,
+            Mir65816Terminator::Return { value, .. } => {
+                if forwarded_return {
+                    b.return_tail(true)?;
+                } else {
+                    b.return_value(value.as_ref())?;
+                }
+            }
             Mir65816Terminator::Fallthrough => {
                 let next = routine
                     .blocks
@@ -2244,10 +2265,23 @@ impl Builder<'_> {
         result: Option<(TempId, ByteSize)>,
         plan: &Mir65816CallPlan,
     ) -> Result<(), String> {
+        self.call_with_result(target, args, result, plan, CallResultUse::Capture)
+    }
+    fn call_with_result(
+        &mut self,
+        target: &Mir65816CallTarget,
+        args: &[Mir65816Value],
+        result: Option<(TempId, ByteSize)>,
+        plan: &Mir65816CallPlan,
+        result_use: CallResultUse,
+    ) -> Result<(), String> {
         let padding = outgoing_padding(&plan.arguments, plan.outgoing_bytes)?;
         let arguments =
             self.call_arguments(args, plan, target, (!padding.is_empty()).then_some(false))?;
         let capture = self.call_result(result, plan)?;
+        if result_use == CallResultUse::Return && capture.is_none() {
+            return Err("forwarded call return requires a native result".into());
+        }
         let direct = match target {
             Mir65816CallTarget::Direct(id) => Some(Target::Routine(RoutineId(*id))),
             Mir65816CallTarget::Helper(id) => Some(Target::Routine(*id)),
@@ -2324,11 +2358,13 @@ impl Builder<'_> {
             self.code.native_indirect_transfer(plan)?; // RTL: enter callee with ordinary three-byte return frame
             self.code.mark(resume);
         }
-        // Discarded results retain the callee's declared ABI effects, but A
-        // need not survive caller cleanup when there is no capture.
+        // A forwarded result still needs preservation, despite omitting its
+        // capture. Discarded results retain their declared callee ABI effects.
         self.release(outgoing, capture.is_some());
         assert_eq!(self.code.delta(), 0);
-        if let Some((home, bytes)) = capture {
+        if result_use == CallResultUse::Capture
+            && let Some((home, bytes)) = capture
+        {
             self.capture_call_result(home, bytes)?;
         }
         Ok(())
@@ -2416,7 +2452,10 @@ impl Builder<'_> {
         } else if self.routine.result_home.is_some() {
             return Err("function returns without a value".into());
         }
-        self.release(self.frame.extent, value.is_some());
+        self.return_tail(value.is_some())
+    }
+    fn return_tail(&mut self, preserve_result: bool) -> Result<(), String> {
+        self.release(self.frame.extent, preserve_result);
         self.code.native_return(self.routine.result_home)?; // RTL
         Ok(())
     }

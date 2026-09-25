@@ -185,6 +185,18 @@ the complete A/X result. Calls remain
 barriers and all guards, allocations and ABI stack costs are unchanged. See the
 [native call measurements](benchmarks/65816-native-calls/README.md).
 
+A direct native call immediately followed by Return of its sole-use result
+temporary may keep a matching BYTE/word ABI result in A through outgoing
+cleanup and frame teardown. Typed occurrence counting includes all blocks,
+address operands and edge/terminator uses. Other consumers, indirect calls,
+intervening operations and differing result conventions retain capture/reload.
+The complete call preflight still checks the reserved result home and native
+contract before emission. Allocation remains unchanged; the omitted capture
+publishes no home definition. Call and Return retain separate source spans,
+and typed call/return effects and replay still describe the actual instructions.
+This is ordinary JSL/cleanup/RTL, with BYTE zero extension supplied by the
+declared callee ABI. See the [call-result measurements](benchmarks/65816-call-results/README.md).
+
 The state owns width-qualified immutable A/X/Y values, N/Z provenance, C/V,
 execution modes and environment, exact private stack-home generations, stack
 movement and the existing single-use adjacent-word permission. DP and unknown

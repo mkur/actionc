@@ -1,0 +1,37 @@
+{
+  "baseline_compiler": "39016a89",
+  "workload": "frozen Exec 622b139-dirty, optimized, 631 routines",
+  "compiler_code_before": 388095,
+  "compiler_code_after": 386222,
+  "saved": 1873,
+  "call_sites": 2045,
+  "calls_shortened": 198,
+  "call_span_savings": 788,
+  "local_brl_to_bra": 3,
+  "other_span_savings": {
+    "Compare/1/false/Eq": 3,
+    "Terminator/Return": 1082
+  },
+  "smaller_routines": 98,
+  "larger_routines": 0,
+  "guards": 2676,
+  "guard_bytes": 72252,
+  "compiler_initialized_data_bytes": 951,
+  "same_mir_operations": true,
+  "same_public_abi_and_temporary_homes": true,
+  "frame_changes": [],
+  "guard_amount_changes": [],
+  "same_guard_sizes": true,
+  "added_bank_zero_reservation_bytes": 0,
+  "full_qualification_run": false,
+  "release_guard_disabled_build": false,
+  "frozen_input_files": 120,
+  "hashes": {
+    "target/exec-current-audit/frozen-inputs.json": "4bd36e0e631bef8a8e4f57dc37bb6f9cc078942288bf15c2ec3c4f11757d44c9",
+    "target/exec-current-audit/call-cleanup.image.json": "975a6b510952543cf0e49ef11e07cd6c7b5582e82ec8836acc7f46d8fd238880",
+    "target/exec-current-audit/call-cleanup.inventory.json": "7a6ae61d5db3006f8a899ca797680d8967ea71a9ed501df96b691538bfba8009",
+    "target/exec-current-audit/byte-word-call-returns.image.json": "51f22699c1c877f85d4404dec5b16ae8f955d021df93d0e6d70ae6dabad65d87",
+    "target/exec-current-audit/byte-word-call-returns.inventory.json": "acf99b5f43597bb059df2222a204e9e02b5bd956b487388ce328ae64fcb197d9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/call-results/measure.py": "cda6b5e0a39a9ba49f00b8ba267dc16bcc3d1ee030bb831e1edc6b05dc17944e"
+  }
+}
