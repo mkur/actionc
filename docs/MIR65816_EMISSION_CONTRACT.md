@@ -758,9 +758,11 @@ existing private overlapping-word transfer when source and destination are
 identical or disjoint. Both complete homes are checked before emission,
 including the current stack delta and the owned DP extent. The selector keeps
 the semantic cast and allocated result, retains the operation barrier, and
-selects A16 without an intervening A8 excursion. Partial overlaps, constants,
-symbolic values and width changes retain their prior cast paths. No external
-access is repeated, no fourth byte is touched, and allocation is unchanged.
+selects A16 without an intervening A8 excursion. When both checked stack homes
+are identical, the cast emits no transfer or mode change; tracked state reflects
+only the retained operation barrier. Partial overlaps, constants, symbolic
+values and width changes retain their prior cast paths. No external access is
+repeated and no fourth byte is touched.
 
 `AddressOf` with a captured indirect base, no index and displacement zero uses
 the same checked private transfer when its three-byte result home is disjoint
@@ -838,8 +840,10 @@ locations, and no bank-zero reservation is added.
 Other routines use invocation-owned stack temporaries with CFG-aware lifetime
 reuse. Backward fixed-point liveness includes indirect address bases, indexes,
 call targets/arguments/results, returns, edge arguments and block parameters.
-All inputs, outputs and values live across an operation interfere for its entire
-instruction sequence, including dead outputs that selection still writes. Block
+Inputs, outputs and values live across an operation interfere for its entire
+instruction sequence, including dead outputs that selection still writes, with
+one stack-only exception for a dying three-byte identity-cast input and result.
+Block
 parameters, even unused ones, interfere with each other and successor live-ins.
 Required parallel-edge staging slots remain separate from all temporary homes
 and frame objects. Empty/direct word edges contribute no staging; selective word
@@ -864,6 +868,19 @@ cycles are accepted. Profitability includes final A/N/Z repair. Rejected trials
 leave the original allocation intact. Frame compaction and relaxed arithmetic
 interference are separate work. See the
 [coalescing plan](MIR65816_EDGE_COALESCING_PLAN.md).
+
+A subsequent bounded pointer-cast affinity pass can place a dying captured
+three-byte cast input and its bit-preserving result in the same stack home.
+The liveness exception omits only that operation's pair when the input is absent
+from the live-after set; interference established elsewhere is never removed.
+The stack verifier independently checks every third-party interference and
+requires cast homes to be completely identical or disjoint. Partial overlaps
+remain illegal. All edge argument and block-parameter locations remain fixed.
+Trials must increase the total number of identity transfers and retain exact
+frame, stack-peak and staging accounting. Source captures, volatile accesses,
+calls and DP reservations remain unchanged. No frame compaction or DP cast
+coalescing is included. See the
+[pointer/bitwise measurements](benchmarks/65816-pointer-bitwise/README.md).
 
 A bounded scalar loop may keep one unsigned word header parameter mirrored in
 X16. An immutable typed plan requires a call-free scalar-DP routine, one simple

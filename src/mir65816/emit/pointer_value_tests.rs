@@ -65,10 +65,15 @@ fn native_pointer_casts_copy_exact_private_extents_in_both_entry_widths() {
                 let at = b.code.position();
                 let frame = b.frame.clone();
                 assert!(b.pointer_cast(TempId(999), &value).unwrap());
-                let mut expected = if byte { vec![0xc2, 0x20] } else { vec![] };
-                for offset in [0, 1] {
-                    expected.extend(encoding(src.into(), true, offset));
-                    expected.extend(encoding(dst.into(), false, offset));
+                let mut expected = vec![];
+                if !matches!((src,dst), (Location::Stack(a),Location::Stack(b)) if a==b) {
+                    if byte {
+                        expected.extend([0xc2, 0x20]);
+                    }
+                    for offset in [0, 1] {
+                        expected.extend(encoding(src.into(), true, offset));
+                        expected.extend(encoding(dst.into(), false, offset));
+                    }
                 }
                 assert_eq!(&b.code.code().bytes[at..], expected);
                 assert_eq!(b.frame.temps, frame.temps);

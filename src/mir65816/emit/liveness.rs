@@ -58,6 +58,7 @@ struct Uses {
     inputs: Live,
     occurrences: Vec<TempId>,
     output: Option<TempId>,
+    pointer_copy: Option<(TempId, TempId)>,
 }
 
 impl Uses {
@@ -139,6 +140,7 @@ impl Uses {
                 uses.output = result.map(|(id, _)| id);
             }
         }
+        uses.pointer_copy = pointer_copy(op);
         uses
     }
 }
@@ -194,6 +196,34 @@ struct Block {
 }
 
 pub(super) fn interference(routine: &Mir65816Routine) -> Result<Interference, String> {
+    interference_inner(routine, false)
+}
+
+/// A bit-preserving cast of a complete captured three-byte value. Parameters
+/// and source memory are deliberately excluded from this storage affinity.
+pub(super) fn pointer_copy(op: &Mir65816Op) -> Option<(TempId, TempId)> {
+    match op {
+        Mir65816Op::Cast {
+            dest,
+            from,
+            to,
+            value: Mir65816Value::Temp(source, width),
+            ..
+        } if from.get() == 3 && to.get() == 3 && width.get() == 3 => Some((*source, *dest)),
+        _ => None,
+    }
+}
+
+/// Stack-only exception: a dying identity-cast input need not coexist with its
+/// output. Every other operation and every third-party overlap stays closed.
+pub(super) fn pointer_copy_interference(routine: &Mir65816Routine) -> Result<Interference, String> {
+    interference_inner(routine, true)
+}
+
+fn interference_inner(
+    routine: &Mir65816Routine,
+    pointer_copies: bool,
+) -> Result<Interference, String> {
     let indices: BTreeMap<_, _> = routine
         .blocks
         .iter()
@@ -306,10 +336,24 @@ pub(super) fn interference(routine: &Mir65816Routine) -> Result<Interference, St
         add_clique(&mut graph, &live);
         for op in block.ops.iter().rev() {
             // Reserve even dead outputs, conservatively including fused Booleans.
-            // Inputs and output coexist until the entire operation completes.
+            // Omit only this site's dying identity-copy pair. An interference
+            // established at another site must never be removed from the graph.
+            let exception = op
+                .pointer_copy
+                .filter(|(source, _)| pointer_copies && !live.contains(source));
             live.extend(&op.inputs);
             live.extend(op.output);
-            add_clique(&mut graph, &live);
+            for &id in &live {
+                graph
+                    .get_mut(&id)
+                    .expect("checked temporary identity")
+                    .extend(live.iter().copied().filter(|&other| {
+                        other != id
+                            && !exception.is_some_and(|(a, b)| {
+                                (id == a && other == b) || (id == b && other == a)
+                            })
+                    }));
+            }
             if let Some(id) = op.output {
                 live.remove(&id);
             }

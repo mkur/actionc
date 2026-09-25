@@ -9,6 +9,7 @@ pub(super) mod layout;
 mod liveness;
 mod loop_x;
 mod pointer_copies;
+mod pointer_coalescing;
 #[cfg(feature = "native65816-state-proof")]
 pub mod proof;
 mod replay;

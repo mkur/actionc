@@ -197,6 +197,11 @@ impl Builder<'_> {
         self.code.barrier();
         // All current same-width three-byte cast kinds preserve representation.
         // Keep the semantic cast and its result home; only select its transfer.
+        if matches!((source, destination), (Memory::Stack(a), Memory::Stack(b)) if a == b) {
+            // The allocated home already contains the complete result. Keep
+            // the current M/A/flags facts; no imaginary transfer took place.
+            return Ok(true);
+        }
         self.transfer(source, destination, 3, true)?;
         Ok(true)
     }

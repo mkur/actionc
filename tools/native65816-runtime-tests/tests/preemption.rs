@@ -2184,3 +2184,20 @@ fn signed_long_ordering_restores_borrow_and_overflow_flags_under_irq_nmi() {
     assert_eq!(source, modify(&original.replace('\n', "\r\n")));
     check_narrow_preemption(&source, ["SIGNEDLESS", "SIGNEDBRANCH"], "signed-long-order");
 }
+
+#[test]
+fn pointer_coalescing_keeps_private_values_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n","\n")
+        .replace("CARD FUNC Read(","ADDRESS FUNC PointerIdentity(ADDRESS p) RETURN(ADDRESS(BYTE POINTER(p)))\nCARD FUNC PointerConsumer(ADDRESS p) ADDRESS saved saved=PointerIdentity(p) RETURN(CARD(ADDRESS(BYTE POINTER(saved))))\nCARD FUNC Read(")
+        .replace("  work.done=1","  work.result==+PointerConsumer(ADDRESS(work.seed))+PointerConsumer(ADDRESS($abcdef))-work.seed-$cdef\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(
+        &source,
+        ["POINTERIDENTITY", "POINTERCONSUMER"],
+        "pointer-coalescing",
+    );
+}

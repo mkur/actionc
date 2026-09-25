@@ -1,0 +1,1810 @@
+{
+  "slice": "pointer-coalescing",
+  "baseline": "long-signed",
+  "code_before": 403239,
+  "code_after": 399225,
+  "guard_bytes": 72252,
+  "initialized_data_bytes": 951,
+  "routine_contracts_unchanged_except_address_size_and_temp_homes": true,
+  "bank_zero_delta": {
+    "fixed": 0,
+    "per_task": 0
+  },
+  "frozen_inputs_sha256": "4bd36e0e631bef8a8e4f57dc37bb6f9cc078942288bf15c2ec3c4f11757d44c9",
+  "images": {
+    "long-signed": "26fc27e1b527c0e06196d53685f5ea6ba69b8688a7dcb15fb27cd37c02ae66e9",
+    "pointer-coalescing": "6d0acde64999f2a386dc40fd4f5591aa13bd8af12708af33a38d85441cbbecf8"
+  },
+  "changed_routines": [
+    {
+      "routine": "M_EXECLISTS_NEWLIST_B3502541",
+      "before": 175,
+      "after": 159,
+      "saved": 16
+    },
+    {
+      "routine": "M_EXECLISTS_NEWMINLIST_A2695943",
+      "before": 114,
+      "after": 106,
+      "saved": 8
+    },
+    {
+      "routine": "M_EXECLISTS_ISLISTEMPTY_6EEB0796",
+      "before": 143,
+      "after": 135,
+      "saved": 8
+    },
+    {
+      "routine": "M_EXECLISTS_ISMINLISTEMPTY_6D517164",
+      "before": 131,
+      "after": 123,
+      "saved": 8
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "before": 252,
+      "after": 244,
+      "saved": 8
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "before": 265,
+      "after": 257,
+      "saved": 8
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "before": 574,
+      "after": 558,
+      "saved": 16
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "before": 443,
+      "after": 434,
+      "saved": 9
+    },
+    {
+      "routine": "M_HEAPCORE_BOUNDS_2387CB05",
+      "before": 900,
+      "after": 892,
+      "saved": 8
+    },
+    {
+      "routine": "M_HEAPCORE_CHUNKADDRESS_A551D41B",
+      "before": 412,
+      "after": 404,
+      "saved": 8
+    },
+    {
+      "routine": "M_HEAPCORE_NEXTADDRESS_E32592FF",
+      "before": 324,
+      "after": 316,
+      "saved": 8
+    },
+    {
+      "routine": "M_HEAPCORE_CHUNKEND_0E0C27CE",
+      "before": 725,
+      "after": 717,
+      "saved": 8
+    },
+    {
+      "routine": "M_HEAPCORE_SPLIT_B6117102",
+      "before": 773,
+      "after": 749,
+      "saved": 24
+    },
+    {
+      "routine": "M_HEAPCORE_CANDIDATE_07CF3557",
+      "before": 281,
+      "after": 273,
+      "saved": 8
+    },
+    {
+      "routine": "M_HEAPCORE_RESERVE_2192E9C0",
+      "before": 832,
+      "after": 824,
+      "saved": 8
+    },
+    {
+      "routine": "M_HEAPCORE_INSERTFREE_129E41BB",
+      "before": 963,
+      "after": 939,
+      "saved": 24
+    },
+    {
+      "routine": "M_HEAPCORE_RETURNRANGE_11C95A83",
+      "before": 1115,
+      "after": 1095,
+      "saved": 20
+    },
+    {
+      "routine": "M_HEAPCORE_DEALLOCATE_60F97CF2",
+      "before": 572,
+      "after": 564,
+      "saved": 8
+    },
+    {
+      "routine": "M_HEAPPOLICY_HEADER_A992FDFC",
+      "before": 142,
+      "after": 134,
+      "saved": 8
+    },
+    {
+      "routine": "M_HEAPPOLICY_REGION_F42DC07D",
+      "before": 734,
+      "after": 718,
+      "saved": 16
+    },
+    {
+      "routine": "M_HEAPPOLICY_START_1455FA91",
+      "before": 1195,
+      "after": 1187,
+      "saved": 8
+    },
+    {
+      "routine": "M_HEAPPOLICY_DESCRIPTOR_8971C45E",
+      "before": 401,
+      "after": 385,
+      "saved": 16
+    },
+    {
+      "routine": "M_HEAPPOLICY_VALIDATEREGIONS_C3A52ACE",
+      "before": 1013,
+      "after": 997,
+      "saved": 16
+    },
+    {
+      "routine": "M_HEAPPOLICY_RESERVE_42F2499D",
+      "before": 933,
+      "after": 925,
+      "saved": 8
+    },
+    {
+      "routine": "M_HEAPPOLICY_LOCATE_7B91FF59",
+      "before": 559,
+      "after": 531,
+      "saved": 28
+    },
+    {
+      "routine": "M_HEAPPOLICY_FREE_3EA2E1EF",
+      "before": 760,
+      "after": 752,
+      "saved": 8
+    },
+    {
+      "routine": "M_HEAPPOLICY_AVAIL_22774B2C",
+      "before": 1542,
+      "after": 1534,
+      "saved": 8
+    },
+    {
+      "routine": "M_HEAPPOLICY_FREEVECTOR_698EC5DE",
+      "before": 1109,
+      "after": 1085,
+      "saved": 24
+    },
+    {
+      "routine": "M_TASKPOLICY_RECORDFOR_833E2B66",
+      "before": 140,
+      "after": 132,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_POINTERRESULT_E8D88610",
+      "before": 223,
+      "after": 207,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_ARGUMENTPOINTER_A19325C6",
+      "before": 294,
+      "after": 286,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_FLAGS_56B3B4FF",
+      "before": 96,
+      "after": 88,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_LOOKUP_41F6D1E4",
+      "before": 537,
+      "after": 529,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_WRITABLE_0565D862",
+      "before": 698,
+      "after": 690,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_AVAILABLERECORD_80983EA0",
+      "before": 630,
+      "after": 614,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_EMPTYMEMORY_C893BDB0",
+      "before": 335,
+      "after": 319,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_PREPARESTACK_1A1C583B",
+      "before": 557,
+      "after": 549,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_PREPAREDOMAIN_45DA3401",
+      "before": 815,
+      "after": 799,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_PREPAREFRAME_D5FF2FA0",
+      "before": 464,
+      "after": 440,
+      "saved": 24
+    },
+    {
+      "routine": "M_TASKPOLICY_INITSIGNALS_5C831CB9",
+      "before": 417,
+      "after": 409,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_SELECT_1A709B3E",
+      "before": 720,
+      "after": 712,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_ADD_A5E7C92B",
+      "before": 1911,
+      "after": 1895,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_REMOVETASK_35F29A21",
+      "before": 1810,
+      "after": 1802,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_SAMENAME_968CD62D",
+      "before": 310,
+      "after": 277,
+      "saved": 33
+    },
+    {
+      "routine": "M_TASKPOLICY_MASKRESULT_220A6FAB",
+      "before": 203,
+      "after": 195,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_MASKS_49833CE1",
+      "before": 1202,
+      "after": 1186,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_MEMORYCALL_E7816C43",
+      "before": 1504,
+      "after": 1448,
+      "saved": 56
+    },
+    {
+      "routine": "M_TASKPOLICY_PORTSTORAGE_D3468DA2",
+      "before": 157,
+      "after": 149,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_VALIDMESSAGE_C0DE7739",
+      "before": 219,
+      "after": 203,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_PORTHEAD_A12A0751",
+      "before": 679,
+      "after": 663,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_REGISTRYCALL_6B5FFB7F",
+      "before": 1030,
+      "after": 1006,
+      "saved": 24
+    },
+    {
+      "routine": "M_TASKPOLICY_QUEUECALL_62B0545B",
+      "before": 1084,
+      "after": 1060,
+      "saved": 24
+    },
+    {
+      "routine": "M_TASKPOLICY_PORTCALL_70989793",
+      "before": 970,
+      "after": 962,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_IOEXTENT_9818C08A",
+      "before": 334,
+      "after": 318,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_IOENQUEUE_EC975914",
+      "before": 1125,
+      "after": 1117,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_IOTESTBEGIN_2E780855",
+      "before": 623,
+      "after": 615,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_IOCLAIM_E59988BA",
+      "before": 447,
+      "after": 431,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_IOTESTFINISH_35E02F77",
+      "before": 590,
+      "after": 582,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_IOCALL_78031962",
+      "before": 1446,
+      "after": 1406,
+      "saved": 40
+    },
+    {
+      "routine": "M_TASKPOLICY_IOSETTLEDCALL_042AE5B9",
+      "before": 1141,
+      "after": 1133,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_SIOBOUND_346E47DB",
+      "before": 670,
+      "after": 662,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_SIOOPEN_38E97F75",
+      "before": 1087,
+      "after": 1071,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_SIOCLOSE_4815C4E5",
+      "before": 152,
+      "after": 132,
+      "saved": 20
+    },
+    {
+      "routine": "M_TASKPOLICY_SIOPREPAREWORKER_A27B8738",
+      "before": 666,
+      "after": 658,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_SIOTAKE_23947030",
+      "before": 558,
+      "after": 550,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_SIOFINISH_B1C2A78C",
+      "before": 648,
+      "after": 640,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_SIOCONTROL_0EC256A4",
+      "before": 1243,
+      "after": 1235,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_DOSSLOTFOR_362EB215",
+      "before": 159,
+      "after": 151,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_DOSCURRENT_4399DFDB",
+      "before": 354,
+      "after": 346,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_DOSINIT_97B41A44",
+      "before": 738,
+      "after": 730,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_DOSWORKERBOUND_DB9BCF66",
+      "before": 254,
+      "after": 246,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_DOSRESIDENTCOUNT_ABEF6AC1",
+      "before": 171,
+      "after": 163,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_DOSREMOVED_D36757B2",
+      "before": 766,
+      "after": 758,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_DOSPREPARE_61B1CC0D",
+      "before": 616,
+      "after": 608,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_DOSADMIT_DEA63DC3",
+      "before": 789,
+      "after": 781,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_DOSCONTROL_C7F82CE3",
+      "before": 874,
+      "after": 850,
+      "saved": 24
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLENAMES_B9E6EA95",
+      "before": 548,
+      "after": 540,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEBOUND_8755F553",
+      "before": 364,
+      "after": 356,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEOPEN_4090447D",
+      "before": 1035,
+      "after": 1011,
+      "saved": 24
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEIDLE_D6547573",
+      "before": 619,
+      "after": 602,
+      "saved": 17
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLECLOSE_04E65EB3",
+      "before": 670,
+      "after": 654,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEENQUEUE_BE188809",
+      "before": 1388,
+      "after": 1364,
+      "saved": 24
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEWAKE_FE0543B3",
+      "before": 201,
+      "after": 193,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEABORT_CCCE9F0D",
+      "before": 1049,
+      "after": 1025,
+      "saved": 24
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEPREPARE_8098E872",
+      "before": 684,
+      "after": 668,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEADMIT_A01C3E0C",
+      "before": 1418,
+      "after": 1386,
+      "saved": 32
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLETAKEARRIVAL_2A1E971F",
+      "before": 810,
+      "after": 778,
+      "saved": 32
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLETAKEWRITE_96FEA12D",
+      "before": 395,
+      "after": 379,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEFINISH_F43924B4",
+      "before": 1083,
+      "after": 1067,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLERUNNABLE_8934D92E",
+      "before": 934,
+      "after": 918,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEALLIDLE_C6081818",
+      "before": 616,
+      "after": 608,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEANYRUNNABLE_82C77A1E",
+      "before": 662,
+      "after": 654,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEWORKERCONTROL_3CA89D3E",
+      "before": 1475,
+      "after": 1467,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLECONTROL_F218511C",
+      "before": 1044,
+      "after": 1028,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEWORKERBOUND_96318375",
+      "before": 294,
+      "after": 286,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLERESIDENTCOUNT_6078C646",
+      "before": 217,
+      "after": 209,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLECANREMOVE_6BA935F9",
+      "before": 1416,
+      "after": 1384,
+      "saved": 32
+    },
+    {
+      "routine": "M_TASKPOLICY_CONSOLEREMOVED_E0E10625",
+      "before": 867,
+      "after": 851,
+      "saved": 16
+    },
+    {
+      "routine": "M_TASKPOLICY_ROUTE_3006B749",
+      "before": 2212,
+      "after": 2204,
+      "saved": 8
+    },
+    {
+      "routine": "M_CONSOLECORE_EXTENT_83D9960B",
+      "before": 418,
+      "after": 402,
+      "saved": 16
+    },
+    {
+      "routine": "M_CONSOLEWINDOWS_RUNNABLE_B9919222",
+      "before": 714,
+      "after": 698,
+      "saved": 16
+    },
+    {
+      "routine": "M_CONSOLEFOREGROUND_BEGIN_4DD9FFD0",
+      "before": 1143,
+      "after": 1111,
+      "saved": 32
+    },
+    {
+      "routine": "M_CONSOLEFOREGROUND_END_65D34F46",
+      "before": 1173,
+      "after": 1157,
+      "saved": 16
+    },
+    {
+      "routine": "M_CONSOLEFOREGROUND_DELIVER_8D52BBDC",
+      "before": 944,
+      "after": 928,
+      "saved": 16
+    },
+    {
+      "routine": "M_CONSOLEINPUT_CLEAR_3DEF4D2B",
+      "before": 434,
+      "after": 426,
+      "saved": 8
+    },
+    {
+      "routine": "M_CONSOLEINPUT_PUMP_600356CC",
+      "before": 874,
+      "after": 858,
+      "saved": 16
+    },
+    {
+      "routine": "M_CONSOLEDISPLAY_CLAIM_0FF5CDD8",
+      "before": 1123,
+      "after": 1099,
+      "saved": 24
+    },
+    {
+      "routine": "M_CONSOLEDRIVER_MAPPED_DAA6A481",
+      "before": 532,
+      "after": 508,
+      "saved": 24
+    },
+    {
+      "routine": "M_CONSOLEDRIVER_VALIDATE_72D30322",
+      "before": 801,
+      "after": 792,
+      "saved": 9
+    },
+    {
+      "routine": "M_CONSOLEDRIVER_FINISHWRITE_E8555190",
+      "before": 189,
+      "after": 181,
+      "saved": 8
+    },
+    {
+      "routine": "M_CONSOLEDRIVER_WRITEQUANTUM_AEE13626",
+      "before": 1699,
+      "after": 1675,
+      "saved": 24
+    },
+    {
+      "routine": "M_CONSOLEDRIVER_READQUANTUM_10EBF725",
+      "before": 897,
+      "after": 881,
+      "saved": 16
+    },
+    {
+      "routine": "M_CONSOLEDRIVER_ARRIVAL_EC6B7DA9",
+      "before": 506,
+      "after": 482,
+      "saved": 24
+    },
+    {
+      "routine": "M_CONSOLEDRIVER_INITIALIZE_D6CB2592",
+      "before": 2452,
+      "after": 2436,
+      "saved": 16
+    },
+    {
+      "routine": "M_CONSOLEDRIVER_WORKER_589B3ABC",
+      "before": 1988,
+      "after": 1972,
+      "saved": 16
+    },
+    {
+      "routine": "M_PORTCORE_CREATEMSGPORT_A47550A3",
+      "before": 773,
+      "after": 757,
+      "saved": 16
+    },
+    {
+      "routine": "M_PORTCORE_DELETEMSGPORT_9136F7C6",
+      "before": 285,
+      "after": 277,
+      "saved": 8
+    },
+    {
+      "routine": "M_SIODRIVER_TRYCANCEL_BDB03575",
+      "before": 144,
+      "after": 136,
+      "saved": 8
+    },
+    {
+      "routine": "M_SIODRIVER_SIOMAPPED_D1D9A9D6",
+      "before": 532,
+      "after": 508,
+      "saved": 24
+    },
+    {
+      "routine": "M_SIODRIVER_SIOVALIDATE_7D355271",
+      "before": 1113,
+      "after": 1105,
+      "saved": 8
+    },
+    {
+      "routine": "M_SIODRIVER_WORKER_374ADF8C",
+      "before": 1221,
+      "after": 1213,
+      "saved": 8
+    },
+    {
+      "routine": "M_IOCORE_CREATEIOREQUEST_DE10015D",
+      "before": 465,
+      "after": 457,
+      "saved": 8
+    },
+    {
+      "routine": "M_IOCORE_DELETEIOREQUEST_93A87E78",
+      "before": 250,
+      "after": 242,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSOPERATION_GETREGISTRY_DD576A72",
+      "before": 132,
+      "after": 124,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSOPERATION_PREPARE_EA34E162",
+      "before": 953,
+      "after": 921,
+      "saved": 32
+    },
+    {
+      "routine": "M_FSOPERATION_AUTHORITY_2081E9D0",
+      "before": 972,
+      "after": 956,
+      "saved": 16
+    },
+    {
+      "routine": "M_FSOPERATION_CLAIM_4C8DDFC1",
+      "before": 352,
+      "after": 344,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSOPERATION_REQUEST_3F73D6DE",
+      "before": 957,
+      "after": 941,
+      "saved": 16
+    },
+    {
+      "routine": "M_FSOPERATION_REPLYREADY_532E4DE6",
+      "before": 536,
+      "after": 528,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSOPERATION_CONTROLMASK_44EA179C",
+      "before": 427,
+      "after": 419,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSOPERATION_PUMP_B18C8A95",
+      "before": 1052,
+      "after": 1036,
+      "saved": 16
+    },
+    {
+      "routine": "M_DOSCLIENT_NEWCLIENT_41735729",
+      "before": 977,
+      "after": 945,
+      "saved": 32
+    },
+    {
+      "routine": "M_DOSCLIENT_ENSURE_1859B044",
+      "before": 583,
+      "after": 575,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCLIENT_RELEASECONTEXT_90CB2A06",
+      "before": 1415,
+      "after": 1391,
+      "saved": 24
+    },
+    {
+      "routine": "M_DOSCLIENT_CHECKREPLY_4530772C",
+      "before": 593,
+      "after": 585,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCLIENT_CALL_35DB3B22",
+      "before": 2418,
+      "after": 2410,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSOBJECTS_LINK_9FA00D0F",
+      "before": 369,
+      "after": 361,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSACTIVE_CURRENTSCOPE_BF6A95BD",
+      "before": 509,
+      "after": 477,
+      "saved": 32
+    },
+    {
+      "routine": "M_BLOCKWIRE_TRANSFER_0A2F17CC",
+      "before": 1177,
+      "after": 1145,
+      "saved": 32
+    },
+    {
+      "routine": "M_BLOCKIO_MAPPED_A9EEA713",
+      "before": 566,
+      "after": 542,
+      "saved": 24
+    },
+    {
+      "routine": "M_BLOCKIO_CREATE_DF5BA086",
+      "before": 986,
+      "after": 954,
+      "saved": 32
+    },
+    {
+      "routine": "M_BLOCKIO_DESTROY_0CC5CBD8",
+      "before": 558,
+      "after": 542,
+      "saved": 16
+    },
+    {
+      "routine": "M_BLOCKIO_OPENVOLUME_36B90798",
+      "before": 930,
+      "after": 914,
+      "saved": 16
+    },
+    {
+      "routine": "M_BLOCKIO_ATTACH_A1159825",
+      "before": 1049,
+      "after": 1025,
+      "saved": 24
+    },
+    {
+      "routine": "M_BLOCKIO_DETACH_FC4FFB83",
+      "before": 666,
+      "after": 634,
+      "saved": 32
+    },
+    {
+      "routine": "M_BLOCKIO_CHECK_A5B41A2A",
+      "before": 815,
+      "after": 807,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSNAMES_MAPPED_324F42A3",
+      "before": 355,
+      "after": 347,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSSTREAMS_OPENNIL_7EDE8F17",
+      "before": 552,
+      "after": 536,
+      "saved": 16
+    },
+    {
+      "routine": "M_DOSSTREAMS_CLOSENIL_3520E24B",
+      "before": 532,
+      "after": 516,
+      "saved": 16
+    },
+    {
+      "routine": "M_DOSRAW_UNITREGISTRY_DD0D5704",
+      "before": 186,
+      "after": 178,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSRAW_ACQUIRE_CC49A145",
+      "before": 2336,
+      "after": 2312,
+      "saved": 24
+    },
+    {
+      "routine": "M_DOSRAW_OPENSIZED_F1E27B78",
+      "before": 991,
+      "after": 959,
+      "saved": 32
+    },
+    {
+      "routine": "M_DOSRAW_VALIDEXTENT_84EF7CCB",
+      "before": 535,
+      "after": 519,
+      "saved": 16
+    },
+    {
+      "routine": "M_DOSRAW_RELEASEOPERATION_C2E80557",
+      "before": 459,
+      "after": 451,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSRAW_PREPARE_F51F1B68",
+      "before": 1931,
+      "after": 1907,
+      "saved": 24
+    },
+    {
+      "routine": "M_DOSRAW_CLOSEDEVICE_DECAF50F",
+      "before": 130,
+      "after": 122,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSRAW_CLOSESIZED_2208AD92",
+      "before": 2115,
+      "after": 2075,
+      "saved": 40
+    },
+    {
+      "routine": "M_COOKEDLINE_CREATE_35929826",
+      "before": 233,
+      "after": 225,
+      "saved": 8
+    },
+    {
+      "routine": "M_COOKEDLINE_DESTROY_77CB15F8",
+      "before": 230,
+      "after": 222,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCOOKED_OPEN_FB0901F4",
+      "before": 544,
+      "after": 528,
+      "saved": 16
+    },
+    {
+      "routine": "M_DOSCOOKED_CLOSE_1355CA48",
+      "before": 571,
+      "after": 563,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCOOKED_WIRE_7D812E8B",
+      "before": 973,
+      "after": 957,
+      "saved": 16
+    },
+    {
+      "routine": "M_DOSCOOKED_BEGIN_9BFE5F7B",
+      "before": 745,
+      "after": 737,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCOOKED_CANCELLINE_F449849C",
+      "before": 1039,
+      "after": 1031,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSBREAK_CURRENT_B838AC0B",
+      "before": 214,
+      "after": 198,
+      "saved": 16
+    },
+    {
+      "routine": "M_DOSBREAK_BEGIN_A70D4CB3",
+      "before": 2366,
+      "after": 2294,
+      "saved": 72
+    },
+    {
+      "routine": "M_DOSBREAK_END_B7800793",
+      "before": 618,
+      "after": 610,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSREGISTRY_GETREGISTRY_3C838C00",
+      "before": 132,
+      "after": 124,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSREGISTRY_SERVICE_31663004",
+      "before": 142,
+      "after": 134,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSREGISTRY_FROMHEADER_DCD07C60",
+      "before": 331,
+      "after": 323,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSLOCKS_TRAILER_B3BA463B",
+      "before": 105,
+      "after": 89,
+      "saved": 16
+    },
+    {
+      "routine": "M_FSLOCKS_TEXT_C72F70F3",
+      "before": 105,
+      "after": 89,
+      "saved": 16
+    },
+    {
+      "routine": "M_FSLOCKS_ALLOCATION_5B5A6C20",
+      "before": 245,
+      "after": 237,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSLOCKS_ALLOCATE_39B5BEE3",
+      "before": 895,
+      "after": 887,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSPACKET_REPLY_F0943484",
+      "before": 994,
+      "after": 986,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSPACKET_IDENTITY_6B3677B2",
+      "before": 1525,
+      "after": 1477,
+      "saved": 48
+    },
+    {
+      "routine": "M_FSPACKET_PUBLISHOPENSTEP_55EACFB5",
+      "before": 868,
+      "after": 844,
+      "saved": 24
+    },
+    {
+      "routine": "M_FSPACKET_CLOSESTEP_61A48B9C",
+      "before": 717,
+      "after": 701,
+      "saved": 16
+    },
+    {
+      "routine": "M_FSPORTS_CREATE_D9675AD2",
+      "before": 472,
+      "after": 464,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSPORTS_DELETE_FC342961",
+      "before": 146,
+      "after": 138,
+      "saved": 8
+    },
+    {
+      "routine": "M_MYDOS_READPHYSICAL_AF05229A",
+      "before": 528,
+      "after": 520,
+      "saved": 8
+    },
+    {
+      "routine": "M_MYDOS_MOUNTBUFFERED_114678B9",
+      "before": 369,
+      "after": 361,
+      "saved": 8
+    },
+    {
+      "routine": "M_MYDOS_COPYENTRY_C5D8D89C",
+      "before": 246,
+      "after": 230,
+      "saved": 16
+    },
+    {
+      "routine": "M_MYDOS_BUFFEREDENTRY_DC465C80",
+      "before": 692,
+      "after": 684,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSINIT_WORKSPACE_ED5E2107",
+      "before": 491,
+      "after": 475,
+      "saved": 16
+    },
+    {
+      "routine": "M_FSINIT_ALLOCATEMOUNT_EF481898",
+      "before": 1218,
+      "after": 1186,
+      "saved": 32
+    },
+    {
+      "routine": "M_FSINIT_ALLOCATEBLOCK_5C0916F0",
+      "before": 905,
+      "after": 889,
+      "saved": 16
+    },
+    {
+      "routine": "M_FSINIT_FIRST_60F42DBA",
+      "before": 259,
+      "after": 251,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSINIT_ADAPTERSTEP_4F860EAF",
+      "before": 243,
+      "after": 235,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSINIT_WORKSPACESTEP_AC19D935",
+      "before": 293,
+      "after": 285,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSINIT_MOUNTSTEP_D16E7745",
+      "before": 315,
+      "after": 307,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSINIT_BLOCKSTEP_FC8F9559",
+      "before": 283,
+      "after": 275,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSINIT_OPENEDSTEP_3B4623A1",
+      "before": 713,
+      "after": 705,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSINIT_MOUNTEDSTEP_D00F6B02",
+      "before": 1145,
+      "after": 1137,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSINIT_ROLLBACKSTEP_8166A722",
+      "before": 521,
+      "after": 513,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSINIT_DESTROYMOUNT_00D5D10B",
+      "before": 1197,
+      "after": 1173,
+      "saved": 24
+    },
+    {
+      "routine": "M_FSINIT_CLEANUP_26675F9E",
+      "before": 1344,
+      "after": 1328,
+      "saved": 16
+    },
+    {
+      "routine": "M_FSRELATIVE_BEGIN_CB9D8F8D",
+      "before": 3181,
+      "after": 3165,
+      "saved": 16
+    },
+    {
+      "routine": "M_FSRELATIVE_PARENTRESULT_7CE6B959",
+      "before": 2080,
+      "after": 2072,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSINFO_ENUMERATIONSTATE_A9C412AA",
+      "before": 80,
+      "after": 72,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSINFO_CLEAR_E168B3AB",
+      "before": 116,
+      "after": 108,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSINFO_SAVE_B1E7031F",
+      "before": 386,
+      "after": 370,
+      "saved": 16
+    },
+    {
+      "routine": "M_MYDOSFILE_COPY_B45932A2",
+      "before": 503,
+      "after": 495,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSDIRECTORY_LOCKCURSORSTEP_29BACC3E",
+      "before": 652,
+      "after": 644,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSDIRECTORY_SELECTSTEP_815DA095",
+      "before": 1068,
+      "after": 1060,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSDIRECTORY_INFOSTEP_3CC6E53D",
+      "before": 689,
+      "after": 673,
+      "saved": 16
+    },
+    {
+      "routine": "M_FSDIRECTORY_RESTORESTEP_8AADA789",
+      "before": 951,
+      "after": 943,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSDIRECTORY_STATESTEP_73ED4FBC",
+      "before": 859,
+      "after": 843,
+      "saved": 16
+    },
+    {
+      "routine": "M_FSDIRECTORY_ENTRYSTEP_D4EA4ABB",
+      "before": 577,
+      "after": 569,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSDIRECTORY_ENTRYRESULTSTEP_4C458A60",
+      "before": 804,
+      "after": 796,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSDIRECTORY_SIZESTEP_0C182F8A",
+      "before": 916,
+      "after": 908,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSDIRECTORY_SIZESTARTSTEP_F40FBDAE",
+      "before": 259,
+      "after": 251,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSDIRECTORY_SIZECONTINUESTEP_1EAFA525",
+      "before": 810,
+      "after": 802,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSDIRECTORY_CLEARSTEP_2A4A8FB8",
+      "before": 229,
+      "after": 213,
+      "saved": 16
+    },
+    {
+      "routine": "M_FSDIRECTORY_NAMESTEP_97C5C3EC",
+      "before": 312,
+      "after": 304,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSDIRECTORY_FILLSTEP_E0581636",
+      "before": 306,
+      "after": 298,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSDIRECTORY_PUBLISHSTEP_CC8DC0F6",
+      "before": 364,
+      "after": 356,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSHANDLER_OPENRESULTSTEP_0C25E5DB",
+      "before": 1214,
+      "after": 1206,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSHANDLER_CURSORSTEP_0CA2CA5E",
+      "before": 679,
+      "after": 671,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSHANDLER_OPENSTEP_A7675710",
+      "before": 955,
+      "after": 923,
+      "saved": 32
+    },
+    {
+      "routine": "M_FSHANDLER_LOCKSTEP_E0A0D2D5",
+      "before": 559,
+      "after": 543,
+      "saved": 16
+    },
+    {
+      "routine": "M_FSHANDLER_RESOLVESTARTSTEP_40B69900",
+      "before": 207,
+      "after": 199,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSHANDLER_RESOLVEREADYSTEP_BDBFDED1",
+      "before": 258,
+      "after": 250,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSHANDLER_FILESELECTSTEP_BED2DD8A",
+      "before": 1180,
+      "after": 1172,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSHANDLER_ARGUMENTSSTEP_DD745A90",
+      "before": 949,
+      "after": 933,
+      "saved": 16
+    },
+    {
+      "routine": "M_FSHANDLER_READSTEP_5B9B1990",
+      "before": 264,
+      "after": 256,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSHANDLER_SEEKSTEP_90261C60",
+      "before": 264,
+      "after": 256,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSHANDLER_DISPATCHSTEP_D149BF3A",
+      "before": 682,
+      "after": 674,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSHANDLER_MEDIASTEP_8DCF2858",
+      "before": 784,
+      "after": 776,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSHANDLER_ACTIONSTEP_7D527A4E",
+      "before": 653,
+      "after": 645,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSHANDLER_TAKESTEP_E4E18A11",
+      "before": 1165,
+      "after": 1141,
+      "saved": 24
+    },
+    {
+      "routine": "M_FSHANDLER_COMPONENTSTEP_389CA8B9",
+      "before": 370,
+      "after": 362,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSHANDLER_RESOLVESTEP_D6E79D38",
+      "before": 954,
+      "after": 946,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSHANDLER_FILESTEP_A93D50C2",
+      "before": 483,
+      "after": 475,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSABORT_CHECKPOINT_5DD0EDAE",
+      "before": 1709,
+      "after": 1701,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSWORKER_WORKER_2BB473B0",
+      "before": 1664,
+      "after": 1656,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSWORKER_FINISH_EC2E5E2B",
+      "before": 395,
+      "after": 387,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSMOUNT_DISPATCH_FD59F08F",
+      "before": 388,
+      "after": 380,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSMOUNT_SELECTSTEP_8E807607",
+      "before": 1008,
+      "after": 1000,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSMOUNT_COMMANDSTEP_B1883B1A",
+      "before": 642,
+      "after": 634,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSMOUNT_REMOVESTEP_BBB2975B",
+      "before": 750,
+      "after": 742,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSMOUNT_DESTROYSTEP_4CF540E7",
+      "before": 293,
+      "after": 285,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSMUX_CONTROL_16FCB25F",
+      "before": 327,
+      "after": 319,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSMUX_TAKE_F08F7501",
+      "before": 506,
+      "after": 498,
+      "saved": 8
+    },
+    {
+      "routine": "M_FSBOOT_BEGINSERVICE_BC5D2672",
+      "before": 676,
+      "after": 652,
+      "saved": 24
+    },
+    {
+      "routine": "M_FSBOOT_STOP_AD5246E2",
+      "before": 1339,
+      "after": 1319,
+      "saved": 20
+    },
+    {
+      "routine": "M_DOSCALLS_ARGUMENTS_D4B63738",
+      "before": 275,
+      "after": 267,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCALLS_NAMEARGUMENTS_4FEB00BB",
+      "before": 326,
+      "after": 300,
+      "saved": 26
+    },
+    {
+      "routine": "M_DOSCALLS_ACQUIRE_C423433E",
+      "before": 1842,
+      "after": 1794,
+      "saved": 48
+    },
+    {
+      "routine": "M_DOSCALLS_CONFIGURED_B6EDEF76",
+      "before": 544,
+      "after": 536,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCALLS_FILE_E8D1DABC",
+      "before": 640,
+      "after": 632,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCALLS_READ_BEE8BE36",
+      "before": 1729,
+      "after": 1689,
+      "saved": 40
+    },
+    {
+      "routine": "M_DOSCALLS_WRITE_8E98A1A7",
+      "before": 1520,
+      "after": 1496,
+      "saved": 24
+    },
+    {
+      "routine": "M_DOSCALLS_SEEK_17FC33E6",
+      "before": 1099,
+      "after": 1091,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCALLS_CLOSE_97169B3A",
+      "before": 1210,
+      "after": 1194,
+      "saved": 16
+    },
+    {
+      "routine": "M_DOSCALLS_INFORMATION_13F25DEC",
+      "before": 726,
+      "after": 718,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCALLS_SELECTED_604EA3D9",
+      "before": 276,
+      "after": 268,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCALLS_SELECTIONREADY_28C831A1",
+      "before": 271,
+      "after": 263,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCALLS_LIVESELECTION_2BE04852",
+      "before": 606,
+      "after": 598,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCALLS_SELECT_1EDDE386",
+      "before": 632,
+      "after": 624,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCALLS_DIRECTORY_C8028D6B",
+      "before": 655,
+      "after": 647,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCALLS_CURRENTDIR_1AA7335E",
+      "before": 803,
+      "after": 795,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOSCALLS_ISINTERACTIVE_18CACEEA",
+      "before": 453,
+      "after": 445,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOS_OPEN_87DAE823",
+      "before": 154,
+      "after": 146,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOS_READ_BCD2228F",
+      "before": 164,
+      "after": 156,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOS_WRITE_BE4FDE64",
+      "before": 164,
+      "after": 156,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOS_SEEK_DE9F46FB",
+      "before": 162,
+      "after": 154,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOS_CLOSE_4C224801",
+      "before": 126,
+      "after": 118,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOS_LOCK_4DEC517E",
+      "before": 154,
+      "after": 146,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOS_UNLOCK_74209499",
+      "before": 114,
+      "after": 106,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOS_EXAMINE_1F15C1B0",
+      "before": 166,
+      "after": 150,
+      "saved": 16
+    },
+    {
+      "routine": "M_DOS_EXNEXT_623C7B53",
+      "before": 166,
+      "after": 150,
+      "saved": 16
+    },
+    {
+      "routine": "M_DOS_INPUT_41B1DDE9",
+      "before": 118,
+      "after": 110,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOS_OUTPUT_DF7018DC",
+      "before": 118,
+      "after": 110,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOS_SELECTINPUT_FF0F4771",
+      "before": 148,
+      "after": 132,
+      "saved": 16
+    },
+    {
+      "routine": "M_DOS_SELECTOUTPUT_3A928904",
+      "before": 148,
+      "after": 132,
+      "saved": 16
+    },
+    {
+      "routine": "M_DOS_ISINTERACTIVE_FD05AE49",
+      "before": 126,
+      "after": 118,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOS_CURRENTDIR_764577CB",
+      "before": 142,
+      "after": 126,
+      "saved": 16
+    },
+    {
+      "routine": "M_DOS_NAMEFROMLOCK_8794AD67",
+      "before": 164,
+      "after": 156,
+      "saved": 8
+    },
+    {
+      "routine": "M_DOS_BEGINFOREGROUND_987C8D99",
+      "before": 126,
+      "after": 118,
+      "saved": 8
+    },
+    {
+      "routine": "M_TASKINSPECT_SNAPSHOT_72A67CF0",
+      "before": 1393,
+      "after": 1361,
+      "saved": 32
+    },
+    {
+      "routine": "M_SHELLAPP_SHELLLINE_DC60634C",
+      "before": 113,
+      "after": 93,
+      "saved": 20
+    },
+    {
+      "routine": "M_SHELLAPP_SHELLDRAWBUFFER_B9163ABE",
+      "before": 113,
+      "after": 93,
+      "saved": 20
+    },
+    {
+      "routine": "M_SHELLAPP_SHELLSCRATCH_1695768C",
+      "before": 113,
+      "after": 93,
+      "saved": 20
+    },
+    {
+      "routine": "M_SHELLAPP_SHELLTRANSFER_C9C879BF",
+      "before": 113,
+      "after": 93,
+      "saved": 20
+    },
+    {
+      "routine": "M_SHELLAPP_SHELLDIR_EB67AED9",
+      "before": 2287,
+      "after": 2279,
+      "saved": 8
+    },
+    {
+      "routine": "M_SHELLAPP_SHELLTASKS_1B8DD8E2",
+      "before": 1966,
+      "after": 1958,
+      "saved": 8
+    },
+    {
+      "routine": "M_SHELLAPP_SHELLDEVICES_E5FACF4D",
+      "before": 1467,
+      "after": 1459,
+      "saved": 8
+    },
+    {
+      "routine": "M_SHELLAPP_SHELLMOUNTS_13BE84C6",
+      "before": 1769,
+      "after": 1761,
+      "saved": 8
+    },
+    {
+      "routine": "M_SHELLAPP_SHELLOPEN_DC32811A",
+      "before": 1333,
+      "after": 1325,
+      "saved": 8
+    },
+    {
+      "routine": "M_SHELLAPP_SHELLFINISH_77CE18A3",
+      "before": 3007,
+      "after": 2999,
+      "saved": 8
+    }
+  ],
+  "full_qualification": false,
+  "saved_bytes": 4014,
+  "shrunk_routines": 291,
+  "grown_routines": 0,
+  "checks": [
+    {
+      "log": "pointer-coalescing-unit.log",
+      "sha256": "e4d9017ee7483884ff825896abd6a58ba491de0e174e6df83c0d3eb4e69dd5da",
+      "passed": 14,
+      "ignored": 0
+    },
+    {
+      "log": "pointer-coalescing-allocation.log",
+      "sha256": "d7223848f014c45d942e908436cdbc38cc9d14ba9ec1a93a801718b290a0b74a",
+      "passed": 16,
+      "ignored": 0
+    },
+    {
+      "log": "pointer-coalescing-integration.log",
+      "sha256": "287c5aae15d6ba238fc508b2b83b7c92602fe11369e439c7d8faec9f4a3eeaaa",
+      "passed": 34,
+      "ignored": 0
+    },
+    {
+      "log": "pointer-coalescing-vm.log",
+      "sha256": "d02488c315ffd7412daece28f875d86b329fec7e85a0d49efc0a98929d5f8d50",
+      "passed": 18,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-uatv1vpy/manifest.json",
+      "manifest_sha256": "0563a647a701b13ebaffd85c02a1f46ef38e0c78df06c315caece66998698a83",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+    },
+    {
+      "log": "pointer-coalescing-preemption.log",
+      "sha256": "e6ab99f05fef587cbd15dc6d34fe4372dfc09cbcc25c15ea3b0fe6ecc03fecd3",
+      "passed": 3,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-exc9wusi/manifest.json",
+      "manifest_sha256": "fc9cb0251267cc6b6cf0395005447f4fe65cdbb91b759668c9dd76ecbb8aabed",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+    }
+  ]
+}
