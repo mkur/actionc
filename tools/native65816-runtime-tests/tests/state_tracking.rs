@@ -154,7 +154,9 @@ adc 2,s
 sec
 sbc 2,s
 cmp 2,s
+and 2,s
 ora 2,s
+eor 2,s
 sta $08
 lda $08
 clc
@@ -184,6 +186,7 @@ dex
 dec a
 {word}
 and #$ff
+ora #$8100
 sep #$20
 .a8
 eor #$80
