@@ -102,6 +102,15 @@ load image, and generic program-layout bytes are excluded. MIR records physical
 runtime storage initializer ranges so array backing bytes and parameter homes
 are included even when their public symbols describe only an element or pointer.
 
+`Runtime dependency` comments list linked runtime routines that have no direct
+binding header, including transitive helpers such as `MultB` brought in by `MultI`.
+Each entry gives its address and the routines that reference it through calls,
+jumps, fallthrough or relocations. Entries are ordered by address and callers
+are deduplicated. Declaration spelling is preserved; module qualifiers resolve
+duplicate names. When no referencing routine is identifiable, the comment says
+`linked runtime dependency`. Cartridge ROM routines and application overrides
+are excluded from this embedded dependency inventory.
+
 SArgs calls identify their three-byte inline descriptor through the resolved
 runtime helper binding (or the cartridge ABI entry). A standalone
 `; Parameter frame follows: ...` comment precedes the payload, followed by a

@@ -8,6 +8,7 @@ use crate::codegen::{
 use crate::map_query::MapQuery;
 
 mod names;
+mod runtime_dependencies;
 mod runtime_summary;
 mod sargs;
 
@@ -256,6 +257,7 @@ fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> Str
                 .unwrap_or_default()
         )));
     }
+    runtime_dependencies::push_dependencies(output, &instructions, &names, &mut lines);
     runtime_summary::push_summary(output, &mut lines);
     lines.push(String::new());
     display_symbols.push_equates(&mut lines);
