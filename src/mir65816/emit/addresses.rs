@@ -719,33 +719,54 @@ fn emit_long_indexed(
     {
         return Ok(false);
     }
-    let Mir65816Op::Load {
-        dest,
-        width,
-        volatile: false,
-        ..
-    } = op
-    else {
-        return Ok(false);
-    };
-    if width.get() != 1 {
-        return Ok(false);
-    }
-    let destination = b.temp(*dest)?;
-    if destination.slot().width != 1 {
-        return Err("indexed BYTE destination width mismatch".into());
+    match op {
+        Mir65816Op::Load {
+            dest,
+            width,
+            volatile: false,
+            ..
+        } if width.get() == 1 => {
+            let destination = b.temp(*dest)?;
+            if destination.slot().width != 1 {
+                return Err("indexed BYTE destination width mismatch".into());
+            }
+            b.check_transfer(destination.into(), destination.into(), 1)?;
+        }
+        Mir65816Op::Store {
+            value,
+            width,
+            volatile: false,
+            ..
+        } if width.get() == 1 => {
+            if !captured_byte(&b.frame, value)? {
+                return Ok(false);
+            }
+            if let Some(home) = b.value_memory(value)? {
+                b.check_transfer(home, home, 1)?;
+            }
+        }
+        _ => return Ok(false),
     }
     b.displacement(indexed.index.offset.into(), 1)?;
-    b.check_transfer(destination.into(), destination.into(), 1)?;
     b.code.barrier();
     b.code.a16();
     b.load_memory(Memory::Stack(indexed.index.offset.into()), 0)?;
     b.code.op(Implied::Tax);
     b.code.a8();
-    b.code
-        .reference(ReferenceOp::LdaLongX, Target::Data(symbol.target), 0, None);
-    if capture {
-        b.save_byte(*dest, 0)?;
+    match op {
+        Mir65816Op::Load { dest, .. } => {
+            b.code
+                .reference(ReferenceOp::LdaLongX, Target::Data(symbol.target), 0, None);
+            if capture {
+                b.save_byte(*dest, 0)?;
+            }
+        }
+        Mir65816Op::Store { value, .. } => {
+            b.value_byte(value, 0)?;
+            b.code
+                .reference(ReferenceOp::StaLongX, Target::Data(symbol.target), 0, None);
+        }
+        _ => unreachable!(),
     }
     Ok(true)
 }

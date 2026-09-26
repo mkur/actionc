@@ -531,9 +531,13 @@ impl Instruction {
                         e.reads.a = mask(m);
                     }
                 }
-                ReferenceOp::LdaLongX => {
+                ReferenceOp::LdaLongX | ReferenceOp::StaLongX => {
                     e.memory(
-                        Access::Read,
+                        if op == ReferenceOp::LdaLongX {
+                            Access::Read
+                        } else {
+                            Access::MayWrite
+                        },
                         Memory::SymbolIndexedX {
                             target,
                             addend,
@@ -543,7 +547,12 @@ impl Instruction {
                     e.reads.x = mask(index);
                     e.environment_reads |= env::X;
                     e.barrier = true;
-                    e.load_a(m);
+                    if op == ReferenceOp::LdaLongX {
+                        e.load_a(m);
+                    } else {
+                        e.environment_reads |= env::M;
+                        e.reads.a = mask(m);
+                    }
                 }
                 ReferenceOp::Jsl => e.call(None, Some(target), false),
                 ReferenceOp::Jml => {

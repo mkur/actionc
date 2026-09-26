@@ -39,7 +39,7 @@ def disassemble(image):
                 size=1 if (x8 if opcode in (0xa0,0xa2,0xe0) else m8) else 2
                 text=f'{IMMEDIATE[opcode]} #${operand(size):0{size*2}X}'
             elif opcode in DP:text=f'{DP[opcode]} ${operand(1):02X}'
-            elif opcode==0xbf:text=f'LDA ${operand(3):06X},X'
+            elif opcode in (0xbf,0x9f):text=f'{"LDA" if opcode==0xbf else "STA"} ${operand(3):06X},X'
             elif opcode in LONG:text=f'{LONG[opcode]} ${operand(3):06X}'
             elif opcode in STACK:text=f'{STACK[opcode]} ${operand(1):02X},S'
             elif opcode==0xf4:text=f'PEA ${operand(2):04X}'

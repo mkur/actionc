@@ -645,3 +645,20 @@ fn symbolic_indexed_load_reads_x_and_keeps_dynamic_memory_identity() {
         }
     }
 }
+
+#[test]
+fn symbolic_indexed_store_consumes_a_and_x_without_defining_a_fixed_home() {
+    for m in [Width::Byte, Width::Word] {
+        let e = fx(
+            Instruction::Reference(ReferenceOp::StaLongX, Target::StackOverflow, 0, None),
+            m,
+            Width::Word,
+        );
+        assert_eq!(e.reads.a, m.mask());
+        assert_eq!(e.reads.x, 0xffff);
+        assert_eq!(e.writes, Registers::default());
+        assert_eq!(e.flag_writes, 0);
+        assert_eq!(e.memory[0].access, Access::MayWrite);
+        assert!(e.barrier);
+    }
+}

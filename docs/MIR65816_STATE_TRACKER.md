@@ -112,3 +112,10 @@ and M-dependent memory width, conservatively blocks memory forwarding, and
 creates a fresh A/N/Z value. Its relocation describes only the symbolic base;
 the CPU supplies the index and bank carry. Replay derives these effects from
 the instruction form, as it does for every other admitted instruction.
+
+`StaLongX` uses the same checked address subset for constant or captured BYTE
+payloads. X is established before loading the payload, including overlapping
+private index/payload homes. Its effects consume A and X, preserve flags, and
+record a dynamic `MayWrite`; no fixed private home is inferred. Unknown-write
+invalidation applies to tracked memory facts. Read/modify/write expressions
+retain their separate original load and store operations.

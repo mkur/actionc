@@ -1098,7 +1098,7 @@ impl TrackedEmitter65816 {
                 let v = self.state.fresh(self.state.env.m);
                 self.state.load_a(v);
             }
-            ReferenceOp::StaLong => {
+            ReferenceOp::StaLong | ReferenceOp::StaLongX => {
                 assert!(byte.is_none());
                 self.state.unknown_write();
             }

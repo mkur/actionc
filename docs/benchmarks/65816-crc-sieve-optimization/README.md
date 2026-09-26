@@ -69,6 +69,7 @@ Exec saves 46 bytes in this slice, for a loaded estimate of 254,000.
 | Baseline | 3,400,699 | 9,289,832 | 18,623,518 | 264 / 634 | — |
 | 3 | 3,400,699 | 8,732,887 | 17,505,373 | 264 / 613 | 46 |
 | 4 | 3,220,497 | 7,802,521 | 15,638,079 | 250 / 561 | 0 |
+| 5 | 2,702,125 | 7,540,009 | 15,104,249 | 220 / 537 | 0 |
 
 Slice 4 introduces relocated `LDA long,X` only for static BYTE bases and
 captured CARD indexes. Its dynamic indexed effects and X use are explicit;
@@ -81,3 +82,10 @@ runtime tests passed in both hosts. Nine disassembler tests passed. The full
 sieve vectors agree in both hosts. The new test harness needed trace opt-in and
 initialization of already-mapped data; neither correction changed emitted code.
 Frozen Exec has no eligible size changes in this slice.
+
+Slice 5 adds exact BYTE `STA long,X` for numeric BYTE constants or captured
+BYTE payloads, with X established before reading the payload. The indexed
+write conservatively invalidates memory facts. Eight indexed/consumer/loop-X
+runtime tests pass in each host, including store traces, canaries, rebasing and
+IRQ/NMI reentry; ten effects and nine disassembler tests pass. Sieve vector
+results and foreign controls agree across hosts. Exec saves 0 bytes.
