@@ -4,6 +4,21 @@ pub mod profile;
 pub use prepare::{Artifact, prepare};
 pub use profile::{Binding, Options};
 
+pub mod compact;
+/// Validate either supported application encoding without inventing debug maps
+/// or physical argument descriptions absent from compact files.
+pub fn validate(bytes: &[u8]) -> Result<(), String> {
+    let file = decode(bytes)?;
+    if file
+        .exports
+        .iter()
+        .any(|e| e.name == profile::COMPACT_DESCRIPTOR)
+    {
+        compact::inspect(bytes).map(|_| ())
+    } else {
+        inspect(bytes).map(|_| ())
+    }
+}
 mod descriptor;
 pub mod wire;
 mod write;

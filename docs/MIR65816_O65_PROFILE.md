@@ -157,3 +157,46 @@ call chain, relative to its initial S; they are fixture measurements, not genera
 task bounds. The pointer probe takes 773 / 669 VM cycles. Descriptor redundancy
 is a substantial cost for small programs. Reducing it needs a separate profile
 change that preserves validation of complete address values and ABI maps.
+
+## Compact checked Task applications
+
+`actionc.o65.compact.v1` uses the same standard o65 header, section payloads,
+import names and relocation streams. Its two exports are `__a816_entry_v1`
+and `__a816_o65_compact_v1`, both text offsets. The latter marks an exact
+trailer of **8 + 4 × import count bytes**:
+
+| Bytes | Meaning |
+| --- | --- |
+| 0–3 | ASCII `A8C1`, compact profile v1 |
+| 4–5 | little-endian native ABI revision, 1 (`action65816.native.v1`) |
+| 6–7 | reserved flags, zero |
+| 8 onward | little-endian 32-bit signature per standard import, in order |
+
+No count, symbol name, entry offset or relocation record is duplicated.
+The first import is `__a816_stack_overflow_v1`, signature zero. Ordinary
+imports are checked Task-only routines with zero unchecked stack allowance
+and preserved IRQ state. The entry is checked `PROC()`; extra NMI stack
+allowance, arithmetic-fault imports and absolute storage are unsupported.
+The compiler rejects contracts outside this profile instead of discarding
+incompatible attributes. Runtime stack checks remain in the emitted code.
+
+Before emitting, the compiler checks complete routine/frame and object maps,
+aliases, complete relocation targets and zero-extension containers. Use
+`--o65-report host.json` to retain those maps, names, full ABI descriptions and
+relocation proofs as a host artifact. The loader does not need the report.
+
+The compact inspector checks framing, exact trailer size/version, symbols,
+entry bounds, nonoverlapping relocation sites outside the trailer, import
+indices and zero import addends. Bank/long targets must fit their sections;
+placement must fit 24 bits. Standard low/high records only contain the low
+8/16 addend bits and are patched modulo that width: complete symbolic target
+bounds remain a compiler check. There is no redundant proof stream.
+The trailer is excluded from loaded text. Routine bank containment is a
+compiler check; loaders place text at a bank boundary. Neither profile proves
+that arbitrary native code obeys its declarations or provides isolation.
+
+The `compact::inspect` API returns entry, loaded text size and import
+signatures without fabricating unavailable physical argument or debug maps.
+`compact::relocate` is the host reference for this profile; `validate` accepts
+both the compact and detailed profiles. Existing detailed profile inspection
+and relocation APIs retain their original meaning.

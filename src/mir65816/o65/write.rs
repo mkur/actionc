@@ -3,7 +3,11 @@ use super::{Artifact, descriptor, profile::*, wire};
 pub fn write(artifact: &Artifact) -> Result<Vec<u8>, String> {
     let mut text = artifact.text.clone();
     let descriptor_offset = text.len() as u32;
-    text.extend(descriptor::encode(&artifact.profile)?);
+    text.extend(if artifact.compact {
+        super::compact::descriptor(&artifact.profile)
+    } else {
+        descriptor::encode(&artifact.profile)?
+    });
     if text.len() >= LIMIT as usize {
         return Err("o65 text exceeds 24 bits".into());
     }
@@ -33,7 +37,9 @@ pub fn write(artifact: &Artifact) -> Result<Vec<u8>, String> {
                 value: artifact.profile.entry,
             },
             wire::Export {
-                name: if artifact.profile.version == 2 {
+                name: if artifact.compact {
+                    COMPACT_DESCRIPTOR
+                } else if artifact.profile.version == 2 {
                     DESCRIPTOR_V2
                 } else {
                     DESCRIPTOR

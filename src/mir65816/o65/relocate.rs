@@ -10,13 +10,13 @@ pub struct Region {
     pub size: u32,
 }
 impl Region {
-    fn end(self) -> Result<u32, String> {
+    pub(super) fn end(self) -> Result<u32, String> {
         self.address
             .checked_add(self.size)
             .filter(|e| self.address < LIMIT && *e <= LIMIT)
             .ok_or("region exceeds 24-bit address space".into())
     }
-    fn overlaps(self, other: Self) -> bool {
+    pub(super) fn overlaps(self, other: Self) -> bool {
         self.size != 0
             && other.size != 0
             && u64::from(self.address) < u64::from(other.address) + u64::from(other.size)
@@ -27,9 +27,9 @@ impl Region {
 // every object/provider for every alias or binding in an untrusted file.
 // Entries hold start, greatest containing end, and greatest nonempty end.
 // Empty owners can contain empty aliases, but empty reservations occupy no RAM.
-struct RangeIndex(Vec<(u32, u32, u32)>);
+pub(super) struct RangeIndex(Vec<(u32, u32, u32)>);
 impl RangeIndex {
-    fn new(regions: &[Region]) -> Result<Self, String> {
+    pub(super) fn new(regions: &[Region]) -> Result<Self, String> {
         let mut ranges = regions
             .iter()
             .map(|r| Ok((r.address, r.end()?, 0)))
@@ -47,11 +47,11 @@ impl RangeIndex {
         }
         Ok(Self(ranges))
     }
-    fn contains(&self, region: Region) -> bool {
+    pub(super) fn contains(&self, region: Region) -> bool {
         let n = self.0.partition_point(|r| r.0 <= region.address);
         n != 0 && u64::from(self.0[n - 1].1) >= u64::from(region.address) + u64::from(region.size)
     }
-    fn overlaps(&self, region: Region) -> bool {
+    pub(super) fn overlaps(&self, region: Region) -> bool {
         let end = u64::from(region.address) + u64::from(region.size);
         let n = self.0.partition_point(|r| u64::from(r.0) < end);
         region.size != 0 && n != 0 && self.0[n - 1].2 > region.address
@@ -180,7 +180,7 @@ impl RelocatedImage {
         self.bases[0] + r.offset
     }
 }
-fn disjoint(mut ranges: Vec<Region>) -> Result<(), String> {
+pub(super) fn disjoint(mut ranges: Vec<Region>) -> Result<(), String> {
     ranges.retain(|r| r.size != 0);
     ranges.sort_by_key(|r| r.address);
     if ranges.windows(2).any(|r| r[0].overlaps(r[1])) {
@@ -199,7 +199,7 @@ fn export(file: &wire::File, name: &str) -> Result<u32, String> {
     }
     Ok(e.value)
 }
-fn validate_profile(file: &wire::File, p: &Profile, start: u32) -> Result<(), String> {
+pub(super) fn validate_profile(file: &wire::File, p: &Profile, start: u32) -> Result<(), String> {
     if file.mode != wire::MODE
         || file.bases != [0; 4]
         || file.lengths[3] != 0

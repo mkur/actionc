@@ -470,3 +470,129 @@ fn corrupted_descriptors_and_late_streams_never_panic() {
         assert!(o65::relocate(&corrupt, &p).is_err());
     }
 }
+
+#[test]
+fn compact_profile_keeps_proofs_on_host_and_matches_rich_relocation() {
+    use o65::profile::*;
+    for optimize in [false, true] {
+        let program = mir(
+            "CARD value,initial=[7] BYTE ARRAY table=[1 2 3] PROC Main() value=initial+CARD(table(1)) RETURN",
+            optimize,
+        );
+        let rich = o65::prepare(&program, &Default::default()).unwrap();
+        let compact = o65::prepare(
+            &program,
+            &o65::Options {
+                profile: COMPACT_ID.into(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(compact.profile(), rich.profile());
+        let bytes = o65::write(&compact).unwrap();
+        let file = o65::decode(&bytes).unwrap();
+        let info = o65::compact::inspect(&bytes).unwrap();
+        assert_eq!(file.text.len() as u32, compact.section_sizes()[0] + 12);
+        assert_eq!(info.text_bytes, compact.section_sizes()[0]);
+        assert_eq!(info.imports[0].signature, 0);
+        assert!(
+            serde_json::to_value(compact.profile()).unwrap()["routines"]
+                .as_array()
+                .unwrap()
+                .len()
+                > 0
+        );
+        for bases in [[0x20000, 0x4fffc, 0x6fffc], [0x80000, 0xa0000, 0xc0000]] {
+            let place = placement(bases, 0x3400);
+            let expected = o65::relocate(&o65::write(&rich).unwrap(), &place).unwrap();
+            let actual = o65::compact::relocate(&bytes, &place).unwrap();
+            for segment in &actual.segments {
+                assert_eq!(
+                    segment.bytes,
+                    loaded_bytes(&expected, segment.address, segment.bytes.len())
+                );
+            }
+        }
+        for n in 0..bytes.len() {
+            assert!(o65::compact::inspect(&bytes[..n]).is_err());
+        }
+        for offset in [0, 4, 6, 8] {
+            let mut f = file.clone();
+            f.text[info.text_bytes as usize + offset] ^= 1;
+            assert!(o65::compact::inspect(&o65::wire::encode(&f).unwrap()).is_err());
+        }
+        let mut f = file.clone();
+        f.exports[0].value = info.text_bytes;
+        assert!(o65::compact::inspect(&o65::wire::encode(&f).unwrap()).is_err());
+        let mut f = file.clone();
+        f.relocations[0].offset = info.text_bytes;
+        f.relocations.sort_by_key(|r| (r.section as u8, r.offset));
+        assert!(o65::compact::inspect(&o65::wire::encode(&f).unwrap()).is_err());
+        let mut options = o65::Options {
+            profile: COMPACT_ID.into(),
+            ..Default::default()
+        };
+        options.nmi_extra_stack = 1;
+        assert!(o65::prepare(&program, &options).is_err());
+        let absolute = mir(
+            "BYTE hardware=$d000 PROC Main() hardware=1 RETURN",
+            optimize,
+        );
+        assert!(
+            o65::prepare(
+                &absolute,
+                &o65::Options {
+                    profile: COMPACT_ID.into(),
+                    ..Default::default()
+                }
+            )
+            .is_err()
+        );
+    }
+}
+
+#[test]
+fn compact_standard_split_relocations_preserve_carries_and_bound_full_targets() {
+    use o65::profile::*;
+    let original = include_bytes!("../fixtures/o65/reference.o65");
+    let mut file = o65::decode(original).unwrap();
+    let start = file
+        .exports
+        .iter()
+        .find(|e| e.name == DESCRIPTOR)
+        .unwrap()
+        .value;
+    file.text.truncate(start as usize);
+    file.text.extend(b"A8C1\x01\0\0\0\0\0\0\0");
+    file.lengths[0] = file.text.len() as u32;
+    file.exports
+        .iter_mut()
+        .find(|e| e.name == DESCRIPTOR)
+        .unwrap()
+        .name = COMPACT_DESCRIPTOR.into();
+    let bytes = o65::wire::encode(&file).unwrap();
+    for bases in [[0x10000, 0x210000, 0x12fffc], [0x30000, 0x220100, 0x3410fc]] {
+        let place = placement(bases, 0x48000);
+        let expected = o65::relocate(original, &place).unwrap();
+        let actual = o65::compact::relocate(&bytes, &place).unwrap();
+        for segment in actual.segments {
+            assert_eq!(
+                segment.bytes,
+                loaded_bytes(&expected, segment.address, segment.bytes.len())
+            );
+        }
+    }
+    let site = file
+        .relocations
+        .iter()
+        .find(|r| r.encoding == Encoding::Long && matches!(r.target, Reference::Section(_)))
+        .unwrap()
+        .clone();
+    let data = if site.section == Section::Text {
+        &mut file.text
+    } else {
+        &mut file.data
+    };
+    data[site.offset as usize..site.offset as usize + 3].copy_from_slice(&[255; 3]);
+    assert!(o65::compact::inspect(&o65::wire::encode(&file).unwrap()).is_err());
+}

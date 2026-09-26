@@ -1,6 +1,8 @@
 //! Public contracts are independent of compiler IR and fixed-image JSON.
 use serde::{Deserialize, Serialize};
 
+pub const COMPACT_ID: &str = "actionc.o65.compact.v1";
+pub const COMPACT_DESCRIPTOR: &str = "__a816_o65_compact_v1";
 pub const ID_V2: &str = "actionc.o65.experimental.v2";
 pub const DESCRIPTOR_V2: &str = "__a816_o65_profile_v2";
 pub const ARITHMETIC_FAULT: &str = "__a816_arithmetic_fault_v1";
@@ -45,7 +47,7 @@ fn both_domains() -> u8 {
     3
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum Section {
     Text = 2,
@@ -65,12 +67,12 @@ impl Section {
         }
     }
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Location {
     pub section: Option<Section>,
     pub offset: u32,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum Encoding {
     Low = 0x20,
@@ -98,12 +100,12 @@ impl Encoding {
         }
     }
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Reference {
     Section(Section),
     Import(u32),
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Relocation {
     pub section: Section,
     pub offset: u32,
@@ -203,12 +205,12 @@ impl Contract {
         Ok(())
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Import {
     pub name: String,
     pub contract: Contract,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Routine {
     pub id: u32,
     pub name: String,
@@ -219,7 +221,7 @@ pub struct Routine {
     pub spill: u16,
     pub local_peak: u32,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Object {
     pub kind: u8,
     pub id: u32,
@@ -230,7 +232,7 @@ pub struct Object {
     pub mutable: bool,
     pub alias: bool,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Profile {
     pub version: u16,
     pub nmi_extra_stack: u16,

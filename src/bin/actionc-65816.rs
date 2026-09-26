@@ -18,6 +18,7 @@ fn run() -> Result<(), String> {
     let mut layout = None;
     let mut format = "json".to_string();
     let mut o65_options = None;
+    let mut o65_report = None;
     let mut output = None;
     let mut input = None;
     let mut optimize = true;
@@ -27,7 +28,7 @@ fn run() -> Result<(), String> {
         match arg.as_str() {
             "--help" | "-h" => {
                 println!(
-                    "usage: actionc-65816 --layout <layout.json> [-o <image.a816.json>] [--no-opt] [--module-path <dir>] <source.act>\n       actionc-65816 --format o65-experimental --o65-options <options.json> [-o <program.o65>] [--no-opt] <source.act>\n       actionc-65816 --emit-interfaces <source.act>\n\nEmits a freestanding action65816.native.v1 scalar image. The platform supplies\nABI entry state, stack/direct-page domains and a raw stack-overflow adapter.\nLayout specifies code_origin, data_origin, stack_overflow, nmi_extra_stack and imports."
+                    "usage: actionc-65816 --layout <layout.json> [-o <image.a816.json>] [--no-opt] [--module-path <dir>] <source.act>\n       actionc-65816 --format o65-experimental --o65-options <options.json> [-o <program.o65>] [--o65-report <host.json>] [--no-opt] <source.act>\n       actionc-65816 --emit-interfaces <source.act>\n\nEmits a freestanding action65816.native.v1 scalar image. The platform supplies\nABI entry state, stack/direct-page domains and a raw stack-overflow adapter.\nLayout specifies code_origin, data_origin, stack_overflow, nmi_extra_stack and imports."
                 );
                 return Ok(());
             }
@@ -42,6 +43,11 @@ fn run() -> Result<(), String> {
             "--o65-options" => {
                 o65_options = Some(PathBuf::from(
                     args.next().ok_or("--o65-options requires a file")?,
+                ))
+            }
+            "--o65-report" => {
+                o65_report = Some(PathBuf::from(
+                    args.next().ok_or("--o65-report requires a file")?,
                 ))
             }
             "--layout" => {
@@ -64,7 +70,12 @@ fn run() -> Result<(), String> {
     let prepared =
         native65816::prepare_file(&input, optimize, &modules).map_err(|e| e.to_string())?;
     if interfaces {
-        if layout.is_some() || output.is_some() || o65_options.is_some() || format != "json" {
+        if layout.is_some()
+            || output.is_some()
+            || o65_options.is_some()
+            || o65_report.is_some()
+            || format != "json"
+        {
             return Err("--emit-interfaces does not accept --layout or -o".into());
         }
         let declarations = prepared.mir.routines.iter().filter(|r| r.entry.external).map(|r| {
@@ -90,11 +101,14 @@ fn run() -> Result<(), String> {
                 .map_err(|e| format!("invalid o65 options: {e}"))?;
         let program = prepared.compile_o65(&options).map_err(|e| e.to_string())?;
         let output = output.unwrap_or_else(|| input.with_extension("o65"));
+        if let Some(report) = &o65_report {
+            native65816::write_o65_report(&program, report, &[&input, &options_path, &output])?;
+        }
         native65816::write_o65(&program, &output, &[&input, &options_path])?;
         println!("wrote {} (experimental o65)", output.display());
         return Ok(());
     }
-    if o65_options.is_some() {
+    if o65_options.is_some() || o65_report.is_some() {
         return Err("--o65-options requires --format o65-experimental".into());
     }
     let layout_path = layout.ok_or("--layout is required: platform addresses must be explicit")?;

@@ -25,6 +25,7 @@ pub struct Compiled {
 #[derive(Debug, Clone)]
 pub struct O65Compiled {
     pub bytes: Vec<u8>,
+    pub profile: mir65816::o65::profile::Profile,
     pub source_paths: Vec<PathBuf>,
 }
 
@@ -132,9 +133,10 @@ impl Prepared {
     ) -> Result<O65Compiled, CompileError> {
         let artifact = mir65816::o65::prepare(&self.mir, options).map_err(codegen)?;
         let bytes = mir65816::o65::write(&artifact).map_err(codegen)?;
-        mir65816::o65::inspect(&bytes).map_err(codegen)?;
+        mir65816::o65::validate(&bytes).map_err(codegen)?;
         Ok(O65Compiled {
             bytes,
+            profile: artifact.profile().clone(),
             source_paths: self.source_paths.clone(),
         })
     }
@@ -158,8 +160,17 @@ pub fn write(program: &Compiled, output: &Path, protected: &[&Path]) -> Result<(
 }
 
 pub fn write_o65(program: &O65Compiled, output: &Path, protected: &[&Path]) -> Result<(), String> {
-    mir65816::o65::inspect(&program.bytes)?;
+    mir65816::o65::validate(&program.bytes)?;
     publish(&program.bytes, &program.source_paths, output, protected)
+}
+
+pub fn write_o65_report(
+    program: &O65Compiled,
+    output: &Path,
+    protected: &[&Path],
+) -> Result<(), String> {
+    let bytes = serde_json::to_vec_pretty(&program.profile).map_err(|e| e.to_string())?;
+    publish(&bytes, &program.source_paths, output, protected)
 }
 
 fn publish(
@@ -177,7 +188,7 @@ fn publish(
         .map(PathBuf::as_path)
         .chain(protected.iter().copied())
     {
-        if path.canonicalize().map_err(|e| e.to_string())? == destination {
+        if super::native::artifacts::destination(path)? == destination {
             return Err("65816 output would overwrite an input".into());
         }
     }

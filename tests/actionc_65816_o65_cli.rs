@@ -184,3 +184,70 @@ fn canonical_input_aliases_cannot_be_overwritten() {
     assert!(!d.run(&args).status.success());
     assert_eq!(std::fs::read(d.0.join("main.act")).unwrap(), before);
 }
+
+#[test]
+fn compact_cli_keeps_full_report_off_disk_and_rejects_contract_changes() {
+    for newline in ["\n", "\r\n"] {
+        for optimize in [false, true] {
+            let d=Directory::new(&"MODULE API\nPUBLIC EXTERNAL CARD FUNC Host(CARD value)\nCARD output\nPROC Main()\noutput=Host(7)\nRETURN\nENDMODULE\n".replace('\n',newline));
+            let interfaces = d.run(&["--emit-interfaces"]);
+            assert!(interfaces.status.success());
+            let interfaces: serde_json::Value = serde_json::from_slice(&interfaces.stdout).unwrap();
+            let options = serde_json::json!({"profile":o65::profile::COMPACT_ID,"nmi_extra_stack":0,"imports":[{"symbol":interfaces[0]["symbol"],"name":"Host","stack_peak":0,"checks_stack":true,"domains":1}]});
+            std::fs::write(
+                d.0.join("options.json"),
+                serde_json::to_vec(&options).unwrap(),
+            )
+            .unwrap();
+            let mut args = ARGS.to_vec();
+            args.extend(["--o65-report", "report.json"]);
+            if !optimize {
+                args.push("--no-opt");
+            }
+            let result = d.run(&args);
+            assert!(
+                result.status.success(),
+                "{}",
+                String::from_utf8_lossy(&result.stderr)
+            );
+            let bytes = std::fs::read(d.0.join("main.o65")).unwrap();
+            let info = o65::compact::inspect(&bytes).unwrap();
+            let report: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(d.0.join("report.json")).unwrap()).unwrap();
+            assert_eq!(report["imports"][1]["contract"]["arguments"][0]["size"], 2);
+            assert_eq!(
+                report["imports"][1]["contract"]["signature"],
+                info.imports[1].signature
+            );
+            assert_eq!(
+                o65::decode(&bytes).unwrap().text.len() as u32 - info.text_bytes,
+                16
+            );
+            for (field, value) in [
+                ("domains", serde_json::json!(3)),
+                ("stack_peak", serde_json::json!(1)),
+                ("irq_effect", serde_json::json!("save_disable")),
+                ("checks_stack", serde_json::json!(false)),
+            ] {
+                let mut bad = options.clone();
+                bad["imports"][0][field] = value;
+                std::fs::write(d.0.join("options.json"), serde_json::to_vec(&bad).unwrap())
+                    .unwrap();
+                assert!(!d.run(&args).status.success());
+                assert_eq!(std::fs::read(d.0.join("main.o65")).unwrap(), bytes);
+            }
+            std::fs::write(
+                d.0.join("options.json"),
+                serde_json::to_vec(&options).unwrap(),
+            )
+            .unwrap();
+            for target in ["main.act", "options.json", "main.o65"] {
+                let before = std::fs::read(d.0.join(target)).unwrap();
+                let mut args = ARGS.to_vec();
+                args.extend(["--o65-report", target]);
+                assert!(!d.run(&args).status.success());
+                assert_eq!(std::fs::read(d.0.join(target)).unwrap(), before);
+            }
+        }
+    }
+}

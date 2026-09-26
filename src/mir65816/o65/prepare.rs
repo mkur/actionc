@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 /// Validated section contents and typed fixups. No load addresses are assigned.
 #[derive(Debug, Clone)]
 pub struct Artifact {
+    pub(crate) compact: bool,
     pub(crate) text: Vec<u8>,
     pub(crate) data: Vec<u8>,
     pub(crate) bss: u32,
@@ -76,7 +77,7 @@ fn extent(base: u32, size: u32) -> Result<u32, String> {
 }
 
 pub fn prepare(program: &Mir65816Program, options: &Options) -> Result<Artifact, String> {
-    if options.profile != ID && options.profile != ID_V2 {
+    if options.profile != ID && options.profile != ID_V2 && options.profile != COMPACT_ID {
         return Err("unsupported experimental o65 profile".into());
     }
     if u32::from(options.nmi_extra_stack) + 26 > 65535 {
@@ -158,6 +159,7 @@ pub fn prepare(program: &Mir65816Program, options: &Options) -> Result<Artifact,
         }
     }
     let mut artifact = Artifact {
+        compact: options.profile == COMPACT_ID,
         text: vec![],
         data: vec![],
         bss: 0,
@@ -396,5 +398,8 @@ pub fn prepare(program: &Mir65816Program, options: &Options) -> Result<Artifact,
         .profile
         .relocations
         .sort_by_key(|r| (r.section as u8, r.offset));
+    if artifact.compact {
+        super::compact::admit(&artifact)?;
+    }
     Ok(artifact)
 }
