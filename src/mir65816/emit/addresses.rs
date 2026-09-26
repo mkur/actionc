@@ -105,7 +105,7 @@ fn indexed_address(
         return Ok(None);
     };
     let stride = index.stride.get();
-    if !stride.is_power_of_two() || !(1..=4).contains(&bytes) {
+    if stride == 0 || !(1..=4).contains(&bytes) {
         return Ok(None);
     }
     let Mir65816Value::Temp(id, width) = index.value else {
@@ -126,6 +126,9 @@ fn indexed_address(
     let displacement = address.displacement.get();
     let maximum = if width.get() == 1 { 255u64 } else { 65535 };
     if maximum * u64::from(stride) + u64::from(displacement) + u64::from(bytes) - 1 > 65535 {
+        return Ok(None);
+    }
+    if !profitable_scale(stride) {
         return Ok(None);
     }
     let Some(index) = checked_stack_home(frame, id, width.get() as u8)? else {
@@ -158,6 +161,26 @@ fn indexed_address(
         stride: stride as u16,
         bytes,
     }))
+}
+
+// Compare a conservative upper bound for the new address overhead with only
+// the old scale's mandatory bytes. Shared base/payload traffic cancels. The
+// extra 20 budgets exact index read/zero extension (9), displacement (4), TAY
+// (1), payload mode repair (2) and symbolic-vs-captured base preparation (4).
+// The generic path additionally initializes INDEX and reloads Y per piece;
+// neither saving is needed to authorize this selection.
+fn profitable_scale(stride: u32) -> bool {
+    if stride == 0 {
+        return false;
+    }
+    if stride.is_power_of_two() {
+        return true;
+    }
+    let shifts = 31 - stride.leading_zeros();
+    let ones = stride.count_ones();
+    let native_upper = 2 + shifts + 3 * (ones - 1) + 20;
+    let generic_lower = 19 * ones + 6 * shifts;
+    native_upper < generic_lower
 }
 
 fn symbolic_value(value: &Mir65816Value, known: &BTreeMap<TempId, Symbol>) -> Option<Symbol> {
@@ -367,8 +390,21 @@ impl Plan {
                 b.code.a16();
                 b.load_memory(Memory::Stack(indexed.index.offset.into()), 0)?;
             }
-            for _ in 0..indexed.stride.trailing_zeros() {
-                b.code.op(Implied::AslA);
+            if indexed.stride.is_power_of_two() {
+                for _ in 0..indexed.stride.trailing_zeros() {
+                    b.code.op(Implied::AslA);
+                }
+            } else {
+                // Prefix coefficients never exceed the checked final stride.
+                // INDEX holds only the original zero-extended BYTE, never PTR.
+                b.code.byte(ByteOp::StaDp, INDEX);
+                for bit in (0..15 - indexed.stride.leading_zeros()).rev() {
+                    b.code.op(Implied::AslA);
+                    if indexed.stride & (1 << bit) != 0 {
+                        b.code.op(Implied::Clc);
+                        b.code.byte(ByteOp::AdcDp, INDEX);
+                    }
+                }
             }
             if indexed.displacement != 0 {
                 b.code.op(Implied::Clc);

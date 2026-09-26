@@ -172,6 +172,11 @@ fn scaled_byte_indexes_keep_wide_payloads_exact_and_bounded() {
                 (1, 0),
                 (2, 0),
                 (4, 17),
+                (3, 0),
+                (5, 17),
+                (44, 0),
+                (255, 0),
+                (257, 0),
                 (128, 0),
                 (256, 256 - width),
                 (256, 257 - width),
@@ -187,13 +192,17 @@ fn scaled_byte_indexes_keep_wide_payloads_exact_and_bounded() {
                         )
                         .unwrap()
                     });
-                    let indexes: Vec<_> = if stride == 2 && variant == 0 {
+                    let indexes: Vec<_> = if matches!(stride, 2 | 3 | 44) && variant == 0 {
                         (0..=255u8).collect()
                     } else {
                         vec![0, 1, 127, 128, 255]
                     };
                     for index in indexes {
-                        let base = if index < 128 { 0x22fff0u32 } else { 0xfffff0 };
+                        let base = if index < 128 || stride > 4 {
+                            0x22fff0u32
+                        } else {
+                            0xfffff0
+                        };
                         let target = (base + u32::from(index) * stride + displacement) & 0xffffff;
                         let mut h = if let Some(l) = &loaded {
                             Harness::new_o65(l, &caller(l.entry()), 0)
@@ -249,7 +258,9 @@ fn scaled_byte_indexes_keep_wide_payloads_exact_and_bounded() {
 #[test]
 fn scaled_index_windows_survive_irq_nmi_reentry() {
     let source = "MODULE TEST BYTE irqAck=$7800 LONGCARD scratch LONGCARD FUNC Work(LONGCARD POINTER p BYTE i) LONGCARD old old=p(i) p(i)=old RETURN(old) CARD FUNC Dispatch(CARD saved BYTE reason) scratch=Work(LONGCARD POINTER($7140),1) irqAck=1 RETURN(saved) PROC Task(LONGCARD POINTER argument) argument^=Work(argument,1) RETURN PROC Main() RETURN ENDMODULE";
-    check_scaled_interrupts(source, 4);
+    for stride in [4, 3, 44] {
+        check_scaled_interrupts(source, stride);
+    }
 }
 
 fn check_scaled_interrupts(source: &str, stride: u32) {

@@ -1223,3 +1223,12 @@ Typed ASL A reads/writes the active accumulator width, writes N/Z/C and preserve
 V; typed INY reads the active index width, writes Y and N/Z, and preserves A/X,
 C/V and the native environment. Encoding, tracked values, physical effects and
 fresh selected replay share these forms. Neither requires a raw opcode path.
+
+Other positive constant strides use A16 binary shift/add, retaining the original
+zero-extended index in the existing INDEX scratch word. Each prefix coefficient
+is at most the admitted stride, so the complete offset bound also proves every
+intermediate. Each ADC establishes carry independently. No multiplication helper,
+new reservation, alias permission or live value across a call is introduced.
+A conservative cost comparison includes index extension, displacement, mode and
+base-preparation differences; candidates that are not smaller keep generic
+lowering. Zero strides and offsets exceeding the complete Y range are refused.

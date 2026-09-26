@@ -99,3 +99,24 @@ The replay request inventory now explicitly includes the shared-return join.
 All five indexed runtime tests also pass in release; the new instruction state
 and physical-effect targets pass in release as well. Full qualification remains
 deferred.
+
+## Slice 5: other bounded constant strides
+
+Code shrinks **346,044 → 344,710 B**, saving **1,334 B**, against the 1,331-byte
+model. All three indexing slices save **4,285 B**, 19 bytes beyond their combined
+4,266-byte model. Their offset, home and payload contracts remain bounded;
+frames, peaks, guards, ABI and data are unchanged. The loaded-size estimate is
+**283,065 B**, leaving **20,921 B** to the release cap.
+
+[Summary](05-constant/summary.json), [routines](05-constant/routines.csv),
+[changed spans](05-constant/spans.csv).
+
+Five address integration tests and the unchanged boundary snapshot pass. Five
+indexed runtime tests and two replay tests pass in debug. The scaled tests now
+exercise all 256 indexes at strides 3 and 44, as well as 5, 255, 257, complete
+payload bounds and overflow fallbacks. IRQ/NMI reentry covers the shift/add
+windows for strides 3 and 44 in both domains and I states. High-stride test
+addresses avoid the harness's own direct-page/stack mappings; separate cases
+retain 24-bit wrap coverage.
+Both expanded scaling/preemption tests also pass in release. Full qualification
+remains deferred.

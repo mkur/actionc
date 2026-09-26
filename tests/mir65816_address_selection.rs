@@ -176,7 +176,7 @@ fn constant_byte_accesses_are_direct_but_volatile_and_one_past_keep_fallback() {
 fn y_byte_loads_require_captured_unsigned_indices_and_bounded_stride() {
     for optimize in [false, true] {
         for ty in ["BYTE", "CARD", "INT", "SIZE", "LONGCARD"] {
-            for stride in [1, 2] {
+            for stride in [1, 2, 3, 44, 257, 258] {
                 let mut p = mir(
                     &format!(
                         "BYTE FUNC Read(BYTE POINTER p {ty} index) RETURN(p(index)) PROC Main() RETURN"
@@ -206,14 +206,16 @@ fn y_byte_loads_require_captured_unsigned_indices_and_bounded_stride() {
                         {
                             count += 1;
                             let bytes = &code.bytes[code.mir_spans[&(block.id, i)].clone()];
-                            if ty == "BYTE" || ty == "CARD" && stride == 1 {
+                            if ty == "BYTE" && stride <= 257 || ty == "CARD" && stride == 1 {
                                 assert!(
-                                    bytes.len() <= if ty == "BYTE" { 30 } else { 23 },
+                                    bytes.len() <= if ty == "BYTE" { 45 } else { 23 },
                                     "{ty}/{optimize}: {bytes:02x?}"
                                 );
                                 assert!(bytes.contains(&0xa8)); // TAY
                                 assert!(bytes.windows(2).any(|b| b == [0xb7, 0]));
-                                assert!(!bytes.windows(2).any(|b| b == [0x65, 20]));
+                                if stride.is_power_of_two() {
+                                    assert!(!bytes.windows(2).any(|b| b == [0x65, 20]));
+                                }
                             } else {
                                 assert!(bytes.len() > 23);
                             }
@@ -248,7 +250,7 @@ fn y_byte_stores_keep_y_while_loading_captured_and_immediate_values() {
                             let bytes = &code.bytes[code.mir_spans[&(block.id, i)].clone()];
                             if matches!(ty, "BYTE" | "CARD") {
                                 assert!(
-                                    bytes.len() <= if ty == "BYTE" { 30 } else { 23 },
+                                    bytes.len() <= if ty == "BYTE" { 45 } else { 23 },
                                     "{bytes:02x?}"
                                 );
                                 assert!(bytes.contains(&0xa8));
