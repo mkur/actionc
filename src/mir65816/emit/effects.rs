@@ -327,7 +327,7 @@ impl Instruction {
                     e.writes.a = 0xffff;
                     e.flag_writes = NZ;
                 }
-                Implied::AslA => {
+                Implied::AslA | Implied::LsrA => {
                     e.environment_reads |= env::M;
                     e.reads.a = mask(m);
                     e.writes.a = mask(m);

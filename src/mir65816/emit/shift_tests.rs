@@ -219,3 +219,33 @@ fn constant_shift_preflight_and_variable_fallback_emit_nothing_on_rejection() {
     );
     assert!(b.code.code().bytes.is_empty());
 }
+
+#[test]
+fn short_word_shifts_load_once_before_overlapping_store() {
+    let p = word_tests::program();
+    for left in [false, true] {
+        for count in 1..=7 {
+            let mut b = builder(&p.routines[0], 2);
+            b.code.a16();
+            let at = b.code.position();
+            assert!(
+                b.constant_shift(
+                    TempId(101),
+                    2,
+                    if left {
+                        NirBinaryOp::Lsh
+                    } else {
+                        NirBinaryOp::Rsh
+                    },
+                    &Mir65816Value::Temp(TempId(100), ByteSize::new(2)),
+                    &Mir65816Value::U8(count)
+                )
+                .unwrap()
+            );
+            let mut expected = vec![0xa3, 64];
+            expected.extend(vec![if left { 0x0a } else { 0x4a }; count as usize]);
+            expected.extend([0x83, 65]);
+            assert_eq!(&b.code.code().bytes[at..], expected);
+        }
+    }
+}

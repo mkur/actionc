@@ -876,12 +876,26 @@ impl TrackedEmitter65816 {
                 };
                 self.state.nz = low;
             }
-            AslA => {
+            AslA | LsrA => {
                 let width = self.state.env.m;
                 let value = match self.state.a {
                     Value::Constant(v, _) => {
-                        self.state.carry = Some(v & (width.mask() ^ (width.mask() >> 1)) != 0);
-                        State65816::constant(v.wrapping_shl(1), width)
+                        let left = op == AslA;
+                        self.state.carry = Some(
+                            v & if left {
+                                width.mask() ^ (width.mask() >> 1)
+                            } else {
+                                1
+                            } != 0,
+                        );
+                        State65816::constant(
+                            if left {
+                                v.wrapping_shl(1)
+                            } else {
+                                (v & width.mask()) >> 1
+                            },
+                            width,
+                        )
                     }
                     _ => {
                         self.state.carry = None;

@@ -204,3 +204,19 @@ fn index_scaling_preserves_full_24_bit_carries_and_exact_volatile_accesses() {
         }
     }
 }
+
+#[test]
+fn accumulator_word_shifts_have_independent_encodings_and_survive_reentry() {
+    for (name, opcode) in [("asl", 0x0a), ("lsr", 0x4a)] {
+        let code = assemble(
+            &format!("rep #$20\nlda $40,s\n{name} a\n{name} a\n{name} a\nsta $41,s\nstp\nnop"),
+            0x40000,
+        );
+        assert_eq!(&code[2..9], &[0xa3, 64, opcode, opcode, opcode, 0x83, 65]);
+    }
+    let source = "MODULE TEST VOLATILE BYTE irqAck=$7800 CARD scratch
+        CARD FUNC Work(CARD value) CARD a,b a=value RSH 3 b=value LSH 7 RETURN(a XOR b)
+        CARD FUNC Dispatch(CARD saved BYTE reason) scratch=Work($8001) irqAck=1 RETURN(saved)
+        PROC Task(CARD POINTER argument) argument^=Work(argument^) RETURN PROC Main() RETURN ENDMODULE";
+    windows::check_work_interrupts(source);
+}

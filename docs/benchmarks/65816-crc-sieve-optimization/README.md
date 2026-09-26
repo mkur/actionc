@@ -10,6 +10,7 @@ and the compile-only frozen Exec delta against the preceding slice.
 | Baseline | Original code | 13,671,811 | 12,868,237 | 24,090,260 | — |
 | 1 | Mixed-edge identities | 13,147,043 | 12,868,237 | 17,394,488 | 971 |
 | 2 | Native staged words | 13,147,043 | 12,868,237 | 17,003,492 | 128 |
+| 3 | Short word shifts in A | 13,147,043 | 12,016,269 | 17,003,492 | 46 |
 
 CRC cycles use the same 8,192-byte input, with stack guards included. Slice 1
 kernel bytes are 362 / 324 / 490 versus 376 / 324 / 584. All Action results,
@@ -51,3 +52,14 @@ planner tests and 13 native edge tests pass; native tests and CRC measurements
 pass in both host profiles, including new mixed-edge task-switch/IRQ/NMI reentry
 coverage. Frozen Exec saves 128 more bytes, reaching a guard-subtracted
 loaded estimate of 254,046 bytes.
+
+Slice 3 saves 851,968 CRC16 cycles and 10 bytes. Bit sieve falls from 9,289,832
+to 8,732,887 cycles at 8,191 slots and from 18,623,518 to 17,505,373 at 16,000;
+its five-routine code shrinks from 634 to 613 bytes. Standard sieve is unchanged.
+The replacement handles complete two-byte homes and counts 1–7; right shifts
+remain logical for INT bit patterns. The typed LSR-A form includes effects,
+tracking and independent decoding support. Validation: 287 emitter tests passed
+(one existing ignored); 18 focused native shift/state/effect tests passed in each
+host, including independent assembly and instruction-boundary IRQ/NMI reentry.
+Both full benchmark vector sets pass with unchanged foreign controls. Frozen
+Exec saves 46 bytes in this slice, for a loaded estimate of 254,000.
