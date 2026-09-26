@@ -435,3 +435,19 @@ and LF/CRLF output, and creates 135 list-state vectors. Use the existing qualifi
 `code_quality` runner in both host modes,
 then `report_execlists.py`. This is separate from the small kernel corpus.
 See the [analysis, compiler failures and reproduction commands](../../docs/benchmarks/65816-execlists/README.md).
+
+### CRC speed comparison with Calypsi
+
+`crc.py` extracts the CRC8/16/32 kernels from the local `c-bench-64` suite,
+checks them against frozen C fixtures, and builds equivalent Action! ports.
+Calypsi uses `-O2 --speed` with huge data and large code models; CRC8 also has
+an `-O1 --speed` control because the O2 output returns incorrect CRCs.
+Both languages are rebuilt from actual LF and CRLF inputs.
+
+`run_crc.py` authenticates the artifacts and runs only the opt-in `crc_bench`
+native VM target. `report_crc.py` checks matching debug/release measurements
+and archives final linked listings, cycles, profiles and provenance. The
+explicit diagnostic `--allow-external-result-errors` option retains the known
+Calypsi result failures; ABI/access checks and Action result checks stay strict.
+
+See the [results, optimization opportunities and reproduction commands](../../docs/benchmarks/65816-crc-speed/README.md).

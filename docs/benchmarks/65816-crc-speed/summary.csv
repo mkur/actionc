@@ -1,0 +1,8 @@
+width,compiler,mode,code_bytes,guard_bytes,cycles,guard_cycles,cycles_per_byte,all_vectors_correct
+8,actionc,optimized,376,27,13671811,25,1668.9222412109375,True
+8,calypsi,O2-speed,115,0,4317262,0,527.009521484375,False
+8,calypsi,O1-speed,151,0,6479751,0,790.9852294921875,True
+16,actionc,optimized,324,27,12868237,25,1570.8297119140625,True
+16,calypsi,O2-speed,113,0,5045999,0,615.9666748046875,True
+32,actionc,optimized,584,27,24090260,25,2940.70556640625,True
+32,calypsi,O2-speed,158,0,5092163,0,621.6019287109375,True
