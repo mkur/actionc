@@ -181,8 +181,13 @@ fn maybe_byte_example_reports_cost_to_printbe_without_running_printing() {
             let print_entry = if runtime == Runtime::ActionCart {
                 0xA4EC
             } else {
-                let listing = compiled.source_listing();
-                let body = listing.split("proc_resident_printbe:").nth(1).unwrap();
+                // Listings preserve declaration spelling; symbol identity is case-insensitive.
+                let listing = compiled.source_listing().to_ascii_lowercase();
+                let (_, body) = listing
+                    .split_once("proc_resident_printbe:")
+                    .unwrap_or_else(|| {
+                        panic!("{mode:?}/{runtime:?}: missing PrintBE entry in listing:\n{listing}")
+                    });
                 let address = body
                     .lines()
                     .find_map(|line| line.split("; $").nth(1).map(|part| &part[..4]))
