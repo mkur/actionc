@@ -1,0 +1,36 @@
+BYTE ARRAY flags(2001)
+BYTE ARRAY bitv(8)=[1 2 4 8 16 32 64 128]
+
+BYTE FUNC CheckFlag(CARD idx)
+RETURN(flags(idx RSH 3) AND bitv(idx AND 7))
+
+PROC ClearFlag(CARD idx)
+  flags(idx RSH 3)==&(bitv(idx AND 7) XOR $FF)
+RETURN
+
+CARD FUNC Sieve(CARD size)
+  CARD i,prime,k,count
+
+  count=1
+  i=0
+  WHILE i<(size RSH 3)+1 DO
+    flags(i)=$FF
+    i==+1
+  OD
+
+  i=0
+  WHILE i<size DO
+    IF CheckFlag(i)#0 THEN
+      prime=i+i+3
+      k=i+prime
+      WHILE k<size DO
+        ClearFlag(k)
+        k==+prime
+      OD
+      count==+1
+    FI
+    i==+1
+  OD
+RETURN(count)
+
+PROC Main() RETURN

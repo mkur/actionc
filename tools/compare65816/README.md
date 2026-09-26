@@ -451,3 +451,17 @@ explicit diagnostic `--allow-external-result-errors` option retains the known
 Calypsi result failures; ABI/access checks and Action result checks stay strict.
 
 See the [results, optimization opportunities and reproduction commands](../../docs/benchmarks/65816-crc-speed/README.md).
+
+### Standard and bit-packed sieve comparison
+
+`sieve.py` builds the original `c-bench-64` standard and bit-packed sieve kernels
+and equivalent Action! ports. Calypsi uses `-O2 --speed`, with and without
+`--no-cross-call`; both languages are rebuilt from LF and CRLF sources. The
+original workloads and an equal-size comparison run at two global-array
+placements, including a bank crossing.
+
+`run_sieve.py` runs only the focused `sieve_bench` native VM target, checking
+prime counts, complete flags arrays, read-only tables and ABI restoration.
+`report_sieve.py` archives only complete passing results with matching
+debug/release measurements. See the
+[results, generated-code opportunities and reproduction commands](../../docs/benchmarks/65816-sieve-speed/README.md).

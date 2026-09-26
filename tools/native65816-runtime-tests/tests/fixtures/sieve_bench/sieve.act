@@ -1,0 +1,28 @@
+BYTE ARRAY flags(8191)
+
+CARD FUNC Sieve(CARD size)
+  CARD i,prime,k,count
+
+  count=1
+  i=0
+  WHILE i<size DO
+    flags(i)=1
+    i==+1
+  OD
+
+  i=0
+  WHILE i<size DO
+    IF flags(i)#0 THEN
+      prime=i+i+3
+      k=i+prime
+      WHILE k<size DO
+        flags(k)=0
+        k==+prime
+      OD
+      count==+1
+    FI
+    i==+1
+  OD
+RETURN(count)
+
+PROC Main() RETURN

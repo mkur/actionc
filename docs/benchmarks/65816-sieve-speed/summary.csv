@@ -1,0 +1,10 @@
+variant,compiler,mode,n,result,code_bytes,guard_bytes,rodata_bytes,flags_bytes,cycles,guard_cycles,cycles_excluding_guards
+sieve,actionc,optimized,8191,1900,264,27,0,8191,3400699,25,3400674
+sieve,calypsi,O2-speed,8191,1900,180,0,0,8191,2865907,0,2865907
+sieve,calypsi,O2-speed-no-cross-call,8191,1900,181,0,0,8191,2426573,0,2426573
+sieve_bit,actionc,optimized,8191,1900,634,135,8,2001,9289832,1159525,8130307
+sieve_bit,actionc,optimized,16000,3432,634,135,8,2001,18623518,2330675,16292843
+sieve_bit,calypsi,O2-speed,8191,1900,230,0,8,2001,4164094,0,4164094
+sieve_bit,calypsi,O2-speed,16000,3432,230,0,8,2001,8338984,0,8338984
+sieve_bit,calypsi,O2-speed-no-cross-call,8191,1900,269,0,8,2001,3839434,0,3839434
+sieve_bit,calypsi,O2-speed-no-cross-call,16000,3432,269,0,8,2001,7686402,0,7686402
