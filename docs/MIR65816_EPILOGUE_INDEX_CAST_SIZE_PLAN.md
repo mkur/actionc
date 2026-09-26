@@ -1,6 +1,6 @@
 # MIR65816 epilogue, BYTE-index and integer-cast size plan
 
-Status: slices 1–3 implemented; slices 4–6 pending. See
+Status: slices 1–4 implemented; slices 5–6 pending. See
 [measured results](benchmarks/65816-epilogue-index-casts/README.md).
 
 Implement six independently reviewable compiler slices, committing after each

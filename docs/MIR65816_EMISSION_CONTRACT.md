@@ -1208,3 +1208,18 @@ retain their external access count/order, and unsupported widths, signed indexes
 partial homes or offset overflow retain generic lowering. Captured pointer
 bases use the current source resolver, including bounded pointer bindings;
 they never silently reload an omitted capture's former home.
+
+Power-of-two strides and 1–4-byte payloads use the same proof, extended to
+`max_index * stride + displacement + payload_bytes - 1 <= 65535`. BYTE scaling
+uses A16 accumulator shifts; payloads use the existing nonvolatile transfer
+policy: full words followed by an exact odd byte, with ascending `[pointer],Y`
+accesses and checked Y increments. No fourth byte of a three-byte payload is
+touched. Narrow literal stores retain zero extension, including NULL.
+The complete payload stays within its verified home and store preparation
+cannot overwrite pointer/index scratch. CARD indexes retain only their existing
+stride-one BYTE case because the complete wider offset range does not fit Y.
+
+Typed ASL A reads/writes the active accumulator width, writes N/Z/C and preserves
+V; typed INY reads the active index width, writes Y and N/Z, and preserves A/X,
+C/V and the native environment. Encoding, tracked values, physical effects and
+fresh selected replay share these forms. Neither requires a raw opcode path.

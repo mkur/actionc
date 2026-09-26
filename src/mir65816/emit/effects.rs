@@ -326,6 +326,18 @@ impl Instruction {
                     e.writes.a = 0xffff;
                     e.flag_writes = NZ;
                 }
+                Implied::AslA => {
+                    e.environment_reads |= env::M;
+                    e.reads.a = mask(m);
+                    e.writes.a = mask(m);
+                    e.flag_writes = NZ | C;
+                }
+                Implied::Iny => {
+                    e.environment_reads |= env::X;
+                    e.reads.y = mask(index);
+                    e.writes.y = 0xffff;
+                    e.flag_writes = NZ;
+                }
                 Implied::DecA => {
                     e.environment_reads |= env::M;
                     e.reads.a = mask(m);

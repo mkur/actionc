@@ -71,3 +71,31 @@ symbol bases. Existing CARD-index tests, pointer forwarding, memory tests and
 reentrant indexed IRQ/NMI checks also pass. Three address-selector unit tests,
 five address integration tests and the unchanged boundary snapshot pass.
 Both new BYTE-index tests pass in release. Full qualification remains deferred.
+
+## Slice 4: power-of-two strides and wider payloads
+
+Code shrinks **347,866 → 346,044 B**, saving **1,822 B** in 22 routines; none
+grow. The loaded-size estimate becomes **284,399 B**. Frames, ABI, data and
+all guard ranges/amounts remain unchanged.
+
+[Summary](04-scaled/summary.json), [routines](04-scaled/routines.csv),
+[changed spans](04-scaled/spans.csv).
+
+The selector retains the existing nonvolatile transfer policy: full words plus
+an exact odd byte, preserving ascending external traffic. All 49 modeled sites
+are admitted, including narrow zero and NULL constants; the 1,816-byte model
+is exceeded by six bytes of mode/layout interactions. Native ASL A and INY have independent ca65/VM checks at both
+accumulator/index widths, carry/sign boundaries and interrupt-mask states;
+physical-effect tests verify every unwritten register/flag bit and memory access.
+
+Validation: 266 emitter unit tests pass (one existing ignored), as do five
+address integration tests, 22 emission tests and the unchanged boundary snapshot.
+Five indexed runtime tests cover exact 1/2/3/4-byte traffic, exhaustive BYTE
+indexes at a representative stride, fit/overflow boundaries, bank wrap,
+flat/two-placement o65 execution and exhaustive reached-window IRQ/NMI reentry.
+Three effect, ten state, two pointer-preemption, eight memory and two replay
+tests pass.
+The replay request inventory now explicitly includes the shared-return join.
+All five indexed runtime tests also pass in release; the new instruction state
+and physical-effect targets pass in release as well. Full qualification remains
+deferred.

@@ -89,6 +89,8 @@ struct Indexed {
     base: IndexedBase,
     index: Slot,
     displacement: u16,
+    stride: u16,
+    bytes: u8,
 }
 
 fn indexed_address(
@@ -97,11 +99,13 @@ fn indexed_address(
     address: &Mir65816Address,
     known: &BTreeMap<TempId, Symbol>,
     data: &[Mir65816Data],
+    bytes: u8,
 ) -> Result<Option<Indexed>, String> {
     let Some(index) = &address.index else {
         return Ok(None);
     };
-    if index.stride != ByteSize::ONE {
+    let stride = index.stride.get();
+    if !stride.is_power_of_two() || !(1..=4).contains(&bytes) {
         return Ok(None);
     }
     let Mir65816Value::Temp(id, width) = index.value else {
@@ -121,7 +125,7 @@ fn indexed_address(
     }
     let displacement = address.displacement.get();
     let maximum = if width.get() == 1 { 255u64 } else { 65535 };
-    if maximum + u64::from(displacement) > 65535 {
+    if maximum * u64::from(stride) + u64::from(displacement) + u64::from(bytes) - 1 > 65535 {
         return Ok(None);
     }
     let Some(index) = checked_stack_home(frame, id, width.get() as u8)? else {
@@ -151,6 +155,8 @@ fn indexed_address(
         base,
         index,
         displacement: displacement as u16,
+        stride: stride as u16,
+        bytes,
     }))
 }
 
@@ -246,9 +252,10 @@ impl Plan {
                     width,
                     volatile: false,
                 } = op
-                    && width.get() == 1
-                    && checked_stack_home(frame, *dest, 1)?.is_some()
-                    && let Some(indexed) = indexed_address(routine, frame, address, &known, data)?
+                    && (1..=4).contains(&width.get())
+                    && checked_stack_home(frame, *dest, width.get() as u8)?.is_some()
+                    && let Some(indexed) =
+                        indexed_address(routine, frame, address, &known, data, width.get() as u8)?
                 {
                     if matches!(indexed.base, IndexedBase::Symbol(_)) {
                         remove_base_use(address, &mut uses)?;
@@ -262,9 +269,10 @@ impl Plan {
                     width,
                     volatile: false,
                 } = op
-                    && width.get() == 1
-                    && captured_byte(frame, value)?
-                    && let Some(indexed) = indexed_address(routine, frame, address, &known, data)?
+                    && (1..=4).contains(&width.get())
+                    && captured_payload(frame, value, width.get() as u8)?
+                    && let Some(indexed) =
+                        indexed_address(routine, frame, address, &known, data, width.get() as u8)?
                 {
                     if matches!(indexed.base, IndexedBase::Symbol(_)) {
                         remove_base_use(address, &mut uses)?;
@@ -359,24 +367,53 @@ impl Plan {
                 b.code.a16();
                 b.load_memory(Memory::Stack(indexed.index.offset.into()), 0)?;
             }
+            for _ in 0..indexed.stride.trailing_zeros() {
+                b.code.op(Implied::AslA);
+            }
             if indexed.displacement != 0 {
                 b.code.op(Implied::Clc);
                 b.code.word(WordOp::AdcImm, indexed.displacement);
             }
             b.code.op(Implied::Tay);
-            b.code.a8();
-            match op {
-                Mir65816Op::Load { dest, .. } => {
-                    b.code.byte(ByteOp::LdaIndirectY, PTR);
-                    b.save_byte(*dest, 0)?;
+            // Match transfer(..., wide=true): full words and an exact odd byte.
+            // Volatile accesses were excluded before constructing this plan.
+            let mut byte = 0;
+            while byte < indexed.bytes {
+                let word = byte + 1 < indexed.bytes;
+                if word {
+                    b.code.a16();
+                } else {
+                    b.code.a8();
                 }
-                Mir65816Op::Store { value, .. } => {
-                    // Only an immediate or captured stack byte was admitted.
-                    // Loading it cannot change Y or the prepared PTR bytes.
-                    b.value_byte(value, 0)?;
-                    b.code.byte(ByteOp::StaIndirectY, PTR);
+                match op {
+                    Mir65816Op::Load { dest, .. } => {
+                        b.code.byte(ByteOp::LdaIndirectY, PTR);
+                        b.save_byte(*dest, byte)?;
+                    }
+                    Mir65816Op::Store { value, .. } => {
+                        if word {
+                            if let Some(bits) = payload_constant(value) {
+                                b.code.word(WordOp::LdaImm, (bits >> (byte * 8)) as u16);
+                            } else {
+                                b.load_memory(
+                                    b.value_memory(value)?.ok_or("missing indexed payload")?,
+                                    byte.into(),
+                                )?;
+                            }
+                        } else {
+                            b.value_byte(value, byte)?;
+                        }
+                        b.code.byte(ByteOp::StaIndirectY, PTR);
+                    }
+                    _ => return Err("indexed access lost its operation".into()),
                 }
-                _ => return Err("indexed BYTE access lost its operation".into()),
+                let step = if word { 2 } else { 1 };
+                byte += step;
+                if byte < indexed.bytes {
+                    for _ in 0..step {
+                        b.code.op(Implied::Iny);
+                    }
+                }
             }
             return Ok(());
         }
@@ -458,6 +495,32 @@ fn captured_byte(frame: &AllocatedFrame, value: &Mir65816Value) -> Result<bool, 
         Mir65816Value::U8(_) => Ok(true),
         Mir65816Value::Temp(id, width) if width.get() == 1 => {
             Ok(checked_stack_home(frame, *id, 1)?.is_some())
+        }
+        _ => Ok(false),
+    }
+}
+
+fn payload_constant(value: &Mir65816Value) -> Option<u32> {
+    match value {
+        Mir65816Value::U8(v) => Some((*v).into()),
+        Mir65816Value::U16(v) => Some((*v).into()),
+        Mir65816Value::U24(v) | Mir65816Value::U32(v) => Some(*v),
+        Mir65816Value::Null(_) => Some(0),
+        _ => None,
+    }
+}
+
+fn captured_payload(
+    frame: &AllocatedFrame,
+    value: &Mir65816Value,
+    bytes: u8,
+) -> Result<bool, String> {
+    if payload_constant(value).is_some() {
+        return Ok(true);
+    }
+    match value {
+        Mir65816Value::Temp(id, width) if width.get() == u32::from(bytes) => {
+            Ok(checked_stack_home(frame, *id, bytes)?.is_some())
         }
         _ => Ok(false),
     }

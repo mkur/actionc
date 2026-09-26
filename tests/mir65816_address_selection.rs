@@ -173,7 +173,7 @@ fn constant_byte_accesses_are_direct_but_volatile_and_one_past_keep_fallback() {
 }
 
 #[test]
-fn y_byte_loads_require_captured_unsigned_indices_and_unit_stride() {
+fn y_byte_loads_require_captured_unsigned_indices_and_bounded_stride() {
     for optimize in [false, true] {
         for ty in ["BYTE", "CARD", "INT", "SIZE", "LONGCARD"] {
             for stride in [1, 2] {
@@ -206,7 +206,7 @@ fn y_byte_loads_require_captured_unsigned_indices_and_unit_stride() {
                         {
                             count += 1;
                             let bytes = &code.bytes[code.mir_spans[&(block.id, i)].clone()];
-                            if matches!(ty, "BYTE" | "CARD") && stride == 1 {
+                            if ty == "BYTE" || ty == "CARD" && stride == 1 {
                                 assert!(
                                     bytes.len() <= if ty == "BYTE" { 30 } else { 23 },
                                     "{ty}/{optimize}: {bytes:02x?}"

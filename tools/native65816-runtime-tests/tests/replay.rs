@@ -87,7 +87,8 @@ fn replay_matches_direct_code_traces_and_repeated_finalization() {
             }
         }
     }
-    assert_eq!(requests.len(), 20);
+    assert_eq!(requests.len(), 21);
+    assert!(requests.contains("prepare-return-join"));
     assert!(decisions[0] > 0 && decisions[1] > 0);
     if let Ok(dir) = std::env::var("A816_QUALIFICATION_DIR") {
         std::fs::write(std::path::Path::new(&dir).join("replay-summary.json"),serde_json::to_string_pretty(&serde_json::json!({"builds":inventory,"requests":requests,"consume_decisions_false_true":decisions})).unwrap()).unwrap();

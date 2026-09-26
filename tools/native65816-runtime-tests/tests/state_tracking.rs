@@ -732,3 +732,63 @@ fn inx_width_wrap_flags_and_cycles_match_ca65_and_vm() {
         }
     }
 }
+
+#[test]
+fn accumulator_shift_and_y_increment_match_ca65_and_physical_widths() {
+    for value in [0, 0x7f, 0x80, 0xff, 0x7fff, 0x8000, 0xffff] {
+        for byte_a in [false, true] {
+            for byte_x in [false, true] {
+                let (code, trace) = proof::index_instruction_probe(value, byte_a, byte_x);
+                let source = format!(
+                    "rep #$20\nlda #{value}\ntay\n{}{}asl a\niny\nnop\nstp\nnop",
+                    if byte_x { "sep #$10\n.i8\n" } else { "" },
+                    if byte_a { "sep #$20\n.a8\n" } else { "" }
+                );
+                let bytes = assemble(&source, 0x40000);
+                assert_eq!(code.bytes, bytes[..code.bytes.len()]);
+                for irq in [0, 4] {
+                    let mut bus = Bus::new();
+                    bus.map(0x40000, &bytes, false);
+                    let mut cpu = Machine::start_at(Registers {
+                        a: 0xabcd,
+                        x: 0x5678,
+                        y: 0x9abc,
+                        s: 0x5fe0,
+                        d: 0x2000,
+                        pbr: 4,
+                        p: irq | 0x40,
+                        ..Default::default()
+                    });
+                    for snapshot in &trace {
+                        assert!(
+                            cpu.run_until(
+                                &mut bus,
+                                1000,
+                                |_| Inputs::default(),
+                                |c| c.is_instruction_boundary()
+                                    && c.pc() == 0x40000 + snapshot.pc as u32
+                            )
+                            .unwrap()
+                        );
+                        check(snapshot, cpu.registers(), 0x5fe0, &bus, irq);
+                    }
+                    let r = cpu.registers();
+                    assert_eq!(
+                        r.a,
+                        if byte_a {
+                            (value & 0xff00) | (value.wrapping_shl(1) & 255)
+                        } else {
+                            value.wrapping_shl(1)
+                        }
+                    );
+                    assert_eq!(
+                        r.y,
+                        value.wrapping_add(1) & if byte_x { 255 } else { 65535 }
+                    );
+                    assert_eq!(r.p & 1 != 0, value & if byte_a { 128 } else { 32768 } != 0);
+                    assert_eq!(r.p & 0x40, 0x40);
+                }
+            }
+        }
+    }
+}

@@ -453,6 +453,25 @@ pub fn increment_instruction_probe(
     e.finish_traced()
 }
 
+/// Independent exact-width shift/index qualification, with no X reservation.
+pub fn index_instruction_probe(value: u16, byte_a: bool, byte_x: bool) -> (Code, Vec<Snapshot>) {
+    let mut e = TrackedEmitter65816::default();
+    e.trace();
+    e.a16();
+    e.word(WordOp::LdaImm, value);
+    e.op(Implied::Tay);
+    if byte_x {
+        e.byte(ByteOp::Sep, 0x10);
+    }
+    if byte_a {
+        e.a8();
+    }
+    e.op(Implied::AslA);
+    e.op(Implied::Iny);
+    e.op(Implied::Nop);
+    e.finish_traced()
+}
+
 pub use super::analysis::sites::SelectedSite;
 /// Read-only view of a site. Request names are display metadata, never semantics.
 #[derive(Clone, Debug)]

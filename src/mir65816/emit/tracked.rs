@@ -853,6 +853,29 @@ impl TrackedEmitter65816 {
                 };
                 self.state.nz = low;
             }
+            AslA => {
+                let width = self.state.env.m;
+                let value = match self.state.a {
+                    Value::Constant(v, _) => {
+                        self.state.carry = Some(v & (width.mask() ^ (width.mask() >> 1)) != 0);
+                        State65816::constant(v.wrapping_shl(1), width)
+                    }
+                    _ => {
+                        self.state.carry = None;
+                        self.state.fresh(width)
+                    }
+                };
+                self.state.load_a(value);
+            }
+            Iny => {
+                let width = self.state.env.index;
+                let value = match self.state.y {
+                    Value::Constant(v, _) => State65816::constant(v.wrapping_add(1), width),
+                    _ => self.state.fresh(width),
+                };
+                self.state.y = value;
+                self.state.nz = value;
+            }
             DecA | Dex | Inx => {
                 let (value, width) = if matches!(op, Dex | Inx) {
                     (self.state.x, self.state.env.index)
