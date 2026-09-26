@@ -12,6 +12,9 @@
 //! with the corresponding label, fixup and span remapping.
 //! Native argument pushes replace eight BYTE/word call constructions; symbolic
 //! stack execution independently checks payload identity, padding and final S.
+//! Shared value tails add one internal REP/join and replace the second tail
+//! with BRA in the two-return accumulator and recursion fixtures. Frames and
+//! result preparation stay unchanged; labels, fixups and spans are remapped.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]

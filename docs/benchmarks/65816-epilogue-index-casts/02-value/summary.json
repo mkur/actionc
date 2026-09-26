@@ -1,0 +1,30 @@
+{
+  "before": "epilogue-void",
+  "after": "epilogue-value",
+  "compiler_code_before": 354736,
+  "compiler_code_after": 348995,
+  "saved": 5741,
+  "guard_bytes": 72252,
+  "guards": 2676,
+  "guard_subtracted_compiler_code": 276743,
+  "package_assembly": 8300,
+  "all_initialized_data": 2307,
+  "estimated_loaded_without_guards": 287350,
+  "gap_to_256_kib": 25206,
+  "smaller_routines": 340,
+  "larger_routines": [],
+  "added_local_jumps": 1034,
+  "same_mir_operations": true,
+  "same_frames_peaks_abi": true,
+  "frozen_input_files": 120,
+  "full_qualification_run": false,
+  "guard_disabled_build": false,
+  "hashes": {
+    "target/exec-current-audit/frozen-inputs.json": "4bd36e0e631bef8a8e4f57dc37bb6f9cc078942288bf15c2ec3c4f11757d44c9",
+    "target/exec-current-audit/epilogue-void.image.json": "cf95ffbc150cff60c2da11e5d5aed338323a1d4cdde35c9d7457443a4b55832b",
+    "target/exec-current-audit/epilogue-void.inventory.json": "2da21e828dfc214e408c16e812fcf58e10045d19f3321472e8bc41fd8bcb95e5",
+    "target/exec-current-audit/epilogue-value.image.json": "adcb0a43fc67cca4cf91b68c469ce599610a3cc36a61e1bad64aacf61b51e44d",
+    "target/exec-current-audit/epilogue-value.inventory.json": "c654da3a3064a5703f29f082378a35d5a6c9addf4210dfe28da87979db78137a",
+    "docs/benchmarks/65816-epilogue-index-casts/measure.py": "1aa09a79b9e896f1721c6e8baf72471fe54453d35d4d7e246b3e9751b5c27ee3"
+  }
+}

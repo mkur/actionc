@@ -271,6 +271,20 @@ pub fn index(
                 }
                 let p = &m.code.mir_spans[&(block.id, pi)];
                 let c = &m.code.mir_spans[&(block.id, ci)];
+                // The old adjacent-word probe ends at a local instruction. A
+                // shared return instead transfers the result through a checked
+                // internal join; its separate runtime tests cover those lanes.
+                if kind == Kind::Return
+                    && actionc::mir65816::emit::proof::selected_actions(&m.code)
+                        .unwrap()
+                        .iter()
+                        .any(|s| {
+                            s.source == Some((block.id, ci))
+                                && s.request == Some("prepare-return-join")
+                        })
+                {
+                    continue;
+                }
                 assert_eq!(p.end, c.start, "nonadjacent MIR spans");
                 // A frame/parameter load may consist solely of its retained capture.
                 // Its independently checked store/load proof supplies A and N/Z.

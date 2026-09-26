@@ -409,7 +409,7 @@ pub(super) fn routine_with_data(
         }
     }
     // One retained tail, with a two-byte REP at the internal join. Even a
-    // four-byte unrelaxed jump saves three bytes per removed void tail.
+    // four-byte unrelaxed jump saves at least three bytes per removed tail.
     let returns: BTreeSet<_> = routine
         .blocks
         .iter()
@@ -419,18 +419,17 @@ pub(super) fn routine_with_data(
         })
         .map(|block| block.id)
         .collect();
-    let shared_tail = (routine.result_home.is_none() && b.frame.extent != 0 && returns.len() > 1)
-        .then(|| {
-            (
-                routine
-                    .blocks
-                    .iter()
-                    .find(|block| returns.contains(&block.id))
-                    .unwrap()
-                    .id,
-                b.code.label(),
-            )
-        });
+    let shared_tail = (b.frame.extent != 0 && returns.len() > 1).then(|| {
+        (
+            routine
+                .blocks
+                .iter()
+                .find(|block| returns.contains(&block.id))
+                .unwrap()
+                .id,
+            b.code.label(),
+        )
+    });
     b.code.prove_entries(predecessors, reachable);
     if let Some(x) = &b.loop_x {
         b.code.prove_x(XContract {

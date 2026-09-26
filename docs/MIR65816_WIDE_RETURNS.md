@@ -38,3 +38,10 @@ zero/nonzero frames, immutable/mutable parameters, direct/indirect calls,
 recursion, zero/high-bit/bank-boundary patterns, relocated o65, exact bus reads,
 volatile/alias ordering across full scratch clobbers, rejected malformed homes,
 and IRQ/NMI restoration. Host source fixtures exercise LF and CRLF compilation.
+
+Multiple reachable returns in a framed routine may share the teardown through
+an internal selected-action join. Each source return prepares its A/X result
+and completes caller cleanup before branching. The join forgets compiler value
+facts, preserves the physical result lanes, and explicitly requests A16. The
+single typed native return retains all defined lanes, including BYTE high-byte
+and 24-bit X.high zero extension. The shared TAY/TYA teardown does not modify X.

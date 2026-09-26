@@ -27,3 +27,30 @@ the unchanged boundary snapshot pass. Focused native call-return, guard,
 replay and state tests pass. The new shared-tail fixture passes in debug and
 release, raw/optimized and LF/CRLF forms, flat/two-placement o65 execution, and
 IRQ/NMI injection at each reached instruction in both task domains and I states.
+
+## Slice 2: shared native value epilogues
+
+Code shrinks **354,736 → 348,995 B**, saving **5,741 B** in 340 more routines,
+with 1,034 redirected value returns. No routine grows. Both epilogue slices
+save **5,949 B** against the 6,488-byte model: 766 bytes of explicit join repairs
+are partly offset by 227 bytes of branch/layout effects. Result preparation
+and immediate call-result forwarding remain at their source returns. ABI,
+frames, guards and data are unchanged. The loaded-size estimate is **287,350 B**,
+leaving **25,206 B** to the cap.
+
+[Summary](02-value/summary.json), [routines](02-value/routines.csv),
+[changed spans](02-value/spans.csv).
+
+Focused native checks cover BYTE constants, captured BYTEs, words, wide values,
+forwarded calls and shared tails (17 tests). The new test exercises every result
+class and interrupt reentry with actual result capture. The existing constant
+BYTE test now locates the retained tail through its MIR source span while
+preserving its ca65, stack-read and register assertions.
+All three shared-epilogue tests also pass in release. The 22 emission and 11 o65
+integration tests pass. The reviewed boundary snapshot changes only the
+multiple-return accumulator and recursive-sum routines: one REP/internal label,
+one replacement BRA, and corresponding span/fixup positions; the updated check
+passes. No full qualification was run.
+The adjacent-word test probe deliberately excludes typed shared-return joins:
+its old single-instruction endpoint cannot describe the transferred A result.
+The dedicated shared-tail tests verify the result lanes through those joins.

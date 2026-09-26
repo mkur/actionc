@@ -87,9 +87,13 @@ fn shared_void_tails_restore_frames_and_relocate() {
 
 #[test]
 fn shared_return_join_survives_interrupt_reentry() {
+    let source = "MODULE TEST BYTE irqAck=$7800 PROC Work(BYTE v) BYTE local local=v IF local=0 THEN RETURN FI IF local=1 THEN RETURN FI RETURN CARD FUNC Dispatch(CARD saved BYTE reason) Work(0) irqAck=1 RETURN(saved) PROC Task(CARD POINTER argument) Work(BYTE(argument^)) RETURN PROC Main() RETURN ENDMODULE";
+    check_interrupt_reentry(source);
+}
+
+fn check_interrupt_reentry(source: &str) {
     use actionc_vm::native65816::{Inputs, Machine};
     use support::context::*;
-    let source = "MODULE TEST BYTE irqAck=$7800 PROC Work(BYTE v) BYTE local local=v IF local=0 THEN RETURN FI IF local=1 THEN RETURN FI RETURN CARD FUNC Dispatch(CARD saved BYTE reason) Work(0) irqAck=1 RETURN(saved) PROC Task(CARD POINTER argument) Work(BYTE(argument^)) RETURN PROC Main() RETURN ENDMODULE";
     for optimize in [false, true] {
         for domain in 0..2 {
             let mut h = ContextHarness::from_prepared(
@@ -187,6 +191,55 @@ fn shared_return_join_survives_interrupt_reentry() {
             assert!(sites >= 8);
             h.run();
             h.guards();
+        }
+    }
+}
+
+#[test]
+fn native_value_tails_preserve_every_result_lane_and_call_forwarding() {
+    for (ty, mask) in [
+        ("BYTE", 255u32),
+        ("CARD", 65535),
+        ("ADDRESS", 0xffffff),
+        ("LONGCARD", u32::MAX),
+    ] {
+        let source = format!(
+            "MODULE TEST BYTE irqAck=$7800 {ty} scratch {ty} FUNC Echo({ty} v) RETURN(v) {ty} FUNC Work(BYTE v) IF v=0 THEN RETURN({ty}($89abcdef)) FI IF v=1 THEN RETURN(Echo({ty}($fedcba98))) FI RETURN({ty}(0)) CARD FUNC Dispatch(CARD saved BYTE reason) scratch=Work(0) irqAck=1 RETURN(saved) PROC Task(LONGCARD POINTER argument) argument^=LONGCARD(Work(BYTE(argument^))) RETURN PROC Main() RETURN ENDMODULE"
+        );
+        check_interrupt_reentry(&source);
+        let source = format!(
+            "BYTE input=$7100 LONGCARD result=$7200 {ty} FUNC Echo({ty} v) RETURN(v) {ty} FUNC Work(BYTE v) IF v=0 THEN RETURN({ty}($89abcdef)) FI IF v=1 THEN RETURN(Echo({ty}($fedcba98))) FI RETURN({ty}(0)) PROC Main() result=LONGCARD(Work(input)) RETURN"
+        );
+        for optimize in [false, true] {
+            let p = prepare(&source, optimize);
+            let image = p.compile(&layout()).unwrap().image;
+            assert_eq!(
+                image.to_json().unwrap(),
+                compile(&source.replace('\n', "\r\n"), optimize)
+                    .to_json()
+                    .unwrap()
+            );
+            let object = p.compile_o65(&Default::default()).unwrap().bytes;
+            for variant in 0..3 {
+                let loaded = (variant > 0).then(|| {
+                    format::relocate(
+                        &object,
+                        &o65::placement(&object, variant - 1, vec![o65::fault(variant - 1)]),
+                    )
+                    .unwrap()
+                });
+                for (input, expected) in [(0, 0x89abcdefu32), (1, 0xfedcba98), (255, 0)] {
+                    let mut h = if let Some(l) = &loaded {
+                        Harness::new_o65(l, &caller(l.entry()), 0)
+                    } else {
+                        Harness::new(&image, &caller(image.entry), 0)
+                    };
+                    h.bus.ram[0x7100] = input;
+                    h.run();
+                    h.guards(0);
+                    assert_eq!(h.bus.value(0x7200, 4), expected & mask, "{ty}/{input}");
+                }
+            }
         }
     }
 }
