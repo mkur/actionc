@@ -1247,3 +1247,13 @@ Selection compares complete instruction costs, including entry mode requests
 and restoration of the byte fallback's A8 exit. It requires a strict saving.
 Same-start copies omit unchanged payload bytes, but still write any required
 extension zeros. No frame, lifetime, alias or ABI contract is weakened.
+
+### Constant indexes through captured pointers
+
+A nonvolatile scalar load/store may fold an unsigned numeric index and constant
+stride into its Y displacement. Selection checks the complete three-byte private
+base home, exact payload homes, and `index * stride + displacement + width - 1
+<= 65535` using host u64 arithmetic. It retains full 24-bit base preparation and
+ordinary word-plus-odd-byte ascending transfers. It neither widens nor repeats
+external reads. Volatile, symbolic/unsupported, overflowing and incomplete-home
+forms retain their established selectors; direct-symbol selection takes priority.

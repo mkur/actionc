@@ -410,3 +410,99 @@ fn indexed_wide_zero_stores_zero_extend_narrow_constants_without_neighbor_writes
         }
     }
 }
+
+#[test]
+fn constant_indexes_keep_exact_payloads_at_offset_and_bank_boundaries() {
+    for (ty, width) in [("BYTE", 1u32), ("CARD", 2), ("SIZE", 3), ("LONGCARD", 4)] {
+        for (index, stride, displacement) in [
+            (0, 44, 0),
+            (3, 44, 17),
+            (1, 1, 65535 - width),
+            (1, 1, 65536 - width),
+        ] {
+            let source = format!(
+                "{ty} POINTER base=$7100\n{ty} value=$7110,result=$7120\n{ty} FUNC Exchange({ty} POINTER p {ty} v)\n{ty} old old=p({index}) p({index})=v RETURN(old)\nPROC Main() result=Exchange(base,value) RETURN\n"
+            );
+            for optimize in [false, true] {
+                let p = shaped(&source, optimize, displacement, Some(stride));
+                let c = p.compile(&layout()).unwrap();
+                assert_eq!(
+                    c.image.to_json().unwrap(),
+                    shaped(
+                        &source.replace('\n', "\r\n"),
+                        optimize,
+                        displacement,
+                        Some(stride)
+                    )
+                    .compile(&layout())
+                    .unwrap()
+                    .image
+                    .to_json()
+                    .unwrap()
+                );
+                let object = p.compile_o65(&Default::default()).unwrap().bytes;
+                for variant in 0..3 {
+                    let loaded = (variant > 0).then(|| {
+                        format::relocate(
+                            &object,
+                            &o65::placement(&object, variant - 1, vec![o65::fault(variant - 1)]),
+                        )
+                        .unwrap()
+                    });
+                    // Choose the base so the payload straddles a bank or bus end.
+                    let offset = index * stride + displacement;
+                    for target in [0x22ffffu32, 0xffffff] {
+                        let base = target.wrapping_sub(offset) & 0xffffff;
+                        let mut h = if let Some(l) = &loaded {
+                            Harness::new_o65(l, &caller(l.entry()), 0)
+                        } else {
+                            Harness::new(&c.image, &caller(c.image.entry), 0)
+                        };
+                        h.bus.ram[0x7100..0x7103].copy_from_slice(&base.to_le_bytes()[..3]);
+                        h.bus.ram[0x7110..0x7114].copy_from_slice(&0x89abcdefu32.to_le_bytes());
+                        for i in 0..width + 2 {
+                            let at = (target + 0xffffff + i) & 0xffffff;
+                            h.bus.map(at, &[0xa5], true);
+                            h.bus.watched.insert(at);
+                        }
+                        for i in 0..width {
+                            h.bus.ram[((target + i) & 0xffffff) as usize] =
+                                (0xfedcba98u32 >> (8 * i)) as u8;
+                        }
+                        h.run();
+                        h.guards(0);
+                        assert_eq!(
+                            h.bus.value(0x7120, width as usize),
+                            0xfedcba98u32 & (u32::MAX >> (8 * (4 - width)))
+                        );
+                        let expected: Vec<_> = (0..width)
+                            .map(|i| ((target + i) & 0xffffff, Access::Read))
+                            .chain((0..width).map(|i| {
+                                (
+                                    (target + i) & 0xffffff,
+                                    Access::Write((0x89abcdefu32 >> (8 * i)) as u8),
+                                )
+                            }))
+                            .collect();
+                        assert_eq!(
+                            h.bus
+                                .trace
+                                .iter()
+                                .map(|&(_, a, k)| (a, k))
+                                .collect::<Vec<_>>(),
+                            expected
+                        );
+                        assert_eq!(h.bus.ram[((target + 0xffffff) & 0xffffff) as usize], 0xa5);
+                        assert_eq!(h.bus.ram[((target + width) & 0xffffff) as usize], 0xa5);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn constant_index_windows_survive_irq_nmi_reentry() {
+    let source = "MODULE TEST BYTE irqAck=$7800 LONGCARD scratch LONGCARD FUNC Work(LONGCARD POINTER p BYTE i) LONGCARD old old=p(1) p(1)=old RETURN(old) CARD FUNC Dispatch(CARD saved BYTE reason) scratch=Work(LONGCARD POINTER($7140),1) irqAck=1 RETURN(saved) PROC Task(LONGCARD POINTER argument) argument^=Work(argument,1) RETURN PROC Main() RETURN ENDMODULE";
+    check_scaled_interrupts(source, 3);
+}

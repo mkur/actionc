@@ -265,3 +265,59 @@ fn y_byte_stores_keep_y_while_loading_captured_and_immediate_values() {
         }
     }
 }
+
+#[test]
+fn constant_captured_indexes_fold_only_complete_nonvolatile_offsets() {
+    for optimize in [false, true] {
+        for (ty, width) in [("BYTE", 1), ("CARD", 2), ("SIZE", 3), ("LONGCARD", 4)] {
+            for (index, stride, offset, volatile, selected) in [
+                (0, 44, 0, false, true),
+                (3, 44, 17, false, true),
+                (1, 1, 65535 - width, false, true),
+                (1, 1, 65536 - width, false, false),
+                (0, 44, 0, true, false),
+                (65535, 65535, 0, false, false),
+            ] {
+                let mut p = mir(
+                    &format!(
+                        "{ty} FUNC Read({ty} POINTER p) RETURN(p({index})) PROC Main() RETURN"
+                    ),
+                    optimize,
+                );
+                for op in p
+                    .routines
+                    .iter_mut()
+                    .flat_map(|r| &mut r.blocks)
+                    .flat_map(|b| &mut b.ops)
+                {
+                    if let Mir65816Op::Load {
+                        address,
+                        volatile: v,
+                        ..
+                    } = op
+                        && let Some(i) = &mut address.index
+                    {
+                        i.stride = actionc::target::ByteSize::new(stride);
+                        address.displacement = actionc::target::ByteOffset::new(offset);
+                        *v = volatile;
+                    }
+                }
+                let m = emit::materialize(&p).unwrap();
+                let r = p.routines.iter().find(|r| r.name == "Read").unwrap();
+                let code = &m.routines.iter().find(|m| m.id == r.id).unwrap().code;
+                for b in &r.blocks {
+                    for (i, op) in b.ops.iter().enumerate() {
+                        if matches!(op,Mir65816Op::Load{address,..} if address.index.is_some()) {
+                            let bytes = &code.bytes[code.mir_spans[&(b.id, i)].clone()];
+                            assert_eq!(
+                                bytes.len() <= 30,
+                                selected,
+                                "{ty}/{index}/{stride}/{offset}/{volatile}: {bytes:02x?}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

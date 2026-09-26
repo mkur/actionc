@@ -239,6 +239,7 @@ pub(super) struct Plan {
     symbols: BTreeMap<(BlockId, usize), (TempId, Symbol)>,
     accesses: BTreeMap<(BlockId, usize), Symbol>,
     indexed: BTreeMap<(BlockId, usize), Indexed>,
+    constants: BTreeMap<(BlockId, usize), u16>,
     omitted: BTreeSet<TempId>,
 }
 
@@ -253,6 +254,19 @@ impl Plan {
         for block in &routine.blocks {
             let mut known = BTreeMap::new();
             for (i, op) in block.ops.iter().enumerate() {
+                if let Some(offset) = constant_index(frame, op)? {
+                    // Keep the smaller direct-symbol BYTE path when available.
+                    let address = match op {
+                        Mir65816Op::Load { address, .. } | Mir65816Op::Store { address, .. } => {
+                            address
+                        }
+                        _ => unreachable!(),
+                    };
+                    if resolve(address, &known, data).is_none() {
+                        plan.constants.insert((block.id, i), offset);
+                        continue;
+                    }
+                }
                 if matches!(
                     op,
                     Mir65816Op::Call { .. }
@@ -372,6 +386,37 @@ impl Plan {
         index: usize,
         op: &Mir65816Op,
     ) -> Result<(), String> {
+        if let Some(&offset) = self.constants.get(&(block, index)) {
+            let address = match op {
+                Mir65816Op::Load { address, .. } | Mir65816Op::Store { address, .. } => address,
+                _ => return Err("constant index lost its operation".into()),
+            };
+            let Mir65816AddressBase::Indirect(value) = &address.base else {
+                return Err("constant index lost its captured base".into());
+            };
+            b.code.barrier();
+            b.pointer_value(value, PTR)?;
+            let memory = Memory::Pointer { slot: PTR, offset };
+            match op {
+                Mir65816Op::Load { dest, width, .. } => {
+                    b.transfer(memory, b.temp(*dest)?.into(), width.get() as u8, true)?
+                }
+                Mir65816Op::Store { value, width, .. } => {
+                    let bytes = width.get() as u8;
+                    if !b.constant_store(memory, value, bytes, false)? {
+                        if let Some(source) = b.value_memory(value)? {
+                            b.transfer(source, memory, bytes, true)?;
+                        } else {
+                            b.code.a8();
+                            b.value_byte(value, 0)?;
+                            b.store_memory(memory, 0)?;
+                        }
+                    }
+                }
+                _ => unreachable!(),
+            }
+            return Ok(());
+        }
         if let Some(indexed) = self.indexed.get(&(block, index)) {
             b.code.barrier();
             match &indexed.base {
@@ -489,6 +534,53 @@ impl Plan {
         }
         b.operation(op)
     }
+}
+
+fn constant_index(frame: &AllocatedFrame, op: &Mir65816Op) -> Result<Option<u16>, String> {
+    let (address, bytes) = match op {
+        Mir65816Op::Load {
+            address,
+            dest,
+            width,
+            volatile: false,
+        } if (1..=4).contains(&width.get())
+            && checked_stack_home(frame, *dest, width.get() as u8)?.is_some() =>
+        {
+            (address, width.get())
+        }
+        Mir65816Op::Store {
+            address,
+            value,
+            width,
+            volatile: false,
+        } if (1..=4).contains(&width.get())
+            && captured_payload(frame, value, width.get() as u8)? =>
+        {
+            (address, width.get())
+        }
+        _ => return Ok(None),
+    };
+    let Some(index) = &address.index else {
+        return Ok(None);
+    };
+    let Mir65816AddressBase::Indirect(Mir65816Value::Temp(id, width)) = address.base else {
+        return Ok(None);
+    };
+    if width.get() != 3 || checked_stack_home(frame, id, 3)?.is_none() {
+        return Ok(None);
+    }
+    let value = match index.value {
+        Mir65816Value::U8(v) => u64::from(v),
+        Mir65816Value::U16(v) => u64::from(v),
+        Mir65816Value::U24(v) | Mir65816Value::U32(v) => u64::from(v),
+        _ => return Ok(None),
+    };
+    let stride = index.stride.get();
+    if stride == 0 || stride >= 0x1000000 {
+        return Ok(None);
+    }
+    let offset = value * u64::from(stride) + u64::from(address.displacement.get());
+    Ok((offset + u64::from(bytes) - 1 <= 65535).then_some(offset as u16))
 }
 
 fn checked_stack_home(
