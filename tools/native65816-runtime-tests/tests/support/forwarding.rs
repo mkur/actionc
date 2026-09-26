@@ -35,6 +35,7 @@ pub struct Site {
 #[derive(Clone, Debug, Default)]
 pub struct Index {
     words: BTreeMap<u32, Site>,
+    pub shared_return_sites: usize,
     pub control: control_flow::Index,
     pub dispatches: Vec<control_flow::Dispatch>,
     pub multi_words: Vec<multi_word_edge::Site>,
@@ -144,6 +145,7 @@ pub fn index(
 ) -> Index {
     actionc::mir65816::verify_program(mir).unwrap();
     let mut out = Index {
+        shared_return_sites: 0,
         words: BTreeMap::new(),
         control: control_flow::index(mir, machine, &address),
         frame_words: frame_forwarding::index(mir, machine, &address),
@@ -283,6 +285,7 @@ pub fn index(
                                 && s.request == Some("prepare-return-join")
                         })
                 {
+                    out.shared_return_sites += 1;
                     continue;
                 }
                 assert_eq!(p.end, c.start, "nonadjacent MIR spans");
@@ -348,7 +351,17 @@ pub fn index(
                         code[consumer],
                         0x18 | 0x38 | 0x23 | 0x03 | 0x43 | 0x25 | 0x05 | 0x45 | 0x29 | 0x09 | 0x49
                     ),
-                    Kind::Compare => matches!(code[consumer], 0xc3 | 0xc5 | 0xc9),
+                    Kind::Compare =>
+                        matches!(code[consumer], 0xc3 | 0xc5 | 0xc9)
+                            || matches!(code[consumer], 0xd0 | 0xf0)
+                                && matches!(
+                                    &block.ops[ci],
+                                    Mir65816Op::Compare {
+                                        operation: NirCompareOp::Eq | NirCompareOp::Ne,
+                                        right: Mir65816Value::U16(0) | Mir65816Value::U8(0),
+                                        ..
+                                    }
+                                ),
                     Kind::Store => matches!(code[consumer], 0x83 | 0x8f),
                     Kind::Return => matches!(code[consumer], 0xa8 | 0x6b),
                 });
@@ -425,6 +438,7 @@ pub fn relocated(templates: &Index, image: &actionc::mir65816::o65::RelocatedIma
         })
         .collect();
     Index {
+        shared_return_sites: templates.shared_return_sites,
         words,
         control: control_flow::relocated(&templates.control, image),
         x_words: templates

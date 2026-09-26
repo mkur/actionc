@@ -15,6 +15,9 @@
 //! Shared value tails add one internal REP/join and replace the second tail
 //! with BRA in the two-return accumulator and recursion fixtures. Frames and
 //! result preparation stay unchanged; labels, fixups and spans are remapped.
+//! Equality zero tests remove CMP #0 in optimized sum_loop, forward_copy and
+//! recursive_sum, preserving the load's Z;
+//! only those instruction bytes and subsequent positions change.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]

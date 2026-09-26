@@ -501,3 +501,35 @@ fn external_comparison_inventory() {
     )
     .unwrap();
 }
+
+#[test]
+fn equality_zero_tests_normalize_both_sides_and_keep_ordering_cmp() {
+    for (ty, width) in [("BYTE", 1), ("CARD", 2), ("INT", 2)] {
+        let p = program(&format!("BYTE FUNC Work({ty} a,b) RETURN(a=b)"));
+        let r = &p.routines[0];
+        let (dest, left, _) = operands(r);
+        let zero = if width == 1 {
+            Mir65816Value::U8(0)
+        } else {
+            Mir65816Value::U16(0)
+        };
+        for op in [NirCompareOp::Eq, NirCompareOp::Ne, NirCompareOp::Lt] {
+            for reversed in [false, true] {
+                let mut b = builder(r);
+                b.code.a16();
+                let (a, c) = if reversed {
+                    (&zero, &left)
+                } else {
+                    (&left, &zero)
+                };
+                assert!(b.native_compare(dest, width, false, op, a, c).unwrap());
+                let bytes = &b.code.code().bytes;
+                assert_eq!(
+                    bytes.contains(&0xc9) || bytes.contains(&0xc3),
+                    op == NirCompareOp::Lt,
+                    "{ty}/{op:?}/{reversed}: {bytes:02x?}"
+                );
+            }
+        }
+    }
+}

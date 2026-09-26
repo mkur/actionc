@@ -718,6 +718,12 @@ impl Builder<'_> {
             return Ok(None);
         };
         // Swapping captured values changes no source memory access or ordering.
+        if matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne)
+            && left == WordOperand::Immediate(0)
+        {
+            std::mem::swap(&mut left, &mut right);
+            left_temp = right_temp;
+        }
         let mut predicate = match operation {
             NirCompareOp::Eq => Branch::Equal,      // BEQ
             NirCompareOp::Ne => Branch::NotEqual,   // BNE
@@ -869,6 +875,9 @@ impl Builder<'_> {
         else {
             return Ok(None);
         };
+        if equality && left == ByteOperand::Immediate(0) {
+            std::mem::swap(&mut left, &mut right);
+        }
         let predicate = match operation {
             NirCompareOp::Eq => Branch::Equal,
             NirCompareOp::Ne => Branch::NotEqual,
@@ -1077,7 +1086,11 @@ impl Builder<'_> {
                 self.code.barrier(); // Retain the original operation's value/flag barrier.
                 self.code.a8();
                 self.load_byte_operand(condition.left);
-                self.compare_byte_operand(condition.right);
+                if !matches!(condition.predicate, Branch::Equal | Branch::NotEqual)
+                    || condition.right != ByteOperand::Immediate(0)
+                {
+                    self.compare_byte_operand(condition.right);
+                }
                 if dispatch {
                     self.code.a16(); // REP preserves the A8 CMP's C/Z.
                     self.code.dispatch(condition.predicate, yes);
@@ -1093,8 +1106,13 @@ impl Builder<'_> {
         }
         self.code.a16();
         self.load_checked_word(condition.left, condition.left_temp);
+        // LDA/TXA establish full-word N/Z. The adjacent-load omission contract
+        // proves these same flags, not merely A's value. Eq/Ne consume only Z.
+        let zero_test = matches!(condition.predicate, Branch::Equal | Branch::NotEqual)
+            && condition.right == WordOperand::Immediate(0);
         match condition.kind {
             WordComparison::UnsignedOrEquality => match condition.right {
+                WordOperand::Immediate(0) if zero_test => (),
                 WordOperand::Immediate(value) => self.code.word(WordOp::CmpImm, value),
                 WordOperand::Stack(offset) => self.code.byte(ByteOp::CmpStack, offset),
                 WordOperand::DirectPage(offset) => self.code.byte(ByteOp::CmpDp, offset),

@@ -2214,3 +2214,15 @@ fn native_bitwise_preserves_word_and_long_values_under_irq_nmi() {
     assert_eq!(source, modify(&original.replace('\n', "\r\n")));
     check_narrow_preemption(&source, ["WORDBITS", "LONGBITS"], "native-bitwise");
 }
+
+#[test]
+fn byte_word_zero_tests_restore_flags_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n","\n").replace("CARD FUNC Read(","BYTE FUNC ZeroByte(BYTE a) IF a=0 THEN RETURN(17) FI RETURN(0#a)\nCARD FUNC ZeroWord(CARD a) IF 0=a THEN RETURN(19) FI RETURN(CARD(a#0))\nCARD FUNC Read(")
+        .replace("  work.done=1","  work.result==+CARD(ZeroByte(0))+CARD(ZeroByte(128))+ZeroWord(0)+ZeroWord($8000)-38\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["ZEROBYTE", "ZEROWORD"], "zero-tests");
+}

@@ -1257,3 +1257,11 @@ base home, exact payload homes, and `index * stride + displacement + width - 1
 ordinary word-plus-odd-byte ascending transfers. It neither widens nor repeats
 external reads. Volatile, symbolic/unsupported, overflowing and incomplete-home
 forms retain their established selectors; direct-symbol selection takes priority.
+
+### Equality zero tests
+
+BYTE/word Eq/Ne may use the exact-width left load's Z without CMP #0, with zero
+normalized to the right. Word reload elimination is eligible only through the
+existing A/home/NZ equivalence proof; X forwarding executes TXA and reestablishes
+N/Z. No ambient flag fact or carry inference is used. REP preserves Z for fused
+branches; ordering comparisons and Boolean materialization keep their contracts.

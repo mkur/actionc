@@ -85,7 +85,11 @@ fn word_comparison_predicates_use_checked_operands_and_byte_results() {
                 let c = b.word_operand(right).unwrap().unwrap();
                 let (a, c) = if swap { (c, a) } else { (a, c) };
                 let mut expected = encode(a, true);
-                expected.extend(encode(c, false));
+                if !(matches!(op, NirCompareOp::Eq | NirCompareOp::Ne)
+                    && c == WordOperand::Immediate(0))
+                {
+                    expected.extend(encode(c, false));
+                }
                 expected.extend([
                     branch ^ 0x20,
                     4,

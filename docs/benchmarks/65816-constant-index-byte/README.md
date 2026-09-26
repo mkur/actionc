@@ -26,3 +26,24 @@ the two new constant-index tests also pass in release. Coverage includes exact
 and one-byte overflow fallback, bank/bus crossing, raw/optimized LF/CRLF paths,
 flat/two-placement o65 execution, and IRQ/NMI at reached instructions with
 same-routine reentry in both task domains and interrupt-mask states.
+
+## 2. Equality zero tests
+
+Code shrinks **339,440 → 337,895 B**, saving **1,545 B** in 310 routines, with
+none larger. The estimate becomes **276,250 B**, leaving **14,106 B** to the cap.
+All frozen inputs and layout-independent ABI/frame/peak/data/guard facts match.
+[Summary](02-zero/summary.json), [routines](02-zero/routines.csv),
+[changed spans](02-zero/spans.csv).
+
+Focused emitter tests pass after updating the exact word-comparison expectation;
+22 emission checks and the reviewed boundary snapshot pass. The snapshot only
+removes CMP #0 in optimized sum_loop, forward_copy and recursive_sum and remaps
+later positions. Four BYTE, five word, four accumulator-forwarding and two replay
+runtime tests pass, plus exhaustive reached-window IRQ/NMI zero-test coverage.
+The new runtime matrix includes both operand orders, signed/unsigned words,
+materialized/fused results, raw/optimized LF/CRLF and flat/rebased o65 execution.
+The test-only forwarding adapter now recognizes typed zero-test branches and
+accounts separately for previously excluded shared-return sites in historical
+counts; its physical A/home/NZ checks remain intact.
+The new zero-test matrix and BYTE/word reentry tests also pass in release, along
+with the existing LONG zero-test reentry regression. No full qualification ran.
