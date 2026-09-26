@@ -58,6 +58,8 @@ mod integer_casts;
 mod long_arithmetic;
 #[path = "long_order.rs"]
 mod long_order;
+#[path = "mixed_edges.rs"]
+mod mixed_edges;
 #[path = "parameter.rs"]
 mod parameter;
 #[path = "pointer_forwarding.rs"]
@@ -1842,26 +1844,7 @@ impl Builder<'_> {
             self.finish_edge(target, fallthrough);
             return Ok(());
         }
-        self.code.a8();
-        // Save every source before assigning any destination: parallel copies
-        // stay correct for loops that swap or rotate live values.
-        for (n, (value, &(_, bytes))) in edge.args.iter().zip(&block.params).enumerate() {
-            if self.value_width(value)? != width(bytes)? {
-                return Err("edge argument width mismatch".into());
-            }
-            let slot = self.frame.edge_copies[n];
-            for i in 0..width(bytes)? {
-                self.value_byte(value, i)?;
-                self.store_memory(Memory::Stack(slot.offset.into()), i.into())?;
-            }
-        }
-        for (n, &(dest, bytes)) in block.params.iter().enumerate() {
-            let slot = self.frame.edge_copies[n];
-            for i in 0..width(bytes)? {
-                self.load_memory(Memory::Stack(slot.offset.into()), i.into())?;
-                self.save_byte(dest, i)?;
-            }
-        }
+        self.emit_mixed_edge(edge)?;
         self.code.a16();
         self.finish_edge(self.blocks[&edge.target], fallthrough);
         Ok(())
