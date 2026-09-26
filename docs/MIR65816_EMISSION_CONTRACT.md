@@ -1346,3 +1346,15 @@ sources, keep their non-addressable ownership proof, and expire before transfer.
 Both packing paths read the local home; reserved capture slots remain unread.
 A local write or call before the consumer, or a later use of the capture, still
 rejects the whole binding.
+
+A complete incoming/local pointer may also supply the value of its final
+nonvolatile three-byte store. Its capture cannot also supply the destination
+base or index. Direct private destinations must fit their declared object and
+stack reach and be disjoint from the authoritative source; self-stores, partial
+overlaps and indexed private destinations retain their captures. Source ownership
+and whole-window checks remain unchanged. Address preparation and payload
+selection use independent read bindings, so a distinct borrowed destination
+pointer may coexist with a borrowed payload. External stores retain the low
+word and exact bank byte in ascending order; only disjoint private transfers may
+use the established two overlapping words within three bytes. No fourth byte is
+touched, no binding crosses the store, and every writable home remains allocated.

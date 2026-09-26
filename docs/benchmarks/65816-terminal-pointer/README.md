@@ -11,6 +11,18 @@ remain deferred. Each slice runs focused 65816 checks and one compile-only
 frozen inventory. [measure.py](measure.py) checks unchanged inputs, MIR, ABI,
 frames, temporary placements, peaks, initialized data and guard shapes/amounts.
 
+All five primary slices are implemented. Compiler code is **316,790 B**, a
+**15,124-byte** reduction. All **1,878 modeled captures** disappear. The loaded
+estimate is **255,145 B (249.2 KiB)**, **6,999 B below** the 256 KiB cap.
+
+| Slice | Saving | Loaded estimate without guards |
+|---|---:|---:|
+| Incoming store addresses (`4baf5e2e`) | 4,625 B | 265,644 B |
+| Incoming call arguments (`175a2494`) | 4,019 B | 261,625 B |
+| Local store addresses (`506614e0`) | 3,996 B | 257,629 B |
+| Local call arguments (`c3a4f88f`) | 2,028 B | 255,601 B |
+| Stored pointer values | 456 B | 255,145 B |
+
 ## 1. Incoming pointers into final store addresses
 
 Compiler code shrinks **331,914 → 327,289 B**, saving **4,625 B** across 178
@@ -90,3 +102,29 @@ two call-push, three call-return and two replay tests pass in debug. Frozen MIR,
 ABI, homes, peaks, data, guards and input hashes remain unchanged.
 The terminal-call and both call-push tests pass in release, and 22 emission
 integration checks plus the unchanged state-boundary snapshot pass.
+
+## 5. Private pointer values into final stores
+
+Compiler code shrinks **317,246 → 316,790 B**, saving **456 B** across 37
+routines, with none larger. All **57 modeled captures** disappear. Cumulative
+saving is **15,124 B**; the loaded estimate is **255,145 B (249.2 KiB)**,
+with **6,999 B** of estimated headroom.
+[Summary](05-stored-value/summary.json), [routine deltas](05-stored-value/routines.csv),
+[changed spans](05-stored-value/spans.csv).
+
+Eighteen planner tests pass, including private and external destinations,
+independent borrowed address/payload sources, self/partial-overlap rejection,
+complete extents, volatility, extra roles and later-use fallback. Six address
+and 22 emission integration checks pass, with the unchanged boundary snapshot.
+Focused debug execution passes the new terminal-store test, three pointer tests,
+two replay tests and the terminal-call test. The new matrix checks incoming and
+real local sources, private copies, NULL/nonzero values, exact three-byte writes
+across a bank boundary, neighbor canaries and unread poisoned capture slots.
+It covers raw/optimized LF/CRLF sources and flat/two-placement o65 execution,
+and compares reference/replayed output and snapshots. IRQ/NMI restoration now
+also covers final stored-pointer values with same-routine reentry in both task
+domains. Frozen inputs, MIR, ABI, homes, peaks, data and guards remain unchanged.
+The terminal-store and all three pointer runtime tests also pass in release.
+Three existing stack-fault probes pass in debug, confirming entry/call rejection
+before stack writes and exact-floor behavior. All local document links and the
+five measurement summaries were checked; no full/final qualification was run.

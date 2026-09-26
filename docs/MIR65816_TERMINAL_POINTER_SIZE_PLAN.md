@@ -1,10 +1,10 @@
 # MIR65816 pointer forwarding into final stores and calls
 
-Status: slices 1–4 implemented; one slice remains. Measured saving: **14,668 B**;
-the estimate is **6,543 B below** the cap. Slices 1–3: `4baf5e2e`, `175a2494`,
-`506614e0`. See the [series measurements](benchmarks/65816-terminal-pointer/README.md).
-Continue the five primary slices below, committing each after focused validation
-and size measurement.
+Status: all five primary slices implemented. Measured saving: **15,124 B**;
+the loaded estimate is **255,145 B**, **6,999 B below** the cap. Slices 1–4:
+`4baf5e2e`, `175a2494`, `506614e0`, `c3a4f88f`; slice 5 completes this series.
+See the [series measurements](benchmarks/65816-terminal-pointer/README.md).
+Each slice includes focused validation and a frozen-workload size measurement.
 The smaller optimizations are a follow-up queue, outside this primary series.
 
 ## Objective and baseline

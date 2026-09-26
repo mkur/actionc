@@ -247,11 +247,66 @@ fn supported(op: &Mir65816Op, temp: TempId) -> bool {
     }
 }
 
-/// Consume a private source at a barrier, never through it. Address preparation
-/// reads all three source bytes before the unchanged external store. Every
-/// address selector (including its generic fallback) resolves this base through
-/// value_memory; none requires the omitted temporary to have been initialized.
-fn terminal(op: &Mir65816Op, temp: TempId, source: Source) -> bool {
+/// Direct private destinations must contain all three bytes and be disjoint
+/// from the authoritative source. Indexed private destinations retain captures:
+/// their dynamic geometry is outside this local proof.
+fn stored_value_destination(
+    routine: &Mir65816Routine,
+    frame: &AllocatedFrame,
+    address: &Mir65816Address,
+    source: Source,
+) -> bool {
+    let (start, size) = match address.base {
+        Mir65816AddressBase::AutomaticFrame(id) => {
+            let Some(object) = routine.frame.objects.iter().find(|o| o.id == id) else {
+                return false;
+            };
+            if object.stack_offset.get() == 0
+                || u64::from(object.stack_offset.get()) + u64::from(object.size.get())
+                    > u64::from(routine.frame.extent.get()) + 1
+            {
+                return false;
+            }
+            (object.stack_offset.get(), object.size.get())
+        }
+        Mir65816AddressBase::Parameter(id) => {
+            let Ok((offset, size)) = frame.parameter_home(routine, id) else {
+                return false;
+            };
+            (offset, u32::from(size))
+        }
+        Mir65816AddressBase::Static(NirStorageId::Global(_))
+        | Mir65816AddressBase::External(_)
+        | Mir65816AddressBase::Indirect(_) => return true,
+        Mir65816AddressBase::Static(_) => return false,
+    };
+    let displacement = address.displacement.get();
+    if address.index.is_some() || u64::from(displacement) + 3 > u64::from(size) {
+        return false;
+    }
+    let Some(offset) = start.checked_add(displacement) else {
+        return false;
+    };
+    offset != u32::from(source.home.offset)
+        && abi::stack::access_displacement(
+            ByteOffset::new(offset),
+            ByteSize::new(3),
+            ByteSize::ZERO,
+        )
+        .is_ok()
+        && Builder::private_pointer_geometry(source.memory(), Memory::Stack(offset))
+}
+
+/// Consume a private source at a barrier, never through it. Address and payload
+/// selectors resolve borrowed reads through value_memory, without requiring the
+/// omitted temporary's reserved home to have been initialized.
+fn terminal(
+    routine: &Mir65816Routine,
+    frame: &AllocatedFrame,
+    op: &Mir65816Op,
+    temp: TempId,
+    source: Source,
+) -> bool {
     if let Mir65816Op::Call {
         target: Mir65816CallTarget::Direct(_),
         args,
@@ -284,14 +339,23 @@ fn terminal(op: &Mir65816Op, temp: TempId, source: Source) -> bool {
     else {
         return false;
     };
-    (1..=4).contains(&width.get())
-        && matches!(&address.base, Mir65816AddressBase::Indirect(Mir65816Value::Temp(id,w)) if *id==temp && w.get()==3)
-        && address.displacement.get() <= u16::MAX.into()
-        && !matches!(value, Mir65816Value::Temp(id,_) if *id==temp)
-        && address
+    if address.displacement.get() > u16::MAX.into()
+        || address
             .index
             .as_ref()
-            .is_none_or(|index| !matches!(&index.value, Mir65816Value::Temp(id,_) if *id==temp))
+            .is_some_and(|index| matches!(&index.value, Mir65816Value::Temp(id,_) if *id==temp))
+    {
+        return false;
+    }
+    if matches!(value, Mir65816Value::Temp(id,_) if *id==temp) {
+        width.get() == 3
+            && matches!(value, Mir65816Value::Temp(_,w) if w.get()==3)
+            && !matches!(&address.base, Mir65816AddressBase::Indirect(Mir65816Value::Temp(id,_)) if *id==temp)
+            && stored_value_destination(routine, frame, address, source)
+    } else {
+        (1..=4).contains(&width.get())
+            && matches!(&address.base, Mir65816AddressBase::Indirect(Mir65816Value::Temp(id,w)) if *id==temp && w.get()==3)
+    }
 }
 
 impl Plan {
@@ -350,7 +414,7 @@ impl Plan {
                         // terminal use never weakens the barrier for later ops.
                         if occurrences != 0
                             && covered + occurrences == counts[dest]
-                            && terminal(consumer, *dest, source)
+                            && terminal(routine, frame, consumer, *dest, source)
                         {
                             uses.insert(at);
                             covered += occurrences;

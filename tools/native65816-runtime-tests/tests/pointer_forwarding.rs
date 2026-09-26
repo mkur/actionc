@@ -260,21 +260,33 @@ fn borrowed_pointer_reads_preserve_banked_accesses_and_replay() {
 
 #[test]
 fn borrowed_pointer_consumers_survive_irq_and_nmi_at_each_instruction() {
-    for (local, store) in [(false, false), (true, false), (false, true), (true, true)] {
+    for (local, store) in [
+        (false, 0),
+        (true, 0),
+        (false, 1),
+        (true, 1),
+        (false, 2),
+        (true, 2),
+    ] {
         for &(ty, width) in &[("LONGCARD", 4u8)] {
             let source = format!(
                 "MODULE TEST\nBYTE irqAck=$7800\n{ty} scratch\nPROC Touch() RETURN\n{ty} FUNC Forward({ty} POINTER value) {ty} r r=value^ Touch() RETURN(r)\nCARD FUNC Dispatch(CARD saved BYTE reason) scratch=Forward({ty} POINTER($7140)) irqAck=1 RETURN(saved)\nPROC Task({ty} POINTER argument) argument^=Forward(argument) RETURN\nPROC Main() RETURN\nENDMODULE\n"
             );
-            let source = if store {
-                source.replace("r=value^ Touch()", "r=value^ value^=r Touch()")
-            } else {
-                source
+            let source = match store {
+                1 => source.replace("r=value^ Touch()", "r=value^ value^=r Touch()"),
+                2 => source
+                    .replace(
+                        "PROC Touch()",
+                        &format!("{ty} POINTER pointerSink PROC Touch()"),
+                    )
+                    .replace("r=value^ Touch()", "r=value^ pointerSink=value Touch()"),
+                _ => source,
             };
             let source = if local {
                 source.replace(
                     &format!("{ty} r r=value^"),
                     &format!("{ty} POINTER local {ty} r local=value IF value=0 THEN local=value FI r=local^"),
-                )
+                ).replace("pointerSink=value", "pointerSink=local")
             } else {
                 source
             };

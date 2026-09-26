@@ -1,14 +1,169 @@
 use super::*;
 
 #[test]
+fn terminal_pointer_payloads_resolve_private_and_external_destinations() {
+    for local in [false, true] {
+        for destination in ["result", "target.next", "sink"] {
+            let r = source_routine(&format!(
+                "TYPE Node=[BYTE tag BYTE POINTER next] BYTE POINTER sink=$7100 PROC Touch() RETURN PROC Read(Node POINTER target BYTE POINTER p) BYTE POINTER local,result {} {destination}={} Touch() RETURN",
+                if local { "local=p" } else { "" },
+                if local { "local" } else { "p" },
+            ));
+            let frame = AllocatedFrame::new(&r).unwrap();
+            let plan = Plan::new(&r, &frame).unwrap();
+            let at = r.blocks[0]
+                .ops
+                .iter()
+                .rposition(|op| matches!(op, Mir65816Op::Store { .. }))
+                .unwrap();
+            let Mir65816Op::Store {
+                value: Mir65816Value::Temp(value, _),
+                address,
+                ..
+            } = &r.blocks[0].ops[at]
+            else {
+                unreachable!()
+            };
+            let binding = plan.bindings.iter().find(|b| b.temp == *value).unwrap();
+            assert_eq!(
+                matches!(binding.source.kind, SourceKind::FrameObject(_)),
+                local
+            );
+            assert_eq!(binding.uses, [at].into());
+            if let Mir65816AddressBase::Indirect(Mir65816Value::Temp(base, _)) = address.base {
+                assert_ne!(base, *value);
+                assert!(
+                    plan.bindings
+                        .iter()
+                        .any(|b| b.temp == base && b.uses.contains(&at))
+                );
+            }
+            let machine = super::super::routine(&r, false).unwrap();
+            assert!(machine.code.mir_spans[&binding.definition].is_empty());
+            assert_eq!(format!("{frame:?}"), format!("{:?}", machine.frame));
+        }
+    }
+}
+
+#[test]
+fn terminal_pointer_payloads_reject_self_stores_extra_roles_and_later_uses() {
+    let base = source_routine(
+        "PROC Touch() RETURN PROC Read(BYTE POINTER p) BYTE POINTER local,result local=p result=local Touch() RETURN",
+    );
+    let frame = AllocatedFrame::new(&base).unwrap();
+    let original = Plan::new(&base, &frame).unwrap();
+    let binding = original
+        .bindings
+        .iter()
+        .find(|b| matches!(b.source.kind, SourceKind::FrameObject(_)))
+        .unwrap();
+    let SourceKind::FrameObject(source) = binding.source.kind else {
+        unreachable!()
+    };
+    let at = *binding.uses.last().unwrap();
+    for problem in 0..6 {
+        let mut r = base.clone();
+        if problem == 0 {
+            let repeated = r.blocks[0].ops[at].clone();
+            r.blocks[0].ops.push(repeated);
+        } else {
+            let Mir65816Op::Store {
+                address,
+                value,
+                volatile,
+                width,
+            } = &mut r.blocks[0].ops[at]
+            else {
+                unreachable!()
+            };
+            match problem {
+                1 => *volatile = true,
+                2 => address.base = Mir65816AddressBase::AutomaticFrame(source),
+                3 => address.base = Mir65816AddressBase::Indirect(value.clone()),
+                4 => {
+                    address.index = Some(Mir65816Index {
+                        value: value.clone(),
+                        stride: ByteSize::ONE,
+                    })
+                }
+                _ => *width = ByteSize::new(2),
+            }
+        }
+        assert!(
+            !Plan::new(&r, &frame)
+                .unwrap()
+                .bindings
+                .iter()
+                .any(|b| b.temp == binding.temp),
+            "{problem}"
+        );
+    }
+}
+
+#[test]
+fn stored_pointer_destination_preflight_checks_complete_disjoint_extents() {
+    let mut r = source_routine("PROC Read(BYTE POINTER p) BYTE POINTER result result=p RETURN");
+    let frame = AllocatedFrame::new(&r).unwrap();
+    let Mir65816Op::Store { address, .. } = r.blocks[0].ops.last().unwrap() else {
+        unreachable!()
+    };
+    let address = address.clone();
+    let Mir65816AddressBase::AutomaticFrame(id) = address.base else {
+        unreachable!()
+    };
+    r.frame.extent = ByteSize::new(255);
+    let object = r.frame.objects.iter_mut().find(|o| o.id == id).unwrap();
+    object.stack_offset = ByteOffset::new(253);
+    for offset in [250, 251, 252, 253, 254, 255] {
+        let source = Source {
+            kind: SourceKind::FrameObject(id),
+            home: Slot { offset, width: 3 },
+        };
+        assert_eq!(
+            stored_value_destination(&r, &frame, &address, source),
+            offset == 250
+        );
+    }
+    let source = Source {
+        kind: SourceKind::Parameter(r.frame.parameters[0].param),
+        home: Slot {
+            offset: 10,
+            width: 3,
+        },
+    };
+    let mut indexed = address.clone();
+    indexed.index = Some(Mir65816Index {
+        value: Mir65816Value::U8(0),
+        stride: ByteSize::ONE,
+    });
+    assert!(!stored_value_destination(&r, &frame, &indexed, source));
+    let mut partial = address.clone();
+    partial.displacement = ByteOffset::new(1);
+    assert!(!stored_value_destination(&r, &frame, &partial, source));
+    r.frame
+        .objects
+        .iter_mut()
+        .find(|o| o.id == id)
+        .unwrap()
+        .stack_offset = ByteOffset::new(254);
+    r.frame.extent = ByteSize::new(256);
+    assert!(!stored_value_destination(&r, &frame, &address, source));
+}
+
+#[test]
 fn local_call_sources_fit_the_full_outgoing_delta_or_keep_their_captures() {
     let mut r = source_routine(
         "PROC Sink(BYTE POINTER p BYTE POINTER q) RETURN PROC Read(BYTE POINTER p) BYTE POINTER local local=p Sink(local,local) RETURN",
     );
     let mut frame = AllocatedFrame::new(&r).unwrap();
     let original = Plan::new(&r, &frame).unwrap();
-    assert_eq!(original.bindings.len(), 2);
-    let SourceKind::FrameObject(id) = original.bindings[0].source.kind else {
+    let locals = original
+        .bindings
+        .iter()
+        .filter(|b| matches!(b.source.kind, SourceKind::FrameObject(_)))
+        .collect::<Vec<_>>();
+    assert_eq!(locals.len(), 2);
+    let SourceKind::FrameObject(id) = locals[0].source.kind else {
         unreachable!()
     };
     let Mir65816Op::Call { plan, .. } = r.blocks[0]
@@ -30,7 +185,12 @@ fn local_call_sources_fit_the_full_outgoing_delta_or_keep_their_captures() {
         r.frame.extent = ByteSize::new(last + extra + 2);
         frame.extent = (last + extra + 2) as u16;
         assert_eq!(
-            Plan::new(&r, &frame).unwrap().bindings.len(),
+            Plan::new(&r, &frame)
+                .unwrap()
+                .bindings
+                .iter()
+                .filter(|b| matches!(b.source.kind, SourceKind::FrameObject(_)))
+                .count(),
             if extra == 0 { 2 } else { 0 }
         );
     }
@@ -42,13 +202,13 @@ fn local_terminal_stores_require_a_stable_window_and_fresh_capture_after_writes(
         "PROC Touch() RETURN PROC Read(BYTE POINTER p BYTE v) BYTE POINTER local local=p local^=v local=p local^=0 Touch() RETURN",
     );
     let plan = Plan::new(&base, &AllocatedFrame::new(&base).unwrap()).unwrap();
-    assert_eq!(plan.bindings.len(), 2);
-    assert!(
-        plan.bindings
-            .iter()
-            .all(|b| matches!(b.source.kind, SourceKind::FrameObject(_)))
-    );
-    let binding = &plan.bindings[0];
+    let locals = plan
+        .bindings
+        .iter()
+        .filter(|b| matches!(b.source.kind, SourceKind::FrameObject(_)))
+        .collect::<Vec<_>>();
+    assert_eq!(locals.len(), 2);
+    let binding = locals[0];
     let SourceKind::FrameObject(object) = binding.source.kind else {
         unreachable!()
     };
@@ -185,7 +345,7 @@ fn final_call_rejects_later_uses_indirect_targets_and_width_changes() {
 }
 
 #[test]
-fn terminal_store_borrows_only_the_complete_incoming_address_base() {
+fn terminal_store_borrows_the_complete_incoming_address_base() {
     for ty in ["BYTE", "CARD", "ADDRESS", "LONGCARD"] {
         for place in ["p^", "p(3)", "p(i)"] {
             let r = source_routine(&format!(
@@ -193,8 +353,16 @@ fn terminal_store_borrows_only_the_complete_incoming_address_base() {
             ));
             let frame = AllocatedFrame::new(&r).unwrap();
             let plan = Plan::new(&r, &frame).unwrap();
-            assert_eq!(plan.bindings.len(), 1, "{ty}/{place}");
-            let binding = &plan.bindings[0];
+            assert_eq!(
+                plan.bindings.len(),
+                if ty == "ADDRESS" { 2 } else { 1 },
+                "{ty}/{place}"
+            );
+            let binding = plan
+                .bindings
+                .iter()
+                .find(|b| b.source.kind == SourceKind::Parameter(r.frame.parameters[0].param))
+                .unwrap();
             let machine = super::super::routine(&r, false).unwrap();
             assert!(machine.code.mir_spans[&binding.definition].is_empty());
             assert_eq!(format!("{:?}", frame), format!("{:?}", machine.frame));
