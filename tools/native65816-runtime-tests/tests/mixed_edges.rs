@@ -144,3 +144,87 @@ fn mixed_edges_preserve_simultaneous_values_hidden_b_and_flags() {
     }
     assert!(checked > 100);
 }
+
+#[test]
+fn mixed_long_edge_state_save_survives_task_switching_and_reentrant_irq_calls() {
+    use std::collections::BTreeSet;
+    use support::context::*;
+    let source = "MODULE TEST PUBLIC EXTERNAL PROC Yield() \
+        VOLATILE BYTE irqAck=$7800 CARD taskA=$7000,taskB=$7002 BYTE current \
+        TYPE Job=[BYTE POINTER item BYTE done BYTE POINTER result,peer] BYTE POINTER irqResult \
+        BYTE POINTER FUNC Walk(BYTE POINTER seed) LONGCARD a,b,t BYTE n a=LONGCARD(ADDRESS(seed)) b=2 n=0 \
+        WHILE n<2 DO t=a a=b b=t n==+1 OD RETURN(BYTE POINTER(ADDRESS(a))) \
+        CARD FUNC Dispatch(CARD saved BYTE reason) irqAck=1 irqResult=Walk(BYTE POINTER($FFFFFF)) \
+        IF current=0 THEN taskA=saved current=1 RETURN(taskB) FI taskB=saved current=0 RETURN(taskA) \
+        PROC Task(Job POINTER work) work.result=Walk(work.item) work.done=1 \
+        WHILE work.peer^=0 DO Yield() OD RETURN PROC Main() RETURN ENDMODULE";
+    let check = |h: &ContextHarness| {
+        h.guards();
+        assert_eq!(h.bus.value(DONE, 2), 1);
+        assert_eq!(h.bus.value(0x7103, 1), 1);
+        assert_eq!(h.bus.value(0x7123, 1), 1);
+        for (at, value) in [
+            (0x7104, 0xfffffe),
+            (0x7124, 0),
+            (context::symbol(&h.image, "irqResult"), 0xffffff),
+        ] {
+            assert_eq!(h.bus.value(at, 3), value);
+        }
+    };
+    for optimize in [false, true] {
+        let mut h = ContextHarness::new(source, optimize, "Task", &[0x7100, 0x7120]);
+        for (job, value, peer) in [(0x7100usize, 0xfffffeu32, 0x7123u32), (0x7120, 0, 0x7103)] {
+            h.bus.ram[job..job + 3].copy_from_slice(&value.to_le_bytes()[..3]);
+            h.bus.ram[job + 7..job + 10].copy_from_slice(&peer.to_le_bytes()[..3]);
+        }
+        let start = context::routine(&h.image, "Walk");
+        let end = start
+            + h.image
+                .routines
+                .iter()
+                .find(|r| r.address == start)
+                .unwrap()
+                .size;
+        let mut seen = BTreeSet::new();
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() {
+                break;
+            }
+            let r = h.cpu.registers();
+            if h.cpu.is_instruction_boundary()
+                && r.p & 4 == 0
+                && [0x2000, 0x2100].contains(&r.d)
+                && (start..end).contains(&h.cpu.pc())
+                && seen.insert((r.d, h.cpu.pc()))
+            {
+                let cpu = h.cpu.clone();
+                let bus = h.bus.clone();
+                let mut pending = true;
+                for tick in 0..2_000_000 {
+                    if h.cpu.is_stopped() {
+                        break;
+                    }
+                    let writes = h.bus.writes.len();
+                    h.tick(Inputs {
+                        irq: pending,
+                        nmi: tick == 40,
+                        ..Default::default()
+                    });
+                    if h.bus.writes[writes..].iter().any(|&(at, _)| at == IRQ_ACK) {
+                        pending = false;
+                    }
+                }
+                check(&h);
+                h.cpu = cpu;
+                h.bus = bus;
+            }
+            h.tick(Inputs::default());
+        }
+        check(&h);
+        assert!(
+            seen.len() >= 80,
+            "only {} mixed loop interrupt sites",
+            seen.len()
+        );
+    }
+}

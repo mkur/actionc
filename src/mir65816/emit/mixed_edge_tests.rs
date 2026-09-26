@@ -134,3 +134,27 @@ fn all_homes_and_staging_are_validated_before_emission() {
         assert_eq!(format!("{:?}", b.code), before);
     }
 }
+
+#[test]
+fn native_copy_cost_includes_hidden_b_repair_and_interleaved_modes() {
+    let p = program();
+    let mut b = builder(&p.routines[0]);
+    let mut e = edge();
+    e.args[0] = Mir65816Value::Temp(TempId(92), ByteSize::new(4));
+    e.args[1] = Mir65816Value::Temp(TempId(91), ByteSize::ONE);
+    let copies = b.mixed_edge_plan(&e).unwrap();
+    assert!(b.native_mixed_profitable(&copies));
+    b.code.a16();
+    let at = b.code.position();
+    b.emit_mixed_edge(&e).unwrap();
+    assert_eq!(
+        &b.code.code().bytes[at..],
+        &[
+            0x85, 8, 0xa3, 24, 0x83, 40, 0xa3, 26, 0x83, 42, 0xa3, 40, 0x83, 16, 0xa3, 42, 0x83,
+            18, 0xa5, 8, 0xe2, 0x20, 0xa3, 20,
+        ]
+    );
+    e.args[1] = Mir65816Value::U8(7);
+    // One LONG interleaved with a real BYTE move loses to mode overhead.
+    assert!(!b.native_mixed_profitable(&b.mixed_edge_plan(&e).unwrap()));
+}

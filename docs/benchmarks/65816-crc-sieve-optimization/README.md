@@ -9,6 +9,7 @@ and the compile-only frozen Exec delta against the preceding slice.
 | --- | --- | ---: | ---: | ---: | ---: |
 | Baseline | Original code | 13,671,811 | 12,868,237 | 24,090,260 | — |
 | 1 | Mixed-edge identities | 13,147,043 | 12,868,237 | 17,394,488 | 971 |
+| 2 | Native staged words | 13,147,043 | 12,868,237 | 17,003,492 | 128 |
 
 CRC cycles use the same 8,192-byte input, with stack guards included. Slice 1
 kernel bytes are 362 / 324 / 490 versus 376 / 324 / 584. All Action results,
@@ -41,3 +42,12 @@ wrappers in both host profiles. CRC controls require
 `python3 -B tools/compare65816/crc_sieve_series.py N --families crc` (or `sieve`,
 or both). Frozen Exec inputs and the original compiler binary must be present
 in the local ignored audit caches; hashes are checked before use.
+
+Slice 2 saves another 390,996 CRC32 cycles and 10 kernel bytes. Its cost gate
+includes all mode transitions and full-A save/restore through existing RESULT
+scratch. Only complete stack groups of widths 1/2/4 qualify; other mixed groups
+retain byte transfers. Frame and staging reservations stay fixed. Four focused
+planner tests and 13 native edge tests pass; native tests and CRC measurements
+pass in both host profiles, including new mixed-edge task-switch/IRQ/NMI reentry
+coverage. Frozen Exec saves 128 more bytes, reaching a guard-subtracted
+loaded estimate of 254,046 bytes.
