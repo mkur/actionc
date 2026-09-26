@@ -323,66 +323,77 @@ fn indexed_byte_accesses_survive_irq_nmi_and_reentrant_dispatch() {
             );
         }
     };
-    for optimize in [false, true] {
-        let mut h = ContextHarness::new(source, optimize, "Task", &[0x7100, 0x7120]);
-        for (job, base, peer) in [
-            (0x7100usize, 0x21ff00u32, 0x7123u32),
-            (0x7120, 0x32ff00, 0x7103),
-        ] {
-            h.bus.ram[job..job + 3].copy_from_slice(&base.to_le_bytes()[..3]);
-            h.bus.ram[job + 5..job + 8].copy_from_slice(&peer.to_le_bytes()[..3]);
-        }
-        for (target, value) in [(0x220000, 11), (0x330000, 12), (0x440000, 7)] {
-            h.bus.map(target - 1, &[0xa5, value, 0xa5], true);
-        }
-        let start = routine(&h.image, "Exchange");
-        let end = start
-            + h.image
-                .routines
-                .iter()
-                .find(|r| r.address == start)
-                .unwrap()
-                .size;
-        let mut seen = BTreeSet::new();
-        for _ in 0..2_000_000 {
-            if h.cpu.is_stopped() {
-                break;
+    for byte in [false, true] {
+        let source = if byte {
+            source
+                .replace("CARD i", "BYTE i")
+                .replace("$100", "$ff")
+                .replace("ff00", "ff01")
+        } else {
+            source.to_string()
+        };
+        for optimize in [false, true] {
+            let mut h = ContextHarness::new(&source, optimize, "Task", &[0x7100, 0x7120]);
+            for (job, base, peer) in [
+                (0x7100usize, 0x21ff00u32, 0x7123u32),
+                (0x7120, 0x32ff00, 0x7103),
+            ] {
+                h.bus.ram[job..job + 3]
+                    .copy_from_slice(&(base + u32::from(byte)).to_le_bytes()[..3]);
+                h.bus.ram[job + 5..job + 8].copy_from_slice(&peer.to_le_bytes()[..3]);
             }
-            let r = h.cpu.registers();
-            if h.cpu.is_instruction_boundary()
-                && r.p & 4 == 0
-                && [0x2000, 0x2100].contains(&r.d)
-                && (start..end).contains(&h.cpu.pc())
-                && seen.insert((r.d, h.cpu.pc()))
-            {
-                let saved_cpu = h.cpu.clone();
-                let saved_bus = h.bus.clone();
-                let mut pending = true;
-                for tick in 0..2_000_000 {
-                    if h.cpu.is_stopped() {
-                        break;
-                    }
-                    let writes = h.bus.writes.len();
-                    h.tick(Inputs {
-                        irq: pending,
-                        nmi: tick == 40,
-                        ..Default::default()
-                    });
-                    if h.bus.writes[writes..].iter().any(|&(at, _)| at == IRQ_ACK) {
-                        pending = false;
-                    }
+            for (target, value) in [(0x220000, 11), (0x330000, 12), (0x440000, 7)] {
+                h.bus.map(target - 1, &[0xa5, value, 0xa5], true);
+            }
+            let start = routine(&h.image, "Exchange");
+            let end = start
+                + h.image
+                    .routines
+                    .iter()
+                    .find(|r| r.address == start)
+                    .unwrap()
+                    .size;
+            let mut seen = BTreeSet::new();
+            for _ in 0..2_000_000 {
+                if h.cpu.is_stopped() {
+                    break;
                 }
-                check(&h);
-                h.cpu = saved_cpu;
-                h.bus = saved_bus;
+                let r = h.cpu.registers();
+                if h.cpu.is_instruction_boundary()
+                    && r.p & 4 == 0
+                    && [0x2000, 0x2100].contains(&r.d)
+                    && (start..end).contains(&h.cpu.pc())
+                    && seen.insert((r.d, h.cpu.pc()))
+                {
+                    let saved_cpu = h.cpu.clone();
+                    let saved_bus = h.bus.clone();
+                    let mut pending = true;
+                    for tick in 0..2_000_000 {
+                        if h.cpu.is_stopped() {
+                            break;
+                        }
+                        let writes = h.bus.writes.len();
+                        h.tick(Inputs {
+                            irq: pending,
+                            nmi: tick == 40,
+                            ..Default::default()
+                        });
+                        if h.bus.writes[writes..].iter().any(|&(at, _)| at == IRQ_ACK) {
+                            pending = false;
+                        }
+                    }
+                    check(&h);
+                    h.cpu = saved_cpu;
+                    h.bus = saved_bus;
+                }
+                h.tick(Inputs::default());
             }
-            h.tick(Inputs::default());
+            check(&h);
+            assert!(
+                seen.len() >= 40,
+                "too few indexed access injection sites: {}",
+                seen.len()
+            );
         }
-        check(&h);
-        assert!(
-            seen.len() >= 40,
-            "too few indexed access injection sites: {}",
-            seen.len()
-        );
     }
 }

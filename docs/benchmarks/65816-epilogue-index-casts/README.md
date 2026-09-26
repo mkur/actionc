@@ -54,3 +54,20 @@ passes. No full qualification was run.
 The adjacent-word test probe deliberately excludes typed shared-return joins:
 its old single-instruction endpoint cannot describe the transferred A result.
 The dedicated shared-tail tests verify the result lanes through those joins.
+
+## Slice 3: stride-one BYTE indexes
+
+Code shrinks **348,995 → 347,866 B**, saving **1,129 B** across 52 indexed
+accesses in 22 routines. No routine grows; frames, guards, ABI and data remain
+unchanged. The estimated loaded size is **286,221 B**.
+
+[Summary](03-byte/summary.json), [routines](03-byte/routines.csv),
+[changed spans](03-byte/spans.csv).
+
+Checks cover all 256 BYTE indexes, offset 65535 and one-byte-overflow fallback,
+full 24-bit carry/wrap, exact ordered reads/writes, neighboring canaries,
+raw/optimized and LF/CRLF paths, flat/two-placement o65 execution and relocated
+symbol bases. Existing CARD-index tests, pointer forwarding, memory tests and
+reentrant indexed IRQ/NMI checks also pass. Three address-selector unit tests,
+five address integration tests and the unchanged boundary snapshot pass.
+Both new BYTE-index tests pass in release. Full qualification remains deferred.

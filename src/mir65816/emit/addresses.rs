@@ -88,6 +88,7 @@ enum IndexedBase {
 struct Indexed {
     base: IndexedBase,
     index: Slot,
+    displacement: u16,
 }
 
 fn indexed_address(
@@ -100,26 +101,36 @@ fn indexed_address(
     let Some(index) = &address.index else {
         return Ok(None);
     };
-    if index.stride != ByteSize::ONE || address.displacement.get() != 0 {
+    if index.stride != ByteSize::ONE {
         return Ok(None);
     }
     let Mir65816Value::Temp(id, width) = index.value else {
         return Ok(None);
     };
-    if width.get() != 2
+    if !matches!(width.get(), 1 | 2)
         || !routine.temps.iter().any(|(temp, ty)| {
             *temp == id
                 && ty.width == Some(width)
-                && ty.kind.integer().is_some_and(|i| i.bits == 16 && !i.signed)
+                && ty
+                    .kind
+                    .integer()
+                    .is_some_and(|i| u32::from(i.bits) == width.get() * 8 && !i.signed)
         })
     {
         return Ok(None);
     }
-    let Some(index) = checked_stack_home(frame, id, 2)? else {
+    let displacement = address.displacement.get();
+    let maximum = if width.get() == 1 { 255u64 } else { 65535 };
+    if maximum + u64::from(displacement) > 65535 {
+        return Ok(None);
+    }
+    let Some(index) = checked_stack_home(frame, id, width.get() as u8)? else {
         return Ok(None);
     };
     let mut unindexed = address.clone();
     unindexed.index = None;
+    // The displacement belongs to dynamic Y, not to a checked relocation.
+    unindexed.displacement = ByteOffset::ZERO;
     let base = if let Some(symbol) = resolve(&unindexed, known, data) {
         IndexedBase::Symbol(symbol)
     } else {
@@ -136,7 +147,11 @@ fn indexed_address(
         }
         IndexedBase::Captured(value.clone())
     };
-    Ok(Some(Indexed { base, index }))
+    Ok(Some(Indexed {
+        base,
+        index,
+        displacement: displacement as u16,
+    }))
 }
 
 fn symbolic_value(value: &Mir65816Value, known: &BTreeMap<TempId, Symbol>) -> Option<Symbol> {
@@ -335,8 +350,19 @@ impl Plan {
                 ))?,
                 IndexedBase::Captured(value) => b.pointer_value(value, PTR)?,
             }
-            b.code.a16();
-            b.load_memory(Memory::Stack(indexed.index.offset.into()), 0)?;
+            if indexed.index.width == 1 {
+                b.code.a8();
+                b.load_memory(Memory::Stack(indexed.index.offset.into()), 0)?;
+                b.code.a16();
+                b.code.word(WordOp::AndImm, 0xff); // Hidden B is not part of the index.
+            } else {
+                b.code.a16();
+                b.load_memory(Memory::Stack(indexed.index.offset.into()), 0)?;
+            }
+            if indexed.displacement != 0 {
+                b.code.op(Implied::Clc);
+                b.code.word(WordOp::AdcImm, indexed.displacement);
+            }
             b.code.op(Implied::Tay);
             b.code.a8();
             match op {

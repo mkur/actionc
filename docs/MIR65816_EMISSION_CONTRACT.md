@@ -1193,3 +1193,18 @@ Bounded three-byte source bindings are defined in
 proved private captures, retain allocated writable homes, and substitute checked
 authoritative source reads at explicit consumer sites. They do not manufacture
 home definitions or reuse the incoming/frame word A/N/Z witness.
+
+### Bounded BYTE indexes
+
+The address selector may zero-extend a verified unsigned BYTE index into A16
+and use Y for a stride-one BYTE load/store. The index is read at its exact
+one-byte width; hidden B is cleared explicitly. The complete runtime offset
+must fit 16 bits for all 256 index values. The constant displacement is added
+to Y, while the captured or checked symbolic base retains its full 24 bits.
+Bank carry and bus wrap occur through native long-indirect indexed addressing.
+
+Index and payload homes are preflighted before emission. Nonvolatile accesses
+retain their external access count/order, and unsupported widths, signed indexes,
+partial homes or offset overflow retain generic lowering. Captured pointer
+bases use the current source resolver, including bounded pointer bindings;
+they never silently reload an omitted capture's former home.
