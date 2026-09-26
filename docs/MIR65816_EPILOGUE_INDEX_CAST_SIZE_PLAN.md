@@ -1,6 +1,6 @@
 # MIR65816 epilogue, BYTE-index and integer-cast size plan
 
-Status: slices 1–5 implemented; slice 6 pending. See
+Status: all six slices implemented. Measured saving: **11,161 bytes (10.9 KiB)**. See
 [measured results](benchmarks/65816-epilogue-index-casts/README.md).
 
 Implement six independently reviewable compiler slices, committing after each

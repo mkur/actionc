@@ -50,6 +50,8 @@ mod call_copies;
 mod call_returns;
 #[path = "constant_stores.rs"]
 mod constant_stores;
+#[path = "integer_casts.rs"]
+mod integer_casts;
 #[path = "long_arithmetic.rs"]
 mod long_arithmetic;
 #[path = "long_order.rs"]
@@ -1802,6 +1804,9 @@ impl Builder<'_> {
             && to.get() == 3
             && self.pointer_cast(*dest, value)?
         {
+            return Ok(());
+        }
+        if self.integer_cast(op)? {
             return Ok(());
         }
         if let Mir65816Op::Call {

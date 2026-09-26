@@ -436,6 +436,14 @@ impl TrackedEmitter65816 {
         }
         Ok(())
     }
+    /// Cost of an explicit mode request at the current checked boundary.
+    pub fn mode_cost(&self, width: Width) -> usize {
+        if !self.state.mode_permission || self.state.env.m != width {
+            2
+        } else {
+            0
+        }
+    }
     pub fn a8(&mut self) {
         self.accumulator_width(Width::Byte);
     }

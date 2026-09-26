@@ -1232,3 +1232,18 @@ new reservation, alias permission or live value across a call is introduced.
 A conservative cost comparison includes index extension, displacement, mode and
 base-preparation differences; candidates that are not smaller keep generic
 lowering. Zero strides and offsets exceeding the complete Y range are refused.
+
+### Native unsigned integer casts
+
+Integer-kind casts from captured unsigned 2/3/4-byte values may copy private
+stack homes with A16 pieces and zero extension. Both complete extents and actual
+source bindings are checked before emission. Destinations use their own writable
+homes. Disjoint homes and safe same-start transfers are admitted; partial overlap,
+signed sources, pointer-reinterpretation kinds and unsupported locations retain
+their existing paths. Private three-byte copies may overlap their own word
+pieces at offsets 0 and 1, touching no fourth byte.
+
+Selection compares complete instruction costs, including entry mode requests
+and restoration of the byte fallback's A8 exit. It requires a strict saving.
+Same-start copies omit unchanged payload bytes, but still write any required
+extension zeros. No frame, lifetime, alias or ABI contract is weakened.
