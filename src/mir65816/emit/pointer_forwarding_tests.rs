@@ -1,6 +1,42 @@
 use super::*;
 
 #[test]
+fn local_call_sources_fit_the_full_outgoing_delta_or_keep_their_captures() {
+    let mut r = source_routine(
+        "PROC Sink(BYTE POINTER p BYTE POINTER q) RETURN PROC Read(BYTE POINTER p) BYTE POINTER local local=p Sink(local,local) RETURN",
+    );
+    let mut frame = AllocatedFrame::new(&r).unwrap();
+    let original = Plan::new(&r, &frame).unwrap();
+    assert_eq!(original.bindings.len(), 2);
+    let SourceKind::FrameObject(id) = original.bindings[0].source.kind else {
+        unreachable!()
+    };
+    let Mir65816Op::Call { plan, .. } = r.blocks[0]
+        .ops
+        .iter()
+        .find(|op| matches!(op, Mir65816Op::Call { .. }))
+        .unwrap()
+    else {
+        unreachable!()
+    };
+    let last = 255 - plan.outgoing_bytes.get() - 2;
+    for extra in [0, 1] {
+        r.frame
+            .objects
+            .iter_mut()
+            .find(|o| o.id == id)
+            .unwrap()
+            .stack_offset = ByteOffset::new(last + extra);
+        r.frame.extent = ByteSize::new(last + extra + 2);
+        frame.extent = (last + extra + 2) as u16;
+        assert_eq!(
+            Plan::new(&r, &frame).unwrap().bindings.len(),
+            if extra == 0 { 2 } else { 0 }
+        );
+    }
+}
+
+#[test]
 fn local_terminal_stores_require_a_stable_window_and_fresh_capture_after_writes() {
     let base = source_routine(
         "PROC Touch() RETURN PROC Read(BYTE POINTER p BYTE v) BYTE POINTER local local=p local^=v local=p local^=0 Touch() RETURN",

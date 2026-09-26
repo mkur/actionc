@@ -262,8 +262,7 @@ fn terminal(op: &Mir65816Op, temp: TempId, source: Source) -> bool {
         // The original incoming slot can be farther from S than its capture.
         // Reject the binding (not the valid call) if full outgoing reservation
         // would put any source byte outside d,S. Pushes check each actual delta.
-        return matches!(source.kind, SourceKind::Parameter(_))
-            && args.len() == plan.arguments.len()
+        return args.len() == plan.arguments.len()
             && effects::CallContract::from_plan(plan, abi::FarTransfer::Jsl).is_ok()
             && abi::stack::access_displacement(
                 ByteOffset::new(source.home.offset.into()),

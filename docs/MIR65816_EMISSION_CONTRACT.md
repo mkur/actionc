@@ -1339,3 +1339,10 @@ between that capture and its final consumer rejects the entire binding. A later
 capture after reassignment starts a distinct window. No source home is made
 writable through a temporary binding, and final stored-value uses remain outside
 this address-base rule.
+
+Local pointer bindings may also end in exact three-byte arguments of a resolved
+direct native call. They use the same full-outgoing-delta reach check as incoming
+sources, keep their non-addressable ownership proof, and expire before transfer.
+Both packing paths read the local home; reserved capture slots remain unread.
+A local write or call before the consumer, or a later use of the capture, still
+rejects the whole binding.

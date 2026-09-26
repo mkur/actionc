@@ -69,3 +69,24 @@ bank crossings, canaries and flat/rebased o65 execution pass. ABI, frame/tempora
 placements, stack peaks, data, guards and all frozen inputs remain unchanged.
 Six address and 22 emission integration checks and the unchanged boundary
 snapshot pass. All three pointer runtime tests also pass in release.
+
+## 4. Local pointers into final direct-call arguments
+
+Compiler code shrinks **319,274 → 317,246 B**, saving **2,028 B** across 121
+routines, with none larger. All **251 modeled captures** disappear. Cumulative
+saving is **14,668 B**; the loaded estimate becomes **255,601 B (249.6 KiB)**,
+with **6,543 B** of estimated headroom.
+[Summary](04-local-call/summary.json), [routine deltas](04-local-call/routines.csv),
+[changed spans](04-local-call/spans.csv).
+
+Fifteen planner tests pass, including the last-fitting and first-out-of-reach
+local source at the full outgoing stack delta. The terminal-call runtime matrix
+now covers real local sources, with conditional assignment preventing frontend
+elimination. It verifies repeated local arguments, complete mixed-width areas,
+native results and unread poisoned capture slots for both packing paths, raw
+and optimized LF/CRLF source, and flat/two-placement o65 execution. Call-push
+IRQ/NMI probes include local sources and same-routine reentry. The terminal-call,
+two call-push, three call-return and two replay tests pass in debug. Frozen MIR,
+ABI, homes, peaks, data, guards and input hashes remain unchanged.
+The terminal-call and both call-push tests pass in release, and 22 emission
+integration checks plus the unchanged state-boundary snapshot pass.
