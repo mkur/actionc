@@ -41,6 +41,7 @@ def disassemble(image):
             elif opcode in DP:text=f'{DP[opcode]} ${operand(1):02X}'
             elif opcode in LONG:text=f'{LONG[opcode]} ${operand(3):06X}'
             elif opcode in STACK:text=f'{STACK[opcode]} ${operand(1):02X},S'
+            elif opcode==0xf4:text=f'PEA ${operand(2):04X}'
             elif opcode in (0xa7,0x87,0xb7,0x97):text=f'{"LDA" if opcode in (0xa7,0xb7) else "STA"} [${operand(1):02X}]'+(',Y' if opcode in (0xb7,0x97) else '')
             elif opcode in BRANCH:
                 delta=operand(1);delta=delta if delta<128 else delta-256

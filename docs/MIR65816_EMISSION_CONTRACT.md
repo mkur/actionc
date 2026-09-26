@@ -1290,3 +1290,19 @@ change Y. Constant stores use the same rule after their first word. No fact is
 carried across operations. Zero offsets retain ordinary selection so the checked
 zero-index rewrite can remove LDY #0. Exact widths, traffic and final flags are
 preserved. Each replacement saves one byte and costs one additional CPU cycle.
+
+### Immediate word argument pushes
+
+Complete outgoing-area plans may use typed `ArgumentPushWord` (PEA) for two
+known numeric/padding bytes. PEA pushes high then low, reserves exactly two
+outgoing bytes independently of M/X, and preserves A/X/Y and flags. Its physical
+stack accesses, body-phase restriction, selected CFG depth, encoding and replay
+are authoritative; it is not an indirect-return push. Guards still precede all
+outgoing writes, and final direct calls require A16/X16 with the same ABI area.
+
+The planner costs PEA without a mode transition, preserving the preceding mode
+permission, including unknown permission after a guard join. Two independently
+known adjacent bytes may straddle an argument/padding boundary. Private source
+loads still account for every pushed byte in their stack displacement. Symbolic
+bytes retain their original individual relocation fixups and cannot form PEA.
+Whole-plan fallback, source-evaluation order, peak and padding contracts remain.

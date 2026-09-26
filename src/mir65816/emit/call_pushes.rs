@@ -16,6 +16,7 @@ struct Chunk {
     argument: Option<usize>,
     byte: u8,
     width: u8,
+    immediate: Option<u16>,
 }
 
 pub(in crate::mir65816::emit::select) struct Plan {
@@ -103,10 +104,14 @@ impl Plan {
             cell.argument
                 .map_or(Source::Immediate(0), |i| arguments[i].source)
         };
+        let immediate = |cell: Cell| match source(cell) {
+            Source::Immediate(value) => Some((value >> (8 * cell.byte)) as u8),
+            _ => None,
+        };
         // Modes: A8, A16, no permission after the guard join. The bottom of
         // the finished area must hand a direct JSL an explicit A16 state.
         let mut costs = vec![[0usize; 3]; extent + 1];
-        let mut choices = vec![[1usize; 3]; extent + 1];
+        let mut choices = vec![[(1usize, false); 3]; extent + 1];
         costs[0] = [2, 0, 2];
         for remaining in 1..=extent {
             for mode in 0..3 {
@@ -114,7 +119,9 @@ impl Plan {
                 for width in 1..=2.min(remaining) {
                     let low = cells[remaining - width];
                     let high = cells[remaining - 1];
+                    let pea = width == 2 && immediate(low).is_some() && immediate(high).is_some();
                     if width == 2
+                        && !pea
                         && (matches!(source(low), Source::Bytes)
                             || low.argument != high.argument
                             || low.argument.is_some() && low.byte + 1 != high.byte)
@@ -126,13 +133,20 @@ impl Plan {
                     } else {
                         2
                     };
-                    let cost = usize::from(mode != width - 1) * 2
-                        + load
-                        + 1
-                        + costs[remaining - width][width - 1];
+                    let cost = if pea {
+                        // PEA preserves A and M, including unknown permission
+                        // after the guard join. Both bytes are independently
+                        // known, even across an argument/padding boundary.
+                        3 + costs[remaining - width][mode]
+                    } else {
+                        usize::from(mode != width - 1) * 2
+                            + load
+                            + 1
+                            + costs[remaining - width][width - 1]
+                    };
                     if cost < best {
                         best = cost;
-                        choices[remaining][mode] = width;
+                        choices[remaining][mode] = (width, pea);
                     }
                 }
                 costs[remaining][mode] = best;
@@ -145,16 +159,26 @@ impl Plan {
         let mut chunks = Vec::new();
         let (mut remaining, mut mode) = (extent, 2);
         while remaining > 0 {
-            let width = choices[remaining][mode];
+            let (width, pea) = choices[remaining][mode];
             let cell = cells[remaining - width];
             chunks.push(Chunk {
                 source: source(cell),
                 argument: cell.argument,
                 byte: cell.byte,
                 width: width as u8,
+                immediate: if pea {
+                    Some(u16::from_le_bytes([
+                        immediate(cell).unwrap(),
+                        immediate(cells[remaining - 1]).unwrap(),
+                    ]))
+                } else {
+                    None
+                },
             });
             remaining -= width;
-            mode = width - 1;
+            if !pea {
+                mode = width - 1;
+            }
         }
         Some(Self { chunks, cost })
     }
@@ -166,6 +190,10 @@ impl Plan {
     ) -> Result<(), String> {
         let start = b.code.position();
         for chunk in &self.chunks {
+            if let Some(value) = chunk.immediate {
+                b.code.instruction(Instruction::ArgumentPushWord(value))?;
+                continue;
+            }
             if chunk.width == 2 {
                 b.code.a16();
             } else {

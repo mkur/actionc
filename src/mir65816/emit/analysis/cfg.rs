@@ -390,11 +390,15 @@ fn validate_instruction(r: &Record, form: &Instruction) -> Result<(), String> {
                 .stack_a
                 .ok_or("selected TCS without stack equation")?;
         }
-        Instruction::ArgumentPush => {
+        Instruction::ArgumentPush | Instruction::ArgumentPushWord(_) => {
             if before.pushes != 0 || before.anchor.is_none_or(|a| before.depth < a) {
                 return Err("selected argument push outside body stack phase".into());
             }
-            expected.depth += i64::from(before.m.bytes());
+            expected.depth += i64::from(if matches!(form, Instruction::ArgumentPushWord(_)) {
+                2
+            } else {
+                before.m.bytes()
+            });
         }
         Instruction::Implied(Implied::Phk | Implied::Pha) | Instruction::PushReturn(_) => {
             if matches!(form, Instruction::PushReturn(_)) && before.pushes != 1 {
@@ -563,6 +567,10 @@ pub(in crate::mir65816::emit) fn reconcile(records: &[Record], code: &Code) -> R
                 }
                 Instruction::NativeCall(target, _) => reference(0x22, *target, 0, None),
                 Instruction::ArgumentPush => vec![0x48],
+                Instruction::ArgumentPushWord(value) => {
+                    let [lo, hi] = value.to_le_bytes();
+                    vec![0xf4, lo, hi]
+                }
                 Instruction::NativeReturn(_) | Instruction::IndirectTransfer(_) => vec![0x6b],
                 Instruction::PushReturn(label) => {
                     returns.push((at + 1, *label));

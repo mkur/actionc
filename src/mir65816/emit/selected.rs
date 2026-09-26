@@ -40,6 +40,8 @@ pub(super) enum Instruction {
     PushReturn(Label),
     /// PHA reserves outgoing payload, rather than an indirect transfer frame.
     ArgumentPush,
+    /// PEA reserves exactly two outgoing bytes, independently of M.
+    ArgumentPushWord(u16),
     IndirectTransfer(Option<CallContract>),
     NativeCall(Target, CallContract),
     NativeReturn(Option<ResultLocation>),

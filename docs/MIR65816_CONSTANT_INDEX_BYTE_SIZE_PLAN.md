@@ -1,5 +1,9 @@
 # MIR65816 constant indexes, BYTE consumers and argument constants
 
+Status: all five slices implemented. Measured saving: **11,869 bytes (11.6 KiB)**.
+The loaded-size estimate is **270,269 bytes (263.9 KiB)**, leaving **8,125 bytes**
+to the cap. See the [completed measurements](benchmarks/65816-constant-index-byte/README.md).
+
 Implement five independently measured commits after compiler `a25fa91d`, using
 the frozen Exec `622b139-dirty` workload (631 routines, 120 input hashes).
 The baseline loaded-code-plus-initialized-data estimate is 282,138 bytes,

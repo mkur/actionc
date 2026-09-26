@@ -472,6 +472,27 @@ pub fn index_instruction_probe(value: u16, byte_a: bool, byte_x: bool) -> (Code,
     e.finish_traced()
 }
 
+/// PEA's immediate payload and two-byte stack effect do not depend on M/X.
+pub fn immediate_push_probe(value: u16, byte_a: bool, byte_x: bool) -> (Code, Vec<Snapshot>) {
+    let mut e = TrackedEmitter65816::default();
+    e.trace();
+    e.a16();
+    e.op(Implied::Tsc);
+    e.establish_body();
+    e.word(WordOp::LdaImm, 0xabcd);
+    e.op(Implied::Tay);
+    if byte_x {
+        e.byte(ByteOp::Sep, 0x10);
+    }
+    if byte_a {
+        e.a8();
+    }
+    e.instruction(super::selected::Instruction::ArgumentPushWord(value))
+        .unwrap();
+    e.op(Implied::Nop);
+    e.finish_traced()
+}
+
 pub use super::analysis::sites::SelectedSite;
 /// Read-only view of a site. Request names are display metadata, never semantics.
 #[derive(Clone, Debug)]

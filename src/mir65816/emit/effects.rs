@@ -290,6 +290,7 @@ impl Instruction {
         let index = state.index;
         match *self {
             Self::ArgumentPush => return Self::Implied(Implied::Pha).effects(state),
+            Self::ArgumentPushWord(_) => e.push(2),
             Self::Implied(op) => match op {
                 Implied::Clc | Implied::Sec => e.flag_writes = C,
                 Implied::Tsc => {

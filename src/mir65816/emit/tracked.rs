@@ -699,7 +699,7 @@ impl TrackedEmitter65816 {
             }
             Instruction::Branch(op, label) => self.emit_branch(op, label),
             Instruction::PushReturn(label) => self.emit_push_return(label),
-            Instruction::ArgumentPush => {
+            Instruction::ArgumentPush | Instruction::ArgumentPushWord(_) => {
                 self.live();
                 if self.state.env.pushes != 0
                     || self
@@ -710,12 +710,24 @@ impl TrackedEmitter65816 {
                 {
                     return Err("argument push outside body stack phase".into());
                 }
-                // The physical PHA effects are identical, but these bytes belong
-                // to outgoing storage. Frame operands use the new S delta.
-                let bytes = self.state.env.m.bytes();
+                // These bytes belong to outgoing storage. PHA follows M;
+                // PEA is always two bytes. Frame operands use the new S delta.
+                let word = match instruction {
+                    Instruction::ArgumentPushWord(value) => Some(value),
+                    _ => None,
+                };
+                let bytes = if word.is_some() {
+                    2
+                } else {
+                    self.state.env.m.bytes()
+                };
                 self.state.push(bytes);
                 self.state.env.pushes = 0;
-                self.code.op(Implied::Pha.opcode());
+                if let Some(value) = word {
+                    self.code.word(0xf4, value);
+                } else {
+                    self.code.op(Implied::Pha.opcode());
+                }
                 self.observe();
             }
             Instruction::IndirectTransfer(_) => self.emit_indirect_transfer(),

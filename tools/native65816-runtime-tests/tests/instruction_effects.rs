@@ -48,6 +48,7 @@ fn declared_effects_cover_actual_bus_accesses_and_preserve_every_unwritten_bit()
             for byte_x in [false, true] {
                 probes.push(proof::increment_instruction_probe(value, byte_a, byte_x).0);
                 probes.push(proof::index_instruction_probe(value, byte_a, byte_x).0);
+                probes.push(proof::immediate_push_probe(value, byte_a, byte_x).0);
             }
         }
     }

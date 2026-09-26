@@ -81,6 +81,15 @@ fn pushes_place_each_payload_and_padding_byte_once_at_dynamic_stack_offsets() {
                     s -= 1;
                     at += 1;
                 }
+                0xf4 => {
+                    stack[s] = code[at + 2];
+                    writes.push(s);
+                    s -= 1;
+                    stack[s] = code[at + 1];
+                    writes.push(s);
+                    s -= 1;
+                    at += 3;
+                }
                 op => panic!("unexpected {op:02x}"),
             }
         }
@@ -109,6 +118,12 @@ fn unsupported_push_plans_keep_complete_store_construction() {
     b.code.op(Implied::Pha);
     let before = format!("{:?}", b.code);
     assert!(b.code.instruction(Instruction::ArgumentPush).is_err());
+    assert_eq!(format!("{:?}", b.code), before);
+    assert!(
+        b.code
+            .instruction(Instruction::ArgumentPushWord(0x1234))
+            .is_err()
+    );
     assert_eq!(format!("{:?}", b.code), before);
 }
 
