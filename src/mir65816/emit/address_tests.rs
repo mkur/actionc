@@ -187,3 +187,51 @@ fn chains_keep_other_uses_and_reject_loaded_or_cross_barrier_provenance() {
         }
     }
 }
+
+#[test]
+fn only_nonzero_y_within_one_wide_scalar_transfer_is_advanced() {
+    let p = word_tests::program();
+    for bytes in [3u8, 4] {
+        for offset in [0u16, 1, 7, 65535 - u16::from(bytes) + 1] {
+            for wide in [false, true] {
+                for store in [false, true] {
+                    let mut b = builder(&p.routines[0], 16, bytes);
+                    let pointer = Memory::Pointer { slot: PTR, offset };
+                    let home = Memory::Stack(16);
+                    let (source, dest) = if store {
+                        (home, pointer)
+                    } else {
+                        (pointer, home)
+                    };
+                    b.transfer(source, dest, bytes, wide).unwrap();
+                    assert_eq!(
+                        b.code
+                            .code()
+                            .bytes
+                            .windows(2)
+                            .filter(|w| *w == [0xc8, 0xc8])
+                            .count(),
+                        usize::from(wide && offset != 0)
+                    );
+                }
+                let mut b = builder(&p.routines[0], 16, bytes);
+                b.constant_store(
+                    Memory::Pointer { slot: PTR, offset },
+                    &Mir65816Value::U32(0),
+                    bytes,
+                    !wide,
+                )
+                .unwrap();
+                assert_eq!(
+                    b.code
+                        .code()
+                        .bytes
+                        .windows(2)
+                        .filter(|w| *w == [0xc8, 0xc8])
+                        .count(),
+                    usize::from(wide && offset != 0)
+                );
+            }
+        }
+    }
+}

@@ -66,3 +66,21 @@ BYTE comparison, one home-definition and two replay runtime checks also pass.
 Reached-window BYTE/word zero-test IRQ/NMI reentry passes in debug.
 The new consumer runtime test and four BYTE return/comparison/zero-test reentry
 regressions also pass in release. Full qualification remains deferred.
+
+## 4. Advance Y within wide indirect accesses
+
+Code shrinks **335,421 → 333,712 B**, saving **1,709 B**. The estimate becomes
+**272,067 B**, leaving **9,923 B** to the cap. The cumulative saving is **10,071 B**.
+Each replaced second LDY saves one byte and adds one cycle. Zero-offset starts
+remain eligible for the existing LDY-zero elimination.
+[Summary](04-y/summary.json), [routines](04-y/routines.csv),
+[changed spans](04-y/spans.csv).
+
+All 270 active emitter tests pass (one existing ignored), including exact second
+pieces, zero offsets, volatile fallback and upper Y bounds. Six address and 22
+emission checks and the unchanged boundary snapshot pass. Seven indexed, eight
+memory, two pointer-preemption and two replay tests pass in debug. The two new
+constant-index boundary/reentry tests plus eight memory and two pointer-preemption
+tests pass in release. This covers bank/Y boundaries, exact three-byte traffic,
+constant stores, canaries, flat/o65 placement and IRQ/NMI restoration. Frames,
+peaks, ABI, guards, data and input hashes remain unchanged; no routine grows.

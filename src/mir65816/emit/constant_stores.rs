@@ -68,14 +68,18 @@ impl Builder<'_> {
             if high != low {
                 self.code.word(WordOp::LdaImm, high);
             }
-            self.store_memory(memory, 2)?;
+            if !self.next_pointer_piece(memory, ByteOp::StaIndirectY) {
+                self.store_memory(memory, 2)?;
+            }
         } else if bytes == 3 {
             self.code.a8();
             if high as u8 != low as u8 {
                 self.code.byte(ByteOp::LdaImm, high as u8);
             }
             // No overlap and no fourth byte, including NULL pointer fields.
-            self.store_memory(memory, 2)?;
+            if !self.next_pointer_piece(memory, ByteOp::StaIndirectY) {
+                self.store_memory(memory, 2)?;
+            }
         }
         Ok(true)
     }

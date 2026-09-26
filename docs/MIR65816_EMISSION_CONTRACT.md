@@ -1279,3 +1279,14 @@ No instruction, MIR operation, label or call intervenes. Source boundaries and
 conservative value barriers remain; no register fact crosses the pair or block.
 Allocated homes stay unchanged. Volatile loads, additional/hidden uses,
 nonadjacent consumers, ordering comparisons and unsupported homes keep fallback.
+
+### Y advancement inside one scalar transfer
+
+The second piece of a nonvolatile three/four-byte scalar transfer may advance Y
+with two typed INY instructions instead of reloading `offset + 2`. Selection
+requires X16, a known intact nonzero initial Y equal to the access displacement,
+a bounded offset, and only one indirect endpoint. The other endpoint cannot
+change Y. Constant stores use the same rule after their first word. No fact is
+carried across operations. Zero offsets retain ordinary selection so the checked
+zero-index rewrite can remove LDY #0. Exact widths, traffic and final flags are
+preserved. Each replacement saves one byte and costs one additional CPU cycle.

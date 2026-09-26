@@ -378,6 +378,9 @@ impl TrackedEmitter65816 {
         (self.state.env.m == Width::Word && self.state.mode_permission)
             .then_some((self.position(), self.code.labels.len()))
     }
+    pub fn y_word_is(&self, value: u16) -> bool {
+        self.state.env.index == Width::Word && self.state.y == Value::Constant(value, Width::Word)
+    }
     /// Narrow local equivalence proof for the adjacent-load rule. The caller
     /// supplies the real proposed LDA, not a stored success answer. Both paths
     /// consume the compiler witness; only the original path executes the load.

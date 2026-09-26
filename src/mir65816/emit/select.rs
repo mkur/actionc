@@ -1336,6 +1336,20 @@ impl Builder<'_> {
         }
         Ok(())
     }
+    /// Only the second scalar piece may reuse this operation's Y. Keeping a
+    /// zero LDY would defeat the existing zero-index rewrite, so exclude it.
+    fn next_pointer_piece(&mut self, memory: Memory, op: ByteOp) -> bool {
+        let Memory::Pointer { slot, offset } = memory else {
+            return false;
+        };
+        if offset == 0 || offset > u16::MAX - 2 || !self.code.y_word_is(offset) {
+            return false;
+        }
+        self.code.op(Implied::Iny);
+        self.code.op(Implied::Iny);
+        self.code.byte(op, slot);
+        true
+    }
     /// Copy exactly the scalar extent. Ordinary accesses may use word pairs;
     /// volatile accesses retain their individual ascending byte transfers.
     fn transfer(
@@ -1365,8 +1379,20 @@ impl Builder<'_> {
             } else {
                 self.code.a8();
             }
-            self.load_memory(source, byte.into())?;
-            self.store_memory(destination, byte.into())?;
+            if !(wide
+                && byte == 2
+                && !matches!(destination, Memory::Pointer { .. })
+                && self.next_pointer_piece(source, ByteOp::LdaIndirectY))
+            {
+                self.load_memory(source, byte.into())?;
+            }
+            if !(wide
+                && byte == 2
+                && !matches!(source, Memory::Pointer { .. })
+                && self.next_pointer_piece(destination, ByteOp::StaIndirectY))
+            {
+                self.store_memory(destination, byte.into())?;
+            }
             byte += if word { 2 } else { 1 };
         }
         Ok(())
