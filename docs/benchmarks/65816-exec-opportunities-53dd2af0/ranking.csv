@@ -1,0 +1,7 @@
+candidate,sites,footprint_bytes,modeled_saving_bytes
+pointer_terminal_store,1126,9682,9008
+pointer_terminal_call,752,6140,6016
+scalar_adjacent,657,4102,3496
+indexed_address_bounded,19,1793,1288
+native_edge_fallback,46,2155,873
+byte_alu,217,2458,868

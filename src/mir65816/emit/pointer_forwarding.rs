@@ -247,6 +247,31 @@ fn supported(op: &Mir65816Op, temp: TempId) -> bool {
     }
 }
 
+/// Consume a private source at a barrier, never through it. Address preparation
+/// reads all three source bytes before the unchanged external store. Every
+/// address selector (including its generic fallback) resolves this base through
+/// value_memory; none requires the omitted temporary to have been initialized.
+fn terminal(op: &Mir65816Op, temp: TempId, source: Source) -> bool {
+    let Mir65816Op::Store {
+        address,
+        value,
+        width,
+        volatile: false,
+    } = op
+    else {
+        return false;
+    };
+    matches!(source.kind, SourceKind::Parameter(_))
+        && (1..=4).contains(&width.get())
+        && matches!(&address.base, Mir65816AddressBase::Indirect(Mir65816Value::Temp(id,w)) if *id==temp && w.get()==3)
+        && address.displacement.get() <= u16::MAX.into()
+        && !matches!(value, Mir65816Value::Temp(id,_) if *id==temp)
+        && address
+            .index
+            .as_ref()
+            .is_none_or(|index| !matches!(&index.value, Mir65816Value::Temp(id,_) if *id==temp))
+}
+
 impl Plan {
     pub(super) fn new(routine: &Mir65816Routine, frame: &AllocatedFrame) -> Result<Self, String> {
         let mut plan = Self::default();
@@ -294,15 +319,22 @@ impl Plan {
                 let mut uses = BTreeSet::new();
                 let mut covered = 0;
                 for (at, consumer) in block.ops.iter().enumerate().skip(index + 1) {
-                    // Even a final call/store use is excluded. Unknown writes
-                    // cannot extend a private source's proven stable window.
-                    if barrier(consumer) {
-                        break;
-                    }
                     let occurrences = liveness::operation_inputs(consumer)
                         .iter()
                         .filter(|id| **id == *dest)
                         .count();
+                    if barrier(consumer) {
+                        // Admission is atomic over all routine-wide uses. A
+                        // terminal use never weakens the barrier for later ops.
+                        if occurrences != 0
+                            && covered + occurrences == counts[dest]
+                            && terminal(consumer, *dest, source)
+                        {
+                            uses.insert(at);
+                            covered += occurrences;
+                        }
+                        break;
+                    }
                     if occurrences != 0 {
                         if !supported(consumer, *dest) {
                             break;

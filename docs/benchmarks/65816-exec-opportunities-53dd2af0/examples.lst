@@ -1,0 +1,215 @@
+Current machine-code examples; modeled replacements are described in README.md.
+Compiler 53dd2af0; frozen Exec 622b139-dirty. Addresses belong to this guarded image.
+
+pointer_terminal_store
+M_EXECMEMORY_QUERY_D2E34F9F
+Load { dest: TempId(7), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }
+Current span: 8 B; modeled saving: 8 B.
+010A47  A3 14       LDA $14,S
+010A49  83 02       STA $02,S
+010A4B  A3 15       LDA $15,S
+010A4D  83 03       STA $03,S
+
+010A98  C2 20       REP #$20
+010A9A  A3 02       LDA $02,S
+010A9C  85 00       STA $00
+010A9E  A3 03       LDA $03,S
+010AA0  85 01       STA $01
+010AA2  E2 20       SEP #$20
+010AA4  A3 01       LDA $01,S
+010AA6  87 00       STA [$00]
+
+pointer_terminal_call
+M_EXECLISTS_INSERT_468B11BA
+Load { dest: TempId(7), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }
+Current span: 8 B; modeled saving: 8 B.
+011768  A3 14       LDA $14,S
+01176A  83 06       STA $06,S
+01176C  A3 15       LDA $15,S
+01176E  83 07       STA $07,S
+
+011778  3B          TSC
+011779  AA          TAX
+01177A  C5 46       CMP $46
+01177C  90 04       BCC $011782
+01177E  F0 02       BEQ $011782
+011780  80 0A       BRA $01178C
+011782  38          SEC
+011783  E9 0A 00    SBC #$000A
+011786  90 04       BCC $01178C
+011788  C5 44       CMP $44
+01178A  B0 07       BCS $011793
+01178C  A9 0A 00    LDA #$000A
+01178F  5C 05 3C 00 JML $003C05
+011793  E2 20       SEP #$20
+011795  A9 00       LDA #$00
+011797  48          PHA
+011798  A3 0D       LDA $0D,S
+01179A  48          PHA
+01179B  A3 0D       LDA $0D,S
+01179D  48          PHA
+01179E  A3 0D       LDA $0D,S
+0117A0  48          PHA
+0117A1  A3 0C       LDA $0C,S
+0117A3  48          PHA
+0117A4  C2 20       REP #$20
+0117A6  A3 0B       LDA $0B,S
+0117A8  48          PHA
+0117A9  22 52 15 01 JSL $011552
+0117AD  3B          TSC
+0117AE  18          CLC
+0117AF  69 07 00    ADC #$0007
+0117B2  1B          TCS
+
+scalar_adjacent
+M_EXECMEMORY_QUERY_D2E34F9F
+Load { dest: TempId(3), width: ByteSize(2), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }
+Current span: 4 B; modeled saving: 4 B.
+010A03  A3 12       LDA $12,S
+010A05  83 04       STA $04,S
+
+010A07  3B          TSC
+010A08  AA          TAX
+010A09  C5 46       CMP $46
+010A0B  90 04       BCC $010A11
+010A0D  F0 02       BEQ $010A11
+010A0F  80 0A       BRA $010A1B
+010A11  38          SEC
+010A12  E9 06 00    SBC #$0006
+010A15  90 04       BCC $010A1B
+010A17  C5 44       CMP $44
+010A19  B0 07       BCS $010A22
+010A1B  A9 06 00    LDA #$0006
+010A1E  5C 05 3C 00 JML $003C05
+010A22  E2 20       SEP #$20
+010A24  A9 00       LDA #$00
+010A26  48          PHA
+010A27  C2 20       REP #$20
+010A29  A3 05       LDA $05,S
+010A2B  48          PHA
+010A2C  22 10 07 01 JSL $010710
+010A30  A8          TAY
+010A31  3B          TSC
+010A32  18          CLC
+010A33  69 03 00    ADC #$0003
+010A36  1B          TCS
+010A37  98          TYA
+010A38  83 02       STA $02,S
+
+indexed_address_bounded
+M_FSINIT_CONFIG_A7C873FA
+AddressOf { dest: TempId(22), address: Mir65816Address { base: Indirect(Temp(TempId(3), ByteSize(3))), displacement: ByteOffset(0), index: Some(Mir65816Index { value: Temp(TempId(86), ByteSize(1)), stride: ByteSize(44) }), mode: LongIndexed }, width: ByteSize(3) }
+Current span: 125 B; modeled saving: 90 B.
+04512E  E2 20       SEP #$20
+045130  C2 20       REP #$20
+045132  A3 0A       LDA $0A,S
+045134  85 00       STA $00
+045136  A3 0B       LDA $0B,S
+045138  85 01       STA $01
+04513A  E2 20       SEP #$20
+04513C  A3 05       LDA $05,S
+04513E  85 14       STA $14
+045140  A9 00       LDA #$00
+045142  85 15       STA $15
+045144  A9 00       LDA #$00
+045146  85 16       STA $16
+045148  06 14       ASL $14
+04514A  26 15       ROL $15
+04514C  26 16       ROL $16
+04514E  06 14       ASL $14
+045150  26 15       ROL $15
+045152  26 16       ROL $16
+045154  18          CLC
+045155  A5 00       LDA $00
+045157  65 14       ADC $14
+045159  85 00       STA $00
+04515B  A5 01       LDA $01
+04515D  65 15       ADC $15
+04515F  85 01       STA $01
+045161  A5 02       LDA $02
+045163  65 16       ADC $16
+045165  85 02       STA $02
+045167  06 14       ASL $14
+045169  26 15       ROL $15
+04516B  26 16       ROL $16
+04516D  18          CLC
+04516E  A5 00       LDA $00
+045170  65 14       ADC $14
+045172  85 00       STA $00
+045174  A5 01       LDA $01
+045176  65 15       ADC $15
+045178  85 01       STA $01
+04517A  A5 02       LDA $02
+04517C  65 16       ADC $16
+04517E  85 02       STA $02
+045180  06 14       ASL $14
+045182  26 15       ROL $15
+045184  26 16       ROL $16
+045186  06 14       ASL $14
+045188  26 15       ROL $15
+04518A  26 16       ROL $16
+04518C  18          CLC
+04518D  A5 00       LDA $00
+04518F  65 14       ADC $14
+045191  85 00       STA $00
+045193  A5 01       LDA $01
+045195  65 15       ADC $15
+045197  85 01       STA $01
+045199  A5 02       LDA $02
+04519B  65 16       ADC $16
+04519D  85 02       STA $02
+04519F  A5 00       LDA $00
+0451A1  83 06       STA $06,S
+0451A3  A5 01       LDA $01
+0451A5  83 07       STA $07,S
+0451A7  A5 02       LDA $02
+0451A9  83 08       STA $08,S
+
+native_edge_fallback
+M_HEAPCORE_VALIDATE_B397AD34
+Goto(Mir65816Edge { target: BlockId(1), args: [Temp(TempId(3), ByteSize(3)), U32(0)] })
+Current span: 62 B; modeled saving: 26 B.
+0125F2  C2 20       REP #$20
+0125F4  E2 20       SEP #$20
+0125F6  A3 06       LDA $06,S
+0125F8  83 12       STA $12,S
+0125FA  A3 07       LDA $07,S
+0125FC  83 13       STA $13,S
+0125FE  A3 08       LDA $08,S
+012600  83 14       STA $14,S
+012602  A9 00       LDA #$00
+012604  83 16       STA $16,S
+012606  A9 00       LDA #$00
+012608  83 17       STA $17,S
+01260A  A9 00       LDA #$00
+01260C  83 18       STA $18,S
+01260E  A9 00       LDA #$00
+012610  83 19       STA $19,S
+012612  A3 12       LDA $12,S
+012614  83 0E       STA $0E,S
+012616  A3 13       LDA $13,S
+012618  83 0F       STA $0F,S
+01261A  A3 14       LDA $14,S
+01261C  83 10       STA $10,S
+01261E  A3 16       LDA $16,S
+012620  83 02       STA $02,S
+012622  A3 17       LDA $17,S
+012624  83 03       STA $03,S
+012626  A3 18       LDA $18,S
+012628  83 04       STA $04,S
+01262A  A3 19       LDA $19,S
+01262C  83 05       STA $05,S
+01262E  C2 20       REP #$20
+
+byte_alu
+M_TASKPOLICY_AVAILABLERECORD_80983EA0
+Binary { dest: TempId(28), width: ByteSize(1), signed: false, operation: Add, left: Temp(TempId(29), ByteSize(1)), right: U8(1) }
+Current span: 13 B; modeled saving: 4 B.
+016A11  E2 20       SEP #$20
+016A13  18          CLC
+016A14  A9 01       LDA #$01
+016A16  85 10       STA $10
+016A18  A3 0D       LDA $0D,S
+016A1A  65 10       ADC $10
+016A1C  83 0E       STA $0E,S
+

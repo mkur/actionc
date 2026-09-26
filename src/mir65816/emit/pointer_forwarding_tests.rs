@@ -1,5 +1,99 @@
 use super::*;
 
+#[test]
+fn terminal_store_borrows_only_the_complete_incoming_address_base() {
+    for ty in ["BYTE", "CARD", "ADDRESS", "LONGCARD"] {
+        for place in ["p^", "p(3)", "p(i)"] {
+            let r = source_routine(&format!(
+                "PROC Touch() RETURN PROC Read({ty} POINTER p {ty} v BYTE i) {place}=v Touch() RETURN"
+            ));
+            let frame = AllocatedFrame::new(&r).unwrap();
+            let plan = Plan::new(&r, &frame).unwrap();
+            assert_eq!(plan.bindings.len(), 1, "{ty}/{place}");
+            let binding = &plan.bindings[0];
+            let machine = super::super::routine(&r, false).unwrap();
+            assert!(machine.code.mir_spans[&binding.definition].is_empty());
+            assert_eq!(format!("{:?}", frame), format!("{:?}", machine.frame));
+            let store = &r.blocks[0].ops[*binding.uses.last().unwrap()];
+            assert!(matches!(store, Mir65816Op::Store { .. }));
+            assert!(barrier(store));
+        }
+    }
+}
+
+#[test]
+fn terminal_store_keeps_the_capture_if_any_role_or_later_use_is_unsupported() {
+    let base =
+        source_routine("PROC Touch() RETURN PROC Read(BYTE POINTER p BYTE v) p^=v Touch() RETURN");
+    let original = Plan::new(&base, &AllocatedFrame::new(&base).unwrap()).unwrap();
+    let binding = &original.bindings[0];
+    let at = *binding.uses.last().unwrap();
+    for problem in 0..6 {
+        let mut r = base.clone();
+        let store = r.blocks[0].ops[at].clone();
+        match problem {
+            0 => r.blocks[0].ops.push(store), // A use after the terminal barrier.
+            1 => {
+                let call = r.blocks[0].ops[at + 1].clone();
+                r.blocks[0].ops.insert(at, call);
+            }
+            2 => {
+                let Mir65816Op::Store { volatile, .. } = &mut r.blocks[0].ops[at] else {
+                    unreachable!()
+                };
+                *volatile = true;
+            }
+            3 => {
+                let Mir65816Op::Store { value, .. } = &mut r.blocks[0].ops[at] else {
+                    unreachable!()
+                };
+                *value = Mir65816Value::Temp(binding.temp, ByteSize::new(3));
+            }
+            4 => {
+                let Mir65816Op::Store { address, .. } = &mut r.blocks[0].ops[at] else {
+                    unreachable!()
+                };
+                address.index = Some(Mir65816Index {
+                    value: Mir65816Value::Temp(binding.temp, ByteSize::new(3)),
+                    stride: ByteSize::ONE,
+                });
+            }
+            _ => {
+                let Mir65816Op::Store { address, .. } = &mut r.blocks[0].ops[at] else {
+                    unreachable!()
+                };
+                address.displacement = ByteOffset::new(65536);
+            }
+        }
+        assert!(
+            Plan::new(&r, &AllocatedFrame::new(&r).unwrap())
+                .unwrap()
+                .bindings
+                .is_empty(),
+            "{problem}"
+        );
+    }
+}
+
+#[test]
+fn earlier_reads_and_final_store_share_one_incoming_binding() {
+    let mut r = routine();
+    let original = Plan::new(&r, &AllocatedFrame::new(&r).unwrap()).unwrap();
+    let binding = &original.bindings[0];
+    let read = *binding.uses.last().unwrap();
+    let Mir65816Op::Load { address, .. } = &r.blocks[0].ops[read] else {
+        unreachable!()
+    };
+    r.blocks[0].ops[read + 1] = Mir65816Op::Store {
+        address: address.clone(),
+        value: Mir65816Value::U8(7),
+        width: ByteSize::ONE,
+        volatile: false,
+    };
+    let plan = Plan::new(&r, &AllocatedFrame::new(&r).unwrap()).unwrap();
+    assert_eq!(plan.bindings[0].uses, [read, read + 1].into());
+}
+
 fn routine() -> Mir65816Routine {
     source_routine(
         "PROC Touch() RETURN BYTE FUNC Read(BYTE POINTER p) BYTE v v=p^ Touch() RETURN(v)",

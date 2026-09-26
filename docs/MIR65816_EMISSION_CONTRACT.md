@@ -1306,3 +1306,17 @@ known adjacent bytes may straddle an argument/padding boundary. Private source
 loads still account for every pushed byte in their stack displacement. Symbolic
 bytes retain their original individual relocation fixups and cannot form PEA.
 Whole-plan fallback, source-evaluation order, peak and padding contracts remain.
+
+### Private pointer bindings at terminal stores
+
+An immutable, non-escaping incoming three-byte pointer may supply the address
+base of its final nonvolatile scalar store directly from its checked incoming
+home. Every occurrence must be covered by supported uses in the same block,
+with no intervening store, call, copy or volatile operation. The final store is
+still an ordering barrier; the binding never applies to subsequent operations.
+The stored value and index cannot also use that capture. Address preparation
+uses the existing read resolver and consumes the complete source before the
+unchanged external write. Exact payload widths, address arithmetic and access
+order are preserved. Cast/edge uses and unsupported roles retain the complete
+capture. Allocated homes and conservative tracking boundaries remain, without
+publishing a definition for an omitted temporary write.

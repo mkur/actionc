@@ -14,6 +14,109 @@ LONGCARD result=$7200
 PROC Main() result=Read(LONGCARD POINTER($12fffe)) RETURN
 "#;
 
+#[test]
+fn final_store_addresses_preserve_exact_width_banked_traffic() {
+    for (ty, width, place, rhs, offset) in [
+        ("BYTE", 1u32, "p^", "v", 0),
+        ("CARD", 2, "p(3)", "v", 6),
+        ("ADDRESS", 3, "p(i)", "v", 765),
+        ("LONGCARD", 4, "p^", "v", 0),
+        ("LONGCARD", 4, "p(i)", "$89abcdef", 1020),
+        ("BYTE", 1, "p(3)", "0", 3),
+    ] {
+        let source = format!(
+            "{ty} POINTER base=$7100\n{ty} value=$7104\nBYTE index=$7108\nPROC Touch() RETURN\nPROC Write({ty} POINTER p {ty} v BYTE i) {place}={rhs} Touch() RETURN\nPROC Main() Write(base,value,index) RETURN\n"
+        );
+        for optimize in [false, true] {
+            let p = prepare(&source, optimize);
+            let c = p.compile(&layout()).unwrap();
+            assert_eq!(
+                c.image.to_json().unwrap(),
+                prepare(&source.replace('\n', "\r\n"), optimize)
+                    .compile(&layout())
+                    .unwrap()
+                    .image
+                    .to_json()
+                    .unwrap()
+            );
+            let r = c
+                .machine
+                .prepared
+                .routines
+                .iter()
+                .find(|r| r.name == "Write")
+                .unwrap();
+            let m = c.machine.routines.iter().find(|m| m.id == r.id).unwrap();
+            assert!(r.blocks.iter().any(|b| b.ops.iter().enumerate().any(|(i,op)|
+                matches!(op,Mir65816Op::Load {width,address,volatile:false,..} if width.get()==3 && matches!(address.base,Mir65816AddressBase::Parameter(_)))
+                    && m.code.mir_spans[&(b.id,i)].is_empty())));
+            let (direct, a) = emit::proof::materialize_reference(&p.mir, true).unwrap();
+            let (replayed, b) = emit::proof::materialize_replayed(&p.mir, true).unwrap();
+            for ((x, y), (a, b)) in direct
+                .routines
+                .iter()
+                .zip(&replayed.routines)
+                .zip(a.iter().zip(&b))
+            {
+                emit::proof::compare_replay_output(&x.code, &y.code).unwrap();
+                assert_eq!(a.snapshots, b.snapshots);
+            }
+            let bytes = p.compile_o65(&Default::default()).unwrap().bytes;
+            for variant in 0..3 {
+                let loaded = (variant > 0).then(|| {
+                    format::relocate(
+                        &bytes,
+                        &o65::placement(&bytes, variant - 1, vec![o65::fault(variant - 1)]),
+                    )
+                    .unwrap()
+                });
+                for value in [0u32, 0x89abcdef] {
+                    for mask in [0, 4] {
+                        let mut h = if let Some(l) = &loaded {
+                            Harness::new_o65(l, &caller(l.entry()), mask)
+                        } else {
+                            Harness::new(&c.image, &caller(c.image.entry), mask)
+                        };
+                        let target = 0x12fffeu32;
+                        h.bus.ram[0x7100..0x7103]
+                            .copy_from_slice(&(target - offset).to_le_bytes()[..3]);
+                        h.bus.ram[0x7104..0x7108].copy_from_slice(&value.to_le_bytes());
+                        h.bus.ram[0x7108] = 255;
+                        h.bus
+                            .map(target - 1, &vec![0xa5; (width + 2) as usize], true);
+                        h.bus.watched.extend(target - 1..target + width + 1);
+                        h.run();
+                        h.guards(mask);
+                        let expected = match rhs {
+                            "0" => 0,
+                            "$89abcdef" => 0x89abcdef,
+                            _ => value,
+                        } & (u32::MAX >> (8 * (4 - width)));
+                        assert_eq!(h.bus.value(target, width as usize), expected);
+                        assert_eq!(
+                            h.bus
+                                .trace
+                                .iter()
+                                .map(|&(_, a, k)| (a, k))
+                                .collect::<Vec<_>>(),
+                            (target..target + width)
+                                .map(|a| (a, Access::Write((expected >> (8 * (a - target))) as u8)))
+                                .collect::<Vec<_>>()
+                        );
+                        assert_eq!(
+                            (
+                                h.bus.ram[(target - 1) as usize],
+                                h.bus.ram[(target + width) as usize]
+                            ),
+                            (0xa5, 0xa5)
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
 // Exercise a single captured pointer twice, with a separate harmless capture
 // between uses. The typed fixture is verified after adding fresh definitions.
 fn prepared(source: &str, optimize: bool) -> actionc::compiler::native65816::Prepared {
@@ -141,11 +244,16 @@ fn borrowed_pointer_reads_preserve_banked_accesses_and_replay() {
 
 #[test]
 fn borrowed_pointer_consumers_survive_irq_and_nmi_at_each_instruction() {
-    for local in [false, true] {
+    for (local, store) in [(false, false), (true, false), (false, true)] {
         for &(ty, width) in &[("LONGCARD", 4u8)] {
             let source = format!(
                 "MODULE TEST\nBYTE irqAck=$7800\n{ty} scratch\nPROC Touch() RETURN\n{ty} FUNC Forward({ty} POINTER value) {ty} r r=value^ Touch() RETURN(r)\nCARD FUNC Dispatch(CARD saved BYTE reason) scratch=Forward({ty} POINTER($7140)) irqAck=1 RETURN(saved)\nPROC Task({ty} POINTER argument) argument^=Forward(argument) RETURN\nPROC Main() RETURN\nENDMODULE\n"
             );
+            let source = if store {
+                source.replace("r=value^ Touch()", "r=value^ value^=r Touch()")
+            } else {
+                source
+            };
             let source = if local {
                 source.replace(
                     &format!("{ty} r r=value^"),
