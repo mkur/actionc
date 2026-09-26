@@ -285,8 +285,7 @@ fn terminal(op: &Mir65816Op, temp: TempId, source: Source) -> bool {
     else {
         return false;
     };
-    matches!(source.kind, SourceKind::Parameter(_))
-        && (1..=4).contains(&width.get())
+    (1..=4).contains(&width.get())
         && matches!(&address.base, Mir65816AddressBase::Indirect(Mir65816Value::Temp(id,w)) if *id==temp && w.get()==3)
         && address.displacement.get() <= u16::MAX.into()
         && !matches!(value, Mir65816Value::Temp(id,_) if *id==temp)

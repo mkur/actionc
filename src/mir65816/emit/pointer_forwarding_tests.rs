@@ -1,5 +1,50 @@
 use super::*;
 
+#[test]
+fn local_terminal_stores_require_a_stable_window_and_fresh_capture_after_writes() {
+    let base = source_routine(
+        "PROC Touch() RETURN PROC Read(BYTE POINTER p BYTE v) BYTE POINTER local local=p local^=v local=p local^=0 Touch() RETURN",
+    );
+    let plan = Plan::new(&base, &AllocatedFrame::new(&base).unwrap()).unwrap();
+    assert_eq!(plan.bindings.len(), 2);
+    assert!(
+        plan.bindings
+            .iter()
+            .all(|b| matches!(b.source.kind, SourceKind::FrameObject(_)))
+    );
+    let binding = &plan.bindings[0];
+    let SourceKind::FrameObject(object) = binding.source.kind else {
+        unreachable!()
+    };
+    for problem in 0..3 {
+        let mut r = base.clone();
+        if problem == 0 {
+            r.frame
+                .objects
+                .iter_mut()
+                .find(|o| o.id == object)
+                .unwrap()
+                .addressable = true;
+        } else {
+            let store=r.blocks[0].ops.iter().find(|op|matches!(op,Mir65816Op::Store{address,..} if address.base==Mir65816AddressBase::AutomaticFrame(object))).unwrap().clone();
+            if problem == 1 {
+                r.blocks[0].ops.insert(*binding.uses.last().unwrap(), store);
+            } else {
+                let at = *binding.uses.last().unwrap();
+                let repeated = r.blocks[0].ops[at].clone();
+                r.blocks[0].ops.insert(at + 1, repeated);
+            }
+        }
+        let p = Plan::new(&r, &AllocatedFrame::new(&r).unwrap()).unwrap();
+        assert!(
+            !p.bindings
+                .iter()
+                .any(|b| b.definition == binding.definition),
+            "{problem}"
+        );
+    }
+}
+
 fn terminal_call_routine() -> Mir65816Routine {
     source_routine(
         "PROC Sink(BYTE POINTER p BYTE POINTER q) RETURN PROC Read(BYTE POINTER p) Sink(p,p) RETURN",

@@ -27,89 +27,105 @@ fn final_store_addresses_preserve_exact_width_banked_traffic() {
         let source = format!(
             "{ty} POINTER base=$7100\n{ty} value=$7104\nBYTE index=$7108\nPROC Touch() RETURN\nPROC Write({ty} POINTER p {ty} v BYTE i) {place}={rhs} Touch() RETURN\nPROC Main() Write(base,value,index) RETURN\n"
         );
-        for optimize in [false, true] {
-            let p = prepare(&source, optimize);
-            let c = p.compile(&layout()).unwrap();
-            assert_eq!(
-                c.image.to_json().unwrap(),
-                prepare(&source.replace('\n', "\r\n"), optimize)
-                    .compile(&layout())
-                    .unwrap()
-                    .image
-                    .to_json()
-                    .unwrap()
-            );
-            let r = c
-                .machine
-                .prepared
-                .routines
-                .iter()
-                .find(|r| r.name == "Write")
-                .unwrap();
-            let m = c.machine.routines.iter().find(|m| m.id == r.id).unwrap();
-            assert!(r.blocks.iter().any(|b| b.ops.iter().enumerate().any(|(i,op)|
-                matches!(op,Mir65816Op::Load {width,address,volatile:false,..} if width.get()==3 && matches!(address.base,Mir65816AddressBase::Parameter(_)))
-                    && m.code.mir_spans[&(b.id,i)].is_empty())));
-            let (direct, a) = emit::proof::materialize_reference(&p.mir, true).unwrap();
-            let (replayed, b) = emit::proof::materialize_replayed(&p.mir, true).unwrap();
-            for ((x, y), (a, b)) in direct
-                .routines
-                .iter()
-                .zip(&replayed.routines)
-                .zip(a.iter().zip(&b))
-            {
-                emit::proof::compare_replay_output(&x.code, &y.code).unwrap();
-                assert_eq!(a.snapshots, b.snapshots);
-            }
-            let bytes = p.compile_o65(&Default::default()).unwrap().bytes;
-            for variant in 0..3 {
-                let loaded = (variant > 0).then(|| {
-                    format::relocate(
-                        &bytes,
-                        &o65::placement(&bytes, variant - 1, vec![o65::fault(variant - 1)]),
-                    )
-                    .unwrap()
-                });
-                for value in [0u32, 0x89abcdef] {
-                    for mask in [0, 4] {
-                        let mut h = if let Some(l) = &loaded {
-                            Harness::new_o65(l, &caller(l.entry()), mask)
-                        } else {
-                            Harness::new(&c.image, &caller(c.image.entry), mask)
-                        };
-                        let target = 0x12fffeu32;
-                        h.bus.ram[0x7100..0x7103]
-                            .copy_from_slice(&(target - offset).to_le_bytes()[..3]);
-                        h.bus.ram[0x7104..0x7108].copy_from_slice(&value.to_le_bytes());
-                        h.bus.ram[0x7108] = 255;
-                        h.bus
-                            .map(target - 1, &vec![0xa5; (width + 2) as usize], true);
-                        h.bus.watched.extend(target - 1..target + width + 1);
-                        h.run();
-                        h.guards(mask);
-                        let expected = match rhs {
-                            "0" => 0,
-                            "$89abcdef" => 0x89abcdef,
-                            _ => value,
-                        } & (u32::MAX >> (8 * (4 - width)));
-                        assert_eq!(h.bus.value(target, width as usize), expected);
-                        assert_eq!(
+        for local in [false, true] {
+            let source = if local {
+                source.replace(
+                    &format!(" {place}="),
+                    &format!(
+                        " {ty} POINTER local local=p IF i=0 THEN local=p FI {}=",
+                        place.replace("p", "local")
+                    ),
+                )
+            } else {
+                source.clone()
+            };
+            for optimize in [false, true] {
+                let p = prepare(&source, optimize);
+                let c = p.compile(&layout()).unwrap();
+                assert_eq!(
+                    c.image.to_json().unwrap(),
+                    prepare(&source.replace('\n', "\r\n"), optimize)
+                        .compile(&layout())
+                        .unwrap()
+                        .image
+                        .to_json()
+                        .unwrap()
+                );
+                let r = c
+                    .machine
+                    .prepared
+                    .routines
+                    .iter()
+                    .find(|r| r.name == "Write")
+                    .unwrap();
+                let m = c.machine.routines.iter().find(|m| m.id == r.id).unwrap();
+                assert!(r.blocks.iter().any(|b| b.ops.iter().enumerate().any(|(i,op)|
+                matches!(op,Mir65816Op::Load {width,address,volatile:false,..} if width.get()==3 && (if local { matches!(address.base,Mir65816AddressBase::AutomaticFrame(_)) } else { matches!(address.base,Mir65816AddressBase::Parameter(_)) }))
+                    && m.code.mir_spans[&(b.id,i)].is_empty())), "{ty}/{place}/{local}/{optimize}: {:?}",r.blocks);
+                let (direct, a) = emit::proof::materialize_reference(&p.mir, true).unwrap();
+                let (replayed, b) = emit::proof::materialize_replayed(&p.mir, true).unwrap();
+                for ((x, y), (a, b)) in direct
+                    .routines
+                    .iter()
+                    .zip(&replayed.routines)
+                    .zip(a.iter().zip(&b))
+                {
+                    emit::proof::compare_replay_output(&x.code, &y.code).unwrap();
+                    assert_eq!(a.snapshots, b.snapshots);
+                }
+                let bytes = p.compile_o65(&Default::default()).unwrap().bytes;
+                for variant in 0..3 {
+                    let loaded = (variant > 0).then(|| {
+                        format::relocate(
+                            &bytes,
+                            &o65::placement(&bytes, variant - 1, vec![o65::fault(variant - 1)]),
+                        )
+                        .unwrap()
+                    });
+                    for value in [0u32, 0x89abcdef] {
+                        for mask in [0, 4] {
+                            let mut h = if let Some(l) = &loaded {
+                                Harness::new_o65(l, &caller(l.entry()), mask)
+                            } else {
+                                Harness::new(&c.image, &caller(c.image.entry), mask)
+                            };
+                            let target = 0x12fffeu32;
+                            h.bus.ram[0x7100..0x7103]
+                                .copy_from_slice(&(target - offset).to_le_bytes()[..3]);
+                            h.bus.ram[0x7104..0x7108].copy_from_slice(&value.to_le_bytes());
+                            h.bus.ram[0x7108] = 255;
                             h.bus
-                                .trace
-                                .iter()
-                                .map(|&(_, a, k)| (a, k))
-                                .collect::<Vec<_>>(),
-                            (target..target + width)
-                                .map(|a| (a, Access::Write((expected >> (8 * (a - target))) as u8)))
-                                .collect::<Vec<_>>()
-                        );
-                        assert_eq!(
-                            (
-                                h.bus.ram[(target - 1) as usize],
-                                h.bus.ram[(target + width) as usize]
-                            ),
-                            (0xa5, 0xa5)
-                        );
+                                .map(target - 1, &vec![0xa5; (width + 2) as usize], true);
+                            h.bus.watched.extend(target - 1..target + width + 1);
+                            h.run();
+                            h.guards(mask);
+                            let expected = match rhs {
+                                "0" => 0,
+                                "$89abcdef" => 0x89abcdef,
+                                _ => value,
+                            } & (u32::MAX >> (8 * (4 - width)));
+                            assert_eq!(h.bus.value(target, width as usize), expected);
+                            assert_eq!(
+                                h.bus
+                                    .trace
+                                    .iter()
+                                    .map(|&(_, a, k)| (a, k))
+                                    .collect::<Vec<_>>(),
+                                (target..target + width)
+                                    .map(|a| (
+                                        a,
+                                        Access::Write((expected >> (8 * (a - target))) as u8)
+                                    ))
+                                    .collect::<Vec<_>>()
+                            );
+                            assert_eq!(
+                                (
+                                    h.bus.ram[(target - 1) as usize],
+                                    h.bus.ram[(target + width) as usize]
+                                ),
+                                (0xa5, 0xa5)
+                            );
+                        }
                     }
                 }
             }
@@ -244,7 +260,7 @@ fn borrowed_pointer_reads_preserve_banked_accesses_and_replay() {
 
 #[test]
 fn borrowed_pointer_consumers_survive_irq_and_nmi_at_each_instruction() {
-    for (local, store) in [(false, false), (true, false), (false, true)] {
+    for (local, store) in [(false, false), (true, false), (false, true), (true, true)] {
         for &(ty, width) in &[("LONGCARD", 4u8)] {
             let source = format!(
                 "MODULE TEST\nBYTE irqAck=$7800\n{ty} scratch\nPROC Touch() RETURN\n{ty} FUNC Forward({ty} POINTER value) {ty} r r=value^ Touch() RETURN(r)\nCARD FUNC Dispatch(CARD saved BYTE reason) scratch=Forward({ty} POINTER($7140)) irqAck=1 RETURN(saved)\nPROC Task({ty} POINTER argument) argument^=Forward(argument) RETURN\nPROC Main() RETURN\nENDMODULE\n"
@@ -257,7 +273,7 @@ fn borrowed_pointer_consumers_survive_irq_and_nmi_at_each_instruction() {
             let source = if local {
                 source.replace(
                     &format!("{ty} r r=value^"),
-                    &format!("{ty} POINTER local {ty} r local=value r=local^"),
+                    &format!("{ty} POINTER local {ty} r local=value IF value=0 THEN local=value FI r=local^"),
                 )
             } else {
                 source

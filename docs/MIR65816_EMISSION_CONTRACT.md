@@ -1331,3 +1331,11 @@ ABI slots, guard-before-construction order and peak. The binding is cleared
 before JSL, so neither callee execution nor native-result capture inherits it.
 Indirect targets, width-changing arguments, cast consumers and uses after the
 call retain the original captures.
+
+A complete non-addressable local pointer may likewise supply its final store
+address. The existing local ownership, canonical-access and frame-disjointness
+checks still apply. Writes before a capture may establish its value; any write
+between that capture and its final consumer rejects the entire binding. A later
+capture after reassignment starts a distinct window. No source home is made
+writable through a temporary binding, and final stored-value uses remain outside
+this address-base rule.

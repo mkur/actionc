@@ -48,3 +48,24 @@ IRQ/NMI reentry probes pass. The planner separately checks last-fitting and
 out-of-reach authoritative sources, indirect/width-changing consumers and uses
 after calls. ABI, frames, stack peaks, data, guards and frozen inputs match.
 The terminal-call and both call-push tests also pass in release.
+
+## 3. Local pointers into final store addresses
+
+Compiler code shrinks **323,270 → 319,274 B**, saving **3,996 B** across 152
+routines, with none larger. All **495 modeled captures** disappear. Cumulative
+saving is **12,640 B**; the loaded estimate becomes **257,629 B (251.6 KiB)**,
+with **4,515 B** of estimated headroom.
+[Summary](03-local-store/summary.json), [routine deltas](03-local-store/routines.csv),
+[changed spans](03-local-store/spans.csv).
+
+Fourteen planner tests pass, including fresh local windows after reassignment,
+escaped sources, intervening writes and later uses. Three pointer runtime tests
+and two replay tests pass in debug. The store matrix now includes local sources
+for every width and address shape. A conditional local assignment keeps the
+local storage present in optimized fixtures, so the test verifies actual local
+capture removal rather than a frontend-eliminated local. IRQ/NMI reentry covers
+both incoming and local store bases. Source modes, LF/CRLF, exact access traces,
+bank crossings, canaries and flat/rebased o65 execution pass. ABI, frame/temporary
+placements, stack peaks, data, guards and all frozen inputs remain unchanged.
+Six address and 22 emission integration checks and the unchanged boundary
+snapshot pass. All three pointer runtime tests also pass in release.
