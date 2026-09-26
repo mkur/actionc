@@ -1,5 +1,108 @@
 use super::*;
 
+fn terminal_call_routine() -> Mir65816Routine {
+    source_routine(
+        "PROC Sink(BYTE POINTER p BYTE POINTER q) RETURN PROC Read(BYTE POINTER p) Sink(p,p) RETURN",
+    )
+}
+
+#[test]
+fn final_direct_call_counts_repeated_arguments_and_expires_before_transfer() {
+    let mut r = terminal_call_routine();
+    let at = r.blocks[0]
+        .ops
+        .iter()
+        .position(|op| matches!(op, Mir65816Op::Call { .. }))
+        .unwrap();
+    let Mir65816Op::Call { args, .. } = &mut r.blocks[0].ops[at] else {
+        unreachable!()
+    };
+    args[1] = args[0].clone();
+    let frame = AllocatedFrame::new(&r).unwrap();
+    let plan = Plan::new(&r, &frame).unwrap();
+    assert_eq!(plan.bindings.len(), 1);
+    assert_eq!(plan.bindings[0].uses, [at].into());
+    let mut b = Builder {
+        routine: &r,
+        code: TrackedEmitter65816::for_test(&frame),
+        frame,
+        blocks: BTreeMap::new(),
+        next_block: None,
+        loop_x: None,
+        borrowed: BTreeMap::new(),
+    };
+    assert!(!plan.enter(&mut b, r.blocks[0].id, at));
+    assert_eq!(b.borrowed.len(), 1);
+    b.operation(&r.blocks[0].ops[at]).unwrap();
+    assert!(b.borrowed.is_empty());
+    assert_eq!(b.code.delta(), 0);
+}
+
+#[test]
+fn final_call_falls_back_when_the_authoritative_source_exceeds_outgoing_reach() {
+    let r = terminal_call_routine();
+    let mut frame = AllocatedFrame::new(&r).unwrap();
+    let Mir65816Op::Call { plan, .. } = r.blocks[0]
+        .ops
+        .iter()
+        .find(|op| matches!(op, Mir65816Op::Call { .. }))
+        .unwrap()
+    else {
+        unreachable!()
+    };
+    let relative = frame
+        .incoming_home(&r, r.frame.parameters[0].param)
+        .unwrap()
+        - u32::from(frame.extent);
+    frame.extent = (255 - relative - plan.outgoing_bytes.get() - 2) as u16;
+    assert_eq!(Plan::new(&r, &frame).unwrap().bindings.len(), 2);
+    frame.extent += 1;
+    // The source still fits without outgoing bytes: only the borrowed read is
+    // unsupported. Its existing, lower captured slots remain valid call inputs.
+    assert!(Plan::new(&r, &frame).unwrap().bindings.is_empty());
+}
+
+#[test]
+fn final_call_rejects_later_uses_indirect_targets_and_width_changes() {
+    let base = terminal_call_routine();
+    let frame = AllocatedFrame::new(&base).unwrap();
+    let at = base.blocks[0]
+        .ops
+        .iter()
+        .position(|op| matches!(op, Mir65816Op::Call { .. }))
+        .unwrap();
+    for problem in 0..4 {
+        let mut r = base.clone();
+        if problem == 0 {
+            let call = r.blocks[0].ops[at].clone();
+            r.blocks[0].ops.push(call);
+        } else {
+            let Mir65816Op::Call {
+                target, args, plan, ..
+            } = &mut r.blocks[0].ops[at]
+            else {
+                unreachable!()
+            };
+            match problem {
+                1 => *target = Mir65816CallTarget::Indirect(args[0].clone(), ByteSize::new(3)),
+                2 => {
+                    for home in &mut plan.arguments {
+                        let Mir65816AbiHome::StackArgument { size, .. } = home else {
+                            unreachable!()
+                        };
+                        *size = ByteSize::new(2);
+                    }
+                }
+                _ => plan.native = None,
+            }
+        }
+        assert!(
+            Plan::new(&r, &frame).unwrap().bindings.is_empty(),
+            "{problem}"
+        );
+    }
+}
+
 #[test]
 fn terminal_store_borrows_only_the_complete_incoming_address_base() {
     for ty in ["BYTE", "CARD", "ADDRESS", "LONGCARD"] {

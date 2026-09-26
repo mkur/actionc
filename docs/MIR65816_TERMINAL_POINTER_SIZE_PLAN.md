@@ -1,7 +1,7 @@
 # MIR65816 pointer forwarding into final stores and calls
 
-Status: slice 1 implemented; four slices remain. Measured saving: **4,625 B**;
-the estimated gap is **3,500 B**. See the [series measurements](benchmarks/65816-terminal-pointer/README.md).
+Status: slices 1–2 implemented; three slices remain. Measured saving: **8,644 B**;
+the estimate is **519 B below** the cap. Slice 1: `4baf5e2e`. See the [series measurements](benchmarks/65816-terminal-pointer/README.md).
 Continue the five primary slices below, committing each after focused validation
 and size measurement.
 The smaller optimizations are a follow-up queue, outside this primary series.

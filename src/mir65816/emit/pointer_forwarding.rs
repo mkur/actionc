@@ -252,6 +252,30 @@ fn supported(op: &Mir65816Op, temp: TempId) -> bool {
 /// address selector (including its generic fallback) resolves this base through
 /// value_memory; none requires the omitted temporary to have been initialized.
 fn terminal(op: &Mir65816Op, temp: TempId, source: Source) -> bool {
+    if let Mir65816Op::Call {
+        target: Mir65816CallTarget::Direct(_),
+        args,
+        plan,
+        ..
+    } = op
+    {
+        // The original incoming slot can be farther from S than its capture.
+        // Reject the binding (not the valid call) if full outgoing reservation
+        // would put any source byte outside d,S. Pushes check each actual delta.
+        return matches!(source.kind, SourceKind::Parameter(_))
+            && args.len() == plan.arguments.len()
+            && effects::CallContract::from_plan(plan, abi::FarTransfer::Jsl).is_ok()
+            && abi::stack::access_displacement(
+                ByteOffset::new(source.home.offset.into()),
+                ByteSize::new(3),
+                plan.outgoing_bytes,
+            )
+            .is_ok()
+            && args.iter().zip(&plan.arguments).all(|(value, home)| {
+                !matches!(value, Mir65816Value::Temp(id,_) if *id==temp)
+                    || matches!((value,home), (Mir65816Value::Temp(_,w),Mir65816AbiHome::StackArgument{size,..}) if w.get()==3 && size.get()==3)
+            });
+    }
     let Mir65816Op::Store {
         address,
         value,

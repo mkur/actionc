@@ -2460,6 +2460,9 @@ impl Builder<'_> {
         }
         assert_eq!(self.code.delta(), u32::from(outgoing));
         if let Some(target) = direct {
+            // Terminal private bindings are authorized only while constructing
+            // arguments. Neither the callee nor result capture inherits them.
+            self.borrowed.clear();
             self.code.a16();
             self.code.native_call(target, plan)?; // JSL
         } else {

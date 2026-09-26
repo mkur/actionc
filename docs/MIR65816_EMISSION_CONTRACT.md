@@ -1320,3 +1320,14 @@ unchanged external write. Exact payload widths, address arithmetic and access
 order are preserved. Cast/edge uses and unsupported roles retain the complete
 capture. Allocated homes and conservative tracking boundaries remain, without
 publishing a definition for an omitted temporary write.
+
+An immutable incoming pointer binding may also end at a resolved direct native
+call when every remaining occurrence is an exact three-byte argument. Complete
+source reach is checked at the full outgoing delta before omitting its capture;
+an otherwise valid call keeps its capture when that borrowed source would
+exceed displacement 255. Both incremental pushes and reservation/store packing
+use the same resolved read home. Arguments and padding retain their original
+ABI slots, guard-before-construction order and peak. The binding is cleared
+before JSL, so neither callee execution nor native-result capture inherits it.
+Indirect targets, width-changing arguments, cast consumers and uses after the
+call retain the original captures.
