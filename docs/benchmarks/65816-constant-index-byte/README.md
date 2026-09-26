@@ -47,3 +47,22 @@ accounts separately for previously excluded shared-return sites in historical
 counts; its physical A/home/NZ checks remain intact.
 The new zero-test matrix and BYTE/word reentry tests also pass in release, along
 with the existing LONG zero-test reentry regression. No full qualification ran.
+
+## 3. Adjacent BYTE load/comparison consumers
+
+Code shrinks **337,895 → 335,421 B**, saving **2,474 B**. The cumulative saving is
+**8,362 B**. The estimate becomes **273,776 B**, leaving **11,632 B** to the cap.
+[Summary](03-byte/summary.json), [routines](03-byte/routines.csv),
+[changed spans](03-byte/spans.csv). Frames, stack peaks, guards, ABI, data and
+all frozen input hashes remain unchanged; no routine grows.
+
+All 269 active emitter tests pass (one existing ignored), including refusal of
+volatile, multi-use, ordering and unsupported operands. Six address integration
+checks, 22 emission checks and the unchanged boundary snapshot pass. The new
+runtime test checks direct-indirect, constant-index and dynamic-index paths,
+volatile fallback, exact ordered reads and neighboring canaries, both operand
+orders, raw/optimized LF/CRLF input and flat/two-placement o65 execution. Four
+BYTE comparison, one home-definition and two replay runtime checks also pass.
+Reached-window BYTE/word zero-test IRQ/NMI reentry passes in debug.
+The new consumer runtime test and four BYTE return/comparison/zero-test reentry
+regressions also pass in release. Full qualification remains deferred.

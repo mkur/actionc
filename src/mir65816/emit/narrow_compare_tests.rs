@@ -533,3 +533,35 @@ fn equality_zero_tests_normalize_both_sides_and_keep_ordering_cmp() {
         }
     }
 }
+
+#[test]
+fn byte_consumer_plan_requires_adjacent_nonvolatile_single_use_loads() {
+    let p = program("BYTE FUNC Work(BYTE a) RETURN(a=0)");
+    for variant in 0..5 {
+        let mut r = p.routines[0].clone();
+        let compare = r.blocks[0].ops.last().unwrap().clone();
+        let load_index = r.blocks[0].ops.len() - 2;
+        match variant {
+            1 => {
+                if let Mir65816Op::Load { volatile, .. } = &mut r.blocks[0].ops[load_index] {
+                    *volatile = true
+                }
+            }
+            2 => r.blocks[0].ops.push(compare),
+            3 => {
+                if let Mir65816Op::Compare { operation, .. } = r.blocks[0].ops.last_mut().unwrap() {
+                    *operation = NirCompareOp::Lt
+                }
+            }
+            4 => {
+                if let Mir65816Op::Compare { right, .. } = r.blocks[0].ops.last_mut().unwrap() {
+                    *right = Mir65816Value::U16(0)
+                }
+            }
+            _ => (),
+        }
+        let b = builder(&p.routines[0]);
+        let plan = byte_consumers::plan(&b, &r.blocks[0], &liveness::input_counts(&r)).unwrap();
+        assert_eq!(plan.len(), usize::from(variant == 0), "{variant}");
+    }
+}

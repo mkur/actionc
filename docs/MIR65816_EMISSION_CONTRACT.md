@@ -1265,3 +1265,17 @@ normalized to the right. Word reload elimination is eligible only through the
 existing A/home/NZ equivalence proof; X forwarding executes TXA and reestablishes
 N/Z. No ambient flag fact or carry inference is used. REP preserves Z for fused
 branches; ordering comparisons and Boolean materialization keep their contracts.
+
+### Adjacent BYTE load/comparison consumers
+
+A nonvolatile one-byte load and the immediately following Eq/Ne may be selected
+as a pair when the loaded temporary has exactly one routine-wide input occurrence.
+The complete producer home, comparison operands and Boolean home are checked
+before selection. Either operand order is admitted by commuting equality on
+captured values. The load stays at its original source site, with the existing
+address selector and exact one-byte traffic. Its A8 result is consumed directly;
+the private STA/LDA pair disappears without publishing a fictional home write.
+No instruction, MIR operation, label or call intervenes. Source boundaries and
+conservative value barriers remain; no register fact crosses the pair or block.
+Allocated homes stay unchanged. Volatile loads, additional/hidden uses,
+nonadjacent consumers, ordering comparisons and unsupported homes keep fallback.

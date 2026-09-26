@@ -44,6 +44,8 @@ mod accumulator;
 mod addresses;
 #[path = "arithmetic.rs"]
 mod arithmetic;
+#[path = "byte_consumers.rs"]
+mod byte_consumers;
 #[path = "call_copies.rs"]
 mod call_copies;
 #[path = "call_returns.rs"]
@@ -170,6 +172,7 @@ enum ByteOperand {
 
 struct ByteCondition {
     left: ByteOperand,
+    left_in_a: bool,
     right: ByteOperand,
     destination: u8,
     predicate: Branch,
@@ -449,14 +452,21 @@ pub(super) fn routine_with_data(
         let mut forwarded_return = false;
         b.next_block = routine.blocks.get(index + 1).map(|b| b.id);
         b.code.mark(b.blocks[&block.id]);
+        let byte_consumers = byte_consumers::plan(&b, block, &input_counts)?;
         if let Some((last, prefix)) = block.ops.split_last() {
             for (op_index, op) in prefix.iter().enumerate() {
                 let start = b.code.code().bytes.len();
                 b.code.begin_source(block.id, op_index);
                 if !pointers.enter(&mut b, block.id, op_index) {
-                    addresses
-                        .emit(&mut b, block.id, op_index, op)
-                        .map_err(|e| format!("b{}: {e}", block.id.0))?;
+                    if byte_consumers.contains_key(&(op_index + 1)) {
+                        addresses.emit_byte_load(&mut b, block.id, op_index, op)?;
+                    } else if let Some(condition) = byte_consumers.get(&op_index) {
+                        b.materialize_condition(condition);
+                    } else {
+                        addresses
+                            .emit(&mut b, block.id, op_index, op)
+                            .map_err(|e| format!("b{}: {e}", block.id.0))?;
+                    }
                 }
                 b.code.span(block.id, op_index, start);
             }
@@ -464,8 +474,13 @@ pub(super) fn routine_with_data(
             b.code.begin_source(block.id, prefix.len());
             let omitted = pointers.enter(&mut b, block.id, prefix.len());
             if !omitted
-                && b.compare_branch(last, &block.terminator, &sole_conditions)
-                    .map_err(|e| format!("b{}: {e}", block.id.0))?
+                && b.compare_branch_prepared(
+                    last,
+                    &block.terminator,
+                    &sole_conditions,
+                    byte_consumers.get(&prefix.len()),
+                )
+                .map_err(|e| format!("b{}: {e}", block.id.0))?
             {
                 b.code
                     .fused_span(block.id, prefix.len(), start, block.ops.len());
@@ -475,9 +490,13 @@ pub(super) fn routine_with_data(
                 .call_return(last, &block.terminator, &input_counts)
                 .map_err(|e| format!("b{}: {e}", block.id.0))?;
             if !omitted && !forwarded_return {
-                addresses
-                    .emit(&mut b, block.id, prefix.len(), last)
-                    .map_err(|e| format!("b{}: {e}", block.id.0))?;
+                if let Some(condition) = byte_consumers.get(&prefix.len()) {
+                    b.materialize_condition(condition);
+                } else {
+                    addresses
+                        .emit(&mut b, block.id, prefix.len(), last)
+                        .map_err(|e| format!("b{}: {e}", block.id.0))?;
+                }
             }
             b.code.span(block.id, prefix.len(), start);
         }
@@ -894,6 +913,7 @@ impl Builder<'_> {
         };
         Ok(Some(Condition::Byte(ByteCondition {
             left,
+            left_in_a: false,
             right,
             destination,
             predicate,
@@ -1085,7 +1105,9 @@ impl Builder<'_> {
             Condition::Byte(condition) => {
                 self.code.barrier(); // Retain the original operation's value/flag barrier.
                 self.code.a8();
-                self.load_byte_operand(condition.left);
+                if !condition.left_in_a {
+                    self.load_byte_operand(condition.left);
+                }
                 if !matches!(condition.predicate, Branch::Equal | Branch::NotEqual)
                     || condition.right != ByteOperand::Immediate(0)
                 {
@@ -1136,11 +1158,21 @@ impl Builder<'_> {
             self.code.branch(condition.predicate, yes);
         } // Consume CMP's C/Z or the corrected subtraction's N immediately.
     }
+    #[cfg(test)]
     fn compare_branch(
         &mut self,
         op: &Mir65816Op,
         terminator: &Mir65816Terminator,
         sole_conditions: &BTreeSet<TempId>,
+    ) -> Result<bool, String> {
+        self.compare_branch_prepared(op, terminator, sole_conditions, None)
+    }
+    fn compare_branch_prepared(
+        &mut self,
+        op: &Mir65816Op,
+        terminator: &Mir65816Terminator,
+        sole_conditions: &BTreeSet<TempId>,
+        prepared: Option<&Condition>,
     ) -> Result<bool, String> {
         let (
             Mir65816Op::Compare {
@@ -1163,10 +1195,15 @@ impl Builder<'_> {
         if dest != id || *size != ByteSize::ONE || !sole_conditions.contains(id) {
             return Ok(false);
         }
-        let Some(condition) =
-            self.condition(*dest, width(*bytes)?, *signed, *operation, left, right)?
-        else {
-            return Ok(false);
+        let selected;
+        let condition = if let Some(condition) = prepared {
+            condition
+        } else {
+            selected = self.condition(*dest, width(*bytes)?, *signed, *operation, left, right)?;
+            let Some(condition) = selected.as_ref() else {
+                return Ok(false);
+            };
+            condition
         };
         let yes = self.code.label();
         if let Some(x) = &self.loop_x
@@ -1176,7 +1213,7 @@ impl Builder<'_> {
             self.code.compare_x_word(x.param, x.home, x.threshold);
             self.code.dispatch(Branch::CarryClear, yes);
         } else {
-            self.branch_on_condition(&condition, yes, true);
+            self.branch_on_condition(condition, yes, true);
         }
         // Each edge still stages parallel arguments before writing destinations.
         self.edge(else_edge)?;
@@ -1196,13 +1233,17 @@ impl Builder<'_> {
         let Some(condition) = self.condition(dest, bytes, signed, operation, left, right)? else {
             return Ok(false);
         };
+        self.materialize_condition(&condition);
+        Ok(true)
+    }
+    fn materialize_condition(&mut self, condition: &Condition) {
         if let Condition::LongSign(condition) = &condition {
             self.materialize_long_sign(condition);
-            return Ok(true);
+            return;
         }
         let yes = self.code.label();
         let done = self.code.label();
-        self.branch_on_condition(&condition, yes, false);
+        self.branch_on_condition(condition, yes, false);
         self.code.a8();
         self.code.byte(ByteOp::LdaImm, 0);
         self.code.jump(done);
@@ -1212,7 +1253,6 @@ impl Builder<'_> {
         self.code.mark(done);
         self.code.a8(); // Joins never inherit the fallthrough mode knowledge.
         self.code.byte(ByteOp::StaStack, condition.destination());
-        Ok(true)
     }
     fn load_memory(&mut self, memory: Memory, byte: u32) -> Result<(), String> {
         self.memory(

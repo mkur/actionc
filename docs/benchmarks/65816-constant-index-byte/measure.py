@@ -1,6 +1,6 @@
 """Compare two frozen Exec inventory probe outputs; no hosted qualification.
 
-Usage: python3 -B docs/benchmarks/65816-epilogue-index-casts/measure.py BEFORE AFTER SLICE
+Usage: python3 -B docs/benchmarks/65816-constant-index-byte/measure.py BEFORE AFTER SLICE
 The stems refer to target/exec-current-audit/{stem}.{image,inventory}.json.
 """
 from pathlib import Path

@@ -386,6 +386,29 @@ impl Plan {
         index: usize,
         op: &Mir65816Op,
     ) -> Result<(), String> {
+        self.emit_capture(b, block, index, op, true)
+    }
+    pub(super) fn emit_byte_load(
+        &self,
+        b: &mut Builder<'_>,
+        block: BlockId,
+        index: usize,
+        op: &Mir65816Op,
+    ) -> Result<(), String> {
+        if !matches!(op, Mir65816Op::Load { width, volatile: false, .. } if *width == ByteSize::ONE)
+        {
+            return Err("BYTE consumer lost its exact nonvolatile load".into());
+        }
+        self.emit_capture(b, block, index, op, false)
+    }
+    fn emit_capture(
+        &self,
+        b: &mut Builder<'_>,
+        block: BlockId,
+        index: usize,
+        op: &Mir65816Op,
+        capture: bool,
+    ) -> Result<(), String> {
         if let Some(&offset) = self.constants.get(&(block, index)) {
             let address = match op {
                 Mir65816Op::Load { address, .. } | Mir65816Op::Store { address, .. } => address,
@@ -399,7 +422,12 @@ impl Plan {
             let memory = Memory::Pointer { slot: PTR, offset };
             match op {
                 Mir65816Op::Load { dest, width, .. } => {
-                    b.transfer(memory, b.temp(*dest)?.into(), width.get() as u8, true)?
+                    if capture {
+                        b.transfer(memory, b.temp(*dest)?.into(), width.get() as u8, true)?;
+                    } else {
+                        b.code.a8();
+                        b.load_memory(memory, 0)?;
+                    }
                 }
                 Mir65816Op::Store { value, width, .. } => {
                     let bytes = width.get() as u8;
@@ -469,7 +497,9 @@ impl Plan {
                 match op {
                     Mir65816Op::Load { dest, .. } => {
                         b.code.byte(ByteOp::LdaIndirectY, PTR);
-                        b.save_byte(*dest, byte)?;
+                        if capture {
+                            b.save_byte(*dest, byte)?;
+                        }
                     }
                     Mir65816Op::Store { value, .. } => {
                         if word {
@@ -509,7 +539,9 @@ impl Plan {
                         symbol.addend,
                         None,
                     );
-                    b.save_byte(*dest, 0)?;
+                    if capture {
+                        b.save_byte(*dest, 0)?;
+                    }
                 }
                 Mir65816Op::Store { value, .. } => {
                     b.value_byte(value, 0)?;
@@ -532,7 +564,17 @@ impl Plan {
             }
             return Ok(());
         }
-        b.operation(op)
+        if !capture {
+            let Mir65816Op::Load { address, .. } = op else {
+                unreachable!()
+            };
+            b.code.barrier();
+            let memory = b.prepare_address(address)?;
+            b.code.a8();
+            b.load_memory(memory, 0)
+        } else {
+            b.operation(op)
+        }
     }
 }
 
