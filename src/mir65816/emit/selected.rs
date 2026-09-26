@@ -25,7 +25,7 @@ instruction_set!(ByteOp { LdaImm=0xa9, AdcImm=0x69, SbcImm=0xe9, CmpImm=0xc9,
 instruction_set!(WordOp { LdaImm=0xa9, AdcImm=0x69, SbcImm=0xe9, CmpImm=0xc9,
     AndImm=0x29, OraImm=0x09, EorImm=0x49, LdyImm=0xa0, LdxImm=0xa2, CpxImm=0xe0 });
 instruction_set!(LongOp { Lda=0xaf, Sta=0x8f });
-instruction_set!(ReferenceOp { LdaLong=0xaf, StaLong=0x8f, LdaByte=0xa9, Jsl=0x22, Jml=0x5c });
+instruction_set!(ReferenceOp { LdaLong=0xaf, LdaLongX=0xbf, StaLong=0x8f, LdaByte=0xa9, Jsl=0x22, Jml=0x5c });
 instruction_set!(Branch { Plus=0x10, Minus=0x30, OverflowClear=0x50, CarryClear=0x90, CarrySet=0xb0, NotEqual=0xd0, Equal=0xf0 });
 
 /// Compound transfers retain their instruction-level phases and ABI summary.

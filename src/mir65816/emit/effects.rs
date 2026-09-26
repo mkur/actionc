@@ -73,6 +73,12 @@ pub enum Memory {
         addend: u32,
         bytes: u8,
     },
+    /// Relocated base plus the current X, with full 24-bit carry.
+    SymbolIndexedX {
+        target: Target,
+        addend: u32,
+        bytes: u8,
+    },
     IndirectLong {
         pointer: u8,
         indexed_y: bool,
@@ -524,6 +530,20 @@ impl Instruction {
                         e.environment_reads |= env::M;
                         e.reads.a = mask(m);
                     }
+                }
+                ReferenceOp::LdaLongX => {
+                    e.memory(
+                        Access::Read,
+                        Memory::SymbolIndexedX {
+                            target,
+                            addend,
+                            bytes: m.bytes(),
+                        },
+                    );
+                    e.reads.x = mask(index);
+                    e.environment_reads |= env::X;
+                    e.barrier = true;
+                    e.load_a(m);
                 }
                 ReferenceOp::Jsl => e.call(None, Some(target), false),
                 ReferenceOp::Jml => {

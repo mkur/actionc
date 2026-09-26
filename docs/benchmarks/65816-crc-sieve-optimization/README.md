@@ -63,3 +63,21 @@ tracking and independent decoding support. Validation: 287 emitter tests passed
 host, including independent assembly and instruction-boundary IRQ/NMI reentry.
 Both full benchmark vector sets pass with unchanged foreign controls. Frozen
 Exec saves 46 bytes in this slice, for a loaded estimate of 254,000.
+
+| Slice | Standard sieve, 8,191 slots | Bit sieve, 8,191 slots | Bit sieve, 16,000 slots | Standard / bit code bytes | Exec bytes saved in slice |
+| --- | ---: | ---: | ---: | --- | ---: |
+| Baseline | 3,400,699 | 9,289,832 | 18,623,518 | 264 / 634 | — |
+| 3 | 3,400,699 | 8,732,887 | 17,505,373 | 264 / 613 | 46 |
+| 4 | 3,220,497 | 7,802,521 | 15,638,079 | 250 / 561 | 0 |
+
+Slice 4 introduces relocated `LDA long,X` only for static BYTE bases and
+captured CARD indexes. Its dynamic indexed effects and X use are explicit;
+volatile, displaced, scaled and loop-X cases retain existing selection. Tests
+cover independent ca65 bytes, replay, exact read traces, indexes through 65,535,
+bank carry, LF/CRLF, two o65 rebases and instruction-boundary IRQ/NMI reentry.
+288 emitter tests passed (one ignored), followed by five focused preflight
+checks; seven existing indexed-access tests passed, and seven load/consumer/X
+runtime tests passed in both hosts. Nine disassembler tests passed. The full
+sieve vectors agree in both hosts. The new test harness needed trace opt-in and
+initialization of already-mapped data; neither correction changed emitted code.
+Frozen Exec has no eligible size changes in this slice.

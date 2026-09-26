@@ -97,3 +97,18 @@ The [scalar allocation slice](MIR65816_SCALAR_DP.md) now enables these checked
 homes for a bounded whole-routine whitelist. Final qualification includes 100
 emitter/proof unit tests and 111 native tests per host profile. Loop residency
 comes from CFG liveness; tracker permissions still stop at labels and calls.
+
+## Indexed symbolic BYTE accesses
+
+The CRC/sieve series admits typed `LdaLongX` for an allocated symbol plus a
+captured unsigned CARD index. Selection requires an exact nonvolatile BYTE,
+stride one, zero displacement/addend, complete checked private homes, and no
+loop-X reservation. X is temporary addressing state and is not retained across
+MIR operations. The source BYTE is neither widened nor cached.
+
+Effects describe `SymbolIndexedX`, not an unindexed `Symbol`: the runtime X
+value participates in the full 24-bit effective address. The form consumes X
+and M-dependent memory width, conservatively blocks memory forwarding, and
+creates a fresh A/N/Z value. Its relocation describes only the symbolic base;
+the CPU supplies the index and bank carry. Replay derives these effects from
+the instruction form, as it does for every other admitted instruction.

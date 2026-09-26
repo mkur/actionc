@@ -446,6 +446,9 @@ impl Plan {
             return Ok(());
         }
         if let Some(indexed) = self.indexed.get(&(block, index)) {
+            if emit_long_indexed(b, indexed, op, capture)? {
+                return Ok(());
+            }
             b.code.barrier();
             match &indexed.base {
                 IndexedBase::Symbol(symbol) => b.address_to_pointer(Memory::Symbol(
@@ -694,4 +697,55 @@ fn captured_payload(
         }
         _ => Ok(false),
     }
+}
+
+// All source evaluation stays at its original MIR site. Only the captured
+// CARD index and an allocated symbolic BYTE base qualify; X is local scratch.
+fn emit_long_indexed(
+    b: &mut Builder<'_>,
+    indexed: &Indexed,
+    op: &Mir65816Op,
+    capture: bool,
+) -> Result<bool, String> {
+    let IndexedBase::Symbol(symbol) = &indexed.base else {
+        return Ok(false);
+    };
+    if b.loop_x.is_some()
+        || indexed.index.width != 2
+        || indexed.bytes != 1
+        || indexed.stride != 1
+        || indexed.displacement != 0
+        || symbol.addend != 0
+    {
+        return Ok(false);
+    }
+    let Mir65816Op::Load {
+        dest,
+        width,
+        volatile: false,
+        ..
+    } = op
+    else {
+        return Ok(false);
+    };
+    if width.get() != 1 {
+        return Ok(false);
+    }
+    let destination = b.temp(*dest)?;
+    if destination.slot().width != 1 {
+        return Err("indexed BYTE destination width mismatch".into());
+    }
+    b.displacement(indexed.index.offset.into(), 1)?;
+    b.check_transfer(destination.into(), destination.into(), 1)?;
+    b.code.barrier();
+    b.code.a16();
+    b.load_memory(Memory::Stack(indexed.index.offset.into()), 0)?;
+    b.code.op(Implied::Tax);
+    b.code.a8();
+    b.code
+        .reference(ReferenceOp::LdaLongX, Target::Data(symbol.target), 0, None);
+    if capture {
+        b.save_byte(*dest, 0)?;
+    }
+    Ok(true)
 }

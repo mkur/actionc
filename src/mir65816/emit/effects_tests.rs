@@ -619,3 +619,29 @@ fn branches_and_unannotated_transfers_are_never_empty_effects() {
         Registers::default()
     );
 }
+
+#[test]
+fn symbolic_indexed_load_reads_x_and_keeps_dynamic_memory_identity() {
+    for m in [Width::Byte, Width::Word] {
+        for x in [Width::Byte, Width::Word] {
+            let target = Target::StackOverflow;
+            let e = fx(
+                Instruction::Reference(ReferenceOp::LdaLongX, target, 0, None),
+                m,
+                x,
+            );
+            assert_eq!(e.reads.x, x.mask());
+            assert_eq!(e.writes.a, m.mask());
+            assert_eq!(
+                e.memory[0].memory,
+                Memory::SymbolIndexedX {
+                    target,
+                    addend: 0,
+                    bytes: m.bytes()
+                }
+            );
+            assert_eq!(e.memory[0].access, Access::Read);
+            assert!(e.barrier);
+        }
+    }
+}

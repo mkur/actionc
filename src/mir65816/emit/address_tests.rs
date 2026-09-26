@@ -235,3 +235,62 @@ fn only_nonzero_y_within_one_wide_scalar_transfer_is_advanced() {
         }
     }
 }
+
+#[test]
+fn long_indexed_load_preflight_rejects_active_x_and_invalid_homes() {
+    let p = word_tests::program();
+    for bad in 0..3 {
+        let mut b = builder(&p.routines[0], 20, 1);
+        let mut indexed = Indexed {
+            base: IndexedBase::Symbol(Symbol {
+                target: Mir65816DataId::Global(SymbolId(7)),
+                addend: 0,
+            }),
+            index: Slot {
+                offset: 40,
+                width: 2,
+            },
+            displacement: 0,
+            stride: 1,
+            bytes: 1,
+        };
+        if bad == 0 {
+            b.loop_x = Some(loop_x::LoopXPlan {
+                header: BlockId(0),
+                body: BlockId(1),
+                preheader: BlockId(2),
+                param: TempId(0),
+                condition: TempId(1),
+                increment: None,
+                home: Location::Stack(Slot {
+                    offset: 3,
+                    width: 2,
+                }),
+                threshold: 8,
+            });
+        }
+        if bad == 1 {
+            indexed.index.offset = 255;
+        }
+        if bad == 2 {
+            indexed.index.width = 1;
+        }
+        let op = Mir65816Op::Load {
+            dest: TempId(999),
+            width: ByteSize::ONE,
+            address: address(
+                Mir65816AddressBase::Static(NirStorageId::Global(SymbolId(7))),
+                0,
+            ),
+            volatile: false,
+        };
+        let before = format!("{:?}", b.code);
+        let result = emit_long_indexed(&mut b, &indexed, &op, true);
+        if bad == 1 {
+            assert!(result.is_err());
+        } else {
+            assert!(!result.unwrap());
+        }
+        assert_eq!(format!("{:?}", b.code), before);
+    }
+}

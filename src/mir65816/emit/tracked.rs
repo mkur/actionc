@@ -1093,7 +1093,7 @@ impl TrackedEmitter65816 {
                 let v = self.state.fresh(Width::Byte);
                 self.state.load_a(v);
             }
-            ReferenceOp::LdaLong => {
+            ReferenceOp::LdaLong | ReferenceOp::LdaLongX => {
                 assert!(byte.is_none());
                 let v = self.state.fresh(self.state.env.m);
                 self.state.load_a(v);
