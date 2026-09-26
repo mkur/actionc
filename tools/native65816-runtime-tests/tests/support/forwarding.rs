@@ -273,9 +273,26 @@ pub fn index(
                 }
                 let p = &m.code.mir_spans[&(block.id, pi)];
                 let c = &m.code.mir_spans[&(block.id, ci)];
+                if c.is_empty() {
+                    assert!(matches!(
+                        &block.ops[ci],
+                        Mir65816Op::Binary {
+                            operation: NirBinaryOp::And,
+                            ..
+                        }
+                    ));
+                    continue; // Fused mask has no physical arithmetic producer.
+                }
                 if p.is_empty() && kind == Kind::Compare {
                     assert!(
                         matches!(&block.ops[pi],Mir65816Op::Load{address,..} if matches!(address.base,Mir65816AddressBase::Parameter(_)))
+                            || matches!(
+                                &block.ops[pi],
+                                Mir65816Op::Binary {
+                                    operation: NirBinaryOp::And,
+                                    ..
+                                }
+                            )
                     );
                     continue; // Incoming comparison reads its original home.
                 }

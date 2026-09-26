@@ -68,6 +68,8 @@ mod pointer_forwarding;
 mod pointer_values;
 #[path = "shifts.rs"]
 mod shifts;
+#[path = "top_bits.rs"]
+mod top_bits;
 #[path = "wide_returns.rs"]
 mod wide_returns;
 use super::tracked::*;
@@ -247,6 +249,7 @@ enum Condition {
     Long(LongCondition),
     LongSign(LongSignCondition),
     LongOrder(LongOrderCondition),
+    TopBit(top_bits::TopBitCondition),
 }
 
 impl Condition {
@@ -258,6 +261,7 @@ impl Condition {
             Self::Long(c) => c.destination,
             Self::LongSign(c) => c.destination,
             Self::LongOrder(c) => c.destination,
+            Self::TopBit(c) => c.destination,
         }
     }
 }
@@ -456,12 +460,15 @@ pub(super) fn routine_with_data(
         b.code.mark(b.blocks[&block.id]);
         let byte_consumers = byte_consumers::plan(&b, block, &input_counts)?;
         let incoming = b.incoming_comparisons(block, &input_counts)?;
+        let top_bit = top_bits::plan(&b, block, &input_counts)?;
         if let Some((last, prefix)) = block.ops.split_last() {
             for (op_index, op) in prefix.iter().enumerate() {
                 let start = b.code.code().bytes.len();
                 b.code.begin_source(block.id, op_index);
                 if !pointers.enter(&mut b, block.id, op_index) {
-                    if incoming.contains_key(&(op_index + 1)) {
+                    if top_bit.is_some() && op_index + 1 == prefix.len() {
+                        b.code.barrier();
+                    } else if incoming.contains_key(&(op_index + 1)) {
                         // The complete adjacent incoming-word consumer was preflighted.
                         b.code.barrier(); // Omission does not extend A residency.
                     } else if byte_consumers.contains_key(&(op_index + 1)) {
@@ -487,8 +494,9 @@ pub(super) fn routine_with_data(
                     last,
                     &block.terminator,
                     &sole_conditions,
-                    incoming
-                        .get(&prefix.len())
+                    top_bit
+                        .as_ref()
+                        .or_else(|| incoming.get(&prefix.len()))
                         .or_else(|| byte_consumers.get(&prefix.len())),
                 )
                 .map_err(|e| format!("b{}: {e}", block.id.0))?
@@ -1116,6 +1124,7 @@ impl Builder<'_> {
             Condition::Long(condition) => self.branch_on_long(condition, yes, dispatch),
             Condition::LongSign(condition) => self.branch_on_long_sign(condition, yes, dispatch),
             Condition::LongOrder(condition) => self.branch_on_long_order(condition, yes, dispatch),
+            Condition::TopBit(condition) => self.branch_on_top_bit(condition, yes, dispatch),
             Condition::Byte(condition) => {
                 self.code.barrier(); // Retain the original operation's value/flag barrier.
                 self.code.a8();

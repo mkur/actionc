@@ -99,3 +99,13 @@ All benchmark vectors pass in both hosts with unchanged controls. Validation:
 tests passed in each host. Observers now distinguish omitted parameter captures
 and recognize existing load-based Eq/Ne zero tests; they retain exact byte and
 memory-traffic checks for the windows they observe.
+
+Slice 7 replaces sole-use adjacent BYTE/CARD top-bit masks and Eq/Ne zero
+comparisons with a load at the actual width and BMI/BPL. CRC8 drops to
+11,951,001 cycles / 347 bytes; CRC16 to 11,410,051 / 305. These are incremental
+savings of 1,114,112 and 524,288 cycles. CRC32 is unchanged. Raw wide source
+comparisons with an intervening zero-extension cast intentionally retain the
+fallback. 152 selector tests passed (one ignored); 18 affected native tests
+passed in each host, including exhaustive BYTE inputs, CARD boundaries, hidden
+B poisoning, distant targets, rejected shapes and IRQ/NMI reentry. Both CRC
+hosts agree with unchanged controls. Exec saves 13 more bytes.

@@ -130,3 +130,14 @@ escaped parameters, intervening operations and extra uses retain captures.
 A barrier at the omitted operation prevents extending accumulator residency.
 Boolean materialization and branch dispatch keep their existing contracts;
 allocated capture slots and all ABI/frame facts remain unchanged.
+
+## Top-bit branch consumers
+
+A captured BYTE/CARD AND with its exact top-bit mask may be consumed by an
+immediately following Eq/Ne zero comparison and sole branch use. The selector
+checks all uses and complete private homes before suppressing either temporary
+computation. It loads the original captured value at its actual width, then
+uses N through BMI/BPL. REP restores A16 without changing N; ambient flags and
+hidden B are never used as evidence. Other masks, shared/materialized results,
+intervening casts and external operands retain their existing paths. Source
+loads, frame allocations and edge-copy contracts are unchanged.
