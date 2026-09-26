@@ -66,6 +66,7 @@ pub(super) enum Request {
     Mode(Width),
     EstablishBody,
     Barrier,
+    PrepareReturnJoin,
     RegisterHome(Location),
     DeclareBlocks(Vec<Label>),
     ProveEntries {

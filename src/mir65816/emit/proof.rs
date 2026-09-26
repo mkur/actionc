@@ -497,6 +497,7 @@ pub fn selected_site(code: &Code, site: SelectedSite) -> Result<SelectedObservat
                 Request::Mode(_) => "mode",
                 Request::EstablishBody => "body-anchor",
                 Request::Barrier => "barrier",
+                Request::PrepareReturnJoin => "prepare-return-join",
                 Request::RegisterHome(_) => "home",
                 Request::DeclareBlocks(_) => "blocks",
                 Request::ProveEntries { .. } => "entry-obligations",

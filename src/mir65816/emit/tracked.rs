@@ -473,6 +473,21 @@ impl TrackedEmitter65816 {
             this.state.incoming = None;
         })
     }
+    /// Forget path-specific facts, including stack equations and X residency,
+    /// before a shared teardown. Hardware result lanes are unchanged.
+    pub fn prepare_return_join(&mut self) {
+        self.request(Request::PrepareReturnJoin, |this| {
+            this.live();
+            let e = this.state.env;
+            assert!(e.native && e.m == Width::Word && e.index == Width::Word);
+            assert!(
+                e.anchor == Some(e.depth) && e.pushes == 0,
+                "shared return requires the allocated body frame"
+            );
+            this.state.values_barrier();
+            this.x_join(false);
+        });
+    }
     pub fn register_home(&mut self, slot: impl Into<Location>) {
         let slot = slot.into();
         self.request(Request::RegisterHome(slot), |this| {
@@ -1164,5 +1179,41 @@ impl TrackedEmitter65816 {
     #[cfg(feature = "native65816-state-proof")]
     pub fn finish_traced(self) -> (Code, Vec<super::proof::Snapshot>) {
         (self.code, self.trace.unwrap_or_default())
+    }
+}
+
+#[cfg(test)]
+mod return_join_tests {
+    use super::*;
+
+    #[test]
+    fn shared_return_join_rejects_wrong_width_and_outstanding_stack() {
+        for invalid in 0..2 {
+            let mut e = TrackedEmitter65816::default();
+            e.test_frame(8);
+            if invalid == 0 {
+                e.a8();
+            } else {
+                e.test_delta(2);
+            }
+            assert!(
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| e.prepare_return_join()))
+                    .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn shared_return_backedge_checks_the_retained_entry_contract() {
+        let mut e = TrackedEmitter65816::default();
+        e.test_frame(8);
+        let tail = e.label();
+        e.prepare_return_join();
+        e.mark(tail);
+        e.a16();
+        // A forged incoming frame cannot inherit the retained tail's proof.
+        e.test_frame(10);
+        e.prepare_return_join();
+        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| e.jump(tail))).is_err());
     }
 }

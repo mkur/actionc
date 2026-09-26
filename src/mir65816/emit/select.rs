@@ -408,6 +408,29 @@ pub(super) fn routine_with_data(
             pending.extend(&successors[&id]);
         }
     }
+    // One retained tail, with a two-byte REP at the internal join. Even a
+    // four-byte unrelaxed jump saves three bytes per removed void tail.
+    let returns: BTreeSet<_> = routine
+        .blocks
+        .iter()
+        .filter(|block| {
+            reachable.contains(&b.blocks[&block.id])
+                && matches!(block.terminator, Mir65816Terminator::Return { .. })
+        })
+        .map(|block| block.id)
+        .collect();
+    let shared_tail = (routine.result_home.is_none() && b.frame.extent != 0 && returns.len() > 1)
+        .then(|| {
+            (
+                routine
+                    .blocks
+                    .iter()
+                    .find(|block| returns.contains(&block.id))
+                    .unwrap()
+                    .id,
+                b.code.label(),
+            )
+        });
     b.code.prove_entries(predecessors, reachable);
     if let Some(x) = &b.loop_x {
         b.code.prove_x(XContract {
@@ -479,10 +502,20 @@ pub(super) fn routine_with_data(
                 b.edge_last(then_edge)?;
             }
             Mir65816Terminator::Return { value, .. } => {
-                if forwarded_return {
-                    b.return_tail(true)?;
+                if !forwarded_return {
+                    b.prepare_return_value(value.as_ref())?;
+                }
+                if let Some((owner, label)) = shared_tail.filter(|_| returns.contains(&block.id)) {
+                    b.code.prepare_return_join();
+                    if owner != block.id {
+                        b.code.jump(label);
+                    } else {
+                        b.code.mark(label);
+                        b.code.a16(); // Explicit permission at an internal join.
+                        b.return_tail(value.is_some())?;
+                    }
                 } else {
-                    b.return_value(value.as_ref())?;
+                    b.return_tail(value.is_some())?;
                 }
             }
             Mir65816Terminator::Fallthrough => {
@@ -2434,7 +2467,12 @@ impl Builder<'_> {
         // preserves A; BYTE's ABI result does not require any X preparation.
         Ok(true)
     }
+    #[cfg(test)]
     fn return_value(&mut self, value: Option<&Mir65816Value>) -> Result<(), String> {
+        self.prepare_return_value(value)?;
+        self.return_tail(value.is_some())
+    }
+    fn prepare_return_value(&mut self, value: Option<&Mir65816Value>) -> Result<(), String> {
         if let Some(value) = value {
             let bytes = match self.routine.result_home {
                 Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A8ZeroExtended)) => 1,
@@ -2464,7 +2502,7 @@ impl Builder<'_> {
         } else if self.routine.result_home.is_some() {
             return Err("function returns without a value".into());
         }
-        self.return_tail(value.is_some())
+        Ok(())
     }
     fn return_tail(&mut self, preserve_result: bool) -> Result<(), String> {
         self.release(self.frame.extent, preserve_result);
