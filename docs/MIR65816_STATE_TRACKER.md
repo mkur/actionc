@@ -119,3 +119,14 @@ private index/payload homes. Its effects consume A and X, preserve flags, and
 record a dynamic `MayWrite`; no fixed private home is inferred. Unknown-write
 invalidation applies to tracked memory facts. Read/modify/write expressions
 retain their separate original load and store operations.
+
+## Adjacent incoming comparison reads
+
+An immutable incoming CARD load whose capture is used only by the next
+unsigned word comparison may be replaced by that comparison reading the
+incoming home. Selection checks the canonical incoming home, captures, all
+consumer operands and complete uses before omitting the load. Mutable or
+escaped parameters, intervening operations and extra uses retain captures.
+A barrier at the omitted operation prevents extending accumulator residency.
+Boolean materialization and branch dispatch keep their existing contracts;
+allocated capture slots and all ABI/frame facts remain unchanged.

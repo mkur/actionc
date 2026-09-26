@@ -177,6 +177,9 @@ pub fn fused_in_range(
                 return None;
             }
             let op = bus.ram[at as usize];
+            if !load && matches!(op, 0xd0 | 0xf0) {
+                return Some((false, 0));
+            }
             let dp = op == if load { 0xa5 } else { 0xc5 };
             let stack = dp || op == if load { 0xa3 } else { 0xc3 };
             if !stack && op != if load { 0xa9 } else { 0xc9 } {

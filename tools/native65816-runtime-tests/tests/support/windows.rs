@@ -1,7 +1,7 @@
 use super::*;
 pub fn check_work_interrupts(source: &str) {
-    use actionc_vm::native65816::{Inputs, Machine};
     use super::context::*;
+    use actionc_vm::native65816::{Inputs, Machine};
     for optimize in [false, true] {
         for domain in 0..2 {
             let mut h = ContextHarness::from_prepared(

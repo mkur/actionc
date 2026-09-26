@@ -89,3 +89,13 @@ write conservatively invalidates memory facts. Eight indexed/consumer/loop-X
 runtime tests pass in each host, including store traces, canaries, rebasing and
 IRQ/NMI reentry; ten effects and nine disassembler tests pass. Sieve vector
 results and foreign controls agree across hosts. Exec saves 0 bytes.
+
+Slice 6 forwards adjacent sole-use immutable incoming CARD loads to unsigned
+comparisons. It saves 110 frozen Exec bytes; the loaded estimate is now 253,890.
+CRC8/16/32 now take 13,065,113, 11,934,339, 16,921,562 cycles (358/310/476 bytes).
+Standard sieve takes 2,369,305 cycles and 208 bytes; bit sieve takes 7,289,109 / 14,603,799 cycles and 529 bytes.
+All benchmark vectors pass in both hosts with unchanged controls. Validation:
+151 selector tests passed (one ignored) and nine parameter/comparison runtime
+tests passed in each host. Observers now distinguish omitted parameter captures
+and recognize existing load-based Eq/Ne zero tests; they retain exact byte and
+memory-traffic checks for the windows they observe.

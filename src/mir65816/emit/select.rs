@@ -455,14 +455,21 @@ pub(super) fn routine_with_data(
         b.next_block = routine.blocks.get(index + 1).map(|b| b.id);
         b.code.mark(b.blocks[&block.id]);
         let byte_consumers = byte_consumers::plan(&b, block, &input_counts)?;
+        let incoming = b.incoming_comparisons(block, &input_counts)?;
         if let Some((last, prefix)) = block.ops.split_last() {
             for (op_index, op) in prefix.iter().enumerate() {
                 let start = b.code.code().bytes.len();
                 b.code.begin_source(block.id, op_index);
                 if !pointers.enter(&mut b, block.id, op_index) {
-                    if byte_consumers.contains_key(&(op_index + 1)) {
+                    if incoming.contains_key(&(op_index + 1)) {
+                        // The complete adjacent incoming-word consumer was preflighted.
+                        b.code.barrier(); // Omission does not extend A residency.
+                    } else if byte_consumers.contains_key(&(op_index + 1)) {
                         addresses.emit_byte_load(&mut b, block.id, op_index, op)?;
-                    } else if let Some(condition) = byte_consumers.get(&op_index) {
+                    } else if let Some(condition) = incoming
+                        .get(&op_index)
+                        .or_else(|| byte_consumers.get(&op_index))
+                    {
                         b.materialize_condition(condition);
                     } else {
                         addresses
@@ -480,7 +487,9 @@ pub(super) fn routine_with_data(
                     last,
                     &block.terminator,
                     &sole_conditions,
-                    byte_consumers.get(&prefix.len()),
+                    incoming
+                        .get(&prefix.len())
+                        .or_else(|| byte_consumers.get(&prefix.len())),
                 )
                 .map_err(|e| format!("b{}: {e}", block.id.0))?
             {
@@ -492,7 +501,10 @@ pub(super) fn routine_with_data(
                 .call_return(last, &block.terminator, &input_counts)
                 .map_err(|e| format!("b{}: {e}", block.id.0))?;
             if !omitted && !forwarded_return {
-                if let Some(condition) = byte_consumers.get(&prefix.len()) {
+                if let Some(condition) = incoming
+                    .get(&prefix.len())
+                    .or_else(|| byte_consumers.get(&prefix.len()))
+                {
                     b.materialize_condition(condition);
                 } else {
                     addresses

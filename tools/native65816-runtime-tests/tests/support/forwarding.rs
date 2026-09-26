@@ -273,6 +273,12 @@ pub fn index(
                 }
                 let p = &m.code.mir_spans[&(block.id, pi)];
                 let c = &m.code.mir_spans[&(block.id, ci)];
+                if p.is_empty() && kind == Kind::Compare {
+                    assert!(
+                        matches!(&block.ops[pi],Mir65816Op::Load{address,..} if matches!(address.base,Mir65816AddressBase::Parameter(_)))
+                    );
+                    continue; // Incoming comparison reads its original home.
+                }
                 // The old adjacent-word probe ends at a local instruction. A
                 // shared return instead transfers the result through a checked
                 // internal join; its separate runtime tests cover those lanes.

@@ -663,3 +663,78 @@ fn incoming_metadata_and_unrelated_stores_cannot_grant_permission() {
         }
     }
 }
+
+#[test]
+fn incoming_compare_requires_adjacent_sole_use_and_complete_disjoint_homes() {
+    for case in 0..6 {
+        let p = word_tests::program();
+        let r = &p.routines[0];
+        let mut b = builder(r);
+        let mut block = r.blocks[0].clone();
+        let load = block.ops[0].clone();
+        let Mir65816Op::Load { dest: loaded, .. } = load else {
+            panic!()
+        };
+        block.ops = vec![
+            load,
+            Mir65816Op::Compare {
+                dest: TempId(999),
+                width: ByteSize::new(2),
+                signed: false,
+                operation: NirCompareOp::Lt,
+                left: Mir65816Value::Temp(loaded, ByteSize::new(2)),
+                right: Mir65816Value::U16(0x8000),
+            },
+        ];
+        b.frame.temps.insert(
+            TempId(999),
+            Location::Stack(Slot {
+                offset: 1,
+                width: 1,
+            }),
+        );
+        let mut counts = BTreeMap::from([(loaded, 1)]);
+        match case {
+            1 => {
+                counts.insert(loaded, 2);
+            }
+            2 => {
+                let Mir65816Op::Load { volatile, .. } = &mut block.ops[0] else {
+                    panic!()
+                };
+                *volatile = true;
+            }
+            3 => {
+                block.ops.insert(1, r.blocks[0].ops.last().unwrap().clone());
+            }
+            4 => {
+                b.frame.temps.insert(
+                    loaded,
+                    Location::Stack(Slot {
+                        offset: 255,
+                        width: 2,
+                    }),
+                );
+            }
+            5 => {
+                let incoming = b.incoming(r.frame.parameters[0].param).unwrap() as u16;
+                b.frame.temps.insert(
+                    loaded,
+                    Location::Stack(Slot {
+                        offset: incoming,
+                        width: 2,
+                    }),
+                );
+            }
+            _ => {}
+        }
+        let before = format!("{:?}", b.code);
+        let plan = b.incoming_comparisons(&block, &counts);
+        if case >= 4 {
+            assert!(plan.is_err());
+        } else {
+            assert_eq!(plan.unwrap().len(), usize::from(case == 0));
+        }
+        assert_eq!(format!("{:?}", b.code), before);
+    }
+}
