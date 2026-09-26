@@ -85,8 +85,14 @@ fn byte_and_card_masks_use_actual_width_and_all_equality_senses() {
 }
 #[test]
 fn top_bit_branches_survive_interrupt_reentry() {
-    for ty in ["BYTE", "CARD"] {
-        let mask = if ty == "BYTE" { "$80" } else { "$8000" };
+    for ty in ["BYTE", "CARD", "LONGCARD"] {
+        let mask = if ty == "BYTE" {
+            "$80"
+        } else if ty == "CARD" {
+            "$8000"
+        } else {
+            "$80000000"
+        };
         let source = format!(
             "MODULE TEST VOLATILE BYTE irqAck=$7800 BYTE scratch\nBYTE FUNC Work({ty} x) IF (x AND {mask})#0 THEN RETURN(17) FI RETURN(23)\nCARD FUNC Dispatch(CARD saved BYTE reason) scratch=Work({mask}) irqAck=1 RETURN(saved)\nPROC Task(CARD POINTER argument) argument^=CARD(Work({ty}(argument^))) RETURN PROC Main() RETURN ENDMODULE"
         );
@@ -154,4 +160,21 @@ fn byte_top_bit_ignores_poisoned_hidden_b_across_distant_branch_targets() {
             }
         }
     }
+}
+
+#[test]
+fn long_top_bit_ignores_low_words_and_checks_both_equality_senses() {
+    check_type(
+        "LONGCARD",
+        4,
+        vec![
+            0, 1, 0xffff, 0x7fff0000, 0x7fffffff, 0x80000000, 0x80000001, 0x8000ffff, 0xffff0000,
+            0xffffffff,
+        ],
+    );
+    check_type(
+        "LONGINT",
+        4,
+        vec![0, 1, 0x7fffffff, 0x80000000, 0x8000ffff, 0xffffffff],
+    );
 }

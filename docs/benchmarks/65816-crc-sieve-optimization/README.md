@@ -5,12 +5,35 @@ starting at `279a791f`. Original CRC and sieve reports remain immutable. Each
 `slice-N.json` records source/binary hashes, matching benchmark measurements,
 and the compile-only frozen Exec delta against the preceding slice.
 
+
+All eight slices are implemented. Final matching-case results, with unchanged
+stack guards included:
+
+| Kernel / input | Original → final code bytes | Original → final cycles | Fewer cycles |
+| --- | ---: | ---: | ---: |
+| CRC8 / 8,192 bytes | 376 → 347 | 13,671,811 → 11,951,001 | 12.6% |
+| CRC16 / 8,192 bytes | 324 → 305 | 12,868,237 → 11,410,051 | 11.3% |
+| CRC32 / 8,192 bytes | 584 → 458 | 24,090,260 → 14,758,874 | 38.7% |
+| Standard sieve / 8,191 slots | 264 → 208 | 3,400,699 → 2,369,305 | 30.3% |
+| Bit sieve / 8,191 slots | 634 → 529 | 9,289,832 → 7,289,109 | 21.5% |
+| Bit sieve / 16,000 slots | 634 → 529 | 18,623,518 → 14,603,799 | 21.6% |
+
+Frozen Exec compiler code shrinks from 316,790 to 315,502 bytes: **1,288 bytes
+saved**. Its guard-subtracted loaded estimate is **253,857 bytes**, 8,287 below
+256 KiB. This remains compile-only accounting, not a guard-disabled build or a
+runtime qualification. All frames, guards, ABI metadata and initialized data
+are unchanged. Benchmark initialized data is also unchanged (8 bytes for the
+bit-sieve mask table; none for the CRC kernels or standard sieve).
+
 | Slice | Change | CRC8 cycles | CRC16 cycles | CRC32 cycles | Exec bytes saved in slice |
 | --- | --- | ---: | ---: | ---: | ---: |
 | Baseline | Original code | 13,671,811 | 12,868,237 | 24,090,260 | — |
 | 1 | Mixed-edge identities | 13,147,043 | 12,868,237 | 17,394,488 | 971 |
 | 2 | Native staged words | 13,147,043 | 12,868,237 | 17,003,492 | 128 |
 | 3 | Short word shifts in A | 13,147,043 | 12,016,269 | 17,003,492 | 46 |
+| 6 | Incoming CARD comparisons | 13,065,113 | 11,934,339 | 16,921,562 | 110 |
+| 7 | BYTE/CARD top-bit branches | 11,951,001 | 11,410,051 | 16,921,562 | 13 |
+| 8 | LONG top-bit branches | 11,951,001 | 11,410,051 | 14,758,874 | 20 |
 
 CRC cycles use the same 8,192-byte input, with stack guards included. Slice 1
 kernel bytes are 362 / 324 / 490 versus 376 / 324 / 584. All Action results,
@@ -28,8 +51,8 @@ existing ignored case. Native `mixed_edges`, `word_edges`, `acyclic_edges`,
 `pointer_edges`, and `edge_coalescing`: 16 passed in each host profile, including
 LF/CRLF, relocation and existing pointer-edge IRQ/NMI reentry checks.
 
-Frozen Exec now contains 315,819 compiler-code bytes. Its guard-subtracted loaded
-estimate is 254,174 bytes (including the unchanged 8,300 assembly and 2,307
+After slice 1, frozen Exec contains 315,819 compiler-code bytes. Its guard-subtracted
+loaded estimate is 254,174 bytes (including the unchanged 8,300 assembly and 2,307
 initialized-data bytes). Frames, ABI metadata, data and all 72,252 guard-region
 bytes are unchanged. This subtraction is an accounting estimate: guard regions
 also contain required frame arithmetic. No guard-disabled image was built and
@@ -70,6 +93,8 @@ Exec saves 46 bytes in this slice, for a loaded estimate of 254,000.
 | 3 | 3,400,699 | 8,732,887 | 17,505,373 | 264 / 613 | 46 |
 | 4 | 3,220,497 | 7,802,521 | 15,638,079 | 250 / 561 | 0 |
 | 5 | 2,702,125 | 7,540,009 | 15,104,249 | 220 / 537 | 0 |
+| 6 | 2,369,305 | 7,289,109 | 14,603,799 | 208 / 529 | 110 |
+| 8 | 2,369,305 | 7,289,109 | 14,603,799 | 208 / 529 | 20 |
 
 Slice 4 introduces relocated `LDA long,X` only for static BYTE bases and
 captured CARD indexes. Its dynamic indexed effects and X use are explicit;
@@ -109,3 +134,19 @@ fallback. 152 selector tests passed (one ignored); 18 affected native tests
 passed in each host, including exhaustive BYTE inputs, CARD boundaries, hidden
 B poisoning, distant targets, rejected shapes and IRQ/NMI reentry. Both CRC
 hosts agree with unchanged controls. Exec saves 13 more bytes.
+
+Slice 8 extends the exact top-bit rule to LONGCARD/LONGINT. It checks the entire
+four-byte private source, reads its high word in A16 and tests N. CRC32 saves
+another 2,162,688 cycles and 18 bytes; CRC8/16 and both sieve variants are
+unchanged from their latest measurements. Frozen Exec saves another 20 bytes.
+The rejection/encoding unit matrix passes for BYTE/CARD/LONG, and 27 focused
+native top-bit, long-comparison and control-flow tests pass in both hosts.
+The dispatch observer independently validates the reduced high-word load and
+single BMI/BPL, rather than requiring two long-comparison dispatches.
+
+At the endpoint, CRC and sieve execute all 238 paired records / 476 executions
+per host (952 total), including both interrupt-mask states and bank placements.
+Debug and release profiles are identical. Every Action output, ABI and access
+check passes; the only foreign errors are the ten previously documented CRC8
+O2 result mismatches. Guard cycles and observed peak stack remain unchanged.
+No full/final backend or hosted Exec qualification was run.

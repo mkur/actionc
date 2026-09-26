@@ -141,3 +141,9 @@ uses N through BMI/BPL. REP restores A16 without changing N; ambient flags and
 hidden B are never used as evidence. Other masks, shared/materialized results,
 intervening casts and external operands retain their existing paths. Source
 loads, frame allocations and edge-copy contracts are unchanged.
+
+The exact 32-bit `$80000000` mask uses the same sole-use branch rule. After
+validating all four private source bytes, selection loads only the high word
+in A16 and tests N. The low word is irrelevant to this predicate. Original
+external LONG captures remain full-width and ordered; general LONG comparisons
+and materialized/shared mask results are unaffected.

@@ -3,7 +3,7 @@ use super::*;
 fn top_bit_selection_requires_exact_adjacent_sole_use_private_values() {
     let p = word_tests::program();
     let r = &p.routines[0];
-    for bytes in [1u8, 2] {
+    for bytes in [1u8, 2, 4] {
         for case in 0..10 {
             let frame = AllocatedFrame::stack(r).unwrap();
             let mut b = Builder {
@@ -23,8 +23,10 @@ fn top_bit_selection_requires_exact_adjacent_sole_use_private_values() {
             let w = ByteSize::new(bytes.into());
             let constant = if bytes == 1 {
                 Mir65816Value::U8(0x80)
-            } else {
+            } else if bytes == 2 {
                 Mir65816Value::U16(0x8000)
+            } else {
+                Mir65816Value::U32(0x80000000)
             };
             let edge = Mir65816Edge {
                 target: BlockId(1),
@@ -48,7 +50,11 @@ fn top_bit_selection_requires_exact_adjacent_sole_use_private_values() {
                         signed: false,
                         operation: NirCompareOp::Ne,
                         left: Mir65816Value::Temp(TempId(101), w),
-                        right: Mir65816Value::U8(0),
+                        right: if bytes == 4 {
+                            Mir65816Value::U32(0)
+                        } else {
+                            Mir65816Value::U8(0)
+                        },
                     },
                 ],
                 terminator: Mir65816Terminator::Branch {
@@ -115,9 +121,25 @@ fn top_bit_selection_requires_exact_adjacent_sole_use_private_values() {
             if case >= 7 {
                 assert!(selected.is_err());
             } else {
-                assert_eq!(selected.unwrap().is_some(), case == 0);
+                let selected = selected.unwrap();
+                assert_eq!(selected.is_some(), case == 0);
+                if let Some(Condition::TopBit(condition)) = selected {
+                    assert_eq!(
+                        condition.source,
+                        WordOperand::Stack(32 + bytes.saturating_sub(2))
+                    );
+                    b.code.a16();
+                    let start = b.code.position();
+                    let yes = b.code.label();
+                    b.branch_on_top_bit(&condition, yes, false);
+                    if bytes == 4 {
+                        assert_eq!(&b.code.code().bytes[start..start + 2], &[0xa3, 34]);
+                    }
+                }
             }
-            assert_eq!(format!("{:?}", b.code), before);
+            if case != 0 {
+                assert_eq!(format!("{:?}", b.code), before);
+            }
         }
     }
 }

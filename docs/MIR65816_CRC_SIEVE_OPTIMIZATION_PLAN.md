@@ -1,6 +1,6 @@
 # MIR65816 CRC and sieve improvement plan
 
-Status: implementation in progress, starting from comparison commit `279a791f`.
+Status: all eight slices implemented, starting from comparison commit `279a791f`.
 Each slice is committed separately with focused tests and measurements in the
 [series report](benchmarks/65816-crc-sieve-optimization/README.md).
 

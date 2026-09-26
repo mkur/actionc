@@ -43,7 +43,7 @@ pub(super) fn plan(
         return Ok(None);
     };
     let bytes = width.get() as u8;
-    if !matches!(bytes, 1 | 2)
+    if !matches!(bytes, 1 | 2 | 4)
         || *width != *compare_width
         || counts.get(masked) != Some(&1)
         || counts.get(dest) != Some(&1)
@@ -87,7 +87,8 @@ pub(super) fn plan(
         return Ok(None);
     };
     b.displacement(offset, u32::from(bytes) - 1)?;
-    let source = WordOperand::Stack(b.displacement(offset, 0)?);
+    // LONG tests need only the high word, after checking the entire value.
+    let source = WordOperand::Stack(b.displacement(offset, u32::from(bytes.saturating_sub(2)))?);
     Ok(Some(Condition::TopBit(TopBitCondition {
         source,
         bytes,
