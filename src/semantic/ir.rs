@@ -3804,6 +3804,20 @@ impl<'a> IrBuilder<'a> {
 
     fn lower_expr(&mut self, scope: ScopeId, expr: &Expr) -> SemExpr {
         let kind = match &expr.kind {
+            _ if self.model.null_pointer_types.contains_key(&super::ExpressionSite::new(scope, expr.span)) => {
+                SemExprKind::Cast {
+                    ty: self.model.null_pointer_types[&super::ExpressionSite::new(scope, expr.span)].clone(),
+                    expr: Box::new(SemExpr {
+                        kind: SemExprKind::Literal(SemLiteral::Number(
+                            ConstValue { ty: ScalarType::Byte, bits: 0 }.number_literal(),
+                        )),
+                        ty: ValueType::scalar(ScalarType::Byte),
+                        class: SemExprClass::Value,
+                        eval_order: Some(self.next_eval_order()),
+                        span: expr.span,
+                    }),
+                }
+            }
             _ if self.model.enums.member_values.contains_key(&super::ExpressionSite::new(scope, expr.span)) => {
                 SemExprKind::Literal(SemLiteral::Enum(self.model.enums.member_values[&super::ExpressionSite::new(scope, expr.span)].clone()))
             }
@@ -4019,6 +4033,16 @@ impl<'a> IrBuilder<'a> {
         scope: ScopeId,
         element: &InitializerElement,
     ) -> SemInitializerElement {
+        if self.model.null_pointer_types.contains_key(&super::ExpressionSite::new(scope, element.span)) {
+            return SemInitializerElement {
+                kind: SemInitializerElementKind::Literal {
+                    value: SemInitializerLiteral::Nil,
+                    negative: false,
+                },
+                text: element.text.clone(),
+                span: element.span,
+            };
+        }
         if let Some(address) = self.model.static_subobject_addresses
             .get(&super::ExpressionSite::new(scope, element.span))
         {

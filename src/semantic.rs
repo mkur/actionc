@@ -32,6 +32,7 @@ mod generics;
 pub use generics::{GenericTypeFacts, GenericTypeInstance};
 mod initializers;
 mod let_binding;
+mod null;
 mod selection;
 mod static_addresses;
 pub mod subject;
@@ -58,6 +59,7 @@ pub struct SemanticModel {
     pub variants: VariantFacts,
     pub generics: GenericTypeFacts,
     resolved_casts: HashMap<ExpressionSite, ValueType>,
+    null_pointer_types: HashMap<ExpressionSite, ValueType>,
     for_step_constants: HashMap<ExpressionSite, ConstValue>,
     case_labels: HashMap<ExpressionSite, case::CaseLabels>,
     pub target_layout: TargetLayout,
@@ -456,6 +458,8 @@ pub struct SemanticOptions {
     /// Modern integer/enum CASE values; variant selectors remain staged.
     pub case_expressions: bool,
     pub let_bindings: bool,
+    /// Contextually typed NULL values in the modern profile.
+    pub null_values: bool,
     /// Modern-profile CASE statements; independent of enum support.
     pub case_statements: bool,
     /// Modern-profile nominal BYTE enums; independent of CASE support.
@@ -479,6 +483,7 @@ impl SemanticOptions {
             if_expressions: true,
             case_expressions: true,
             let_bindings: true,
+            null_values: true,
             case_statements: true,
             enum_types: true,
             native_real: true,
@@ -628,6 +633,7 @@ impl Analyzer {
             variants: self.variants,
             generics: self.generics,
             resolved_casts: self.resolved_casts,
+            null_pointer_types: self.null_pointer_types,
             for_step_constants: self.for_step_constants,
             case_labels: self.case_labels,
             target_layout,
@@ -661,6 +667,7 @@ struct Analyzer {
     aggregate_kinds: HashMap<SymbolId, AggregateKind>,
     generics: GenericTypeFacts,
     resolved_casts: HashMap<ExpressionSite, ValueType>,
+    null_pointer_types: HashMap<ExpressionSite, ValueType>,
     for_step_constants: HashMap<ExpressionSite, ConstValue>,
     case_labels: HashMap<ExpressionSite, case::CaseLabels>,
     options: SemanticOptions,
@@ -747,6 +754,7 @@ impl Analyzer {
             aggregate_kinds: HashMap::new(),
             generics: GenericTypeFacts::default(),
             resolved_casts: HashMap::new(),
+            null_pointer_types: HashMap::new(),
             for_step_constants: HashMap::new(),
             case_labels: HashMap::new(),
             symbols,
@@ -1961,7 +1969,10 @@ impl Analyzer {
         expr: Option<&Expr>,
         routine_kind: Option<&RoutineKind>,
     ) {
-        let typed = expr.map(|expr| self.lower_expr(scope, expr));
+        let expected = self.active_routine_symbol
+            .and_then(|symbol| self.routines_by_symbol.get(&symbol))
+            .and_then(|signature| signature.return_type.clone());
+        let typed = expr.map(|expr| self.lower_expr_for_expected_type(scope, expr, expected.as_ref()));
 
         match (routine_kind, expr, typed.as_ref()) {
             (Some(RoutineKind::Proc), Some(expr), _) => self.diagnostics.push(Diagnostic::new(
@@ -2446,11 +2457,15 @@ impl Analyzer {
             }
             ExprKind::Cast { ty, expr: inner } => {
                 self.validate_type_ref(scope, ty, expr.span);
-                let inner = self.expect_expr(scope, inner, expr.span);
+                let ty = self.value_type_from_type_ref(scope, ty);
+                let inner = if self.is_builtin_null(scope, inner) {
+                    self.lower_null(scope, inner.span, Some(&ty))
+                } else {
+                    self.expect_expr(scope, inner, expr.span)
+                };
                 if self.reject_aggregate_address_conversion(&inner) {
                     return self.subject_error(expr.span);
                 }
-                let ty = self.value_type_from_type_ref(scope, ty);
                 if ty.as_callable_pointer().is_some_and(CallableType::has_aggregate_boundary) && ty != inner.ty {
                     self.diagnostics.push(Diagnostic::new(expr.span, "aggregate callable casts require the exact nominal signature; raw addresses have no declared aggregate ABI"));
                 }
@@ -2598,9 +2613,11 @@ impl Analyzer {
                 // comparison's operands, casts, calls and indexes still need
                 // ordinary values, even when nested inside an IF condition.
                 let predicate_operands = condition && matches!(op, BinaryOp::And | BinaryOp::Or);
-                let left = self.expect_expr_in_context(scope, left, expr.span, predicate_operands);
-                let right =
-                    self.expect_expr_in_context(scope, right, expr.span, predicate_operands);
+                let (left, right) = self.null_comparison_operands(scope, *op, left, right)
+                    .unwrap_or_else(|| (
+                        self.expect_expr_in_context(scope, left, expr.span, predicate_operands),
+                        self.expect_expr_in_context(scope, right, expr.span, predicate_operands),
+                    ));
                 if self.reject_aggregate_address_conversion(&left)
                     || self.reject_aggregate_address_conversion(&right)
                 {
@@ -2705,7 +2722,11 @@ impl Analyzer {
                     self.diagnostics.push(Diagnostic::new(expr.span, "CSTRING conversion requires one argument"));
                     return self.subject_error(expr.span);
                 }
-                let mut inner = self.expect_expr(scope, &args[0], args[0].span);
+                let mut inner = if self.is_builtin_null(scope, &args[0]) {
+                    self.lower_null(scope, args[0].span, Some(&ValueType::cstring()))
+                } else {
+                    self.expect_expr(scope, &args[0], args[0].span)
+                };
                 if let Some(decayed) = self.array_decay_pointer_type(scope, &args[0]) { inner.ty = decayed; }
                 if !inner.ty.is_cstring() && !inner.ty.as_pointer().is_some_and(|p| matches!(p.pointee.base, ValueTypeBase::Fund(FundType::Byte | FundType::Char)))
                     && !matches!(self.evaluate_const_expr(&inner), Ok(value) if value.bits == 0) {
@@ -3168,6 +3189,9 @@ impl Analyzer {
         span: Span,
     ) -> subject::SemSubject {
         if self.lookup_symbol(scope, name).is_none() {
+            if name.eq_ignore_ascii_case("NULL") {
+                return subject::SemSubject::Expr(self.lower_null(scope, span, None));
+            }
             if name.eq_ignore_ascii_case("CSTRING") {
                 self.require_native_cstring(span);
                 return subject::SemSubject::TypeRef(subject::SemTypeRef {
@@ -3337,6 +3361,9 @@ impl Analyzer {
         span: Span,
         expected: Option<&ValueType>,
     ) -> subject::SemExpr {
+        if self.is_builtin_null(scope, expr) {
+            return self.lower_null(scope, expr.span, expected);
+        }
         let subject = self.classify_subject(scope, expr);
         if let (Some(expected), subject::SemSubject::Callable(callable)) = (expected, &subject)
             && routine_address_can_pass_as(expected)
@@ -3551,6 +3578,11 @@ impl Analyzer {
         condition: bool,
         expected: Option<&ValueType>,
     ) -> subject::SemExpr {
+        if self.is_builtin_null(scope, expr) {
+            let value = self.lower_null(scope, expr.span, expected);
+            self.record_sem_expr(&value);
+            return value;
+        }
         let mut subject = self.classify_subject_in_context(scope, expr, condition);
         if let subject::SemSubject::Callable(callable) = &subject
             && expected.and_then(ValueType::as_callable_pointer)
@@ -4898,6 +4930,16 @@ impl Analyzer {
                         ));
                         continue;
                     }
+                    if let InitializerElementKind::Constant { target, negative } = &element.kind
+                        && target.simple_name().is_some_and(|name| self.is_builtin_null_name(scope, name))
+                    {
+                        if *negative {
+                            self.diagnostics.push(Diagnostic::new(element.span, "NULL cannot be negated"));
+                        } else {
+                            self.lower_null(scope, element.span, Some(destination_type));
+                        }
+                        continue;
+                    }
                     let destination_width =
                         self.value_storage_width(destination_type).unwrap_or(0);
                     if let Some(signature) = destination_type.as_callable_pointer().filter(|s| s.has_aggregate_boundary()) {
@@ -5117,6 +5159,11 @@ impl Analyzer {
                 // Validate scalar/address expressions in every profile. In
                 // particular, a failed constant fold must not silently turn
                 // a divide-by-zero fixed address into ordinary storage.
+                if self.is_builtin_null(scope, initializer) {
+                    self.diagnostics.push(Diagnostic::new(initializer.span,
+                        "NULL is a pointer value, not a storage address; use [NULL] for static initialization"));
+                    return;
+                }
                 let value =
                     self.lower_expr_for_expected_type(scope, initializer, Some(&element_type));
                 if self.reject_static_binding_value(&value) || self.reject_static_selection(&value) { return; }

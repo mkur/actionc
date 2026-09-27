@@ -701,6 +701,11 @@ pub enum NirValue {
 Rules:
 
 - Constants are numeric and width-shaped; source literal text is metadata only.
+- Source `NULL` is resolved by SemIR using a checked pointer context. SemIR
+  represents it as the existing typed cast of zero; static pointer initializer
+  leaves use the existing zero initializer. NIR receives concrete pointer
+  types and ordinary zero values, never an unresolved `NULL` name or an
+  untyped universal pointer. Backends do not infer its source-language meaning.
 - `Temp` values get their type from the routine temp table.
 - `Param` values get their type from the routine parameter table.
 - `StaticAddr`, `RoutineAddr`, and `GlobalAddr` are address-valued and carry or

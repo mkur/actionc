@@ -1,0 +1,18 @@
+TYPE Handle=[BYTE flags]
+Handle POINTER file=[NULL]
+BYTE isEmpty
+
+Handle POINTER FUNC Empty()
+RETURN(NULL)
+
+PROC Take(Handle POINTER value)
+  isEmpty=value=NULL
+RETURN
+
+PROC Main()
+  file=NULL
+  LET Handle POINTER saved=NULL
+  isEmpty=NULL=saved
+  Take(NULL)
+  file=Empty()
+RETURN

@@ -214,6 +214,7 @@ pub(crate) fn compile_runtime_image() -> Result<RuntimeImage, Vec<Diagnostic>> {
             if_expressions: false,
             case_expressions: false,
             let_bindings: false,
+            null_values: false,
             case_statements: false,
             enum_types: false,
             native_real: true,

@@ -24,6 +24,7 @@ some ambiguous routine-address cases.
 - [ATASCII And Screen-Code Escapes](#atascii-and-screen-code-escapes)
 - [Typed Cast Expressions](#typed-cast-expressions)
 - [Explicit Address Values](#explicit-address-values)
+- [NULL Pointer Values](#null-pointer-values)
 - [Plain CARD Values Are Not Typed Pointers](#plain-card-values-are-not-typed-pointers)
 - [Function Pointers](#function-pointers)
 - [INLINE Routines](#inline-routines)
@@ -32,6 +33,50 @@ some ambiguous routine-address cases.
 - [MADS-Style Inline Assembler](#mads-style-inline-assembler)
 - [Explicit Lexical Blocks](#explicit-lexical-blocks)
 - [Compatibility Policy](#compatibility-policy)
+
+## NULL Pointer Values
+
+Modern Action! provides a case-insensitive `NULL` value for an absent pointer.
+No `USE`, constant declaration or macro is required:
+
+```action
+TYPE Handle=[BYTE flags]
+Handle POINTER file
+
+Handle POINTER FUNC Empty()
+RETURN(NULL)
+
+PROC Main()
+  file=NULL
+  LET Handle POINTER saved=NULL
+  IF file=NULL THEN
+    file=Empty()
+  FI
+RETURN
+```
+
+`NULL` takes its type from the destination of an assignment, an annotated
+`LET`, a pointer parameter, a pointer function's return type, an explicit
+pointer cast, or the other operand of `=` / `<>` / `#`. Either comparison
+operand may be `NULL`. Data pointers, record pointers, callable pointers and
+`CSTRING` views are supported. The value uses the target's pointer width and
+the same zero representation as an explicit typed pointer cast, with no
+runtime helper or storage of its own.
+
+Static pointer values use brackets: `BYTE POINTER first=[NULL]`, including
+pointer leaves in array and record initializers. A plain declaration initializer
+such as `BYTE POINTER first=NULL` would specify a storage address in Action!
+and is rejected; use `[NULL]` or a runtime assignment instead.
+
+`NULL` is not a numeric zero. Numeric assignments/arguments/returns, arithmetic,
+ordering comparisons and standalone conditions are rejected. `LET value=NULL`
+and `NULL=NULL` also lack a pointer type and are rejected. Existing restrictions
+on pointer-valued IF/CASE expressions still apply.
+
+An ordinary declaration, `CONST`, `DEFINE` or opened variant constructor named
+`NULL` retains its normal meaning; the compiler value is used only when the
+unqualified name is otherwise unbound. Compatibility profiles do not provide
+the compiler value, but existing declarations named `NULL` remain valid.
 
 ## INLINE Routines
 
