@@ -1,5 +1,8 @@
 # Native 65816 integer arithmetic helpers
 
+Historical native-v1 plan/results. The current contract and development checks
+are recorded in the [native-v2 DP migration](NATIVE_DP_PARTITION.md).
+
 Status: implemented and qualified on 2026-09-24.
 Baseline: `c99cd07b`. Target: `wdc-65816-native`.
 
@@ -12,7 +15,7 @@ images and relocatable o65 applications, including calls from tasks and IRQ
 dispatchers under the existing context bridge.
 
 Use native 16-bit operations for the arithmetic core. Preserve physical ABI
-`action65816.native.v2`, source integer promotion, explicit casts, argument
+`action65816.native.v1`, source integer promotion, explicit casts, argument
 evaluation order, stack guards and per-domain ownership. Prioritize linked code
 size, with execution cycles as the secondary measure. Record both; do not claim
 a size or speed improvement before measurement.
@@ -146,7 +149,7 @@ Allocate working state only within the existing D+$00..$3F scratch region or
 checked invocation storage. Prefer zero-frame leaf helpers with bounded loops
 and no further calls. Publish each body's exact scratch map, modes, stack peak
 and clobbers. D+$40 and above remain protected domain metadata/reservations.
-The [physical ABI](MIR65816_PHYSICAL_ABI_V2.md) already permits all 64 scratch
+The [physical ABI](https://github.com/mkur/actionc/blob/ad55b414b6859cd464800add9a463124369d9ac9/docs/MIR65816_PHYSICAL_ABI_V1.md) already permits all 64 scratch
 bytes to be clobbered by an ordinary call; allocation must enforce that boundary
 even when a particular helper touches fewer bytes.
 
@@ -188,7 +191,7 @@ near bank ends; execution must never depend on PC wrapping into another bank.
 ## Division-by-zero adapter and artifact compatibility
 
 Add a distinct raw non-returning platform entry,
-`__a816_arithmetic_fault_v2`. Proposed entry contract:
+`__a816_arithmetic_fault_v1`. Proposed entry contract:
 
 - A16 contains native reason 1 = DivisionByZero. This is an explicit native
   adapter code, not an enum ordinal or Atari Error number.

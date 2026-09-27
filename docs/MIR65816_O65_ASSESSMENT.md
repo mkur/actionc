@@ -1,5 +1,8 @@
 # o65 suitability for native 65816 applications
 
+Historical native-v1 plan/results. The current contract and development checks
+are recorded in the [native-v2 DP migration](NATIVE_DP_PARTITION.md).
+
 Assessment: 2026-09-21, actionc `f9eb285`. This is a format assessment and
 proposed qualification slice, not an implemented output format or loader.
 
@@ -148,7 +151,7 @@ it is not a guest execution or a runtime-loader qualification.
 - **Entry and ABI:** Define an entry symbol or descriptor, profile version,
   Action ABI version, and import contracts. Symbol names alone do not describe
   signatures, register widths, DBR, D, or helper clobbers. Preserve the
-  [native ABI](MIR65816_PHYSICAL_ABI_V2.md). In the inspected vlink source,
+  [native ABI](https://github.com/mkur/actionc/blob/ad55b414b6859cd464800add9a463124369d9ac9/docs/MIR65816_PHYSICAL_ABI_V1.md). In the inspected vlink source,
   header options other than filename are skipped on input: do not depend on
   custom ABI options surviving an ordinary relink. A retained data descriptor
   or metadata attached after final linking is safer.

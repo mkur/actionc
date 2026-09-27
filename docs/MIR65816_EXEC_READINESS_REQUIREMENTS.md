@@ -1,5 +1,8 @@
 # Action! 65816 compiler requirements before Exec
 
+Historical native-v1 plan/results. The current contract and development checks
+are recorded in the [native-v2 DP migration](NATIVE_DP_PARTITION.md).
+
 ## Purpose and readiness decision
 
 Exec will be a standalone, preemptively multitasking system for custom Atari
@@ -67,8 +70,8 @@ Preserve existing Action! evaluation, conversion and overflow rules.
 
 ### R2. A complete, versioned ABI that assembly can implement
 
-The selected contract is now [physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md),
-with [machine-readable layouts](abi/action65816-native-v2.json). This specifies
+The selected contract is now [physical ABI v1](https://github.com/mkur/actionc/blob/ad55b414b6859cd464800add9a463124369d9ac9/docs/MIR65816_PHYSICAL_ABI_V1.md),
+with [machine-readable layouts](https://github.com/mkur/actionc/blob/ad55b414b6859cd464800add9a463124369d9ac9/docs/abi/action65816-native-v1.json). This specifies
 the decisions below; the acceptance result supplies implementation and G2–G4 evidence.
 
 Publish the physical application binary interface (ABI): argument and result

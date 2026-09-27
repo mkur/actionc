@@ -1,5 +1,8 @@
 # Native 16-bit return implementation plan
 
+Historical native-v1 plan/results. The current contract and development checks
+are recorded in the [native-v2 DP migration](NATIVE_DP_PARTITION.md).
+
 Status: implemented on 2026-09-21. Baseline/coverage is committed in `5010b78`,
 selection in `cac8aeb`, and qualification in the commit containing the
 [results report](MIR65816_WORD_RETURNS.md). Identity measures 63 bytes / 71 VM
@@ -32,7 +35,7 @@ is 26 bytes and performs six DP byte writes and four DP byte reads.
 
 `routine` already requests A16 at every terminator. `release(extent, true)`
 preserves A through Y while restoring S, leaves X alone, and emits nothing when
-the extent is zero. The [ABI definition](abi/action65816-native-v2.json) requires
+the extent is zero. The [ABI definition](https://github.com/mkur/actionc/blob/ad55b414b6859cd464800add9a463124369d9ac9/docs/abi/action65816-native-v1.json) requires
 only A16 for a word result; [ResultLocation](../src/mir65816/abi/mod.rs) leaves
 unspecified registers/flags caller-clobbered. Clearing X is unnecessary here.
 The BYTE high A byte and the three-byte result's high X byte must still be zero.

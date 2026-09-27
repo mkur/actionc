@@ -1,5 +1,8 @@
 # Native 16-bit ADD/SUB implementation plan
 
+Historical native-v1 plan/results. The current contract and development checks
+are recorded in the [native-v2 DP migration](NATIVE_DP_PARTITION.md).
+
 Status: completed on 2026-09-21. Baseline/coverage is committed in `7907b77`,
 emission in `7803040`, and qualification in the commit containing the
 [results and validation report](MIR65816_WORD_ARITHMETIC.md). ADD and SUB each
@@ -16,7 +19,7 @@ For a verified two-byte integer ADD or SUB, load the left operand into 16-bit A,
 perform one native ADC/SBC, and write the result to its existing allocated stack
 home. Both raw and optimized compilation use this target selection.
 
-Preserve `action65816.native.v2`, image v3, the experimental o65 profile, stack
+Preserve `action65816.native.v1`, image v3, the experimental o65 profile, stack
 guards, fixed frames, temporary homes, outgoing argument layouts, and call
 barriers. No SemIR/NIR change, allocator change, persistent CPU/DP allocation,
 return-marshalling optimization, branch relaxation, or pointer-arithmetic

@@ -1,5 +1,8 @@
 # Native 65816 local accumulator forwarding implementation plan
 
+Historical native-v1 plan/results. The current contract and development checks
+are recorded in the [native-v2 DP migration](NATIVE_DP_PARTITION.md).
+
 Status: completed on 2026-09-21 against main `0e8248c`, after direct single-word
 edge copies. Baseline/probes: `5c8fe62`; checked selection: `d946c33`. See the
 [results and qualification](MIR65816_LOCAL_ACCUMULATOR_FORWARDING.md).
@@ -26,7 +29,7 @@ track values through arbitrary intervening instructions, across block entries,
 or through edge assignments. It establishes the value/width/flags proof needed
 before broadening register retention.
 
-Preserve [physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md), image v3, the
+Preserve [physical ABI v1](https://github.com/mkur/actionc/blob/ad55b414b6859cd464800add9a463124369d9ac9/docs/MIR65816_PHYSICAL_ABI_V1.md), image v3, the
 [o65 profile](MIR65816_O65_PROFILE.md), public argument/result placement, all
 stores, complete frame maps, staging reservations, stack checks, interrupt
 headroom and Exec816's compiler pin. No NIR change, home coalescing, frame

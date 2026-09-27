@@ -1,5 +1,8 @@
 # Native 65816 control-flow implementation plan: 3a–3c
 
+Historical native-v1 plan/results. The current contract and development checks
+are recorded in the [native-v2 DP migration](NATIVE_DP_PARTITION.md).
+
 Status: all three slices implemented and qualified as of 2026-09-22:
 3a (`55579fd`), 3b (`7a2f616`) and 3c (`fc43602`). See
 [results](MIR65816_CONTROL_FLOW.md). Originally proposed against main `a9e3c0b`
@@ -18,7 +21,7 @@ Implement, qualify and commit these improvements in order:
 | 3b | Omit a terminal JML to the physically following MIR block. | Emit every edge assignment first; retain block order and conditional dispatch. |
 | 3c | Replace eligible conditional dispatch with a short branch. | Ordinary and fused MIR terminators, same-routine labels, signed-byte displacement; retain the existing long fallback. |
 
-Keep the public [physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md), image v3,
+Keep the public [physical ABI v1](https://github.com/mkur/actionc/blob/ad55b414b6859cd464800add9a463124369d9ac9/docs/MIR65816_PHYSICAL_ABI_V1.md), image v3,
 [o65 profile v1](MIR65816_O65_PROFILE.md), call/return conventions, allocation,
 temporary homes/stores, copy scheduling/staging, stack guards and interrupt
 headroom unchanged. No broader accumulator forwarding, source-memory caching,

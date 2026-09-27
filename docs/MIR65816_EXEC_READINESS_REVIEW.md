@@ -1,5 +1,8 @@
 # MIR65816 Exec readiness review
 
+Historical native-v1 plan/results. The current contract and development checks
+are recorded in the [native-v2 DP migration](NATIVE_DP_PARTITION.md).
+
 Date: 2026-09-15. Compiler baseline:
 `c73818d91a2b458aa0d65fcb30d2e3ca844699ec`.
 
@@ -84,7 +87,7 @@ lowering correction now covers both cases permanently.
 
 ## Physical ABI decisions
 
-[Physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md) now fixes these decisions:
+[Physical ABI v1](https://github.com/mkur/actionc/blob/ad55b414b6859cd464800add9a463124369d9ac9/docs/MIR65816_PHYSICAL_ABI_V1.md) now fixes these decisions:
 
 - Far JSL/RTL calls, naturally aligned stack arguments, odd outgoing extents,
   even entry/body S, and caller cleanup that preserves A/X results.

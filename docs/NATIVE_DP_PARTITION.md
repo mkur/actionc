@@ -31,7 +31,13 @@ Development checks (2026-09-27):
 Tests use the runner-pinned actionc-vm revision
 `56ddc5c5de41f0e7294e87c440869550eaf53292` plus its committed status-timing patch.
 This is backend development evidence, not hosted Exec or release qualification.
-Historical qualification JSON remains unchanged.
+Historical qualification JSON remains unchanged; historical plans and reports
+retain their original native-v1 identities and link to the archived contract.
+
+The compact header revision is derived from native ABI_VERSION (2). Follow-up
+o65/CLI checks passed (13 + 7 cases), including the exact eight-byte header and
+rejection of a stale revision 1. The final documentation correction changes no
+compiler, runtime, ABI-manifest or fixture bytes; passing execution is reused.
 
 Bank-zero reservation delta: **0 fixed bytes; 0 bytes per task**. Page size,
 alignment, guards, task stride and unused reserved capacity are unchanged.

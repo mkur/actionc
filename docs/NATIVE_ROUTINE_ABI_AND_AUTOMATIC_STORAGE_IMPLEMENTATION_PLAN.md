@@ -1,5 +1,8 @@
 # Native Routine ABI and Automatic Storage Implementation Plan
 
+Historical native-v1 plan/results. The current contract and development checks
+are recorded in the [native-v2 DP migration](NATIVE_DP_PARTITION.md).
+
 Snapshot date: 2026-09-03.
 
 Status: complete. Slices 0 through 10 were implemented and verified on
@@ -223,7 +226,7 @@ Those are MIR65816 decisions. NIR exposes sizes, alignments, liveness,
 address-taking, call signatures, and storage duration, but no `S`, `D`, `DBR`,
 `PBR`, M, or X concepts.
 
-The subsequent [65816 physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md) selects the
+The subsequent [65816 physical ABI v1](https://github.com/mkur/actionc/blob/ad55b414b6859cd464800add9a463124369d9ac9/docs/MIR65816_PHYSICAL_ABI_V1.md) selects the
 native model's concrete machine convention and shared assembly layouts. The
 completed abstract frame migration in this plan does not establish that the
 current 65816 planner or emitter implements that physical contract.

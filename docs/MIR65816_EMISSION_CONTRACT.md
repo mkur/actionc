@@ -6,8 +6,9 @@ fixups for a separate relocatable output path. Its
 
 The compiler emits freestanding machine code for `wdc-65816-native` under
 [`action65816.native.v2`](MIR65816_PHYSICAL_ABI_V2.md).
-[Initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md) covers the subset below
-on the VM's independent 24-bit bus, including context switching and interrupts.
+[Initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md) records the original
+native-v1 subset on the VM's independent 24-bit bus. Current native-v2 checks
+are recorded in the [DP migration](NATIVE_DP_PARTITION.md).
 
 Native integer MUL/DIV/MOD support and its qualification contract are recorded
 in the [arithmetic helper plan](MIR65816_ARITHMETIC_HELPERS_PLAN.md).
@@ -103,11 +104,11 @@ regions, BSS and ABI/maps through `RelocatedImage` accessors. It does not write
 guest memory, allocate task contexts or implement an Exec816 application loader.
 See the [profile](MIR65816_O65_PROFILE.md) for the admitted subset and rejections.
 
-The [o65 qualification](abi/action65816-o65-qualification.json) executes raw and
-optimized files at two independent text/data/BSS placements, including imports,
+The historical native-v1 [o65 qualification](abi/action65816-o65-qualification.json)
+executes raw and optimized files at two independent text/data/BSS placements, including imports,
 multi-bank code, stack failures and preempted tasks. The complete 44-test native
-suite passes in debug and release. JSON transport v3, physical ABI v2 and
-generated stack checks are unchanged.
+suite passed in debug and release. That change retained JSON transport v3,
+physical ABI v1 and generated stack checks. It does not qualify native-v2.
 
 ## Instruction state boundary
 
@@ -1011,7 +1012,7 @@ not a whole-task bound, particularly with recursion. The earlier abstract MIR
 plan remains explicitly unallocated.
 
 The loader/platform must establish native mode, M=X=0, decimal clear, DBR=0,
-an aligned per-domain direct page, even entry S and valid v1 arguments/return
+an aligned per-domain direct page, even entry S and valid native arguments/return
 bytes. It must reserve task headroom `26 + nmi_extra_stack` or IRQ headroom
 `13 + nmi_extra_stack` when initializing the domain's floor. Emitted checks
 preserve I. Failure transfers by JML to the configured nonreturning

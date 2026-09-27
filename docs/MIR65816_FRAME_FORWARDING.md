@@ -1,5 +1,8 @@
 # Direct native frame store/load forwarding
 
+Historical native-v1 plan/results. The current contract and development checks
+are recorded in the [native-v2 DP migration](NATIVE_DP_PARTITION.md).
+
 The emitter forwards a stored word in A16 into the next load's retained temporary
 capture. Selection is independent of frontend optimization mode. This implements
 the first recommendation from the [movement inventory](MIR65816_MOVEMENT_INVENTORY.md).
@@ -33,7 +36,7 @@ STA $0C,S
 
 Both stores and all homes remain. The rule does not allocate registers across
 calls or joins, change DP use, move memory effects or remove stack guards.
-The ABI remains `action65816.native.v2`, image version 3 and o65 profile version 1.
+The ABI remains `action65816.native.v1`, image version 3 and o65 profile version 1.
 
 ## Qualification
 

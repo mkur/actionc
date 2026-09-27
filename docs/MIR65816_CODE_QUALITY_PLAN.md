@@ -1,5 +1,8 @@
 # Native 65816 code-quality improvement plan
 
+Historical native-v1 plan/results. The current contract and development checks
+are recorded in the [native-v2 DP migration](NATIVE_DP_PARTITION.md).
+
 Status: refreshed after the
 [emission simplification](MIR65816_EMISSION_SIMPLIFICATION.md),
 preserving bounded X loop increments `1ce9624` and their output. Native word selection, copy
@@ -447,7 +450,7 @@ For each slice:
    Update the relevant contract, save qualification evidence and commit the
    completed slice while preserving unrelated local changes.
 
-Preserve [physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md), image v3, the
+Preserve [physical ABI v1](https://github.com/mkur/actionc/blob/ad55b414b6859cd464800add9a463124369d9ac9/docs/MIR65816_PHYSICAL_ABI_V1.md), image v3, the
 [o65 profile](MIR65816_O65_PROFILE.md), public argument/result placement and stack
 guards. Frame sizes may shrink only with verified accounting. No slice reduces
 the platform's interrupt headroom or changes Exec816's compiler pin; adopting

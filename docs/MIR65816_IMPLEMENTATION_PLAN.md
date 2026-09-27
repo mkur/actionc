@@ -1,7 +1,10 @@
 # MIR65816 implementation slices
 
-The [physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md) and its
-[layout manifest](abi/action65816-native-v2.json) define the machine contract.
+Historical native-v1 plan/results. The current contract and development checks
+are recorded in the [native-v2 DP migration](NATIVE_DP_PARTITION.md).
+
+The [physical ABI v1](https://github.com/mkur/actionc/blob/ad55b414b6859cd464800add9a463124369d9ac9/docs/MIR65816_PHYSICAL_ABI_V1.md) and its
+[layout manifest](https://github.com/mkur/actionc/blob/ad55b414b6859cd464800add9a463124369d9ac9/docs/abi/action65816-native-v1.json) define the machine contract.
 The [Exec readiness requirements](MIR65816_EXEC_READINESS_REQUIREMENTS.md)
 define acceptance. Completing a planning slice does not qualify emitted code.
 
