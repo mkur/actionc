@@ -40,12 +40,13 @@ This first implementation explicitly rejects CSTRING on other targets.
 
 ## Library
 
-`USE CSTRING AS STR` imports the external interface. A host supplies the seven
+`USE CSTRING AS STR` imports the external interface. A host supplies the eight
 versioned providers in [the contract](../embedded/modules/cstring/contract.json).
 Only referenced functions become imports. `USE CSTRING.IMPL AS STR` explicitly
 includes the same implementation for standalone programs; ordinary module
-inclusion currently includes all seven functions. No allocator, OS services,
-mutable globals, initialization, errno or cleanup are involved. Calls use the
+inclusion currently includes all eight functions. No allocator, OS services,
+global working storage, initialization, errno or cleanup are involved. Decimal
+conversion shares a 40-byte table of powers of ten, which it never modifies. Calls use the
 normal checked native ABI and the caller's stack.
 
 | Function | Contract |
@@ -57,6 +58,7 @@ normal checked native ABI and the caller's stack.
 | `CSTRING strchr(CSTRING text, BYTE value)` | First match or null; searching zero finds the terminator. |
 | `SIZE strlcpy(BYTE POINTER destination, CSTRING source, SIZE capacity)` | Copy at most capacity−1 bytes and terminate if capacity > 0; return full source length. |
 | `SIZE strlcat(BYTE POINTER destination, CSTRING source, SIZE capacity)` | Append after the bounded destination scan; return bounded initial length plus full source length. |
+| `SIZE u32toa(LONGCARD value, BYTE POINTER destination, SIZE capacity)` | Convert unsigned 32-bit value to decimal; write at most capacity−1 digits and terminate if capacity > 0; return full digit count. |
 
 Capacity includes the terminator. A copy/append result `>= capacity` means the
 complete terminated result did not fit. An unterminated destination within the
@@ -66,6 +68,15 @@ or scan bounds perform no input reads. Copy/append do not zero unused padding.
 Source and destination must not overlap. Other pointers must identify live,
 accessible storage and CSTRING sources must have a reachable terminator.
 Counts and their sums must fit SIZE; address wrap is unsupported.
+
+`u32toa` is an Action library extension, not a standard C function. It emits
+`0` for zero and otherwise no leading zeros, covering `0` through `4294967295`.
+Capacity includes NUL; 11 bytes always suffice. Like `strlcpy`, its result is
+the required length excluding NUL, even on truncation: `result >= capacity`
+means the complete terminated result did not fit. Zero capacity permits a null
+destination and makes no destination accesses. Unused padding stays unchanged.
+Only unsigned decimal conversion is provided; signed, radix and general format
+strings are outside this small API. Repeated subtraction avoids division helpers.
 
 The [native example](../examples/native65816/cstring.act) appends a filename
 and checks capacity. The interface generator's `--check` mode checks source

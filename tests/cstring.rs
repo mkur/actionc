@@ -74,6 +74,7 @@ PROC Main()
  text=STR.strchr(text,0)
  result=STR.strlcpy(buffer,text,8)
  result=STR.strlcat(buffer,text,8)
+ result=STR.u32toa($ffffffff,buffer,8)
 RETURN
 ENDMODULE"#;
 
@@ -82,7 +83,7 @@ fn external_interface_matches_single_implementation_and_only_used_imports() {
     let externs=Source::new(ALL).prepare(true).unwrap();
     let implementation=Source::new(&ALL.replace("USE CSTRING AS STR","USE CSTRING.IMPL AS STR")).prepare(true).unwrap();
     let signatures:Vec<_>=externs.mir.routines.iter().filter(|r|r.entry.external).collect();
-    assert_eq!(signatures.len(),7);
+    assert_eq!(signatures.len(),8);
     let contract:serde_json::Value=serde_json::from_str(include_str!("../embedded/modules/cstring/contract.json")).unwrap();
     for declaration in signatures {
         let name=declaration.name.rsplit('.').next().unwrap().to_ascii_uppercase();

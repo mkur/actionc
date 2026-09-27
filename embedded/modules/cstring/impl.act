@@ -1,5 +1,8 @@
-; Reentrant byte-string utilities. Bounds precede loads; no allocator or globals.
+; Reentrant byte-string utilities. No allocator or global working storage.
 MODULE CSTRING.IMPL
+
+; Shared decimal places, read only by the implementation.
+LONGCARD ARRAY powers=[1000000000 100000000 10000000 1000000 100000 10000 1000 100 10 1]
 
 PUBLIC SIZE FUNC strlen(SYS.CSTRING text)
   SIZE length
@@ -97,4 +100,41 @@ PUBLIC SIZE FUNC strlcat(BYTE POINTER destination SYS.CSTRING source SIZE capaci
     ELSE destination(initial+room)=0 FI
   FI
 RETURN(initial+length)
+
+PUBLIC SIZE FUNC u32toa(LONGCARD value BYTE POINTER destination SIZE capacity)
+  SIZE length,room
+  CARD index
+  BYTE digit,started
+
+  length=0
+  room=0
+  started=0
+  IF capacity>0 THEN
+    room=capacity-1
+  FI
+
+  FOR index=0 TO 9 DO
+    digit=0
+    WHILE value>=powers(index) DO
+      value==-powers(index)
+      digit==+1
+    OD
+    IF digit<>0 OR started<>0 OR index=9 THEN
+      IF length<room THEN
+        destination(length)=digit+'0
+      FI
+      length==+1
+      started=1
+    FI
+  OD
+
+  IF capacity>0 THEN
+    IF length<room THEN
+      destination(length)=0
+    ELSE
+      destination(room)=0
+    FI
+  FI
+
+RETURN(length)
 ENDMODULE

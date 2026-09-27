@@ -145,3 +145,54 @@ ENDMODULE"#;
         }
     }
 }
+
+#[test]
+fn unsigned_decimal_conversion_handles_boundaries_and_bounded_bank_crossing_output() {
+    let source=r#"MODULE SAMPLE
+USE CSTRING.IMPL AS STR
+LONGCARD value
+SIZE capacity,length
+PROC Main()
+  IF capacity=0 THEN
+    length=STR.u32toa(value,BYTE POINTER(0),0)
+  ELSE
+    length=STR.u32toa(value,BYTE POINTER($32FFFE),capacity)
+  FI
+RETURN
+ENDMODULE"#;
+    let mut values=vec![0,1,u32::MAX,0x7fffffff,0x80000000];
+    for power in 1..=9 {
+        let value=10u32.pow(power);
+        values.extend([value-1,value,value+1]);
+    }
+    for optimize in [false,true] {
+        let image=compile(source,optimize);
+        for value in &values {
+            let text=value.to_string();
+            let mut capacities=vec![0,1,text.len(),text.len()+1,12];
+            capacities.sort_unstable();
+            capacities.dedup();
+            for capacity in capacities {
+                for mask in [0,4] {
+                    let mut h=Harness::new(&image,&caller(image.entry),mask);
+                    let at=support::context::symbol(&image,"value") as usize;
+                    h.bus.ram[at..at+4].copy_from_slice(&value.to_le_bytes());
+                    let at=support::context::symbol(&image,"capacity") as usize;
+                    h.bus.ram[at..at+3].copy_from_slice(&(capacity as u32).to_le_bytes()[..3]);
+                    h.bus.map(0x32fffd,&[0xa5;14],true);
+                    h.bus.watched.extend(0x32fffd..0x33000b);
+                    h.run(); h.guards(mask);
+                    assert_eq!(h.global(&image,"length",3),text.len() as u32);
+                    let mut expected=[0xa5;14];
+                    if capacity>0 {
+                        let copied=text.len().min(capacity-1);
+                        expected[1..1+copied].copy_from_slice(&text.as_bytes()[..copied]);
+                        expected[1+copied]=0;
+                    }
+                    assert_eq!(&h.bus.ram[0x32fffd..0x33000b],&expected,"value={value}, capacity={capacity}");
+                    assert!(h.bus.trace.iter().all(|(_,at,_)| (0x32fffe..0x32fffe+capacity as u32).contains(at)));
+                }
+            }
+        }
+    }
+}

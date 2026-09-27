@@ -116,6 +116,25 @@
       ],
       "symbol": "cstring_strlcat_v1",
       "signature": 3599940068
+    },
+    "u32toa": {
+      "result": "SIZE",
+      "arguments": [
+        [
+          "LONGCARD",
+          "value"
+        ],
+        [
+          "BYTE POINTER",
+          "destination"
+        ],
+        [
+          "SIZE",
+          "capacity"
+        ]
+      ],
+      "symbol": "cstring_u32toa_v1",
+      "signature": 876257536
     }
   }
 }
