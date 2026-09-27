@@ -1,0 +1,25 @@
+LONGCARD FUNC CRC32(BYTE POINTER data CARD length)
+  LONGCARD crc
+  BYTE extract,j
+  CARD i
+  crc=0
+  i=0
+  WHILE i<length DO
+    extract=data^
+    crc=crc XOR (LONGCARD(extract) LSH 24)
+    j=8
+    WHILE j#0 DO
+      IF (crc AND LONGCARD($80000000))#0 THEN
+        crc=crc LSH 1
+        crc=crc XOR LONGCARD($04C11DB7)
+      ELSE
+        crc=crc LSH 1
+      FI
+      j==-1
+    OD
+    data==+1
+    i==+1
+  OD
+  crc=crc XOR LONGCARD($FFFFFFFF)
+RETURN(crc)
+PROC Main() RETURN

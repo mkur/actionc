@@ -112,6 +112,7 @@ pub(super) fn resolve_interfaces(
             &selected,
             RESIDENT_MODULE,
             RESIDENT_LINK_MODULE,
+            &crate::runtime_source::routine_declaration_names(&selected_runtime.image.semir),
         )?;
         super::standalone::append_runtime_helper_requirements(
             program,

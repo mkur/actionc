@@ -53,7 +53,7 @@ fn frozen_corpus_sites_match_typed_operations_and_unchanged_baseline_images() {
             .find(|e| e["case"] == a["case"] && e["mode"] == a["mode"])
             .unwrap();
         assert_eq!(
-            index.len(),
+            index.len() + index.shared_return_sites,
             e["reload_pcs"].as_array().unwrap().len(),
             "{}/{}",
             a["case"],

@@ -147,24 +147,49 @@ return-stack phases; the indirect RTL is a call, not a routine return. Unannotat
 probe calls retain all register/flag inputs and unknown memory effects.
 
 Call construction checks the complete outgoing and transfer reservation before
-changing S, clears only alignment/tail padding, then defines each argument byte
-once. The verified stack argument homes,
+changing S, then defines every argument byte and zeroes alignment/tail padding.
+Direct calls with exact-width captured/numeric one-to-four-byte operands and
+exact-width symbolic byte-fixup operands can construct the complete area
+downward using native PHA chunks. Symbolic bytes retain their target, addend
+and byte selector; adjacent symbolic bytes are never combined into a word. A complete-call width plan
+includes padding, post-guard width permission and final A16 restoration; it must
+beat reservation/stores in encoded bytes. Every source byte is checked before
+emission at the conservative full outgoing delta, which also bounds each
+smaller incremental delta. Sources remain above the fresh outgoing area.
+Other calls keep full reservation followed by stores. Source evaluation occurs
+before either private construction strategy; the completed ABI layout is identical.
+
+Selected `ArgumentPush` encodes PHA with its ordinary width-sensitive physical
+effects. It increases outgoing depth without entering the indirect-transfer
+push phase. Replay and selected-CFG validation check that phase separately;
+native direct calls retain their checked outgoing extent and require exactly
+that depth at transfer. Home effects use the actual S before each instruction,
+including the descending writes of word PHA. Partial construction remains
+interruptible with the existing stack/DP context contract.
+The verified stack argument homes,
 not their aggregate extent, identify payload: holes within that extent remain
-zero. No-argument calls retain their one-byte zero area. The A8 padding setup,
-source order and extension, indirect target capture, transfer and cleanup are
-unchanged. All bytes are initialized before transfer.
+zero and are written exactly once. No-argument calls retain their one-byte zero
+area. Nonempty padding is initialized in A8; an unpadded reservation omits that
+setup. The first payload width is still stated explicitly after the guard join.
+Source order and extension, indirect target capture, transfer and cleanup
+are unchanged. All bytes are initialized before transfer.
 Caller home accesses retain the outgoing S delta and cannot overlap the fresh
 outgoing area. Context restoration may resume partially constructed arguments;
 no new helper, persistent scratch or interrupt-masking assumption is introduced.
 
 Call payload selection preflights captured temp/parameter homes and numeric
 constants against their declared widths, the complete outgoing extent and the
-prospective S delta. Native copies use A16 pairs and an A8 tail for three-byte
-values; they never read a fourth pointer byte or overlap outgoing stores.
+prospective S delta. Native copies use A16 pairs. Complete three-byte private
+homes and numeric constants may use two words at offsets zero and one, remaining
+in A16. Only the private middle byte repeats; the destination remains within its
+own argument slot, disjoint from all source homes, other arguments and padding.
+No fourth pointer byte is accessed. The word-plus-A8-tail form remains available
+when smaller. All other payload bytes retain exactly one write.
 Symbolic and mixed-width operands keep bytewise fixups and extension behavior.
 A bounded two-state width choice minimizes encoded argument bytes, including
-mode changes and the next direct-transfer or indirect-target preparation width.
-It preserves declaration order and prefers the existing byte path on a tie.
+mode changes, the initial mode permission and the next direct-transfer or indirect-
+target preparation width. It preserves declaration order and prefers the byte
+path on a tie, then the non-overlapping native path over overlapping words.
 Source-memory reads remain separate MIR operations and keep their ordering.
 
 Result homes are checked against the declared ABI lanes before any call
@@ -172,9 +197,25 @@ emission. After result-preserving caller cleanup, BYTE capture stores A's low
 byte, word capture stores A16, three-byte capture stores A16 plus X's low byte,
 and four-byte capture stores A16/X16. Captures write only their owned bytes,
 finish in A16 and introduce no DP staging or forwarding permission. Discarded
-results retain declared call effects but need no capture stores. Calls remain
+results retain declared call effects but need no capture stores or A preservation
+during outgoing-area cleanup. Used results retain the Y-based preservation of
+the complete A/X result. Calls remain
 barriers and all guards, allocations and ABI stack costs are unchanged. See the
 [native call measurements](benchmarks/65816-native-calls/README.md).
+
+A direct native call immediately followed by Return of its sole-use result
+temporary may keep matching native ABI result lanes through outgoing cleanup
+and frame teardown: BYTE/word in A, or 24/32-bit values in A/X. Neither release
+uses X as scratch. BYTE's high A byte and a pointer's high X byte retain the
+zero extension required of the callee. Typed occurrence counting includes all blocks,
+address operands and edge/terminator uses. Other consumers, indirect calls,
+intervening operations and differing result conventions retain capture/reload.
+The complete call preflight still checks the reserved result home and native
+contract before emission. Allocation remains unchanged; the omitted capture
+publishes no home definition. Call and Return retain separate source spans,
+and typed call/return effects and replay still describe the actual instructions.
+This is ordinary JSL/cleanup/RTL using the declared callee ABI.
+See the [call-result measurements](benchmarks/65816-call-results/README.md).
 
 The state owns width-qualified immutable A/X/Y values, N/Z provenance, C/V,
 execution modes and environment, exact private stack-home generations, stack
@@ -450,21 +491,29 @@ access order may change; source-language memory access order remains unchanged.
 Nonempty edges containing only captured three-byte Temp/Param arguments may use
 overlapping A16 word copies between complete private stack/DP homes. Destinations
 must be disjoint, and source/destination overlaps must be exact identities.
-After removing identities, a stable acyclic schedule consumes each complete
-source before another move overwrites it. Both word pieces of a pointer move
-finish together; they are never scheduled independently. Authoritative parameter
+After removing identities, a stable schedule consumes each complete source
+before another move overwrites it. When only cycles remain, it captures one
+destination's old pointer in a private three-byte staging slot and redirects
+its pending uses there. The resulting chain consumes that capture before the
+slot is reused for another cycle. Both word pieces of a pointer move finish
+together; they are never scheduled independently. Authoritative parameter
 homes, transient S movement, the target and every accessed byte pass preflight
-before emission. Cycles, partial overlaps, constants and mixed-width edges retain
+before emission. Partial overlaps, constants and mixed-width edges retain
 their existing fallback.
 An edge with any nonidentity moves reserves one invocation-owned two-byte staging
-word to save the original full A. After the scheduled copies, it reloads that
+word to save the original full A. Cyclic edges additionally reserve one
+three-byte capture slot, shared by all cycles on that edge. Both staging slots
+belong to the invocation's fixed frame, so interruption and reentrant calls
+cannot overwrite them. After the scheduled copies, it reloads the A-save
 word, loads the original final assignment's destination bank byte in A8, and
 restores A16. This preserves the bytewise fallback's full A, including hidden B,
 and final N/Z even when moves were reordered or the final assignment is an
 identity. All-identity edges reserve no staging and omit the copies, but retain
 the final bank-byte load and width repair. C/V, X/Y, S, D, DBR and I are preserved. Allocation, final verification
 and emission share the same checked copy/staging plan, including rejection of
-an A-save word overlapping any live pointer home. No fourth pointer byte,
+either staging slot overlapping a live pointer home or the other slot. Compact
+staging is reflected in the frame extent, incoming argument displacements,
+stack peak and guard amounts. No fourth pointer byte,
 new DP reservation, external access, push or call is introduced.
 
 Empty edges validate the target and arity and restore A16 only when local mode
@@ -525,6 +574,63 @@ It preserves the current allocation, call barriers, guards, and ABI. A volatile
 load captured in a private temp may feed word arithmetic; the original memory
 access itself is neither combined nor widened.
 
+Four-byte LONGCARD/LONGINT ADD/SUB may use two A16 ADC/SBC operations,
+low word first, writing each result word directly to its existing stack home.
+The first operation establishes carry/borrow with CLC/SEC; its store and the
+following high-word load preserve carry into the second operation. Arithmetic
+is modulo 2^32 for both types and relies on the decimal-clear ABI. The final
+A and N/Z/V describe the high-word operation, not a complete long result;
+no whole-temp accumulator identity or persistent arithmetic flags are recorded.
+
+Eligible sources are complete four-byte stack temps/parameters and numeric
+U8/U16/U24/U32 constants. Narrow constants zero-extend; signed widening of
+captured values remains an explicit Cast. Preflight checks both words of every
+source and destination, including the fourth byte after transient S movement,
+before changing code or mode knowledge. Each source home must be identical to
+or disjoint from the destination; partial overlaps and other legal unsupported
+forms retain the bytewise fallback. Malformed homes remain errors even when
+another operand is unsupported. Mutable parameters use their authoritative
+frame homes. No DP allocation, scratch, X/Y use, pushes, helper call, frame/ABI
+change or additional external access is introduced. Original volatile and
+aliased captures remain separate and unchanged. Guard policy is unaffected.
+
+Two- and four-byte AND/OR/XOR use the same complete-operand preflight as native
+ADD/SUB, with one A16 operation and result store per word. Two-byte operands may
+also use already-admitted scalar DP homes; this does not expand DP allocation
+eligibility. Four-byte operands retain the stack/immediate restriction and
+whole-identity-or-disjoint geometry. Numeric widening, unsupported forms and
+malformed-home handling are unchanged. Signedness does not change the bitwise
+representation or result. No DP staging, carry setup, helper or extra source
+access is needed.
+
+Typed stack-relative AND/EOR and word-immediate ORA participate in tracked
+selection, effects and replay. Stack operand encoding remains one byte while
+its memory extent follows M. Logical operations read/write A and write N/Z,
+preserving C/V, X/Y and environment state. A four-byte result leaves only its
+high word in A/N/Z and never establishes a whole-long accumulator identity.
+External/volatile captures remain complete and in source order. See the
+[pointer/bitwise measurements](benchmarks/65816-pointer-bitwise/README.md).
+
+Nonvolatile two-, three- and four-byte constant stores use A16 word pairs,
+with an exact A8 tail for three-byte destinations. Numeric constants, numeric
+addresses and NULL are eligible; source-width masking preserves bytewise
+truncation and zero extension. Signed widening remains an explicit Cast.
+Address preparation is unchanged. Selection then checks the complete resolved
+destination extent before emitting any constant-store prefix. Each destination
+byte is written once, in ascending order; no destination read, overlapping
+word, fourth pointer byte, scratch allocation or additional helper is introduced.
+
+An immediate is loaded once when both 32-bit halves match. The three-byte tail
+also reuses A's low byte when it matches the bank byte. Reuse is local to the
+operation: STA and destination LDY preserve A, and no ambient accumulator fact
+is consumed or published as a value identity. Three-byte stack/DP stores starting
+in A8 retain the byte path when a distinct bank byte would make the native
+sequence larger. Volatile stores retain their original byte instructions;
+symbolic source addresses retain their byte fixups. Symbolic destinations still
+use ordinary long-address relocations. All mode requests, loads and stores use
+the tracked emitter and its existing replay checks. No ABI, allocation, guard
+policy or external memory-access contract changes.
+
 Two-byte comparisons may use one native CMP for equality/inequality (signed or
 unsigned) and unsigned ordering, using the same checked word sources. The result
 must have an exact one-byte stack home. Materialized results are stored as 0 or 1
@@ -581,16 +687,42 @@ no sign bias. U32 zero on either side is normalized to the right; both word
 loads use Z directly without CMP-zero. Both halves are checked independently,
 including byte 3 and transient S movement. Exact four-byte stack temps and
 authoritative parameter homes, plus U32 constants, are eligible. Narrower
-constants/homes, direct symbolic addresses, DP operands and four-byte ordering
-retain their previous paths. Preflight checks both operands and the one-byte
+constants/homes, direct symbolic addresses and DP operands retain their previous
+paths. Preflight checks both operands and the one-byte
 destination before any emission or state change. No half-word temp identity or
 persistent forwarding witness is introduced. The existing operation barrier,
 source-memory accesses, allocation and guards remain intact. A materialized
 result uses the existing two canonical BYTE outcomes; source reads still capture
 all four bytes before private-home comparisons can short-circuit.
 
+Signed four-byte `< 0`/`>= 0` and their reversed forms may inspect only the top
+byte of a complete captured input. Both four-byte operands and the one-byte
+result home are preflighted first. Materialization compares that byte with $80,
+loads zero without changing carry, and uses ADC-zero to obtain canonical 0/1;
+nonnegative tests invert that bit. A sole-use branch consumes the top byte's N
+through BMI/BPL, restoring A16 without changing N before edge dispatch.
+The full external capture remains, including volatile reads and reads around
+calls. A retained constant-widening temp uses general ordering instead of this
+sign-only specialization.
+See the [ordering plan](MIR65816_LONG_ORDERING_PLAN.md).
+
+Unsigned four-byte ordering compares captured high words in A16, then low words
+only if the high words match. `>` and `<=` swap the private operands before
+selection; the resulting C drives BCC/BCS for both materialization and fused
+branches. Both complete operands and the BYTE result home use the same preflight
+as sign tests. No external capture is shortened or reordered, and no scratch,
+frame or DP allocation is added.
+
+Other signed four-byte ordering subtracts the low words with SEC/SBC, then
+loads the left high word without changing carry and subtracts the right high
+word with the propagated borrow. BVC/EOR-$8000 corrects the final high-word N
+for signed overflow. BMI/BPL makes the normalized `<`/`>=` decision; `>`/`<=`
+swap captured operands first. This includes signed `<= 0` and `> 0`, which need
+both halves. The same full preflight, canonical BYTE outcomes and branch-use
+proof apply. No subtraction result is stored and no extra scratch is reserved.
+
 A final eligible byte, word, pointer or long Compare followed immediately by
-Branch may consume C/Z flags (or corrected N for signed words) directly when a
+Branch may consume C/Z flags (or corrected N for signed words/longs) directly when a
 routine-wide use proof establishes exactly one use: that Branch condition.
 Other block conditions, edge arguments, returns and all
 operation inputs (including addresses and indirect calls) disqualify fusion.
@@ -692,9 +824,11 @@ existing private overlapping-word transfer when source and destination are
 identical or disjoint. Both complete homes are checked before emission,
 including the current stack delta and the owned DP extent. The selector keeps
 the semantic cast and allocated result, retains the operation barrier, and
-selects A16 without an intervening A8 excursion. Partial overlaps, constants,
-symbolic values and width changes retain their prior cast paths. No external
-access is repeated, no fourth byte is touched, and allocation is unchanged.
+selects A16 without an intervening A8 excursion. When both checked stack homes
+are identical, the cast emits no transfer or mode change; tracked state reflects
+only the retained operation barrier. Partial overlaps, constants, symbolic
+values and width changes retain their prior cast paths. No external access is
+repeated and no fourth byte is touched.
 
 `AddressOf` with a captured indirect base, no index and displacement zero uses
 the same checked private transfer when its three-byte result home is disjoint
@@ -772,8 +906,10 @@ locations, and no bank-zero reservation is added.
 Other routines use invocation-owned stack temporaries with CFG-aware lifetime
 reuse. Backward fixed-point liveness includes indirect address bases, indexes,
 call targets/arguments/results, returns, edge arguments and block parameters.
-All inputs, outputs and values live across an operation interfere for its entire
-instruction sequence, including dead outputs that selection still writes. Block
+Inputs, outputs and values live across an operation interfere for its entire
+instruction sequence, including dead outputs that selection still writes, with
+one stack-only exception for a dying three-byte identity-cast input and result.
+Block
 parameters, even unused ones, interfere with each other and successor live-ins.
 Required parallel-edge staging slots remain separate from all temporary homes
 and frame objects. Empty/direct word edges contribute no staging; selective word
@@ -798,6 +934,19 @@ cycles are accepted. Profitability includes final A/N/Z repair. Rejected trials
 leave the original allocation intact. Frame compaction and relaxed arithmetic
 interference are separate work. See the
 [coalescing plan](MIR65816_EDGE_COALESCING_PLAN.md).
+
+A subsequent bounded pointer-cast affinity pass can place a dying captured
+three-byte cast input and its bit-preserving result in the same stack home.
+The liveness exception omits only that operation's pair when the input is absent
+from the live-after set; interference established elsewhere is never removed.
+The stack verifier independently checks every third-party interference and
+requires cast homes to be completely identical or disjoint. Partial overlaps
+remain illegal. All edge argument and block-parameter locations remain fixed.
+Trials must increase the total number of identity transfers and retain exact
+frame, stack-peak and staging accounting. Source captures, volatile accesses,
+calls and DP reservations remain unchanged. No frame compaction or DP cast
+coalescing is included. See the
+[pointer/bitwise measurements](benchmarks/65816-pointer-bitwise/README.md).
 
 A bounded scalar loop may keep one unsigned word header parameter mirrored in
 X16. An immutable typed plan requires a call-free scalar-DP routine, one simple
@@ -845,8 +994,9 @@ outgoing space. No displacement is truncated.
 
 At entry, emitted code checks the frame reservation against the current
 domain's stack floor and ceiling. Before a call it checks `O + 3` (direct) or `O + 6` (indirect), then
-reserves O, zeroes only padding and writes each argument payload byte once. There are no
-additional temporary pushes beyond the declared transfer in emitted operations.
+constructs O bytes using either reservation/stores or checked argument pushes
+under the contract above. Argument pushes replace the outgoing reservation;
+they add no temporary stack peak beyond O and the declared transfer.
 The source memory helpers use ordinary checked calls. Indirect calls capture the callable before PHK/PER and the
 stack-synthesized RTL transfer; decrementing the target PC does not borrow
 from its bank. Same-bank PER continuation/range checks run after placement.
@@ -998,3 +1148,213 @@ liveness, using central effects and native result boundaries. Queries validate
 site ownership and reachability. Environment operations, X reservations and
 forward witnesses remain separate protected obligations; deadness does not
 authorize their removal. See [machine liveness](MIR65816_MACHINE_LIVENESS.md).
+
+### Symbolic address materialization
+
+Direct symbolic AddressOf writes three independently relocated immediate bytes
+to its checked stack home without staging through pointer scratch. It retains
+the stable data target and complete addend on each byte fixup, and checks the
+entire destination before emission. Direct symbolic places preserve their
+existing checked-addend behavior. Indirect symbolic values currently admit
+only zero displacement; nonzero modular arithmetic needs an extent proof.
+Captured pointers, unsupported homes and indexed forms retain their existing
+selection. No pointed-to byte is read, and no fourth destination byte is touched.
+See the [address-selection plan](MIR65816_ADDRESS_SELECTION_PLAN.md).
+
+Before selection, a per-routine plan follows same-block AddressOf chains to
+allocated data identities. Constant stride-one indices and displacements fold
+only to interior object offsets, where every valid placement is nonwrapping.
+One-past, alias/absolute geometry, loads, calls and cross-block provenance keep
+their established paths. The plan counts every MIR operand occurrence, including
+terminators and edge arguments, before omitting a pure producer whose consumers
+all use symbolic replacements. Prepared MIR and frame allocation stay intact;
+omitted operations retain empty source spans and normal replay bookkeeping.
+
+The same plan selects A8 long loads/stores for ordinary BYTE accesses at proven
+interior symbol offsets. Each replacement retains exactly one target-byte access
+and the original value capture/order. Store sources are byte immediates or
+complete captured stack homes. Volatile accesses keep their existing selection;
+contents are never inferred from an initializer or reused across calls.
+
+Ordinary stride-one BYTE loads/stores with zero residual displacement may use a
+captured unsigned 16-bit index in Y16. Eligibility reads the MIR temp's integer
+type, not just its width. The base is a complete stack-held pointer or proven
+symbolic address, materialized in existing PTR scratch before loading the
+complete index in A16 and transferring it to Y. The single A8 long-indirect
+indexed access preserves 24-bit carry/wrap. Capturing a load result does not
+alter Y. Stores admit only an immediate BYTE or a complete captured stack byte;
+loading that source after TAY cannot change Y or the prepared PTR. The original
+source captures retain their order and the target receives exactly one write.
+Signed/wide/scaled indices, volatile accesses and unsupported homes retain the
+fallback. No allocator whitelist or physical ABI changes are implied.
+
+Bounded three-byte source bindings are defined in
+[MIR65816_POINTER_FORWARDING.md](MIR65816_POINTER_FORWARDING.md). They omit only
+proved private captures, retain allocated writable homes, and substitute checked
+authoritative source reads at explicit consumer sites. They do not manufacture
+home definitions or reuse the incoming/frame word A/N/Z witness.
+
+### Bounded BYTE indexes
+
+The address selector may zero-extend a verified unsigned BYTE index into A16
+and use Y for a stride-one BYTE load/store. The index is read at its exact
+one-byte width; hidden B is cleared explicitly. The complete runtime offset
+must fit 16 bits for all 256 index values. The constant displacement is added
+to Y, while the captured or checked symbolic base retains its full 24 bits.
+Bank carry and bus wrap occur through native long-indirect indexed addressing.
+
+Index and payload homes are preflighted before emission. Nonvolatile accesses
+retain their external access count/order, and unsupported widths, signed indexes,
+partial homes or offset overflow retain generic lowering. Captured pointer
+bases use the current source resolver, including bounded pointer bindings;
+they never silently reload an omitted capture's former home.
+
+Power-of-two strides and 1–4-byte payloads use the same proof, extended to
+`max_index * stride + displacement + payload_bytes - 1 <= 65535`. BYTE scaling
+uses A16 accumulator shifts; payloads use the existing nonvolatile transfer
+policy: full words followed by an exact odd byte, with ascending `[pointer],Y`
+accesses and checked Y increments. No fourth byte of a three-byte payload is
+touched. Narrow literal stores retain zero extension, including NULL.
+The complete payload stays within its verified home and store preparation
+cannot overwrite pointer/index scratch. CARD indexes retain only their existing
+stride-one BYTE case because the complete wider offset range does not fit Y.
+
+Typed ASL A reads/writes the active accumulator width, writes N/Z/C and preserves
+V; typed INY reads the active index width, writes Y and N/Z, and preserves A/X,
+C/V and the native environment. Encoding, tracked values, physical effects and
+fresh selected replay share these forms. Neither requires a raw opcode path.
+
+Other positive constant strides use A16 binary shift/add, retaining the original
+zero-extended index in the existing INDEX scratch word. Each prefix coefficient
+is at most the admitted stride, so the complete offset bound also proves every
+intermediate. Each ADC establishes carry independently. No multiplication helper,
+new reservation, alias permission or live value across a call is introduced.
+A conservative cost comparison includes index extension, displacement, mode and
+base-preparation differences; candidates that are not smaller keep generic
+lowering. Zero strides and offsets exceeding the complete Y range are refused.
+
+### Native unsigned integer casts
+
+Integer-kind casts from captured unsigned 2/3/4-byte values may copy private
+stack homes with A16 pieces and zero extension. Both complete extents and actual
+source bindings are checked before emission. Destinations use their own writable
+homes. Disjoint homes and safe same-start transfers are admitted; partial overlap,
+signed sources, pointer-reinterpretation kinds and unsupported locations retain
+their existing paths. Private three-byte copies may overlap their own word
+pieces at offsets 0 and 1, touching no fourth byte.
+
+Selection compares complete instruction costs, including entry mode requests
+and restoration of the byte fallback's A8 exit. It requires a strict saving.
+Same-start copies omit unchanged payload bytes, but still write any required
+extension zeros. No frame, lifetime, alias or ABI contract is weakened.
+
+### Constant indexes through captured pointers
+
+A nonvolatile scalar load/store may fold an unsigned numeric index and constant
+stride into its Y displacement. Selection checks the complete three-byte private
+base home, exact payload homes, and `index * stride + displacement + width - 1
+<= 65535` using host u64 arithmetic. It retains full 24-bit base preparation and
+ordinary word-plus-odd-byte ascending transfers. It neither widens nor repeats
+external reads. Volatile, symbolic/unsupported, overflowing and incomplete-home
+forms retain their established selectors; direct-symbol selection takes priority.
+
+### Equality zero tests
+
+BYTE/word Eq/Ne may use the exact-width left load's Z without CMP #0, with zero
+normalized to the right. Word reload elimination is eligible only through the
+existing A/home/NZ equivalence proof; X forwarding executes TXA and reestablishes
+N/Z. No ambient flag fact or carry inference is used. REP preserves Z for fused
+branches; ordering comparisons and Boolean materialization keep their contracts.
+
+### Adjacent BYTE load/comparison consumers
+
+A nonvolatile one-byte load and the immediately following Eq/Ne may be selected
+as a pair when the loaded temporary has exactly one routine-wide input occurrence.
+The complete producer home, comparison operands and Boolean home are checked
+before selection. Either operand order is admitted by commuting equality on
+captured values. The load stays at its original source site, with the existing
+address selector and exact one-byte traffic. Its A8 result is consumed directly;
+the private STA/LDA pair disappears without publishing a fictional home write.
+No instruction, MIR operation, label or call intervenes. Source boundaries and
+conservative value barriers remain; no register fact crosses the pair or block.
+Allocated homes stay unchanged. Volatile loads, additional/hidden uses,
+nonadjacent consumers, ordering comparisons and unsupported homes keep fallback.
+
+### Y advancement inside one scalar transfer
+
+The second piece of a nonvolatile three/four-byte scalar transfer may advance Y
+with two typed INY instructions instead of reloading `offset + 2`. Selection
+requires X16, a known intact nonzero initial Y equal to the access displacement,
+a bounded offset, and only one indirect endpoint. The other endpoint cannot
+change Y. Constant stores use the same rule after their first word. No fact is
+carried across operations. Zero offsets retain ordinary selection so the checked
+zero-index rewrite can remove LDY #0. Exact widths, traffic and final flags are
+preserved. Each replacement saves one byte and costs one additional CPU cycle.
+
+### Immediate word argument pushes
+
+Complete outgoing-area plans may use typed `ArgumentPushWord` (PEA) for two
+known numeric/padding bytes. PEA pushes high then low, reserves exactly two
+outgoing bytes independently of M/X, and preserves A/X/Y and flags. Its physical
+stack accesses, body-phase restriction, selected CFG depth, encoding and replay
+are authoritative; it is not an indirect-return push. Guards still precede all
+outgoing writes, and final direct calls require A16/X16 with the same ABI area.
+
+The planner costs PEA without a mode transition, preserving the preceding mode
+permission, including unknown permission after a guard join. Two independently
+known adjacent bytes may straddle an argument/padding boundary. Private source
+loads still account for every pushed byte in their stack displacement. Symbolic
+bytes retain their original individual relocation fixups and cannot form PEA.
+Whole-plan fallback, source-evaluation order, peak and padding contracts remain.
+
+### Private pointer bindings at terminal stores
+
+An immutable, non-escaping incoming three-byte pointer may supply the address
+base of its final nonvolatile scalar store directly from its checked incoming
+home. Every occurrence must be covered by supported uses in the same block,
+with no intervening store, call, copy or volatile operation. The final store is
+still an ordering barrier; the binding never applies to subsequent operations.
+The stored value and index cannot also use that capture. Address preparation
+uses the existing read resolver and consumes the complete source before the
+unchanged external write. Exact payload widths, address arithmetic and access
+order are preserved. Cast/edge uses and unsupported roles retain the complete
+capture. Allocated homes and conservative tracking boundaries remain, without
+publishing a definition for an omitted temporary write.
+
+An immutable incoming pointer binding may also end at a resolved direct native
+call when every remaining occurrence is an exact three-byte argument. Complete
+source reach is checked at the full outgoing delta before omitting its capture;
+an otherwise valid call keeps its capture when that borrowed source would
+exceed displacement 255. Both incremental pushes and reservation/store packing
+use the same resolved read home. Arguments and padding retain their original
+ABI slots, guard-before-construction order and peak. The binding is cleared
+before JSL, so neither callee execution nor native-result capture inherits it.
+Indirect targets, width-changing arguments, cast consumers and uses after the
+call retain the original captures.
+
+A complete non-addressable local pointer may likewise supply its final store
+address. The existing local ownership, canonical-access and frame-disjointness
+checks still apply. Writes before a capture may establish its value; any write
+between that capture and its final consumer rejects the entire binding. A later
+capture after reassignment starts a distinct window. No source home is made
+writable through a temporary binding, and final stored-value uses remain outside
+this address-base rule.
+
+Local pointer bindings may also end in exact three-byte arguments of a resolved
+direct native call. They use the same full-outgoing-delta reach check as incoming
+sources, keep their non-addressable ownership proof, and expire before transfer.
+Both packing paths read the local home; reserved capture slots remain unread.
+A local write or call before the consumer, or a later use of the capture, still
+rejects the whole binding.
+
+A complete incoming/local pointer may also supply the value of its final
+nonvolatile three-byte store. Its capture cannot also supply the destination
+base or index. Direct private destinations must fit their declared object and
+stack reach and be disjoint from the authoritative source; self-stores, partial
+overlaps and indexed private destinations retain their captures. Source ownership
+and whole-window checks remain unchanged. Address preparation and payload
+selection use independent read bindings, so a distinct borrowed destination
+pointer may coexist with a borrowed payload. External stores retain the low
+word and exact bank byte in ascending order; only disjoint private transfers may
+use the established two overlapping words within three bytes. No fourth byte is
+touched, no binding crosses the store, and every writable home remains allocated.

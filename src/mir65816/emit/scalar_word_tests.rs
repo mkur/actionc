@@ -18,6 +18,7 @@ fn dp_arithmetic_and_return_preserve_adjacent_forwarding() {
     let mut b = Builder {
         next_block: None,
         loop_x: None,
+        borrowed: BTreeMap::new(),
         routine: r,
         frame,
         code: TrackedEmitter65816::for_entry(r.prologue.required_mode),

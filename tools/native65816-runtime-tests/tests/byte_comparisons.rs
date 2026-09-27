@@ -156,3 +156,67 @@ fn independent_a8_cmp_preserves_hidden_b_and_flags_through_a16_restoration() {
         }
     }
 }
+
+#[test]
+fn byte_and_word_zero_tests_preserve_branches_and_materialized_results() {
+    use actionc::mir65816::o65 as format;
+    for (ty, width) in [("BYTE", 1usize), ("CARD", 2), ("INT", 2)] {
+        let source = format!(
+            "{ty} input=$7100\nBYTE ARRAY out=$7200\nBYTE FUNC Equal({ty} x) RETURN(x=0)\nBYTE FUNC Different({ty} x) RETURN(0#x)\nPROC Work({ty} x)\nout(0)=Equal(x) out(2)=Different(x)\nIF x=0 THEN out(4)=17 ELSE out(4)=31 FI\nIF 0#x THEN out(6)=17 ELSE out(6)=31 FI\nout(8)=(x<0) out(10)=(0<x) RETURN\nPROC Main() Work(input) RETURN\n"
+        );
+        for optimize in [false, true] {
+            let image = compile(&source, optimize);
+            assert_eq!(
+                image.to_json().unwrap(),
+                compile(&source.replace('\n', "\r\n"), optimize)
+                    .to_json()
+                    .unwrap()
+            );
+            let object = o65::compile(&source, optimize, vec![]);
+            for variant in 0..3 {
+                let loaded = (variant > 0).then(|| {
+                    format::relocate(
+                        &object,
+                        &o65::placement(&object, variant - 1, vec![o65::fault(variant - 1)]),
+                    )
+                    .unwrap()
+                });
+                for value in [0u16, 1, 0x7f, 0x80, 0xff, 0x100, 0x7fff, 0x8000, 0xffff] {
+                    let value = if width == 1 { value & 255 } else { value };
+                    let signed = if ty == "INT" {
+                        i32::from(value as i16)
+                    } else {
+                        i32::from(value)
+                    };
+                    let mut h = if let Some(l) = &loaded {
+                        Harness::new_o65(l, &caller(l.entry()), 0)
+                    } else {
+                        Harness::new(&image, &caller(image.entry), 0)
+                    };
+                    h.bus.ram[0x7100..0x7102].copy_from_slice(&value.to_le_bytes());
+                    h.bus.ram[0x7200..0x720c].fill(0xa5);
+                    h.run();
+                    h.guards(0);
+                    for (i, want) in [
+                        u8::from(value == 0),
+                        u8::from(value != 0),
+                        if value == 0 { 17 } else { 31 },
+                        if value != 0 { 17 } else { 31 },
+                        u8::from(signed < 0),
+                        u8::from(signed > 0),
+                    ]
+                    .into_iter()
+                    .enumerate()
+                    {
+                        assert_eq!(
+                            h.bus.ram[0x7200 + 2 * i],
+                            want,
+                            "{ty}/{value}/{optimize}/{variant}/{i}"
+                        );
+                        assert_eq!(h.bus.ram[0x7201 + 2 * i], 0xa5);
+                    }
+                }
+            }
+        }
+    }
+}

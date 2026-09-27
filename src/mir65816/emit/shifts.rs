@@ -68,6 +68,20 @@ impl Builder<'_> {
             self.shift_zero(destination, 0, bytes)?;
             return Ok(true);
         }
+        if bytes == 2
+            && source_bytes == 2
+            && (1..=7).contains(&count)
+            && let Some(source) = source
+        {
+            self.code.a16();
+            self.load_memory(source, 0)?;
+            for _ in 0..count {
+                self.code
+                    .op(if left { Implied::AslA } else { Implied::LsrA });
+            }
+            self.store_memory(destination, 0)?;
+            return Ok(true);
+        }
         let whole = (count / 8) as u8;
         let residual = (count % 8) as u8;
         let active = bytes - whole;

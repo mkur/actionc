@@ -165,6 +165,7 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
         &selected,
         "ACTION.RUNTIME.SYSLIB",
         "ACTION_RUNTIME_SYSLIB",
+        &crate::runtime_source::routine_declaration_names(&selected_runtime.semir),
     )?;
 
     for declaration in &mut program.runtime_helpers {
@@ -209,6 +210,7 @@ pub(super) fn link_error(program: &mut MirProgram) -> Result<RoutineId, Vec<MirD
         &selection,
         "ACTION.RUNTIME.SYSLIB",
         "ACTION_RUNTIME_SYSLIB",
+        &crate::runtime_source::routine_declaration_names(&source.semir),
     )?;
     Ok(rebase[&error])
 }
@@ -219,6 +221,7 @@ pub(super) fn append_runtime_selection(
     selected: &RuntimeSelection,
     display_module: &str,
     link_module: &str,
+    display_names: &BTreeMap<String, String>,
 ) -> Result<BTreeMap<RoutineId, RoutineId>, Vec<MirDiagnostic>> {
     let routine_rebase = selected
         .routines
@@ -273,7 +276,10 @@ pub(super) fn append_runtime_selection(
         routine.id = routine_rebase[old_id];
         routine.name = format!(
             "{display_module}::{}",
-            runtime_routine_name(&routine.name, link_module)
+            display_names
+                .get(&routine.name)
+                .map(String::as_str)
+                .unwrap_or_else(|| runtime_routine_name(&routine.name, link_module))
         );
         for slot in routine
             .frame
@@ -2041,6 +2047,7 @@ mod tests {
                 &selected,
                 "ACTION.RUNTIME.PROBE",
                 "ACTION_RUNTIME_PROBE",
+                &BTreeMap::new(),
             )
             .unwrap();
             assert_ne!(rebased[&helper], helper);

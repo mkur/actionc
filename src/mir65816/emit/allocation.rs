@@ -138,13 +138,14 @@ impl AllocatedFrame {
         frame.edge_copies = edge_copies;
         frame.verify_stack(routine)?;
         frame.coalesce_edges(routine, &interference)?;
+        frame.coalesce_pointer_casts(routine)?;
         Ok(frame)
     }
 
     /// Recheck physical byte overlap against closed-operation CFG liveness.
     /// Image maps alone cannot establish the lifetime proof for shared homes.
     pub fn verify_stack(&self, routine: &Mir65816Routine) -> Result<(), String> {
-        let graph = super::liveness::interference(routine)?;
+        let graph = super::liveness::pointer_copy_interference(routine)?;
         if self.temps.len() != routine.temps.len() {
             return Err("invalid stack temporary count".into());
         }
@@ -186,6 +187,18 @@ impl AllocatedFrame {
                 if overlap(slot, other_slot) {
                     return Err("overlapping live stack temporaries".into());
                 }
+            }
+        }
+        for (source, dest) in routine
+            .blocks
+            .iter()
+            .flat_map(|b| &b.ops)
+            .filter_map(super::liveness::pointer_copy)
+        {
+            let source = self.temps[&source].stack()?;
+            let dest = self.temps[&dest].stack()?;
+            if overlap(source, dest) && source != dest {
+                return Err("partially overlapping pointer cast homes".into());
             }
         }
         let required = self.staging_widths(routine)?;

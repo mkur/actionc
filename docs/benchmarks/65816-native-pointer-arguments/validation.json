@@ -1,0 +1,71 @@
+{
+  "baseline_compiler": "c04f5536c0149a52acef69c0ea543096908c9871",
+  "prerequisite_test_fix": "f5905600",
+  "compiler_identification": "Measurements precede the implementation commit; these source hashes identify the final compiler and tests.",
+  "source_hashes": {
+    "src/mir65816/emit/call_copies.rs": "30970b2f749ce1f99bd4ebae479a5ee7638a2081475ee5227e29ba3645ef74e8",
+    "src/mir65816/emit/call_copies_tests.rs": "fca710755b0551064538e1ac0ecf010ca6a283d2f4c134461fe3423c4876e6c6",
+    "src/mir65816/emit/select.rs": "437383f2371985cd38402d304483c5f5f256cfbe8732f17f70a26cc0b4fa715a",
+    "tools/native65816-runtime-tests/tests/call_copies.rs": "eefb1942d205405e49faf0ab7a730e7a974cde68b83a92724fd671c4c1f626c7",
+    "tools/native65816-runtime-tests/tests/call_padding.rs": "3939e4db9f6e6cad1c78f00f7e7f11b7f87e05cdf378b38c13a92b67c862e18a",
+    "tools/native65816-runtime-tests/tests/state_tracking.rs": "5e44e1f7b64bf1b3127ec4c6983a19fcd15c4ad66c016aa2e31f29501af6d2e2"
+  },
+  "logs": {
+    "target/native-pointer-arguments/unit.log": "c0228860914f3a2bc6e8e2a7f9c54091c543c319b731703999899a47d9e9dc09",
+    "target/native-pointer-arguments/integration.log": "c26501b0d40bf371cad660bd948450cf695ac173e08c482646b3beb1fc768cc0",
+    "target/native-pointer-arguments/calls-debug.log": "23e643796404a71a6078c154484f83b24a86a0fa6a2ff6bf2a9d99f14394a9af",
+    "target/native-pointer-arguments/preemption.log": "475554eb43b132a85636154ce1f26c3a615fcdcdf69a57760d829e75959e8f93",
+    "target/native-pointer-arguments/lists/debug.log": "5d2148c0857fc2f5fef13840760660da824cd66e80aa71e4247e475fd69963ee",
+    "target/native-pointer-arguments/runtime-release.log": "efacf7f802919ad18307c55c51aaf08feac30cb2c7d33e367c7ab708fa871d77"
+  },
+  "focused_runs": {
+    "calls-debug.log": {
+      "manifest": "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualification/run-311m1rxn/manifest.json",
+      "sha256": "2baec305da1fadef4beaa76a8ce4cb910fcbe9a6f253756651f2677a7df58eda",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+    },
+    "preemption.log": {
+      "manifest": "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualification/run-ciyndutp/manifest.json",
+      "sha256": "1a43f9e554ab90e6b2e93f0ed67fc109316149543578c5cbb15decb080797297",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+    },
+    "lists/debug.log": {
+      "manifest": "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualification/run-xapnawts/manifest.json",
+      "sha256": "ecfbd2d4179648e439669d2edebe67b3ee238782c56adcd41dc9b2b95ee44e96",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+    },
+    "runtime-release.log": {
+      "manifest": "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualification/run-8rg_bute/manifest.json",
+      "sha256": "ef53d6c1f20f8b782e9f7b620d9bb83f13e0599ff0d6e45a7cc94f07404e3fb0",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+    }
+  },
+  "library_tests": 8,
+  "integration_tests": 43,
+  "debug_runtime_tests": 19,
+  "debug_preemption_tests": 1,
+  "release_call_tests": 6,
+  "list_paired_mask_records_per_host": 270,
+  "list_executions_per_host": 540,
+  "list_debug_release_identical": true,
+  "crlf_builds_identical": true,
+  "full_backend_or_exec_qualification": false,
+  "bank_zero_reservation_delta": 0,
+  "report_artifacts": {
+    "README.md": "eb5d8e8d783631e2414c94720fe0dff203788c5dfa69b4476e62af60761aa856",
+    "exec-routines.csv": "5a3bb5fd375c8441655f70245a9935ae29950df7965ad8ff141017d877d2c57f",
+    "exec-spans.csv": "79e3a9256bf26755854af464aa008f17c5a06fb26a82db9f463a552e1ba20b77",
+    "exec-summary.json": "ebaeff0ab27e24e6d93aa7cbf85de6e3739c29c7c8c2efc25a8ee8f4320f8210",
+    "list-sizes.csv": "5bfd3fe46064434497887bbe54baea3581744f641542206c31c44b55d679fd5f",
+    "lists/actionc-optimized.lst": "7050cd7bc8c67d9dbcf26d400cb7b84a7e9904c7d132fb9246b2d17f9c13047c",
+    "lists/actionc-raw.lst": "907e47eb29c72ee80a1ae9d9ce7a9ca348522c09313b65a6ca616439c85c3a40",
+    "lists/delta.csv": "bbeaee4fc6cbd9e2f3245f5b7e7d283473f879dffe59bcdc6cf4c15eb0b11271",
+    "lists/measurements.csv": "909bfc7ab0ec091a6bb90dff712e6bcaad9539c4cc3fe3792a48f171bbc33d40",
+    "lists/provenance.json": "6e07407d5bb978ac5be9d0eb262f56a21a72ad423bc644cbb3802b64b52862ba",
+    "lists/sizes.csv": "5ffb4faa246f735f8516c074751e68f0cedc43e540fb0296f00079ada1ca342a"
+  }
+}

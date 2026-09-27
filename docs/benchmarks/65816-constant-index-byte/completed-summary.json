@@ -1,0 +1,46 @@
+{
+  "baseline_compiler": "a25fa91d",
+  "workload": "frozen Exec 622b139-dirty, 631 routines, 120 checked input hashes",
+  "compiler_code_before": 343783,
+  "compiler_code_after": 331914,
+  "saved": 11869,
+  "slices": [
+    {
+      "slice": "constant-captured",
+      "saved": 4343
+    },
+    {
+      "slice": "equality-zero",
+      "saved": 1545
+    },
+    {
+      "slice": "byte-consumers",
+      "saved": 2474
+    },
+    {
+      "slice": "advance-y",
+      "saved": 1709
+    },
+    {
+      "slice": "immediate-push",
+      "saved": 1798
+    }
+  ],
+  "guard_bytes": 72252,
+  "guard_subtracted_compiler_code": 259662,
+  "package_assembly": 8300,
+  "all_initialized_data": 2307,
+  "estimated_loaded_without_guards": 270269,
+  "release_cap": 262144,
+  "remaining_gap": 8125,
+  "full_qualification_run": false,
+  "guard_disabled_build": false,
+  "unchanged": [
+    "frozen inputs",
+    "ABI",
+    "frame reservations",
+    "local stack peaks",
+    "guards",
+    "initialized data"
+  ]
+}

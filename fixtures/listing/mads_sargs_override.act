@@ -1,0 +1,7 @@
+; Local SArgs ABI implementation, without the BREAK-key check.
+PROC CopyFrame=*()
+[$A085$A186$A284$18$68$8485$369$A8$68$8585$69$0$48$98$48$1A0
+ $84B1$8285$C8$84B1$8385$C8$84B1$A8$B9$A0$0$8291$88$F810$60]
+SET $4EE=CopyFrame
+
+INCLUDE "mads_sargs.act"

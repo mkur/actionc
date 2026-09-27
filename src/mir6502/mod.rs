@@ -284,6 +284,8 @@ fn codegen_output(
     let map = crate::codegen::CodegenMap {
         runtime,
         runtime_bindings: runtime_bindings(mir, &routine_addresses, runtime),
+        runtime_routine_names: Default::default(),
+        declaration_names: Default::default(),
         origin,
         run_address,
         skipped_ranges: skipped_ranges.clone(),

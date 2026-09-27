@@ -61,6 +61,10 @@ pub(crate) struct FinalizedEmission {
 pub struct CodegenMap {
     pub runtime: Runtime,
     pub runtime_bindings: Vec<CodegenRuntimeBinding>,
+    /// Original declaration spelling keyed by internal linked routine name.
+    /// Display metadata only; lookup and relocation identities are unchanged.
+    pub runtime_routine_names: BTreeMap<String, String>,
+    pub declaration_names: CodegenDeclarationNames,
     pub origin: u16,
     pub run_address: u16,
     pub skipped_ranges: Vec<SkippedRange>,
@@ -74,6 +78,15 @@ pub struct CodegenMap {
     pub optimizations: Vec<CodegenOptimization>,
     pub proofs: Vec<CodegenProof>,
     pub proof_attempts: Vec<CodegenProofAttempt>,
+}
+
+/// Source spelling for listing symbols, separate from case-insensitive identities.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CodegenDeclarationNames {
+    /// Routines and module-qualified symbols, keyed by case-folded link identity.
+    pub symbols: BTreeMap<String, String>,
+    /// Globals and routine storage, keyed by case-folded owner and identity.
+    pub storage: BTreeMap<(Option<String>, String), String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -202,6 +215,20 @@ pub enum CodegenSourceRangeKind {
     Declaration,
     StorageInitializer,
     MachineBlock,
+}
+
+// Reserved identities used by linked runtime providers and generated helpers.
+// Classic projections mangle module separators; MIR retains qualified names.
+pub(crate) fn is_embedded_runtime_symbol(name: &str) -> bool {
+    let name = name.to_ascii_uppercase();
+    ["SYSLIB", "RESIDENT", "ACTIONC"].iter().any(|module| {
+        name.starts_with(&format!("ACTION.RUNTIME.{module}::"))
+            || name.starts_with(&format!("M_ACTION_RUNTIME_{module}_"))
+            || name.strip_prefix("__NIR_STR_").is_some_and(|owner| {
+                owner.starts_with(&format!("ACTION_RUNTIME_{module}_"))
+                    || owner.starts_with(&format!("M_ACTION_RUNTIME_{module}_"))
+            })
+    })
 }
 
 pub(crate) fn suppress_source_ranges_for_routines(
@@ -1189,6 +1216,7 @@ struct Generator {
     runtime_error_target: RuntimeHelperTarget,
     uses_runtime_fault: bool,
     used_default_runtime_helpers: BTreeSet<RuntimeHelperSlot>,
+    used_sargs_overrides: Vec<RuntimeHelperTarget>,
     used_wide_helpers: BTreeSet<wide::WideHelper>,
     routine_assignment_targets: HashSet<String>,
     local_symbols: HashMap<String, StorageSlot>,

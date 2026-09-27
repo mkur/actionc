@@ -40,16 +40,36 @@ use copies::acyclic_word_order;
 
 #[path = "accumulator.rs"]
 mod accumulator;
+#[path = "addresses.rs"]
+mod addresses;
 #[path = "arithmetic.rs"]
 mod arithmetic;
+#[path = "byte_consumers.rs"]
+mod byte_consumers;
 #[path = "call_copies.rs"]
 mod call_copies;
+#[path = "call_returns.rs"]
+mod call_returns;
+#[path = "constant_stores.rs"]
+mod constant_stores;
+#[path = "integer_casts.rs"]
+mod integer_casts;
+#[path = "long_arithmetic.rs"]
+mod long_arithmetic;
+#[path = "long_order.rs"]
+mod long_order;
+#[path = "mixed_edges.rs"]
+mod mixed_edges;
 #[path = "parameter.rs"]
 mod parameter;
+#[path = "pointer_forwarding.rs"]
+mod pointer_forwarding;
 #[path = "pointer_values.rs"]
 mod pointer_values;
 #[path = "shifts.rs"]
 mod shifts;
+#[path = "top_bits.rs"]
+mod top_bits;
 #[path = "wide_returns.rs"]
 mod wide_returns;
 use super::tracked::*;
@@ -126,6 +146,12 @@ enum Memory {
     },
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CallResultUse {
+    Capture,
+    Return,
+}
+
 /// A complete preflight, shared by materialized and branch-only comparisons.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum WordComparison {
@@ -150,6 +176,7 @@ enum ByteOperand {
 
 struct ByteCondition {
     left: ByteOperand,
+    left_in_a: bool,
     right: ByteOperand,
     destination: u8,
     predicate: Branch,
@@ -201,11 +228,28 @@ struct LongCondition {
     predicate: Branch,
 }
 
+struct LongSignCondition {
+    source: ByteOperand,
+    destination: u8,
+    negative: bool,
+}
+
+struct LongOrderCondition {
+    left: LongOperand,
+    right: LongOperand,
+    destination: u8,
+    predicate: Branch,
+    signed: bool,
+}
+
 enum Condition {
     Word(WordCondition),
     Byte(ByteCondition),
     Pointer(PointerCondition),
     Long(LongCondition),
+    LongSign(LongSignCondition),
+    LongOrder(LongOrderCondition),
+    TopBit(top_bits::TopBitCondition),
 }
 
 impl Condition {
@@ -215,6 +259,9 @@ impl Condition {
             Self::Byte(c) => c.destination,
             Self::Pointer(c) => c.destination,
             Self::Long(c) => c.destination,
+            Self::LongSign(c) => c.destination,
+            Self::LongOrder(c) => c.destination,
+            Self::TopBit(c) => c.destination,
         }
     }
 }
@@ -242,6 +289,7 @@ struct Builder<'a> {
     blocks: BTreeMap<BlockId, Label>,
     next_block: Option<BlockId>,
     loop_x: Option<loop_x::LoopXPlan>,
+    borrowed: BTreeMap<TempId, pointer_forwarding::Source>,
 }
 
 #[cfg(test)]
@@ -253,8 +301,23 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
         true,
     )
 }
-pub(super) fn routine_with_replay(
+#[cfg(test)]
+fn routine_with_replay(
     routine: &Mir65816Routine,
+    _trace: bool,
+    #[cfg(feature = "native65816-state-proof")] replay: bool,
+) -> Result<MachineRoutine, String> {
+    routine_with_data(
+        routine,
+        &[],
+        _trace,
+        #[cfg(feature = "native65816-state-proof")]
+        replay,
+    )
+}
+pub(super) fn routine_with_data(
+    routine: &Mir65816Routine,
+    data: &[Mir65816Data],
     _trace: bool,
     #[cfg(feature = "native65816-state-proof")] replay: bool,
 ) -> Result<MachineRoutine, String> {
@@ -262,11 +325,14 @@ pub(super) fn routine_with_replay(
         return arithmetic::emit(routine, helper, _trace);
     }
     let frame = AllocatedFrame::new(routine)?;
+    let addresses = addresses::Plan::new(routine, &frame, data)?;
+    let pointers = pointer_forwarding::Plan::new(routine, &frame)?;
     let loop_x = loop_x::LoopXPlan::new(routine, &frame)?;
     let mut b = Builder {
         routine,
         frame,
         loop_x,
+        borrowed: BTreeMap::new(),
         code: TrackedEmitter65816::for_entry(routine.prologue.required_mode),
         blocks: BTreeMap::new(),
         next_block: None,
@@ -353,6 +419,28 @@ pub(super) fn routine_with_replay(
             pending.extend(&successors[&id]);
         }
     }
+    // One retained tail, with a two-byte REP at the internal join. Even a
+    // four-byte unrelaxed jump saves at least three bytes per removed tail.
+    let returns: BTreeSet<_> = routine
+        .blocks
+        .iter()
+        .filter(|block| {
+            reachable.contains(&b.blocks[&block.id])
+                && matches!(block.terminator, Mir65816Terminator::Return { .. })
+        })
+        .map(|block| block.id)
+        .collect();
+    let shared_tail = (b.frame.extent != 0 && returns.len() > 1).then(|| {
+        (
+            routine
+                .blocks
+                .iter()
+                .find(|block| returns.contains(&block.id))
+                .unwrap()
+                .id,
+            b.code.label(),
+        )
+    });
     b.code.prove_entries(predecessors, reachable);
     if let Some(x) = &b.loop_x {
         b.code.prove_x(XContract {
@@ -365,32 +453,78 @@ pub(super) fn routine_with_replay(
         });
     }
     let sole_conditions = liveness::sole_branch_conditions(routine);
+    let input_counts = liveness::input_counts(routine);
     for (index, block) in routine.blocks.iter().enumerate() {
+        let mut forwarded_return = false;
         b.next_block = routine.blocks.get(index + 1).map(|b| b.id);
         b.code.mark(b.blocks[&block.id]);
+        let byte_consumers = byte_consumers::plan(&b, block, &input_counts)?;
+        let incoming = b.incoming_comparisons(block, &input_counts)?;
+        let top_bit = top_bits::plan(&b, block, &input_counts)?;
         if let Some((last, prefix)) = block.ops.split_last() {
             for (op_index, op) in prefix.iter().enumerate() {
                 let start = b.code.code().bytes.len();
                 b.code.begin_source(block.id, op_index);
-                b.operation(op)
-                    .map_err(|e| format!("b{}: {e}", block.id.0))?;
+                if !pointers.enter(&mut b, block.id, op_index) {
+                    if top_bit.is_some() && op_index + 1 == prefix.len() {
+                        b.code.barrier();
+                    } else if incoming.contains_key(&(op_index + 1)) {
+                        // The complete adjacent incoming-word consumer was preflighted.
+                        b.code.barrier(); // Omission does not extend A residency.
+                    } else if byte_consumers.contains_key(&(op_index + 1)) {
+                        addresses.emit_byte_load(&mut b, block.id, op_index, op)?;
+                    } else if let Some(condition) = incoming
+                        .get(&op_index)
+                        .or_else(|| byte_consumers.get(&op_index))
+                    {
+                        b.materialize_condition(condition);
+                    } else {
+                        addresses
+                            .emit(&mut b, block.id, op_index, op)
+                            .map_err(|e| format!("b{}: {e}", block.id.0))?;
+                    }
+                }
                 b.code.span(block.id, op_index, start);
             }
             let start = b.code.code().bytes.len();
             b.code.begin_source(block.id, prefix.len());
-            if b.compare_branch(last, &block.terminator, &sole_conditions)
+            let omitted = pointers.enter(&mut b, block.id, prefix.len());
+            if !omitted
+                && b.compare_branch_prepared(
+                    last,
+                    &block.terminator,
+                    &sole_conditions,
+                    top_bit
+                        .as_ref()
+                        .or_else(|| incoming.get(&prefix.len()))
+                        .or_else(|| byte_consumers.get(&prefix.len())),
+                )
                 .map_err(|e| format!("b{}: {e}", block.id.0))?
             {
                 b.code
                     .fused_span(block.id, prefix.len(), start, block.ops.len());
                 continue;
             }
-            b.operation(last)
+            forwarded_return = b
+                .call_return(last, &block.terminator, &input_counts)
                 .map_err(|e| format!("b{}: {e}", block.id.0))?;
+            if !omitted && !forwarded_return {
+                if let Some(condition) = incoming
+                    .get(&prefix.len())
+                    .or_else(|| byte_consumers.get(&prefix.len()))
+                {
+                    b.materialize_condition(condition);
+                } else {
+                    addresses
+                        .emit(&mut b, block.id, prefix.len(), last)
+                        .map_err(|e| format!("b{}: {e}", block.id.0))?;
+                }
+            }
             b.code.span(block.id, prefix.len(), start);
         }
         let start = b.code.code().bytes.len();
         b.code.begin_source(block.id, block.ops.len());
+        pointers.enter(&mut b, block.id, block.ops.len());
         b.code.a16(); // Every MIR control-flow boundary has the ABI width.
         match &block.terminator {
             Mir65816Terminator::Goto(edge) => b.edge_last(edge)?,
@@ -409,7 +543,23 @@ pub(super) fn routine_with_replay(
                 b.code.mark(yes);
                 b.edge_last(then_edge)?;
             }
-            Mir65816Terminator::Return { value, .. } => b.return_value(value.as_ref())?,
+            Mir65816Terminator::Return { value, .. } => {
+                if !forwarded_return {
+                    b.prepare_return_value(value.as_ref())?;
+                }
+                if let Some((owner, label)) = shared_tail.filter(|_| returns.contains(&block.id)) {
+                    b.code.prepare_return_join();
+                    if owner != block.id {
+                        b.code.jump(label);
+                    } else {
+                        b.code.mark(label);
+                        b.code.a16(); // Explicit permission at an internal join.
+                        b.return_tail(value.is_some())?;
+                    }
+                } else {
+                    b.return_tail(value.is_some())?;
+                }
+            }
             Mir65816Terminator::Fallthrough => {
                 let next = routine
                     .blocks
@@ -504,7 +654,16 @@ impl Builder<'_> {
         left: &Mir65816Value,
         right: &Mir65816Value,
     ) -> Result<bool, String> {
-        if bytes != 2 || !matches!(operation, NirBinaryOp::Add | NirBinaryOp::Sub) {
+        if bytes != 2
+            || !matches!(
+                operation,
+                NirBinaryOp::Add
+                    | NirBinaryOp::Sub
+                    | NirBinaryOp::And
+                    | NirBinaryOp::Or
+                    | NirBinaryOp::Xor
+            )
+        {
             return Ok(false);
         }
         // Preflight every operand, including the last byte after any S movement,
@@ -535,38 +694,34 @@ impl Builder<'_> {
             }
         }
         self.load_checked_word(left, left_temp);
-        let subtract = operation == NirBinaryOp::Sub;
-        self.code
-            .op(if subtract { Implied::Sec } else { Implied::Clc }); // SEC / CLC
-        match right {
-            WordOperand::Immediate(value) => self.code.word(
-                if subtract {
-                    WordOp::SbcImm
-                } else {
-                    WordOp::AdcImm
-                },
-                value,
-            ),
-            WordOperand::DirectPage(offset) => self.code.byte(
-                if subtract {
-                    ByteOp::SbcDp
-                } else {
-                    ByteOp::AdcDp
-                },
-                offset,
-            ),
-            WordOperand::Stack(offset) => self.code.byte(
-                if subtract {
-                    ByteOp::SbcStack
-                } else {
-                    ByteOp::AdcStack
-                },
-                offset,
-            ),
-        }
+        self.word_binary_rhs(operation, right, true);
         self.code.store_word(destination); // Capture into the verified private home.
         self.remember_word(dest);
         Ok(true)
+    }
+    /// Both selectors preflight complete operands before choosing this typed
+    /// word ALU form. Only arithmetic initializes/propagates carry.
+    fn word_binary_rhs(&mut self, operation: NirBinaryOp, right: WordOperand, first: bool) {
+        let (immediate, stack, dp) = match operation {
+            NirBinaryOp::Add => (WordOp::AdcImm, ByteOp::AdcStack, ByteOp::AdcDp),
+            NirBinaryOp::Sub => (WordOp::SbcImm, ByteOp::SbcStack, ByteOp::SbcDp),
+            NirBinaryOp::And => (WordOp::AndImm, ByteOp::AndStack, ByteOp::AndDp),
+            NirBinaryOp::Or => (WordOp::OraImm, ByteOp::OraStack, ByteOp::OraDp),
+            NirBinaryOp::Xor => (WordOp::EorImm, ByteOp::EorStack, ByteOp::EorDp),
+            _ => unreachable!("checked native binary operation"),
+        };
+        if first {
+            match operation {
+                NirBinaryOp::Add => self.code.op(Implied::Clc),
+                NirBinaryOp::Sub => self.code.op(Implied::Sec),
+                _ => (),
+            }
+        }
+        match right {
+            WordOperand::Immediate(value) => self.code.word(immediate, value),
+            WordOperand::Stack(offset) => self.code.byte(stack, offset),
+            WordOperand::DirectPage(offset) => self.code.byte(dp, offset),
+        }
     }
     fn word_condition(
         &self,
@@ -604,6 +759,12 @@ impl Builder<'_> {
             return Ok(None);
         };
         // Swapping captured values changes no source memory access or ordering.
+        if matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne)
+            && left == WordOperand::Immediate(0)
+        {
+            std::mem::swap(&mut left, &mut right);
+            left_temp = right_temp;
+        }
         let mut predicate = match operation {
             NirCompareOp::Eq => Branch::Equal,      // BEQ
             NirCompareOp::Ne => Branch::NotEqual,   // BNE
@@ -685,6 +846,16 @@ impl Builder<'_> {
                 .map(|c| c.map(Condition::Word));
         }
         let equality = matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne);
+        if bytes == 4 && !equality {
+            if signed {
+                if let Some(condition) = self.long_sign_condition(dest, operation, left, right)? {
+                    return Ok(Some(Condition::LongSign(condition)));
+                }
+            }
+            return self
+                .long_order_condition(dest, signed, operation, left, right)
+                .map(|c| c.map(Condition::LongOrder));
+        }
         if !((bytes == 1 && (!signed || equality)) || (matches!(bytes, 3 | 4) && equality)) {
             return Ok(None);
         }
@@ -745,6 +916,9 @@ impl Builder<'_> {
         else {
             return Ok(None);
         };
+        if equality && left == ByteOperand::Immediate(0) {
+            std::mem::swap(&mut left, &mut right);
+        }
         let predicate = match operation {
             NirCompareOp::Eq => Branch::Equal,
             NirCompareOp::Ne => Branch::NotEqual,
@@ -761,6 +935,7 @@ impl Builder<'_> {
         };
         Ok(Some(Condition::Byte(ByteCondition {
             left,
+            left_in_a: false,
             right,
             destination,
             predicate,
@@ -851,17 +1026,14 @@ impl Builder<'_> {
             Mir65816Value::Address(value, size) if size.get() == 3 && value.value <= 0xffffff => {
                 return Ok(Some(PointerOperand::Immediate(value.value as u32)));
             }
-            Mir65816Value::Temp(id, size) => {
-                let location = self.temp(*id)?;
-                if location.slot().width != width(*size)? {
-                    return Err("temporary width mismatch".into());
-                }
+            Mir65816Value::Temp(_, size) => {
+                let memory = self.value_memory(value)?.unwrap();
                 if size.get() != 3 {
                     return Ok(None);
                 }
-                match location {
-                    Location::Stack(slot) => u32::from(slot.offset),
-                    Location::DirectPage(_) => return Ok(None),
+                match memory {
+                    Memory::Stack(offset) => offset,
+                    _ => return Ok(None),
                 }
             }
             Mir65816Value::Param(id) => {
@@ -950,11 +1122,20 @@ impl Builder<'_> {
             Condition::Word(condition) => self.branch_on_word(condition, yes, dispatch),
             Condition::Pointer(condition) => self.branch_on_pointer(condition, yes, dispatch),
             Condition::Long(condition) => self.branch_on_long(condition, yes, dispatch),
+            Condition::LongSign(condition) => self.branch_on_long_sign(condition, yes, dispatch),
+            Condition::LongOrder(condition) => self.branch_on_long_order(condition, yes, dispatch),
+            Condition::TopBit(condition) => self.branch_on_top_bit(condition, yes, dispatch),
             Condition::Byte(condition) => {
                 self.code.barrier(); // Retain the original operation's value/flag barrier.
                 self.code.a8();
-                self.load_byte_operand(condition.left);
-                self.compare_byte_operand(condition.right);
+                if !condition.left_in_a {
+                    self.load_byte_operand(condition.left);
+                }
+                if !matches!(condition.predicate, Branch::Equal | Branch::NotEqual)
+                    || condition.right != ByteOperand::Immediate(0)
+                {
+                    self.compare_byte_operand(condition.right);
+                }
                 if dispatch {
                     self.code.a16(); // REP preserves the A8 CMP's C/Z.
                     self.code.dispatch(condition.predicate, yes);
@@ -970,8 +1151,13 @@ impl Builder<'_> {
         }
         self.code.a16();
         self.load_checked_word(condition.left, condition.left_temp);
+        // LDA/TXA establish full-word N/Z. The adjacent-load omission contract
+        // proves these same flags, not merely A's value. Eq/Ne consume only Z.
+        let zero_test = matches!(condition.predicate, Branch::Equal | Branch::NotEqual)
+            && condition.right == WordOperand::Immediate(0);
         match condition.kind {
             WordComparison::UnsignedOrEquality => match condition.right {
+                WordOperand::Immediate(0) if zero_test => (),
                 WordOperand::Immediate(value) => self.code.word(WordOp::CmpImm, value),
                 WordOperand::Stack(offset) => self.code.byte(ByteOp::CmpStack, offset),
                 WordOperand::DirectPage(offset) => self.code.byte(ByteOp::CmpDp, offset),
@@ -995,11 +1181,21 @@ impl Builder<'_> {
             self.code.branch(condition.predicate, yes);
         } // Consume CMP's C/Z or the corrected subtraction's N immediately.
     }
+    #[cfg(test)]
     fn compare_branch(
         &mut self,
         op: &Mir65816Op,
         terminator: &Mir65816Terminator,
         sole_conditions: &BTreeSet<TempId>,
+    ) -> Result<bool, String> {
+        self.compare_branch_prepared(op, terminator, sole_conditions, None)
+    }
+    fn compare_branch_prepared(
+        &mut self,
+        op: &Mir65816Op,
+        terminator: &Mir65816Terminator,
+        sole_conditions: &BTreeSet<TempId>,
+        prepared: Option<&Condition>,
     ) -> Result<bool, String> {
         let (
             Mir65816Op::Compare {
@@ -1022,10 +1218,15 @@ impl Builder<'_> {
         if dest != id || *size != ByteSize::ONE || !sole_conditions.contains(id) {
             return Ok(false);
         }
-        let Some(condition) =
-            self.condition(*dest, width(*bytes)?, *signed, *operation, left, right)?
-        else {
-            return Ok(false);
+        let selected;
+        let condition = if let Some(condition) = prepared {
+            condition
+        } else {
+            selected = self.condition(*dest, width(*bytes)?, *signed, *operation, left, right)?;
+            let Some(condition) = selected.as_ref() else {
+                return Ok(false);
+            };
+            condition
         };
         let yes = self.code.label();
         if let Some(x) = &self.loop_x
@@ -1035,7 +1236,7 @@ impl Builder<'_> {
             self.code.compare_x_word(x.param, x.home, x.threshold);
             self.code.dispatch(Branch::CarryClear, yes);
         } else {
-            self.branch_on_condition(&condition, yes, true);
+            self.branch_on_condition(condition, yes, true);
         }
         // Each edge still stages parallel arguments before writing destinations.
         self.edge(else_edge)?;
@@ -1055,9 +1256,17 @@ impl Builder<'_> {
         let Some(condition) = self.condition(dest, bytes, signed, operation, left, right)? else {
             return Ok(false);
         };
+        self.materialize_condition(&condition);
+        Ok(true)
+    }
+    fn materialize_condition(&mut self, condition: &Condition) {
+        if let Condition::LongSign(condition) = &condition {
+            self.materialize_long_sign(condition);
+            return;
+        }
         let yes = self.code.label();
         let done = self.code.label();
-        self.branch_on_condition(&condition, yes, false);
+        self.branch_on_condition(condition, yes, false);
         self.code.a8();
         self.code.byte(ByteOp::LdaImm, 0);
         self.code.jump(done);
@@ -1067,7 +1276,6 @@ impl Builder<'_> {
         self.code.mark(done);
         self.code.a8(); // Joins never inherit the fallthrough mode knowledge.
         self.code.byte(ByteOp::StaStack, condition.destination());
-        Ok(true)
     }
     fn load_memory(&mut self, memory: Memory, byte: u32) -> Result<(), String> {
         self.memory(
@@ -1151,6 +1359,20 @@ impl Builder<'_> {
         }
         Ok(())
     }
+    /// Only the second scalar piece may reuse this operation's Y. Keeping a
+    /// zero LDY would defeat the existing zero-index rewrite, so exclude it.
+    fn next_pointer_piece(&mut self, memory: Memory, op: ByteOp) -> bool {
+        let Memory::Pointer { slot, offset } = memory else {
+            return false;
+        };
+        if offset == 0 || offset > u16::MAX - 2 || !self.code.y_word_is(offset) {
+            return false;
+        }
+        self.code.op(Implied::Iny);
+        self.code.op(Implied::Iny);
+        self.code.byte(op, slot);
+        true
+    }
     /// Copy exactly the scalar extent. Ordinary accesses may use word pairs;
     /// volatile accesses retain their individual ascending byte transfers.
     fn transfer(
@@ -1180,8 +1402,20 @@ impl Builder<'_> {
             } else {
                 self.code.a8();
             }
-            self.load_memory(source, byte.into())?;
-            self.store_memory(destination, byte.into())?;
+            if !(wide
+                && byte == 2
+                && !matches!(destination, Memory::Pointer { .. })
+                && self.next_pointer_piece(source, ByteOp::LdaIndirectY))
+            {
+                self.load_memory(source, byte.into())?;
+            }
+            if !(wide
+                && byte == 2
+                && !matches!(source, Memory::Pointer { .. })
+                && self.next_pointer_piece(destination, ByteOp::StaIndirectY))
+            {
+                self.store_memory(destination, byte.into())?;
+            }
             byte += if word { 2 } else { 1 };
         }
         Ok(())
@@ -1193,7 +1427,11 @@ impl Builder<'_> {
                 if slot.slot().width != width(*bytes)? {
                     return Err("temporary width mismatch".into());
                 }
-                Some(slot.into())
+                Some(
+                    self.borrowed
+                        .get(id)
+                        .map_or_else(|| slot.into(), |source| source.memory()),
+                )
             }
             Mir65816Value::Param(id) => Some(Memory::Stack(self.parameter(*id)?.0)),
             _ => None,
@@ -1220,15 +1458,8 @@ impl Builder<'_> {
             Mir65816Value::Address(v, _) => self
                 .code
                 .byte(ByteOp::LdaImm, (v.value >> (byte * 8)) as u8),
-            Mir65816Value::Temp(id, w) => {
-                let slot = self.temp(*id)?;
-                if slot.slot().width != width(*w)? {
-                    return Err("temporary width mismatch".into());
-                }
-                self.load_memory(slot.into(), byte.into())?;
-            }
-            Mir65816Value::Param(id) => {
-                self.load_memory(Memory::Stack(self.parameter(*id)?.0), byte.into())?
+            Mir65816Value::Temp(..) | Mir65816Value::Param(_) => {
+                self.load_memory(self.value_memory(value)?.unwrap(), byte.into())?;
             }
             Mir65816Value::StaticAddress(id, _) => self.code.reference(
                 ReferenceOp::LdaByte,
@@ -1634,26 +1865,7 @@ impl Builder<'_> {
             self.finish_edge(target, fallthrough);
             return Ok(());
         }
-        self.code.a8();
-        // Save every source before assigning any destination: parallel copies
-        // stay correct for loops that swap or rotate live values.
-        for (n, (value, &(_, bytes))) in edge.args.iter().zip(&block.params).enumerate() {
-            if self.value_width(value)? != width(bytes)? {
-                return Err("edge argument width mismatch".into());
-            }
-            let slot = self.frame.edge_copies[n];
-            for i in 0..width(bytes)? {
-                self.value_byte(value, i)?;
-                self.store_memory(Memory::Stack(slot.offset.into()), i.into())?;
-            }
-        }
-        for (n, &(dest, bytes)) in block.params.iter().enumerate() {
-            let slot = self.frame.edge_copies[n];
-            for i in 0..width(bytes)? {
-                self.load_memory(Memory::Stack(slot.offset.into()), i.into())?;
-                self.save_byte(dest, i)?;
-            }
-        }
+        self.emit_mixed_edge(edge)?;
         self.code.a16();
         self.finish_edge(self.blocks[&edge.target], fallthrough);
         Ok(())
@@ -1665,7 +1877,7 @@ impl Builder<'_> {
             width,
         } = op
             && width.get() == 3
-            && self.pointer_address(*dest, address)?
+            && (self.symbol_address(*dest, address)? || self.pointer_address(*dest, address)?)
         {
             return Ok(());
         }
@@ -1680,6 +1892,9 @@ impl Builder<'_> {
             && to.get() == 3
             && self.pointer_cast(*dest, value)?
         {
+            return Ok(());
+        }
+        if self.integer_cast(op)? {
             return Ok(());
         }
         if let Mir65816Op::Call {
@@ -1702,6 +1917,7 @@ impl Builder<'_> {
         } = op
             && (self.constant_shift(*dest, width(*bytes)?, *operation, left, right)?
                 || self.captured_pointer_step(*dest, width(*bytes)?, *operation, left, right)?
+                || self.long_binary(*dest, width(*bytes)?, *operation, left, right)?
                 || self.word_binary(*dest, width(*bytes)?, *operation, left, right)?)
         {
             return Ok(());
@@ -1789,6 +2005,9 @@ impl Builder<'_> {
                 self.code.barrier();
                 let memory = self.prepare_address(address)?;
                 let bytes = width(*bytes)?;
+                if self.constant_store(memory, value, bytes, *volatile)? {
+                    return Ok(());
+                }
                 if let Some(source) = self.value_memory(value)?
                     && self.value_width(value)? >= bytes
                 {
@@ -2175,9 +2394,23 @@ impl Builder<'_> {
         result: Option<(TempId, ByteSize)>,
         plan: &Mir65816CallPlan,
     ) -> Result<(), String> {
+        self.call_with_result(target, args, result, plan, CallResultUse::Capture)
+    }
+    fn call_with_result(
+        &mut self,
+        target: &Mir65816CallTarget,
+        args: &[Mir65816Value],
+        result: Option<(TempId, ByteSize)>,
+        plan: &Mir65816CallPlan,
+        result_use: CallResultUse,
+    ) -> Result<(), String> {
         let padding = outgoing_padding(&plan.arguments, plan.outgoing_bytes)?;
-        let arguments = self.call_arguments(args, plan, target)?;
+        let arguments =
+            self.call_arguments(args, plan, target, (!padding.is_empty()).then_some(false))?;
         let capture = self.call_result(result, plan)?;
+        if result_use == CallResultUse::Return && capture.is_none() {
+            return Err("forwarded call return requires a native result".into());
+        }
         let direct = match target {
             Mir65816CallTarget::Direct(id) => Some(Target::Routine(RoutineId(*id))),
             Mir65816CallTarget::Helper(id) => Some(Target::Routine(*id)),
@@ -2203,6 +2436,10 @@ impl Builder<'_> {
                 abi::FarTransfer::StackRtl
             },
         )?;
+        let pushes = direct
+            .is_some()
+            .then(|| call_copies::pushes::Plan::new(&arguments, args, &padding, outgoing))
+            .flatten();
         self.code.barrier();
         self.code.a16();
         self.check_stack(
@@ -2210,17 +2447,26 @@ impl Builder<'_> {
                 .checked_add(transfer)
                 .ok_or("call stack overflow")?,
         );
-        self.reserve(outgoing);
+        if let Some(pushes) = pushes {
+            pushes.emit(self, args)?;
+        } else {
+            self.reserve(outgoing);
+            if !padding.is_empty() {
+                self.code.a8();
+                self.code.byte(ByteOp::LdaImm, 0);
+                for displacement in padding {
+                    self.code.byte(ByteOp::StaStack, displacement);
+                }
+            }
+            for (value, argument) in args.iter().zip(&arguments) {
+                self.copy_call_argument(value, argument)?;
+            }
+        }
         assert_eq!(self.code.delta(), u32::from(outgoing));
-        self.code.a8();
-        self.code.byte(ByteOp::LdaImm, 0);
-        for displacement in padding {
-            self.code.byte(ByteOp::StaStack, displacement);
-        }
-        for (value, argument) in args.iter().zip(&arguments) {
-            self.copy_call_argument(value, argument)?;
-        }
         if let Some(target) = direct {
+            // Terminal private bindings are authorized only while constructing
+            // arguments. Neither the callee nor result capture inherits them.
+            self.borrowed.clear();
             self.code.a16();
             self.code.native_call(target, plan)?; // JSL
         } else {
@@ -2252,9 +2498,13 @@ impl Builder<'_> {
             self.code.native_indirect_transfer(plan)?; // RTL: enter callee with ordinary three-byte return frame
             self.code.mark(resume);
         }
-        self.release(outgoing, true);
+        // A forwarded result still needs preservation, despite omitting its
+        // capture. Discarded results retain their declared callee ABI effects.
+        self.release(outgoing, capture.is_some());
         assert_eq!(self.code.delta(), 0);
-        if let Some((home, bytes)) = capture {
+        if result_use == CallResultUse::Capture
+            && let Some((home, bytes)) = capture
+        {
             self.capture_call_result(home, bytes)?;
         }
         Ok(())
@@ -2312,7 +2562,12 @@ impl Builder<'_> {
         // preserves A; BYTE's ABI result does not require any X preparation.
         Ok(true)
     }
+    #[cfg(test)]
     fn return_value(&mut self, value: Option<&Mir65816Value>) -> Result<(), String> {
+        self.prepare_return_value(value)?;
+        self.return_tail(value.is_some())
+    }
+    fn prepare_return_value(&mut self, value: Option<&Mir65816Value>) -> Result<(), String> {
         if let Some(value) = value {
             let bytes = match self.routine.result_home {
                 Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A8ZeroExtended)) => 1,
@@ -2342,7 +2597,10 @@ impl Builder<'_> {
         } else if self.routine.result_home.is_some() {
             return Err("function returns without a value".into());
         }
-        self.release(self.frame.extent, value.is_some());
+        Ok(())
+    }
+    fn return_tail(&mut self, preserve_result: bool) -> Result<(), String> {
+        self.release(self.frame.extent, preserve_result);
         self.code.native_return(self.routine.result_home)?; // RTL
         Ok(())
     }

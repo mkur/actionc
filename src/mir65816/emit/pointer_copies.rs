@@ -17,9 +17,21 @@ impl PointerHome {
         }
     }
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum PointerCopy {
+    Move(PointerHome, PointerHome),
+    Capture(PointerHome),
+    Restore(PointerHome),
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct PointerStaging {
+    pub a: u8,
+    pub capture: Option<u8>,
+}
 pub(super) struct PointerCopies {
     moves: Vec<(PointerHome, PointerHome)>,
-    order: Vec<usize>,
+    steps: Vec<PointerCopy>,
+    cyclic: bool,
 }
 impl PointerCopies {
     fn plan(moves: Vec<(PointerHome, PointerHome)>) -> Option<Self> {
@@ -35,22 +47,70 @@ impl PointerCopies {
         {
             return None;
         }
-        let mut pending: Vec<_> = (0..moves.len())
-            .filter(|&i| moves[i].0 != moves[i].1)
+        let mut pending: Vec<_> = moves
+            .iter()
+            .copied()
+            .filter(|&(s, d)| s != d)
+            .map(|(s, d)| (Some(s), d))
             .collect();
-        let mut order = Vec::new();
+        let mut steps = Vec::new();
+        let mut cyclic = false;
         while !pending.is_empty() {
             // Consume every complete source before overwriting its home. Never
             // schedule the two overlapping word pieces as independent moves.
-            let at = pending
-                .iter()
-                .position(|&i| pending.iter().all(|&j| i == j || moves[j].0 != moves[i].1))?;
-            order.push(pending.remove(at));
+            if let Some(at) = pending.iter().position(|&(_, destination)| {
+                pending
+                    .iter()
+                    .all(|&(source, _)| source != Some(destination))
+            }) {
+                let (source, destination) = pending.remove(at);
+                steps.push(match source {
+                    Some(source) => PointerCopy::Move(source, destination),
+                    None => PointerCopy::Restore(destination),
+                });
+            } else {
+                // Only cycles remain. Save one destination, replacing every
+                // use of its old value. This opens a chain ending at Restore;
+                // the capture is consumed before another cycle can be blocked.
+                debug_assert!(pending.iter().all(|&(s, _)| s.is_some()));
+                let saved = pending[0].1;
+                steps.push(PointerCopy::Capture(saved));
+                for (source, _) in &mut pending {
+                    if *source == Some(saved) {
+                        *source = None;
+                    }
+                }
+                cyclic = true;
+            }
         }
-        Some(Self { moves, order })
+        Some(Self {
+            moves,
+            steps,
+            cyclic,
+        })
     }
-    pub fn scheduled(&self) -> impl Iterator<Item = (PointerHome, PointerHome)> + '_ {
-        self.order.iter().map(|&i| self.moves[i])
+    pub fn scheduled(
+        &self,
+        staging: PointerStaging,
+    ) -> impl Iterator<Item = (PointerHome, PointerHome)> + '_ {
+        self.steps.iter().map(move |&step| match step {
+            PointerCopy::Move(s, d) => (s, d),
+            PointerCopy::Capture(s) => (
+                s,
+                PointerHome::Stack(staging.capture.expect("checked capture slot")),
+            ),
+            PointerCopy::Restore(d) => (
+                PointerHome::Stack(staging.capture.expect("checked capture slot")),
+                d,
+            ),
+        })
+    }
+    pub fn staging_widths(&self) -> Vec<u8> {
+        if self.cyclic {
+            vec![2, 3]
+        } else {
+            vec![2; usize::from(self.preserve_a())]
+        }
     }
     pub fn final_destination(&self) -> PointerHome {
         self.moves.last().unwrap().1
@@ -59,7 +119,7 @@ impl PointerCopies {
     // in one private word, then restore B and establish the old final byte/NZ.
     // An identity only needs that final byte load and no staging storage.
     pub fn preserve_a(&self) -> bool {
-        !self.order.is_empty()
+        !self.steps.is_empty()
     }
 }
 fn stack(offset: u32, delta: u32) -> Result<PointerHome, String> {
@@ -114,33 +174,43 @@ impl AllocatedFrame {
         &self,
         plan: &PointerCopies,
         delta: u32,
-    ) -> Result<Option<u8>, String> {
-        if !plan.preserve_a() {
-            return Ok(None);
-        }
-        let slot = self
-            .edge_copies
-            .first()
-            .ok_or("missing pointer edge A staging word")?;
-        if !(2..=4).contains(&slot.width) {
-            return Err("invalid pointer edge A staging width".into());
-        }
-        let at = abi::stack::access_displacement(
-            ByteOffset::new(slot.offset.into()),
-            ByteSize::new(2),
-            ByteSize::new(delta),
-        )
-        .map_err(|e| e.to_string())?
-        .get() as u8;
-        for home in plan.moves.iter().flat_map(|&(s, d)| [s, d]) {
-            if let PointerHome::Stack(n) = home
-                && u16::from(at) < u16::from(n) + 3
-                && u16::from(n) < u16::from(at) + 2
-            {
-                return Err("pointer edge A staging overlaps a live home".into());
+    ) -> Result<Option<PointerStaging>, String> {
+        let widths = plan.staging_widths();
+        let mut slots = Vec::new();
+        for (index, &width) in widths.iter().enumerate() {
+            let slot = self
+                .edge_copies
+                .get(index)
+                .ok_or("missing pointer edge staging slot")?;
+            if !(width..=4).contains(&slot.width) {
+                return Err("invalid pointer edge staging width".into());
             }
+            let at = abi::stack::access_displacement(
+                ByteOffset::new(slot.offset.into()),
+                ByteSize::new(width.into()),
+                ByteSize::new(delta),
+            )
+            .map_err(|e| e.to_string())?
+            .get() as u8;
+            let overlap = |n: u8, w: u8| {
+                u16::from(at) < u16::from(n) + u16::from(w)
+                    && u16::from(n) < u16::from(at) + u16::from(width)
+            };
+            if plan
+                .moves
+                .iter()
+                .flat_map(|&(s, d)| [s, d])
+                .any(|home| matches!(home, PointerHome::Stack(n) if overlap(n, 3)))
+                || slots.iter().zip(&widths).any(|(&n, &w)| overlap(n, w))
+            {
+                return Err("pointer edge staging overlaps a live home or staging slot".into());
+            }
+            slots.push(at);
         }
-        Ok(Some(at))
+        Ok(slots.first().map(|&a| PointerStaging {
+            a,
+            capture: slots.get(1).copied(),
+        }))
     }
 }
 
@@ -184,13 +254,17 @@ mod tests {
                             })
                             .collect(),
                     );
-                    assert_eq!(plan.is_some(), possible, "{sources:?}");
+                    assert!(plan.is_some(), "{sources:?}");
                     if let Some(plan) = plan {
+                        assert_eq!(plan.cyclic, !possible, "{sources:?}");
                         let mut memory = [0u8; 32];
                         for (i, value) in initial.iter().enumerate() {
                             memory[4 + 3 * i..7 + 3 * i].copy_from_slice(&value.to_le_bytes()[..3]);
                         }
-                        for (s, d) in plan.scheduled() {
+                        for (s, d) in plan.scheduled(PointerStaging {
+                            a: 24,
+                            capture: Some(26),
+                        }) {
                             let (PointerHome::Stack(s), PointerHome::Stack(d)) = (s, d) else {
                                 panic!()
                             };
@@ -214,18 +288,41 @@ mod tests {
     }
 
     #[test]
-    fn schedules_reject_partial_geometry_and_cycles_across_private_spaces() {
+    fn schedules_reject_partial_geometry_and_support_cycles_across_private_spaces() {
         use PointerHome::{DirectPage as D, Stack as S};
         for moves in [
             vec![(S(10), S(20)), (S(21), S(30))],
             vec![(S(10), S(20)), (S(30), S(22))],
             vec![(S(10), S(20)), (S(30), S(20))],
-            vec![(S(10), S(20)), (S(20), S(10))],
-            vec![(S(10), D(10)), (D(10), S(10))],
         ] {
             assert!(PointerCopies::plan(moves).is_none());
         }
         let plan = PointerCopies::plan(vec![(S(10), D(10)), (D(10), S(20))]).unwrap();
-        assert_eq!(plan.order, [1, 0]);
+        assert_eq!(
+            plan.steps,
+            [
+                PointerCopy::Move(D(10), S(20)),
+                PointerCopy::Move(S(10), D(10))
+            ]
+        );
+        let plan = PointerCopies::plan(vec![
+            (S(10), D(10)),
+            (D(10), S(10)),
+            (S(20), S(30)),
+            (S(30), S(20)),
+        ])
+        .unwrap();
+        assert_eq!(plan.staging_widths(), [2, 3]);
+        assert_eq!(
+            plan.steps,
+            [
+                PointerCopy::Capture(D(10)),
+                PointerCopy::Move(S(10), D(10)),
+                PointerCopy::Restore(S(10)),
+                PointerCopy::Capture(S(30)),
+                PointerCopy::Move(S(20), S(30)),
+                PointerCopy::Restore(S(20)),
+            ]
+        );
     }
 }

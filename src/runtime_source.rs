@@ -40,6 +40,28 @@ pub(crate) struct SelectedRuntimeUnit {
     pub(crate) selection: crate::runtime_link_manifest::RuntimeLinkSelection,
 }
 
+/// Display spellings for runtime declarations, keyed by their internal names.
+/// Keep this metadata separate from case-normalized linker identities.
+pub(crate) fn routine_declaration_names(program: &ir::SemProgram) -> BTreeMap<String, String> {
+    program
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            ir::SemItem::Routine(routine) => Some((
+                routine.symbol.name.clone(),
+                routine
+                    .symbol
+                    .qualified_name
+                    .rsplit(['.', ':'])
+                    .find(|part| !part.is_empty())?
+                    .to_string(),
+            )),
+            _ => None,
+        })
+        .collect()
+}
+
 /// Resolve the implementation-unit name used by an embedded runtime binding.
 ///
 /// Binding sources use compact names such as `SYSBLK.Zero`; the runtime linker

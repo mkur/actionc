@@ -1,0 +1,87 @@
+
+; CRC32
+010000  D4 08       pei     dp:.tiny (_Dp+8)
+010002  D4 0A       pei     dp:.tiny (_Dp+10)
+010004  5A          phy
+010005  5A          phy
+010006  5A          phy
+010007  83 01       sta     1,s
+010009  64 04       stz     dp:.tiny (_Dp+4)
+01000B  64 06       stz     dp:.tiny (_Dp+6)
+01000D  A0 00 00    ldy     ##0
+010010  98          `?L5`:      tya
+010011  C3 01       cmp     1,s
+010013  90 1D       bcc     `?L4`
+010015  A5 06       lda     dp:.tiny (_Dp+6)
+010017  49 FF FF    eor     ##-1
+01001A  AA          tax
+01001B  A5 04       lda     dp:.tiny (_Dp+4)
+01001D  49 FF FF    eor     ##-1
+010020  86 02       stx     dp:.tiny (_Dp+2)
+010022  85 00       sta     dp:.tiny _Dp
+010024  A6 02       ldx     dp:.tiny (_Dp+2)
+010026  A5 00       lda     dp:.tiny _Dp
+010028  7A          ply
+010029  7A          ply
+01002A  7A          ply
+01002B  7A          ply
+01002C  84 0A       sty     dp:.tiny (_Dp+10)
+01002E  7A          ply
+01002F  84 08       sty     dp:.tiny (_Dp+8)
+010031  6B          rtl
+010032  E2 20       `?L4`:      sep     #32
+010034  A7 00       lda     [.tiny _Dp]
+010036  83 03       sta     3,s
+010038  C2 20       rep     #32
+01003A  A3 03       lda     3,s
+01003C  29 FF 00    and     ##255
+01003F  EB          xba
+010040  29 00 FF    and     ##-256
+010043  AA          tax
+010044  A9 00 00    lda     ##0
+010047  86 0A       stx     dp:.tiny (_Dp+10)
+010049  85 08       sta     dp:.tiny (_Dp+8)
+01004B  A5 06       lda     dp:.tiny (_Dp+6)
+01004D  45 0A       eor     dp:.tiny (_Dp+10)
+01004F  AA          tax
+010050  A5 04       lda     dp:.tiny (_Dp+4)
+010052  45 08       eor     dp:.tiny (_Dp+8)
+010054  86 06       stx     dp:.tiny (_Dp+6)
+010056  85 04       sta     dp:.tiny (_Dp+4)
+010058  A9 08 00    lda     ##8
+01005B  E2 20       sep     #32
+01005D  83 03       sta     3,s
+01005F  A3 03       `?L9`:      lda     3,s
+010061  C2 20       rep     #32
+010063  D0 13       bne     `?L8`
+010065  A6 02       ldx     dp:.tiny (_Dp+2)
+010067  A5 00       lda     dp:.tiny _Dp
+010069  1A          inc     a
+01006A  D0 01       bne     `?L16`
+01006C  E8          inx
+01006D  86 02       stx     dp:.tiny (_Dp+2)
+01006F  85 00       sta     dp:.tiny _Dp
+010071  98          tya
+010072  1A          inc     a
+010073  83 04       sta     4,s
+010075  A8          tay
+010076  80 98       bra     `?L5`
+010078  A5 06       lda     dp:.tiny (_Dp+6)
+01007A  10 15       bpl     `?L12`
+01007C  06 04       asl     dp:.tiny (_Dp+4)
+01007E  26 06       rol     dp:.tiny (_Dp+6)
+010080  A5 06       lda     dp:.tiny (_Dp+6)
+010082  49 C1 04    eor     ##0x4c1
+010085  AA          tax
+010086  A5 04       lda     dp:.tiny (_Dp+4)
+010088  49 B7 1D    eor     ##0x1db7
+01008B  86 06       stx     dp:.tiny (_Dp+6)
+01008D  85 04       sta     dp:.tiny (_Dp+4)
+01008F  80 04       bra     `?L10`
+010091  06 04       asl     dp:.tiny (_Dp+4)
+010093  26 06       rol     dp:.tiny (_Dp+6)
+010095  A3 03       `?L10`:     lda     3,s
+010097  3A          dec     a
+010098  E2 20       sep     #32
+01009A  83 03       sta     3,s
+01009C  80 C1       bra     `?L9`

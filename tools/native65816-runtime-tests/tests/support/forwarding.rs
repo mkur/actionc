@@ -35,6 +35,7 @@ pub struct Site {
 #[derive(Clone, Debug, Default)]
 pub struct Index {
     words: BTreeMap<u32, Site>,
+    pub shared_return_sites: usize,
     pub control: control_flow::Index,
     pub dispatches: Vec<control_flow::Dispatch>,
     pub multi_words: Vec<multi_word_edge::Site>,
@@ -111,19 +112,21 @@ pub fn instructions(code: &[u8]) -> BTreeMap<usize, (usize, bool)> {
         let op = code[at];
         let n = match op {
             0x18 | 0x38 | 0x1b | 0x3b | 0xaa | 0xa8 | 0x98 | 0x8a | 0xeb | 0x4b | 0x48 | 0x3a
-            | 0x6b | 0xca | 0xe8 => 1,
-            0xa9 | 0x69 | 0xe9 | 0xc9 | 0x29 | 0x49 => {
+            | 0x6b | 0xca | 0xe8 | 0xc8 | 0x0a | 0x4a => 1,
+            0xa9 | 0x69 | 0xe9 | 0xc9 | 0x29 | 0x09 | 0x49 => {
                 if m8 {
                     2
                 } else {
                     3
                 }
             }
-            0xa0 | 0xa2 | 0xe0 | 0x62 | 0x82 => 3,
-            0xaf | 0x8f | 0x5c | 0x22 => 4,
+            0xa0 | 0xa2 | 0xe0 | 0x62 | 0x82 | 0xf4 => 3,
+            0xaf | 0xbf | 0x8f | 0x9f | 0x5c | 0x22 => 4,
             0xc2 | 0xe2 | 0xa6 | 0xa5 | 0x85 | 0x65 | 0xe5 | 0xc5 | 0x25 | 0x05 | 0x45 | 0x06
             | 0x26 | 0x46 | 0x66 | 0xa3 | 0x83 | 0x63 | 0xe3 | 0xc3 | 0xa7 | 0x87 | 0xb7 | 0x97
-            | 0x03 | 0x80 | 0x10 | 0x30 | 0x50 | 0x70 | 0x90 | 0xb0 | 0xd0 | 0xf0 => 2,
+            | 0x23 | 0x03 | 0x43 | 0x80 | 0x10 | 0x30 | 0x50 | 0x70 | 0x90 | 0xb0 | 0xd0 | 0xf0 => {
+                2
+            }
             _ => panic!("unknown instruction {op:02x} at {at}"),
         };
         assert!(at + n <= code.len());
@@ -142,6 +145,7 @@ pub fn index(
 ) -> Index {
     actionc::mir65816::verify_program(mir).unwrap();
     let mut out = Index {
+        shared_return_sites: 0,
         words: BTreeMap::new(),
         control: control_flow::index(mir, machine, &address),
         frame_words: frame_forwarding::index(mir, machine, &address),
@@ -182,7 +186,14 @@ pub fn index(
                         right,
                         ..
                     } if width.get() == 2
-                        && matches!(operation, NirBinaryOp::Add | NirBinaryOp::Sub)
+                        && matches!(
+                            operation,
+                            NirBinaryOp::Add
+                                | NirBinaryOp::Sub
+                                | NirBinaryOp::And
+                                | NirBinaryOp::Or
+                                | NirBinaryOp::Xor
+                        )
                         && word(left)
                         && word(right) =>
                     {
@@ -201,7 +212,14 @@ pub fn index(
                             right,
                             ..
                         } if width.get() == 2
-                            && matches!(operation, NirBinaryOp::Add | NirBinaryOp::Sub)
+                            && matches!(
+                                operation,
+                                NirBinaryOp::Add
+                                    | NirBinaryOp::Sub
+                                    | NirBinaryOp::And
+                                    | NirBinaryOp::Or
+                                    | NirBinaryOp::Xor
+                            )
                             && word(left)
                             && word(right) =>
                         {
@@ -255,6 +273,44 @@ pub fn index(
                 }
                 let p = &m.code.mir_spans[&(block.id, pi)];
                 let c = &m.code.mir_spans[&(block.id, ci)];
+                if c.is_empty() {
+                    assert!(matches!(
+                        &block.ops[ci],
+                        Mir65816Op::Binary {
+                            operation: NirBinaryOp::And,
+                            ..
+                        }
+                    ));
+                    continue; // Fused mask has no physical arithmetic producer.
+                }
+                if p.is_empty() && kind == Kind::Compare {
+                    assert!(
+                        matches!(&block.ops[pi],Mir65816Op::Load{address,..} if matches!(address.base,Mir65816AddressBase::Parameter(_)))
+                            || matches!(
+                                &block.ops[pi],
+                                Mir65816Op::Binary {
+                                    operation: NirBinaryOp::And,
+                                    ..
+                                }
+                            )
+                    );
+                    continue; // Incoming comparison reads its original home.
+                }
+                // The old adjacent-word probe ends at a local instruction. A
+                // shared return instead transfers the result through a checked
+                // internal join; its separate runtime tests cover those lanes.
+                if kind == Kind::Return
+                    && actionc::mir65816::emit::proof::selected_actions(&m.code)
+                        .unwrap()
+                        .iter()
+                        .any(|s| {
+                            s.source == Some((block.id, ci))
+                                && s.request == Some("prepare-return-join")
+                        })
+                {
+                    out.shared_return_sites += 1;
+                    continue;
+                }
                 assert_eq!(p.end, c.start, "nonadjacent MIR spans");
                 // A frame/parameter load may consist solely of its retained capture.
                 // Its independently checked store/load proof supplies A and N/Z.
@@ -283,7 +339,23 @@ pub fn index(
                 assert!(
                     matches!(
                         code[last],
-                        0xa3 | 0xa5 | 0xaf | 0x63 | 0x65 | 0x69 | 0xe3 | 0xe5 | 0xe9
+                        0xa3 | 0xa5
+                            | 0xaf
+                            | 0x63
+                            | 0x65
+                            | 0x69
+                            | 0xe3
+                            | 0xe5
+                            | 0xe9
+                            | 0x23
+                            | 0x03
+                            | 0x43
+                            | 0x25
+                            | 0x05
+                            | 0x45
+                            | 0x29
+                            | 0x09
+                            | 0x49
                     ),
                     "producer must establish full word and N/Z"
                 );
@@ -298,8 +370,21 @@ pub fn index(
                 let consumer = c.start + if loaded { 2 } else { 0 };
                 assert_eq!(ins[&consumer].1, false);
                 assert!(match kind {
-                    Kind::Arithmetic => matches!(code[consumer], 0x18 | 0x38),
-                    Kind::Compare => matches!(code[consumer], 0xc3 | 0xc5 | 0xc9),
+                    Kind::Arithmetic => matches!(
+                        code[consumer],
+                        0x18 | 0x38 | 0x23 | 0x03 | 0x43 | 0x25 | 0x05 | 0x45 | 0x29 | 0x09 | 0x49
+                    ),
+                    Kind::Compare =>
+                        matches!(code[consumer], 0xc3 | 0xc5 | 0xc9)
+                            || matches!(code[consumer], 0xd0 | 0xf0)
+                                && matches!(
+                                    &block.ops[ci],
+                                    Mir65816Op::Compare {
+                                        operation: NirCompareOp::Eq | NirCompareOp::Ne,
+                                        right: Mir65816Value::U16(0) | Mir65816Value::U8(0),
+                                        ..
+                                    }
+                                ),
                     Kind::Store => matches!(code[consumer], 0x83 | 0x8f),
                     Kind::Return => matches!(code[consumer], 0xa8 | 0x6b),
                 });
@@ -376,6 +461,7 @@ pub fn relocated(templates: &Index, image: &actionc::mir65816::o65::RelocatedIma
         })
         .collect();
     Index {
+        shared_return_sites: templates.shared_return_sites,
         words,
         control: control_flow::relocated(&templates.control, image),
         x_words: templates

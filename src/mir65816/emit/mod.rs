@@ -9,6 +9,7 @@ pub(super) mod layout;
 mod liveness;
 mod loop_x;
 mod pointer_copies;
+mod pointer_coalescing;
 #[cfg(feature = "native65816-state-proof")]
 pub mod proof;
 mod replay;
@@ -86,8 +87,9 @@ fn materialize_path(
             ));
         }
         routines.push(
-            select::routine_with_replay(
+            select::routine_with_data(
                 routine,
+                &program.data,
                 trace,
                 #[cfg(feature = "native65816-state-proof")]
                 replay,

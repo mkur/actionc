@@ -149,6 +149,14 @@ pub fn index(
                     continue;
                 };
                 let p = &m.code.mir_spans[&(b.id, i)];
+                if p.is_empty() {
+                    // Adjacent incoming comparisons have no capture to track.
+                    assert!(
+                        matches!(b.ops.get(i+1),Some(Mir65816Op::Compare{left:Mir65816Value::Temp(t,_),..}) if *t==temp)
+                            || matches!(b.ops.get(i+1),Some(Mir65816Op::Compare{right:Mir65816Value::Temp(t,_),..}) if *t==temp)
+                    );
+                    continue;
+                }
                 if code[p.clone()] == homes::store(capture) {
                     continue;
                 } // Omitted consumer cannot rearm.

@@ -118,3 +118,20 @@ and [measured snapshot](benchmarks/65816-control-flow/3c/after/tables.md).
 slices, optimized `sum_loop(13)` falls from 140 bytes / 1,395 cycles to 120 bytes /
 1,212 cycles; raw falls from 164 / 1,767 to 146 / 1,587. Stack reads/writes stay at
 165/188 optimized and 197/246 raw, with peaks of 16 and 14 bytes respectively.
+
+## Shared return tails
+
+Framed routines may retain one return teardown and redirect other reachable
+returns to it. MIR blocks and predecessor obligations remain unchanged; the
+shared tail is an internal selected-action label. `PrepareReturnJoin` checks
+native A16/X16 body depth with no outstanding pushes, then forgets path-specific
+value, stack-equation and X-residency facts without changing hardware registers.
+Every incoming edge must still match the label's execution environment, including
+backedges emitted after the retained tail. The internal join explicitly restores
+A16 permission; it does not inherit the permissions of a verified MIR block.
+
+Result preparation and outgoing call cleanup belong to individual return sites.
+The retained tail alone owns frame release and the typed native-return summary.
+Jump/source spans and layout are rebuilt by the normal typed replay pipeline.
+Sharing is restricted to multiple reachable returns with nonzero frames; its
+cost includes the retained join repair and redirected jumps.

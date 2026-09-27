@@ -1,0 +1,60 @@
+{
+  "scope": "Focused call cleanup and native result forwarding checks only",
+  "full_qualification_run": false,
+  "runs": {
+    "call-cleanup-native": {
+      "passed_tests": 17,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-6n1bo0_k/manifest.json",
+      "manifest_sha256": "30c10a136e55c8699eb37662e047e5164e7596d537a50b167368e1908757159f"
+    },
+    "call-cleanup-release": {
+      "passed_tests": 2,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-qq_9fl4y/manifest.json",
+      "manifest_sha256": "f8090a9b9945a1e5c5c8ac6da0d32b77075017b706c84107b42cc214438e41d9"
+    },
+    "call-returns-native": {
+      "passed_tests": 20,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-jdt3l4t9/manifest.json",
+      "manifest_sha256": "6d9a5f779210ef361ee40a29d06ad03a8919d5dc9c319e28116d15e1bf93f7bc"
+    },
+    "call-returns-release": {
+      "passed_tests": 3,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-myzaseop/manifest.json",
+      "manifest_sha256": "1f4c2f51d4c8d538d88c996c801644bef1783e9b80a6a62439946a4f661087c3"
+    },
+    "wide-call-returns-native": {
+      "passed_tests": 17,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-hkmktvk6/manifest.json",
+      "manifest_sha256": "2e740b407a25214e386261859fb76bed2656d541067c030c998a98db7b4e6c69"
+    },
+    "wide-call-returns-release": {
+      "passed_tests": 6,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-novydnnp/manifest.json",
+      "manifest_sha256": "bd6b41bedcfe439facd53390ad649719a36179c75f115a9a117dcd757f3d169e"
+    },
+    "call-cleanup-unit": {
+      "passed_tests": 9,
+      "log_sha256": "d225bb4932727966cf024be5fedd86fd01829494879296eb19198c44e8c2f049"
+    },
+    "call-cleanup-snapshot": {
+      "passed_tests": 2,
+      "log_sha256": "0ab672ba87b62b28c8d7544eade202b1bb76419076894cce45a058c91a36a764"
+    },
+    "call-returns-unit": {
+      "passed_tests": 12,
+      "log_sha256": "5ed617b6d858f967ac0252c74252031616936f295ebf82db774d4ce865cd6039"
+    },
+    "call-returns-integration": {
+      "passed_tests": 34,
+      "log_sha256": "ce316ca674c84c247066d2203d041be0e38bbf272ace8c0c60b64a946a8b5c63"
+    },
+    "wide-call-returns-unit": {
+      "passed_tests": 3,
+      "log_sha256": "225d9a5971e5497904a531d53c33048f1cefff6f124aebe7c44017ad7d2e793f"
+    },
+    "wide-call-returns-integration": {
+      "passed_tests": 34,
+      "log_sha256": "75017ae3ee6a73026287974422b9ca679eb61aadd149c007da8cbc6bd7c16ea3"
+    }
+  }
+}

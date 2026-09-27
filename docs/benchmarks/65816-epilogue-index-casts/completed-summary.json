@@ -1,0 +1,87 @@
+{
+  "baseline_compiler": "fc729cf0",
+  "workload": "frozen Exec 622b139-dirty, 631 routines, 120 input hashes",
+  "compiler_code_before": 354944,
+  "compiler_code_after": 343783,
+  "saved": 11161,
+  "slices": [
+    {
+      "slice": "epilogue-void",
+      "saved": 208
+    },
+    {
+      "slice": "epilogue-value",
+      "saved": 5741
+    },
+    {
+      "slice": "index-byte",
+      "saved": 1129
+    },
+    {
+      "slice": "index-scaled",
+      "saved": 1822
+    },
+    {
+      "slice": "index-constant",
+      "saved": 1334
+    },
+    {
+      "slice": "casts-final",
+      "saved": 927
+    }
+  ],
+  "guard_bytes": 72252,
+  "guard_subtracted_compiler_code": 271531,
+  "package_assembly": 8300,
+  "total_initialized_data": 2307,
+  "estimated_loaded_without_guards": 282138,
+  "release_cap": 262144,
+  "remaining_gap": 19994,
+  "model_saving": 11678,
+  "qualification_run": false,
+  "guard_disabled_build": false,
+  "remaining_operation_footprints": [
+    {
+      "pattern": "Unindexed indirect scalar loads/stores",
+      "sites": 3667,
+      "current_bytes": 75441,
+      "estimated_saving": null
+    },
+    {
+      "pattern": "Calls, excluding guards",
+      "sites": 2045,
+      "current_bytes": 60948,
+      "estimated_saving": null
+    },
+    {
+      "pattern": "Remaining private 24-bit captures",
+      "sites": 2229,
+      "current_bytes": 18712,
+      "estimated_saving": null
+    },
+    {
+      "pattern": "BYTE equality/inequality comparisons",
+      "sites": 1032,
+      "current_bytes": 14130,
+      "estimated_saving": null
+    },
+    {
+      "pattern": "Explicit address formation",
+      "sites": 339,
+      "current_bytes": 7519,
+      "estimated_saving": null
+    },
+    {
+      "pattern": "Integer casts after native selection",
+      "sites": 368,
+      "current_bytes": 3988,
+      "estimated_saving": null
+    }
+  ],
+  "footprint_note": "Disjoint operation families, excluding guard ranges; includes necessary computation and already optimized code. Not a savings estimate.",
+  "hashes": {
+    "target/exec-current-audit/casts-final.image.json": "17d90893a3a90cc373ac8470fa11bfdd61e49ad9821b7c5cbd7c7038993052b5",
+    "target/exec-current-audit/casts-final.inventory.json": "be9bcda4437c6355e1bb2f60cc608a709f13c6b6360f856e273df7af4af777fb",
+    "docs/benchmarks/65816-epilogue-index-casts/summarize.py": "e15ee5a30f724f53b2e05e332b48e4dcdcff0ef6d9a3973302d1544e0f0907fd"
+  }
+}

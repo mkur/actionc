@@ -56,13 +56,16 @@ mod branch_use_tests;
 #[derive(Default)]
 struct Uses {
     inputs: Live,
+    occurrences: Vec<TempId>,
     output: Option<TempId>,
+    pointer_copy: Option<(TempId, TempId)>,
 }
 
 impl Uses {
     fn value(&mut self, value: &Mir65816Value) {
         if let Mir65816Value::Temp(id, _) = value {
             self.inputs.insert(*id);
+            self.occurrences.push(*id);
         }
     }
 
@@ -137,8 +140,57 @@ impl Uses {
                 uses.output = result.map(|(id, _)| id);
             }
         }
+        uses.pointer_copy = pointer_copy(op);
         uses
     }
+}
+
+/// Exhaustive typed operands shared with bounded private-source selection.
+pub(super) fn operation_inputs(op: &Mir65816Op) -> Vec<TempId> {
+    Uses::operation(op).occurrences
+}
+
+/// Every operand occurrence, including repeated address/value operands. Shared
+/// with address selection so new MIR operations cannot hide a live producer.
+pub(super) fn input_counts(routine: &Mir65816Routine) -> BTreeMap<TempId, usize> {
+    let mut all = Vec::new();
+    for block in &routine.blocks {
+        for op in &block.ops {
+            all.extend(Uses::operation(op).occurrences);
+        }
+        let mut term = Uses::default();
+        let edges = match &block.terminator {
+            Mir65816Terminator::Goto(edge) => vec![edge],
+            Mir65816Terminator::Branch {
+                condition,
+                then_edge,
+                else_edge,
+            } => {
+                term.value(condition);
+                vec![then_edge, else_edge]
+            }
+            Mir65816Terminator::Return { value, .. } => {
+                if let Some(value) = value {
+                    term.value(value);
+                }
+                vec![]
+            }
+            Mir65816Terminator::Fallthrough
+            | Mir65816Terminator::Exit
+            | Mir65816Terminator::ArithmeticFault => vec![],
+        };
+        for edge in edges {
+            for value in &edge.args {
+                term.value(value);
+            }
+        }
+        all.extend(term.occurrences);
+    }
+    let mut counts = BTreeMap::new();
+    for id in all {
+        *counts.entry(id).or_default() += 1;
+    }
+    counts
 }
 
 struct Block {
@@ -149,6 +201,34 @@ struct Block {
 }
 
 pub(super) fn interference(routine: &Mir65816Routine) -> Result<Interference, String> {
+    interference_inner(routine, false)
+}
+
+/// A bit-preserving cast of a complete captured three-byte value. Parameters
+/// and source memory are deliberately excluded from this storage affinity.
+pub(super) fn pointer_copy(op: &Mir65816Op) -> Option<(TempId, TempId)> {
+    match op {
+        Mir65816Op::Cast {
+            dest,
+            from,
+            to,
+            value: Mir65816Value::Temp(source, width),
+            ..
+        } if from.get() == 3 && to.get() == 3 && width.get() == 3 => Some((*source, *dest)),
+        _ => None,
+    }
+}
+
+/// Stack-only exception: a dying identity-cast input need not coexist with its
+/// output. Every other operation and every third-party overlap stays closed.
+pub(super) fn pointer_copy_interference(routine: &Mir65816Routine) -> Result<Interference, String> {
+    interference_inner(routine, true)
+}
+
+fn interference_inner(
+    routine: &Mir65816Routine,
+    pointer_copies: bool,
+) -> Result<Interference, String> {
     let indices: BTreeMap<_, _> = routine
         .blocks
         .iter()
@@ -261,10 +341,24 @@ pub(super) fn interference(routine: &Mir65816Routine) -> Result<Interference, St
         add_clique(&mut graph, &live);
         for op in block.ops.iter().rev() {
             // Reserve even dead outputs, conservatively including fused Booleans.
-            // Inputs and output coexist until the entire operation completes.
+            // Omit only this site's dying identity-copy pair. An interference
+            // established at another site must never be removed from the graph.
+            let exception = op
+                .pointer_copy
+                .filter(|(source, _)| pointer_copies && !live.contains(source));
             live.extend(&op.inputs);
             live.extend(op.output);
-            add_clique(&mut graph, &live);
+            for &id in &live {
+                graph
+                    .get_mut(&id)
+                    .expect("checked temporary identity")
+                    .extend(live.iter().copied().filter(|&other| {
+                        other != id
+                            && !exception.is_some_and(|(a, b)| {
+                                (id == a && other == b) || (id == b && other == a)
+                            })
+                    }));
+            }
             if let Some(id) = op.output {
                 live.remove(&id);
             }

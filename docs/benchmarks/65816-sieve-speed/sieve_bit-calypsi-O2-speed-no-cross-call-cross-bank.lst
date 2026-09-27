@@ -1,0 +1,158 @@
+
+; flags
+
+; bitv
+01010D  01 02 04 08 bitv:       .byte   1,2,4,8,16,32,64,-128
+010111  10 20 40 80
+
+; check_flag
+0100D9  AA          check_flag: tax
+0100DA  8A          txa
+0100DB  4A          lsr     a
+0100DC  4A          lsr     a
+0100DD  4A          lsr     a
+0100DE  85 00       sta     dp:.tiny _Dp
+0100E0  64 02       stz     dp:.tiny (_Dp+2)
+0100E2  18          clc
+0100E3  A5 00       lda     dp:.tiny _Dp
+0100E5  69 F9 FF    adc     ##.word0 flags
+0100E8  85 00       sta     dp:.tiny _Dp
+0100EA  A5 02       lda     dp:.tiny (_Dp+2)
+0100EC  69 12 00    adc     ##.word2 flags
+0100EF  85 02       sta     dp:.tiny (_Dp+2)
+0100F1  8A          txa
+0100F2  29 07 00    and     ##7
+0100F5  85 04       sta     dp:.tiny (_Dp+4)
+0100F7  64 06       stz     dp:.tiny (_Dp+6)
+0100F9  18          clc
+0100FA  A5 04       lda     dp:.tiny (_Dp+4)
+0100FC  69 0D 01    adc     ##.word0 bitv
+0100FF  85 04       sta     dp:.tiny (_Dp+4)
+010101  A5 06       lda     dp:.tiny (_Dp+6)
+010103  69 01 00    adc     ##.word2 bitv
+010106  85 06       sta     dp:.tiny (_Dp+6)
+010108  A7 04       lda     [.tiny (_Dp+4)]
+01010A  27 00       and     [.tiny _Dp]
+01010C  6B          rtl
+
+; clear_flag
+01009C  AA          clear_flag: tax
+01009D  8A          txa
+01009E  4A          lsr     a
+01009F  4A          lsr     a
+0100A0  4A          lsr     a
+0100A1  85 00       sta     dp:.tiny _Dp
+0100A3  64 02       stz     dp:.tiny (_Dp+2)
+0100A5  18          clc
+0100A6  A5 00       lda     dp:.tiny _Dp
+0100A8  69 F9 FF    adc     ##.word0 flags
+0100AB  85 00       sta     dp:.tiny _Dp
+0100AD  A5 02       lda     dp:.tiny (_Dp+2)
+0100AF  69 12 00    adc     ##.word2 flags
+0100B2  85 02       sta     dp:.tiny (_Dp+2)
+0100B4  8A          txa
+0100B5  29 07 00    and     ##7
+0100B8  85 04       sta     dp:.tiny (_Dp+4)
+0100BA  64 06       stz     dp:.tiny (_Dp+6)
+0100BC  18          clc
+0100BD  A5 04       lda     dp:.tiny (_Dp+4)
+0100BF  69 0D 01    adc     ##.word0 bitv
+0100C2  85 04       sta     dp:.tiny (_Dp+4)
+0100C4  A5 06       lda     dp:.tiny (_Dp+6)
+0100C6  69 01 00    adc     ##.word2 bitv
+0100C9  85 06       sta     dp:.tiny (_Dp+6)
+0100CB  A7 04       lda     [.tiny (_Dp+4)]
+0100CD  49 FF 00    eor     ##255
+0100D0  E2 20       sep     #32
+0100D2  27 00       and     [.tiny _Dp]
+0100D4  87 00       sta     [.tiny _Dp]
+0100D6  C2 20       rep     #32
+0100D8  6B          rtl
+
+; sieve
+010000  A8          sieve:      tay
+010001  3B          tsc
+010002  38          sec
+010003  E9 0A 00    sbc     ##10
+010006  1B          tcs
+010007  98          tya
+010008  83 05       sta     5,s
+01000A  A9 01 00    lda     ##1
+01000D  83 01       sta     1,s
+01000F  3A          dec     a
+010010  83 03       sta     3,s
+010012  A3 03       `?L12`:     lda     3,s
+010014  AA          tax
+010015  A3 05       lda     5,s
+010017  4A          lsr     a
+010018  4A          lsr     a
+010019  4A          lsr     a
+01001A  1A          inc     a
+01001B  85 00       sta     dp:.tiny _Dp
+01001D  E4 00       cpx     dp:.tiny _Dp
+01001F  90 5B       bcc     `?L11`
+010021  A9 00 00    lda     ##0
+010024  83 09       sta     9,s
+010026  A3 01       lda     1,s
+010028  83 07       `?L30`:     sta     7,s
+01002A  A3 09       lda     9,s
+01002C  C3 05       cmp     5,s
+01002E  90 0B       bcc     `?L15`
+010030  A3 07       lda     7,s
+010032  A8          tay
+010033  3B          tsc
+010034  18          clc
+010035  69 0A 00    adc     ##10
+010038  1B          tcs
+010039  98          tya
+01003A  6B          rtl
+01003B  22 D9 00 01 jsl     long:check_flag
+01003F  29 FF 00    and     ##255
+010042  F0 29       beq     `?L19`
+010044  A3 09       lda     9,s
+010046  18          clc
+010047  63 09       adc     9,s
+010049  1A          inc     a
+01004A  1A          inc     a
+01004B  1A          inc     a
+01004C  83 03       sta     3,s
+01004E  18          clc
+01004F  63 09       adc     9,s
+010051  83 01       sta     1,s
+010053  A3 01       `?L22`:     lda     1,s
+010055  C3 05       cmp     5,s
+010057  B0 0D       bcs     `?L23`
+010059  22 9C 00 01 jsl     long:clear_flag
+01005D  A3 03       lda     3,s
+01005F  18          clc
+010060  63 01       adc     1,s
+010062  83 01       sta     1,s
+010064  80 ED       bra     `?L22`
+010066  A3 07       `?L23`:     lda     7,s
+010068  1A          inc     a
+010069  83 01       sta     1,s
+01006B  80 04       bra     `?L17`
+01006D  A3 07       `?L19`:     lda     7,s
+01006F  83 01       sta     1,s
+010071  A3 09       `?L17`:     lda     9,s
+010073  1A          inc     a
+010074  83 03       sta     3,s
+010076  83 09       sta     9,s
+010078  A3 01       lda     1,s
+01007A  80 AC       bra     `?L30`
+01007C  A9 F9 FF    lda     ##.word0 flags
+01007F  A2 12 00    ldx     ##.word2 flags
+010082  18          clc
+010083  63 03       adc     3,s
+010085  90 01       bcc     `?L28`
+010087  E8          inx
+010088  86 02       stx     dp:.tiny (_Dp+2)
+01008A  85 00       sta     dp:.tiny _Dp
+01008C  E2 20       sep     #32
+01008E  A9 FF       lda     #-1
+010090  87 00       sta     [.tiny _Dp]
+010092  C2 20       rep     #32
+010094  A3 03       lda     3,s
+010096  1A          inc     a
+010097  83 03       sta     3,s
+010099  4C 12 00    jmp     .kbank `?L12`

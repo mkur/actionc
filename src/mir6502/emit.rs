@@ -1358,6 +1358,7 @@ fn emit_storage(ctx: &mut MirEmitContext<'_>, emitter: &mut TrackedEmitter) {
                     continue;
                 };
                 emit_global_storage(ctx, global, emitter);
+                record_runtime_storage_range(ctx, &global.name, address, emitter);
             }
             MirStorageItem::Static { id, address } => {
                 bind_data_label(ctx, emitter, static_label(id), address);
@@ -1376,6 +1377,7 @@ fn emit_storage(ctx: &mut MirEmitContext<'_>, emitter: &mut TrackedEmitter) {
                     continue;
                 };
                 emit_data_image(ctx, &static_data.image, emitter);
+                record_runtime_storage_range(ctx, &static_data.name, address, emitter);
             }
             MirStorageItem::RoutineSlot {
                 routine,
@@ -1384,8 +1386,28 @@ fn emit_storage(ctx: &mut MirEmitContext<'_>, emitter: &mut TrackedEmitter) {
             } => {
                 bind_data_label(ctx, emitter, routine_slot_label(routine, &slot), address);
                 emit_storage_init(ctx, slot.init.as_ref(), slot_size(&slot), emitter);
+                if let Some(owner) = ctx.mir.routines.iter().find(|owner| owner.id == routine) {
+                    record_runtime_storage_range(ctx, &owner.name, address, emitter);
+                }
             }
         }
+    }
+}
+
+fn record_runtime_storage_range(
+    ctx: &mut MirEmitContext<'_>,
+    owner: &str,
+    start: u16,
+    emitter: &TrackedEmitter,
+) {
+    if crate::codegen::is_embedded_runtime_symbol(owner) {
+        ctx.summary.source_ranges.push(CodegenSourceRange {
+            kind: CodegenSourceRangeKind::StorageInitializer,
+            name: Some(owner.to_string()),
+            source_span: SYNTHETIC_SPAN,
+            start,
+            end: current_address(ctx, emitter),
+        });
     }
 }
 
@@ -5187,18 +5209,29 @@ fn split_value_as_word(ctx: &MirEmitContext<'_>, value: &MirValue) -> Option<(Mi
             MirValue::ConstU8((value & 0x00FF) as u8),
             MirValue::ConstU8((value >> 8) as u8),
         )),
-        MirValue::StaticAddr(id) => ctx.layout.static_address(*id).map(split_address),
-        MirValue::GlobalAddr(id) => ctx.layout.global_address(*id).map(split_address),
+        MirValue::StaticAddr(id) => ctx
+            .layout
+            .static_address(*id)
+            .map(|_| split_storage_address(MirMem::Static { id: *id, offset: 0 })),
+        MirValue::GlobalAddr(id) => ctx
+            .layout
+            .global_address(*id)
+            .map(|_| split_storage_address(MirMem::Global { id: *id, offset: 0 })),
         MirValue::RoutineAddr(id) => Some(split_routine_address(*id)),
         MirValue::Def(def) => Some((MirValue::Def(def.clone()), MirValue::ConstU8(0))),
         _ => None,
     }
 }
 
-fn split_address(address: u16) -> (MirValue, MirValue) {
+fn split_storage_address(mem: MirMem) -> (MirValue, MirValue) {
+    // Keep the storage identity until immediate emission resolves placement.
+    // Numeric bytes would lose low/high relocations for output-relative data.
     (
-        MirValue::ConstU8((address & 0x00FF) as u8),
-        MirValue::ConstU8((address >> 8) as u8),
+        MirValue::StorageAddrByte {
+            mem: mem.clone(),
+            byte: 0,
+        },
+        MirValue::StorageAddrByte { mem, byte: 1 },
     )
 }
 
@@ -6020,6 +6053,10 @@ fn unsupported_message(
         message: message.to_string(),
     });
 }
+
+#[cfg(test)]
+#[path = "relocation_tests.rs"]
+mod relocation_tests;
 
 #[cfg(test)]
 mod tests {

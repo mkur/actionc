@@ -96,7 +96,8 @@ RETURN(cb(value))
 PROC Main() RETURN
 "#;
     for optimize in [false, true] {
-        let image = compile(source, optimize);
+        let compiled = prepare(source, optimize).compile(&layout()).unwrap();
+        let image = compiled.image;
         for (name, constant) in [
             ("ZeroFrame", Some(0)),
             ("Framed", Some(255)),
@@ -127,7 +128,11 @@ PROC Main() RETURN
                     let mut h = Harness::new(&image, &caller.bytes, mask);
                     h.bus.ram[0x7100..0x7102].copy_from_slice(&value.to_le_bytes());
                     if let Some(constant) = constant.filter(|_| name != "Pick" || value != 0) {
-                        let mut tail = format!("lda #{constant}\n");
+                        let mut tail = if name == "Pick" {
+                            "rep #$20\n".to_string()
+                        } else {
+                            format!("lda #{constant}\n")
+                        };
                         if r.fixed_frame != 0 {
                             tail.push_str(&format!(
                                 "tay\ntsc\nclc\nadc #{}\ntcs\ntya\n",
@@ -136,7 +141,36 @@ PROC Main() RETURN
                         }
                         tail.push_str("rtl\n");
                         let expected = assemble(&tail, 0x050000);
-                        let tail_pc = r.address + r.size - expected.len() as u32;
+                        let tail_end = if name == "Pick" {
+                            let mir = compiled
+                                .machine
+                                .prepared
+                                .routines
+                                .iter()
+                                .find(|m| m.id.0 == r.id)
+                                .unwrap();
+                            let machine = compiled
+                                .machine
+                                .routines
+                                .iter()
+                                .find(|m| m.id == mir.id)
+                                .unwrap();
+                            let first = mir
+                                .blocks
+                                .iter()
+                                .find(|b| {
+                                    matches!(
+                                        b.terminator,
+                                        actionc::mir65816::Mir65816Terminator::Return { .. }
+                                    )
+                                })
+                                .unwrap();
+                            r.address
+                                + machine.code.mir_spans[&(first.id, first.ops.len())].end as u32
+                        } else {
+                            r.address + r.size
+                        };
+                        let tail_pc = tail_end - expected.len() as u32;
                         assert!(
                             h.cpu
                                 .run_until(
@@ -147,10 +181,7 @@ PROC Main() RETURN
                                 )
                                 .unwrap()
                         );
-                        assert_eq!(
-                            &h.bus.ram[tail_pc as usize..(r.address + r.size) as usize],
-                            expected
-                        );
+                        assert_eq!(&h.bus.ram[tail_pc as usize..tail_end as usize], expected);
                         let before = h.cpu.registers();
                         assert_eq!(before.p & 0x3c, mask);
                         let read_start = h.bus.reads.len();

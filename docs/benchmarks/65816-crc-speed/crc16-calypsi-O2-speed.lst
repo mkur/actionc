@@ -1,0 +1,67 @@
+
+; CRC16
+010000  5A          CRC16:      phy
+010001  5A          phy
+010002  5A          phy
+010003  5A          phy
+010004  83 01       sta     1,s
+010006  A0 00 00    ldy     ##0
+010009  98          tya
+01000A  83 06       `?L19`:     sta     6,s
+01000C  A3 06       lda     6,s
+01000E  C3 01       cmp     1,s
+010010  90 06       bcc     `?L4`
+010012  98          tya
+010013  7A          ply
+010014  7A          ply
+010015  7A          ply
+010016  7A          ply
+010017  6B          rtl
+010018  E2 20       `?L4`:      sep     #32
+01001A  A7 00       lda     [.tiny _Dp]
+01001C  83 03       sta     3,s
+01001E  C2 20       rep     #32
+010020  84 04       sty     dp:.tiny (_Dp+4)
+010022  A3 03       lda     3,s
+010024  29 FF 00    and     ##255
+010027  EB          xba
+010028  29 00 FF    and     ##-256
+01002B  45 04       eor     dp:.tiny (_Dp+4)
+01002D  A8          tay
+01002E  A9 08 00    lda     ##8
+010031  E2 20       sep     #32
+010033  83 03       sta     3,s
+010035  E2 20       `?L9`:      sep     #32
+010037  A3 03       lda     3,s
+010039  C2 20       rep     #32
+01003B  D0 13       bne     `?L8`
+01003D  A6 02       ldx     dp:.tiny (_Dp+2)
+01003F  A5 00       lda     dp:.tiny _Dp
+010041  1A          inc     a
+010042  D0 01       bne     `?L16`
+010044  E8          inx
+010045  86 02       stx     dp:.tiny (_Dp+2)
+010047  85 00       sta     dp:.tiny _Dp
+010049  A3 06       lda     6,s
+01004B  1A          inc     a
+01004C  83 04       sta     4,s
+01004E  80 BA       bra     `?L19`
+010050  84 04       sty     dp:.tiny (_Dp+4)
+010052  A5 04       lda     dp:.tiny (_Dp+4)
+010054  10 09       bpl     `?L12`
+010056  98          tya
+010057  0A          asl     a
+010058  49 21 10    eor     ##0x1021
+01005B  83 04       sta     4,s
+01005D  80 04       bra     `?L10`
+01005F  98          `?L12`:     tya
+010060  0A          asl     a
+010061  83 04       sta     4,s
+010063  A3 03       `?L10`:     lda     3,s
+010065  3A          dec     a
+010066  E2 20       sep     #32
+010068  83 03       sta     3,s
+01006A  C2 20       rep     #32
+01006C  A3 04       lda     4,s
+01006E  A8          tay
+01006F  80 C4       bra     `?L9`

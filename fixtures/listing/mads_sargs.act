@@ -1,0 +1,22 @@
+; SArgs descriptors for byte, mixed-width, pointer and array parameters.
+BYTE ARRAY samples(3)=[3 5 7]
+BYTE sink=$0600,seed=$0601
+CARD total=$0602,saved=$0604
+
+PROC plot10(BYTE x,y,col)
+  sink=x+y+col
+RETURN
+
+CARD FUNC SumFrame(BYTE first CARD word BYTE last,extra)
+RETURN(first+word+last+extra)
+
+PROC Indirect(BYTE tag BYTE POINTER ptr BYTE ARRAY items)
+  sink=tag+ptr^+items(1)
+RETURN
+
+PROC Main()
+  saved=@SumFrame
+  plot10(seed,seed,seed)
+  total=SumFrame(seed,total,seed,seed)
+  Indirect(seed,@seed,samples)
+RETURN

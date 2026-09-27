@@ -1,0 +1,114 @@
+{
+  "baseline_compiler": "7c51b22e845834f347dfb710a3ebe32958436137",
+  "compiler_identification": "Measurements precede the implementation commit; source hashes identify the final compiler and tests.",
+  "source_hashes": {
+    "src/mir65816/emit/copies.rs": "6bff91b49d8b2f6c371f15b43e8440cac576158f4aa6f312030b28af7b1238d1",
+    "src/mir65816/emit/pointer_copies.rs": "8e0e7879bfe4840d53072ca457c6abbdf6d7e200d8c06bce3df83c23f1d131ca",
+    "src/mir65816/emit/pointer_value_tests.rs": "4cd991c55ebb476cb73c924ec719de07511ace6f94893735bb51992d93f6487c",
+    "src/mir65816/emit/pointer_values.rs": "3374e1f84a173f40e5a84673b692bcae41ff18a35af25d7940561e9de2044366",
+    "src/mir65816/emit/staging_tests.rs": "bed67458bc882721a5a13e12900ead67d67948d9a3383036f723396285c905a3",
+    "tools/native65816-runtime-tests/tests/pointer_edges.rs": "5d4d74c66675270c4ef07adf3a640d5be741057b8740a6bf84fe5f76985c295d"
+  },
+  "logs": {
+    "target/cyclic-pointer-copies/unit-final.log": "2dbe743db063d3c0a22bc5f448aac3385031e6ab1e0ca85e5e77d89239d4e765",
+    "target/cyclic-pointer-copies/staging.log": "a45621a68eb857383e1660b471fcbcc3bba7b7b3720c761ca8de2bd5fda976ce",
+    "target/cyclic-pointer-copies/coalescing.log": "9c823d9aed657b10d4bb102a12f405d34aff80c76a80733c1f6b314f33be0335",
+    "target/cyclic-pointer-copies/integration.log": "4d8b784aa5be35d861b05eb48daca54279ce420a76a036d8f3d8e4e0ee3e80fe",
+    "target/cyclic-pointer-copies/runtime-debug.log": "6c24a67223c317842254dceb15e9ef8db08ea20d6d0aecc0f978b8e20dfac9aa",
+    "target/cyclic-pointer-copies/lists/debug.log": "e1c3222cdf16c38083572ea150c23f06f9fa322926196a5bffee6759e7992476",
+    "target/cyclic-pointer-copies/lists/release.log": "aad5a6639a2bf1b1bd22ea2a2307d76a048a128880c72b8363468acd06d3d73d"
+  },
+  "focused_runs": {
+    "target/cyclic-pointer-copies/runtime-debug.log": {
+      "manifest": "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualification/run-44d4npc3/manifest.json",
+      "sha256": "7e3de9232dafbaa9608086d3f961c6b5eb739883a5daf35d2d126918fd552d88",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/Cargo.toml",
+        "--test",
+        "pointer_edges",
+        "--test",
+        "selective_staging",
+        "--test",
+        "word_edges",
+        "--test",
+        "replay",
+        "--test",
+        "state_tracking"
+      ]
+    },
+    "target/cyclic-pointer-copies/lists/debug.log": {
+      "manifest": "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualification/run-ubnelrfc/manifest.json",
+      "sha256": "7c3a93594868917578eef9de7ddd5682419c20a88bb2d51910f14a583a453a8a",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/Cargo.toml",
+        "--test",
+        "code_quality",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ]
+    },
+    "target/cyclic-pointer-copies/lists/release.log": {
+      "manifest": "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualification/run-b4g7l8bj/manifest.json",
+      "sha256": "e5c70e1122f8a6af444cbd6d274a75d94159a13cb88606ddd33dee50ad8c2683",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/Cargo.toml",
+        "--release",
+        "--test",
+        "pointer_edges",
+        "--test",
+        "code_quality",
+        "--",
+        "--include-ignored",
+        "--nocapture"
+      ]
+    }
+  },
+  "library_tests": 27,
+  "integration_tests": 34,
+  "debug_runtime_tests": 25,
+  "release_pointer_edge_tests": 6,
+  "list_paired_mask_records_per_host": 270,
+  "list_debug_release_identical": true,
+  "crlf_builds_identical": true,
+  "full_backend_or_exec_qualification": false,
+  "reserved_bank_zero_capacity_delta": 0,
+  "findname_frame_delta": -2,
+  "report_artifacts": {
+    "README.md": "7b0926fc58750d098602310f2562b714a47d3767c6ecf82000b291d38db6abeb",
+    "exec-routines.csv": "c31364a6c06ab4b9bf625b1a32c350fc507767474a4ffd02ab45245da9be7517",
+    "exec-spans.csv": "c26870424e756f31069e6ddbcdddd78118eed3bfb54376e91cd26b9e70f7ae54",
+    "exec-summary.json": "c6fdb91d1e23012e2f2eba6cdda63ff233ecbb3cf4ae4f25e95579fd1b9a95d2",
+    "list-sizes.csv": "6df3132cbc860ab4f49c86434084b4d693d19f964b325ab252f5a40cc037a34b",
+    "lists/actionc-optimized.lst": "6c2335e2b4be2135ee9b0be33e4b732ca529295dae32ff3b6bd5593863e3aa29",
+    "lists/actionc-raw.lst": "907e47eb29c72ee80a1ae9d9ce7a9ca348522c09313b65a6ca616439c85c3a40",
+    "lists/delta.csv": "936fce325084e451fb6f81ba7c6f89317fc650300aa149854222b8897a540c80",
+    "lists/measurements.csv": "39febf6b0b41b17741ebf7792f333600c41f18832abeca4c9913b017d0b9d354",
+    "lists/provenance.json": "02d915e44e1dede4b5fcc2a5ec5ca10a3640e51675f0b5e2c1544cf2184de69f",
+    "lists/sizes.csv": "57ba271aadcc4a82e7e391c13a11b8f0c91de71e107775d7fcc50094b9d072d4"
+  }
+}

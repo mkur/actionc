@@ -1,0 +1,66 @@
+
+; CRC8
+010000  5A          CRC8:       phy
+010001  5A          phy
+010002  5A          phy
+010003  83 01       sta     1,s
+010005  A9 00 00    lda     ##0
+010008  AA          tax
+010009  E2 20       sep     #32
+01000B  83 04       sta     4,s
+01000D  C2 20       rep     #32
+01000F  8A          txa
+010010  83 05       sta     5,s
+010012  A3 05       `?L5`:      lda     5,s
+010014  C3 01       cmp     1,s
+010016  90 06       bcc     `?L4`
+010018  A3 04       lda     4,s
+01001A  7A          ply
+01001B  7A          ply
+01001C  7A          ply
+01001D  6B          rtl
+01001E  E2 20       `?L4`:      sep     #32
+010020  A7 00       lda     [.tiny _Dp]
+010022  83 03       sta     3,s
+010024  C2 20       rep     #32
+010026  A3 03       lda     3,s
+010028  43 04       eor     4,s
+01002A  E2 20       sep     #32
+01002C  83 03       sta     3,s
+01002E  A9 08       lda     #8
+010030  83 04       sta     4,s
+010032  A3 04       `?L9`:      lda     4,s
+010034  C2 20       rep     #32
+010036  D0 1B       bne     `?L8`
+010038  A6 02       ldx     dp:.tiny (_Dp+2)
+01003A  A5 00       lda     dp:.tiny _Dp
+01003C  1A          inc     a
+01003D  D0 01       bne     `?L16`
+01003F  E8          inx
+010040  86 02       stx     dp:.tiny (_Dp+2)
+010042  85 00       sta     dp:.tiny _Dp
+010044  A3 05       lda     5,s
+010046  1A          inc     a
+010047  83 05       sta     5,s
+010049  E2 20       sep     #32
+01004B  A3 03       lda     3,s
+01004D  83 04       sta     4,s
+01004F  C2 20       rep     #32
+010051  80 BF       bra     `?L5`
+010053  A3 02       `?L8`:      lda     2,s
+010055  10 0A       bpl     `?L12`
+010057  0A          asl     a
+010058  49 1D 00    eor     ##29
+01005B  E2 20       sep     #32
+01005D  83 03       sta     3,s
+01005F  80 07       bra     `?L19`
+010061  A3 03       `?L12`:     lda     3,s
+010063  0A          asl     a
+010064  E2 20       sep     #32
+010066  83 03       sta     3,s
+010068  C2 20       `?L19`:     rep     #32
+01006A  A3 04       lda     4,s
+01006C  3A          dec     a
+01006D  E2 20       sep     #32
+01006F  83 04       sta     4,s
+010071  80 BF       bra     `?L9`

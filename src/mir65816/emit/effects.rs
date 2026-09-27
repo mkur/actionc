@@ -73,6 +73,12 @@ pub enum Memory {
         addend: u32,
         bytes: u8,
     },
+    /// Relocated base plus the current X, with full 24-bit carry.
+    SymbolIndexedX {
+        target: Target,
+        addend: u32,
+        bytes: u8,
+    },
     IndirectLong {
         pointer: u8,
         indexed_y: bool,
@@ -127,6 +133,7 @@ pub struct EffectRecord {
 /// Constructed only from the verified MIR call plan; no caller-provided masks.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct CallContract {
+    pub(super) outgoing: u16,
     arguments: Vec<(u16, u16)>,
     result: Option<ResultLocation>,
 }
@@ -166,6 +173,8 @@ impl CallContract {
             ));
         }
         Ok(Self {
+            outgoing: u16::try_from(plan.outgoing_bytes.get())
+                .map_err(|_| "outgoing effect extent overflow")?,
             arguments,
             result: Self::result(plan.result)?,
         })
@@ -286,6 +295,8 @@ impl Instruction {
         let m = state.m;
         let index = state.index;
         match *self {
+            Self::ArgumentPush => return Self::Implied(Implied::Pha).effects(state),
+            Self::ArgumentPushWord(_) => e.push(2),
             Self::Implied(op) => match op {
                 Implied::Clc | Implied::Sec => e.flag_writes = C,
                 Implied::Tsc => {
@@ -320,6 +331,18 @@ impl Instruction {
                 Implied::Xba => {
                     e.reads.a = 0xffff;
                     e.writes.a = 0xffff;
+                    e.flag_writes = NZ;
+                }
+                Implied::AslA | Implied::LsrA => {
+                    e.environment_reads |= env::M;
+                    e.reads.a = mask(m);
+                    e.writes.a = mask(m);
+                    e.flag_writes = NZ | C;
+                }
+                Implied::Iny => {
+                    e.environment_reads |= env::X;
+                    e.reads.y = mask(index);
+                    e.writes.y = 0xffff;
                     e.flag_writes = NZ;
                 }
                 Implied::DecA => {
@@ -359,7 +382,7 @@ impl Instruction {
                 let bytes = u16::from(width.bytes());
                 match op {
                     LdaImm | AdcImm | SbcImm | CmpImm | EorImm | Rep | Sep => {}
-                    LdaStack | AdcStack | SbcStack | CmpStack | OraStack => {
+                    LdaStack | AdcStack | SbcStack | CmpStack | AndStack | OraStack | EorStack => {
                         e.stack(Access::Read, value.into(), bytes)
                     }
                     StaStack => e.stack(Access::Write, value.into(), bytes),
@@ -408,7 +431,9 @@ impl Instruction {
                         e.alu(m, false, false);
                         e.flag_writes |= C;
                     }
-                    AndDp | OraDp | OraStack | EorDp | EorImm => e.alu(m, false, true),
+                    AndDp | AndStack | OraDp | OraStack | EorDp | EorStack | EorImm => {
+                        e.alu(m, false, true)
+                    }
                     AslDp | RolDp | LsrDp | RorDp => {
                         e.environment_reads |= env::M;
                         e.flag_writes = NZ | C;
@@ -445,7 +470,7 @@ impl Instruction {
                         e.alu(Width::Word, false, false);
                         e.flag_writes |= C;
                     }
-                    AndImm | EorImm => e.alu(Width::Word, false, true),
+                    AndImm | OraImm | EorImm => e.alu(Width::Word, false, true),
                     LdxImm => {
                         e.environment_reads |= env::X;
                         e.writes.x = 0xffff;
@@ -500,6 +525,29 @@ impl Instruction {
                     );
                     e.barrier = true;
                     if op == ReferenceOp::LdaLong {
+                        e.load_a(m);
+                    } else {
+                        e.environment_reads |= env::M;
+                        e.reads.a = mask(m);
+                    }
+                }
+                ReferenceOp::LdaLongX | ReferenceOp::StaLongX => {
+                    e.memory(
+                        if op == ReferenceOp::LdaLongX {
+                            Access::Read
+                        } else {
+                            Access::MayWrite
+                        },
+                        Memory::SymbolIndexedX {
+                            target,
+                            addend,
+                            bytes: m.bytes(),
+                        },
+                    );
+                    e.reads.x = mask(index);
+                    e.environment_reads |= env::X;
+                    e.barrier = true;
+                    if op == ReferenceOp::LdaLongX {
                         e.load_a(m);
                     } else {
                         e.environment_reads |= env::M;

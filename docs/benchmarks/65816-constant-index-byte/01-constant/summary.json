@@ -1,0 +1,30 @@
+{
+  "before": "casts-final",
+  "after": "constant-captured",
+  "compiler_code_before": 343783,
+  "compiler_code_after": 339440,
+  "saved": 4343,
+  "guard_bytes": 72252,
+  "guards": 2676,
+  "guard_subtracted_compiler_code": 267188,
+  "package_assembly": 8300,
+  "all_initialized_data": 2307,
+  "estimated_loaded_without_guards": 277795,
+  "gap_to_256_kib": 15651,
+  "smaller_routines": 33,
+  "larger_routines": [],
+  "added_local_jumps": 0,
+  "same_mir_operations": true,
+  "same_frames_peaks_abi": true,
+  "frozen_input_files": 120,
+  "full_qualification_run": false,
+  "guard_disabled_build": false,
+  "hashes": {
+    "target/exec-current-audit/frozen-inputs.json": "4bd36e0e631bef8a8e4f57dc37bb6f9cc078942288bf15c2ec3c4f11757d44c9",
+    "target/exec-current-audit/casts-final.image.json": "17d90893a3a90cc373ac8470fa11bfdd61e49ad9821b7c5cbd7c7038993052b5",
+    "target/exec-current-audit/casts-final.inventory.json": "be9bcda4437c6355e1bb2f60cc608a709f13c6b6360f856e273df7af4af777fb",
+    "target/exec-current-audit/constant-captured.image.json": "10b0c5eca2300eb2d24a64c924ca461d7cc33bef2cbd5dbe3ad1eb9272fa398e",
+    "target/exec-current-audit/constant-captured.inventory.json": "00c14c77dce021303ab7ac2f5f14445c06e9654b63bef235efa1829df7173338",
+    "docs/benchmarks/65816-constant-index-byte/measure.py": "1aa09a79b9e896f1721c6e8baf72471fe54453d35d4d7e246b3e9751b5c27ee3"
+  }
+}

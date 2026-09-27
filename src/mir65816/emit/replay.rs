@@ -157,6 +157,7 @@ impl Request {
             Self::Mode(super::state::Width::Word) => e.a16(),
             Self::EstablishBody => e.establish_body(),
             Self::Barrier => e.barrier(),
+            Self::PrepareReturnJoin => e.prepare_return_join(),
             Self::RegisterHome(h) => e.register_home(*h),
             Self::DeclareBlocks(labels) => e.declare_blocks(labels.iter().copied()),
             Self::ProveEntries {

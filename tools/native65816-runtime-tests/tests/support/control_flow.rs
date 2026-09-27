@@ -101,8 +101,72 @@ pub fn dispatches(
                 && matches!(b.ops.last(), Some(Mir65816Op::Compare {
                 width, left, right, ..
             }) if width.get() == 3 && ((null(left) && captured(right)) || (null(right) && captured(left))));
+            let reduced_sign = if let [
+                ..,
+                Mir65816Op::Binary {
+                    dest: masked,
+                    width,
+                    operation: actionc::nir::NirBinaryOp::And,
+                    left,
+                    right,
+                    ..
+                },
+                Mir65816Op::Compare {
+                    width: cw,
+                    operation,
+                    left: a,
+                    right: z,
+                    ..
+                },
+            ] = b.ops.as_slice()
+            {
+                let source = match (left, right) {
+                    (Mir65816Value::Temp(id, w), Mir65816Value::U32(0x80000000))
+                    | (Mir65816Value::U32(0x80000000), Mir65816Value::Temp(id, w))
+                        if w.get() == 4 =>
+                    {
+                        Some(id)
+                    }
+                    _ => None,
+                };
+                let masked_zero = matches!((a,z),(Mir65816Value::Temp(id,w),Mir65816Value::U32(0)) | (Mir65816Value::U32(0),Mir65816Value::Temp(id,w)) if id==masked && w.get()==4);
+                if !ordinary
+                    && width.get() == 4
+                    && cw.get() == 4
+                    && masked_zero
+                    && matches!(
+                        operation,
+                        actionc::nir::NirCompareOp::Eq | actionc::nir::NirCompareOp::Ne
+                    )
+                    && m.code.mir_spans[&(b.id, b.ops.len() - 2)].is_empty()
+                    && let Some(id) = source
+                {
+                    assert_eq!(sites.len(), 1);
+                    let home = m.frame.temps[id].stack().unwrap();
+                    assert_eq!(home.width, 4);
+                    assert!(home.offset + 3 <= 255);
+                    assert_eq!(
+                        &m.code.bytes[sites[0].offset - 2..sites[0].offset],
+                        &[0xa3, (home.offset + 2) as u8]
+                    );
+                    assert_eq!(
+                        sites[0].predicate,
+                        if *operation == actionc::nir::NirCompareOp::Ne {
+                            0x30
+                        } else {
+                            0x10
+                        }
+                    );
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
             let two_part_ne = !ordinary
                 && !reduced_null
+                && !reduced_sign
                 && matches!(b.ops.last(), Some(Mir65816Op::Compare {
                 width, operation: actionc::nir::NirCompareOp::Ne, ..
             }) if matches!(width.get(), 3 | 4));

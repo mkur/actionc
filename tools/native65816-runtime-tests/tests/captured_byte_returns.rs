@@ -118,7 +118,9 @@ fn captured_return_tails_match_ca65_clear_hidden_b_and_read_no_neighbor_or_scrat
         let p = prepared(SOURCE, optimize);
         let c = p.compile(&layout()).unwrap();
         let image = Image::from_json(&c.image.to_json().unwrap()).unwrap();
-        for name in ["Echo", "Incoming", "Mutate", "Direct", "Indirect"] {
+        // Direct's immediate result now stays in A; call_returns checks that
+        // path's exact tail and absence of private result traffic.
+        for name in ["Echo", "Incoming", "Mutate", "Indirect"] {
             let r = p.mir.routines.iter().find(|r| r.name == name).unwrap();
             let m = c.machine.routines.iter().find(|m| m.id == r.id).unwrap();
             let ir = image.routines.iter().find(|r| r.name == name).unwrap();

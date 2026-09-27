@@ -468,6 +468,13 @@ rather than descriptor cells, and leaves forward routine targets as normal
 label fixups. A relocation reference makes a local or parameter home
 address-observable, so ABI/home-elision passes must preserve that home.
 
+Splitting a global or static address for executable pointer materialization
+retains its storage identity in low/high `StorageAddrByte` operands. Immediate
+loads and additions then emit the corresponding relocations when placement is
+output-relative. Fixed-address storage remains absolute, even when its numeric
+address falls inside the emitted segment. Byte selection occurs after rebasing
+the full address, preserving carries into the high byte.
+
 Foreign-code routine relocations use the NIR routine ID and its placement fact.
 MIR lowering resolves an absolute routine placement to an absolute machine
 target for both inline assembly and structured machine blocks. Relocatable

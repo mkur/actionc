@@ -1,6 +1,34 @@
 mod support;
 use support::*;
 
+// Independent ABI expectation for either a retained capture or an omitted
+// capture bound to its incoming parameter. Do not infer addresses from opcodes.
+fn read_home(
+    r: &actionc::mir65816::Mir65816Routine,
+    m: &actionc::mir65816::emit::MachineRoutine,
+    temp: actionc::nir::TempId,
+) -> u16 {
+    use actionc::mir65816::{Mir65816AbiHome, Mir65816AddressBase, Mir65816Op};
+    for b in &r.blocks {
+        for (i, op) in b.ops.iter().enumerate() {
+            if let Mir65816Op::Load { dest, address, .. } = op
+                && *dest == temp
+                && m.code.mir_spans[&(b.id, i)].is_empty()
+                && let Mir65816AddressBase::Parameter(id) = address.base
+            {
+                let p = r.frame.parameters.iter().find(|p| p.param == id).unwrap();
+                assert!(p.frame_object.is_none());
+                let Mir65816AbiHome::StackArgument { offset, size, .. } = p.incoming else {
+                    panic!()
+                };
+                assert_eq!(size.get(), 3);
+                return m.frame.extent + 4 + offset.get() as u16;
+            }
+        }
+    }
+    m.frame.temps[&temp].stack().unwrap().offset
+}
+
 #[test]
 fn pointer_captures_and_boolean_results_survive_alias_and_call_clobbers() {
     narrow_comparison::captured_values_survive_clobbers(true);
@@ -134,8 +162,8 @@ fn emitted_pointer_equality_reads_only_the_low_word_and_needed_bank_bytes() {
         let span = &machine.code.mir_spans[&(block, index)];
         let start = linked.address + span.start as u32;
         let end = linked.address + span.end as u32;
-        let left = machine.frame.temps[&left].stack().unwrap().offset;
-        let right = machine.frame.temps[&right].stack().unwrap().offset;
+        let left = read_home(r, machine, left);
+        let right = read_home(r, machine, right);
         let dest = machine.frame.temps[&dest].stack().unwrap().offset;
         let caller = caller(compiled.image.entry);
         for (a, b) in [
@@ -409,7 +437,7 @@ fn captured_null_reduction_reads_two_overlapping_words_and_no_fourth_byte() {
         let span = &machine.code.mir_spans[&(block, index)];
         let start = linked.address + span.start as u32;
         let end = linked.address + span.end as u32;
-        let home = machine.frame.temps[&left].stack().unwrap().offset;
+        let home = read_home(r, machine, left);
         assert!(
             machine.code.bytes[span.clone()]
                 .windows(4)

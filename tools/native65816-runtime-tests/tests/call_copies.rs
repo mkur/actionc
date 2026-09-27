@@ -41,7 +41,7 @@ fn echo(width: u8) -> Vec<u8> {
 fn direct_and_indirect_result_captures_match_ca65_and_preserve_neighbor_bytes() {
     for (ty, width) in [("BYTE", 1u8), ("INT", 2), ("ADDRESS", 3), ("LONGINT", 4)] {
         let source = format!(
-            "MODULE TEST\nPUBLIC EXTERNAL {ty} FUNC Observe({ty} value)\n{ty} input=$7100,first=$7200,second=$7210\n{ty} FUNC POINTER cb({ty} value)\nPROC Main() first=Observe(input) cb=@Observe second=cb(input) Observe(input) RETURN\nENDMODULE\n"
+            "MODULE TEST\nPUBLIC EXTERNAL {ty} FUNC Observe({ty} value)\n{ty} input=$7100,first=$7200,second=$7210\n{ty} FUNC POINTER cb({ty} value)\nPROC Main() first=Observe(input) cb=@Observe second=cb(input) Observe(input) cb(input) RETURN\nENDMODULE\n"
         );
         let leaf = echo(width);
         for optimize in [false, true] {
@@ -55,19 +55,20 @@ fn direct_and_indirect_result_captures_match_ca65_and_preserve_neighbor_bytes() 
                     .iter_mut()
                     .find(|r| !r.entry.external)
                     .unwrap();
-                let last = main
+                let discarded: Vec<_> = main
                     .blocks
                     .iter_mut()
                     .flat_map(|b| &mut b.ops)
                     .rev()
-                    .find(|op| matches!(op, Mir65816Op::Call { .. }))
-                    .unwrap();
-                let Mir65816Op::Call { result, .. } = last else {
-                    unreachable!()
-                };
-                if let Some((id, _)) = result.take() {
-                    main.temps.retain(|(temp, _)| *temp != id);
-                }
+                    .filter_map(|op| match op {
+                        Mir65816Op::Call { result, .. } => Some(result.take()),
+                        _ => None,
+                    })
+                    .take(2)
+                    .flatten()
+                    .map(|(id, _)| id)
+                    .collect();
+                main.temps.retain(|(temp, _)| !discarded.contains(temp));
                 actionc::mir65816::verify_program(&p.mir).unwrap();
                 p
             };
@@ -90,6 +91,28 @@ fn direct_and_indirect_result_captures_match_ca65_and_preserve_neighbor_bytes() 
                 irq_effect: Default::default(),
             });
             let compiled = p.compile(&options).unwrap();
+            // Include repeated private middle-byte writes in the call replay
+            // and state proof, alongside the direct/indirect result captures.
+            let (direct, direct_traces) =
+                actionc::mir65816::emit::proof::materialize_reference(&p.mir, true).unwrap();
+            let (replayed, replayed_traces) =
+                actionc::mir65816::emit::proof::materialize_replayed(&p.mir, true).unwrap();
+            for ((a, b), (x, y)) in direct
+                .routines
+                .iter()
+                .zip(&replayed.routines)
+                .zip(direct_traces.iter().zip(&replayed_traces))
+            {
+                actionc::mir65816::emit::proof::compare_replay_output(&a.code, &b.code).unwrap();
+                assert_eq!(x.snapshots, y.snapshots);
+            }
+            assert_eq!(
+                compiled.image.to_json().unwrap(),
+                actionc::mir65816::image::link(&p.mir, &replayed, &options)
+                    .unwrap()
+                    .to_json()
+                    .unwrap()
+            );
             assert_eq!(
                 compiled.image.to_json().unwrap(),
                 prepare_calls(&source.replace('\n', "\r\n"))
@@ -111,9 +134,15 @@ fn direct_and_indirect_result_captures_match_ca65_and_preserve_neighbor_bytes() 
             let mut discarded = 0;
             for block in &main.blocks {
                 for (i, op) in block.ops.iter().enumerate() {
-                    if let Mir65816Op::Call { result, .. } = op {
+                    if let Mir65816Op::Call { result, plan, .. } = op {
                         let Some((id, _)) = result else {
                             discarded += 1;
+                            let span = &m.code.mir_spans[&(block.id, i)];
+                            let [lo, hi] = (plan.outgoing_bytes.get() as u16).to_le_bytes();
+                            assert!(
+                                m.code.bytes[span.clone()]
+                                    .ends_with(&[0x3b, 0x18, 0x69, lo, hi, 0x1b])
+                            );
                             continue;
                         };
                         let home = m.frame.temps[id].stack().unwrap().offset;
@@ -140,7 +169,7 @@ fn direct_and_indirect_result_captures_match_ca65_and_preserve_neighbor_bytes() 
                 }
             }
             assert_eq!(captures.len(), 2);
-            assert_eq!(discarded, 1);
+            assert_eq!(discarded, 2);
             for value in [
                 0u32, 1, 0x80, 0xff, 0x100, 0x8000, 0xffff, 0x10000, 0x800000, 0xffffff,
                 0x80000000, 0xffffffff,

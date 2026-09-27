@@ -71,6 +71,71 @@ actionc samples/hello-world.act \
 source-location comments. The `actionc --listing <file>` output continues to
 use the source-annotated form through `CompiledProgram::source_listing()`.
 
+Literal storage bytes are grouped into rows of up to eight bytes in every
+backend, stopping at labels and relocations. Overlapping symbol and initializer
+ranges describe one data region; an array's element width must not truncate its
+initializer coverage. Routine-end comments precede labels at the following
+storage boundary, including deferred storage at the end of the saved segment.
+
+Runtime routine names retain their declaration spelling consistently in binding
+headers, assembly labels, local-label scopes, call annotations and routine-boundary
+comments. For example, SYSLIB's `MultI` appears as `proc_syslib_MultI` and
+`ACTION.RUNTIME.SYSLIB::MultI`. Classic's runtime linker retains the spelling for
+every selected routine, including transitive dependencies, as display metadata;
+internal projection hashes are omitted from the listing. MIR and compiler-owned
+helpers retain their qualified routine names. User routines, globals, parameters
+and locals also use declaration spelling in labels and references, irrespective
+of the spelling at a use site: `proc_DrawLine`, `global_PlayerX`, and
+`param_DrawLine_StartX`. Module and lexical scopes remain part of display names.
+Source spelling is retained as display metadata even when classic storage keys
+are case-folded. Label collision detection and lookup/relocation identities
+remain case-insensitive, and emitted binary bytes are unchanged.
+
+An `Embedded runtime` header totals the emitted code and data for linked
+runtime providers and compiler-owned helpers, including their transitive
+dependencies. Direct binding comments remain unchanged. Ranges use inclusive
+start/end addresses; byte counts use `$`-prefixed hexadecimal and a decimal
+total. Disjoint ranges are listed separately and their sizes are summed without
+counting gaps or overlapping aliases twice. ROM services, application routines
+(including local helper overrides), deferred/uninitialized storage outside the
+load image, and generic program-layout bytes are excluded. MIR records physical
+runtime storage initializer ranges so array backing bytes and parameter homes
+are included even when their public symbols describe only an element or pointer.
+
+`Runtime dependency` comments list linked runtime routines that have no direct
+binding header, including transitive helpers such as `MultB` brought in by `MultI`.
+Each entry gives its address and the routines that reference it through calls,
+jumps, fallthrough or relocations. Entries are ordered by address and callers
+are deduplicated. Declaration spelling is preserved; module qualifiers resolve
+duplicate names. When no referencing routine is identifiable, the comment says
+`linked runtime dependency`. Cartridge ROM routines and application overrides
+are excluded from this embedded dependency inventory.
+
+SArgs calls identify their three-byte inline descriptor through the resolved
+runtime helper binding (or the cartridge ABI entry). A standalone
+`; SArgs descriptor for parameters: ...` comment precedes the payload, followed
+by a `.WORD` pointer labeled `parameter frame address` and a `.BYTE` count labeled
+`copy N parameter bytes`. These fields describe the separately stored parameter
+frame; the encoded count remains size minus one. Both payload address comments
+start in the same column, including for long symbolic names.
+Word addresses retain their relocations, including paired MIR low/high fixups.
+
+Parameter names are attached only when the final signature and storage map
+agree with the descriptor's frame address and byte count. Those parameter homes
+use `.BYTE` or `.WORD` according to their physical width, with variable names
+in the comments. Array parameters occupy an address word. MIR's available
+BYTE/WORD type descriptions are retained rather than guessing a source type.
+If layout metadata is absent or inconsistent, the descriptor remains readable
+with a generic `SArgs descriptor` comment, its frame address and its copy count.
+These rules apply to both plain and source-annotated listings and do not change
+emitted program bytes.
+
+The original SArgs implementation's embedded copyright message is displayed as
+`DTA D'(c)1983ACS'`, preserving its ten Atari screen-code bytes. Its runtime
+binding, exact message bytes, and surrounding branch/JMP/RTS sequence identify
+the data range before disassembly, so the following return remains an
+instruction. Custom helpers without that sequence retain their usual listing.
+
 No new listing option or output path is added. The existing object/listing path
 collision checks and atomic-write behavior remain in effect.
 
@@ -343,7 +408,8 @@ Use three layers of tests.
 - Assert `.a` on low-valued absolute modes and `.z` on zero-page modes.
 - Assert internal labels are defined exactly once and external targets stay
   numeric.
-- Assert data and inline-call metadata use `.byte`.
+- Assert inline SArgs descriptors use `.WORD` plus `.BYTE`, with aligned
+  address comments and validated parameter names.
 - Assert comments contain only the allowed textual character set.
 - Assert repeated formatting is deterministic.
 - Assert boundary-only and source-annotated listings share identical assembly

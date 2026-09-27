@@ -1,0 +1,12 @@
+family,sites,non_guard_bytes
+Load,8277,82545
+Call,2045,59154
+Store,2343,37648
+Compare,2494,33537
+Terminator,2797,21869
+Binary,762,10021
+AddressOf,339,7519
+Cast,1057,6160
+Prologue/helpers/unspanned,631,791
+PointerOffset,11,332
+Unary,2,86

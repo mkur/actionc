@@ -1,0 +1,49 @@
+{
+  "current_compiler_code": 354944,
+  "guard_bytes": 72252,
+  "guard_subtracted_compiler_code": 282692,
+  "package_assembly": 8300,
+  "total_initialized_data": 2307,
+  "estimated_loaded_without_guards": 293299,
+  "release_cap": 262144,
+  "remaining_gap": 31155,
+  "saved_phases_2_3": 30770,
+  "saved_phases_1_2_3": 34781,
+  "remaining_private_captures": 2229,
+  "remaining_capture_footprint": 18712,
+  "next_options": [
+    {
+      "pattern": "shared epilogues",
+      "sites": 1488,
+      "footprint": 13164,
+      "modeled_saving": 6488,
+      "status": "Recounted unchanged teardown tails; BRL model, extra branch on redirected returns."
+    },
+    {
+      "pattern": "bounded BYTE-index accesses",
+      "sites": 124,
+      "footprint": 7937,
+      "modeled_saving": 4266,
+      "status": "Original checked cohort retained; current span sizes and BYTE-index entry M widths recounted. Still a model, not implemented."
+    },
+    {
+      "pattern": "unsigned integer casts",
+      "sites": 219,
+      "footprint": 3338,
+      "modeled_saving": 924,
+      "status": "Original checked cohort retained; current span sizes and BYTE-index entry M widths recounted. Still a model, not implemented."
+    }
+  ],
+  "shared_epilogue_routines": 383,
+  "qualification_run": false,
+  "selected_direct_call_pushes": 2040,
+  "total_calls": 2045,
+  "omitted_parameter_captures": 1217,
+  "omitted_local_captures": 663,
+  "retained_modeled_sites": {
+    "numeric_argument_width_mismatch": 4,
+    "pointer_edge_argument": 1,
+    "parameter_owned_frame_capture": 9
+  },
+  "unchanged_indirect_calls": 1
+}

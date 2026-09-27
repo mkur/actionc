@@ -104,6 +104,8 @@ fn memory_arithmetic_and_rmw_have_exact_carry_and_ordered_accesses() {
         }
         for op in [
             ByteOp::AndDp,
+            ByteOp::AndStack,
+            ByteOp::EorStack,
             ByteOp::OraDp,
             ByteOp::OraStack,
             ByteOp::EorDp,
@@ -111,7 +113,7 @@ fn memory_arithmetic_and_rmw_have_exact_carry_and_ordered_accesses() {
             let e = fx(Instruction::Byte(op, 8), width, Width::Word);
             assert_eq!((e.flag_reads, e.flag_writes), (0, NZ));
             assert_eq!(e.memory[0].access, Access::Read);
-            if op == ByteOp::OraStack {
+            if matches!(op, ByteOp::AndStack | ByteOp::OraStack | ByteOp::EorStack) {
                 assert_eq!(
                     e.memory[0].memory,
                     Memory::Stack {
@@ -177,6 +179,7 @@ fn immediate_forms_and_index_comparison_do_not_invent_memory_reads() {
         (WordOp::SbcImm, 0xffff, 0xffff, C, NZCV),
         (WordOp::CmpImm, 0xffff, 0, 0, NZ | C),
         (WordOp::AndImm, 0xffff, 0xffff, 0, NZ),
+        (WordOp::OraImm, 0xffff, 0xffff, 0, NZ),
         (WordOp::EorImm, 0xffff, 0xffff, 0, NZ),
     ] {
         let e = fx(Instruction::Word(op, 7), Width::Word, Width::Word);
@@ -615,4 +618,47 @@ fn branches_and_unannotated_transfers_are_never_empty_effects() {
         fx(Instruction::NativeReturn(None), Width::Word, Width::Word).reads,
         Registers::default()
     );
+}
+
+#[test]
+fn symbolic_indexed_load_reads_x_and_keeps_dynamic_memory_identity() {
+    for m in [Width::Byte, Width::Word] {
+        for x in [Width::Byte, Width::Word] {
+            let target = Target::StackOverflow;
+            let e = fx(
+                Instruction::Reference(ReferenceOp::LdaLongX, target, 0, None),
+                m,
+                x,
+            );
+            assert_eq!(e.reads.x, x.mask());
+            assert_eq!(e.writes.a, m.mask());
+            assert_eq!(
+                e.memory[0].memory,
+                Memory::SymbolIndexedX {
+                    target,
+                    addend: 0,
+                    bytes: m.bytes()
+                }
+            );
+            assert_eq!(e.memory[0].access, Access::Read);
+            assert!(e.barrier);
+        }
+    }
+}
+
+#[test]
+fn symbolic_indexed_store_consumes_a_and_x_without_defining_a_fixed_home() {
+    for m in [Width::Byte, Width::Word] {
+        let e = fx(
+            Instruction::Reference(ReferenceOp::StaLongX, Target::StackOverflow, 0, None),
+            m,
+            Width::Word,
+        );
+        assert_eq!(e.reads.a, m.mask());
+        assert_eq!(e.reads.x, 0xffff);
+        assert_eq!(e.writes, Registers::default());
+        assert_eq!(e.flag_writes, 0);
+        assert_eq!(e.memory[0].access, Access::MayWrite);
+        assert!(e.barrier);
+    }
 }

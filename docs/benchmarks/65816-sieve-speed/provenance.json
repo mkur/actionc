@@ -1,0 +1,749 @@
+{
+  "compiler_revision": "73e2a23e7baec8668ad9715f8a1ac68bbb94be4f",
+  "compiler_worktree_status": "",
+  "suite_revision": "58036235788d9c9741c67f82e1fb9bb6e2f0e3f6",
+  "suite_sieve_status": "",
+  "versions": {
+    "calypsi": "Calypsi ISO C compiler for 65816 version 5.18"
+  },
+  "tools": {
+    "actionc": {
+      "path": "/Users/michalkurcewicz/action/actionc-public-release/target/release/actionc-65816",
+      "sha256": "8bbb165e89d08a23d4cdd305e10c3b4c97676c18c48a2e48f47ca72c1e5ac71e"
+    },
+    "calypsi": {
+      "path": "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+      "sha256": "32581974d919226e9e7054d890a39e934461806905b3ebc32b6002f32d3c2ee7"
+    },
+    "assembler": {
+      "path": "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+      "sha256": "348e8f8485d4dfc92e04ea295bdc2f2fb18169658ab64e20158e03b5745fa594"
+    },
+    "linker": {
+      "path": "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+      "sha256": "74738fc80ff249c726a6c19b7122969dbcbaf7fdb2579bca80440eea6152fb31"
+    }
+  },
+  "inputs": {
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve.c": "5dc5615463d4c0c89d51855bf0b00c946d10320b6b53f3194aea4c87681459cf",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve_bit.act": "2c60bdfa5d632cddce6acb205182990305baa4fa29d3db77b0c94bc1328f6e72",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve.act": "f1a48ed1c7d6c2f3c1e0e29c1c66be48912340cb29b6e1af09ceb973c7fbecc7",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve_bit.c": "a64d8bdd3c5f4a3851e10cfbf8606aedca97c93e469d1eb8a81a0613d1f344ec",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/compare65816/sieve.py": "9845a55fe8c9b0641df23f598f875a89f2b1ed873e3ce60e7399e88815691973",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/compare65816/build.py": "70f01c1c83edcdc5c2489c72f2a700c3e01cd94a1515753815eb571cafccaa2f",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/compare65816/crc.py": "18a3b607e77b235e14c094a3defd4f6ae715afdb4af14aaae67e6b5c6bc42fee",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/disassemble65816.py": "dfbceb8060c628bdb1d7ef36d8b4ac2d29a498b370688294ae852bcf05dabfa1",
+    "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s": "5787439cfd827cd620b9f0a5668aa3359489de007c8d17a17bd8b6b2bc1dea48",
+    "/usr/local/lib/calypsi-65816-5.18/doc/html/_sources/assembly-interface.rst.txt": "e4bd35cdb66e5096e07b6837a636cb5bdf53868dd2e7faf000bd1c5808e4e2ec",
+    "/Users/michalkurcewicz/atari/c-bench-64/benchmarks/src/sieve.c": "e754a3f738abc94deef93f81bb816e516508d6ed372cdb372a5ad9a86e6f067a",
+    "/Users/michalkurcewicz/atari/c-bench-64/benchmarks/src/sieve_bit.c": "ec784a036728937e2fb72ac5b05c7393a4d73bd87c4ea24125f55e2ae25b5419",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal.json": "a62311083a2ad07475c6fa032a08f564b677201df8ce5a6219ebbbf983aa462b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal.scm": "12fe4f5464856632a5c8b1807e06ff47732485bb2d6635e0605ae4c9cddfaf1e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank.json": "03f0eedb13bd17b598dbff9e0c777ebefc05c047209c68aa67d44a535f6dc790",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank.scm": "0b0f8ae6a0853d39664593d0e59aafe60055d31c57d9daaceea38929e1996bcb"
+  },
+  "crlf_checked": true,
+  "paired_records": 126,
+  "executions_per_host": 252,
+  "debug_release_identical": true,
+  "failed_paired_records": 0,
+  "qualifications": {
+    "debug": {
+      "compiler_revision": "73e2a23e7baec8668ad9715f8a1ac68bbb94be4f",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/Cargo.toml",
+        "--test",
+        "sieve_bench",
+        "--",
+        "--include-ignored",
+        "--nocapture"
+      ],
+      "attestation_sha256": "3becf984773f2a70a7c10db4d467f377861fe85a0c07db7f725d5b44e6476208"
+    },
+    "release": {
+      "compiler_revision": "73e2a23e7baec8668ad9715f8a1ac68bbb94be4f",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/Cargo.toml",
+        "--release",
+        "--test",
+        "sieve_bench",
+        "--",
+        "--include-ignored",
+        "--nocapture"
+      ],
+      "attestation_sha256": "3fbe211a3ecfc8a7859fff89d3858e1747c39fce183de0960fb208218b1114a2"
+    }
+  },
+  "archived_outputs": {
+    "measurements.csv": "811f8b4972ffec7441b8c7fa1b72865046c844d5d6a68dd6765c009822edf8cc",
+    "profiles.json": "fe0d80122ecb049e1376cd31cb8fec62c3384d344fac18006b0929bf6f92c014",
+    "routines.csv": "463bf83f4a11441b5d08a7b70cd4771dd0dc2cec94114f72223ca296fba38f59",
+    "sieve-actionc-optimized-cross-bank.lst": "e10d0a34630db67d76d9db466f6c215fb000a408b119155690a3c9edcf375014",
+    "sieve-actionc-optimized-normal.lst": "40a931d6158569643956f6fd7e3bba9e0841cd1743e3d260ac9d4d6e321e7162",
+    "sieve-calypsi-O2-speed-cross-bank.lst": "82a160a34b03e554bd5b13d77a8f3be2c5f4bc741ed295fc93aac396dd0c2ef1",
+    "sieve-calypsi-O2-speed-no-cross-call-cross-bank.lst": "f10bbbca8248d498064539f87b64c8e29c6a23e3635a38468827e3babc831d02",
+    "sieve-calypsi-O2-speed-no-cross-call-normal.lst": "0d102cc14d7ab6ac21e92b835e3082d5ae8ae5645e9574cc3df97055913998bd",
+    "sieve-calypsi-O2-speed-normal.lst": "d7541a6fce524a664e6fb6a0d248581b2ef93a15458748bd9e949341f9767c01",
+    "sieve_bit-actionc-optimized-cross-bank.lst": "3efdd2a4243574d1984bd298307a8167a8a10d5b7bb30162399d9d90119ac097",
+    "sieve_bit-actionc-optimized-normal.lst": "e2a97e661eecdabd5324cd4535dcbcb70d8e2f2ab7458783d8993be1f6ead736",
+    "sieve_bit-calypsi-O2-speed-cross-bank.lst": "5d128371f5cb51d9de7c734482ab3379c493f69c6049a075d6586d630a5a6633",
+    "sieve_bit-calypsi-O2-speed-no-cross-call-cross-bank.lst": "42945cc0caa87ef16b0747f0bae0d93be498be5d33fa6d90a76ea68c4b212cc1",
+    "sieve_bit-calypsi-O2-speed-no-cross-call-normal.lst": "95e71fc59d46fa7b5ea36bc455bf7b1076df522d9aad404929be235097e00f64",
+    "sieve_bit-calypsi-O2-speed-normal.lst": "40324b107991df42d0dcfeabbf012a2069c6215c94f6fc2174c210b69a8ea7aa",
+    "summary.csv": "14845b8e5646083fc1a6f9b67e704eab67dc879c6b3bb09e789aae450dfae068"
+  },
+  "artifacts": [
+    {
+      "compiler": "actionc",
+      "mode": "optimized",
+      "variant": "sieve",
+      "placement": "normal",
+      "commands": [
+        [
+          "/Users/michalkurcewicz/action/actionc-public-release/target/release/actionc-65816",
+          "--layout",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal.json",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/actionc/image.json",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve.act"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/actionc/0.log": "07e45fd5d84c20ebf0fc82ee13e2fd154b4e56396534c951427011884df1c016",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/actionc/code.linked.lst": "f2456a11bdd675878555fc3ee01474d1399a1681939d5dfed99acf0315973dfe",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/actionc/image.json": "932e7a383d911f9c61f99bbbf6bf3fc9d62b0e0e18bb64ad9b490bb1ddb8b834"
+      }
+    },
+    {
+      "compiler": "calypsi",
+      "mode": "O2-speed",
+      "variant": "sieve",
+      "placement": "normal",
+      "commands": [
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+          "-O2",
+          "--speed",
+          "--data-model",
+          "huge",
+          "--code-model",
+          "large",
+          "--assembly-source",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/code.s",
+          "-c",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve.c"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/code.lst",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/code.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/registers.o",
+          "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+          "--no-auto-libraries",
+          "--no-data-init-table-section",
+          "--program-root",
+          "sieve",
+          "--program-start",
+          "sieve",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/code.map",
+          "--output-format",
+          "raw",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/code.elf",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/registers.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal.scm"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/code.o": "099f36fb66282f9b043d8a4b41d15e80b3cf3592c6fc72bdcca87a75df158d06",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/code.s": "94045fd270d89fe47445fa40e351080afd00ca2d050c616d6ad333f358c834dd",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/registers.o": "3b12c30aaad48b017f3825576adb42c75c6adc75399593d680cfd20851bcec98",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/code.raw": "797e6b135398ac65422f9cceedfe54f10e54de23d0ad2d729c3351fbd95fd30a",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/code.linked.lst": "d7541a6fce524a664e6fb6a0d248581b2ef93a15458748bd9e949341f9767c01",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/code.lst": "30070333d8076408e280b437859bb2a2f62cd142526bf220376bd8f8c78565d5",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/code.elf": "f1250f868f3a191d25b0d714bd1a75d9c6136e04201c488dcf10cb4dad2cae17",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi/code.map": "853e735a55f9675543370a8c9a04d2be001fd004c300c8386c5f9b7b7881e29f"
+      }
+    },
+    {
+      "compiler": "calypsi",
+      "mode": "O2-speed-no-cross-call",
+      "variant": "sieve",
+      "placement": "normal",
+      "commands": [
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+          "-O2",
+          "--speed",
+          "--no-cross-call",
+          "--data-model",
+          "huge",
+          "--code-model",
+          "large",
+          "--assembly-source",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/code.s",
+          "-c",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve.c"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/code.lst",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/code.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/registers.o",
+          "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+          "--no-auto-libraries",
+          "--no-data-init-table-section",
+          "--program-root",
+          "sieve",
+          "--program-start",
+          "sieve",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/code.map",
+          "--output-format",
+          "raw",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/code.elf",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/registers.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal.scm"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/code.o": "1defc4dfd2a0accfd03795723e9cd2a4ad3a7c99eaac418d51809a42466e0e38",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/code.s": "0491fa9a2c32a3f3836b00238ac15bc851edfa0a9580e1fe787779c6bacedfc1",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/registers.o": "3b12c30aaad48b017f3825576adb42c75c6adc75399593d680cfd20851bcec98",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/code.raw": "a5a2cc8d6a027a0b2f1318bf8dc361a1ffc7622a7770af53eb7c7c10718fe72e",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/code.linked.lst": "0d102cc14d7ab6ac21e92b835e3082d5ae8ae5645e9574cc3df97055913998bd",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/code.lst": "94f27ed83171895d4ea8c4cbebe2319e47e739aee49874637a9fe1dd2cf4aeff",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/code.elf": "ce7393b5ac25ec92a4a09307f45f8cf48b79a205c5c020c9e4c0dfb2b39c8390",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve/calypsi-no-cross-call/code.map": "03483f1b39e24eee597506185578a5a248836f55b528051a0256f618a12a52de"
+      }
+    },
+    {
+      "compiler": "actionc",
+      "mode": "optimized",
+      "variant": "sieve_bit",
+      "placement": "normal",
+      "commands": [
+        [
+          "/Users/michalkurcewicz/action/actionc-public-release/target/release/actionc-65816",
+          "--layout",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal.json",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/actionc/image.json",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve_bit.act"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/actionc/0.log": "237f28857ba0b4d4880d4c073caff1f63168dbeb4d43eb439fa4f82965c5d3f0",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/actionc/code.linked.lst": "c85113f057c765f6848a1cc7735f356b2caed765b9702bc2d5aeb37e0264e914",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/actionc/image.json": "762ebaf4d0a76157a14337ce6141131109362f2188c6b6e1dfbfe4d10542a2ae"
+      }
+    },
+    {
+      "compiler": "calypsi",
+      "mode": "O2-speed",
+      "variant": "sieve_bit",
+      "placement": "normal",
+      "commands": [
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+          "-O2",
+          "--speed",
+          "--data-model",
+          "huge",
+          "--code-model",
+          "large",
+          "--assembly-source",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/code.s",
+          "-c",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve_bit.c"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/code.lst",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/code.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/registers.o",
+          "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+          "--no-auto-libraries",
+          "--no-data-init-table-section",
+          "--program-root",
+          "sieve",
+          "--program-start",
+          "sieve",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/code.map",
+          "--output-format",
+          "raw",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/code.elf",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/registers.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal.scm"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/code.o": "e01f5a583fe61175be6838d8bc5af126fce8111b3f6f15fe2fb3f9a7bbf7d743",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/code.s": "beb31144fc2a2b3d060b29074ff229b7c6d5ba2ab5f56b12f37895c45214b4bf",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/registers.o": "3b12c30aaad48b017f3825576adb42c75c6adc75399593d680cfd20851bcec98",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/code.raw": "313f135a184e154e764984c5d035ad5dd98e3288d119bd01b8e97f458b225380",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/code.linked.lst": "40324b107991df42d0dcfeabbf012a2069c6215c94f6fc2174c210b69a8ea7aa",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/code.lst": "2bbe31d891c115b8cc05fa6aa5f753cc564950d8017cc9311063c525fdeb3570",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/code.elf": "b469a028e8c458342e16cc21e3cf98f6ed4c2a75dd193719630bef0461d2135a",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi/code.map": "4d41e5f0a8b77816ccd54bd76acedfc24ba1319c59eddcf9418a19154d31d4dd"
+      }
+    },
+    {
+      "compiler": "calypsi",
+      "mode": "O2-speed-no-cross-call",
+      "variant": "sieve_bit",
+      "placement": "normal",
+      "commands": [
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+          "-O2",
+          "--speed",
+          "--no-cross-call",
+          "--data-model",
+          "huge",
+          "--code-model",
+          "large",
+          "--assembly-source",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/code.s",
+          "-c",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve_bit.c"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/code.lst",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/code.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/registers.o",
+          "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+          "--no-auto-libraries",
+          "--no-data-init-table-section",
+          "--program-root",
+          "sieve",
+          "--program-start",
+          "sieve",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/code.map",
+          "--output-format",
+          "raw",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/code.elf",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/registers.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal.scm"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/code.o": "ba90521da9f07b5dcb26022d80c5213f2d4e2062823ccd645e9b61fd97046aa4",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/code.s": "cee3769515e8529b1dc14ac45d43c4c73d2c6df70dd4d5ffb85d192f6800b28d",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/registers.o": "3b12c30aaad48b017f3825576adb42c75c6adc75399593d680cfd20851bcec98",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/code.raw": "672a998f29597a49a040cfe3c06ee57fd07ae3894e5eae9300e95c3f5e55f730",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/code.linked.lst": "95e71fc59d46fa7b5ea36bc455bf7b1076df522d9aad404929be235097e00f64",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/code.lst": "8c91fb1851d2cd8419ec4e646a579c414a6e06fb9e59acc380e6803c23dd7d6a",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/code.elf": "65b2abce6aae8b9b80b5abfcf19b2cb0d0e578068cfd039e64e589e86ddfebce",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/normal/sieve_bit/calypsi-no-cross-call/code.map": "334a1480b942bc68bdc96e778f648af3f59c9004b7774043724b05b6f64aa528"
+      }
+    },
+    {
+      "compiler": "actionc",
+      "mode": "optimized",
+      "variant": "sieve",
+      "placement": "cross-bank",
+      "commands": [
+        [
+          "/Users/michalkurcewicz/action/actionc-public-release/target/release/actionc-65816",
+          "--layout",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank.json",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/actionc/image.json",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve.act"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/actionc/0.log": "7960fac056b8bc4571a605f651c23b869ed2e4294007a034410fe9d76fdcba14",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/actionc/code.linked.lst": "93716be9435cbf66aea738139a9c8628499d463a2f1f163ff654aa5822640ce0",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/actionc/image.json": "c39bca25e7e5948665139a9d0c7de496e86a33f72c406f9c01b2a18f1fc419a5"
+      }
+    },
+    {
+      "compiler": "calypsi",
+      "mode": "O2-speed",
+      "variant": "sieve",
+      "placement": "cross-bank",
+      "commands": [
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+          "-O2",
+          "--speed",
+          "--data-model",
+          "huge",
+          "--code-model",
+          "large",
+          "--assembly-source",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/code.s",
+          "-c",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve.c"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/code.lst",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/code.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/registers.o",
+          "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+          "--no-auto-libraries",
+          "--no-data-init-table-section",
+          "--program-root",
+          "sieve",
+          "--program-start",
+          "sieve",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/code.map",
+          "--output-format",
+          "raw",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/code.elf",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/registers.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank.scm"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/code.o": "099f36fb66282f9b043d8a4b41d15e80b3cf3592c6fc72bdcca87a75df158d06",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/code.s": "94045fd270d89fe47445fa40e351080afd00ca2d050c616d6ad333f358c834dd",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/registers.o": "3b12c30aaad48b017f3825576adb42c75c6adc75399593d680cfd20851bcec98",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/code.raw": "cfba62b7e718a59c9c40b5af88626d0e6bd5a85ce4d3e7fcfaa440f5253d030b",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/code.linked.lst": "82a160a34b03e554bd5b13d77a8f3be2c5f4bc741ed295fc93aac396dd0c2ef1",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/code.lst": "d49af880288e7c560f8ea85f1a516862a78a98d78dab602f9753513c5ba87f40",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/code.elf": "8c2d5e00d909b7a541e017de92f5f3422f4be03d8cd0a1b6bde0d299fb416f5a",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi/code.map": "c995c31a5e5c520a190c7f76b5c50fd11c5c9672e5c89bbcadb7903a82fd99ca"
+      }
+    },
+    {
+      "compiler": "calypsi",
+      "mode": "O2-speed-no-cross-call",
+      "variant": "sieve",
+      "placement": "cross-bank",
+      "commands": [
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+          "-O2",
+          "--speed",
+          "--no-cross-call",
+          "--data-model",
+          "huge",
+          "--code-model",
+          "large",
+          "--assembly-source",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/code.s",
+          "-c",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve.c"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/code.lst",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/code.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/registers.o",
+          "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+          "--no-auto-libraries",
+          "--no-data-init-table-section",
+          "--program-root",
+          "sieve",
+          "--program-start",
+          "sieve",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/code.map",
+          "--output-format",
+          "raw",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/code.elf",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/registers.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank.scm"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/code.o": "1defc4dfd2a0accfd03795723e9cd2a4ad3a7c99eaac418d51809a42466e0e38",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/code.s": "0491fa9a2c32a3f3836b00238ac15bc851edfa0a9580e1fe787779c6bacedfc1",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/registers.o": "3b12c30aaad48b017f3825576adb42c75c6adc75399593d680cfd20851bcec98",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/code.raw": "a37ab68fb9a5febd420b1bc37ddf99ec6f2be0903128bc2151684e28711cf734",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/code.linked.lst": "f10bbbca8248d498064539f87b64c8e29c6a23e3635a38468827e3babc831d02",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/code.lst": "25e57eaf11c8bf29c9e094315b226fd3add0b57fbf5fb4d773e24b8e698399e2",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/code.elf": "314f9fe480e9f23cdc781aebc6a566d4b7b18cd998cf0ac03d5f9289e637c308",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve/calypsi-no-cross-call/code.map": "3573227f471690a5448c5ebc171f40d6fc5e27f6917533e7eebf2dac558b1cd6"
+      }
+    },
+    {
+      "compiler": "actionc",
+      "mode": "optimized",
+      "variant": "sieve_bit",
+      "placement": "cross-bank",
+      "commands": [
+        [
+          "/Users/michalkurcewicz/action/actionc-public-release/target/release/actionc-65816",
+          "--layout",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank.json",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/actionc/image.json",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve_bit.act"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/actionc/0.log": "bd48f509788fef1f272f8680def93f5e2642c0de9bc393f99974e588c009a8c4",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/actionc/code.linked.lst": "dcaee5b2bbac080febd9a9c3c50de8125a55bbd1bd9b2186e10d9fd430c26a5a",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/actionc/image.json": "776891bdc58ec831f696b8680dd2dfc3a7a063efa7e6276480c07bf80770d842"
+      }
+    },
+    {
+      "compiler": "calypsi",
+      "mode": "O2-speed",
+      "variant": "sieve_bit",
+      "placement": "cross-bank",
+      "commands": [
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+          "-O2",
+          "--speed",
+          "--data-model",
+          "huge",
+          "--code-model",
+          "large",
+          "--assembly-source",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/code.s",
+          "-c",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve_bit.c"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/code.lst",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/code.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/registers.o",
+          "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+          "--no-auto-libraries",
+          "--no-data-init-table-section",
+          "--program-root",
+          "sieve",
+          "--program-start",
+          "sieve",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/code.map",
+          "--output-format",
+          "raw",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/code.elf",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/registers.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank.scm"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/code.o": "e01f5a583fe61175be6838d8bc5af126fce8111b3f6f15fe2fb3f9a7bbf7d743",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/code.s": "beb31144fc2a2b3d060b29074ff229b7c6d5ba2ab5f56b12f37895c45214b4bf",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/registers.o": "3b12c30aaad48b017f3825576adb42c75c6adc75399593d680cfd20851bcec98",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/code.raw": "2df3366e498e1e4a1016b2479857cc02b1d974d3c1616842671072100dd90c9a",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/code.linked.lst": "5d128371f5cb51d9de7c734482ab3379c493f69c6049a075d6586d630a5a6633",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/code.lst": "ae38390b6a9931927b2948125788fd453b64dc0bfdd5a56f33563f6f4e6e30a5",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/code.elf": "281446fa584e8388e5c84248cb48ab4946a4f0c720c1cc90e2c5e601fe3d552a",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi/code.map": "2b860aa2174b559c9303c24efa19d7888378bcb62603e47649ba6775e6d45eec"
+      }
+    },
+    {
+      "compiler": "calypsi",
+      "mode": "O2-speed-no-cross-call",
+      "variant": "sieve_bit",
+      "placement": "cross-bank",
+      "commands": [
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+          "-O2",
+          "--speed",
+          "--no-cross-call",
+          "--data-model",
+          "huge",
+          "--code-model",
+          "large",
+          "--assembly-source",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/code.s",
+          "-c",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/sieve_bench/sieve_bit.c"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/code.lst",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/code.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/registers.o",
+          "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+          "--no-auto-libraries",
+          "--no-data-init-table-section",
+          "--program-root",
+          "sieve",
+          "--program-start",
+          "sieve",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/code.map",
+          "--output-format",
+          "raw",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/code.elf",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/registers.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank.scm"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/code.o": "ba90521da9f07b5dcb26022d80c5213f2d4e2062823ccd645e9b61fd97046aa4",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/code.s": "cee3769515e8529b1dc14ac45d43c4c73d2c6df70dd4d5ffb85d192f6800b28d",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/registers.o": "3b12c30aaad48b017f3825576adb42c75c6adc75399593d680cfd20851bcec98",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/code.raw": "6b3e2f038e988ba8f85cd724babd816d082b1ff3366918a2f645e67c73db797c",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/code.linked.lst": "42945cc0caa87ef16b0747f0bae0d93be498be5d33fa6d90a76ea68c4b212cc1",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/code.lst": "da43f6aa00d0ac022e198ac695177ffda6dee431e095c503494e1a2892910eab",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/code.elf": "8793a053fdb99feee58bfe2def2c4c195f33f9970cb9735f60c8fdbe3f19fe9b",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/sieve65816-comparison/cross-bank/sieve_bit/calypsi-no-cross-call/code.map": "8d97f79f006cf1c71f25a7d7b8875007a50524613f3bac63f5f3c01fdb80e38e"
+      }
+    }
+  ],
+  "evidence": {
+    "manifest.json": "bc22d4d304cb1fb99c41e7239c074dd6830e5962a9c4b5b235b3b951fc3b5d7e",
+    "debug.json": "08ce0131bec32d9ae982bddb8964af8d4600913cb140db74eaaa0806d1ea50d5",
+    "release.json": "08ce0131bec32d9ae982bddb8964af8d4600913cb140db74eaaa0806d1ea50d5"
+  },
+  "tools_hashes": {
+    "tools/compare65816/report_sieve.py": "9a201fce38b1918eae87b155597686a5772037fdc383e2673ecd495b90e2e7af",
+    "tools/compare65816/run_sieve.py": "18fc5fa808ec3e77adc7c83ff16a5cf96bc4deb9061fc6374fb14e1b89b141e4",
+    "tools/native65816-runtime-tests/tests/sieve_bench.rs": "2a11f8f442593080f882bc22382f6c5419496e4adee765a8dc90b2050838b72d"
+  }
+}

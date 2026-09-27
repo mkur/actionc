@@ -1,0 +1,124 @@
+{
+  "slice": "long-signed",
+  "baseline": "long-unsigned",
+  "code_before": 404149,
+  "code_after": 403239,
+  "guard_bytes": 72252,
+  "initialized_data_bytes": 951,
+  "routine_contracts_unchanged_except_address_and_size": true,
+  "bank_zero_delta": {
+    "fixed": 0,
+    "per_task": 0
+  },
+  "frozen_inputs_sha256": "4bd36e0e631bef8a8e4f57dc37bb6f9cc078942288bf15c2ec3c4f11757d44c9",
+  "images": {
+    "long-unsigned": "b067b1161a54d7deefcb8cf61e6c12a8f54556f521b6bcc849ec96ef08c24caa",
+    "long-signed": "26fc27e1b527c0e06196d53685f5ea6ba69b8688a7dcb15fb27cd37c02ae66e9"
+  },
+  "changed_routines": [
+    {
+      "routine": "M_DOSCOOKED_READ_AAA4E8F8",
+      "before": 1733,
+      "after": 1673,
+      "saved": 60
+    },
+    {
+      "routine": "M_MYDOSFILE_LINK_86A70D17",
+      "before": 594,
+      "after": 532,
+      "saved": 62
+    },
+    {
+      "routine": "M_MYDOSFILE_BEGINREAD_56DCAA56",
+      "before": 1523,
+      "after": 1461,
+      "saved": 62
+    },
+    {
+      "routine": "M_MYDOSFILE_TARGET_3D0FAE04",
+      "before": 1283,
+      "after": 1101,
+      "saved": 182
+    },
+    {
+      "routine": "M_MYDOSFILE_LOCATE_F172D4F1",
+      "before": 904,
+      "after": 842,
+      "saved": 62
+    },
+    {
+      "routine": "M_MYDOSFILE_CONSUME_CDF927EF",
+      "before": 969,
+      "after": 907,
+      "saved": 62
+    },
+    {
+      "routine": "M_FSMOUNT_SELECTSTEP_8E807607",
+      "before": 1066,
+      "after": 1008,
+      "saved": 58
+    },
+    {
+      "routine": "M_DOSCALLS_NAMEFROMLOCK_92457C4A",
+      "before": 1289,
+      "after": 1167,
+      "saved": 122
+    },
+    {
+      "routine": "M_SHELLAPP_SHELLDIR_EB67AED9",
+      "before": 2407,
+      "after": 2287,
+      "saved": 120
+    },
+    {
+      "routine": "M_SHELLAPP_SHELLTYPE_D64CE23C",
+      "before": 2010,
+      "after": 1950,
+      "saved": 60
+    },
+    {
+      "routine": "M_SHELLAPP_SHELLREADSTEP_5848FDA6",
+      "before": 2284,
+      "after": 2224,
+      "saved": 60
+    }
+  ],
+  "full_qualification": false,
+  "saved_bytes": 910,
+  "shrunk_routines": 11,
+  "grown_routines": 0,
+  "checks": [
+    {
+      "log": "long-signed-unit.log",
+      "sha256": "a476a0d8b81433cbb05a2c47264294bfe5f0bcf0d83e1a7cd28743901a1b1fd0",
+      "passed": 7,
+      "ignored": 0
+    },
+    {
+      "log": "long-signed-integration.log",
+      "sha256": "6c4bfa0fdd4670c37f6bf8c04a225cdd423cdbed701799f437103db49dbac973",
+      "passed": 34,
+      "ignored": 0
+    },
+    {
+      "log": "long-signed-vm.log",
+      "sha256": "c34f61a9227115cc4b3cb5158a8c7b876b5e74bc862f5d1b3f479badeb3b1196",
+      "passed": 18,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-a9f4t5ax/manifest.json",
+      "manifest_sha256": "5294c23482b0dccec4a5131929e5bc14eed4023c387ccfff73acfe98272a15ec",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+    },
+    {
+      "log": "long-signed-preemption.log",
+      "sha256": "290516e41dec281a8ca7f5cdac72e03a8e3b0ccd494d3bb5a07792cf5691e448",
+      "passed": 11,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-bswljkxz/manifest.json",
+      "manifest_sha256": "e66470d82b133a2a1f440f4bb3e923a514ab83689274493ae7b0bd6b9ce4abe2",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+    }
+  ]
+}

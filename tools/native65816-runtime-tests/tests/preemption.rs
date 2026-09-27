@@ -268,8 +268,48 @@ fn two_live_contexts_reenter_recursive_and_memory_helpers_with_seeded_interrupts
 }
 #[test]
 fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
+    use actionc::mir65816::{Mir65816Op, emit};
+    use actionc::nir::NirBinaryOp;
     for optimize in [false, true] {
-        let mut h = machine(optimize);
+        let source = fixture("preemption.act");
+        let prepared = prepare(&source, optimize);
+        let materialized = emit::materialize(&prepared.mir).unwrap();
+        let mut h = initialize(ContextHarness::from_prepared(
+            &source,
+            optimize,
+            "Task",
+            &[0x7100, 0x7120],
+            prepared.clone(),
+        ));
+        // MIR spans identify which physical instructions belong to standalone
+        // word operations. LONGCARD's upper ADC/SBC intentionally has no new
+        // CLC/SEC: it consumes the carry/borrow from the lower word.
+        let mut word_ranges = Vec::new();
+        for r in &prepared.mir.routines {
+            if r.entry.external {
+                continue;
+            }
+            let base = routine(&h.image, &r.name);
+            let code = &materialized
+                .routines
+                .iter()
+                .find(|m| m.id == r.id)
+                .unwrap()
+                .code;
+            for block in &r.blocks {
+                for (i, op) in block.ops.iter().enumerate() {
+                    if let Mir65816Op::Binary {
+                        width, operation, ..
+                    } = op
+                        && width.get() == 2
+                        && matches!(operation, NirBinaryOp::Add | NirBinaryOp::Sub)
+                    {
+                        let span = &code.mir_spans[&(block.id, i)];
+                        word_ranges.push(base + span.start as u32..base + span.end as u32);
+                    }
+                }
+            }
+        }
         let mut seen = BTreeSet::new();
         let mut word_windows = BTreeSet::new();
         let mut return_windows = BTreeSet::new();
@@ -292,7 +332,9 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
                     return_windows.insert(window);
                 }
                 let opcode = h.bus.ram[pc as usize];
-                if matches!(opcode, 0x63 | 0xe3) {
+                if matches!(opcode, 0x63 | 0xe3)
+                    && word_ranges.iter().any(|range| range.contains(&pc))
+                {
                     // Decode only at a reached instruction boundary. These
                     // stack-relative forms are emitted by word arithmetic;
                     // immediate arithmetic in stack guards is not counted.
@@ -888,6 +930,39 @@ fn long_equality_restores_both_word_decisions_and_zero_tests_under_irq_nmi() {
             &format!("long-equality-{ty}"),
         );
     }
+}
+
+#[test]
+fn native_constant_stores_restore_reused_a_and_bank_tail_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n", "\n").replace("CARD FUNC Read(",
+            "CARD FUNC ConstantLong(CARD seed) LONGCARD value value=LONGCARD($12341234) RETURN(CARD(value)+seed)\nCARD FUNC ConstantNull(CARD seed) BYTE POINTER value value=BYTE POINTER(0) RETURN(CARD(ADDRESS(value))+seed)\nCARD FUNC Read(")
+            .replace("  work.done=1", "  work.result==+ConstantLong(work.seed)-$1234-work.seed+ConstantNull(work.seed)-work.seed\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["CONSTANTLONG", "CONSTANTNULL"], "constant-stores");
+}
+
+#[test]
+fn native_long_add_sub_restore_low_word_carry_and_borrow_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n", "\n").replace("CARD FUNC Read(",
+            "BYTE FUNC LongAddCheck(LONGCARD a,b,expected) RETURN((a+b)=expected)\nBYTE FUNC LongSubCheck(LONGCARD a,b,expected) RETURN((a-b)=expected)\nCARD FUNC Read(")
+            .replace("  work.done=1", r#"
+  work.result==+CARD(LongAddCheck(LONGCARD($FFFF),LONGCARD(1),LONGCARD($10000)))
+  work.result==+CARD(LongAddCheck(LONGCARD($FFFFFFFF),LONGCARD(1),LONGCARD(0)))
+  work.result==+CARD(LongAddCheck(LONGCARD(1),LONGCARD(1),LONGCARD(2)))
+  work.result==+CARD(LongSubCheck(LONGCARD($10000),LONGCARD(1),LONGCARD($FFFF)))
+  work.result==+CARD(LongSubCheck(LONGCARD(0),LONGCARD(1),LONGCARD($FFFFFFFF)))
+  work.result==+CARD(LongSubCheck(LONGCARD(2),LONGCARD(1),LONGCARD(1)))-6
+  work.done=1"#)
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["LONGADDCHECK", "LONGSUBCHECK"], "long-add-sub");
 }
 
 #[test]
@@ -2065,4 +2140,89 @@ fn arithmetic_helpers_reenter_from_two_tasks_and_irq_at_every_reached_instructio
             .unwrap();
         }
     }
+}
+
+#[test]
+fn long_sign_carry_materialization_and_branch_flags_survive_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n","\n").replace("CARD FUNC Read(",
+        "BYTE FUNC LongNegative(LONGINT x) RETURN(x<0)\nCARD FUNC LongSignBranch(LONGINT x) BYTE b b=LongNegative(x) IF x>=0 THEN RETURN(CARD(b)+7) FI RETURN(CARD(b)+3)\nCARD FUNC Read(")
+        .replace("  work.done=1","  work.result==+LongSignBranch(LONGINT(0))+LongSignBranch(LONGINT($7fffffff))+LongSignBranch(LONGINT($80000000))+LongSignBranch(LONGINT($ffffffff))-22\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["LONGNEGATIVE", "LONGSIGNBRANCH"], "long-sign");
+}
+
+#[test]
+fn unsigned_long_ordering_restores_both_word_decisions_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n","\n").replace("CARD FUNC Read(",
+        "BYTE FUNC UnsignedLess(LONGCARD a,b) RETURN(a<b)\nCARD FUNC UnsignedBranch(LONGCARD a,b) BYTE v v=UnsignedLess(a,b) IF a<b THEN RETURN(CARD(v)+3) FI RETURN(CARD(v)+7)\nCARD FUNC Read(")
+        .replace("  work.done=1","  work.result==+UnsignedBranch(0,0)+UnsignedBranch(0,1)+UnsignedBranch($ffff,$10000)+UnsignedBranch($ffffffff,0)+UnsignedBranch($80000000,$7fffffff)-29\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(
+        &source,
+        ["UNSIGNEDLESS", "UNSIGNEDBRANCH"],
+        "unsigned-long-order",
+    );
+}
+
+#[test]
+fn signed_long_ordering_restores_borrow_and_overflow_flags_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n", "\n").replace("CARD FUNC Read(",
+        "BYTE FUNC SignedLess(LONGINT a,b) RETURN(a<b)\nCARD FUNC SignedBranch(LONGINT a,b) BYTE v v=SignedLess(a,b) IF a<b THEN RETURN(CARD(v)+3) FI RETURN(CARD(v)+7)\nCARD FUNC Read(")
+        .replace("  work.done=1","  work.result==+SignedBranch(0,0)+SignedBranch($ffff,$10000)+SignedBranch($10000,$ffff)+SignedBranch($80000000,$7fffffff)+SignedBranch($7fffffff,$80000000)+SignedBranch($ffffffff,0)-33\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["SIGNEDLESS", "SIGNEDBRANCH"], "signed-long-order");
+}
+
+#[test]
+fn pointer_coalescing_keeps_private_values_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n","\n")
+        .replace("CARD FUNC Read(","ADDRESS FUNC PointerIdentity(ADDRESS p) RETURN(ADDRESS(BYTE POINTER(p)))\nCARD FUNC PointerConsumer(ADDRESS p) ADDRESS saved saved=PointerIdentity(p) RETURN(CARD(ADDRESS(BYTE POINTER(saved))))\nCARD FUNC Read(")
+        .replace("  work.done=1","  work.result==+PointerConsumer(ADDRESS(work.seed))+PointerConsumer(ADDRESS($abcdef))-work.seed-$cdef\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(
+        &source,
+        ["POINTERIDENTITY", "POINTERCONSUMER"],
+        "pointer-coalescing",
+    );
+}
+
+#[test]
+fn native_bitwise_preserves_word_and_long_values_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n","\n")
+        .replace("CARD FUNC Read(","CARD FUNC WordBits(CARD a,b) BYTE low low=BYTE(a) RETURN(((a&b)%(a XOR b)) XOR CARD(low))\nLONGCARD FUNC LongBits(LONGCARD a,b) BYTE low low=BYTE(a) RETURN(((a&b)%(a XOR b)) XOR LONGCARD(low))\nCARD FUNC Read(")
+        .replace("  work.done=1","  work.result==+WordBits($a55a,$0ff0)+CARD(LongBits($12345678,$8000a55a))-$a6a2\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["WORDBITS", "LONGBITS"], "native-bitwise");
+}
+
+#[test]
+fn byte_word_zero_tests_restore_flags_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n","\n").replace("CARD FUNC Read(","BYTE FUNC ZeroByte(BYTE a) IF a=0 THEN RETURN(17) FI RETURN(0#a)\nCARD FUNC ZeroWord(CARD a) IF 0=a THEN RETURN(19) FI RETURN(CARD(a#0))\nCARD FUNC Read(")
+        .replace("  work.done=1","  work.result==+CARD(ZeroByte(0))+CARD(ZeroByte(128))+ZeroWord(0)+ZeroWord($8000)-38\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["ZEROBYTE", "ZEROWORD"], "zero-tests");
 }

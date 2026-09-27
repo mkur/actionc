@@ -154,7 +154,9 @@ adc 2,s
 sec
 sbc 2,s
 cmp 2,s
+and 2,s
 ora 2,s
+eor 2,s
 sta $08
 lda $08
 clc
@@ -184,6 +186,7 @@ dex
 dec a
 {word}
 and #$ff
+ora #$8100
 sep #$20
 .a8
 eor #$80
@@ -724,6 +727,126 @@ fn inx_width_wrap_flags_and_cycles_match_ca65_and_vm() {
                         }
                         assert_eq!(seen, 1);
                     }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn accumulator_shift_and_y_increment_match_ca65_and_physical_widths() {
+    for value in [0, 0x7f, 0x80, 0xff, 0x7fff, 0x8000, 0xffff] {
+        for byte_a in [false, true] {
+            for byte_x in [false, true] {
+                let (code, trace) = proof::index_instruction_probe(value, byte_a, byte_x);
+                let source = format!(
+                    "rep #$20\nlda #{value}\ntay\n{}{}asl a\niny\nnop\nstp\nnop",
+                    if byte_x { "sep #$10\n.i8\n" } else { "" },
+                    if byte_a { "sep #$20\n.a8\n" } else { "" }
+                );
+                let bytes = assemble(&source, 0x40000);
+                assert_eq!(code.bytes, bytes[..code.bytes.len()]);
+                for irq in [0, 4] {
+                    let mut bus = Bus::new();
+                    bus.map(0x40000, &bytes, false);
+                    let mut cpu = Machine::start_at(Registers {
+                        a: 0xabcd,
+                        x: 0x5678,
+                        y: 0x9abc,
+                        s: 0x5fe0,
+                        d: 0x2000,
+                        pbr: 4,
+                        p: irq | 0x40,
+                        ..Default::default()
+                    });
+                    for snapshot in &trace {
+                        assert!(
+                            cpu.run_until(
+                                &mut bus,
+                                1000,
+                                |_| Inputs::default(),
+                                |c| c.is_instruction_boundary()
+                                    && c.pc() == 0x40000 + snapshot.pc as u32
+                            )
+                            .unwrap()
+                        );
+                        check(snapshot, cpu.registers(), 0x5fe0, &bus, irq);
+                    }
+                    let r = cpu.registers();
+                    assert_eq!(
+                        r.a,
+                        if byte_a {
+                            (value & 0xff00) | (value.wrapping_shl(1) & 255)
+                        } else {
+                            value.wrapping_shl(1)
+                        }
+                    );
+                    assert_eq!(
+                        r.y,
+                        value.wrapping_add(1) & if byte_x { 255 } else { 65535 }
+                    );
+                    assert_eq!(r.p & 1 != 0, value & if byte_a { 128 } else { 32768 } != 0);
+                    assert_eq!(r.p & 0x40, 0x40);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn immediate_push_matches_ca65_and_preserves_registers_flags_at_all_widths() {
+    for value in [0u16, 1, 0x80, 0x1234, 0x8000, 0xffff] {
+        for byte_a in [false, true] {
+            for byte_x in [false, true] {
+                let (code, trace) = proof::immediate_push_probe(value, byte_a, byte_x);
+                let asm = format!(
+                    "rep #$20\ntsc\nlda #$abcd\ntay\n{}{}pea ${value:04x}\nnop\nstp\nnop",
+                    if byte_x { "sep #$10\n.i8\n" } else { "" },
+                    if byte_a { "sep #$20\n.a8\n" } else { "" }
+                );
+                let bytes = assemble(&asm, 0x40000);
+                assert_eq!(code.bytes, bytes[..code.bytes.len()]);
+                for irq in [0, 4] {
+                    let mut bus = Bus::new();
+                    bus.map(0x40000, &bytes, false);
+                    bus.map(0x4000, &[0xa5; 0x2000], true);
+                    let mut cpu = Machine::start_at(Registers {
+                        a: 0x1234,
+                        x: 0x5678,
+                        y: 0x9abc,
+                        s: 0x5fe0,
+                        d: 0x2000,
+                        pbr: 4,
+                        p: irq | 0x41,
+                        ..Default::default()
+                    });
+                    for snapshot in &trace {
+                        assert!(
+                            cpu.run_until(
+                                &mut bus,
+                                1000,
+                                |_| Inputs::default(),
+                                |c| c.is_instruction_boundary()
+                                    && c.pc() == 0x40000 + snapshot.pc as u32
+                            )
+                            .unwrap()
+                        );
+                        check(snapshot, cpu.registers(), 0x5fe0, &bus, irq);
+                    }
+                    let r = cpu.registers();
+                    assert_eq!(r.a, 0xabcd);
+                    assert_eq!(r.x, if byte_x { 0x78 } else { 0x5678 });
+                    assert_eq!(r.y, if byte_x { 0xcd } else { 0xabcd });
+                    assert_eq!(r.s, 0x5fde);
+                    assert_eq!(
+                        r.p,
+                        irq | 0xc1 | if byte_a { 0x20 } else { 0 } | if byte_x { 0x10 } else { 0 }
+                    );
+                    assert_eq!(
+                        bus.writes,
+                        [(0x5fe0, (value >> 8) as u8), (0x5fdf, value as u8)]
+                    );
+                    assert_eq!((bus.ram[0x5fde], bus.ram[0x5fe1]), (0xa5, 0xa5));
                 }
             }
         }

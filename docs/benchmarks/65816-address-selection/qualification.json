@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "status": "final_qualification_stopped_at_user_request",
+  "implementation": "all five slices complete",
+  "compiler": {
+    "revision": "dcec73b6b4e3e197f82cf2855330a3f2ec7723af",
+    "changes": [],
+    "override": true,
+    "compiler_contract": {
+      "schema_version": 1,
+      "repository": "https://github.com/mkur/actionc.git",
+      "revision": "dcec73b6b4e3e197f82cf2855330a3f2ec7723af",
+      "binary": "actionc-65816",
+      "target": "wdc-65816-native",
+      "abi": "action65816.native.v1",
+      "image_format_version": 3,
+      "abi_json": "docs/abi/action65816-native-v1.json",
+      "abi_assembly": "docs/abi/action65816-native-v1.inc"
+    },
+    "image_format_version": 3,
+    "binary_sha256": "2d6c4150981978a3830fb4b6d9fc54b84e5f8f34e2c4043e1f7a18b676dd1168",
+    "abi_sha256": "d8c329329c0c286e5c4673b5d638e8c3f685fb6c2ce71fad6b1f6bf764ca3175",
+    "abi_assembly_sha256": "ba00a5bfa74d656f5d6d7f1fe566d399c6788ed745ba6a58c99fb336fc95afdb"
+  },
+  "compiler_source_map_sha256": "e1b56b5c53fe21f1d3d58a4586a3b2a2971614c7ab40a226c3a5d26ae7daa64c",
+  "hosted_candidate_note": "Clean private commit contains final compiler implementation; final series commit also includes documentation and the baseline-confirmed preemption test correction. All compiler Rust inputs match.",
+  "exec_revision": "bbb8f2c72ad238201e83528a5ad90cc4f95e7b39",
+  "exec_pin_unchanged": "47cd55b2dac510922949832332b7a2c3220885be",
+  "compiler_checks": [
+    {
+      "log": "build/address-selection-qualification/compiler-unit.log",
+      "sha256": "8b322ef15719e37ab0d87e6909ccb24eb8fb0ff6dab75f515990b75c68e0af6b",
+      "targets": 1,
+      "passed": 247,
+      "ignored": 1
+    },
+    {
+      "log": "build/address-selection-qualification/compiler-integration.log",
+      "sha256": "b8e178d9c5373e3c4c291e87a1bd299a3fe3622563bad7b2be711eda72f12e79",
+      "targets": 13,
+      "passed": 74,
+      "ignored": 4
+    }
+  ],
+  "slice5_focused_integration": {
+    "target": "mir65816_address_selection",
+    "passed": 5
+  },
+  "slice5_focused_native": [
+    {
+      "target": "address_selection",
+      "passed": 8,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-zjlk9klw/manifest.json",
+      "sha256": "01792efcf38e6a57addb39e966ba82201625371f84a466b5cb8243551ee19f75",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+    },
+    {
+      "target": "corrected_preemption",
+      "passed": 1,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-f89su8dy/manifest.json",
+      "sha256": "caab68823e85371dd260bc65d44afd9636bf4593a20367471d00c610d17cb474",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+    }
+  ],
+  "completed_hosted": [
+    {
+      "name": "core-raw",
+      "status": "pass",
+      "invocation": {
+        "suite": "core",
+        "case": "raw",
+        "sector_size": 128,
+        "speed": 0,
+        "bank": 1,
+        "trace": false
+      },
+      "elapsed_seconds": 341.35768412495963,
+      "result_sha256": "0e80852b552efc8de92627c08e8720c2d8081a572e54b49bbbe23e62be8dbca0"
+    },
+    {
+      "name": "boundary-raw",
+      "status": "pass",
+      "invocation": {
+        "suite": "boundary",
+        "case": "raw",
+        "sector_size": 128,
+        "speed": 0,
+        "bank": 1,
+        "trace": false
+      },
+      "elapsed_seconds": 75.11527204199228,
+      "result_sha256": "4a8612322d61dd8975e400167fa2b3fa0018b18e59ae84e07d800ed281553dd2"
+    },
+    {
+      "name": "boundary-opt",
+      "status": "pass",
+      "invocation": {
+        "suite": "boundary",
+        "case": "opt",
+        "sector_size": 128,
+        "speed": 0,
+        "bank": 1,
+        "trace": false
+      },
+      "elapsed_seconds": 74.42764395906124,
+      "result_sha256": "08c8940732abba5007a6b5bea2c13b0a900d77af2a99b2716cc37c7943407e3c"
+    },
+    {
+      "name": "core-opt",
+      "status": "pass",
+      "invocation": {
+        "suite": "core",
+        "case": "opt",
+        "sector_size": 128,
+        "speed": 0,
+        "bank": 1,
+        "trace": false
+      },
+      "elapsed_seconds": 274.55133162497077,
+      "result_sha256": "7a11e1169bc18f65566f9e68207acd11068d94a252a71c35e43a4af25c2a3f11"
+    },
+    {
+      "name": "target128-raw",
+      "status": "pass",
+      "invocation": {
+        "suite": "concurrent",
+        "case": "raw",
+        "sector_size": 128,
+        "speed": 0,
+        "bank": 1,
+        "trace": true
+      },
+      "elapsed_seconds": 319.2903328750981,
+      "result_sha256": "1e6de8626ca46f2120c70e4543ed7b06072348d44fcb2dbfbc23629b1a145c37"
+    }
+  ],
+  "interrupted": [
+    "full native VM debug rerun",
+    "hosted DOS raw"
+  ],
+  "not_run": [
+    "full native VM release",
+    "remaining hosted matrix groups",
+    "additional real HELLO/CAT command qualification"
+  ],
+  "bank_zero_delta": {
+    "fixed": 0,
+    "per_task": 0
+  },
+  "preexisting_test_correction": {
+    "test": "irq_at_each_reachable_enabled_instruction_preserves_two_context_results",
+    "baseline": "7b078ea157e8986b0bfcfa281ea6312abf4d9bd3",
+    "reason": "Standalone CARD shape assertion also matched LONGCARD upper-word ADC/SBC. MIR spans now classify the shape check while all reached instructions retain IRQ injection.",
+    "baseline_original_log_sha256": "250c50bcd736febda2bdcd47fde3af7eff1053f7441ef0eaad1ce1bfbe9dd5a2",
+    "baseline_corrected_log_sha256": "c125c64243bf4a6a7e8f4cd271bc8341432c5c1c4c4027769be140e3a89de688",
+    "candidate_corrected_log_sha256": "6c312496098867e199f264bd38d3194b0019053588d44238f1ba1fa843f03bcf"
+  }
+}

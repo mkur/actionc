@@ -521,7 +521,9 @@ fn classic_standalone_keeps_the_last_root_proc_as_the_run_address() {
     let listing = compiled.source_listing();
     let entry_header = listing
         .lines()
-        .find(|line| line.contains("PROC M_NATIVE_REAL_LIBRARY_MAIN_") && line.contains(" entry $"))
+        .find(|line| {
+            line.starts_with("; ===== PROC NATIVE_REAL_LIBRARY.Main $") && line.contains(" entry $")
+        })
         .expect("last root PROC listing header");
     let entry = entry_header
         .split(" entry $")
@@ -1175,7 +1177,7 @@ fn module_derived_listing_is_byte_identical_across_compilations() {
     assert!(
         first
             .source_listing()
-            .contains("global_m_atari_antic_vcount_")
+            .contains("global_ATARI_ANTIC_VCOUNT = $D40B")
     );
 
     let emit_map = || {
@@ -1248,17 +1250,20 @@ ENDMODULE
         let compiled = compile_file(&source, &CompileOptions::for_mode(mode))
             .unwrap_or_else(|error| panic!("compile selected user module in {mode:?}: {error}"));
         let listing = compiled.source_listing();
+        // Listings retain declaration spelling; check definitions so a call
+        // reference alone cannot make a missing routine appear reachable.
+        let defines = |label: &str| listing.lines().any(|line| line == label);
         assert!(
-            listing.contains("M_LIB_UTIL_USED_"),
+            defines("proc_LIB_UTIL_Used:"),
             "{mode:?} omitted the referenced user routine:\n{listing}"
         );
         assert!(
-            listing.contains("M_LIB_UTIL_PRIVATE_"),
+            defines("proc_LIB_UTIL_Private:"),
             "{mode:?} omitted a private transitive callee:\n{listing}"
         );
         let expects_unused = mode == CompileMode::Compatibility;
         assert!(
-            listing.contains("M_LIB_UTIL_UNUSED_") == expects_unused,
+            defines("proc_LIB_UTIL_Unused:") == expects_unused,
             "{mode:?} has the wrong unreferenced-routine policy:\n{listing}"
         );
     }

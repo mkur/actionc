@@ -771,16 +771,19 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                 &mir_config,
                 runtime,
             ) {
-                Ok(output) => emit_output(
-                    &output,
-                    &loaded.source,
-                    emit_load,
-                    emit_map,
-                    emit_proofs,
-                    emit_proof_attempts,
-                    emit_listing,
-                    emit_source_listing,
-                ),
+                Ok(mut output) => {
+                    crate::compiler::artifacts::record_declaration_names(&mut output, &semir);
+                    emit_output(
+                        &output,
+                        &loaded.source,
+                        emit_load,
+                        emit_map,
+                        emit_proofs,
+                        emit_proof_attempts,
+                        emit_listing,
+                        emit_source_listing,
+                    );
+                }
                 Err(diagnostics) => {
                     print_mir6502_diagnostics(diagnostics);
                     process::exit(1);
@@ -799,16 +802,19 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                 program_default_origin_from_semir(&semir, origin)
             };
             match generate_semir_standalone_profile_at_origin(&semir, standalone_origin, profile) {
-                Ok(output) => emit_output(
-                    &output,
-                    &loaded.source,
-                    emit_load,
-                    emit_map,
-                    emit_proofs,
-                    emit_proof_attempts,
-                    emit_listing,
-                    emit_source_listing,
-                ),
+                Ok(mut output) => {
+                    crate::compiler::artifacts::record_declaration_names(&mut output, &semir);
+                    emit_output(
+                        &output,
+                        &loaded.source,
+                        emit_load,
+                        emit_map,
+                        emit_proofs,
+                        emit_proof_attempts,
+                        emit_listing,
+                        emit_source_listing,
+                    );
+                }
                 Err(diagnostics) => {
                     print_diagnostics_with_source(
                         diagnostics,
@@ -829,16 +835,19 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                 generate_semir_profile_with_origin(&semir, origin, profile)
             };
             match result {
-                Ok(output) => emit_output(
-                    &output,
-                    &loaded.source,
-                    emit_load,
-                    emit_map,
-                    emit_proofs,
-                    emit_proof_attempts,
-                    emit_listing,
-                    emit_source_listing,
-                ),
+                Ok(mut output) => {
+                    crate::compiler::artifacts::record_declaration_names(&mut output, &semir);
+                    emit_output(
+                        &output,
+                        &loaded.source,
+                        emit_load,
+                        emit_map,
+                        emit_proofs,
+                        emit_proof_attempts,
+                        emit_listing,
+                        emit_source_listing,
+                    );
+                }
                 Err(diagnostics) => {
                     print_diagnostics_with_source(
                         diagnostics,
@@ -864,16 +873,19 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
             generate_profile_with_origin(program, origin, profile)
         };
         match result {
-            Ok(output) => emit_output(
-                &output,
-                &loaded.source,
-                emit_load,
-                emit_map,
-                emit_proofs,
-                emit_proof_attempts,
-                emit_listing,
-                emit_source_listing,
-            ),
+            Ok(mut output) => {
+                crate::compiler::artifacts::record_declaration_names(&mut output, &semir);
+                emit_output(
+                    &output,
+                    &loaded.source,
+                    emit_load,
+                    emit_map,
+                    emit_proofs,
+                    emit_proof_attempts,
+                    emit_listing,
+                    emit_source_listing,
+                );
+            }
             Err(diagnostics) => {
                 print_diagnostics_with_source(
                     diagnostics,
@@ -1872,6 +1884,8 @@ mod tests {
             map: CodegenMap {
                 runtime: crate::runtime::Runtime::ActionCart,
                 runtime_bindings: Vec::new(),
+                runtime_routine_names: Default::default(),
+                declaration_names: Default::default(),
                 origin,
                 run_address: origin,
                 skipped_ranges: Vec::new(),
@@ -1890,11 +1904,14 @@ mod tests {
 
         let listing = format_listing_with_boundaries(&output);
 
-        assert!(listing.contains("JSR.A proc_r_par"));
+        assert!(listing.contains("JSR.A proc_r_Par"));
         assert!(listing.contains("; $3A99: 20 81 32 ; r_Par"));
-        assert!(listing.contains(".BYTE $DF,$2E,$02"));
-        assert!(listing.contains("; $3A9C: DF 2E 02"));
-        assert!(listing.contains("loc_finditem_1:\n        LDA.A $2EDF"));
+        assert!(listing.contains("; SArgs descriptor"));
+        assert!(listing.contains(".WORD $2EDF"), "{listing}");
+        assert!(listing.contains("; $3A9C: DF 2E | parameter frame address"));
+        assert!(listing.contains(".BYTE $02"), "{listing}");
+        assert!(listing.contains("; $3A9E: 02 | copy 3 parameter bytes"));
+        assert!(listing.contains("loc_FindItem_1:\n        LDA.A $2EDF"));
         assert!(!listing.contains("ROL $AD02"));
     }
 
@@ -1916,7 +1933,7 @@ mod tests {
         assert!(listing.contains("; $3006: 0D 48 65 6C 6C 6F 2C 20"));
         assert!(listing.contains(".BYTE $77,$6F,$72,$6C,$64,$21"));
         assert!(listing.contains("; $300E: 77 6F 72 6C 64 21"));
-        assert!(listing.contains("ORG $02E2\n        DTA A(proc_main)"));
+        assert!(listing.contains("ORG $02E2\n        DTA A(proc_Main)"));
         assert!(!listing.contains("ORA $6548"));
         assert!(!listing.contains("JMP ($6F6C)"));
         assert!(!listing.contains("BIT $7720"));

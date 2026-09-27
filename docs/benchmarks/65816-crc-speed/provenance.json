@@ -1,0 +1,450 @@
+{
+  "compiler_revision": "7936f5d616caa4f9a5c5ddbd5747850f9db5b0ee",
+  "compiler_worktree_status": "",
+  "suite_revision": "58036235788d9c9741c67f82e1fb9bb6e2f0e3f6",
+  "suite_crc_status": " M benchmarks/src/crc16.c\n",
+  "versions": {
+    "calypsi": "Calypsi ISO C compiler for 65816 version 5.18"
+  },
+  "tools": {
+    "actionc": {
+      "path": "/Users/michalkurcewicz/action/actionc-public-release/target/release/actionc-65816",
+      "sha256": "8bbb165e89d08a23d4cdd305e10c3b4c97676c18c48a2e48f47ca72c1e5ac71e"
+    },
+    "calypsi": {
+      "path": "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+      "sha256": "32581974d919226e9e7054d890a39e934461806905b3ebc32b6002f32d3c2ee7"
+    },
+    "assembler": {
+      "path": "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+      "sha256": "348e8f8485d4dfc92e04ea295bdc2f2fb18169658ab64e20158e03b5745fa594"
+    },
+    "linker": {
+      "path": "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+      "sha256": "74738fc80ff249c726a6c19b7122969dbcbaf7fdb2579bca80440eea6152fb31"
+    }
+  },
+  "inputs": {
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/crc_bench/crc16.act": "a96cf662cb3d6a60e05e9683f609b063f99cd5ecfa7ba77c6fbf6457fe9c08dd",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/crc_bench/crc32.c": "8fb2b228b2fcf72302077985f7c3189fa8bfe2df0b97606fc546139657b172df",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/crc_bench/crc8.act": "42c250248625f5730cf84089d32c5096ede765afa1acbb66637450c81dbed522",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/crc_bench/crc8.c": "163ea44cf7b7d24ddf22fbb832140355473a7e99d7cb26654c752c9275316270",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/crc_bench/crc32.act": "8b1889a14b6bde8e976f791b86b74340ed4c43a29846d0f89555f584301629f7",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/crc_bench/crc16.c": "6b79d288c1abc6f1a40ae0c85329cdb52d51ce4740e2207647dc03a275f3796b",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/compare65816/crc.py": "18a3b607e77b235e14c094a3defd4f6ae715afdb4af14aaae67e6b5c6bc42fee",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/compare65816/build.py": "70f01c1c83edcdc5c2489c72f2a700c3e01cd94a1515753815eb571cafccaa2f",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/compare65816/calypsi.py": "f2ef782b38e466b336ff7af2e7449fff1fa2b5bceca08590ff0a18f3b060cdf8",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/disassemble65816.py": "dfbceb8060c628bdb1d7ef36d8b4ac2d29a498b370688294ae852bcf05dabfa1",
+    "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s": "5787439cfd827cd620b9f0a5668aa3359489de007c8d17a17bd8b6b2bc1dea48",
+    "/usr/local/lib/calypsi-65816-5.18/doc/html/_sources/assembly-interface.rst.txt": "e4bd35cdb66e5096e07b6837a636cb5bdf53868dd2e7faf000bd1c5808e4e2ec",
+    "/usr/local/lib/calypsi-65816-5.18/doc/html/_sources/data-storage.rst.txt": "17a6dae789db4ad131ced16676e43eef2f01953b041bb5af79904aee6804d2db",
+    "/Users/michalkurcewicz/atari/c-bench-64/benchmarks/src/crc8.c": "d8787699cb038f45c5d40054f417302328cd9b0bd8d72380620b6eb8e89e5f69",
+    "/Users/michalkurcewicz/atari/c-bench-64/benchmarks/src/crc16.c": "d2c3185fd0bb39d0692f531714a07ca4de1761f76df1c759ef14b76e63f46712",
+    "/Users/michalkurcewicz/atari/c-bench-64/benchmarks/src/crc32.c": "ca48f1fb03a696a6ee3fd2d94af8a798305a121010a858f556f062a1f09d2fc4",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/layout.json": "8ecdbc14deb11477ecb0a3ac03935993d977be7b3a0c68adb3407d561eb83fa4",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/calypsi.scm": "35a87ba235ba5ab31447ba62926c75bfa43b4d82dd976c2e3cab01de8151be88"
+  },
+  "crlf_checked": true,
+  "paired_records": 112,
+  "executions_per_host": 224,
+  "debug_release_identical": true,
+  "failed_paired_records": 10,
+  "qualifications": {
+    "debug": {
+      "compiler_revision": "7936f5d616caa4f9a5c5ddbd5747850f9db5b0ee",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/Cargo.toml",
+        "--test",
+        "crc_bench",
+        "--",
+        "--include-ignored",
+        "--nocapture"
+      ],
+      "attestation_sha256": "401ad18cceb1784f7d97a77b4c80fe56c61092e98d96dc460f79f6b070701ce2"
+    },
+    "release": {
+      "compiler_revision": "7936f5d616caa4f9a5c5ddbd5747850f9db5b0ee",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/Cargo.toml",
+        "--release",
+        "--test",
+        "crc_bench",
+        "--",
+        "--include-ignored",
+        "--nocapture"
+      ],
+      "attestation_sha256": "5476b6efd146fa34b83dd62d093cc753b281af38c7948bdbfd366c00b67ecc3a"
+    }
+  },
+  "archived_outputs": {
+    "crc16-actionc-optimized.lst": "0a1741d226f45681fa969532714da096b8e6e5e4f6f675bc643343e3da9bfa28",
+    "crc16-calypsi-O2-speed.lst": "d28ab0b99e6ec4598990fddd2c6512083a48ab5b3aaa53d69be61ef8c72a07d7",
+    "crc32-actionc-optimized.lst": "fab949c0329c0b60627577dd7701cc24a73e6e4e1e2fc96b9ce45e7fd087d6f8",
+    "crc32-calypsi-O2-speed.lst": "91e32473748d8cd4ed3ca171c962f1fea5ac8c7c57b4f47f8bb3395b81d56848",
+    "crc8-actionc-optimized.lst": "e3c229813e954b1df97742c819ec261795eac206e1757162aa8c8d05eae7f582",
+    "crc8-calypsi-O1-speed.lst": "c7f011a5e97597b9366ff10c8513387ad0474b94ddbd2c8ed6c6183fc0d3a469",
+    "crc8-calypsi-O2-speed.lst": "adc5c0d7c63ba6269addeead4a983867953b49ee3d44ca4408e334cc9ed4a827",
+    "failures.json": "0aadf9cab0441d7581cf51c78b42b907bdb91cf449c13316812229a033951dd8",
+    "measurements.csv": "5665a5ecac68bf98c5636319616a9ba41b45500f66eff03e131eea14fc1bc439",
+    "profiles.json": "a844e2586d58ec7fa710d5b2b752b02857bc0cc11b933157b316c709012c1222",
+    "summary.csv": "287b87e9077f0c2cc6866d84a7e98c15717df05831270e91b647fe2f79dcdd40"
+  },
+  "artifacts": [
+    {
+      "compiler": "actionc",
+      "mode": "optimized",
+      "width": 8,
+      "commands": [
+        [
+          "/Users/michalkurcewicz/action/actionc-public-release/target/release/actionc-65816",
+          "--layout",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/layout.json",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/actionc/image.json",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/crc_bench/crc8.act"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/actionc/0.log": "2e93dc46803c5e4c171b30a0eb1f628324acab8011bc899e8ea3ced6ef8d49ea",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/actionc/code.linked.lst": "e260be6661c354e0f30cfe4ce8091da09bc55403dfdc98551ca8ff8a2d8cb788",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/actionc/image.json": "be0af20cb9a23bfeb589ccaf9d1978b84dfe95aba9ca2c497477d991fc2e0bc9"
+      }
+    },
+    {
+      "compiler": "calypsi",
+      "mode": "O2-speed",
+      "width": 8,
+      "commands": [
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+          "-O2",
+          "--speed",
+          "--data-model",
+          "huge",
+          "--code-model",
+          "large",
+          "--assembly-source",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/code.s",
+          "-c",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/crc_bench/crc8.c"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/code.lst",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/code.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/registers.o",
+          "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+          "--no-auto-libraries",
+          "--no-data-init-table-section",
+          "--program-root",
+          "CRC8",
+          "--program-start",
+          "CRC8",
+          "--no-tree-shaking",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/code.map",
+          "--output-format",
+          "raw",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/code.elf",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/registers.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/calypsi.scm"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/code.o": "040829fe10e4d5990a49e67a6e52e1c0433653b96d1edf9a377575191212ce87",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/code.s": "60e6b325a86e9b29b9b7ecc108bbe631ca2ed2b7ed176c5262a776c9eb9ec293",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/registers.o": "3b12c30aaad48b017f3825576adb42c75c6adc75399593d680cfd20851bcec98",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/code.raw": "9cfd64355c64059dca3345d52f584f02eb4aaca43c24269efe68aa58d5c33e03",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/code.linked.lst": "adc5c0d7c63ba6269addeead4a983867953b49ee3d44ca4408e334cc9ed4a827",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/code.lst": "c97ed5caace141e3e899ccdbc5f11e780e9b47e66399171dfc3986756c339ba9",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/code.elf": "fd208cecb5b204107e1bfa937b919654cfc88bcaffd90f1ac823e7360300ed80",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi/code.map": "c2eb4ccaa2c11e1fa296212d0919f9dffab3ec672c2b2f39eb34aee0bf2fb951"
+      }
+    },
+    {
+      "compiler": "calypsi",
+      "mode": "O1-speed",
+      "width": 8,
+      "commands": [
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+          "-O1",
+          "--speed",
+          "--data-model",
+          "huge",
+          "--code-model",
+          "large",
+          "--assembly-source",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/code.s",
+          "-c",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/crc_bench/crc8.c"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/code.lst",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/code.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/registers.o",
+          "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+          "--no-auto-libraries",
+          "--no-data-init-table-section",
+          "--program-root",
+          "CRC8",
+          "--program-start",
+          "CRC8",
+          "--no-tree-shaking",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/code.map",
+          "--output-format",
+          "raw",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/code.elf",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/registers.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/calypsi.scm"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/code.o": "2bd2820aee031227ae381dbeacb3f0c36e8c53aad3278115234021e35e37a238",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/code.s": "a99b0e8e9908a210caadc471d060c20aa7b64c3928c97f7b450f710b0d53b47a",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/registers.o": "3b12c30aaad48b017f3825576adb42c75c6adc75399593d680cfd20851bcec98",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/code.raw": "5431951f598febdfa574a18ddfc0d3c6d634479bbc0c87323d3181c8cd00ec60",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/code.linked.lst": "c7f011a5e97597b9366ff10c8513387ad0474b94ddbd2c8ed6c6183fc0d3a469",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/code.lst": "c180c9bcdb5e63bc128ae659fb513adae1e3cf0943b36e75b5cc848501d9d61f",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/code.elf": "492ead06908868a941c065a0a1f02bf22aa9499238666da4a7c74fb09a8bbad4",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc8/calypsi-o1/code.map": "221f6569b910a1e23667216e1140da4ed16afa315cb595c09d908bcc49c78a1e"
+      }
+    },
+    {
+      "compiler": "actionc",
+      "mode": "optimized",
+      "width": 16,
+      "commands": [
+        [
+          "/Users/michalkurcewicz/action/actionc-public-release/target/release/actionc-65816",
+          "--layout",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/layout.json",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/actionc/image.json",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/crc_bench/crc16.act"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/actionc/0.log": "e2c4239b93056a96616850a8454656f732e5a9cffe0f74ef50d953b3b73e6949",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/actionc/code.linked.lst": "89e202f6f8f896a774345eb9bf39bc66edc286f861a61942ce0f45cd465acdb4",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/actionc/image.json": "fee9375a5ea1def92cc290d31849fe6e79b28260851fda4eb9163690251a53f8"
+      }
+    },
+    {
+      "compiler": "calypsi",
+      "mode": "O2-speed",
+      "width": 16,
+      "commands": [
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+          "-O2",
+          "--speed",
+          "--data-model",
+          "huge",
+          "--code-model",
+          "large",
+          "--assembly-source",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/code.s",
+          "-c",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/crc_bench/crc16.c"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/code.lst",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/code.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/registers.o",
+          "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+          "--no-auto-libraries",
+          "--no-data-init-table-section",
+          "--program-root",
+          "CRC16",
+          "--program-start",
+          "CRC16",
+          "--no-tree-shaking",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/code.map",
+          "--output-format",
+          "raw",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/code.elf",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/registers.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/calypsi.scm"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/code.o": "fcda115337f5c04936886e0b2723f43f8341430c44c88599e7443864808a60a8",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/code.s": "d34a14dc524836f3456d57c0b907b89262a192ae57626244cab527d779387223",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/registers.o": "3b12c30aaad48b017f3825576adb42c75c6adc75399593d680cfd20851bcec98",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/code.raw": "91a4b21ea8cc77fe08a4e39a9b642f4819e9a35622ef917dae81b573108d46b7",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/code.linked.lst": "d28ab0b99e6ec4598990fddd2c6512083a48ab5b3aaa53d69be61ef8c72a07d7",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/code.lst": "8f04592cef04447db657d11ec5b86afbacb61b1ba7990fb531df4b1517805fca",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/code.elf": "e6eebf60ffc080a9c223f423d78859bad9ca46d9ebb7164de5b7f0476acf0942",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc16/calypsi/code.map": "048c4cb8cf5db25c93eb1644f42021f48a8427e0460993113e0dc3d4b53ea6c7"
+      }
+    },
+    {
+      "compiler": "actionc",
+      "mode": "optimized",
+      "width": 32,
+      "commands": [
+        [
+          "/Users/michalkurcewicz/action/actionc-public-release/target/release/actionc-65816",
+          "--layout",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/layout.json",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/actionc/image.json",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/crc_bench/crc32.act"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/actionc/0.log": "bdc964d9ecfe11e16dc58a6cc2cc7f2587db2951b3a4a456f9ea77c47ba417dc",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/actionc/code.linked.lst": "4b28fc2172efb2bf0439df16d839ab9d9cb36b891f36d354fdc6481dba0d0b19",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/actionc/image.json": "bb682455b577bbf0b946da2a7d0e29ef7fbd18eb2feb83ac157b16e6914895e0"
+      }
+    },
+    {
+      "compiler": "calypsi",
+      "mode": "O2-speed",
+      "width": 32,
+      "commands": [
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+          "-O2",
+          "--speed",
+          "--data-model",
+          "huge",
+          "--code-model",
+          "large",
+          "--assembly-source",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/code.s",
+          "-c",
+          "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/crc_bench/crc32.c"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/code.lst",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/code.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/registers.o",
+          "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s"
+        ],
+        [
+          "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+          "--no-auto-libraries",
+          "--no-data-init-table-section",
+          "--program-root",
+          "CRC32",
+          "--program-start",
+          "CRC32",
+          "--no-tree-shaking",
+          "--list-file",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/code.map",
+          "--output-format",
+          "raw",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/code.elf",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/code.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/registers.o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/calypsi.scm"
+        ]
+      ],
+      "hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/code.o": "76a6d48e9853e71b6fd398acc0662ca2abd1d30ecdc001427de1feb33c0f46d7",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/code.s": "1e140de0aa6a35aaa5f656fc0f7459f1683c7a6a82f8b526521e594355e76c66",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/registers.o": "3b12c30aaad48b017f3825576adb42c75c6adc75399593d680cfd20851bcec98",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/code.raw": "4f35d17c3a8e988a64853c9a6324b380a03c30c13851c9d7ce40f0a779141f40",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/code.linked.lst": "91e32473748d8cd4ed3ca171c962f1fea5ac8c7c57b4f47f8bb3395b81d56848",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/code.lst": "451d0702cc575ffc2b36d6d253e23684c9c8354afeb39bd0287d82c6e5204eab",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/code.elf": "8cf130b46ce33e79841dde9cd81fc3be39833033909c1bbb969858b09aeb5bff",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/crc65816-comparison/crc32/calypsi/code.map": "ac19c3d968a2565ced74c7d28abf3227d3b8e9ef1dbc83814515846c3fe51f84"
+      }
+    }
+  ],
+  "evidence": {
+    "manifest.json": "c81377941eb1a1493422fa257d1d356657aea6bf9da57cb24894517cfdb36837",
+    "debug.json": "84ae85b5daa9eab84c2e6dfc124d023ff9526b2bce643266049be6526df5f44d",
+    "release.json": "84ae85b5daa9eab84c2e6dfc124d023ff9526b2bce643266049be6526df5f44d"
+  },
+  "tools_hashes": {
+    "tools/compare65816/report_crc.py": "6c8e5ddc0cf6a5d3f144d416beb56851f4f1dfd6ae0bbf43d2249e69a4a37439",
+    "tools/compare65816/run_crc.py": "dd0e811a4c481cad4ad9bd2f906d89d9e8497ad683ce33f9b9a10213b8d36eb4",
+    "tools/native65816-runtime-tests/tests/crc_bench.rs": "0e2ef13a5fb362a4255a2c6549175a78c046c3e6c8aa0c5639ee568aa692b63b"
+  }
+}

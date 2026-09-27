@@ -131,6 +131,50 @@ fn cyclic_reservations_are_exact_words_and_verified_independently() {
 }
 
 #[test]
+fn cyclic_pointer_reservations_reuse_one_capture_and_keep_a_separate_save_word() {
+    for count in [2, 3, 6] {
+        let mut r = routine(&vec![3; count]);
+        // The entry has no captures; only the loop determines staging needs.
+        r.blocks[0].terminator = Mir65816Terminator::Exit;
+        r.blocks[1].terminator = Mir65816Terminator::Goto(Mir65816Edge {
+            target: BlockId(1),
+            args: (0..count)
+                .map(|i| {
+                    Mir65816Value::Temp(
+                        TempId(if count == 6 {
+                            (i ^ 1) as u32
+                        } else {
+                            ((i + 1) % count) as u32
+                        }),
+                        ByteSize::new(3),
+                    )
+                })
+                .collect(),
+        });
+        let f = AllocatedFrame::stack(&r).unwrap();
+        assert_eq!(
+            f.edge_copies.iter().map(|s| s.width).collect::<Vec<_>>(),
+            [2, 3]
+        );
+        f.verify_stack(&r).unwrap();
+        for problem in 0..5 {
+            let mut bad = f.clone();
+            match problem {
+                0 => {
+                    bad.edge_copies.pop();
+                }
+                1 => bad.edge_copies[1].width = 2,
+                2 => bad.edge_copies[1].offset = bad.edge_copies[0].offset,
+                3 => bad.edge_copies[1].offset = bad.temps[&TempId(0)].slot().offset,
+                4 => bad.extent += 2,
+                _ => unreachable!(),
+            }
+            assert!(bad.verify_stack(&r).is_err(), "{count}/{problem}");
+        }
+    }
+}
+
+#[test]
 fn fallback_reserves_maximum_actual_width_per_argument_and_keeps_alignment() {
     let mut r = routine(&[1, 2, 3, 4]);
     let mut other = routine(&[4, 3, 2, 1]).blocks.remove(1);

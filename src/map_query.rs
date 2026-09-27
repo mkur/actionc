@@ -298,6 +298,8 @@ mod tests {
         CodegenMap {
             runtime: crate::runtime::Runtime::ActionCart,
             runtime_bindings: Vec::new(),
+            runtime_routine_names: Default::default(),
+            declaration_names: Default::default(),
             origin: 0x3000,
             run_address: 0x3004,
             skipped_ranges: vec![SkippedRange {

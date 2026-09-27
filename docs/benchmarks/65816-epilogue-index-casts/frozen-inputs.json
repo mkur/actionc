@@ -1,0 +1,842 @@
+[
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/console-action.inc",
+    "source_sha256": "fe150a273f19f3e0f25ad3240141cd2752f58a793ff077c76e4ffe1449b7ed40",
+    "snapshot_sha256": "fe150a273f19f3e0f25ad3240141cd2752f58a793ff077c76e4ffe1449b7ed40",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/console-policy-types.inc",
+    "source_sha256": "a3f2f3c01760c5079f92040051a30c96919c4226fe5c939846d9face6e57d3f5",
+    "snapshot_sha256": "a3f2f3c01760c5079f92040051a30c96919c4226fe5c939846d9face6e57d3f5",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/console-storage-action.inc",
+    "source_sha256": "a1e2f4802fc85498b35a35517072502d47546dfbd1093074cde19f1bddfe0119",
+    "snapshot_sha256": "a1e2f4802fc85498b35a35517072502d47546dfbd1093074cde19f1bddfe0119",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/console-storage.inc",
+    "source_sha256": "36678da953980c0737ffe6d7e3d5002f1fcada139f521e7c583fb39f4f3a3500",
+    "snapshot_sha256": "36678da953980c0737ffe6d7e3d5002f1fcada139f521e7c583fb39f4f3a3500",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/console-tables.bin",
+    "source_sha256": "46adde3629440b1405798b17535b24cf534513213ac865dd0fa875cb58d4f8da",
+    "snapshot_sha256": "46adde3629440b1405798b17535b24cf534513213ac865dd0fa875cb58d4f8da",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/dos-action.inc",
+    "source_sha256": "ad786aa2b1dbeede71c61b7bb52a8190cc86410d9cff255cb981b6aacb39a280",
+    "snapshot_sha256": "ad786aa2b1dbeede71c61b7bb52a8190cc86410d9cff255cb981b6aacb39a280",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/dos-storage-action.inc",
+    "source_sha256": "54bc9bfcfed1d2acba1f5a39ff831fa1aea7262a5cd7ffbe3b731f659d6fca10",
+    "snapshot_sha256": "54bc9bfcfed1d2acba1f5a39ff831fa1aea7262a5cd7ffbe3b731f659d6fca10",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/dos.inc",
+    "source_sha256": "7400707f807aff6905cd37657872e0c631ad3899b920642134557da44cc94c13",
+    "snapshot_sha256": "7400707f807aff6905cd37657872e0c631ad3899b920642134557da44cc94c13",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/exec-build.json",
+    "source_sha256": "af833533f59c7feabb2b0790c90a1809dfa33b9640245b018998f9745fe41df6",
+    "snapshot_sha256": "af833533f59c7feabb2b0790c90a1809dfa33b9640245b018998f9745fe41df6",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/execbuild.act",
+    "source_sha256": "9d58f4680c5543fd92c52c4052c991f6eb8f3cc220ff1ca5c6ac6022133a7806",
+    "snapshot_sha256": "9d58f4680c5543fd92c52c4052c991f6eb8f3cc220ff1ca5c6ac6022133a7806",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/execmemory.act",
+    "source_sha256": "3b2177bf7ce1d42594c11caf0232f1c87bdcbb34963240decfc75f334f733f9f",
+    "snapshot_sha256": "3b2177bf7ce1d42594c11caf0232f1c87bdcbb34963240decfc75f334f733f9f",
+    "verified_against_build": false,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/heap-action.inc",
+    "source_sha256": "d23fca22b4d80fd8e2f38bf3ddf9b75eafb24c4833c3c2591df63c196783f155",
+    "snapshot_sha256": "d23fca22b4d80fd8e2f38bf3ddf9b75eafb24c4833c3c2591df63c196783f155",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/heap-storage.inc",
+    "source_sha256": "21d646045fb3fea5844e2b48ad2880906dad1be34f69054832caf46a180b8c04",
+    "snapshot_sha256": "21d646045fb3fea5844e2b48ad2880906dad1be34f69054832caf46a180b8c04",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/heap.inc",
+    "source_sha256": "b82c94cc14b7cee47c714dbe3bbaf14805a771923612101cef2bb66c800a3b71",
+    "snapshot_sha256": "b82c94cc14b7cee47c714dbe3bbaf14805a771923612101cef2bb66c800a3b71",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/heap.json",
+    "source_sha256": "b8375194f43fde3b43e6a1d63a51d65daba77a43d725635197c07cce4cb11520",
+    "snapshot_sha256": "b8375194f43fde3b43e6a1d63a51d65daba77a43d725635197c07cce4cb11520",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/heappolicy.act",
+    "source_sha256": "41ba32aa59926008e76f3db05ada0316715e86d740675a5a53a912f90b09236a",
+    "snapshot_sha256": "76ef1ea1da8deb51c6f5256423e60291779bd63301b438bce07436446dd1eb40",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/io-action.inc",
+    "source_sha256": "dfffd5f74b1306bd5b8445d89494675fdaab5c889f2672042f16ba6eaf6d7ff0",
+    "snapshot_sha256": "dfffd5f74b1306bd5b8445d89494675fdaab5c889f2672042f16ba6eaf6d7ff0",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/io-storage-action.inc",
+    "source_sha256": "d62a046354c26fccce3f0f348454e8397885267d732977e6ec691588bf0ecd03",
+    "snapshot_sha256": "d62a046354c26fccce3f0f348454e8397885267d732977e6ec691588bf0ecd03",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/io.inc",
+    "source_sha256": "7a3396a4860938a1167450c0405158963156ce4c8eb2fa7e2a164c29fbdd2da3",
+    "snapshot_sha256": "7a3396a4860938a1167450c0405158963156ce4c8eb2fa7e2a164c29fbdd2da3",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/kernel-program.act",
+    "source_sha256": "a02432d1f6a19c4152744b255d0d4e6cbf38d05d0c8f767a76de2fa74b4469b2",
+    "snapshot_sha256": "6f34601c51165983f25b890a7202237b62fec61c47cf9f735da0ee3436e680ee",
+    "verified_against_build": false,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/layout.json",
+    "source_sha256": "0f732ce7ba22163bd7a77a2729cb5905cb149c8d5757a2e339768600e33d303a",
+    "snapshot_sha256": "0f732ce7ba22163bd7a77a2729cb5905cb149c8d5757a2e339768600e33d303a",
+    "verified_against_build": false,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/memory-action.inc",
+    "source_sha256": "2a5961062474f84edf26630594728599454b9686f74e558f5bb2108b4b37f803",
+    "snapshot_sha256": "2a5961062474f84edf26630594728599454b9686f74e558f5bb2108b4b37f803",
+    "verified_against_build": false,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/port-packets.inc",
+    "source_sha256": "3db8f3075db83e21b03f3f5ced5c5eeb06178d257c6ed1a101ab71b2e48a5366",
+    "snapshot_sha256": "3db8f3075db83e21b03f3f5ced5c5eeb06178d257c6ed1a101ab71b2e48a5366",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/ports-action.inc",
+    "source_sha256": "f0bb3e004e263740d04a43a37e6a0b57d30c92da59250a066f3a9b19acaedb93",
+    "snapshot_sha256": "f0bb3e004e263740d04a43a37e6a0b57d30c92da59250a066f3a9b19acaedb93",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/ports-storage-action.inc",
+    "source_sha256": "7c9a69d07708af3ac9e01b034f460e12c29ec4871a436764bc0bc2410dfe8c93",
+    "snapshot_sha256": "7c9a69d07708af3ac9e01b034f460e12c29ec4871a436764bc0bc2410dfe8c93",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/ports-storage.inc",
+    "source_sha256": "18265cbe7927cd52ae509f3cdae7f020f6babecee4c9f5baf763f7f5dcb2f5d6",
+    "snapshot_sha256": "18265cbe7927cd52ae509f3cdae7f020f6babecee4c9f5baf763f7f5dcb2f5d6",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/ports.inc",
+    "source_sha256": "31429fb819f79f4ad64b0d5167beb1543c9ae318e47d9e38b71b724a6fae9483",
+    "snapshot_sha256": "31429fb819f79f4ad64b0d5167beb1543c9ae318e47d9e38b71b724a6fae9483",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/signal-gateway.inc",
+    "source_sha256": "4f44d0155c9f641f9571765e82d59808380454780830f8e554636609c2c24078",
+    "snapshot_sha256": "4f44d0155c9f641f9571765e82d59808380454780830f8e554636609c2c24078",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/sio-storage-action.inc",
+    "source_sha256": "1e11d18b4aef656a0f4f0b0271cbd73835c8822c6cb8efbf0d94b98455ec9107",
+    "snapshot_sha256": "1e11d18b4aef656a0f4f0b0271cbd73835c8822c6cb8efbf0d94b98455ec9107",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/consoledisplay.act",
+    "source_sha256": "a244360a250396adb99e11d0de64a1345ddaedde0c443e286d16999f36511154",
+    "snapshot_sha256": "97d9849e8d174617501254efe582bc894a455538fd173ad04d6f88f57fc6de3b",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/consoledriver.act",
+    "source_sha256": "7c7f59f0c418aaf79963d233133b19669de005ab1eb4ac0b454838fde8c1a591",
+    "snapshot_sha256": "32187c6b18a5cc946396be239ceeb4aa18cfc4a5097201e8eed1e9f608c2adb5",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/consoleforeground.act",
+    "source_sha256": "0ec28683bfa909f8757d6e068c4c32a5664ac6890fe084f00999c2dfb1ee0a48",
+    "snapshot_sha256": "d4ea215674396e5ac6e3b9d4771b0dc26f5d76e48f5e53904ca3d0f80027d3f5",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/consoleinput.act",
+    "source_sha256": "c5f00c114cd4cf50c2497a2f18f8e4e90e8e9b2ebeb2d84f11aff6ad46fe47bb",
+    "snapshot_sha256": "f1b69264b40ac63fd7d0d00f0f514dc7b9476379da6800c30805acafdde308eb",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/consolewindows.act",
+    "source_sha256": "fe3fb53b83d5ab166c1c5fd6ed7b4f1d58346efdbda8f03bf3725d736826f114",
+    "snapshot_sha256": "917170b36554b708065fd1f5882134cb2f99a530aa7c84ecb5576838be64bd1b",
+    "verified_against_build": false,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/deviceinspect.act",
+    "source_sha256": "66a7f1e66c75116f97e2d3ad441c16289c69f40676412ff6687a9328340e9e1a",
+    "snapshot_sha256": "66a7f1e66c75116f97e2d3ad441c16289c69f40676412ff6687a9328340e9e1a",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/dos.act",
+    "source_sha256": "903d520011437570b04d0c9a6c02426b330eac565ffbc0ea8bc9311a56cd0513",
+    "snapshot_sha256": "1294dc6e97e55235c9c7993f413cba3d5ceb0b021151ef06e6a04675b68e84c5",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/dosraw.act",
+    "source_sha256": "c7158a75881509bb664ac4a1723f7aa3ea645cbda4fbfd658e4eef781fa64f3a",
+    "snapshot_sha256": "98fdfd87a751946916ffc158f57b56db8870fc82008056cd0fdab55ab6650232",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/exec.act",
+    "source_sha256": "1bb2fdb652b2d66d14ec682dc7b8b8d8ff2fd8447e67d7de62c2aef632fcb045",
+    "snapshot_sha256": "1bb2fdb652b2d66d14ec682dc7b8b8d8ff2fd8447e67d7de62c2aef632fcb045",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/execsignalirq.act",
+    "source_sha256": "9ba0c277c285865b0e4b3cc16d142b6955a05e1bd52dc0124f4b0b4e4a30b32c",
+    "snapshot_sha256": "9ba0c277c285865b0e4b3cc16d142b6955a05e1bd52dc0124f4b0b4e4a30b32c",
+    "verified_against_build": false,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/exectasks.act",
+    "source_sha256": "19f2d275536b53cb115bff286840a1e9258531b107b21ef618bf176aa2d9f2ab",
+    "snapshot_sha256": "19f2d275536b53cb115bff286840a1e9258531b107b21ef618bf176aa2d9f2ab",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/siodriver.act",
+    "source_sha256": "3ca99528af39bb8e20e1d5feedafa5cee346123beb0b841603137755bd4984d0",
+    "snapshot_sha256": "28dffd4ab60846fa0a532c12271f0b45515abd547b23f3ef7aec5cb8288bd215",
+    "verified_against_build": false,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/task-console.inc",
+    "source_sha256": "50263dbc7338a7ca6733e142db12037f9ddbed7c66227e9b1a3ba0a1d0da36d0",
+    "snapshot_sha256": "19d8a92a368840727c276254636fb15b7ec1399305f3df1fab07691fa01370df",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/task-signals.inc",
+    "source_sha256": "48c95ec0a76cda2e7b13e3ef6f1cc7c1f9cf1d2fb80e480bfc71202de262e1cd",
+    "snapshot_sha256": "48c95ec0a76cda2e7b13e3ef6f1cc7c1f9cf1d2fb80e480bfc71202de262e1cd",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/task-wakes.inc",
+    "source_sha256": "9fc22d4dec44c71e29c8a1dedeedc2de1834fe3cb944be71bdc2978e956539f4",
+    "snapshot_sha256": "9fc22d4dec44c71e29c8a1dedeedc2de1834fe3cb944be71bdc2978e956539f4",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/taskinspect.act",
+    "source_sha256": "ffe825bb1b367526d7f1a5722d2ecb12ad576faf5b3efeb2a90aba0790a2c120",
+    "snapshot_sha256": "ffe825bb1b367526d7f1a5722d2ecb12ad576faf5b3efeb2a90aba0790a2c120",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/taskpolicy.act",
+    "source_sha256": "30d6f637d43f7d0c2d70309b38b537bd1f393b3e089db58a0494bbea4c7c3d4d",
+    "snapshot_sha256": "423ecb2e3a33c22fb8614bae1858656714bb3e82e6b9f109bfcf4fca553d29d8",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/task-kernel/taskstacks.act",
+    "source_sha256": "4ba573d010344ea433ac8e0089e793bfa16f0a592b04812c9865515b2b50bc05",
+    "snapshot_sha256": "4ba573d010344ea433ac8e0089e793bfa16f0a592b04812c9865515b2b50bc05",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/tasks-action.inc",
+    "source_sha256": "26c8713da4c5b0acb3d0c906356152860acc83ba39308d2fcf9240ba69cebf3a",
+    "snapshot_sha256": "26c8713da4c5b0acb3d0c906356152860acc83ba39308d2fcf9240ba69cebf3a",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/tasks-bindings.inc",
+    "source_sha256": "ef5ba51cc52979839135686e9582be5b27c82be61027fb62e4080e16f55e2cdb",
+    "snapshot_sha256": "ef5ba51cc52979839135686e9582be5b27c82be61027fb62e4080e16f55e2cdb",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "build/play-622b139-actionc-32af3e2b/native/tasks.inc",
+    "source_sha256": "30862d65615f5d667054d2ce7c7ab307428395caebe06f1ac7ae55163e63837b",
+    "snapshot_sha256": "30862d65615f5d667054d2ce7c7ab307428395caebe06f1ac7ae55163e63837b",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "examples/shell-boot.inc",
+    "source_sha256": "cc75393b6cdfd9780972f276abe4681f13359df4be08042ca0287d081d02c78d",
+    "snapshot_sha256": "cc75393b6cdfd9780972f276abe4681f13359df4be08042ca0287d081d02c78d",
+    "verified_against_build": false,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "examples/shell-commands.inc",
+    "source_sha256": "90df559e7b69a75f27a3f31d213d01236878addf1db4a79d6257d16ca3d70ad3",
+    "snapshot_sha256": "90df559e7b69a75f27a3f31d213d01236878addf1db4a79d6257d16ca3d70ad3",
+    "verified_against_build": false,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "examples/shell-redirection.inc",
+    "source_sha256": "444ce2ae61cfd3451dd845c75d1c1668308fc78f6fd16bc9ae4a82c05d438976",
+    "snapshot_sha256": "444ce2ae61cfd3451dd845c75d1c1668308fc78f6fd16bc9ae4a82c05d438976",
+    "verified_against_build": false,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "examples/shell-session.inc",
+    "source_sha256": "dcf7ddea1ab542baadee8edb0d5f1259f2b7006446c6e0dc9004cc659cdeee51",
+    "snapshot_sha256": "dcf7ddea1ab542baadee8edb0d5f1259f2b7006446c6e0dc9004cc659cdeee51",
+    "verified_against_build": false,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "examples/shell.act",
+    "source_sha256": "c019ab20ac6fed83124062706896af12276fa0a3f99d235d0a2709d161ef914b",
+    "snapshot_sha256": "c019ab20ac6fed83124062706896af12276fa0a3f99d235d0a2709d161ef914b",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/blockio.act",
+    "source_sha256": "64bfac84af5a577b39f2d3499ccd1c4c0f708fa5a959d8b77c7b104abead7a3a",
+    "snapshot_sha256": "64bfac84af5a577b39f2d3499ccd1c4c0f708fa5a959d8b77c7b104abead7a3a",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/blocktypes.act",
+    "source_sha256": "913292e9b9a0451b6c61fa1ff0fe19812e015b74596a9f466814439efa9afb28",
+    "snapshot_sha256": "913292e9b9a0451b6c61fa1ff0fe19812e015b74596a9f466814439efa9afb28",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/blockwire.act",
+    "source_sha256": "6d21312a89c2940f27e1f813ec229acc6f485675caf37bbce1cb52f9f1f384f9",
+    "snapshot_sha256": "6d21312a89c2940f27e1f813ec229acc6f485675caf37bbce1cb52f9f1f384f9",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/consoleadapter.act",
+    "source_sha256": "efc765739ef83ab901bffb73a6ffe31d20b235ebbc55b99768d3d1f930b49cc9",
+    "snapshot_sha256": "efc765739ef83ab901bffb73a6ffe31d20b235ebbc55b99768d3d1f930b49cc9",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/consolecapture.act",
+    "source_sha256": "9e1cf0ceb41d66c6b3d09a78812c44bd19392335e39040aab83a35cca717247f",
+    "snapshot_sha256": "9e1cf0ceb41d66c6b3d09a78812c44bd19392335e39040aab83a35cca717247f",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/consolecore.act",
+    "source_sha256": "402c3a5a1e4b6d9ada9aea2ddd4fcb03a81af7d2e7cbc1fef129cc6b76cb6b30",
+    "snapshot_sha256": "402c3a5a1e4b6d9ada9aea2ddd4fcb03a81af7d2e7cbc1fef129cc6b76cb6b30",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/consoletypes.act",
+    "source_sha256": "2939db98b7bb9cdf75feb5183c3c0174debf28584cadc318507682281609419c",
+    "snapshot_sha256": "2939db98b7bb9cdf75feb5183c3c0174debf28584cadc318507682281609419c",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/cookedline.act",
+    "source_sha256": "7494e0805d6f4bc25af0ec1c019180108a65faef4cad3d48f3057e5a2df2a1b0",
+    "snapshot_sha256": "7494e0805d6f4bc25af0ec1c019180108a65faef4cad3d48f3057e5a2df2a1b0",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/dos-cooked-types.inc",
+    "source_sha256": "260c1f25b3b7fed12edf5188eef9536f1e948fa7da8b791c25ce77d94ec4e09b",
+    "snapshot_sha256": "260c1f25b3b7fed12edf5188eef9536f1e948fa7da8b791c25ce77d94ec4e09b",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/dos-core-types.inc",
+    "source_sha256": "54f49dc97b1a245dc2e246a5c56e6dbbbf12f6c07c384d0fedfc9456a174e491",
+    "snapshot_sha256": "54f49dc97b1a245dc2e246a5c56e6dbbbf12f6c07c384d0fedfc9456a174e491",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/dos-implementation.inc",
+    "source_sha256": "4ea91e04fc0d2db0b8a43b31a21805ddcd6ffeb898dc8813a60074273052c34d",
+    "snapshot_sha256": "4ea91e04fc0d2db0b8a43b31a21805ddcd6ffeb898dc8813a60074273052c34d",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/dos-packets.inc",
+    "source_sha256": "9f4684f36680d7eca364d1fd7b5d4f0b7a233217fadd9403cc70a68c37958a70",
+    "snapshot_sha256": "9f4684f36680d7eca364d1fd7b5d4f0b7a233217fadd9403cc70a68c37958a70",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/dos-registry-types.inc",
+    "source_sha256": "8c9f84802afc4c99ce3ea0886dcf2de3e6a18df1c5ac0481fcca480266e939ec",
+    "snapshot_sha256": "8c9f84802afc4c99ce3ea0886dcf2de3e6a18df1c5ac0481fcca480266e939ec",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/dos-types.inc",
+    "source_sha256": "c9a3cf5ac9169f81e97c39296a88df5e95c3e2612ed41b88f3250b3be3e67ded",
+    "snapshot_sha256": "c9a3cf5ac9169f81e97c39296a88df5e95c3e2612ed41b88f3250b3be3e67ded",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/dosbreak.act",
+    "source_sha256": "4861f88d1c65683e1e4a60e0ad58c3b49665a7f92d9888d1b863873e3161b772",
+    "snapshot_sha256": "4861f88d1c65683e1e4a60e0ad58c3b49665a7f92d9888d1b863873e3161b772",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/dosbreaktypes.act",
+    "source_sha256": "2b64af635070e9eaf6cd56fd1927c6b739134f10931b8abc6194a44faad1db59",
+    "snapshot_sha256": "2b64af635070e9eaf6cd56fd1927c6b739134f10931b8abc6194a44faad1db59",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/doscalls.act",
+    "source_sha256": "3a5b0ff622da2546ccd875fa416ec5420cb6a9055e1ce767a0d6b5623804d645",
+    "snapshot_sha256": "3a5b0ff622da2546ccd875fa416ec5420cb6a9055e1ce767a0d6b5623804d645",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/doscancel.act",
+    "source_sha256": "e447cfc4f11e2da549031537ac0d7b35c9a906d66a1c489c29fc9f1ce111b586",
+    "snapshot_sha256": "e447cfc4f11e2da549031537ac0d7b35c9a906d66a1c489c29fc9f1ce111b586",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/dosclient.act",
+    "source_sha256": "8ff203dd8c861aeacc557687c846db6c53df77ea67780d69be24ff9dc955c967",
+    "snapshot_sha256": "8ff203dd8c861aeacc557687c846db6c53df77ea67780d69be24ff9dc955c967",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/doscooked.act",
+    "source_sha256": "43309302201c74ecd890b8cc81b1dac44b7b649aefcdc4d7dca8cf9a208f6965",
+    "snapshot_sha256": "43309302201c74ecd890b8cc81b1dac44b7b649aefcdc4d7dca8cf9a208f6965",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/doscore.act",
+    "source_sha256": "9f69969509eddb82da912c9e726b0fd3355f4794562d195381f2b1b95edc82fe",
+    "snapshot_sha256": "9f69969509eddb82da912c9e726b0fd3355f4794562d195381f2b1b95edc82fe",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/dosobjects.act",
+    "source_sha256": "27995988aa8a2a666ac81dcbc389f351c50f010aefcbcf8296ef649bd5eba848",
+    "snapshot_sha256": "27995988aa8a2a666ac81dcbc389f351c50f010aefcbcf8296ef649bd5eba848",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/dosstreams.act",
+    "source_sha256": "8b2c4c0e5b51ae3ec5cc899c051e29857103a88d1506f001f1713202a8475d08",
+    "snapshot_sha256": "8b2c4c0e5b51ae3ec5cc899c051e29857103a88d1506f001f1713202a8475d08",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/doswire.act",
+    "source_sha256": "dec5bb134c1b45825960c7efd27c3d2fb56d7edc7f800d6767b36ca0ffc62268",
+    "snapshot_sha256": "dec5bb134c1b45825960c7efd27c3d2fb56d7edc7f800d6767b36ca0ffc62268",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/exec-abi.inc",
+    "source_sha256": "bdb408417c878b2662170135b8d395a68f3a3b39c9f27047a4947acfb0d168c9",
+    "snapshot_sha256": "bdb408417c878b2662170135b8d395a68f3a3b39c9f27047a4947acfb0d168c9",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/exec-memory-types.inc",
+    "source_sha256": "03f8b4f123aff08975864bad472f47fd955743a463123fdfa0118af18e3f00a6",
+    "snapshot_sha256": "03f8b4f123aff08975864bad472f47fd955743a463123fdfa0118af18e3f00a6",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/execlists.act",
+    "source_sha256": "db35ebcf7ce26ccb6d0aa1d5e9e024a21c5007b1683622eb6daacebcbc8fa0d4",
+    "snapshot_sha256": "db35ebcf7ce26ccb6d0aa1d5e9e024a21c5007b1683622eb6daacebcbc8fa0d4",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsabort.act",
+    "source_sha256": "b0419cd176b456f8b0284af3d4f0fa4e9171c0521103c4b5b04afca3b4407ecd",
+    "snapshot_sha256": "b0419cd176b456f8b0284af3d4f0fa4e9171c0521103c4b5b04afca3b4407ecd",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsactive.act",
+    "source_sha256": "89c31b93c2c0fd99ac12c3a251c9c7bf531405b9e092a72ca17eec3c9e45a785",
+    "snapshot_sha256": "89c31b93c2c0fd99ac12c3a251c9c7bf531405b9e092a72ca17eec3c9e45a785",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsboot.act",
+    "source_sha256": "ed219887768b2758522a4531a512ed6ec9d37f94641fd3c61fcdaead8c4729ef",
+    "snapshot_sha256": "ed219887768b2758522a4531a512ed6ec9d37f94641fd3c61fcdaead8c4729ef",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsdirectory.act",
+    "source_sha256": "27018346257b3b8a04d5c7e5da5529d14f288470aff7f553fb04eb50e5577133",
+    "snapshot_sha256": "27018346257b3b8a04d5c7e5da5529d14f288470aff7f553fb04eb50e5577133",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fshandler.act",
+    "source_sha256": "bebd800934ecfe0e103e47995d3c47b8e0c2d30e3d23df93de0482f845e433a1",
+    "snapshot_sha256": "bebd800934ecfe0e103e47995d3c47b8e0c2d30e3d23df93de0482f845e433a1",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsinfo.act",
+    "source_sha256": "bb7da50a83b4be5b267fe6b37e26075097b61a985bd3bc697857d87af8c43605",
+    "snapshot_sha256": "bb7da50a83b4be5b267fe6b37e26075097b61a985bd3bc697857d87af8c43605",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsinit.act",
+    "source_sha256": "4f0c3738fcad59b3fa88d80e98fb084fbdbabdd684868d6a9e4a1f1889252617",
+    "snapshot_sha256": "4f0c3738fcad59b3fa88d80e98fb084fbdbabdd684868d6a9e4a1f1889252617",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsinspect.act",
+    "source_sha256": "6e9f509fafb19154be83ed2c5473c587b8043fde2347af20c8c58dd129ceee2b",
+    "snapshot_sha256": "6e9f509fafb19154be83ed2c5473c587b8043fde2347af20c8c58dd129ceee2b",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsio.act",
+    "source_sha256": "98f7b75f310fbbe5ce02a6cf7a92e5f5f944e971f28ab66da8ec4fa30fcbfbac",
+    "snapshot_sha256": "98f7b75f310fbbe5ce02a6cf7a92e5f5f944e971f28ab66da8ec4fa30fcbfbac",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fslocks.act",
+    "source_sha256": "b17e32b84a8b971cf0cc7ebe05e80a3827bf4d0ee965d1590eee063afd3b37cc",
+    "snapshot_sha256": "b17e32b84a8b971cf0cc7ebe05e80a3827bf4d0ee965d1590eee063afd3b37cc",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsmount.act",
+    "source_sha256": "ba87270b8622a83aed92855c42ea9525f7887a699ce6fc05962a121b8cf17d6c",
+    "snapshot_sha256": "ba87270b8622a83aed92855c42ea9525f7887a699ce6fc05962a121b8cf17d6c",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsmux.act",
+    "source_sha256": "d1df71693b54b5c689ccc51b59023228244dde41de6c17c356e8b13ef065803f",
+    "snapshot_sha256": "d1df71693b54b5c689ccc51b59023228244dde41de6c17c356e8b13ef065803f",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsnames.act",
+    "source_sha256": "b3111201adb514e20f3c7be6c93cded918f2930b076d56d35a49e451d3a8e9f5",
+    "snapshot_sha256": "b3111201adb514e20f3c7be6c93cded918f2930b076d56d35a49e451d3a8e9f5",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsoperation.act",
+    "source_sha256": "cda428874540a7e2fc30776c213cfd65f69551ab75852aa98f9674f3b92bf2ec",
+    "snapshot_sha256": "cda428874540a7e2fc30776c213cfd65f69551ab75852aa98f9674f3b92bf2ec",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fspacket.act",
+    "source_sha256": "1cfb1f401e82b89b164e9030f3e0be78e9a5396137ecfe366539613b30d3bcf6",
+    "snapshot_sha256": "1cfb1f401e82b89b164e9030f3e0be78e9a5396137ecfe366539613b30d3bcf6",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsports.act",
+    "source_sha256": "de28d89be5844fcb6f094b634ea700387e3511f9b80b935ae0a154382fa2f09b",
+    "snapshot_sha256": "de28d89be5844fcb6f094b634ea700387e3511f9b80b935ae0a154382fa2f09b",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsregistry.act",
+    "source_sha256": "f7ff71c8b9e785678fc79190ec58a354d4f4038a4f998b6f42b352563aaaf188",
+    "snapshot_sha256": "f7ff71c8b9e785678fc79190ec58a354d4f4038a4f998b6f42b352563aaaf188",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsrelative.act",
+    "source_sha256": "30a1aa650a46668dc46bf786ecc4f9cfd0e6972be83b829f38c702b48d99abb3",
+    "snapshot_sha256": "30a1aa650a46668dc46bf786ecc4f9cfd0e6972be83b829f38c702b48d99abb3",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fstypes.act",
+    "source_sha256": "ec3516301d695c63820bfe09f52788cf580f84c8de5865a4082d65f70beea19f",
+    "snapshot_sha256": "ec3516301d695c63820bfe09f52788cf580f84c8de5865a4082d65f70beea19f",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/fsworker.act",
+    "source_sha256": "e1be07bba8af5a3067e9c478a1d826a7ebbc12bc285ef643ada0a202027de37e",
+    "snapshot_sha256": "e1be07bba8af5a3067e9c478a1d826a7ebbc12bc285ef643ada0a202027de37e",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/heap-call-types.inc",
+    "source_sha256": "e32bcb3297fb17728df6c481d8b906fdb19f6bc0e4c3f96a946c52a645ccd838",
+    "snapshot_sha256": "e32bcb3297fb17728df6c481d8b906fdb19f6bc0e4c3f96a946c52a645ccd838",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/heap-constants.inc",
+    "source_sha256": "ee4f80d8249fd93a32a6a5bd4566bbcf0b062eca77929a152257e6d95ace26ab",
+    "snapshot_sha256": "ee4f80d8249fd93a32a6a5bd4566bbcf0b062eca77929a152257e6d95ace26ab",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/heap-system.inc",
+    "source_sha256": "1816bfccc25489f872d92a826d125f8bed2907468900232abd41c60d33eee2d8",
+    "snapshot_sha256": "1816bfccc25489f872d92a826d125f8bed2907468900232abd41c60d33eee2d8",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/heapcore.act",
+    "source_sha256": "9b0f39fcd63765ac27ba3199a9e7c8e71e7bfb081b2c714338ca2f2444151abb",
+    "snapshot_sha256": "9b0f39fcd63765ac27ba3199a9e7c8e71e7bfb081b2c714338ca2f2444151abb",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/io-call-types.inc",
+    "source_sha256": "3fc8435cd30528ef88019646e0ce9c30fe8d5e34b4419a3d4e8bb19097b602d8",
+    "snapshot_sha256": "3fc8435cd30528ef88019646e0ce9c30fe8d5e34b4419a3d4e8bb19097b602d8",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/iocore.act",
+    "source_sha256": "b39270664f793bde51e418bba22b2ff38b6f5dff1dcb2c690e5d65bf88603e10",
+    "snapshot_sha256": "b39270664f793bde51e418bba22b2ff38b6f5dff1dcb2c690e5d65bf88603e10",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/mydos.act",
+    "source_sha256": "a844ab3e0e1dacb3dd08047b97cb55f600e7e90e3e3f840a4cd5e7598cba2bb2",
+    "snapshot_sha256": "a844ab3e0e1dacb3dd08047b97cb55f600e7e90e3e3f840a4cd5e7598cba2bb2",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/mydosfile.act",
+    "source_sha256": "9f4365b31d70dfdf2c332d00c9e03c3250e0b13c3a9e89e6ec315ae40d7adf27",
+    "snapshot_sha256": "9f4365b31d70dfdf2c332d00c9e03c3250e0b13c3a9e89e6ec315ae40d7adf27",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/mydosfiletypes.act",
+    "source_sha256": "076969b89f045047ae761e2ccda59dce57076a413db57c590812705d7ec41f1b",
+    "snapshot_sha256": "076969b89f045047ae761e2ccda59dce57076a413db57c590812705d7ec41f1b",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/mydosnames.act",
+    "source_sha256": "aa2a18b7cdd921052dea461c64c1d626b4844bb466464af7ea6a41b4b368bf58",
+    "snapshot_sha256": "aa2a18b7cdd921052dea461c64c1d626b4844bb466464af7ea6a41b4b368bf58",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/mydostypes.act",
+    "source_sha256": "ee249634d2361e34ddc85c20576c4f599bd1cf8da218cdef0f808914f63b42d7",
+    "snapshot_sha256": "ee249634d2361e34ddc85c20576c4f599bd1cf8da218cdef0f808914f63b42d7",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/portcore.act",
+    "source_sha256": "35cb17d3749b56bf8f77a535b6dd70bb5b1b0d71d9d39926fccc88aa79171bda",
+    "snapshot_sha256": "35cb17d3749b56bf8f77a535b6dd70bb5b1b0d71d9d39926fccc88aa79171bda",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/sioadapter.act",
+    "source_sha256": "7c001c9569b40818589573fe5f10f78431558e0ecbbb63b8df9089e496b8ea81",
+    "snapshot_sha256": "7c001c9569b40818589573fe5f10f78431558e0ecbbb63b8df9089e496b8ea81",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/task-dos.inc",
+    "source_sha256": "4be0e86a93f20d2c55a0f08ff01ac5cbb6718ca2b6c02bf7e060ea62709708b3",
+    "snapshot_sha256": "4be0e86a93f20d2c55a0f08ff01ac5cbb6718ca2b6c02bf7e060ea62709708b3",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": true
+  },
+  {
+    "path": "lib/task-io.inc",
+    "source_sha256": "173dc1c124a9325cfda7de73b2aae06d52c8470ab6c416cd979741da3133298c",
+    "snapshot_sha256": "173dc1c124a9325cfda7de73b2aae06d52c8470ab6c416cd979741da3133298c",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/task-memory.inc",
+    "source_sha256": "c04bf601c2c76c33e9780bcd3330801e810a76ebd679b94693150840503ec614",
+    "snapshot_sha256": "c04bf601c2c76c33e9780bcd3330801e810a76ebd679b94693150840503ec614",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/task-ports.inc",
+    "source_sha256": "aa49334530cd0b42b060349b776eefb9dabe9295e4030e32c79d38bb08d92670",
+    "snapshot_sha256": "aa49334530cd0b42b060349b776eefb9dabe9295e4030e32c79d38bb08d92670",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": false
+  },
+  {
+    "path": "lib/task-sio.inc",
+    "source_sha256": "8c3d7b76227643d714aa8d73ca5badff07dc5f42e6d931862af1c834893300d4",
+    "snapshot_sha256": "8c3d7b76227643d714aa8d73ca5badff07dc5f42e6d931862af1c834893300d4",
+    "verified_against_build": true,
+    "restored_from_recorded_revision": true
+  }
+]

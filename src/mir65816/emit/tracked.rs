@@ -378,6 +378,9 @@ impl TrackedEmitter65816 {
         (self.state.env.m == Width::Word && self.state.mode_permission)
             .then_some((self.position(), self.code.labels.len()))
     }
+    pub fn y_word_is(&self, value: u16) -> bool {
+        self.state.env.index == Width::Word && self.state.y == Value::Constant(value, Width::Word)
+    }
     /// Narrow local equivalence proof for the adjacent-load rule. The caller
     /// supplies the real proposed LDA, not a stored success answer. Both paths
     /// consume the compiler witness; only the original path executes the load.
@@ -436,6 +439,14 @@ impl TrackedEmitter65816 {
         }
         Ok(())
     }
+    /// Cost of an explicit mode request at the current checked boundary.
+    pub fn mode_cost(&self, width: Width) -> usize {
+        if !self.state.mode_permission || self.state.env.m != width {
+            2
+        } else {
+            0
+        }
+    }
     pub fn a8(&mut self) {
         self.accumulator_width(Width::Byte);
     }
@@ -472,6 +483,21 @@ impl TrackedEmitter65816 {
             this.state.adjacent = None;
             this.state.incoming = None;
         })
+    }
+    /// Forget path-specific facts, including stack equations and X residency,
+    /// before a shared teardown. Hardware result lanes are unchanged.
+    pub fn prepare_return_join(&mut self) {
+        self.request(Request::PrepareReturnJoin, |this| {
+            this.live();
+            let e = this.state.env;
+            assert!(e.native && e.m == Width::Word && e.index == Width::Word);
+            assert!(
+                e.anchor == Some(e.depth) && e.pushes == 0,
+                "shared return requires the allocated body frame"
+            );
+            this.state.values_barrier();
+            this.x_join(false);
+        });
     }
     pub fn register_home(&mut self, slot: impl Into<Location>) {
         let slot = slot.into();
@@ -673,8 +699,48 @@ impl TrackedEmitter65816 {
             }
             Instruction::Branch(op, label) => self.emit_branch(op, label),
             Instruction::PushReturn(label) => self.emit_push_return(label),
+            Instruction::ArgumentPush | Instruction::ArgumentPushWord(_) => {
+                self.live();
+                if self.state.env.pushes != 0
+                    || self
+                        .state
+                        .env
+                        .anchor
+                        .is_none_or(|a| self.state.env.depth < a)
+                {
+                    return Err("argument push outside body stack phase".into());
+                }
+                // These bytes belong to outgoing storage. PHA follows M;
+                // PEA is always two bytes. Frame operands use the new S delta.
+                let word = match instruction {
+                    Instruction::ArgumentPushWord(value) => Some(value),
+                    _ => None,
+                };
+                let bytes = if word.is_some() {
+                    2
+                } else {
+                    self.state.env.m.bytes()
+                };
+                self.state.push(bytes);
+                self.state.env.pushes = 0;
+                if let Some(value) = word {
+                    self.code.word(0xf4, value);
+                } else {
+                    self.code.op(Implied::Pha.opcode());
+                }
+                self.observe();
+            }
             Instruction::IndirectTransfer(_) => self.emit_indirect_transfer(),
-            Instruction::NativeCall(target, _) => {
+            Instruction::NativeCall(target, ref contract) => {
+                if self.state.env.pushes != 0
+                    || self
+                        .state
+                        .env
+                        .anchor
+                        .is_none_or(|a| self.state.env.depth - a != i64::from(contract.outgoing))
+                {
+                    return Err("direct call requires its complete outgoing area".into());
+                }
                 self.emit_reference(ReferenceOp::Jsl, target, 0, None)
             }
             Instruction::NativeReturn(_) => self.emit_implied(Implied::Rtl),
@@ -810,6 +876,43 @@ impl TrackedEmitter65816 {
                 };
                 self.state.nz = low;
             }
+            AslA | LsrA => {
+                let width = self.state.env.m;
+                let value = match self.state.a {
+                    Value::Constant(v, _) => {
+                        let left = op == AslA;
+                        self.state.carry = Some(
+                            v & if left {
+                                width.mask() ^ (width.mask() >> 1)
+                            } else {
+                                1
+                            } != 0,
+                        );
+                        State65816::constant(
+                            if left {
+                                v.wrapping_shl(1)
+                            } else {
+                                (v & width.mask()) >> 1
+                            },
+                            width,
+                        )
+                    }
+                    _ => {
+                        self.state.carry = None;
+                        self.state.fresh(width)
+                    }
+                };
+                self.state.load_a(value);
+            }
+            Iny => {
+                let width = self.state.env.index;
+                let value = match self.state.y {
+                    Value::Constant(v, _) => State65816::constant(v.wrapping_add(1), width),
+                    _ => self.state.fresh(width),
+                };
+                self.state.y = value;
+                self.state.nz = value;
+            }
             DecA | Dex | Inx => {
                 let (value, width) = if matches!(op, Dex | Inx) {
                     (self.state.x, self.state.env.index)
@@ -864,7 +967,10 @@ impl TrackedEmitter65816 {
         }
         let rhs = if immediate {
             State65816::constant(value.into(), width)
-        } else if matches!(op, LdaStack | AdcStack | SbcStack | CmpStack | OraStack) {
+        } else if matches!(
+            op,
+            LdaStack | AdcStack | SbcStack | CmpStack | AndStack | OraStack | EorStack
+        ) {
             self.state.read_stack(value, width)
         } else if matches!(op, LdaDp | AdcDp | SbcDp | CmpDp) {
             self.state.read_dp(value, width)
@@ -885,7 +991,7 @@ impl TrackedEmitter65816 {
             AdcImm | AdcStack | AdcDp => self.state.arithmetic(rhs, false),
             SbcImm | SbcStack | SbcDp => self.state.arithmetic(rhs, true),
             CmpImm | CmpStack | CmpDp => self.state.compare(rhs),
-            AndDp | OraDp | OraStack | EorDp | EorImm => {
+            AndDp | AndStack | OraDp | OraStack | EorDp | EorStack | EorImm => {
                 let result = match (op, self.state.a, rhs) {
                     (EorImm, Value::Constant(a, w), Value::Constant(b, _)) => {
                         State65816::constant(a ^ b, w)
@@ -939,10 +1045,14 @@ impl TrackedEmitter65816 {
             CpxImm => self
                 .state
                 .compare_value(self.state.x, rhs, self.state.env.index),
-            AndImm | EorImm => {
+            AndImm | OraImm | EorImm => {
                 let result = match self.state.a {
                     Value::Constant(a, Width::Word) => State65816::constant(
-                        if op == EorImm { a ^ value } else { a & value },
+                        match op {
+                            EorImm => a ^ value,
+                            OraImm => a | value,
+                            _ => a & value,
+                        },
                         Width::Word,
                     ),
                     _ => self.state.fresh(Width::Word),
@@ -983,12 +1093,12 @@ impl TrackedEmitter65816 {
                 let v = self.state.fresh(Width::Byte);
                 self.state.load_a(v);
             }
-            ReferenceOp::LdaLong => {
+            ReferenceOp::LdaLong | ReferenceOp::LdaLongX => {
                 assert!(byte.is_none());
                 let v = self.state.fresh(self.state.env.m);
                 self.state.load_a(v);
             }
-            ReferenceOp::StaLong => {
+            ReferenceOp::StaLong | ReferenceOp::StaLongX => {
                 assert!(byte.is_none());
                 self.state.unknown_write();
             }
@@ -1129,5 +1239,41 @@ impl TrackedEmitter65816 {
     #[cfg(feature = "native65816-state-proof")]
     pub fn finish_traced(self) -> (Code, Vec<super::proof::Snapshot>) {
         (self.code, self.trace.unwrap_or_default())
+    }
+}
+
+#[cfg(test)]
+mod return_join_tests {
+    use super::*;
+
+    #[test]
+    fn shared_return_join_rejects_wrong_width_and_outstanding_stack() {
+        for invalid in 0..2 {
+            let mut e = TrackedEmitter65816::default();
+            e.test_frame(8);
+            if invalid == 0 {
+                e.a8();
+            } else {
+                e.test_delta(2);
+            }
+            assert!(
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| e.prepare_return_join()))
+                    .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn shared_return_backedge_checks_the_retained_entry_contract() {
+        let mut e = TrackedEmitter65816::default();
+        e.test_frame(8);
+        let tail = e.label();
+        e.prepare_return_join();
+        e.mark(tail);
+        e.a16();
+        // A forged incoming frame cannot inherit the retained tail's proof.
+        e.test_frame(10);
+        e.prepare_return_join();
+        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| e.jump(tail))).is_err());
     }
 }

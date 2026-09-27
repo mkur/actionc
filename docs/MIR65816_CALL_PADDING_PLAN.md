@@ -161,6 +161,10 @@ loop. Add focused emission/contract coverage to
 needed to exercise invalid range arithmetic. Keep production scope within the
 native call selector.
 
+The later native 24-bit packing slice permits a repeated private middle-byte
+payload write; padding still receives exactly one write. The original slice's
+requirement below applies before that addition.
+
 Extend the runtime tests to require **exactly one write per outgoing byte**
 between reservation and transfer: one argument write for payload and one zero
 write for padding. Trace actual bus writes, including stores of zero; checking

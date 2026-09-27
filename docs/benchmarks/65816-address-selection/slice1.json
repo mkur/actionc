@@ -1,0 +1,124 @@
+{
+  "compiler_baseline": "7b078ea157e8986b0bfcfa281ea6312abf4d9bd3",
+  "exec_revision": "bbb8f2c72ad238201e83528a5ad90cc4f95e7b39",
+  "slice": "slice1",
+  "sources": {
+    "examples/commands/hello.act": "1b42bffc51b0dc8fcd252dbb3fca762c2f100819151f3a0fbdb13a54acd1aae2",
+    "examples/commands/cat.act": "85540c29ca0938fcea583ec5fd9ae373ce0febc9e077cbecdeb255c5737d2441",
+    "lib/dos/command.act": "1100c85368a3ec62c6b93d91dfcec6e3a84d08d80a48eb5fd30f3be070d0f7b9"
+  },
+  "measurements": [
+    {
+      "app": "hello",
+      "mode": "raw",
+      "sha256": "679d3d71e041adcf38df10bd0d9668ab86f7a7a2c9ca7f288328e8c070eb2970",
+      "file_bytes": 2395,
+      "code_bytes": 965,
+      "guard_bytes": 243,
+      "descriptor_bytes": 1073,
+      "data_bytes": 18,
+      "bss_bytes": 0,
+      "relocations": 29,
+      "routines": [
+        {
+          "id": 4,
+          "name": "M_HELLO_MAIN_17024158",
+          "offset": 0,
+          "size": 965,
+          "frame": 22
+        }
+      ]
+    },
+    {
+      "app": "hello",
+      "mode": "opt",
+      "sha256": "f969be63bdbe8addc5fca1147733e393c4267141a849e5eee579b367799b0569",
+      "file_bytes": 2311,
+      "code_bytes": 881,
+      "guard_bytes": 243,
+      "descriptor_bytes": 1073,
+      "data_bytes": 18,
+      "bss_bytes": 0,
+      "relocations": 29,
+      "routines": [
+        {
+          "id": 4,
+          "name": "M_HELLO_MAIN_17024158",
+          "offset": 0,
+          "size": 881,
+          "frame": 16
+        }
+      ]
+    },
+    {
+      "app": "cat",
+      "mode": "raw",
+      "sha256": "408ca89ace09a926891f4365e73d093bb7ff9a0549d32465ae27500edce6e2b6",
+      "file_bytes": 8282,
+      "code_bytes": 4554,
+      "guard_bytes": 648,
+      "descriptor_bytes": 2995,
+      "data_bytes": 0,
+      "bss_bytes": 772,
+      "relocations": 102,
+      "routines": [
+        {
+          "id": 11,
+          "name": "M_CAT_FILENAME_44E0ABBE",
+          "offset": 0,
+          "size": 1182,
+          "frame": 20
+        },
+        {
+          "id": 12,
+          "name": "M_CAT_COPY_4022E054",
+          "offset": 1182,
+          "size": 2041,
+          "frame": 36
+        },
+        {
+          "id": 13,
+          "name": "M_CAT_MAIN_6C930344",
+          "offset": 3223,
+          "size": 1331,
+          "frame": 26
+        }
+      ]
+    },
+    {
+      "app": "cat",
+      "mode": "opt",
+      "sha256": "43c61cde4c135f583ec5eab229b1fece8fdbf21f08e5f380872b39b4cf99aa39",
+      "file_bytes": 7343,
+      "code_bytes": 3689,
+      "guard_bytes": 648,
+      "descriptor_bytes": 2931,
+      "data_bytes": 0,
+      "bss_bytes": 772,
+      "relocations": 98,
+      "routines": [
+        {
+          "id": 11,
+          "name": "M_CAT_FILENAME_44E0ABBE",
+          "offset": 0,
+          "size": 1112,
+          "frame": 20
+        },
+        {
+          "id": 12,
+          "name": "M_CAT_COPY_4022E054",
+          "offset": 1112,
+          "size": 1461,
+          "frame": 24
+        },
+        {
+          "id": 13,
+          "name": "M_CAT_MAIN_6C930344",
+          "offset": 2573,
+          "size": 1116,
+          "frame": 22
+        }
+      ]
+    }
+  ]
+}

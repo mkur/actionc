@@ -197,6 +197,11 @@ impl Builder<'_> {
         self.code.barrier();
         // All current same-width three-byte cast kinds preserve representation.
         // Keep the semantic cast and its result home; only select its transfer.
+        if matches!((source, destination), (Memory::Stack(a), Memory::Stack(b)) if a == b) {
+            // The allocated home already contains the complete result. Keep
+            // the current M/A/flags facts; no imaginary transfer took place.
+            return Ok(true);
+        }
         self.transfer(source, destination, 3, true)?;
         Ok(true)
     }
@@ -227,8 +232,8 @@ impl Builder<'_> {
         self.code.barrier();
         self.code.a16();
         if let Some(stage) = stage {
-            self.code.byte(ByteOp::StaStack, stage);
-            for (source, destination) in plan.scheduled() {
+            self.code.byte(ByteOp::StaStack, stage.a);
+            for (source, destination) in plan.scheduled(stage) {
                 for byte in [0, 1] {
                     load(self, source, byte);
                     match destination {
@@ -237,7 +242,7 @@ impl Builder<'_> {
                     }
                 }
             }
-            self.code.byte(ByteOp::LdaStack, stage);
+            self.code.byte(ByteOp::LdaStack, stage.a);
         }
         // Match the byte fallback's complete A and N/Z, including hidden B.
         // C/V, X/Y and all environment state are preserved by these forms.

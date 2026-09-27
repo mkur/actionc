@@ -42,6 +42,18 @@ class WordArithmetic(unittest.TestCase):
                 listing(bytes.fromhex(code))
 
 
+class NativeBitwise(unittest.TestCase):
+    def test_stack_and_immediate_operands_follow_their_own_widths(self):
+        text=listing(bytes.fromhex('23 02 43 04 09 01 80 e2 20 23 06 43 08 09 7f'))
+        for fragment in ('018000  23 02       AND $02,S','018002  43 04       EOR $04,S',
+                         '018004  09 01 80    ORA #$8001','018009  23 06       AND $06,S',
+                         '01800B  43 08       EOR $08,S','01800D  09 7F       ORA #$7F'):
+            self.assertIn(fragment,text)
+        for code in ('23','43','09 ff','e2 20 09'):
+            with self.subTest(code=code), self.assertRaisesRegex(ValueError,'truncated'):
+                listing(bytes.fromhex(code))
+
+
 class WordComparisons(unittest.TestCase):
     def test_stack_and_immediate_cmp_follow_accumulator_width(self):
         result = listing(bytes.fromhex('c3 fe c9 00 80 e2 20 c3 ff c9 ff c2 20 c9 ff 00 6b'))

@@ -1,0 +1,30 @@
+{
+  "before": "index-scaled",
+  "after": "index-constant",
+  "compiler_code_before": 346044,
+  "compiler_code_after": 344710,
+  "saved": 1334,
+  "guard_bytes": 72252,
+  "guards": 2676,
+  "guard_subtracted_compiler_code": 272458,
+  "package_assembly": 8300,
+  "all_initialized_data": 2307,
+  "estimated_loaded_without_guards": 283065,
+  "gap_to_256_kib": 20921,
+  "smaller_routines": 13,
+  "larger_routines": [],
+  "added_local_jumps": 0,
+  "same_mir_operations": true,
+  "same_frames_peaks_abi": true,
+  "frozen_input_files": 120,
+  "full_qualification_run": false,
+  "guard_disabled_build": false,
+  "hashes": {
+    "target/exec-current-audit/frozen-inputs.json": "4bd36e0e631bef8a8e4f57dc37bb6f9cc078942288bf15c2ec3c4f11757d44c9",
+    "target/exec-current-audit/index-scaled.image.json": "afbb080f94f9cbd8ed9fb2bc9c8c58646edfc191f06b6e7afe9b8347601f5f11",
+    "target/exec-current-audit/index-scaled.inventory.json": "11021cca7506c37e8a1462a3149934e22cb34be164520be88d471267584f6549",
+    "target/exec-current-audit/index-constant.image.json": "a189ac2929bb48b6367e6390bfeb818c5213a4f59a079326c67194108614de69",
+    "target/exec-current-audit/index-constant.inventory.json": "f0c44498ba74a390ebbc23a421feb11e54dd6eeeefdeb2e86c3b790be9b90d04",
+    "docs/benchmarks/65816-epilogue-index-casts/measure.py": "1aa09a79b9e896f1721c6e8baf72471fe54453d35d4d7e246b3e9751b5c27ee3"
+  }
+}

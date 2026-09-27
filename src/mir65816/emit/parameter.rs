@@ -96,3 +96,77 @@ impl Builder<'_> {
         Ok(true)
     }
 }
+
+impl Builder<'_> {
+    pub(super) fn incoming_comparisons(
+        &self,
+        block: &Mir65816Block,
+        counts: &BTreeMap<TempId, usize>,
+    ) -> Result<BTreeMap<usize, Condition>, String> {
+        let mut out = BTreeMap::new();
+        for (i, pair) in block.ops.windows(2).enumerate() {
+            let Mir65816Op::Load {
+                dest: loaded,
+                width,
+                address,
+                volatile: false,
+            } = &pair[0]
+            else {
+                continue;
+            };
+            if width.get() != 2 || counts.get(loaded) != Some(&1) {
+                continue;
+            }
+            let Some((id, incoming)) = self.incoming_word(address)? else {
+                continue;
+            };
+            let capture = self.temp(*loaded)?;
+            if capture.slot().width != 2 {
+                return Err("incoming compare capture width mismatch".into());
+            }
+            word_home(capture, self.code.delta())?;
+            if capture.overlaps(Location::Stack(incoming)) {
+                return Err("incoming compare capture overlaps parameter".into());
+            }
+            let Mir65816Op::Compare {
+                dest,
+                width,
+                signed: false,
+                operation,
+                left,
+                right,
+            } = &pair[1]
+            else {
+                continue;
+            };
+            if width.get() != 2 {
+                continue;
+            }
+            // Preflight the original definition/consumer before substituting
+            // the incoming home. No executable operation can intervene.
+            if self
+                .condition(*dest, 2, false, *operation, left, right)?
+                .is_none()
+            {
+                continue;
+            }
+            let is_loaded =
+                |v: &Mir65816Value| matches!(v,Mir65816Value::Temp(t,w) if t==loaded && w.get()==2);
+            let parameter = Mir65816Value::Param(id);
+            let (left, right) = if is_loaded(left) {
+                (&parameter, right)
+            } else if is_loaded(right) {
+                (left, &parameter)
+            } else {
+                continue;
+            };
+            if self.temp(*dest)?.overlaps(Location::Stack(incoming)) {
+                return Err("incoming compare result overlaps parameter".into());
+            }
+            if let Some(condition) = self.condition(*dest, 2, false, *operation, left, right)? {
+                out.insert(i + 1, condition);
+            }
+        }
+        Ok(out)
+    }
+}

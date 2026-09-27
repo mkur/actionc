@@ -97,3 +97,53 @@ The [scalar allocation slice](MIR65816_SCALAR_DP.md) now enables these checked
 homes for a bounded whole-routine whitelist. Final qualification includes 100
 emitter/proof unit tests and 111 native tests per host profile. Loop residency
 comes from CFG liveness; tracker permissions still stop at labels and calls.
+
+## Indexed symbolic BYTE accesses
+
+The CRC/sieve series admits typed `LdaLongX` for an allocated symbol plus a
+captured unsigned CARD index. Selection requires an exact nonvolatile BYTE,
+stride one, zero displacement/addend, complete checked private homes, and no
+loop-X reservation. X is temporary addressing state and is not retained across
+MIR operations. The source BYTE is neither widened nor cached.
+
+Effects describe `SymbolIndexedX`, not an unindexed `Symbol`: the runtime X
+value participates in the full 24-bit effective address. The form consumes X
+and M-dependent memory width, conservatively blocks memory forwarding, and
+creates a fresh A/N/Z value. Its relocation describes only the symbolic base;
+the CPU supplies the index and bank carry. Replay derives these effects from
+the instruction form, as it does for every other admitted instruction.
+
+`StaLongX` uses the same checked address subset for constant or captured BYTE
+payloads. X is established before loading the payload, including overlapping
+private index/payload homes. Its effects consume A and X, preserve flags, and
+record a dynamic `MayWrite`; no fixed private home is inferred. Unknown-write
+invalidation applies to tracked memory facts. Read/modify/write expressions
+retain their separate original load and store operations.
+
+## Adjacent incoming comparison reads
+
+An immutable incoming CARD load whose capture is used only by the next
+unsigned word comparison may be replaced by that comparison reading the
+incoming home. Selection checks the canonical incoming home, captures, all
+consumer operands and complete uses before omitting the load. Mutable or
+escaped parameters, intervening operations and extra uses retain captures.
+A barrier at the omitted operation prevents extending accumulator residency.
+Boolean materialization and branch dispatch keep their existing contracts;
+allocated capture slots and all ABI/frame facts remain unchanged.
+
+## Top-bit branch consumers
+
+A captured BYTE/CARD AND with its exact top-bit mask may be consumed by an
+immediately following Eq/Ne zero comparison and sole branch use. The selector
+checks all uses and complete private homes before suppressing either temporary
+computation. It loads the original captured value at its actual width, then
+uses N through BMI/BPL. REP restores A16 without changing N; ambient flags and
+hidden B are never used as evidence. Other masks, shared/materialized results,
+intervening casts and external operands retain their existing paths. Source
+loads, frame allocations and edge-copy contracts are unchanged.
+
+The exact 32-bit `$80000000` mask uses the same sole-use branch rule. After
+validating all four private source bytes, selection loads only the high word
+in A16 and tests N. The low word is irrelevant to this predicate. Original
+external LONG captures remain full-width and ordered; general LONG comparisons
+and materialized/shared mask results are unaffected.

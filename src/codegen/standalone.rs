@@ -181,6 +181,8 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         &external_interfaces,
         &local_helper_overrides,
     );
+    projection.append_routine_display_names(&mut output);
+    syslib.append_routine_display_names(&mut output);
     suppress_source_ranges_for_routines(&mut output, &runtime_routine_names);
     suppress_source_ranges_for_declarations(&mut output, &runtime_declaration_names);
     if let Some(program_entry) = program_entry {
@@ -314,6 +316,7 @@ pub(crate) fn generate_semir_cart_profile_at_origin(
         profile,
         RuntimeTarget::Cartridge,
     )?;
+    projection.append_routine_display_names(&mut output);
     suppress_source_ranges_for_routines(&mut output, &runtime_routine_names);
     suppress_source_ranges_for_declarations(&mut output, &runtime_declaration_names);
     if let Some(program_entry) = program_entry {
@@ -420,6 +423,12 @@ struct RuntimeProjection {
 }
 
 impl RuntimeProjection {
+    fn append_routine_display_names(&self, output: &mut CodegenOutput) {
+        output.map.runtime_routine_names.extend(
+            crate::runtime_source::routine_declaration_names(&self.semir),
+        );
+    }
+
     fn routine_names(&self) -> BTreeMap<String, String> {
         self.semir
             .modules
@@ -638,10 +647,14 @@ fn append_runtime_binding_metadata(
         let Some(link_name) = syslib_names.get(&helper.to_ascii_uppercase()) else {
             continue;
         };
+        let address = routine_address(output, link_name);
+        output.map.runtime_bindings.retain(|binding| {
+            !(binding.helper.eq_ignore_ascii_case(helper) && binding.address == address)
+        });
         output.map.runtime_bindings.push(CodegenRuntimeBinding {
             helper: helper.clone(),
             implementation: format!("{INTERNAL_SYSLIB_MODULE}::{helper}"),
-            address: routine_address(output, link_name),
+            address,
             reason: "classic code generation requires a runtime helper".to_string(),
             origin: "embedded SYSLIB.ACT (GPL-3.0)".to_string(),
             suppressed_default: None,
@@ -668,10 +681,14 @@ fn append_runtime_binding_metadata(
         });
     }
     for (helper, implementation) in local_overrides {
+        let address = routine_address(output, implementation);
+        output.map.runtime_bindings.retain(|binding| {
+            !(binding.helper.eq_ignore_ascii_case(helper.name()) && binding.address == address)
+        });
         output.map.runtime_bindings.push(CodegenRuntimeBinding {
             helper: helper.name().to_string(),
             implementation: implementation.clone(),
-            address: routine_address(output, implementation),
+            address,
             reason: "source-level local helper override".to_string(),
             origin: "application".to_string(),
             suppressed_default: Some(format!("{INTERNAL_SYSLIB_MODULE}::{}", helper.name())),

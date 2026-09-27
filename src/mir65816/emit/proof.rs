@@ -289,7 +289,9 @@ pub fn memory_probe(byte: bool) -> (Code, Vec<Snapshot>) {
     e.op(Implied::Sec);
     e.byte(ByteOp::SbcStack, 2);
     e.byte(ByteOp::CmpStack, 2);
+    e.byte(ByteOp::AndStack, 2);
     e.byte(ByteOp::OraStack, 2);
+    e.byte(ByteOp::EorStack, 2);
     e.byte(ByteOp::StaDp, 8);
     e.byte(ByteOp::LdaDp, 8);
     e.op(Implied::Clc);
@@ -318,6 +320,7 @@ pub fn memory_probe(byte: bool) -> (Code, Vec<Snapshot>) {
     e.op(Implied::DecA);
     e.a16();
     e.word(WordOp::AndImm, 0xff);
+    e.word(WordOp::OraImm, 0x8100);
     e.a8();
     e.byte(ByteOp::EorImm, 0x80);
     e.op(Implied::Clc);
@@ -450,6 +453,46 @@ pub fn increment_instruction_probe(
     e.finish_traced()
 }
 
+/// Independent exact-width shift/index qualification, with no X reservation.
+pub fn index_instruction_probe(value: u16, byte_a: bool, byte_x: bool) -> (Code, Vec<Snapshot>) {
+    let mut e = TrackedEmitter65816::default();
+    e.trace();
+    e.a16();
+    e.word(WordOp::LdaImm, value);
+    e.op(Implied::Tay);
+    if byte_x {
+        e.byte(ByteOp::Sep, 0x10);
+    }
+    if byte_a {
+        e.a8();
+    }
+    e.op(Implied::AslA);
+    e.op(Implied::Iny);
+    e.op(Implied::Nop);
+    e.finish_traced()
+}
+
+/// PEA's immediate payload and two-byte stack effect do not depend on M/X.
+pub fn immediate_push_probe(value: u16, byte_a: bool, byte_x: bool) -> (Code, Vec<Snapshot>) {
+    let mut e = TrackedEmitter65816::default();
+    e.trace();
+    e.a16();
+    e.op(Implied::Tsc);
+    e.establish_body();
+    e.word(WordOp::LdaImm, 0xabcd);
+    e.op(Implied::Tay);
+    if byte_x {
+        e.byte(ByteOp::Sep, 0x10);
+    }
+    if byte_a {
+        e.a8();
+    }
+    e.instruction(super::selected::Instruction::ArgumentPushWord(value))
+        .unwrap();
+    e.op(Implied::Nop);
+    e.finish_traced()
+}
+
 pub use super::analysis::sites::SelectedSite;
 /// Read-only view of a site. Request names are display metadata, never semantics.
 #[derive(Clone, Debug)]
@@ -494,6 +537,7 @@ pub fn selected_site(code: &Code, site: SelectedSite) -> Result<SelectedObservat
                 Request::Mode(_) => "mode",
                 Request::EstablishBody => "body-anchor",
                 Request::Barrier => "barrier",
+                Request::PrepareReturnJoin => "prepare-return-join",
                 Request::RegisterHome(_) => "home",
                 Request::DeclareBlocks(_) => "blocks",
                 Request::ProveEntries { .. } => "entry-obligations",
