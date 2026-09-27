@@ -164,7 +164,7 @@ AsmMixed:
   ldx #63
   lda #$5a
 scratch:
-  sta 0,x
+  sta $80,x
   dex
   bpl scratch
   rep #$20

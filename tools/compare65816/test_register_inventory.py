@@ -4,7 +4,7 @@ from inventory_registers import all_instructions, instructions, loops, measure, 
 
 
 def fixture(code, kind='binary'):
-    image = dict(format='actionc-65816-image', version=3, abi='action65816.native.v1',
+    image = dict(format='actionc-65816-image', version=3, abi='action65816.native.v2',
                  segments=[dict(address=0x10000, bytes=list(code), executable=True)])
     r = dict(address=0x10000, size=len(code), fixed_objects=[], parameters=[],
              staging_slots=[], arguments=[], temp_homes=[], blocks=[dict(id=0, pc=0x10000,

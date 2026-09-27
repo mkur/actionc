@@ -147,7 +147,7 @@ RETURN
 ENDMODULE
 "#;
     let smash = assemble(
-        "sep #$20\n.a8\nlda #$34\nsta f:$12ffff\nlda #0\nsta f:$130000\nlda #$34\nsta f:$130001\nlda #$12\nsta f:$130002\nldx #63\nlda #$a7\nagain: sta 0,x\ndex\nbpl again\nrep #$20\n.a16\nlda #$9876\nldx #$beef\nldy #$dead\nsep #$41\nrtl",
+        "sep #$20\n.a8\nlda #$34\nsta f:$12ffff\nlda #0\nsta f:$130000\nlda #$34\nsta f:$130001\nlda #$12\nsta f:$130002\nldx #63\nlda #$a7\nagain: sta $80,x\ndex\nbpl again\nrep #$20\n.a16\nlda #$9876\nldx #$beef\nldy #$dead\nsep #$41\nrtl",
         0x041000,
     );
     for optimize in [false, true] {
@@ -216,7 +216,7 @@ ENDMODULE
                 assert_eq!(read_trace, expected);
                 assert_eq!(h.bus.ram[0x12fffe], 0xa5);
                 assert_eq!(h.bus.ram[0x130003], 0x5a);
-                assert!((0x2000..0x2040).all(|a| h.bus.writes.contains(&(a, 0xa7))));
+                assert!((0x2080..0x20c0).all(|a| h.bus.writes.contains(&(a, 0xa7))));
             }
         }
     }
@@ -473,7 +473,7 @@ fn native_long_comparisons_match_ca65_and_touch_only_captured_word_parts() {
                     assert!(
                         !h.bus.reads[reads..]
                             .iter()
-                            .any(|a| (0x2000..0x2040).contains(a))
+                            .any(|a| (0x2080..0x20c0).contains(a))
                     );
                     h.run();
                     h.guards(mask);

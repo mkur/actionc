@@ -83,25 +83,25 @@ fn constants_cover_all_residuals_widths_zero_fill_and_large_counts() {
 fn native_residual_word_chains_match_ca65_and_preserve_scratch_neighbors() {
     for left in [false, true] {
         let body = if left {
-            "asl $08\nrol $0a"
+            "asl $88\nrol $8a"
         } else {
-            "lsr $0a\nror $08"
+            "lsr $8a\nror $88"
         };
         let code = assemble(&format!("rep #$20\n{body}\nstp\nnop"), 0x040000);
         assert_eq!(
             &code[2..6],
             if left {
-                &[0x06, 8, 0x26, 10]
+                &[0x06, 136, 0x26, 138]
             } else {
-                &[0x46, 10, 0x66, 8]
+                &[0x46, 138, 0x66, 136]
             }
         );
         for value in [0u32, 1, 0xffff, 0x80000000, u32::MAX] {
             for p in [0, 1, 0x24, 0x25] {
                 let mut bus = Bus::new();
                 bus.map(0x040000, &code, false);
-                bus.map(0x2007, &[0xa5; 6], true);
-                bus.ram[0x2008..0x200c].copy_from_slice(&value.to_le_bytes());
+                bus.map(0x2087, &[0xa5; 6], true);
+                bus.ram[0x2088..0x208c].copy_from_slice(&value.to_le_bytes());
                 let mut cpu = Machine::start_at(Registers {
                     a: 0xabcd,
                     x: 0x1234,
@@ -123,12 +123,12 @@ fn native_residual_word_chains_match_ca65_and_preserve_scratch_neighbors() {
                 } else {
                     value >> 1
                 };
-                assert_eq!(&bus.ram[0x2008..0x200c], expected.to_le_bytes());
-                assert_eq!((bus.ram[0x2007], bus.ram[0x200c]), (0xa5, 0xa5));
+                assert_eq!(&bus.ram[0x2088..0x208c], expected.to_le_bytes());
+                assert_eq!((bus.ram[0x2087], bus.ram[0x208c]), (0xa5, 0xa5));
                 assert!(
                     bus.writes
                         .iter()
-                        .all(|(at, _)| (0x2008..0x200c).contains(at))
+                        .all(|(at, _)| (0x2088..0x208c).contains(at))
                 );
                 let r = cpu.registers();
                 assert_eq!(

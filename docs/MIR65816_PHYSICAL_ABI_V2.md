@@ -1,8 +1,8 @@
-# Action! 65816 native physical ABI v1
+# Action! 65816 native physical ABI v2
 
-Status: **implemented and emulator-qualified for the initial Exec subset**.
-See the [acceptance result](MIR65816_EXEC_ACCEPTANCE.md) for scope and limits.
-ABI identity: `action65816.native.v1`. Target: `wdc-65816-native`.
+Status: **implemented; native-v2 development checks pass; release qualification pending**.
+See [DP migration evidence](NATIVE_DP_PARTITION.md) for scope and limits.
+ABI identity: `action65816.native.v2`. Target: `wdc-65816-native`.
 
 This fixes the physical decisions required by R2–R5 of the
 [Exec compiler requirements](MIR65816_EXEC_READINESS_REQUIREMENTS.md).
@@ -12,13 +12,14 @@ The small model has no compatibility promise with this ABI.
 Tasks use one shared 24-bit address space; private storage here describes
 ownership and lifetime, without implying hardware memory protection.
 
-The [machine-readable manifest](abi/action65816-native-v1.json) records the
+The [machine-readable manifest](abi/action65816-native-v2.json) records the
 version, register rules, sizes, offsets and worked examples. Assembly bridges
 must generate their constants from it. Incompatible changes require a new ABI
 identity. The advertised emitted subset and its qualification are tracked below.
 
 Generate [Rust constants](../src/mir65816/abi/generated.rs) and
-[assembly equates](abi/action65816-native-v1.inc) with
+[assembly equates](abi/action65816-native-v2.inc) and
+[Action! constants](abi/action65816-native-v2.act) with
 `python3 tools/generate_abi65816.py`. Add `--check` to verify freshness without
 writing files. The [implementation slices](MIR65816_IMPLEMENTATION_PLAN.md)
 track which consumers and executable checks have been completed.
@@ -236,13 +237,19 @@ the first task is restored. D names the block; changing D does not copy it.
 
 | D-relative offset | Bytes | Owner and meaning |
 | --- | ---: | --- |
-| $00–$3F | 64 | Compiler/runtime call-clobbered scratch |
-| $00, $03, $06 | 3 each | Pointer scratch aliases within that same 64-byte region |
-| $40 | 3 | Opaque execution-domain owner pointer, initialized by bootstrap/Exec |
-| $43 | 1 | Domain kind: task=0, IRQ=1, bootstrap=2 |
-| $44 | 2 | Lowest permitted ordinary S (`stack_floor`) |
-| $46 | 2 | Highest allocated stack byte (`stack_ceiling`) |
-| $48–$FF | 184 | Reserved, initially zero; unavailable to v1 compiler/helpers |
+| $00–$7F | 128 | Caller/runtime workspace; preserved during domain lifetime |
+| $80–$BF | 64 | Compiler/runtime call-clobbered scratch |
+| $80, $83, $86 | 3 each | Pointer scratch aliases within that same 64-byte region |
+| $C0 | 3 | Opaque execution-domain owner pointer, initialized by bootstrap/Exec |
+| $C3 | 1 | Domain kind: task=0, IRQ=1, bootstrap=2 |
+| $C4 | 2 | Lowest permitted ordinary S (`stack_floor`) |
+| $C6 | 2 | Highest allocated stack byte (`stack_ceiling`) |
+| $C8–$FF | 56 | Reserved, initially zero; unavailable to v2 compiler/helpers |
+
+Domain creation and reuse may initialize the whole page. Once handed to an
+owner, its lower 128 bytes may contain arbitrary data and survive ordinary
+calls and asynchronous suspension without copying. The full-page reservation,
+alignment and task stride are unchanged: zero additional bank-zero bytes.
 
 Compiler code and helpers may clobber only the scratch region. They do not
 modify the owner, kind or bounds. No scratch value survives an ordinary call
@@ -303,10 +310,10 @@ use the IRQ stack and count towards its bound. It establishes M=X=0, decimal
 clear and I=1 before calling Action!. No unsaved register or interrupted scratch
 is used.
 
-The assembly/Exec hook has the ordinary v1 signature:
+The assembly/Exec hook has the ordinary v2 signature:
 
 ```text
-CARD __a816_dispatch_v1(CARD interrupted_s, BYTE reason)
+CARD __a816_dispatch_v2(CARD interrupted_s, BYTE reason)
 ```
 
 `reason=0` means IRQ; `reason=1` means cooperative yield. The return value in A
@@ -316,12 +323,12 @@ The wrapper completes its IRQ-stack call cleanup and publishes the selected
 task before loading its S. No IRQ invocation remains suspended on the shared
 IRQ stack. Calls in this domain must retain I=1 and cannot block or yield.
 
-`__a816_yield_v1()` is an ordinary zero-argument procedure callable only in the
+`__a816_yield_v2()` is an ordinary zero-argument procedure callable only in the
 task domain with I=0. Its assembly body executes `COP #$00`; the COP vector uses
 the same save/dispatch/restore protocol with reason 1. On resumption it returns
 with RTL, and its caller performs normal argument cleanup. A call with I=1 or
 from IRQ/bootstrap must fault without scheduling. Other COP signatures, BRK
-and ABORT are outside the resumable v1 switch protocol and reach terminal
+and ABORT are outside the resumable v2 switch protocol and reach terminal
 platform fault handling. No scheduler implementation is implied here.
 
 With I=1 and E=0, load the selected saved_s into S, ensure M=X=0, then restore:
@@ -361,13 +368,13 @@ The bootstrap enters native mode, supplies the stack/domain allocations,
 initializes static data and zero-fill once, and installs vectors before enabling
 their sources. No Atari OS, GEM or host runtime entry convention is inherited.
 
-The task entry has the ordinary v1 signature `PROC entry(data-pointer argument)`.
+The task entry has the ordinary v2 signature `PROC entry(data-pointer argument)`.
 Choose an even empty-body S0 within the task stack, allocate its D block, and
 place the following image in ascending memory order:
 
 ```text
 saved_s +  1 .. +13 : saved CPU frame, PC/PBR = exact task entry
-saved_s + 14 .. +16 : synthetic RTL return to __a816_task_return_v1
+saved_s + 14 .. +16 : synthetic RTL return to __a816_task_return_v2
 saved_s + 17 .. +19 : three-byte argument
 saved_s = S0 - 19
 ```
@@ -385,9 +392,9 @@ For S0=`$6000`, D=`$2200`, entry=`$12:8000`, return stub=`$00:9000` and argument
 00 00 22 00 00 00 00 00 00 00 00 80 12 FF 8F 00 78 56 34
 ```
 
-An ordinary return from the task reaches `__a816_task_return_v1` with S=S0-3.
+An ordinary return from the task reaches `__a816_task_return_v2` with S=S0-3.
 This assembly continuation releases the three argument bytes, then makes a
-normal zero-argument v1 call to the nonreturning `__a816_task_exit_v1()` binding.
+normal zero-argument v2 call to the nonreturning `__a816_task_exit_v2()` binding.
 It must not RTL again. A returning exit binding reaches a terminal trap.
 The creator validates space for this image, the entry's stack cost and the
 interrupt reserve before making the context runnable.
@@ -416,7 +423,7 @@ can cover several operations. Account for F, O, direct-call return bytes (3),
 indirect transfer peak (6), temporary pushes and every callee's own checks.
 The entry stubs above have no extra pushes before switching stacks; changing
 that sequence changes H. The NMI handler has a published instruction/stack
-bound. Overflow transfers with JML to `__a816_stack_overflow_v1`, without
+bound. Overflow transfers with JML to `__a816_stack_overflow_v2`, without
 changing S or first making an unchecked call. This raw, nonreturning assembly
 entry receives A=requested additional bytes and X=unchanged S; Y is unspecified.
 E/M/X, decimal, D and DBR satisfy the ordinary boundary, and I is unchanged.
@@ -436,8 +443,8 @@ Ordinary calls preserve I. Two explicitly identified runtime bindings differ:
 
 | Binding | Signature | I-bit effect |
 | --- | --- | --- |
-| `__a816_irq_save_disable_v1` | BYTE result, no arguments | Return token 0 or 4 containing the prior P.I bit, then leave I=1 |
-| `__a816_irq_restore_v1` | Procedure, one BYTE token | Restore only I from that token |
+| `__a816_irq_save_disable_v2` | BYTE result, no arguments | Return token 0 or 4 containing the prior P.I bit, then leave I=1 |
+| `__a816_irq_restore_v2` | Procedure, one BYTE token | Restore only I from that token |
 
 Both are full compiler memory barriers. The save operation must capture the
 old I state before SEI; the restore operation must not PLP an arbitrary token
@@ -486,7 +493,7 @@ version, domain offsets and saved-frame offsets from the JSON manifest.
 
 The [call planner](../src/mir65816/lower.rs) now retains aligned argument homes,
 exact native result lanes, transfer peaks and the boundary/state inventory.
-Original aggregate interfaces remain explicitly outside v1 qualification even
+Original aggregate interfaces remain explicitly outside v2 qualification even
 after their abstract expansion into physical pointer arguments.
 
 Native fixed frames now have even extents up to 254 bytes. Outgoing argument
@@ -509,8 +516,8 @@ separate small-model policy is retained. See the
 [implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) for completed slices
 and their checks.
 
-[Initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md) records executable proof
-for the advertised subset:
+[Initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md) records historical native-v1
+evidence for the following behavior; it does not qualify the new DP layout:
 
 1. Direct and indirect calls use the worked layout, including zero arguments,
    mixed-width values, target offsets `$0000`/`$FFFF` and preserved A/X results.
@@ -524,8 +531,10 @@ for the advertised subset:
 
 The [CPU checkpoint](MIR65816_CPU_EXECUTION_CHECKPOINT.md) records the required
 status-timing correction. Custom-board bootstrap, vectors, acknowledgement and
-interrupt smoke testing remain platform work. ABI v1's physical layout is
-unchanged by image formats 3/4 and o65 profiles 1/2. Native arithmetic helpers
+interrupt smoke testing remain platform work. Native v2 development checks are recorded in
+[NATIVE_DP_PARTITION.md](NATIVE_DP_PARTITION.md). Image formats 3/4 retain their
+existing ABI field; compact o65 v3 uses A8C3 with no larger descriptor.
+Full release qualification remains pending. Native arithmetic helpers
 use ordinary scalar calls and per-domain scratch. Their separate terminal
 [arithmetic-fault adapter](MIR65816_ARITHMETIC_HELPERS_PLAN.md#division-by-zero-adapter-and-artifact-compatibility)
-is not an ordinary returning entry and does not change physical ABI v1.
+is not an ordinary returning entry and does not change physical ABI v2.

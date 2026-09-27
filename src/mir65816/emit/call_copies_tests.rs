@@ -130,7 +130,7 @@ fn overlapping_argument_words_cover_only_the_complete_three_byte_home() {
     let p = program_for(
         "ADDRESS FUNC Echo(ADDRESS x) x=ADDRESS(1) RETURN(x) PROC Main() Echo(ADDRESS($ABCDEF)) RETURN",
     );
-    for memory in [Memory::Stack(250), Memory::DirectPage(61)] {
+    for memory in [Memory::Stack(250), Memory::DirectPage(189)] {
         let mut b = builder(&p.routines[0]);
         Builder::check_call_home(memory, 3, 3).unwrap();
         b.code.test_delta(3);
@@ -148,7 +148,7 @@ fn overlapping_argument_words_cover_only_the_complete_three_byte_home() {
         .unwrap();
         let expected = match memory {
             Memory::Stack(_) => vec![0xa3, 253, 0x83, 1, 0xa3, 254, 0x83, 2],
-            Memory::DirectPage(_) => vec![0xa5, 61, 0x83, 1, 0xa5, 62, 0x83, 2],
+            Memory::DirectPage(_) => vec![0xa5, 189, 0x83, 1, 0xa5, 190, 0x83, 2],
             _ => unreachable!(),
         };
         assert_eq!(&b.code.code().bytes[start..], expected);
@@ -156,7 +156,7 @@ fn overlapping_argument_words_cover_only_the_complete_three_byte_home() {
     for memory in [
         Memory::Stack(251),
         Memory::Stack(0),
-        Memory::DirectPage(62),
+        Memory::DirectPage(190),
         Memory::Absolute(0x123456),
     ] {
         assert!(Builder::check_call_home(memory, 3, 3).is_err());

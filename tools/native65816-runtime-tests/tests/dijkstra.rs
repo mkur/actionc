@@ -144,10 +144,10 @@ impl Program {
         p.permissions[DP..DP + 256].fill(3);
         p.ram[DP..DP + 256].fill(0xa5);
         if artifact["compiler"] == "actionc" {
-            p.ram[DP + 64..DP + 256].fill(0);
-            p.ram[DP + 0x43] = 2;
-            put(&mut p.ram, DP + 0x44, 2, 0x401a);
-            put(&mut p.ram, DP + 0x46, 2, 0x6000);
+            p.ram[DP + 192..DP + 256].fill(0);
+            p.ram[DP + 0xc3] = 2;
+            put(&mut p.ram, DP + 0xc4, 2, 0x401a);
+            put(&mut p.ram, DP + 0xc6, 2, 0x6000);
         }
         // ABI metadata and callee-preserved DP are checked after every call.
         p.permissions[0x4000..0x6000].fill(3);
@@ -318,7 +318,7 @@ impl Program {
                         s[5] += read;
                         s[6] += write;
                     }
-                    if action && (DP + 64..DP + 256).contains(&a) {
+                    if action && (DP + 192..DP + 256).contains(&a) {
                         s[7] += read;
                     }
                 }

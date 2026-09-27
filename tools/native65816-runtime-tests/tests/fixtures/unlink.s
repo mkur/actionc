@@ -1,6 +1,6 @@
 ; ABI-compatible comparison implementation, not compiler-generated output.
 ; ca65 input, assembled in native A16/I16 state at $018000.
-.include "action65816-native-v1.inc"
+.include "action65816-native-v2.inc"
 item = A816_DP_POINTER0_OFFSET
 pred = A816_DP_POINTER1_OFFSET
 succ = A816_DP_POINTER2_OFFSET

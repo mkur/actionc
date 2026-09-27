@@ -226,7 +226,7 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                         (homes::address(before.s, before.d, slot) + 1, Access::Read),
                     ]);
                 }
-                h.bus.watched = (0x4000..0x6000).chain(0x2000..0x2040).collect();
+                h.bus.watched = (0x4000..0x6000).chain(0x2080..0x20c0).collect();
                 h.bus.trace.clear();
                 for _ in 0..10000 {
                     h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();

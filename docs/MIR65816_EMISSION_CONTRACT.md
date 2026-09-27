@@ -5,7 +5,7 @@ fixups for a separate relocatable output path. Its
 [implementation status](MIR65816_O65_IMPLEMENTATION_PLAN.md) is tracked per slice.
 
 The compiler emits freestanding machine code for `wdc-65816-native` under
-[`action65816.native.v1`](MIR65816_PHYSICAL_ABI_V1.md).
+[`action65816.native.v2`](MIR65816_PHYSICAL_ABI_V2.md).
 [Initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md) covers the subset below
 on the VM's independent 24-bit bus, including context switching and interrupts.
 
@@ -39,7 +39,7 @@ and symbol/signature IDs remain decimal JSON numbers. Emitted image JSON
 continues to use numeric addresses.
 
 For runtime DIV/MOD, add `"arithmetic_fault": "0x049000"` and provide the raw
-`__a816_arithmetic_fault_v1` adapter at that address. It receives A16=1
+`__a816_arithmetic_fault_v2` adapter at that address. It receives A16=1
 (DivisionByZero), X16=S and transfers by JML without a push or return. D, I,
 DBR=0, native mode and M=X=0 are preserved. Its address must be distinct from
 the overflow adapter and outside image/import storage. The dependency is
@@ -106,7 +106,7 @@ See the [profile](MIR65816_O65_PROFILE.md) for the admitted subset and rejection
 The [o65 qualification](abi/action65816-o65-qualification.json) executes raw and
 optimized files at two independent text/data/BSS placements, including imports,
 multi-bank code, stack failures and preempted tasks. The complete 44-test native
-suite passes in debug and release. JSON transport v3, physical ABI v1 and
+suite passes in debug and release. JSON transport v3, physical ABI v2 and
 generated stack checks are unchanged.
 
 ## Instruction state boundary
@@ -1015,7 +1015,7 @@ an aligned per-domain direct page, even entry S and valid v1 arguments/return
 bytes. It must reserve task headroom `26 + nmi_extra_stack` or IRQ headroom
 `13 + nmi_extra_stack` when initializing the domain's floor. Emitted checks
 preserve I. Failure transfers by JML to the configured nonreturning
-`__a816_stack_overflow_v1` adapter with required bytes in A, unchanged S in X,
+`__a816_stack_overflow_v2` adapter with required bytes in A, unchanged S in X,
 and S unchanged. The platform assembles the separate
 [context bridge](MIR65816_CONTEXT_INTERFACE.md) for task entry, IRQ, COP and NMI;
 reset/startup and board-specific vector installation remain platform work.
@@ -1062,7 +1062,7 @@ Add an entry to `imports` for each required service:
 ```text
 symbol          runtime interface ID from --emit-interfaces
 signature       structural signature ID from --emit-interfaces
-abi             "action65816.native.v1"
+abi             "action65816.native.v2"
 address, size   actual assembled code range
 stack_peak      assembly's local reservation peak below its entry S
 checks_stack    true: assembly performs its own required reservation checks
@@ -1122,7 +1122,7 @@ Older validators require an update to consume these scalar maps.
 Native word instructions use literal D-relative operands. o65 allocates no
 application scratch in its zero segment and adds no relocation for these
 operands. Public arguments/results, stack-guard algorithms, interrupt reserves
-and physical ABI v1 are unchanged. Scalar frame shrinkage changes reservation
+and physical ABI v2 are unchanged. Scalar frame shrinkage changes reservation
 and incoming-argument operands, and zero-frame routines use the existing short
 return. Exec816 adoption and its pinned compiler remain a separate task.
 

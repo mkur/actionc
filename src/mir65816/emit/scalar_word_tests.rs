@@ -10,7 +10,9 @@ fn dp_arithmetic_and_return_preserve_adjacent_forwarding() {
         frame.temps.insert(
             *id,
             Location::DirectPage(Slot {
-                offset: 32 + 2 * i as u16,
+                offset: crate::mir65816::abi::generated::DP_SCRATCH_OFFSET as u16
+                    + 32
+                    + 2 * i as u16,
                 width: 2,
             }),
         );
@@ -38,14 +40,14 @@ fn dp_arithmetic_and_return_preserve_adjacent_forwarding() {
     };
     b.code.a16();
     b.code.word(WordOp::LdaImm, 0x8000);
-    b.code.byte(ByteOp::StaDp, 32);
+    b.code.byte(ByteOp::StaDp, 160);
     b.remember_word(*a);
     let start = b.code.position();
     assert!(
         b.word_binary(*dest, 2, NirBinaryOp::Add, left, right)
             .unwrap()
     );
-    assert_eq!(&b.code.code().bytes[start..], &[0x18, 0x65, 34, 0x85, 36]);
+    assert_eq!(&b.code.code().bytes[start..], &[0x18, 0x65, 162, 0x85, 164]);
     let start = b.code.position();
     assert!(
         b.word_return(&Mir65816Value::Temp(*dest, ByteSize::new(2)))
@@ -127,11 +129,11 @@ fn dp_word_bounds_do_not_depend_on_stack_delta() {
     for (offset, ok) in [
         (30, false),
         (31, false),
-        (32, true),
-        (33, false),
-        (62, true),
-        (63, false),
-        (64, false),
+        (160, true),
+        (161, false),
+        (190, true),
+        (191, false),
+        (192, false),
         (254, false),
     ] {
         for delta in [0, u32::MAX] {

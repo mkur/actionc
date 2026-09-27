@@ -217,7 +217,7 @@ fn emitted_pointer_equality_reads_only_the_low_word_and_needed_bank_bytes() {
                 assert!(
                     !h.bus.reads[reads..]
                         .iter()
-                        .any(|a| (0x2000..0x2040).contains(a))
+                        .any(|a| (0x2080..0x20c0).contains(a))
                 );
                 h.run();
                 h.guards(mask);

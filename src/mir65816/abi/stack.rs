@@ -17,7 +17,7 @@ impl fmt::Display for StackError {
             Self::ArithmeticOverflow => f.write_str("65816 stack arithmetic overflow"),
             Self::FrameTooLarge { bytes } => write!(
                 f,
-                "65816 native fixed frame requires {bytes} bytes; ABI v1 supports at most {FRAME_INITIAL_STRATEGY_MAX_FIXED_EXTENT}"
+                "65816 native fixed frame requires {bytes} bytes; ABI v2 supports at most {FRAME_INITIAL_STRATEGY_MAX_FIXED_EXTENT}"
             ),
             Self::AccessOutOfRange {
                 displacement,

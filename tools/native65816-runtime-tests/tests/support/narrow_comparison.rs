@@ -10,8 +10,8 @@ pub fn record(name: &str, optimize: bool, source: &str, image: &Image, h: &Harne
         "cycles":h.cpu.cycles(),
         "stack_reads":h.bus.reads.iter().filter(|&&a|(0x4000..0x6000).contains(&a)).count(),
         "stack_writes":h.bus.writes.iter().filter(|&&(a,_)|(0x4000..0x6000).contains(&a)).count(),
-        "dp_reads":h.bus.reads.iter().filter(|&&a|(0x2000..0x2040).contains(&a)).count(),
-        "dp_writes":h.bus.writes.iter().filter(|&&(a,_)|(0x2000..0x2040).contains(&a)).count(),
+        "dp_reads":h.bus.reads.iter().filter(|&&a|(0x2080..0x20c0).contains(&a)).count(),
+        "dp_writes":h.bus.writes.iter().filter(|&&(a,_)|(0x2080..0x20c0).contains(&a)).count(),
     });
     println!("{name}/{optimize}: {facts}");
     if let Ok(dir) = std::env::var("A816_QUALIFICATION_DIR") {
@@ -69,7 +69,7 @@ pub fn captured_values_survive_clobbers(pointer: bool) {
         IF saved#observed THEN out(10)=1 ELSE out(10)=0 FI\nRETURN\nENDMODULE\n"
     );
     let smash = assemble(
-        "sep #$20\n.a8\nlda #$34\nsta f:$12ffff\nlda #0\nsta f:$130000\nsta f:$130001\nldx #63\nlda #$a7\nagain: sta 0,x\ndex\nbpl again\nrep #$20\n.a16\nlda #$9876\nldx #$beef\nldy #$dead\nsep #$41\nrtl",
+        "sep #$20\n.a8\nlda #$34\nsta f:$12ffff\nlda #0\nsta f:$130000\nsta f:$130001\nldx #63\nlda #$a7\nagain: sta $80,x\ndex\nbpl again\nrep #$20\n.a16\nlda #$9876\nldx #$beef\nldy #$dead\nsep #$41\nrtl",
         0x041000,
     );
     for optimize in [false, true] {
@@ -134,7 +134,7 @@ pub fn captured_values_survive_clobbers(pointer: bool) {
                 );
                 assert_eq!(h.bus.ram[0x12fffe], 0xa5);
                 assert_eq!(h.bus.ram[0x130002], 0x5a);
-                assert!((0x2000..0x2040).all(|a| h.bus.writes.contains(&(a, 0xa7))));
+                assert!((0x2080..0x20c0).all(|a| h.bus.writes.contains(&(a, 0xa7))));
             }
         }
     }

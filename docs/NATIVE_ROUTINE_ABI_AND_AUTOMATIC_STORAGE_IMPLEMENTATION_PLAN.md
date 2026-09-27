@@ -223,7 +223,7 @@ Those are MIR65816 decisions. NIR exposes sizes, alignments, liveness,
 address-taking, call signatures, and storage duration, but no `S`, `D`, `DBR`,
 `PBR`, M, or X concepts.
 
-The subsequent [65816 physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) selects the
+The subsequent [65816 physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md) selects the
 native model's concrete machine convention and shared assembly layouts. The
 completed abstract frame migration in this plan does not establish that the
 current 65816 planner or emitter implements that physical contract.

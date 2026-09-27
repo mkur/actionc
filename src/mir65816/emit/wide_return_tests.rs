@@ -53,7 +53,7 @@ fn wide_returns_select_native_lanes_and_preserve_shared_teardown() {
                                 offset: if kind == 2 {
                                     256 - u16::from(bytes)
                                 } else {
-                                    64 - u16::from(bytes)
+                                    192 - u16::from(bytes)
                                 },
                                 width: bytes,
                             };
@@ -144,8 +144,8 @@ fn wide_return_preflight_rejects_incomplete_homes_without_emitting() {
             (false, 0, 0, bytes, false),
             (false, 1, u32::MAX, bytes, false),
             (false, 1, 0, bytes - 1, false),
-            (true, 64 - u16::from(bytes), 0, bytes, true),
-            (true, 65 - u16::from(bytes), 0, bytes, false),
+            (true, 192 - u16::from(bytes), 0, bytes, true),
+            (true, 193 - u16::from(bytes), 0, bytes, false),
         ] {
             let mut b = builder(&p.routines[0]);
             let slot = Slot {

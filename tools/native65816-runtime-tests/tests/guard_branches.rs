@@ -14,7 +14,7 @@ fn reference(amount: u16, origin: u32, fault: u32, short: bool) -> Vec<u8> {
     };
     assemble(
         &format!(
-            "tsc\ntax\ncmp $46\n{}{}{jump} fault\nwithin: sec\nsbc #{amount}\n{}cmp $44\n{}fault: lda #{amount}\njml ${fault:06x}\ndone: nop\n",
+            "tsc\ntax\ncmp $c6\n{}{}{jump} fault\nwithin: sec\nsbc #{amount}\n{}cmp $c4\n{}fault: lda #{amount}\njml ${fault:06x}\ndone: nop\n",
             branch("bcc", "bcs", "within"),
             branch("beq", "bne", "within"),
             branch("bcc", "bcs", "fault"),
@@ -39,8 +39,8 @@ fn run(
     bus.map(start, code, false);
     bus.map(0x2000, &[0; 256], true);
     bus.map(fault, &[0xdb, 0xea], false);
-    bus.ram[0x2044..0x2046].copy_from_slice(&floor.to_le_bytes());
-    bus.ram[0x2046..0x2048].copy_from_slice(&ceiling.to_le_bytes());
+    bus.ram[0x20c4..0x20c6].copy_from_slice(&floor.to_le_bytes());
+    bus.ram[0x20c6..0x20c8].copy_from_slice(&ceiling.to_le_bytes());
     let mut cpu = Machine::start_at(Registers {
         a: 0xabcd,
         x: 0x1234,
@@ -208,7 +208,7 @@ fn relocated_guards_reach_both_success_and_moved_fault_exits() {
                     r.pbr = (entry >> 16) as u8;
                     h.cpu = Machine::start_at(r);
                     let floor = r.s - amount + u16::from(failed);
-                    h.bus.ram[0x2044..0x2046].copy_from_slice(&floor.to_le_bytes());
+                    h.bus.ram[0x20c4..0x20c6].copy_from_slice(&floor.to_le_bytes());
                     let dest = if failed {
                         image.stack_overflow()
                     } else {
@@ -293,8 +293,8 @@ fn every_reached_guard_boundary_restores_flags_under_irq_and_nmi_in_both_domains
                             r.s + u16::from(scenario != 0)
                         };
                         let dp = r.d as usize;
-                        h.bus.ram[dp + 0x44..dp + 0x46].copy_from_slice(&floor.to_le_bytes());
-                        h.bus.ram[dp + 0x46..dp + 0x48].copy_from_slice(&ceiling.to_le_bytes());
+                        h.bus.ram[dp + 0xc4..dp + 0xc6].copy_from_slice(&floor.to_le_bytes());
+                        h.bus.ram[dp + 0xc6..dp + 0xc8].copy_from_slice(&ceiling.to_le_bytes());
                         let exit = if scenario >= 2 {
                             h.image.stack_overflow
                         } else {

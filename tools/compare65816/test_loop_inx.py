@@ -13,7 +13,7 @@ class Inx(unittest.TestCase):
         cls.build=next(b for b in cls.inventory['builds'] if (b['case'],b['mode'])==('loop_rotation','optimized'))
         cls.r=next(b for b in cls.facts['builds'] if (b['case'],b['mode'])==('loop_rotation','optimized'))['routines'][0]
         routines=cls.build['routines'];cls.ins={i['pc']:bytes.fromhex(i['bytes']) for r in routines for i in r['instructions']}
-        cls.image=dict(format='actionc-65816-image',version=3,abi='action65816.native.v1',entry=routines[-1]['address'],
+        cls.image=dict(format='actionc-65816-image',version=3,abi='action65816.native.v2',entry=routines[-1]['address'],
             segments=[dict(address=65536,bytes=list(b''.join(cls.ins.values())),executable=True)],
             routines=[dict(address=r['address'],size=r['size']) for r in routines])
 

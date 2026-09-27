@@ -15,7 +15,7 @@ def string(value):
 
 
 def contract(raw):
-    return (string('action65816.native.v1') + u32(0 if raw else 1234)
+    return (string('action65816.native.v2') + u32(0 if raw else 1234)
             + u32(0) + b'\0' + u32(0 if raw else 1)
             + struct.pack('<HBBB', 0, 0, int(raw), 3))
 
@@ -36,17 +36,17 @@ def build():
                       for offset, kind, target, value, wide in records)
     descriptor = (b'A8O1' + u32(0) + struct.pack('<HHBBHI', 1, 0, 3, 0, 0, 0)
                   + u32(1) + routine + u32(2) + objects + u32(1)
-                  + string('__a816_stack_overflow_v1') + contract(True)
+                  + string('__a816_stack_overflow_v2') + contract(True)
                   + u32(len(records)) + proofs)
     descriptor = descriptor[:4] + u32(len(descriptor)) + descriptor[8:]
     text = b'\x6b' + descriptor
     data = bytes([4, 0, 0, 0, 7, 0, 0, 0, 0, 0])
     header = b'\1\0o65\0' + struct.pack('<H9I', 0xa202, 0, len(text), 0, len(data), 0, 8, 0, 0, 0) + b'\0'
-    imports = u32(1) + b'__a816_stack_overflow_v1\0'
+    imports = u32(1) + b'__a816_stack_overflow_v2\0'
     # Text has no relocations. Each delta is from the previous site, first -1.
     relocations = bytes([0, 1, 0xc4, 4, 0x24, 1, 0x44, 7,
                          1, 0xa4, 7, 0, 1, 0xc2, 0])
-    exports = (u32(2) + b'__a816_entry_v1\0\2' + u32(0)
+    exports = (u32(2) + b'__a816_entry_v2\0\2' + u32(0)
                + b'__a816_o65_profile_v1\0\2' + u32(1))
     return header + text + data + imports + relocations + exports
 

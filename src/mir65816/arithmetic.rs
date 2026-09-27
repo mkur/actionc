@@ -36,7 +36,7 @@ impl Helper {
             Operation::Modulo => "mod",
         };
         format!(
-            "__a816_{op}_{}{}_v1",
+            "__a816_{op}_{}{}_v2",
             if self.signed { "i" } else { "u" },
             self.bytes * 8
         )

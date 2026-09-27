@@ -84,7 +84,7 @@ lowering correction now covers both cases permanently.
 
 ## Physical ABI decisions
 
-[Physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) now fixes these decisions:
+[Physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md) now fixes these decisions:
 
 - Far JSL/RTL calls, naturally aligned stack arguments, odd outgoing extents,
   even entry/body S, and caller cleanup that preserves A/X results.

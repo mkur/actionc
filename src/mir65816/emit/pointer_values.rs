@@ -158,8 +158,7 @@ impl Builder<'_> {
                 )
                 .map_err(|e| e.to_string())?;
             }
-            Memory::DirectPage(offset)
-                if u32::from(offset) + 3 <= abi::generated::DP_SCRATCH_SIZE => {}
+            Memory::DirectPage(offset) if abi::scratch_contains(u32::from(offset), 3) => {}
             _ => return Err("pointer value requires a complete private home".into()),
         }
         Ok(())

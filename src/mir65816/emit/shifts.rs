@@ -20,7 +20,7 @@ impl Builder<'_> {
                 self.displacement(at, u32::from(bytes) - 1)?;
             }
             Memory::DirectPage(at)
-                if u32::from(at) + u32::from(bytes) <= abi::generated::DP_SCRATCH_SIZE
+                if abi::scratch_contains(u32::from(at), u32::from(bytes))
                     && (at + u16::from(bytes) <= u16::from(RESULT)
                         || at >= u16::from(RESULT + 4)) => {}
             _ => {

@@ -33,7 +33,7 @@ STA $0C,S
 
 Both stores and all homes remain. The rule does not allocate registers across
 calls or joins, change DP use, move memory effects or remove stack guards.
-The ABI remains `action65816.native.v1`, image version 3 and o65 profile version 1.
+The ABI remains `action65816.native.v2`, image version 3 and o65 profile version 1.
 
 ## Qualification
 

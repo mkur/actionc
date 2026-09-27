@@ -510,7 +510,7 @@ fn signature_homes(
 ) -> Result<(Vec<Mir65816AbiHome>, ByteSize, ByteSize), String> {
     if convention == Mir65816CallConvention::Native {
         if count != signature.params.len() {
-            return Err("native 65816 v1 requires the fixed signature's argument count".into());
+            return Err("native 65816 v2 requires the fixed signature's argument count".into());
         }
         let layout = abi::call_layout(signature).map_err(|error| error.to_string())?;
         let homes = layout
@@ -728,7 +728,7 @@ pub(super) fn verify_routine_plan(
             }
         } else if parameter.body_stack_offset.is_some() {
             return Err(
-                "65816 small-model parameter must not acquire a native v1 body offset".into(),
+                "65816 small-model parameter must not acquire a native v2 body offset".into(),
             );
         }
         if let Some(id) = parameter.frame_object {
@@ -776,7 +776,7 @@ pub(super) fn verify_routine_plan(
                     return Err("65816 call does not preserve the M/X boundary state".into());
                 }
                 let peak = if native {
-                    let contract = plan.native.ok_or("65816 native call has no v1 contract")?;
+                    let contract = plan.native.ok_or("65816 native call has no v2 contract")?;
                     let transfer = if indirect {
                         abi::FarTransfer::StackRtl
                     } else {
@@ -817,7 +817,7 @@ pub(super) fn verify_routine_plan(
                     )
                 } else {
                     if plan.native.is_some() || plan.call_form != Mir65816CallForm::NearJsr {
-                        return Err("65816 small-model call acquired a native v1 contract".into());
+                        return Err("65816 small-model call acquired a native v2 contract".into());
                     }
                     abi::stack::peak_below_entry(
                         frame.extent,
@@ -870,7 +870,7 @@ fn verify_native_arguments(
             (size.get(), alignment.get()),
             (1, 1) | (2, 2) | (3, 1 | 2) | (4, 2)
         ) {
-            return Err("65816 native argument size/alignment is outside ABI v1".into());
+            return Err("65816 native argument size/alignment is outside ABI v2".into());
         }
         let expected =
             abi::align_up(cursor, alignment.get()).ok_or("65816 argument alignment overflow")?;

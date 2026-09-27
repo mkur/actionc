@@ -41,7 +41,7 @@ pub fn symbol(image: &Image, name: &str) -> u32 {
 }
 pub fn runtime(dispatch: u32) -> Assembly {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let text = std::fs::read_to_string(root.join("runtime/65816/native-v1.s")).unwrap();
+    let text = std::fs::read_to_string(root.join("runtime/65816/native-v2.s")).unwrap();
     assemble_artifact(
         &format!(
             "A816_IRQ_DP=${IRQ_DP:04x}\nA816_IRQ_STACK_TOP=${IRQ_TOP:04x}\nA816_IRQ_STACK_FLOOR=$600C\nA816_DISPATCH=${dispatch:06x}\nA816_STACK_OVERFLOW=${FAULT:06x}\nA816_TERMINAL=test_fault\nA816_NMI_ACK=${NMI_ACK:06x}\nA816_TASK_EXIT=test_exit\n{text}\n.export test_exit,test_fault\n.a16\n.i16\ntest_exit: lda #1\nsta f:${DONE:06x}\nstp\nnop\ntest_fault: lda #$EE\nsta f:${DONE:06x}\nstp\nnop"
@@ -82,11 +82,11 @@ impl ContextHarness {
         for r in prepared.mir.routines.iter().filter(|r| r.entry.external) {
             let symbol = r.entry.external_symbol.unwrap();
             let (name, peak) = if symbol == actionc::nir::runtime_symbol_id("TEST.Yield") {
-                ("__a816_yield_v1", 1)
+                ("__a816_yield_v2", 1)
             } else if symbol == actionc::nir::runtime_symbol_id("TEST.SaveIRQ") {
-                ("__a816_irq_save_disable_v1", 1)
+                ("__a816_irq_save_disable_v2", 1)
             } else if symbol == actionc::nir::runtime_symbol_id("TEST.RestoreIRQ") {
-                ("__a816_irq_restore_v1", 0)
+                ("__a816_irq_restore_v2", 0)
             } else {
                 panic!("unexpected external {r:?}")
             };
@@ -107,10 +107,10 @@ impl ContextHarness {
                 stack_peak: peak,
                 checks_stack: true,
                 irq_effect: match name {
-                    "__a816_irq_save_disable_v1" => {
+                    "__a816_irq_save_disable_v2" => {
                         actionc::mir65816::image::IrqEffect::SaveDisable
                     }
-                    "__a816_irq_restore_v1" => actionc::mir65816::image::IrqEffect::Restore,
+                    "__a816_irq_restore_v2" => actionc::mir65816::image::IrqEffect::Restore,
                     _ => Default::default(),
                 },
             });
@@ -197,16 +197,16 @@ impl<I: ContextImage> ContextHarness<I> {
         bus.map(0x7800, &[0; 16], true);
         let mut vectors = [0u8; 32];
         for (offset, name) in [
-            (4, "__a816_cop_v1"),
-            (10, "__a816_nmi_v1"),
-            (14, "__a816_irq_v1"),
+            (4, "__a816_cop_v2"),
+            (10, "__a816_nmi_v2"),
+            (14, "__a816_irq_v2"),
         ] {
             vectors[offset..offset + 2]
                 .copy_from_slice(&(runtime.symbols[name] as u16).to_le_bytes());
         }
         for offset in [6, 8] {
             vectors[offset..offset + 2]
-                .copy_from_slice(&(runtime.symbols["__a816_terminal_v1"] as u16).to_le_bytes());
+                .copy_from_slice(&(runtime.symbols["__a816_terminal_v2"] as u16).to_le_bytes());
         }
         bus.map(0xffe0, &vectors, false);
         let irq = Domain {
@@ -219,6 +219,7 @@ impl<I: ContextImage> ContextHarness<I> {
             nmi_extra: 0,
         };
         bus.map(IRQ_DP.into(), &irq.bytes().unwrap(), true);
+        bus.ram[usize::from(IRQ_DP)..usize::from(IRQ_DP)+128].copy_from_slice(&workspace_pattern(IRQ_DP));
         bus.map(0x6000, &[0xa5; 0x1000], true);
         bus.map(0x7000, &[0; 0x400], true);
         let mut domains = Vec::new();
@@ -239,12 +240,14 @@ impl<I: ContextImage> ContextHarness<I> {
                 &domain,
                 address,
                 argument,
-                runtime.symbols["__a816_task_return_v1"],
+                runtime.symbols["__a816_task_return_v2"],
                 peak,
                 false,
             )
             .unwrap();
             bus.map(domain.direct_page.into(), &domain.bytes().unwrap(), true);
+            let base = usize::from(domain.direct_page);
+            bus.ram[base..base+128].copy_from_slice(&workspace_pattern(domain.direct_page));
             bus.map(lo.into(), &[0xa5; 0x1000], true);
             let at = usize::from(task.saved_s) + 1;
             bus.ram[at..at + 19].copy_from_slice(&task.bytes);
@@ -252,7 +255,7 @@ impl<I: ContextImage> ContextHarness<I> {
             domains.push(domain);
             first.push(task);
         }
-        let restore = runtime.symbols["__a816_restore_v1"];
+        let restore = runtime.symbols["__a816_restore_v2"];
         let cpu = Machine::start_at(Registers {
             a: first[0].saved_s,
             s: 0x6ff0,
@@ -287,7 +290,10 @@ impl<I: ContextImage> ContextHarness<I> {
         assert_eq!(self.bus.value(DONE, 2), 1);
     }
     pub fn guards(&self) {
+        assert_eq!(&self.bus.ram[usize::from(IRQ_DP)..usize::from(IRQ_DP)+128], workspace_pattern(IRQ_DP));
         for d in &self.domains {
+            let base = usize::from(d.direct_page);
+            assert_eq!(&self.bus.ram[base..base+128], workspace_pattern(d.direct_page));
             let lo = usize::from(d.stack_low);
             let hi = usize::from(d.body_s);
             assert_eq!(&self.bus.ram[lo..lo + 8], &[0xa5; 8]);
@@ -297,8 +303,8 @@ impl<I: ContextImage> ContextHarness<I> {
                     .all(|&b| b == 0xa5)
             );
             assert_eq!(
-                &self.bus.ram[usize::from(d.direct_page) + 64..usize::from(d.direct_page) + 256],
-                &d.bytes().unwrap()[64..]
+                &self.bus.ram[usize::from(d.direct_page) + 192..usize::from(d.direct_page) + 256],
+                &d.bytes().unwrap()[192..]
             );
         }
         assert_eq!(&self.bus.ram[0x6000..0x6008], &[0xa5; 8]);

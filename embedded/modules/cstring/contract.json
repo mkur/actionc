@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "abi": "action65816.native.v1",
+  "abi": "action65816.native.v2",
   "module": "CSTRING",
   "implementation": "CSTRING.IMPL",
   "providers": {

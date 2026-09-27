@@ -199,7 +199,7 @@ fn captured_return_tails_match_ca65_clear_hidden_b_and_read_no_neighbor_or_scrat
                     );
                     assert_eq!(h.bus.writes.len(), writes);
                     let accessed = &h.bus.reads[reads..];
-                    assert!(!accessed.iter().any(|a| (0x2000..0x2040).contains(a)));
+                    assert!(!accessed.iter().any(|a| (0x2080..0x20c0).contains(a)));
                     let stack: Vec<_> = accessed
                         .iter()
                         .copied()
@@ -222,7 +222,7 @@ fn captured_return_tails_match_ca65_clear_hidden_b_and_read_no_neighbor_or_scrat
 fn captured_bytes_preserve_volatile_alias_order_across_full_scratch_clobbers() {
     let source = "MODULE TEST\nPUBLIC EXTERNAL PROC Smash()\nVOLATILE BYTE io=$D000\nBYTE FUNC VolatileByte() RETURN(io)\nBYTE FUNC Captured() BYTE POINTER p BYTE saved p=BYTE POINTER($12FFFF) saved=p^ Smash() RETURN(saved)\nBYTE FUNC Reloaded() BYTE POINTER p PROC POINTER cb p=BYTE POINTER($12FFFF) cb=@Smash cb() RETURN(p^)\nPROC Main() RETURN\nENDMODULE\n";
     let smash = assemble(
-        "sep #$20\n.a8\nlda #$34\nsta f:$12ffff\nldx #63\nlda #$a7\nagain: sta 0,x\ndex\nbpl again\nrep #$20\n.a16\nlda #$9876\nldx #$beef\nldy #$dead\nrtl\nnop",
+        "sep #$20\n.a8\nlda #$34\nsta f:$12ffff\nldx #63\nlda #$a7\nagain: sta $80,x\ndex\nbpl again\nrep #$20\n.a16\nlda #$9876\nldx #$beef\nldy #$dead\nrtl\nnop",
         0x041000,
     );
     for optimize in [false, true] {
@@ -281,7 +281,7 @@ fn captured_bytes_preserve_volatile_alias_order_across_full_scratch_clobbers() {
                         .collect::<Vec<_>>(),
                     [(0xd000, Access::Read)]
                 );
-                assert!((0x2000..0x2040).all(|a| h.bus.writes.contains(&(a, 0xa7))));
+                assert!((0x2080..0x20c0).all(|a| h.bus.writes.contains(&(a, 0xa7))));
             }
         }
     }

@@ -134,7 +134,7 @@ ENDMODULE
         ldx #63
         lda #$a7
     again:
-        sta 0,x
+        sta $80,x
         dex
         bpl again
         rep #$20
@@ -177,7 +177,7 @@ ENDMODULE
                 h.global(&image, "result", 4),
                 0x55667788 + 0x10203 + 2 * 0x11223344
             );
-            assert!((0x2000..0x2040).all(|a| h.bus.writes.contains(&(a, 0xa7))));
+            assert!((0x2080..0x20c0).all(|a| h.bus.writes.contains(&(a, 0xa7))));
         }
     }
 }

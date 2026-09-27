@@ -44,7 +44,10 @@ fn native_cli_writes_a_valid_image_and_preserves_inputs() {
         String::from_utf8_lossy(&result.stderr)
     );
     let image = Image::from_json(&std::fs::read(dir.0.join("source.a816.json")).unwrap()).unwrap();
-    assert_eq!(image.abi, "action65816.native.v1");
+    assert_eq!(image.abi, "action65816.native.v2");
+    let mut old = image.clone();
+    old.abi = "action65816.native.v1".into();
+    assert!(old.verify().is_err());
     assert_eq!(image.routines.len(), 1);
     for input in ["source.act", "layout.json"] {
         let before = std::fs::read(dir.0.join(input)).unwrap();

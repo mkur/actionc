@@ -17,7 +17,7 @@ STACK = {0xa3:'LDA',0x83:'STA',0x63:'ADC',0xe3:'SBC',0xc3:'CMP',0x23:'AND',0x03:
 
 
 def disassemble(image):
-    if (image['format'], image['version'], image['abi']) != ('actionc-65816-image', 3, 'action65816.native.v1'):
+    if (image['format'], image['version'], image['abi']) != ('actionc-65816-image', 3, 'action65816.native.v2'):
         raise ValueError('unsupported native image')
     lines=[]
     for segment in image['segments']:

@@ -173,7 +173,7 @@ ENDMODULE
         ldx #63
         lda #$a7
     again:
-        sta 0,x
+        sta $80,x
         dex
         bpl again
         rep #$20
@@ -239,7 +239,7 @@ ENDMODULE
                         .collect::<Vec<_>>(),
                     [(0xd000, Access::Read), (0xd001, Access::Read)]
                 );
-                assert!((0x2000..0x2040).all(|address| h.bus.writes.contains(&(address, 0xa7))));
+                assert!((0x2080..0x20c0).all(|address| h.bus.writes.contains(&(address, 0xa7))));
             }
         }
     }
@@ -349,7 +349,7 @@ fn executed_word_return_tails_read_only_the_source_and_restore_the_stack() {
                     assert_eq!(after.x, before.x, "word-return tail need not clear X");
                     assert_eq!(h.bus.writes.len(), write_start);
                     let reads = &h.bus.reads[read_start..];
-                    assert!(!reads.iter().any(|a| (0x2000..0x2040).contains(a)));
+                    assert!(!reads.iter().any(|a| (0x2080..0x20c0).contains(a)));
                     let stack_reads: Vec<_> = reads
                         .iter()
                         .copied()

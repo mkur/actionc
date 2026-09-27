@@ -252,7 +252,7 @@ fn long_arithmetic_selected_words_match_ca65_and_use_no_scratch() {
                     assert!(
                         !h.bus.reads[reads..]
                             .iter()
-                            .any(|a| (0x2000..0x2040).contains(a))
+                            .any(|a| (0x2080..0x20c0).contains(a))
                     );
                     let after = h.cpu.registers();
                     assert_eq!(
@@ -382,7 +382,7 @@ PROC Main() result=Work(input) RETURN
 ENDMODULE
 "#;
     let smash = assemble(
-        "sep #$20\n.a8\nldx #63\nlda #$a7\nagain: sta 0,x\ndex\nbpl again\nrep #$20\n.a16\nldy #$dead\nldx #$89ab\nlda #$cdef\nrtl",
+        "sep #$20\n.a8\nldx #63\nlda #$a7\nagain: sta $80,x\ndex\nbpl again\nrep #$20\n.a16\nldy #$dead\nldx #$89ab\nlda #$cdef\nrtl",
         0x041000,
     );
     for optimize in [false, true] {
@@ -422,7 +422,7 @@ ENDMODULE
                         .wrapping_sub(0x89abcdef)
                         .wrapping_add(n.wrapping_sub(0x89abcdef))
                 );
-                assert!((0x2000..0x2040).all(|a| h.bus.writes.contains(&(a, 0xa7))));
+                assert!((0x2080..0x20c0).all(|a| h.bus.writes.contains(&(a, 0xa7))));
             }
         }
     }

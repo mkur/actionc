@@ -221,7 +221,7 @@ fn selected_graph_predicts_actual_raw_and_optimized_loop_and_guard_paths() {
                     );
                     let mut h = Harness::new(&image, &caller, irq);
                     if fail_guard {
-                        h.bus.ram[0x2044..0x2046].copy_from_slice(&0x5fefu16.to_le_bytes());
+                        h.bus.ram[0x20c4..0x20c6].copy_from_slice(&0x5fefu16.to_le_bytes());
                     }
                     let mut previous = 0;
                     let mut observations = 0;

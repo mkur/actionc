@@ -71,10 +71,10 @@ fn execute(artifact: &Value, vector: &Value, mask: u8) -> Value {
     bus.permissions[DP..DP + 256].fill(3);
     bus.ram[DP..DP + 256].fill(0xa5);
     if action {
-        bus.ram[DP + 64..DP + 256].fill(0);
-        bus.ram[DP + 0x43] = 2;
-        put(&mut bus.ram, DP + 0x44, 2, 0x401a);
-        put(&mut bus.ram, DP + 0x46, 2, 0x6000);
+        bus.ram[DP + 192..DP + 256].fill(0);
+        bus.ram[DP + 0xc3] = 2;
+        put(&mut bus.ram, DP + 0xc4, 2, 0x401a);
+        put(&mut bus.ram, DP + 0xc6, 2, 0x6000);
     }
     bus.permissions[0x4000..0x6000].fill(3);
     bus.ram[0x4000..0x6000].fill(0xa5);

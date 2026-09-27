@@ -94,7 +94,7 @@ fn scalar_homes_retain_width_alignment_and_unused_result_bits() {
 #[test]
 fn mixed_call_matches_the_published_bytes_and_stack_offsets() {
     let spec: serde_json::Value =
-        serde_json::from_str(include_str!("../../../docs/abi/action65816-native-v1.json")).unwrap();
+        serde_json::from_str(include_str!("../../../docs/abi/action65816-native-v2.json")).unwrap();
     let example = &spec["examples"]["mixed_call"];
     let types = scalar_types();
     let layout = call_layout(&signature(
@@ -195,9 +195,9 @@ fn unsupported_and_inconsistent_physical_signatures_fail_explicitly() {
 
 #[test]
 fn generated_rust_and_assembly_constants_match_the_manifest_on_lf_and_crlf() {
-    let source = include_str!("../../../docs/abi/action65816-native-v1.json").replace("\r\n", "\n");
+    let source = include_str!("../../../docs/abi/action65816-native-v2.json").replace("\r\n", "\n");
     let assembly =
-        include_str!("../../../docs/abi/action65816-native-v1.inc").replace("\r\n", "\n");
+        include_str!("../../../docs/abi/action65816-native-v2.inc").replace("\r\n", "\n");
     for (source, assembly) in [
         (source.clone(), assembly.clone()),
         (source.replace('\n', "\r\n"), assembly.replace('\n', "\r\n")),
@@ -228,5 +228,25 @@ fn generated_rust_and_assembly_constants_match_the_manifest_on_lf_and_crlf() {
             "run python3 tools/generate_abi65816.py"
         );
         assert_eq!(spec["abi"], ABI_NAME);
+    }
+}
+
+#[test]
+fn scratch_accesses_exclude_caller_workspace_and_metadata() {
+    assert_eq!((DP_SIZE, DP_ALIGNMENT), (256, 256));
+    assert_eq!(
+        (DP_CALLER_WORKSPACE_OFFSET, DP_CALLER_WORKSPACE_SIZE),
+        (0, 128)
+    );
+    for (offset, bytes, valid) in [
+        (0, 1, false),
+        (127, 2, false),
+        (128, 64, true),
+        (191, 1, true),
+        (191, 2, false),
+        (192, 1, false),
+        (u32::MAX, 2, false),
+    ] {
+        assert_eq!(scratch_contains(offset, bytes), valid);
     }
 }

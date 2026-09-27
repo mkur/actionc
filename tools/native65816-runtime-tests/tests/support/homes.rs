@@ -13,7 +13,7 @@ pub fn of(location: Location) -> Option<u16> {
     valid(h).then_some(h)
 }
 pub fn valid(h: u16) -> bool {
-    (1..=254).contains(&h) || ((288..=318).contains(&h) && h % 2 == 0)
+    (1..=254).contains(&h) || ((416..=446).contains(&h) && h % 2 == 0)
 }
 pub fn load(v: (bool, u16)) -> Vec<u8> {
     if v.0 {

@@ -447,7 +447,7 @@ For each slice:
    Update the relevant contract, save qualification evidence and commit the
    completed slice while preserving unrelated local changes.
 
-Preserve [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md), image v3, the
+Preserve [physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md), image v3, the
 [o65 profile](MIR65816_O65_PROFILE.md), public argument/result placement and stack
 guards. Frame sizes may shrink only with verified accounting. No slice reduces
 the platform's interrupt headroom or changes Exec816's compiler pin; adopting

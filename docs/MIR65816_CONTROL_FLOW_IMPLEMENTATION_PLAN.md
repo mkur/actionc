@@ -18,7 +18,7 @@ Implement, qualify and commit these improvements in order:
 | 3b | Omit a terminal JML to the physically following MIR block. | Emit every edge assignment first; retain block order and conditional dispatch. |
 | 3c | Replace eligible conditional dispatch with a short branch. | Ordinary and fused MIR terminators, same-routine labels, signed-byte displacement; retain the existing long fallback. |
 
-Keep the public [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md), image v3,
+Keep the public [physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md), image v3,
 [o65 profile v1](MIR65816_O65_PROFILE.md), call/return conventions, allocation,
 temporary homes/stores, copy scheduling/staging, stack guards and interrupt
 headroom unchanged. No broader accumulator forwarding, source-memory caching,

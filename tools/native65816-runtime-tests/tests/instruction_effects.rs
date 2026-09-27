@@ -61,7 +61,7 @@ fn declared_effects_cover_actual_bus_accesses_and_preserve_every_unwritten_bit()
                 bus.map(0x40000, &bytes, false);
                 bus.map(0x4000, &[0; 0x2000], true);
                 bus.map(0x2000, &[0; 256], true);
-                bus.ram[0x2000..0x2003].copy_from_slice(&[0, 0, 0x12]);
+                bus.ram[0x2080..0x2083].copy_from_slice(&[0, 0, 0x12]);
                 bus.map(0x120000, &[0x55, 0xaa, 0, 0x80, 0xff, 0x7f, 0, 0], true);
                 let mut cpu = Machine::start_at(Registers {
                     a: 0xabcd,

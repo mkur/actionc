@@ -113,7 +113,7 @@ fn native_direct_and_indirect_calls_share_the_published_argument_and_result_layo
             ]
         );
         let contract = mir.native_abi.unwrap();
-        assert_eq!(contract.version, 1);
+        assert_eq!(contract.version, 2);
         assert!(contract.unsupported_signatures.is_empty());
         assert_eq!(contract.boundary.data_bank, 0);
         assert!(contract.boundary.decimal_clear);

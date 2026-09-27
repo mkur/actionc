@@ -619,7 +619,10 @@ fn native_word_bitwise_uses_checked_stack_dp_and_immediate_forms() {
             for literal in [false, true] {
                 let mut s = builder(r);
                 for (id, offset) in [(a, 32), (b, 36), (dest, 40)] {
-                    let slot = Slot { offset, width: 2 };
+                    let slot = Slot {
+                        offset: offset + if direct { 128 } else { 0 },
+                        width: 2,
+                    };
                     s.frame.temps.insert(
                         id,
                         if direct {
@@ -635,13 +638,24 @@ fn native_word_bitwise_uses_checked_stack_dp_and_immediate_forms() {
                     right.clone()
                 };
                 assert!(s.word_binary(dest, 2, op, &left, &rhs).unwrap());
-                let mut expected = vec![0xc2, 0x20, if direct { 0xa5 } else { 0xa3 }, 32];
+                let mut expected = vec![
+                    0xc2,
+                    0x20,
+                    if direct { 0xa5 } else { 0xa3 },
+                    if direct { 160 } else { 32 },
+                ];
                 if literal {
                     expected.extend([imm, 1, 0x80]);
                 } else {
-                    expected.extend([if direct { dp } else { stack }, 36]);
+                    expected.extend([
+                        if direct { dp } else { stack },
+                        if direct { 164 } else { 36 },
+                    ]);
                 }
-                expected.extend([if direct { 0x85 } else { 0x83 }, 40]);
+                expected.extend([
+                    if direct { 0x85 } else { 0x83 },
+                    if direct { 168 } else { 40 },
+                ]);
                 assert_eq!(s.code.code().bytes, expected);
             }
         }

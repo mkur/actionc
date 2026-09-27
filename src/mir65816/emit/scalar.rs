@@ -3,8 +3,8 @@ use super::*;
 use crate::nir::{NirIntegerRole, NirTypeKind};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub(crate) const START: u16 = 32;
-pub(crate) const END: u16 = 64;
+pub(crate) const START: u16 = abi::generated::DP_SCRATCH_OFFSET as u16 + 32;
+pub(crate) const END: u16 = START + 32;
 pub(crate) fn word_offset(offset: u16) -> bool {
     (START..END).contains(&offset) && offset % 2 == 0
 }
@@ -13,7 +13,7 @@ const _: () = {
     assert!(END as u32 <= abi::generated::DP_SCRATCH_OFFSET + abi::generated::DP_SCRATCH_SIZE);
     assert!(END as u32 <= abi::generated::DP_OWNER_POINTER_OFFSET);
     // Current selector workspaces end at byte 30. Pointer leaves use 0..9.
-    assert!(START > 30);
+    assert!(START > abi::generated::DP_SCRATCH_OFFSET as u16 + 30);
     assert!(START as u32 >= abi::generated::DP_POINTER2_OFFSET + 3);
 };
 
@@ -362,7 +362,9 @@ mod tests {
                     assert_eq!(
                         f.temps[&TempId(i)],
                         Location::DirectPage(Slot {
-                            offset: 32 + 2 * i as u16,
+                            offset: crate::mir65816::abi::generated::DP_SCRATCH_OFFSET as u16
+                                + 32
+                                + 2 * i as u16,
                             width: 2
                         })
                     );

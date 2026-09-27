@@ -1,5 +1,5 @@
 MODULE A816MEMORY
-; Ordinary, reentrant native-v1 helpers. Each invocation owns its parameters.
+; Ordinary, reentrant native-v2 helpers. Each invocation owns its parameters.
 ; Pointer movement wraps at 24 bits; callers supply valid contiguous objects.
 PUBLIC PROC Clear(BYTE POINTER destination SIZE length)
   WHILE length>0 DO

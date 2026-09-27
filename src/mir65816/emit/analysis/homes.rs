@@ -1,5 +1,5 @@
 //! Physical bytes, separate from logical ownership. Stack coordinates use S at
-//! invocation entry; DP coordinates use the current execution domain. ABI v1
+//! invocation entry; DP coordinates use the current execution domain. ABI v2
 //! requires disjoint nonwrapping stack/DP reservations and preserves both across
 //! preemption. Unresolved addresses still potentially alias every tracked byte.
 use super::super::effects::{Access, Memory};
@@ -136,7 +136,7 @@ impl HomeContract {
         }
         // Fixed helper scratch and promoted temps share these exact bytes.
         for offset in 0..DP_SIZE as u16 {
-            let scratch = u32::from(offset) < DP_SCRATCH_SIZE;
+            let scratch = crate::mir65816::abi::scratch_contains(u32::from(offset), 1);
             this.insert(
                 HomeByte::DirectPage(offset),
                 if scratch {

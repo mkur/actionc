@@ -5,7 +5,7 @@ class EdgeCoalescing(unittest.TestCase):
     def fixture(self):
         code=bytes.fromhex('8306 8308 a306 830a a308 8306 a90000 8308 5c150001 6b')
         site=dict(routine=0,home_changes=[dict(temp=0,old_offset=6,new_offset=10),dict(temp=2,old_offset=8,new_offset=6)],operand_patches=[dict(pc=0x10000,before='8306',after='830a'),dict(pc=0x10002,before='8308',after='8306')],removed_pcs=list(range(0x10004,0x1000c,2)),old_transfer_pc=0x10011,before_copy_bytes='a306830aa3088306a900008308',after_copy_bytes='a900008308')
-        image=dict(format="actionc-65816-image",version=3,abi="action65816.native.v1",entry=0x10000,segments=[dict(address=0x10000,bytes=list(code),executable=True)],routines=[dict(id=0,address=0x10000,size=len(code),calls=[],temporaries=[dict(id=0,size=2,home=dict(kind='stack',displacement=6)),dict(id=2,size=2,home=dict(kind='stack',displacement=8))])])
+        image=dict(format="actionc-65816-image",version=3,abi="action65816.native.v2",entry=0x10000,segments=[dict(address=0x10000,bytes=list(code),executable=True)],routines=[dict(id=0,address=0x10000,size=len(code),calls=[],temporaries=[dict(id=0,size=2,home=dict(kind='stack',displacement=6)),dict(id=2,size=2,home=dict(kind='stack',displacement=8))])])
         return image,site
     def test_frozen_transform_patches_only_named_homes_and_deletes_copies(self):
         image,site=self.fixture();out,ins,remap=transform(image,site)

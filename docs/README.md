@@ -45,7 +45,7 @@ crowding the active reference set.
 - [MIR65816_LOWERING_CONTRACT.md](MIR65816_LOWERING_CONTRACT.md)
   - preserved signedness, data identities, initialization, alignment and relocation
     byte selection in both native 65816 models, with regression coverage.
-- [MIR65816_PHYSICAL_ABI_V1.md](MIR65816_PHYSICAL_ABI_V1.md)
+- [MIR65816_PHYSICAL_ABI_V2.md](MIR65816_PHYSICAL_ABI_V2.md)
   - Specifies the native far-call ABI, aligned stack arguments, A/X results,
     direct-page ownership, interrupt frames and first-task construction, with
     machine-readable constants and verified layout plans. Initial Exec subset

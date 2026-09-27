@@ -16,7 +16,7 @@ For a verified two-byte integer ADD or SUB, load the left operand into 16-bit A,
 perform one native ADC/SBC, and write the result to its existing allocated stack
 home. Both raw and optimized compilation use this target selection.
 
-Preserve `action65816.native.v1`, image v3, the experimental o65 profile, stack
+Preserve `action65816.native.v2`, image v3, the experimental o65 profile, stack
 guards, fixed frames, temporary homes, outgoing argument layouts, and call
 barriers. No SemIR/NIR change, allocator change, persistent CPU/DP allocation,
 return-marshalling optimization, branch relaxation, or pointer-arithmetic

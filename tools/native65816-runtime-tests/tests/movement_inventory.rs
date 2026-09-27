@@ -107,8 +107,8 @@ fn observe_every_reload_claim_on_saved_raw_and_optimized_images() {
                         .collect::<Vec<_>>(),
                     true,
                 );
-                bus.ram[0x2044..0x2046].copy_from_slice(&0x401au16.to_le_bytes());
-                bus.ram[0x2046..0x2048].copy_from_slice(&0x6000u16.to_le_bytes());
+                bus.ram[0x20c4..0x20c6].copy_from_slice(&0x401au16.to_le_bytes());
+                bus.ram[0x20c6..0x20c8].copy_from_slice(&0x6000u16.to_le_bytes());
                 bus.map(0x4000, &[0xa5; 0x2000], true);
                 let entry = n(&artifact["entry"]);
                 let entry_s = 0x5fe0u16;

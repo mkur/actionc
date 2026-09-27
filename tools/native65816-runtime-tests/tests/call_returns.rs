@@ -100,7 +100,7 @@ fn caller_for(address: u32, width: u8) -> Assembly {
 
 fn echo(width: u8) -> Vec<u8> {
     let mut s =
-        String::from("sep #$20\n.a8\nldx #63\nlda #$a7\nclobber: sta 0,x\ndex\nbpl clobber\n");
+        String::from("sep #$20\n.a8\nldx #63\nlda #$a7\nclobber: sta $80,x\ndex\nbpl clobber\n");
     if width == 1 {
         s.push_str("lda 4,s\nrep #$20\n.a16\nand #$00ff\nldx #$beef\n");
     } else {
@@ -259,7 +259,7 @@ fn forwarded_results_match_ca65_without_private_spills_or_reloads() {
                     assert!(
                         !h.bus.reads[reads..]
                             .iter()
-                            .any(|a| (0x2000..0x2040).contains(a))
+                            .any(|a| (0x2080..0x20c0).contains(a))
                     );
                     h.run();
                     h.guards(mask);

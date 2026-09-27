@@ -107,7 +107,7 @@ Optimized unlink uses 129 bytes, 189 VM cycles and no frame, including checked
 entry and RTL; the independent reference uses 127 bytes and 200 cycles. The
 [qualification record](../../docs/abi/action65816-pointer-allocation-qualification.json)
 binds the 2026-09-17 results to compiler/fixture hashes and context artifacts. Images
-use transport v3 and retain physical ABI v1.
+use transport v3 and retain physical ABI v2.
 
 The [stack allocation investigation](../../docs/MIR65816_TEMPORARY_ALLOCATION.md)
 records the `90bd73e` baseline and reductions from CFG-aware temporary reuse.

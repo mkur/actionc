@@ -195,7 +195,7 @@ fn signed_captures_survive_alias_mutation_and_complete_call_clobbers() {
     use actionc_vm::native65816::Access;
     let source = "MODULE TEST\nPUBLIC EXTERNAL PROC Smash()\nVOLATILE INT io=$D000\nBYTE ARRAY out=$7200\nPROC Main() INT POINTER p\nINT saved,observed\nBYTE flag\nPROC POINTER cb\np=INT POINTER($12FFFF) cb=@Smash\nsaved=p^ observed=io flag=(saved<INT(0))\nSmash() out(0)=flag out(2)=(saved<observed) out(4)=(saved>=observed)\nIF p^<saved THEN out(6)=1 ELSE out(6)=0 FI\nout(8)=(io<=observed)\np^=INT($7FFF) cb() out(10)=(p^>=INT(0))\nIF saved>INT($8000) THEN out(12)=1 ELSE out(12)=0 FI\nRETURN\nENDMODULE\n";
     let smash = assemble(
-        "sep #$20\n.a8\nlda #0\nsta f:$12ffff\nlda #$80\nsta f:$130000\nldx #63\nlda #$a7\nagain: sta 0,x\ndex\nbpl again\nrep #$20\n.a16\nlda #$9876\nldx #$beef\nldy #$dead\nsep #$41\nrtl",
+        "sep #$20\n.a8\nlda #0\nsta f:$12ffff\nlda #$80\nsta f:$130000\nldx #63\nlda #$a7\nagain: sta $80,x\ndex\nbpl again\nrep #$20\n.a16\nlda #$9876\nldx #$beef\nldy #$dead\nsep #$41\nrtl",
         0x041000,
     );
     for optimize in [false, true] {
@@ -264,7 +264,7 @@ fn signed_captures_survive_alias_mutation_and_complete_call_clobbers() {
                         (0xd001, Access::Read)
                     ]
                 );
-                assert!((0x2000..0x2040).all(|a| h.bus.writes.contains(&(a, 0xa7))));
+                assert!((0x2080..0x20c0).all(|a| h.bus.writes.contains(&(a, 0xa7))));
             }
         }
     }
@@ -483,7 +483,7 @@ fn signed_windows_read_both_private_words_and_fusion_omits_the_boolean_store() {
                     assert!(
                         !h.bus.reads[reads..]
                             .iter()
-                            .any(|a| (0x2000..0x2040).contains(a))
+                            .any(|a| (0x2080..0x20c0).contains(a))
                     );
                     h.run();
                     h.guards(mask);

@@ -226,7 +226,7 @@ ENDMODULE
         for variant in 0..2 {
             let address = if variant == 0 { 0x041000 } else { 0x061000 };
             let smash = assemble(
-                "sep #$20\n.a8\nldx #63\nlda #$a7\nagain: sta 0,x\ndex\nbpl again\nrep #$20\n.a16\nldy #$dead\nldx #$1122\nlda #$3344\nrtl",
+                "sep #$20\n.a8\nldx #63\nlda #$a7\nagain: sta $80,x\ndex\nbpl again\nrep #$20\n.a16\nldy #$dead\nldx #$1122\nlda #$3344\nrtl",
                 address,
             );
             let p = native::placement(
@@ -252,7 +252,7 @@ ENDMODULE
                     h.bus.value(native::object(&image, "result"), 4),
                     0x55667788 + 0x10203 + 2 * 0x11223344
                 );
-                assert!((0x2000..0x2040).all(|a| h.bus.writes.contains(&(a, 0xa7))));
+                assert!((0x2080..0x20c0).all(|a| h.bus.writes.contains(&(a, 0xa7))));
                 native::record(
                     "imports",
                     optimize,
@@ -278,7 +278,7 @@ fn guard_failure_reaches_the_relocated_raw_adapter_before_frame_writes() {
             let p = native::placement(&bytes, variant, vec![native::fault(variant)]);
             let image = format::relocate(&bytes, &p).unwrap();
             let mut h = Harness::new_o65(&image, &caller(image.entry()), 0);
-            h.bus.ram[0x2044..0x2046].copy_from_slice(&0x5fecu16.to_le_bytes());
+            h.bus.ram[0x20c4..0x20c6].copy_from_slice(&0x5fecu16.to_le_bytes());
             let mut low = h.cpu.registers().s;
             assert!(
                 h.cpu
@@ -549,17 +549,17 @@ fn relocated_tasks_preserve_domains_under_irq_nmi_and_instruction_injection() {
     use actionc::mir65816::image::IrqEffect;
     for optimize in [false, true] {
         let bindings = [
-            ("TEST.Yield", "__a816_yield_v1", 1, IrqEffect::Preserve, 1),
+            ("TEST.Yield", "__a816_yield_v2", 1, IrqEffect::Preserve, 1),
             (
                 "TEST.SaveIRQ",
-                "__a816_irq_save_disable_v1",
+                "__a816_irq_save_disable_v2",
                 1,
                 IrqEffect::SaveDisable,
                 3,
             ),
             (
                 "TEST.RestoreIRQ",
-                "__a816_irq_restore_v1",
+                "__a816_irq_restore_v2",
                 0,
                 IrqEffect::Restore,
                 3,

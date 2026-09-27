@@ -10,7 +10,7 @@ use super::{
 use crate::mir65816::image::{Segment, ZeroFill};
 use std::collections::BTreeSet;
 
-const HEADER: &[u8; 8] = b"A8C2\x01\x00\x00\x00";
+const HEADER: &[u8; 8] = b"A8C3\x01\x00\x00\x00";
 
 pub(super) fn descriptor(p: &Profile) -> Vec<u8> {
     let mut bytes = HEADER.to_vec();
@@ -44,7 +44,11 @@ pub(super) fn admit(a: &Artifact) -> Result<(), String> {
         || p.objects.iter().any(|o| o.location.section.is_none())
         || p.imports.iter().skip(1).any(|i| !ordinary(&i.contract))
     {
-        return Err(format!("compact v2 requires a checked no-argument LONGINT function entry (signature {:08x}, got {:08x}), Task-only preserving imports, no absolute storage, arithmetic fault or extra NMI allowance", compact_entry_signature(), entry.contract.signature));
+        return Err(format!(
+            "compact v3 requires a checked no-argument LONGINT function entry (signature {:08x}, got {:08x}), Task-only preserving imports, no absolute storage, arithmetic fault or extra NMI allowance",
+            compact_entry_signature(),
+            entry.contract.signature
+        ));
     }
     // Run the rich host proof checks before omitting them from the file.
     let file = wire::File {

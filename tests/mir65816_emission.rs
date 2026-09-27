@@ -749,7 +749,7 @@ fn pointer_allocation_proves_closed_lifetimes_and_rejects_corrupt_locations() {
             _ => None,
         })
         .collect::<Vec<_>>();
-    for (id, offset) in ids.iter().zip([0, 3, 6]) {
+    for (id, offset) in ids.iter().zip([128, 131, 134]) {
         assert_eq!(
             frame.temps[id],
             Location::DirectPage(Slot { offset, width: 3 })
@@ -799,7 +799,7 @@ fn pointer_allocation_proves_closed_lifetimes_and_rejects_corrupt_locations() {
             _ => None,
         })
         .collect::<Vec<_>>();
-    assert_eq!(offsets, [0, 3, 0, 3]);
+    assert_eq!(offsets, [128, 131, 128, 131]);
 }
 
 #[test]

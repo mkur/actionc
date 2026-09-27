@@ -212,7 +212,7 @@ fn y_byte_loads_require_captured_unsigned_indices_and_bounded_stride() {
                                     "{ty}/{optimize}: {bytes:02x?}"
                                 );
                                 assert!(bytes.contains(&0xa8)); // TAY
-                                assert!(bytes.windows(2).any(|b| b == [0xb7, 0]));
+                                assert!(bytes.windows(2).any(|b| b == [0xb7, 128]));
                                 if stride.is_power_of_two() {
                                     assert!(!bytes.windows(2).any(|b| b == [0x65, 20]));
                                 }
@@ -254,7 +254,7 @@ fn y_byte_stores_keep_y_while_loading_captured_and_immediate_values() {
                                     "{bytes:02x?}"
                                 );
                                 assert!(bytes.contains(&0xa8));
-                                assert!(bytes.ends_with(&[0x97, 0]));
+                                assert!(bytes.ends_with(&[0x97, 128]));
                             } else {
                                 assert!(bytes.len() > 23);
                             }

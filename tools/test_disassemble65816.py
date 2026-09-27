@@ -6,7 +6,7 @@ from disassemble65816 import disassemble
 
 def listing(code):
     return disassemble(dict(format='actionc-65816-image', version=3,
-                            abi='action65816.native.v1', segments=[dict(
+                            abi='action65816.native.v2', segments=[dict(
                                 executable=True, address=0x18000, bytes=code)]))
 
 

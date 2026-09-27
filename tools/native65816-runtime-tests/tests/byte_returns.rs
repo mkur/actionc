@@ -36,7 +36,7 @@ fn check_constants(h: &mut Harness, mask: u8) {
         h.bus
             .writes
             .iter()
-            .all(|&(a, _)| !(0x2000..0x2040).contains(&a))
+            .all(|&(a, _)| !(0x2080..0x20c0).contains(&a))
     );
 }
 
@@ -205,7 +205,7 @@ PROC Main() RETURN
                         assert_eq!(after.x, before.x);
                         assert_eq!(h.bus.writes.len(), write_start);
                         let reads = &h.bus.reads[read_start..];
-                        assert!(reads.iter().all(|a| !(0x2000..0x2040).contains(a)));
+                        assert!(reads.iter().all(|a| !(0x2080..0x20c0).contains(a)));
                         let stack_reads: Vec<_> = reads
                             .iter()
                             .copied()

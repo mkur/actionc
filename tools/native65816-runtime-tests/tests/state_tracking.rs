@@ -157,26 +157,26 @@ cmp 2,s
 and 2,s
 ora 2,s
 eor 2,s
-sta $08
-lda $08
+sta $88
+lda $88
 clc
-adc $08
+adc $88
 sec
-sbc $08
-cmp $08
-and $08
-ora $08
-eor $08
-asl $08
-rol $08
-lsr $08
-ror $08
-ldx $08
+sbc $88
+cmp $88
+and $88
+ora $88
+eor $88
+asl $88
+rol $88
+lsr $88
+ror $88
+ldx $88
 ldy #2
-lda [$00]
-sta [$00]
-lda [$00],y
-sta [$00],y
+lda [$80]
+sta [$80]
+lda [$80],y
+sta [$80],y
 lda f:$120004
 sta f:$120006
 txa
@@ -220,7 +220,7 @@ nop
             bus.map(0x40000, &independent, false);
             bus.map(0x4000, &[0; 0x2000], true);
             bus.map(0x2000, &[0; 256], true);
-            bus.ram[0x2000..0x2003].copy_from_slice(&[0, 0, 0x12]);
+            bus.ram[0x2080..0x2083].copy_from_slice(&[0, 0, 0x12]);
             bus.map(0x120000, &[0x55, 0xaa, 0, 0x80, 0xff, 0x7f, 0, 0], true);
             let entry_s = 0x5fe0;
             let mut cpu = Machine::start_at(Registers {
@@ -538,7 +538,7 @@ fn scalar_dp_word_encoding_generations_and_flags_match_ca65_and_vm() {
         let (code, trace) = proof::scalar_dp_probe(left, right);
         let independent = assemble(
             &format!(
-                "rep #$20\nlda #{left}\nsta $20\nlda #{right}\nsta 32,s\nlda $20\nclc\nadc 32,s\nsta $22\ncmp $22\nsec\nsbc $20\nsta $24\nsep #$20\n.a8\nlda #$ff\nsta $21\nrep #$20\n.a16\nlda $22\ncmp $24\nnop\nstp\nnop"
+                "rep #$20\nlda #{left}\nsta $a0\nlda #{right}\nsta 32,s\nlda $a0\nclc\nadc 32,s\nsta $a2\ncmp $a2\nsec\nsbc $a0\nsta $a4\nsep #$20\n.a8\nlda #$ff\nsta $a1\nrep #$20\n.a16\nlda $a2\ncmp $a4\nnop\nstp\nnop"
             ),
             0x40000,
         );
@@ -573,8 +573,8 @@ fn scalar_dp_word_encoding_generations_and_flags_match_ca65_and_vm() {
                 );
                 check(snapshot, cpu.registers(), entry_s, &bus, irq);
             }
-            assert_eq!(bus.value(0x2022, 2), u32::from(left.wrapping_add(right)));
-            assert_eq!(bus.value(0x2024, 2), u32::from(right));
+            assert_eq!(bus.value(0x20a2, 2), u32::from(left.wrapping_add(right)));
+            assert_eq!(bus.value(0x20a4, 2), u32::from(right));
             assert_eq!(bus.value(u32::from(entry_s) + 32, 2), u32::from(right));
         }
     }

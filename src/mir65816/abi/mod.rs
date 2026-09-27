@@ -1,4 +1,4 @@
-//! Physical `action65816.native.v1` layouts, derived from typed NIR facts.
+//! Physical `action65816.native.v2` layouts, derived from typed NIR facts.
 pub mod generated;
 pub mod stack;
 
@@ -6,6 +6,14 @@ use crate::nir::{NirCallConvention, NirCallableSignature, NirIntegerRole, NirTyp
 use crate::target::{ByteOffset, ByteSize, TargetLayout};
 use generated::*;
 use std::fmt;
+
+/// A D-relative access must fit wholly inside the compiler-owned workspace.
+pub fn scratch_contains(offset: u32, bytes: u32) -> bool {
+    offset >= DP_SCRATCH_OFFSET
+        && offset
+            .checked_add(bytes)
+            .is_some_and(|end| end <= DP_SCRATCH_OFFSET + DP_SCRATCH_SIZE)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScalarClass {
@@ -89,7 +97,7 @@ impl fmt::Display for AbiError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnsupportedType => {
-                formatter.write_str("type is outside the native 65816 v1 scalar ABI")
+                formatter.write_str("type is outside the native 65816 v2 scalar ABI")
             }
             Self::WidthMismatch { expected, actual } => write!(
                 formatter,
@@ -99,7 +107,7 @@ impl fmt::Display for AbiError {
                 formatter.write_str("external calling convention requires a native 65816 adapter")
             }
             Self::VariadicSignature => {
-                formatter.write_str("variadic calls are outside the native 65816 v1 ABI")
+                formatter.write_str("variadic calls are outside the native 65816 v2 ABI")
             }
             Self::ExtentOverflow => {
                 formatter.write_str("native 65816 argument extent exceeds bank-zero stack capacity")

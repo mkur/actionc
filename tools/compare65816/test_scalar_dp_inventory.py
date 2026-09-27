@@ -41,7 +41,7 @@ class ScalarInventory(unittest.TestCase):
         # One zero-frame teardown, followed by an uncounted routine; unrelated
         # data at the same numeric offset is not a code position.
         code=bytes.fromhex('8520 a8 3b 18 690400 1b 98 6b 5c000001 6b')
-        image=dict(format="actionc-65816-image",version=3,abi="action65816.native.v1",entry=0x1000b,segments=[dict(address=0x10000,bytes=list(code),executable=True)],
+        image=dict(format="actionc-65816-image",version=3,abi="action65816.native.v2",entry=0x1000b,segments=[dict(address=0x10000,bytes=list(code),executable=True)],
                    routines=[dict(id=0,address=0x10000,size=11,fixed_frame=4,spill_bytes=4,local_stack_peak=4,calls=[],arguments=[dict(body_displacement=8)],temporaries=[dict(id=0,size=2,home=dict(kind='stack',displacement=2))]),
                              dict(id=1,address=0x1000b,size=5)])
         t=dict(routine=0,rejections=[],old_extent=4,new_extent=0,classes=[dict(stack=2,dp=32,temps=[0])],patches=[],removed_pcs=[0x10002,0x10003,0x10004,0x10005,0x10008,0x10009])
@@ -53,7 +53,7 @@ class ScalarInventory(unittest.TestCase):
         self.assertEqual(image['routines'][0]['fixed_frame'],4)
 
     def test_bad_patch_is_rejected_before_transform(self):
-        image=dict(format="actionc-65816-image",version=3,abi="action65816.native.v1",entry=65536,segments=[dict(address=65536,bytes=[0x6b],executable=True)],routines=[])
+        image=dict(format="actionc-65816-image",version=3,abi="action65816.native.v2",entry=65536,segments=[dict(address=65536,bytes=[0x6b],executable=True)],routines=[])
         with self.assertRaises(AssertionError):
             transform(image,[dict(routine=0,rejections=[],patches=[dict(pc=65536,before='a302',after='a520')],removed_pcs=[])])
 

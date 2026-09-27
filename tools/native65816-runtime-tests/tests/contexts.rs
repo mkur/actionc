@@ -100,9 +100,9 @@ fn irq_and_nmi_restore_full_registers_for_every_interrupted_width() {
                 let pc = h.cpu.pc();
                 if pc
                     == h.symbols[if nmi {
-                        "__a816_nmi_v1"
+                        "__a816_nmi_v2"
                     } else {
-                        "__a816_irq_v1"
+                        "__a816_irq_v2"
                     }]
                     && h.cpu.is_instruction_boundary()
                 {
@@ -137,12 +137,12 @@ fn invalid_yield_domains_and_masked_yield_fault_without_dispatch() {
     for kind in [0, 1, 2] {
         let mut h = ContextHarness::new(SOURCE, false, "Task", &[0x7100]);
         let mut r = h.cpu.registers();
-        r.pc = h.symbols["__a816_yield_v1"] as u16;
+        r.pc = h.symbols["__a816_yield_v2"] as u16;
         r.a = 0;
         r.s = 0x4ff0;
         r.d = 0x2000;
         r.p = if kind == 0 { 4 } else { 0 };
-        h.bus.ram[0x2043] = kind;
+        h.bus.ram[0x20c3] = kind;
         h.cpu = Machine::start_at(r);
         assert!(
             h.cpu
@@ -177,7 +177,7 @@ fn nmi_is_safe_at_each_irq_bridge_instruction_including_stack_domain_transitions
     let mut points = Vec::new();
     for _ in 0..20000 {
         if baseline.cpu.is_instruction_boundary() {
-            if baseline.cpu.pc() == baseline.symbols["__a816_irq_v1"] {
+            if baseline.cpu.pc() == baseline.symbols["__a816_irq_v2"] {
                 entered = true;
             }
             if entered && baseline.cpu.registers().pbr == 6 {
@@ -199,7 +199,7 @@ fn nmi_is_safe_at_each_irq_bridge_instruction_including_stack_domain_transitions
         let mut complete = false;
         for _ in 0..20000 {
             if cpu.is_instruction_boundary() {
-                if cpu.pc() == baseline.symbols["__a816_nmi_v1"] {
+                if cpu.pc() == baseline.symbols["__a816_nmi_v2"] {
                     nmi_entered = true;
                 }
                 if nmi_entered && cpu.registers().pbr == 6 {

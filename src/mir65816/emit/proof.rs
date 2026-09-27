@@ -292,25 +292,25 @@ pub fn memory_probe(byte: bool) -> (Code, Vec<Snapshot>) {
     e.byte(ByteOp::AndStack, 2);
     e.byte(ByteOp::OraStack, 2);
     e.byte(ByteOp::EorStack, 2);
-    e.byte(ByteOp::StaDp, 8);
-    e.byte(ByteOp::LdaDp, 8);
+    e.byte(ByteOp::StaDp, 136);
+    e.byte(ByteOp::LdaDp, 136);
     e.op(Implied::Clc);
-    e.byte(ByteOp::AdcDp, 8);
+    e.byte(ByteOp::AdcDp, 136);
     e.op(Implied::Sec);
-    e.byte(ByteOp::SbcDp, 8);
-    e.byte(ByteOp::CmpDp, 8);
-    e.byte(ByteOp::AndDp, 8);
-    e.byte(ByteOp::OraDp, 8);
-    e.byte(ByteOp::EorDp, 8);
+    e.byte(ByteOp::SbcDp, 136);
+    e.byte(ByteOp::CmpDp, 136);
+    e.byte(ByteOp::AndDp, 136);
+    e.byte(ByteOp::OraDp, 136);
+    e.byte(ByteOp::EorDp, 136);
     for op in [ByteOp::AslDp, ByteOp::RolDp, ByteOp::LsrDp, ByteOp::RorDp] {
-        e.byte(op, 8);
+        e.byte(op, 136);
     }
-    e.byte(ByteOp::LdxDp, 8);
+    e.byte(ByteOp::LdxDp, 136);
     e.word(WordOp::LdyImm, 2);
-    e.byte(ByteOp::LdaIndirect, 0);
-    e.byte(ByteOp::StaIndirect, 0);
-    e.byte(ByteOp::LdaIndirectY, 0);
-    e.byte(ByteOp::StaIndirectY, 0);
+    e.byte(ByteOp::LdaIndirect, 128);
+    e.byte(ByteOp::StaIndirect, 128);
+    e.byte(ByteOp::LdaIndirectY, 128);
+    e.byte(ByteOp::StaIndirectY, 128);
     e.long(LongOp::Lda, 0x120004).unwrap();
     e.long(LongOp::Sta, 0x120006).unwrap();
     e.op(Implied::Txa);
@@ -344,7 +344,7 @@ pub fn scalar_dp_probe(left: u16, right: u16) -> (Code, Vec<Snapshot>) {
     use super::{Location, Slot, copies::WordHome};
     let mut e = TrackedEmitter65816::default();
     e.trace();
-    for offset in [32, 34, 36] {
+    for offset in [160, 162, 164] {
         e.register_home(Location::DirectPage(Slot { offset, width: 2 }));
     }
     e.register_home(Slot {
@@ -353,33 +353,33 @@ pub fn scalar_dp_probe(left: u16, right: u16) -> (Code, Vec<Snapshot>) {
     });
     e.a16();
     e.word(WordOp::LdaImm, left);
-    e.byte(ByteOp::StaDp, 32);
+    e.byte(ByteOp::StaDp, 160);
     e.word(WordOp::LdaImm, right);
     e.byte(ByteOp::StaStack, 32);
-    e.byte(ByteOp::LdaDp, 32);
+    e.byte(ByteOp::LdaDp, 160);
     e.op(Implied::Clc);
     e.byte(ByteOp::AdcStack, 32);
-    e.byte(ByteOp::StaDp, 34);
+    e.byte(ByteOp::StaDp, 162);
     let home = Location::DirectPage(Slot {
-        offset: 34,
+        offset: 162,
         width: 2,
     });
     e.remember_word(super::TempId(0), home);
     assert!(e.consume_word(
         Some(super::TempId(0)),
         Some(home),
-        Some(WordHome::DirectPage(34))
+        Some(WordHome::DirectPage(162))
     ));
-    e.byte(ByteOp::CmpDp, 34);
+    e.byte(ByteOp::CmpDp, 162);
     e.op(Implied::Sec);
-    e.byte(ByteOp::SbcDp, 32);
-    e.byte(ByteOp::StaDp, 36);
+    e.byte(ByteOp::SbcDp, 160);
+    e.byte(ByteOp::StaDp, 164);
     e.a8();
     e.byte(ByteOp::LdaImm, 0xff);
-    e.byte(ByteOp::StaDp, 33);
+    e.byte(ByteOp::StaDp, 161);
     e.a16();
-    e.byte(ByteOp::LdaDp, 34);
-    e.byte(ByteOp::CmpDp, 36);
+    e.byte(ByteOp::LdaDp, 162);
+    e.byte(ByteOp::CmpDp, 164);
     e.op(Implied::Nop);
     let code = e.finish();
     let trace = code.state_trace.clone();

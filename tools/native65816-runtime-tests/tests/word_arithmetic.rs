@@ -259,7 +259,7 @@ ENDMODULE
         ldx #63
         lda #$a7
     again:
-        sta 0,x
+        sta $80,x
         dex
         bpl again
         rep #$20
@@ -315,7 +315,7 @@ ENDMODULE
                             .wrapping_add(n.wrapping_sub(0x1234))
                     )
                 );
-                assert!((0x2000..0x2040).all(|a| h.bus.writes.contains(&(a, 0xa7))));
+                assert!((0x2080..0x20c0).all(|a| h.bus.writes.contains(&(a, 0xa7))));
             }
         }
     }

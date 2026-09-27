@@ -88,9 +88,12 @@ mod call_tests;
 
 // ABI call-clobbered domain scratch. Nothing here survives a call.
 const PTR: u8 = abi::generated::DP_POINTER0_OFFSET as u8;
-const RESULT: u8 = 8;
-const RIGHT: u8 = 16;
-const INDEX: u8 = 20;
+const RESULT: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 8;
+const RIGHT: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 16;
+const INDEX: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 20;
+const COPY_SOURCE: u8 = abi::generated::DP_POINTER1_OFFSET as u8;
+const COPY_DEST: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 24;
+const COPY_COUNT: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 28;
 
 /// The verified ABI homes define payload; their intervening and trailing gaps
 /// still need explicit zero stores. Preflight before emitting a call guard.
@@ -2289,14 +2292,14 @@ impl Builder<'_> {
         self.address_to_pointer(memory)?;
         for i in 0..3 {
             self.code.byte(ByteOp::LdaDp, PTR + i);
-            self.code.byte(ByteOp::StaDp, 24 + i);
+            self.code.byte(ByteOp::StaDp, COPY_DEST + i);
         }
         let memory = self.prepare_address(source)?;
         self.address_to_pointer(memory)?;
         for i in 0..3 {
             self.code.byte(ByteOp::LdaDp, PTR + i);
-            self.code.byte(ByteOp::StaDp, 3 + i);
-            self.code.byte(ByteOp::LdaDp, 24 + i);
+            self.code.byte(ByteOp::StaDp, COPY_SOURCE + i);
+            self.code.byte(ByteOp::LdaDp, COPY_DEST + i);
             self.code.byte(ByteOp::StaDp, PTR + i);
         }
         let forward = self.code.label();
@@ -2305,14 +2308,14 @@ impl Builder<'_> {
         if overlap_safe {
             for i in (0..3).rev() {
                 self.code.byte(ByteOp::LdaDp, PTR + i);
-                self.code.byte(ByteOp::CmpDp, 3 + i);
+                self.code.byte(ByteOp::CmpDp, COPY_SOURCE + i);
                 self.code.branch(Branch::CarryClear, forward);
                 self.code.branch(Branch::NotEqual, backward);
             }
             self.code.jump(done); // identical source/destination
             self.code.mark(backward);
             self.pointer_step(PTR, false, bytes - 1);
-            self.pointer_step(3, false, bytes - 1);
+            self.pointer_step(COPY_SOURCE, false, bytes - 1);
             self.copy_loop(bytes, true);
             self.code.jump(done);
         }
@@ -2324,18 +2327,18 @@ impl Builder<'_> {
     fn copy_loop(&mut self, bytes: u32, backward: bool) {
         for i in 0..3 {
             self.code.byte(ByteOp::LdaImm, (bytes >> (i * 8)) as u8);
-            self.code.byte(ByteOp::StaDp, 28 + i);
+            self.code.byte(ByteOp::StaDp, COPY_COUNT + 0 + i);
         }
         let again = self.code.label();
         self.code.mark(again);
-        self.code.byte(ByteOp::LdaIndirect, 3);
+        self.code.byte(ByteOp::LdaIndirect, COPY_SOURCE);
         self.code.byte(ByteOp::StaIndirect, PTR); // long indirect, no DBR dependency
         self.pointer_step(PTR, backward, 1);
-        self.pointer_step(3, backward, 1);
-        self.pointer_step(28, true, 1);
-        self.code.byte(ByteOp::LdaDp, 28);
-        self.code.byte(ByteOp::OraDp, 29);
-        self.code.byte(ByteOp::OraDp, 30);
+        self.pointer_step(COPY_SOURCE, backward, 1);
+        self.pointer_step(COPY_COUNT, true, 1);
+        self.code.byte(ByteOp::LdaDp, COPY_COUNT + 0);
+        self.code.byte(ByteOp::OraDp, COPY_COUNT + 1);
+        self.code.byte(ByteOp::OraDp, COPY_COUNT + 2);
         self.code.branch(Branch::NotEqual, again);
     }
     fn compare(

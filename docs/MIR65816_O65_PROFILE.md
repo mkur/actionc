@@ -1,13 +1,13 @@
 # Experimental Action native o65 profiles v1 and v2
 
-Identities: `actionc.o65.experimental.v1` and `.v2`. Native ABI: `action65816.native.v1`.
+Identities: `actionc.o65.experimental.v1` and `.v2`. Native ABI: `action65816.native.v2`.
 This is an experimental application container; it does not change the ABI or
 JSON image contracts. See the [implementation plan](MIR65816_O65_IMPLEMENTATION_PLAN.md)
 and [format/tool assessment](MIR65816_O65_ASSESSMENT.md).
 
 Options default to `actionc.o65.experimental.v2`, permitting the arithmetic
 fault extension. The writer chooses the minimum required format: v2 only when
-`__a816_arithmetic_fault_v1` is imported, otherwise byte-compatible v1.
+`__a816_arithmetic_fault_v2` is imported, otherwise byte-compatible v1.
 Explicit v1 options reject programs requiring that extension. Old readers
 reject the new descriptor export/version before interpreting its contract.
 
@@ -46,7 +46,7 @@ offset inside the target section or one-past, with no 24-bit overflow at load.
 
 ## Descriptor
 
-Two text exports are required: `__a816_entry_v1` and
+Two text exports are required: `__a816_entry_v2` and
 `__a816_o65_profile_v1` (version 1) or `__a816_o65_profile_v2` (version 2). The latter locates this packed descriptor (no implicit
 padding). All numeric fields are unsigned little-endian except byte tags.
 Vectors have a u32 count; strings have a u32 byte length followed by UTF-8,
@@ -102,8 +102,8 @@ boundary. Check all allocation, import and reserved extents for overlaps and
 including one-past bounds, before writing a private output copy. A failure
 publishes nothing and writes no guest memory. BSS is cleared explicitly.
 
-`__a816_stack_overflow_v1` is always the first named raw import. Version 2
-also imports `__a816_arithmetic_fault_v1`, with contract kind=2, signature=0,
+`__a816_stack_overflow_v2` is always the first named raw import. Version 2
+also imports `__a816_arithmetic_fault_v2`, with contract kind=2, signature=0,
 no ordinary arguments/result/incoming area, stack peak=0, preserved IRQ effect
 and task/IRQ domains=3. `Contract::arithmetic_fault()` constructs this exact raw
 contract. At transfer A16=1 denotes DivisionByZero, X16=S, native M=X=0,
@@ -160,20 +160,20 @@ change that preserves validation of complete address values and ABI maps.
 
 ## Compact checked Task applications
 
-`actionc.o65.compact.v2` uses the same standard o65 header, section payloads,
-import names and relocation streams. Its two exports are `__a816_entry_v1`
-and `__a816_o65_compact_v2`, both text offsets. The latter marks an exact
+`actionc.o65.compact.v3` uses the same standard o65 header, section payloads,
+import names and relocation streams. Its two exports are `__a816_entry_v2`
+and `__a816_o65_compact_v3`, both text offsets. The latter marks an exact
 trailer of **8 + 4 × import count bytes**:
 
 | Bytes | Meaning |
 | --- | --- |
-| 0–3 | ASCII `A8C2`, compact profile v2 |
-| 4–5 | little-endian native ABI revision, 1 (`action65816.native.v1`) |
+| 0–3 | ASCII `A8C3`, compact profile v2 |
+| 4–5 | little-endian native ABI revision, 1 (`action65816.native.v2`) |
 | 6–7 | reserved flags, zero |
 | 8 onward | little-endian 32-bit signature per standard import, in order |
 
 No count, symbol name, entry offset or relocation record is duplicated.
-The first import is `__a816_stack_overflow_v1`, signature zero. Ordinary
+The first import is `__a816_stack_overflow_v2`, signature zero. Ordinary
 imports are checked Task-only routines with zero unchecked stack allowance
 and preserved IRQ state. The entry is a checked no-argument `LONGINT FUNC`, returning A16/X16; extra NMI stack
 allowance, arithmetic-fault imports and absolute storage are unsupported.

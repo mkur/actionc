@@ -1,8 +1,8 @@
 //! Public contracts are independent of compiler IR and fixed-image JSON.
 use serde::{Deserialize, Serialize};
 
-pub const COMPACT_ID: &str = "actionc.o65.compact.v2";
-pub const COMPACT_DESCRIPTOR: &str = "__a816_o65_compact_v2";
+pub const COMPACT_ID: &str = "actionc.o65.compact.v3";
+pub const COMPACT_DESCRIPTOR: &str = "__a816_o65_compact_v3";
 
 pub fn compact_entry_signature() -> u32 {
     // Native extended scalars use a named source type and a resolved scalar
@@ -15,20 +15,19 @@ pub fn compact_entry_signature() -> u32 {
             }),
         },
         Vec::new(),
-        Some(crate::semantic::ValueType::fund(crate::ast::FundType::LongInt)),
+        Some(crate::semantic::ValueType::fund(
+            crate::ast::FundType::LongInt,
+        )),
     );
-    crate::nir::signature_id(
-        &callable,
-        crate::nir::NirCallConvention::TargetPublic,
-    ).0
+    crate::nir::signature_id(&callable, crate::nir::NirCallConvention::TargetPublic).0
 }
 pub const ID_V2: &str = "actionc.o65.experimental.v2";
 pub const DESCRIPTOR_V2: &str = "__a816_o65_profile_v2";
-pub const ARITHMETIC_FAULT: &str = "__a816_arithmetic_fault_v1";
+pub const ARITHMETIC_FAULT: &str = "__a816_arithmetic_fault_v2";
 pub const ID: &str = "actionc.o65.experimental.v1";
-pub const ENTRY: &str = "__a816_entry_v1";
+pub const ENTRY: &str = "__a816_entry_v2";
 pub const DESCRIPTOR: &str = "__a816_o65_profile_v1";
-pub const OVERFLOW: &str = "__a816_stack_overflow_v1";
+pub const OVERFLOW: &str = "__a816_stack_overflow_v2";
 pub const LIMIT: u32 = 0x1000000;
 pub const MAX_ITEMS: usize = 1_000_000;
 pub const MAX_FILE: usize = 128 * 1024 * 1024;

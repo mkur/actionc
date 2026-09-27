@@ -30,7 +30,7 @@ pub fn sites(c: &Compiled) -> Vec<Guard> {
             let start = [45, 29, 27]
                 .into_iter()
                 .filter_map(|size| end.checked_sub(size))
-                .find(|&start| code[start..].starts_with(&[0x3b, 0xaa, 0xc5, 0x46]))
+                .find(|&start| code[start..].starts_with(&[0x3b, 0xaa, 0xc5, 0xc6]))
                 .unwrap();
             let amount = u16::from_le_bytes(code[end - 6..end - 4].try_into().unwrap());
             sites.push(Guard {

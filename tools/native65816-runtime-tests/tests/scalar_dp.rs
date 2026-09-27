@@ -83,7 +83,7 @@ fn capacity_edges_execute_every_home_and_preserve_trace_output() {
             );
             for mask in [0, 4] {
                 let mut h = Harness::new(&image, &caller.bytes, mask);
-                h.bus.ram[0x2020..0x2040].fill(0xa7);
+                h.bus.ram[0x20a0..0x20c0].fill(0xa7);
                 assert!(
                     h.cpu
                         .run_until(
@@ -100,7 +100,7 @@ fn capacity_edges_execute_every_home_and_preserve_trace_output() {
                     assert_eq!(h.bus.value(at, 2), u32::from(0x8000 + id.0 as u16 * 0x101));
                 }
                 if n > 16 {
-                    assert_eq!(&h.bus.ram[0x2020..0x2040], &[0xa7; 32]);
+                    assert_eq!(&h.bus.ram[0x20a0..0x20c0], &[0xa7; 32]);
                 }
                 h.run();
                 h.guards(mask);

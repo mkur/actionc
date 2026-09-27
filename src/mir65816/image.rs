@@ -47,7 +47,7 @@ pub struct LinkOptions {
     pub read_only_origin: Option<u32>,
     #[serde(default, deserialize_with = "json_address::optional")]
     pub zero_fill_origin: Option<u32>,
-    /// Raw nonreturning __a816_stack_overflow_v1 adapter, supplied by the platform.
+    /// Raw nonreturning __a816_stack_overflow_v2 adapter, supplied by the platform.
     #[serde(deserialize_with = "json_address::deserialize")]
     pub stack_overflow: u32,
     #[serde(
@@ -434,7 +434,7 @@ pub fn link(
         Some(
             options
                 .arithmetic_fault
-                .ok_or("arithmetic requires __a816_arithmetic_fault_v1 in the image layout")?,
+                .ok_or("arithmetic requires __a816_arithmetic_fault_v2 in the image layout")?,
         )
     } else {
         None
@@ -449,7 +449,7 @@ pub fn link(
         .as_ref()
         .is_none_or(|abi| !abi.unsupported_signatures.is_empty())
     {
-        return Err("image contains signatures outside native ABI v1".into());
+        return Err("image contains signatures outside native ABI v2".into());
     }
     if options.code_origin >= LIMIT
         || options.data_origin >= LIMIT

@@ -6,7 +6,7 @@ class ParameterForwarding(unittest.TestCase):
     def fixture(self):
         # Two stores survive; absolute and relative targets after the reload move.
         code=bytes.fromhex('a30a8302a30a830c d002 5c100001 a90200 6b')
-        return dict(format="actionc-65816-image",version=3,abi="action65816.native.v1",entry=0x10000,segments=[dict(address=0x10000,bytes=list(code),executable=True)],routines=[dict(address=0x10000,size=len(code),calls=[dict(outgoing=3,transfer_peak=3)])]),dict(reload_pc=0x10004,parameter_body_displacement=10,producer_pc=0x10000,window_end=0x10008,before_bytes='a30a8302a30a830c',forecast_bytes='a30a8302830c')
+        return dict(format="actionc-65816-image",version=3,abi="action65816.native.v2",entry=0x10000,segments=[dict(address=0x10000,bytes=list(code),executable=True)],routines=[dict(address=0x10000,size=len(code),calls=[dict(outgoing=3,transfer_peak=3)])]),dict(reload_pc=0x10004,parameter_body_displacement=10,producer_pc=0x10000,window_end=0x10008,before_bytes='a30a8302a30a830c',forecast_bytes='a30a8302830c')
 
     def test_only_load_is_removed_and_both_stores_and_targets_remain(self):
         image,site=self.fixture()

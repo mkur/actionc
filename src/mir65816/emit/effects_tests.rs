@@ -536,7 +536,7 @@ fn call_summaries_read_arguments_before_clobbers_and_preserve_result_contracts()
                 MemoryEffect {
                     access: Access::MayWrite,
                     memory: Memory::DirectPage {
-                        offset: 0,
+                        offset: 128,
                         bytes: 64
                     }
                 }

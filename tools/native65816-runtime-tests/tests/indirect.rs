@@ -121,7 +121,7 @@ fn typed_indirect_results_and_mixed_assembly_arguments_match_direct_calls() {
         for byte in 0..13 {
             leaf_source.push_str(&format!("lda {},s\nsta ${:06x}\n", 4 + byte, 0x7100 + byte));
         }
-        leaf_source.push_str("ldx #63\nlda #$AA\nclobber: sta 0,x\ndex\nbpl clobber\nrep #$20\n.a16\nlda #$CDEF\nldx #$89AB\nrtl\nnop");
+        leaf_source.push_str("ldx #63\nlda #$AA\nclobber: sta $80,x\ndex\nbpl clobber\nrep #$20\n.a16\nlda #$CDEF\nldx #$89AB\nrtl\nnop");
         let leaf = assemble(&leaf_source, 0x041000);
         for mask in [0, 4] {
             let mut h = Harness::new(&image, &caller(image.entry), mask);

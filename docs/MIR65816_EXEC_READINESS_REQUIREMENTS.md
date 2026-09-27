@@ -67,8 +67,8 @@ Preserve existing Action! evaluation, conversion and overflow rules.
 
 ### R2. A complete, versioned ABI that assembly can implement
 
-The selected contract is now [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md),
-with [machine-readable layouts](abi/action65816-native-v1.json). This specifies
+The selected contract is now [physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md),
+with [machine-readable layouts](abi/action65816-native-v2.json). This specifies
 the decisions below; the acceptance result supplies implementation and G2–G4 evidence.
 
 Publish the physical application binary interface (ABI): argument and result

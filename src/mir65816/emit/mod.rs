@@ -8,8 +8,8 @@ mod effects;
 pub(super) mod layout;
 mod liveness;
 mod loop_x;
-mod pointer_copies;
 mod pointer_coalescing;
+mod pointer_copies;
 #[cfg(feature = "native65816-state-proof")]
 pub mod proof;
 mod replay;
@@ -68,7 +68,7 @@ fn materialize_path(
     let contract = program.native_abi.as_ref().ok_or("missing native ABI")?;
     if !contract.unsupported_signatures.is_empty() {
         return Err(format!(
-            "signature outside native ABI v1: {:?}",
+            "signature outside native ABI v2: {:?}",
             contract.unsupported_signatures
         ));
     }

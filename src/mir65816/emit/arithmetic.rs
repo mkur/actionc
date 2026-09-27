@@ -1,15 +1,15 @@
 //! Zero-frame native word cores. All state belongs to the current D page:
-//! $00..03 dividend/multiplicand, $04..07 divisor/multiplier, $08..0b product,
-//! $0c..0f remainder, $10..11 quotient sign, $12..13 remainder sign.
+//! $80..83 dividend/multiplicand, $84..87 divisor/multiplier, $88..8b product,
+//! $8c..8f remainder, $90..91 quotient sign, $92..93 remainder sign.
 //! X is the bounded loop counter. No scratch survives a call; no nested calls.
 use super::*;
 use crate::mir65816::arithmetic::{Helper, Operation};
-const LEFT: u8 = 0;
-const RHS: u8 = 4;
-const PRODUCT: u8 = 8;
-const REM: u8 = 12;
-const QSIGN: u8 = 16;
-const RSIGN: u8 = 18;
+const LEFT: u8 = abi::generated::DP_SCRATCH_OFFSET as u8;
+const RHS: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 4;
+const PRODUCT: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 8;
+const REM: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 12;
+const QSIGN: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 16;
+const RSIGN: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 18;
 
 pub(super) fn emit(
     routine: &Mir65816Routine,

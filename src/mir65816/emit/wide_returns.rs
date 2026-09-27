@@ -30,7 +30,7 @@ impl Builder<'_> {
                     .map_err(|e| e.to_string())?;
                 }
                 Memory::DirectPage(offset)
-                    if u32::from(offset) + u32::from(bytes) <= abi::generated::DP_SCRATCH_SIZE => {}
+                    if abi::scratch_contains(u32::from(offset), u32::from(bytes)) => {}
                 _ => return Err("wide return requires a complete private home".into()),
             }
             self.code.a16();

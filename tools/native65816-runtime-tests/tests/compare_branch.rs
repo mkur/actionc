@@ -166,7 +166,7 @@ ENDMODULE
         ldx #63
         lda #$a7
     again:
-        sta 0,x
+        sta $80,x
         dex
         bpl again
         rep #$20
@@ -268,7 +268,7 @@ ENDMODULE
                         (0xd001, Access::Read)
                     ]
                 );
-                assert!((0x2000..0x2040).all(|a| h.bus.writes.contains(&(a, 0xa7))));
+                assert!((0x2080..0x20c0).all(|a| h.bus.writes.contains(&(a, 0xa7))));
             }
         }
     }
@@ -317,13 +317,13 @@ fn run_checked_fusions(h: &mut Harness, routines: &[image::Routine]) -> Vec<serd
                 let actual: Vec<_> = h.bus.reads[reads..]
                     .iter()
                     .copied()
-                    .filter(|a| (0x4000..0x6000).contains(a) || (0x2020..0x2040).contains(a))
+                    .filter(|a| (0x4000..0x6000).contains(a) || (0x20a0..0x20c0).contains(a))
                     .collect();
                 assert_eq!(actual, expected);
                 assert!(
                     !h.bus.reads[reads..]
                         .iter()
-                        .any(|a| (0x2000..0x2020).contains(a))
+                        .any(|a| (0x2080..0x20a0).contains(a))
                 );
                 let selected = usize::from(h.cpu.pc() == w.yes);
                 // Observe edge copies separately; at the successor the ABI width

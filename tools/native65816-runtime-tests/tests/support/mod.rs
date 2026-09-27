@@ -234,6 +234,7 @@ pub struct Harness {
     pub cpu: Machine,
     pub bus: Bus,
     pub domain_tail: Vec<u8>,
+    pub caller_workspace: Vec<u8>,
 }
 impl Harness {
     pub fn new(image: &Image, caller: &[u8], irq_mask: u8) -> Self {
@@ -267,13 +268,15 @@ impl Harness {
         bus.map(0x040000, caller, false);
         bus.map(overflow, &[0xdb, 0xea], false); // platform fault sink: STP
         bus.map(0x2000, &[0; 256], true);
-        bus.ram[0x2000..0x2040].fill(0xcc);
-        bus.ram[0x2043] = 2; // bootstrap domain, no task owner; reserved bytes are zero
-        bus.ram[0x2044..0x2046].copy_from_slice(&0x4019u16.to_le_bytes());
-        bus.ram[0x2046..0x2048].copy_from_slice(&0x5ff0u16.to_le_bytes());
+        bus.ram[0x2080..0x20c0].fill(0xcc);
+        let caller_workspace = workspace_pattern(0x2000);
+        bus.ram[0x2000..0x2080].copy_from_slice(&caller_workspace);
+        bus.ram[0x20c3] = 2; // bootstrap domain, no task owner; reserved bytes are zero
+        bus.ram[0x20c4..0x20c6].copy_from_slice(&0x4019u16.to_le_bytes());
+        bus.ram[0x20c6..0x20c8].copy_from_slice(&0x5ff0u16.to_le_bytes());
         bus.map(0x4000, &[0xa5; 0x2000], true);
         bus.map(0x7000, &[0; 0x400], true);
-        let domain_tail = bus.ram[0x2040..0x2100].to_vec();
+        let domain_tail = bus.ram[0x20c0..0x2100].to_vec();
         let registers = Registers {
             a: 0xabcd,
             x: 0x5678,
@@ -290,6 +293,7 @@ impl Harness {
             cpu: Machine::start_at(registers),
             bus,
             domain_tail,
+            caller_workspace,
         }
     }
     pub fn run(&mut self) {
@@ -318,7 +322,8 @@ impl Harness {
         assert_eq!(r.dbr, 0);
         assert!(!r.emulation_mode);
         assert_eq!(r.p & 0x3c, irq_mask & 4);
-        assert_eq!(&self.bus.ram[0x2040..0x2100], self.domain_tail);
+        assert_eq!(&self.bus.ram[0x20c0..0x2100], self.domain_tail);
+        assert_eq!(&self.bus.ram[0x2000..0x2080], self.caller_workspace);
         assert!(self.bus.ram[0x4000..0x401a].iter().all(|&b| b == 0xa5));
         assert!(self.bus.ram[0x5ff1..0x6000].iter().all(|&b| b == 0xa5));
     }
@@ -373,3 +378,8 @@ pub mod x_residency;
 pub mod guard;
 
 pub mod windows;
+
+/// Different nonzero bytes in each domain expose both clobbers and wrong D bases.
+pub fn workspace_pattern(dp: u16) -> Vec<u8> {
+    (0..128).map(|i| ((i * 37 + usize::from(dp >> 8)) % 255 + 1) as u8).collect()
+}

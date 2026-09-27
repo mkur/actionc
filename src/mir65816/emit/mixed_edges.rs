@@ -44,7 +44,7 @@ impl Builder<'_> {
                         self.displacement(at, u32::from(bytes) - 1)?;
                     }
                     Memory::DirectPage(at)
-                        if u32::from(at) + u32::from(bytes) <= abi::generated::DP_SCRATCH_SIZE => {}
+                        if abi::scratch_contains(u32::from(at), u32::from(bytes)) => {}
                     _ => return Err("mixed edge requires complete private homes".into()),
                 }
             }

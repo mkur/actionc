@@ -100,7 +100,7 @@ fn independent_selective_sequences_match_simultaneous_copies_and_full_staging() 
                         }
                         write(&mut expected, 2 + 2 * i as u8, values[i]);
                     }
-                    bus.watched = (0x4000..0x6000).chain(0x2000..0x2040).collect();
+                    bus.watched = (0x4000..0x6000).chain(0x2080..0x20c0).collect();
                     let mut cpu = Machine::start_at(initial);
                     assert!(
                         cpu.run_until(&mut bus, 500, |_| Inputs::default(), |c| c.is_stopped())

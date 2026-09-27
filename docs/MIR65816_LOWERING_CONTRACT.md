@@ -142,7 +142,7 @@ mutability facts, size words, image-end values and byte-selected relocations.
 Selectors and descriptor corner cases without a native source spelling are
 constructed as NIR fixtures and passed through the real verifier/backend entry.
 
-The [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) has generated constants,
+The [physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md) has generated constants,
 verified call/frame plans and a [native scalar emitter](MIR65816_EMISSION_CONTRACT.md).
 The emitter allocates stack or per-domain pointer homes, checks concrete accesses and links
 freestanding images. Indirect calls, contexts and G1–G6 for the advertised

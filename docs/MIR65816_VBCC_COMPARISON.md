@@ -164,7 +164,7 @@ compiler workaround or correction was included in this comparison slice.
 ## ABI and measurement boundaries
 
 The benchmark preserves the
-[Action native ABI](MIR65816_PHYSICAL_ABI_V1.md) and all stack guards. Action
+[Action native ABI](MIR65816_PHYSICAL_ABI_V2.md) and all stack guards. Action
 passes every argument on the stack, including padding; vbcc passes the first
 argument in A or A/X. For example, add has five incoming stack argument bytes
 in Action and two in C. The CSV records those separately. Caller instruction

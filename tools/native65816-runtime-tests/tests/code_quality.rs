@@ -71,10 +71,10 @@ fn execute(
         true,
     );
     if action {
-        bus.ram[DP + 64..DP + 256].fill(0);
-        bus.ram[DP + 0x43] = 2;
-        bus.ram[DP + 0x44..DP + 0x46].copy_from_slice(&0x401au16.to_le_bytes());
-        bus.ram[DP + 0x46..DP + 0x48].copy_from_slice(&0x6000u16.to_le_bytes());
+        bus.ram[DP + 192..DP + 256].fill(0);
+        bus.ram[DP + 0xc3] = 2;
+        bus.ram[DP + 0xc4..DP + 0xc6].copy_from_slice(&0x401au16.to_le_bytes());
+        bus.ram[DP + 0xc6..DP + 0xc8].copy_from_slice(&0x6000u16.to_le_bytes());
     }
     let original_dp = bus.ram[DP..DP + 256].to_vec();
     bus.map(0x4000, &[0xa5; 0x2000], true);
@@ -300,7 +300,7 @@ fn execute(
     assert!(!returned.emulation_mode);
     assert_eq!(returned.p & 0x3c, mask);
     if action {
-        assert_eq!(&bus.ram[DP + 64..DP + 256], &original_dp[64..]);
+        assert_eq!(&bus.ram[DP + 192..DP + 256], &original_dp[192..]);
     } else if calypsi {
         assert_eq!(
             &bus.ram[DP + 8..DP + 256],

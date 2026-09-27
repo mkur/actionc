@@ -133,7 +133,7 @@ fn observer(bytes: usize) -> Vec<u8> {
     for i in 0..bytes {
         source.push_str(&format!("lda a:${i:04x},x\nsta ${:06x}\n", RECORD + i));
     }
-    source.push_str("ldx #63\nlda #$AA\nclobber: sta 0,x\ndex\nbpl clobber\nrep #$20\n.a16\nlda #$CDEF\nldx #$89AB\nldy #$DEAD\nrtl\nnop\n");
+    source.push_str("ldx #63\nlda #$AA\nclobber: sta $80,x\ndex\nbpl clobber\nrep #$20\n.a16\nlda #$CDEF\nldx #$89AB\nldy #$DEAD\nrtl\nnop\n");
     assemble(&source, OBSERVE)
 }
 
@@ -441,8 +441,8 @@ fn checked_outgoing_extents_fault_before_any_payload_or_transfer_write() {
                     let mut r = h.cpu.registers();
                     r.s = s;
                     h.cpu = Machine::start_at(r);
-                    h.bus.ram[0x2044..0x2046].copy_from_slice(&floor.to_le_bytes());
-                    h.bus.ram[0x2046..0x2048].copy_from_slice(&ceiling.to_le_bytes());
+                    h.bus.ram[0x20c4..0x20c6].copy_from_slice(&floor.to_le_bytes());
+                    h.bus.ram[0x20c6..0x20c8].copy_from_slice(&ceiling.to_le_bytes());
                     let before = h.bus.writes.len();
                     reach(&mut h, image.stack_overflow);
                     let r = h.cpu.registers();
@@ -455,7 +455,7 @@ fn checked_outgoing_extents_fault_before_any_payload_or_transfer_write() {
                 h.bus.map(OBSERVE, &observer(13), false);
                 reach(&mut h, start);
                 let s = h.cpu.registers().s;
-                h.bus.ram[0x2044..0x2046].copy_from_slice(&(s - need).to_le_bytes());
+                h.bus.ram[0x20c4..0x20c6].copy_from_slice(&(s - need).to_le_bytes());
                 reach(&mut h, OBSERVE);
                 assert_eq!(h.cpu.registers().s, s - outgoing as u16 - 3);
                 assert_eq!(

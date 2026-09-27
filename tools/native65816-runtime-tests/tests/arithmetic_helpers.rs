@@ -322,8 +322,8 @@ fn independent_assembly_calls_each_helper_with_exact_arguments_and_result_lanes(
                     .writes
                     .iter()
                     .map(|&(at, _)| at)
-                    .filter(|at| (0x2000..0x2040).contains(at))
-                    .map(|at| at - 0x2000)
+                    .filter(|at| (0x2080..0x20c0).contains(at))
+                    .map(|at| at - 0x2080)
                     .collect();
                 assert!(scratch.iter().all(|&offset| offset < 20));
                 let expected = if helper.name.contains("mul") {
@@ -531,7 +531,7 @@ fn zero_frame_helper_checks_floor_and_ceiling_before_any_scratch_or_argument_acc
     let helper = i
         .routines
         .iter()
-        .find(|r| r.name == "__a816_div_u16_v1")
+        .find(|r| r.name == "__a816_div_u16_v2")
         .unwrap();
     for mask in [0, 4] {
         for s in [0u16, 0x4018, 0x5ff2] {
@@ -561,7 +561,7 @@ fn zero_frame_helper_checks_floor_and_ceiling_before_any_scratch_or_argument_acc
         r.pc = helper.address as u16;
         r.pbr = (helper.address >> 16) as u8;
         h.cpu = Machine::start_at(r);
-        h.bus.ram[0x2044..0x2046].copy_from_slice(&0x401au16.to_le_bytes());
+        h.bus.ram[0x20c4..0x20c6].copy_from_slice(&0x401au16.to_le_bytes());
         let body = i
             .segments
             .iter()

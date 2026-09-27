@@ -60,7 +60,7 @@ writer, but must not call compiler placement or patching helpers.
 ## Experimental profile decisions
 
 Use the identity `actionc.o65.experimental.v1`. Its version is independent of
-both the o65 header version and `action65816.native.v1`. Freeze its binary
+both the o65 header version and `action65816.native.v2`. Freeze its binary
 descriptor and option schemas in a new `MIR65816_O65_PROFILE.md` in slice 1.
 
 ### Container and placement
@@ -101,7 +101,7 @@ fixed-address objects into a huge payload.
 ### Entry, bindings and ABI metadata
 
 Export `__a816_o65_profile_v1` for a length-delimited readonly descriptor in
-text and `__a816_entry_v1` for the existing MIR program entry. The entry keeps
+text and `__a816_entry_v2` for the existing MIR program entry. The entry keeps
 its declared native signature; the host caller supplies that signature's
 arguments. The experiment does not invent a process-startup calling convention.
 
@@ -142,7 +142,7 @@ extra or incompatible bindings. Initially admit declared external routines
 whose physical interface is retained; diagnose runtime bindings without that
 information rather than consulting SemIR or weakening checks.
 
-Always represent `__a816_stack_overflow_v1` as a distinct required raw,
+Always represent `__a816_stack_overflow_v2` as a distinct required raw,
 nonreturning import. Its contract is not an ordinary Action procedure's
 contract. User bindings cannot redefine reserved profile names. Preserve
 the existing rules for ordinary calls and the two explicit IRQ-state helpers.

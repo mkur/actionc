@@ -137,7 +137,7 @@ fn home(location: Location, delta: u32) -> Result<PointerHome, String> {
     }
     match location {
         Location::Stack(s) => stack(s.offset.into(), delta),
-        Location::DirectPage(s) if u32::from(s.offset) + 3 <= abi::generated::DP_SCRATCH_SIZE => {
+        Location::DirectPage(s) if abi::scratch_contains(u32::from(s.offset), 3) => {
             Ok(PointerHome::DirectPage(s.offset as u8))
         }
         _ => Err("pointer edge exceeds private DP extent".into()),

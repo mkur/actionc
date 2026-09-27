@@ -394,7 +394,9 @@ fn signed_predicates_use_subtraction_correction_and_never_corrected_zero() {
                             panic!()
                         };
                         let home = Location::DirectPage(Slot {
-                            offset: 32 + 2 * i as u16,
+                            offset: crate::mir65816::abi::generated::DP_SCRATCH_OFFSET as u16
+                                + 32
+                                + 2 * i as u16,
                             width: 2,
                         });
                         b.frame.temps.insert(*id, home);

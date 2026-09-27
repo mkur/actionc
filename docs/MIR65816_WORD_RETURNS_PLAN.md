@@ -32,7 +32,7 @@ is 26 bytes and performs six DP byte writes and four DP byte reads.
 
 `routine` already requests A16 at every terminator. `release(extent, true)`
 preserves A through Y while restoring S, leaves X alone, and emits nothing when
-the extent is zero. The [ABI definition](abi/action65816-native-v1.json) requires
+the extent is zero. The [ABI definition](abi/action65816-native-v2.json) requires
 only A16 for a word result; [ResultLocation](../src/mir65816/abi/mod.rs) leaves
 unspecified registers/flags caller-clobbered. Clearing X is unnecessary here.
 The BYTE high A byte and the three-byte result's high X byte must still be zero.

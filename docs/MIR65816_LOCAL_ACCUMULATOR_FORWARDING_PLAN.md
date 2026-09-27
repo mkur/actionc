@@ -26,7 +26,7 @@ track values through arbitrary intervening instructions, across block entries,
 or through edge assignments. It establishes the value/width/flags proof needed
 before broadening register retention.
 
-Preserve [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md), image v3, the
+Preserve [physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md), image v3, the
 [o65 profile](MIR65816_O65_PROFILE.md), public argument/result placement, all
 stores, complete frame maps, staging reservations, stack checks, interrupt
 headroom and Exec816's compiler pin. No NIR change, home coalescing, frame

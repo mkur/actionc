@@ -148,7 +148,7 @@ it is not a guest execution or a runtime-loader qualification.
 - **Entry and ABI:** Define an entry symbol or descriptor, profile version,
   Action ABI version, and import contracts. Symbol names alone do not describe
   signatures, register widths, DBR, D, or helper clobbers. Preserve the
-  [native ABI](MIR65816_PHYSICAL_ABI_V1.md). In the inspected vlink source,
+  [native ABI](MIR65816_PHYSICAL_ABI_V2.md). In the inspected vlink source,
   header options other than filename are skipped on input: do not depend on
   custom ABI options surviving an ordinary relink. A retained data descriptor
   or metadata attached after final linking is safer.

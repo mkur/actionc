@@ -34,6 +34,7 @@ fn stack(offset: u16) -> Location {
     Location::Stack(Slot { offset, width: 3 })
 }
 fn dp(offset: u16) -> Location {
+    let offset = offset + crate::mir65816::abi::generated::DP_SCRATCH_OFFSET as u16;
     Location::DirectPage(Slot { offset, width: 3 })
 }
 fn encoding(memory: Memory, load: bool, byte: u8) -> [u8; 2] {
@@ -743,7 +744,7 @@ fn pressured_pointer_reload_captures_both_parts_before_reusing_its_base() {
                 offset as u8,
                 (offset >> 8) as u8,
                 0xb7,
-                0,
+                128,
                 0xaa,
                 0xe2,
                 0x20,
@@ -751,14 +752,14 @@ fn pressured_pointer_reload_captures_both_parts_before_reusing_its_base() {
                 (offset + 2) as u8,
                 ((offset + 2) >> 8) as u8,
                 0xb7,
-                0,
+                128,
                 0x85,
-                2,
+                130,
                 0xc2,
                 0x20,
                 0x8a,
                 0x85,
-                0,
+                128,
             ]);
             assert_eq!(&b.code.code().bytes[start..], expected);
         }

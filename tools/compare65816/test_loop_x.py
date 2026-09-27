@@ -31,7 +31,7 @@ class LoopX(unittest.TestCase):
         frozen=json.loads((ROOT/'docs/benchmarks/65816-register-inventory/inventory.json').read_text())
         b=next(b for b in frozen['builds'] if (b['case'],b['mode'])==('loop_rotation','optimized'))
         routines=b['routines'];code=[byte for r in routines for i in r['instructions'] for byte in bytes.fromhex(i['bytes'])]
-        image=dict(format='actionc-65816-image',version=3,abi='action65816.native.v1',entry=routines[-1]['address'],
+        image=dict(format='actionc-65816-image',version=3,abi='action65816.native.v2',entry=routines[-1]['address'],
                    segments=[dict(address=65536,bytes=code,executable=True)],
                    routines=[dict(address=r['address'],size=r['size']) for r in routines])
         t=sites(candidate(self.r),dict(all_instructions(image)))

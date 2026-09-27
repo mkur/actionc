@@ -111,9 +111,9 @@ fn word_shift_encoding_captures_before_overlapping_destination_stores() {
     assert_eq!(
         &b.code.code().bytes[prefix..],
         &[
-            0xa3, 64, 0x85, 8, 0xa3, 66, 0x85, 10, // Capture both words.
-            0x06, 8, 0x26, 10, // A16 ASL / ROL.
-            0xa5, 8, 0x83, 65, 0xa5, 10, 0x83, 67,
+            0xa3, 64, 0x85, 136, 0xa3, 66, 0x85, 138, // Capture both words.
+            0x06, 136, 0x26, 138, // A16 ASL / ROL.
+            0xa5, 136, 0x83, 65, 0xa5, 138, 0x83, 67,
         ]
     );
 

@@ -1,11 +1,11 @@
-; Freestanding Action! native-v1 context bridge. Assemble in bank zero.
+; Freestanding Action! native-v2 context bridge. Assemble in bank zero.
 ; The embedding platform supplies A816_* configuration symbols listed in
 ; docs/MIR65816_CONTEXT_INTERFACE.md. No task-selection policy lives here.
 .setcpu "65816"
 .smart
-.include "action65816-native-v1.inc"
-.export __a816_irq_v1, __a816_cop_v1, __a816_nmi_v1, __a816_restore_v1
-.export __a816_yield_v1, __a816_task_return_v1, __a816_terminal_v1
+.include "action65816-native-v2.inc"
+.export __a816_irq_v2, __a816_cop_v2, __a816_nmi_v2, __a816_restore_v2
+.export __a816_yield_v2, __a816_task_return_v2, __a816_terminal_v2
 
 .assert A816_IRQ_DP .mod 256 = 0, error, "IRQ direct page must be aligned"
 .assert A816_IRQ_STACK_TOP .mod 2 = 0, error, "IRQ stack top must be even"
@@ -45,13 +45,13 @@ bad:
 
 .a16
 .i16
-__a816_irq_v1:
+__a816_irq_v2:
  save_full
  tsc
  tax
  ldy #A816_DISPATCH_IRQ
  bra dispatch
-__a816_cop_v1:
+__a816_cop_v2:
  save_full
  tsc
  tax
@@ -70,27 +70,27 @@ __a816_cop_v1:
  rep #$20
  cld
  tya
- sta $10                       ; reason in IRQ-owned scratch
+ sta A816_DP_SCRATCH_OFFSET+16                       ; reason in IRQ-owned scratch
  cmp #A816_DISPATCH_YIELD
  bne invoke
  ; COP is resumable only for signature zero from a task with I clear.
  lda a:A816_SAVED_FRAME_P_OFFSET,x
  and #4
- bne __a816_terminal_v1
+ bne __a816_terminal_v2
  lda a:A816_SAVED_FRAME_D_OFFSET,x
  tay
  sep #$20
  lda a:A816_DP_DOMAIN_KIND_OFFSET,y
- bne __a816_terminal_v1
+ bne __a816_terminal_v2
  rep #$20
  lda a:A816_SAVED_FRAME_PC_OFFSET,x
  dec a                         ; PC-1 within the saved program bank
- sta $00
+ sta A816_DP_POINTER0_OFFSET
  sep #$20
  lda a:A816_SAVED_FRAME_PBR_OFFSET,x
- sta $02
- lda [$00]
- bne __a816_terminal_v1
+ sta A816_DP_POINTER0_OFFSET+2
+ lda [A816_DP_POINTER0_OFFSET]
+ bne __a816_terminal_v2
  rep #$20
  invoke:
  .a16
@@ -101,7 +101,7 @@ __a816_cop_v1:
  txa
  sta 1,s
  sep #$20
- lda $10
+ lda A816_DP_SCRATCH_OFFSET+16
  sta 3,s
  rep #$20
  jsl A816_DISPATCH
@@ -113,7 +113,7 @@ __a816_cop_v1:
  tya
  ; The dispatch hook has published its selected task. No IRQ activation is
  ; retained. A is the complete selected saved_s, not a task-record pointer.
-__a816_restore_v1:
+__a816_restore_v2:
  sei
  rep #$30
  cld
@@ -125,13 +125,13 @@ __a816_restore_v1:
  pla
  rti
 
-__a816_terminal_v1:
+__a816_terminal_v2:
  sei
  rep #$30
  cld
  jml A816_TERMINAL
 
-__a816_yield_v1:
+__a816_yield_v2:
  .a16
  .i16
  check_stack 1
@@ -139,14 +139,14 @@ __a816_yield_v1:
  sep #$20
  pla
  and #4
- bne __a816_terminal_v1
+ bne __a816_terminal_v2
  lda A816_DP_DOMAIN_KIND_OFFSET
- bne __a816_terminal_v1
+ bne __a816_terminal_v2
  rep #$20
  cop A816_INTERRUPT_YIELD_COP_SIGNATURE
  rtl
 
-__a816_nmi_v1:
+__a816_nmi_v2:
  save_full
  ; Exactly 13 bytes including the hardware frame, no direct-page access and
  ; no dependency on DBR, D, or task/IRQ transition bookkeeping.
@@ -161,7 +161,7 @@ __a816_nmi_v1:
  pla
  rti
 
-__a816_task_return_v1:
+__a816_task_return_v2:
  .a16
  .i16
  tsc
@@ -177,11 +177,11 @@ __a816_task_return_v1:
  sta 1,s
  rep #$20
  jsl A816_TASK_EXIT
- jml __a816_terminal_v1         ; exit is nonreturning
+ jml __a816_terminal_v2         ; exit is nonreturning
 
 
-.export __a816_irq_save_disable_v1, __a816_irq_restore_v1
-__a816_irq_save_disable_v1:
+.export __a816_irq_save_disable_v2, __a816_irq_restore_v2
+__a816_irq_save_disable_v2:
  .a16
  .i16
  check_stack 1
@@ -193,7 +193,7 @@ __a816_irq_save_disable_v1:
  rep #$20
  and #$00FF
  rtl
-__a816_irq_restore_v1:
+__a816_irq_restore_v2:
  .a16
  .i16
  sep #$20

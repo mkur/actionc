@@ -26,7 +26,7 @@ actually emitted and answers explicit proof queries. It must not look into
 SemIR, parse printed IR, rediscover aliases from names, allocate registers or
 change the selected addressing strategy.
 
-Keep [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md), image v3, the
+Keep [physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md), image v3, the
 [o65 profile](MIR65816_O65_PROFILE.md), source accesses, temporary stores and
 homes, stack checks and interrupt headroom unchanged in the initial stages.
 Exec816's compiler pin and loader qualification are separate. This is support

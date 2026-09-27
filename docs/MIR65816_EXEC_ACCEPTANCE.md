@@ -1,7 +1,7 @@
 # Native 65816 acceptance for initial Exec work
 
 Updated: 2026-09-17 (initial acceptance 2026-09-16). **G1–G6 pass for the initial subset described here**, using
-`wdc-65816-native`, ABI `action65816.native.v1`, image format version 3, and
+`wdc-65816-native`, ABI `action65816.native.v2`, image format version 3, and
 both raw and optimized NIR. Ordinary standalone Exec implementation can begin
 on this boundary. The next platform milestone is a real-machine bootstrap and
 interrupt smoke test; these results establish emulator execution only.
@@ -29,7 +29,7 @@ source operations and output. The initial kernel subset includes:
 - Checked native frames, assembly imports/exports, distinct code/read-only/
   writable/zero-fill placement, allocated frame maps and disassembly.
 
-[Physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) and the
+[Physical ABI v1](MIR65816_PHYSICAL_ABI_V2.md) and the
 [context interface](MIR65816_CONTEXT_INTERFACE.md) define stack/domain ownership,
 first-task fabrication, task exit, IRQ/COP dispatch and bounded assembly NMI.
 The initial frame limit is 254 bytes including spills; every incoming/outgoing
@@ -92,7 +92,7 @@ Each successful native run stores a manifest under
 revision and source/fixture hashes, VM base/patch, tool versions, command, seeds
 and artifact hashes. Context tests also save source, the linked image, assembled
 bridge and memory layout. The checked-in
-[acceptance record](abi/action65816-native-v1-qualification.json) identifies the
+[acceptance record](abi/action65816-native-v2-qualification.json) identifies the
 two-context images and the compiler source tree used for this result.
 
 Local toolchain: Rust 1.95.0, ca65/ld65 2.18, macOS ARM64. Original acceptance results:

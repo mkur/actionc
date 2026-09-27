@@ -419,21 +419,27 @@ fn dp_generations_are_separate_and_partial_writes_invalidate_the_word() {
     use super::{Location, copies::WordHome};
     let mut s = State65816::default();
     let slot = Slot {
-        offset: 32,
+        offset: 160,
         width: 2,
     };
     let dp = Location::DirectPage(slot);
-    s.register_home(slot);
+    s.register_home(Slot {
+        offset: 32,
+        width: 2,
+    });
     s.register_home(dp);
     s.load_a(Value::Constant(17, Width::Word));
     s.write_stack(32, Width::Word);
     s.load_a(Value::Constant(23, Width::Word));
-    s.write_dp(32, Width::Word);
+    s.write_dp(160, Width::Word);
     assert_eq!(
         s.read_stack(32, Width::Word),
         Value::Constant(17, Width::Word)
     );
-    assert_eq!(s.read_dp(32, Width::Word), Value::Constant(23, Width::Word));
+    assert_eq!(
+        s.read_dp(160, Width::Word),
+        Value::Constant(23, Width::Word)
+    );
     s.publish_word(TempId(0), dp, (1, 0));
     assert!(!s.consume_word(
         Some(TempId(0)),
@@ -445,10 +451,10 @@ fn dp_generations_are_separate_and_partial_writes_invalidate_the_word() {
     assert!(s.consume_word(
         Some(TempId(0)),
         Some(dp),
-        Some(WordHome::DirectPage(32)),
+        Some(WordHome::DirectPage(160)),
         Some((1, 0))
     ));
-    s.write_dp(33, Width::Byte);
+    s.write_dp(161, Width::Byte);
     assert!(!s.homes.contains_key(&dp));
     assert_eq!(
         s.read_stack(32, Width::Word),
@@ -464,11 +470,11 @@ fn x_loop() -> (TrackedEmitter65816, [super::Label; 4]) {
     let labels = [e.label(), e.label(), e.label(), e.label()];
     let [pre, head, body, end] = labels;
     e.register_home(super::Location::DirectPage(Slot {
-        offset: 32,
+        offset: 160,
         width: 2,
     }));
     e.register_home(super::Location::DirectPage(Slot {
-        offset: 34,
+        offset: 162,
         width: 2,
     }));
     e.declare_blocks(labels.into_iter());
@@ -487,12 +493,12 @@ fn x_loop() -> (TrackedEmitter65816, [super::Label; 4]) {
         increment: Some((
             TempId(1),
             super::Location::DirectPage(Slot {
-                offset: 34,
+                offset: 162,
                 width: 2,
             }),
         )),
         home: super::Location::DirectPage(Slot {
-            offset: 32,
+            offset: 160,
             width: 2,
         }),
         header: head,
@@ -501,7 +507,7 @@ fn x_loop() -> (TrackedEmitter65816, [super::Label; 4]) {
     });
     e.mark(pre);
     e.word(WordOp::LdaImm, 0);
-    e.byte(ByteOp::StaDp, 32);
+    e.byte(ByteOp::StaDp, 160);
     (e, labels)
 }
 
@@ -512,7 +518,7 @@ fn x_relation_crosses_only_checked_entries_and_refreshes_after_store() {
     e.jump(head);
     e.mark(head);
     let home = super::Location::DirectPage(Slot {
-        offset: 32,
+        offset: 160,
         width: 2,
     });
     assert!(
@@ -531,9 +537,9 @@ fn x_relation_crosses_only_checked_entries_and_refreshes_after_store() {
     assert!(e.load_x_word(Some(TempId(0)), Some(home)));
     e.op(Implied::Clc);
     e.word(WordOp::AdcImm, 1);
-    e.byte(ByteOp::StaDp, 34);
-    e.byte(ByteOp::LdaDp, 34);
-    e.byte(ByteOp::StaDp, 32);
+    e.byte(ByteOp::StaDp, 162);
+    e.byte(ByteOp::LdaDp, 162);
+    e.byte(ByteOp::StaDp, 160);
     let s = e.state_for_incoming_test();
     assert!(!s.x.matches(s.homes[&home].value));
     e.refresh_x();
@@ -566,23 +572,23 @@ fn x_missing_refresh_clobber_and_partial_store_are_rejected() {
                 ),
                 3 => {
                     e.a8();
-                    e.byte(ByteOp::StaDp, 33);
+                    e.byte(ByteOp::StaDp, 161);
                     e.a16();
                     e.compare_x_word(
                         TempId(0),
                         super::Location::DirectPage(Slot {
-                            offset: 32,
+                            offset: 160,
                             width: 2,
                         }),
                         8,
                     );
                 }
                 4 => {
-                    e.byte(ByteOp::StaDp, 32);
+                    e.byte(ByteOp::StaDp, 160);
                     e.load_x_word(
                         Some(TempId(0)),
                         Some(super::Location::DirectPage(Slot {
-                            offset: 32,
+                            offset: 160,
                             width: 2,
                         })),
                     );
@@ -638,11 +644,11 @@ fn x_body() -> (TrackedEmitter65816, [super::Label; 4]) {
 fn increment_keeps_distinct_home_values_and_requires_final_refresh() {
     let (mut e, [_, head, _, end]) = x_body();
     let p = super::Location::DirectPage(Slot {
-        offset: 32,
+        offset: 160,
         width: 2,
     });
     let q = super::Location::DirectPage(Slot {
-        offset: 34,
+        offset: 162,
         width: 2,
     });
     let old = e.state_for_incoming_test().x;
@@ -654,9 +660,9 @@ fn increment_keeps_distinct_home_values_and_requires_final_refresh() {
     assert_ne!(s.x, old);
     assert_eq!(s.a, s.x);
     assert_eq!(s.nz, s.x);
-    e.byte(ByteOp::StaDp, 34);
-    e.byte(ByteOp::LdaDp, 34);
-    e.byte(ByteOp::StaDp, 32);
+    e.byte(ByteOp::StaDp, 162);
+    e.byte(ByteOp::LdaDp, 162);
+    e.byte(ByteOp::StaDp, 160);
     e.refresh_x();
     e.jump(head);
     e.mark(end);
@@ -667,11 +673,11 @@ fn increment_keeps_distinct_home_values_and_requires_final_refresh() {
 fn increment_pending_relation_rejects_consumers_even_after_home_store() {
     use std::panic::{AssertUnwindSafe, catch_unwind};
     let p = super::Location::DirectPage(Slot {
-        offset: 32,
+        offset: 160,
         width: 2,
     });
     let q = super::Location::DirectPage(Slot {
-        offset: 34,
+        offset: 162,
         width: 2,
     });
     for kind in 0..8 {
@@ -692,7 +698,7 @@ fn increment_pending_relation_rejects_consumers_even_after_home_store() {
                 }
                 4 => e.jump(head),
                 5 => {
-                    e.byte(ByteOp::StaDp, 32);
+                    e.byte(ByteOp::StaDp, 160);
                     e.compare_x_word(TempId(0), p, 8);
                 }
                 6 => e.increment_x_word(TempId(0), p, TempId(2), q),
