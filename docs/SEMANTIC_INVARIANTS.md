@@ -522,6 +522,16 @@ existing `array_lengths` and layout count projections must agree with canonical
 shape facts; mutating a runtime descriptor never changes these facts. Higher
 ranks are enabled in modern mode and rejected in the compatibility profile.
 
+Array strides match the complete element width used by pointer indexing.
+Aggregate widths include tail padding; scalar arrays have no padding between
+items (native ADDRESS/SIZE elements occupy three bytes). The array's starting
+address still follows its element alignment.
+
+Pointer plus an integer displacement, integer plus pointer, and pointer minus
+an integer displacement retain the pointer type in semantic subjects and SemIR.
+Casts and LET inference must not relabel these expressions as CARD and lose the
+bank byte on native targets. ADDRESS-valued operands keep their separate rules.
+
 For fixed higher ranks, semantic subjects and SemIR retain a `MultiIndex` place
 with the canonical shape and typed coordinates in source order. Array identity
 is resolved before arity: every axis requires an integer coordinate, and known

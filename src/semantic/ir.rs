@@ -5670,6 +5670,9 @@ fn arithmetic_numeric_result_type(
     if left.is_error() || right.is_error() {
         return ValueType::error();
     }
+    if let Some(pointer) = super::pointer_arithmetic_result(op, left, right) {
+        return pointer;
+    }
     if left.pointer || right.pointer {
         return card_type();
     }

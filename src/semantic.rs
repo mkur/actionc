@@ -5880,6 +5880,19 @@ fn param_signature_type(param: &VarDecl) -> ValueType {
     }
 }
 
+// Shared by semantic classification and SemIR reconstruction. Pointer offsets
+// retain the pointer type so nested operations, casts and LET keep its width.
+fn pointer_arithmetic_result(op: BinaryOp, left: &ValueType, right: &ValueType) -> Option<ValueType> {
+    let displacement = |ty: &ValueType| ty.is_numeric_scalar() && ty.as_scalar() != Some(ScalarType::Address);
+    if matches!(op, BinaryOp::Add | BinaryOp::Sub) && left.is_pointer() && displacement(right) {
+        Some(left.clone())
+    } else if op == BinaryOp::Add && right.is_pointer() && displacement(left) {
+        Some(right.clone())
+    } else {
+        None
+    }
+}
+
 fn promote_numeric(
     op: BinaryOp,
     left: &ValueType,
@@ -5888,6 +5901,9 @@ fn promote_numeric(
 ) -> ValueType {
     if left.is_error() || right.is_error() {
         return ValueType::error();
+    }
+    if let Some(pointer) = pointer_arithmetic_result(op, left, right) {
+        return pointer;
     }
     if left.pointer || right.pointer {
         return fund_value(FundType::Card);

@@ -97,3 +97,31 @@ fn external_interface_matches_single_implementation_and_only_used_imports() {
     assert_eq!(caller.mir.routines.iter().filter(|r|r.entry.external).count(),1);
     assert_eq!(caller.mir.routines.iter().filter(|r|!r.entry.external).count(),1);
 }
+
+#[test]
+fn pointer_offsets_keep_the_bank_through_address_and_cstring_casts() {
+    let source = r#"BYTE POINTER data
+ADDRESS first,second,third
+CSTRING view
+PROC Main()
+ data=BYTE POINTER($d0000)
+ first=ADDRESS(data+SIZE(2))
+ second=ADDRESS(SIZE(2)+data)
+ third=ADDRESS(data-SIZE(2))
+ LET next=data+SIZE(2)
+ view=CSTRING(next)
+RETURN"#;
+    for opt in [false, true] {
+        let prepared=Source::new(source).prepare(opt).unwrap();
+        prepared.compile_o65(&Default::default()).unwrap();
+    }
+    let ast=parser::parse(&lexer::tokenize(source).unwrap()).unwrap();
+    let model=semantic::analyze_with_options(&ast,semantic::SemanticOptions::modern().with_target(TargetId::Wdc65816Native)).unwrap();
+    let semir=semantic::ir::lower_program(&ast,&model);
+    let nir=actionc::nir::lower_program(&semir);
+    let casts:Vec<_>=nir.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+        .filter_map(|op| if let actionc::nir::NirOp::Cast {from,to,..}=op {Some((from,to))} else {None})
+        .collect();
+    // Three ADDRESS conversions and the CSTRING view must take pointer inputs.
+    assert_eq!(casts.iter().filter(|(from,_)|matches!(from.kind,actionc::nir::NirTypeKind::Pointer {..})).count(),4);
+}
