@@ -4380,7 +4380,10 @@ impl Analyzer {
                         continue;
                     };
                     let length = shape.length().expect("fixed inline array shape");
-                    let Some((stride, size)) = align_u32(element_size, alignment)
+                    // Array indexing and pointer decay advance by the complete
+                    // element width. Align the array's start, not each scalar:
+                    // native ADDRESS/SIZE elements occupy three bytes.
+                    let Some((stride, size)) = Some(element_size)
                         .filter(|stride| *stride != 0)
                         .and_then(|stride| length.checked_mul(stride).filter(|size| *size <= max_extent).map(|size| (stride, size)))
                     else {

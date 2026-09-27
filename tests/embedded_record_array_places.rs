@@ -419,3 +419,23 @@ fn embedded_array_places_match_the_nir_snapshot() {
         include_str!("snapshots/embedded_record_array_places.nir")
     );
 }
+
+#[test]
+fn native_24_bit_arrays_share_packed_stride_with_pointer_indexing() {
+    for element in ["ADDRESS", "SIZE"] {
+        let source = format!(
+            "TYPE Buffer=[BYTE lead {element} ARRAY slots(3) BYTE tail] \
+             Buffer item {element} ARRAY cells(3) {element} POINTER p \
+             CARD i PROC Main() p=item.slots item.slots(i)=$123456 \
+             p(1)=item.slots(i) cells(i)=p(1) RETURN"
+        );
+        let (_, model) = analyze(&source, TargetId::Wdc65816Native);
+        let record = model.layout.record_for_name("Buffer").unwrap();
+        let slots = record.fields.iter().find(|f| f.name == "slots").unwrap();
+        assert_eq!((slots.offset, slots.size), (2, 9));
+        assert!(matches!(&slots.storage, RecordFieldStorage::InlineArray { stride: 3, .. }));
+        let cells = model.layout.arrays.iter().find(|a| a.name == "cells").unwrap();
+        assert_eq!((cells.element_size, cells.stride, cells.storage_size), (3, 3, Some(9)));
+        lower(&source, TargetId::Wdc65816Native);
+    }
+}

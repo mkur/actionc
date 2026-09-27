@@ -237,7 +237,9 @@ impl SemanticLayoutFacts {
                 semantic_value_width(&element_type, &records, target_layout).unwrap_or(0);
             let element_alignment =
                 semantic_value_alignment(&element_type, &records, target_layout).unwrap_or(1);
-            let stride = align_up(element_size, element_alignment).unwrap_or(element_size);
+            // Match pointer indexing. Aggregate widths already include their
+            // tail padding; scalar arrays have no per-element padding.
+            let stride = element_size;
             let length = array_lengths.get(&symbol_id).copied();
             let shape = array_shapes.get(&symbol_id).cloned().unwrap_or_else(|| ArrayShape::linear(length));
             assert_eq!(shape.length(), length, "array count must derive from canonical shape");
