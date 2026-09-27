@@ -250,7 +250,8 @@ impl Generator {
         match &expr.kind {
             ExprKind::Selection(_) => None,
             ExprKind::Prepared { value, .. } => self.expr_scalar_type(value),
-            ExprKind::CurrentLocation | ExprKind::String(_) => Some(ScalarType::Card),
+            ExprKind::CurrentLocation | ExprKind::String(_)
+            | ExprKind::CString(_) => Some(ScalarType::Card),
             ExprKind::Number(number) => ScalarType::from_number_kind(number.kind),
             ExprKind::Char(_) => Some(ScalarType::Char),
             ExprKind::Name(name) => {

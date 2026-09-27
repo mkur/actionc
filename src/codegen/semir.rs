@@ -1183,6 +1183,7 @@ impl SemIrAstLowerer<'_> {
             SemLiteral::Real { source, .. } => {
                 (ExprKind::Number(source.clone()), source.text.clone())
             }
+            SemLiteral::CString(bytes) => (ExprKind::CString(bytes.clone()), format!("c{bytes:?}")),
             SemLiteral::String(text) => (ExprKind::String(text.clone()), format!("{text:?}")),
             SemLiteral::Char(ch) => (ExprKind::Char(*ch), format!("'{ch}'")),
             SemLiteral::Constant(value) => {
@@ -1257,6 +1258,7 @@ impl SemIrAstLowerer<'_> {
                         ty: self.type_ref(&if ty.is_record() { ValueType::pointer_to(ty.clone()) } else { ty.clone() }), storage: VarStorage::Plain,
                     }).collect(),
                 })),
+                ValueTypeBase::CString => TypeBase::Named("SYS.CSTRING".into()),
                 ValueTypeBase::Error => TypeBase::Fund(FundType::Byte),
             },
             pointer: ty.pointer && !matches!(ty.base, ValueTypeBase::Callable(_)),
@@ -2088,6 +2090,7 @@ fn expr_text(kind: &ExprKind) -> String {
         ExprKind::CurrentLocation => "*".to_string(),
         ExprKind::TypeRef(ty) => type_ref_text(ty),
         ExprKind::Number(NumberLiteral { text, .. }) => text.clone(),
+        ExprKind::CString(bytes) => format!("c{bytes:?}"),
         ExprKind::String(text) => format!("{text:?}"),
         ExprKind::Char(ch) => format!("'{ch}'"),
         ExprKind::Name(name) => name.clone(),

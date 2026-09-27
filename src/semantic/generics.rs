@@ -56,6 +56,7 @@ fn argument_name(ty: &ValueType) -> String {
         ValueTypeBase::Fund(fund) => format!("{fund:?}").to_ascii_uppercase(),
         ValueTypeBase::Enum(identity) => identity.name.clone(),
         ValueTypeBase::Named(identity) => identity.name.clone(),
+        ValueTypeBase::CString => "SYS.CSTRING".into(),
         ValueTypeBase::Real => "REAL".into(),
         ValueTypeBase::Callable(callable) => {
             let head = callable

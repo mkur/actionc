@@ -689,7 +689,8 @@ impl Generator {
                 self.collect_modern_hidden_expr(base);
                 self.collect_modern_hidden_expr(index);
             }
-            ExprKind::Number(_)
+            ExprKind::CString(_)
+            | ExprKind::Number(_)
             | ExprKind::TypeRef(_)
             | ExprKind::Char(_)
             | ExprKind::Name(_)
@@ -942,7 +943,7 @@ fn expr_contains_string_literal(expr: &Expr) -> bool {
     match &expr.kind {
         ExprKind::Selection(selection) => selection.expressions().into_iter().any(expr_contains_string_literal),
         ExprKind::Prepared { statements, value } => stmt_list_contains_string_literal(statements) || expr_contains_string_literal(value),
-        ExprKind::String(_) => true,
+        ExprKind::String(_) | ExprKind::CString(_) => true,
         ExprKind::Unary { expr, .. } => expr_contains_string_literal(expr),
         ExprKind::Cast { expr, .. } => expr_contains_string_literal(expr),
         ExprKind::Binary { left, right, .. } => {

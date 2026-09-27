@@ -136,7 +136,10 @@ impl Analyzer {
         }
         self.diagnostics.push(Diagnostic::new(
             span,
-            "cannot modify an immutable LET binding",
+            if matches!(&place.kind, subject::SemPlaceKind::Deref(p) if p.ty.is_cstring())
+                || matches!(&place.kind, subject::SemPlaceKind::Index { base, .. } if base.ty.is_cstring()) {
+                "cannot write through a read-only CSTRING view"
+            } else { "cannot modify an immutable LET binding" },
         ));
         true
     }
@@ -162,6 +165,7 @@ impl Analyzer {
     }
 
     pub(super) fn indexed_access(&self, base: &subject::SemPlace) -> subject::PlaceAccess {
+        if base.ty.is_cstring() { return subject::PlaceAccess::ReadOnly; }
         if self.inline_array_type(base).is_some() {
             base.access
         } else {

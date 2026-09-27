@@ -66,6 +66,8 @@ pub enum TokenKind {
     },
     Number(NumberLiteral),
     String(String),
+    /// Decoded byte payload; the terminating NUL is added by storage lowering.
+    CString(Vec<u8>),
     Char(char),
     ActioncAnnotation(String),
     Keyword(Keyword),
@@ -136,7 +138,7 @@ impl Keyword {
 impl TokenKind {
     pub fn action_token_id(&self) -> Option<u8> {
         match self {
-            TokenKind::Ident(_) => None,
+            TokenKind::Ident(_) | TokenKind::CString(_) => None,
             TokenKind::InlineAsm { .. } => None,
             TokenKind::Number(number) => Some(number.kind.action_token_id()),
             TokenKind::String(_) => Some(128 + 5),
@@ -235,6 +237,10 @@ impl<'a> Lexer<'a> {
         let ch = self.bump()?;
 
         let kind = match ch {
+            'c' | 'C' if self.peek() == Some('"') => {
+                self.bump();
+                return Some(self.lex_cstring(start, start_line));
+            }
             'A'..='Z' | 'a'..='z' | '_' => {
                 return Some(self.lex_ident_or_keyword(start, start_line));
             }
@@ -298,6 +304,63 @@ impl<'a> Lexer<'a> {
             span: Span::new(start, self.pos),
             line: start_line,
         })
+    }
+
+    fn lex_cstring(&mut self, start: usize, start_line: usize) -> Token {
+        let mut bytes = Vec::new();
+        let mut closed = false;
+        while let Some(ch) = self.peek() {
+            if matches!(ch, '\n' | '\r') { break; }
+            self.bump();
+            if ch == '"' { closed = true; break; }
+            let byte = if ch == '\\' {
+                match self.peek() {
+                    Some('\n' | '\r') | None => break,
+                    Some(escape) => {
+                        self.bump();
+                        match escape {
+                            'n' => Some(10), 'r' => Some(13), 't' => Some(9),
+                            'b' => Some(8), 'f' => Some(12), 'v' => Some(11),
+                            'a' => Some(7), '0' => Some(0),
+                            '\\' | '"' | '\'' | '?' => Some(escape as u8),
+                            'x' => {
+                                let mut value = 0;
+                                let mut count = 0;
+                                while count < 2 {
+                                    let Some(digit) = self.peek().and_then(|c| c.to_digit(16)) else { break; };
+                                    self.bump(); value = value * 16 + digit as u8; count += 1;
+                                }
+                                if count == 2 { Some(value) } else {
+                                    self.diagnostics.push(Diagnostic::new(Span::new(start, self.pos),
+                                        "C-string hexadecimal escape requires exactly two hex digits"));
+                                    None
+                                }
+                            }
+                            _ => {
+                                self.diagnostics.push(Diagnostic::new(Span::new(start, self.pos),
+                                    format!("unknown C-string escape \\{escape}")));
+                                None
+                            }
+                        }
+                    }
+                }
+            } else {
+                match u8::try_from(u32::from(ch)) {
+                    Ok(byte) => Some(byte),
+                    Err(_) => {
+                        self.diagnostics.push(Diagnostic::new(Span::new(start, self.pos),
+                            "C-string character is outside the single-byte source encoding"));
+                        None
+                    }
+                }
+            };
+            if let Some(byte) = byte { bytes.push(byte); }
+        }
+        if !closed {
+            self.diagnostics.push(Diagnostic::new(Span::new(start, self.pos),
+                "unterminated C-string; physical newlines are not allowed"));
+        }
+        Token { kind: TokenKind::CString(bytes), span: Span::new(start, self.pos), line: start_line }
     }
 
     fn lex_ident_or_keyword(&mut self, start: usize, start_line: usize) -> Token {

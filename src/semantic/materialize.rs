@@ -286,6 +286,7 @@ impl Materializer<'_> {
             | ExprKind::TypeRef(_)
             | ExprKind::Number(_)
             | ExprKind::String(_)
+            | ExprKind::CString(_)
             | ExprKind::Char(_)
             | ExprKind::Name(_) => {}
         }

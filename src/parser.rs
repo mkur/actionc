@@ -3152,6 +3152,7 @@ impl<'a> ExprParser<'a> {
         let kind = match &token.kind {
             TokenKind::Number(number) => ExprKind::Number(number.clone()),
             TokenKind::String(value) => ExprKind::String(value.clone()),
+            TokenKind::CString(value) => ExprKind::CString(value.clone()),
             TokenKind::Char(value) => ExprKind::Char(*value),
             TokenKind::Ident(name) => {
                 if generics::generic_head_end(self.tokens, start).is_some() {
@@ -3424,6 +3425,7 @@ fn normalize_expr_spans(expr: &mut Expr, fallback: Span) {
         | ExprKind::TypeRef(_)
         | ExprKind::Number(_)
         | ExprKind::String(_)
+            | ExprKind::CString(_)
         | ExprKind::Char(_)
         | ExprKind::Name(_) => {}
     }
@@ -3483,6 +3485,7 @@ fn token_can_end_expr(token: &Token) -> bool {
             | TokenKind::Ident(_)
             | TokenKind::Number(_)
             | TokenKind::String(_)
+            | TokenKind::CString(_)
             | TokenKind::Char(_)
             | TokenKind::RParen
             | TokenKind::RBracket
@@ -3514,6 +3517,7 @@ fn token_text(token: &Token) -> String {
         }
         TokenKind::Number(number) => number.text.clone(),
         TokenKind::String(text) => format!("\"{text}\""),
+        TokenKind::CString(bytes) => format!("c\"{}\"", bytes.iter().map(|b| format!("\\x{b:02X}")).collect::<String>()),
         TokenKind::Char(ch) => format!("'{ch}"),
         TokenKind::ActioncAnnotation(text) => format!(";@actionc {text}"),
         TokenKind::Keyword(keyword) => format!("{keyword:?}").to_ascii_uppercase(),

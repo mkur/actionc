@@ -657,6 +657,7 @@ pub enum ExprKind {
     TypeRef(TypeRef),
     Number(NumberLiteral),
     String(String),
+    CString(Vec<u8>),
     Char(char),
     Name(String),
     Unary {

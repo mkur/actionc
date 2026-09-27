@@ -1,0 +1,100 @@
+; Reentrant byte-string utilities. Bounds precede loads; no allocator or globals.
+MODULE CSTRING.IMPL
+
+PUBLIC SIZE FUNC strlen(SYS.CSTRING text)
+  SIZE length
+  length=0
+  WHILE text(length)#0 DO
+    length==+1
+  OD
+RETURN(length)
+
+PUBLIC SIZE FUNC strnlen(BYTE POINTER bytes SIZE maximum)
+  SIZE length
+  length=0
+  WHILE length<maximum DO
+    IF bytes(length)=0 THEN RETURN(length) FI
+    length==+1
+  OD
+RETURN(length)
+
+PUBLIC INT FUNC strcmp(SYS.CSTRING left,right)
+  SIZE index
+  BYTE a,b
+  index=0
+  DO
+    a=left(index)
+    b=right(index)
+    IF a<b THEN RETURN(-1) FI
+    IF a>b THEN RETURN(1) FI
+    IF a=0 THEN RETURN(0) FI
+    index==+1
+  OD
+RETURN(0)
+
+PUBLIC INT FUNC strncmp(SYS.CSTRING left,right SIZE maximum)
+  SIZE index
+  BYTE a,b
+  index=0
+  WHILE index<maximum DO
+    a=left(index)
+    b=right(index)
+    IF a<b THEN RETURN(-1) FI
+    IF a>b THEN RETURN(1) FI
+    IF a=0 THEN RETURN(0) FI
+    index==+1
+  OD
+RETURN(0)
+
+PUBLIC SYS.CSTRING FUNC strchr(SYS.CSTRING text BYTE value)
+  BYTE POINTER cursor
+  BYTE current
+  cursor=BYTE POINTER(text)
+  DO
+    current=cursor^
+    IF current=value THEN RETURN(SYS.CSTRING(cursor)) FI
+    IF current=0 THEN RETURN(SYS.CSTRING(0)) FI
+    cursor==+1
+  OD
+RETURN(SYS.CSTRING(0))
+
+PUBLIC SIZE FUNC strlcpy(BYTE POINTER destination SYS.CSTRING source SIZE capacity)
+  SIZE length,room
+  BYTE current
+  length=0
+  room=0
+  IF capacity>0 THEN room=capacity-1 FI
+  DO
+    current=source(length)
+    IF current=0 THEN EXIT FI
+    IF length<room THEN destination(length)=current FI
+    length==+1
+  OD
+  IF capacity>0 THEN
+    IF length<room THEN destination(length)=0 ELSE destination(room)=0 FI
+  FI
+RETURN(length)
+
+PUBLIC SIZE FUNC strlcat(BYTE POINTER destination SYS.CSTRING source SIZE capacity)
+  SIZE initial,length,room
+  BYTE current
+  initial=0
+  WHILE initial<capacity DO
+    IF destination(initial)=0 THEN EXIT FI
+    initial==+1
+  OD
+  length=0
+  room=0
+  IF initial<capacity THEN room=capacity-initial-1 FI
+  DO
+    current=source(length)
+    IF current=0 THEN EXIT FI
+    IF length<room THEN destination(initial+length)=current FI
+    length==+1
+  OD
+  IF initial<capacity THEN
+    IF length<room THEN destination(initial+length)=0
+    ELSE destination(initial+room)=0 FI
+  FI
+RETURN(initial+length)
+ENDMODULE

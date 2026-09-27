@@ -497,6 +497,7 @@ impl ValueType {
         let base = match &self.base {
             ValueTypeBase::Fund(fund) => TypeBase::Fund(*fund),
             ValueTypeBase::Enum(identity) => TypeBase::Named(QualifiedName::new(identity.name.split('.').map(str::to_string).collect::<Vec<_>>())),
+            ValueTypeBase::CString => TypeBase::Named("SYS.CSTRING".into()),
             ValueTypeBase::Named(identity) => TypeBase::Named(QualifiedName::new(identity.name.split('.').map(str::to_string).collect::<Vec<_>>())),
             ValueTypeBase::Callable(callable) => TypeBase::Callable(Box::new(crate::ast::CallableTypeRef {
                 kind: callable.kind.clone(),
@@ -506,7 +507,7 @@ impl ValueType {
             })),
             _ => return None,
         };
-        Some(Box::new(TypeRef { base, pointer: self.pointer }))
+        Some(Box::new(TypeRef { base, pointer: self.pointer && !self.is_cstring() }))
     }
 
     pub fn enumeration(identity: EnumIdentity) -> Self {
@@ -594,7 +595,14 @@ impl ValueType {
         })
     }
 
+    pub fn cstring() -> Self {
+        Self { base: ValueTypeBase::CString, pointer: true }
+    }
+
+    pub fn is_cstring(&self) -> bool { matches!(self.base, ValueTypeBase::CString) }
+
     pub fn pointee_type(&self) -> Self {
+        if self.is_cstring() { return Self::fund(FundType::Byte); }
         let mut pointee = self.clone();
         pointee.pointer = false;
         pointee
@@ -610,7 +618,8 @@ impl ValueType {
         }
         match self.base {
             ValueTypeBase::Fund(fund) => Some(ScalarType::from_fund(fund)),
-            ValueTypeBase::Real
+            ValueTypeBase::CString
+            | ValueTypeBase::Real
             | ValueTypeBase::Enum(_)
             | ValueTypeBase::Named(_)
             | ValueTypeBase::Callable(_)
@@ -688,7 +697,7 @@ impl ValueType {
                 ValueTypeKind::CallablePointer((**callable).clone())
             }
             ValueTypeBase::Callable(_) => ValueTypeKind::Error,
-            ValueTypeBase::Error => ValueTypeKind::Error,
+            ValueTypeBase::CString | ValueTypeBase::Error => ValueTypeKind::Error,
         }
     }
 
@@ -719,6 +728,7 @@ impl ValueType {
             }),
             ValueTypeBase::Fund(_)
             | ValueTypeBase::Enum(_)
+            | ValueTypeBase::CString
             | ValueTypeBase::Real
             | ValueTypeBase::Callable(_)
             | ValueTypeBase::Error => None,
@@ -741,6 +751,9 @@ impl ValueType {
     }
 
     pub fn assignment_compatibility(&self, actual: &Self) -> TypeCompatibility {
+        if self.is_cstring() || actual.is_cstring() {
+            return if self == actual { TypeCompatibility::Exact } else { TypeCompatibility::Incompatible };
+        }
         if self.is_error() || actual.is_error() {
             return TypeCompatibility::Error;
         }
@@ -779,6 +792,9 @@ impl ValueType {
     }
 
     pub fn argument_compatibility(&self, actual: &Self) -> TypeCompatibility {
+        if self.is_cstring() || actual.is_cstring() {
+            return if self == actual { TypeCompatibility::Exact } else { TypeCompatibility::Incompatible };
+        }
         if self.is_error() || actual.is_error() {
             return TypeCompatibility::Error;
         }

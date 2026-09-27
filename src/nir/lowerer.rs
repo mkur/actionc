@@ -2747,6 +2747,17 @@ impl NirBuilder {
     }
 
     fn value(&mut self, expr: &SemExpr) -> Option<NirValue> {
+        if let SemExprKind::Literal(SemLiteral::CString(bytes)) = &expr.kind {
+            let id = SymbolId(self.next_static); self.next_static += 1;
+            let name = format!("__nir_cstr_{}_{}", sanitize_static_owner(&self.name), id.0);
+            let ty = NirFacts::type_from_value(&expr.ty);
+            let mut storage = bytes.clone(); storage.push(0);
+            self.statics.push(NirStaticData { id, name: name.clone(), ty: ty.clone(),
+                image: NirDataImage::literal(storage), display: format!("c{bytes:?}"),
+                alignment: ByteSize::ONE, mutable: false, section: "rodata".into() });
+            return Some(NirValue::StaticAddr { id, name, ty });
+        }
+
         match &expr.kind {
             SemExprKind::IfValue(selection) => Some(self.if_value(selection, &expr.ty)),
             SemExprKind::CaseValue(selection) => Some(self.case_value(selection, &expr.ty)),
@@ -5241,6 +5252,9 @@ fn literal_number_u64_expr(expr: &SemExpr) -> Option<u64> {
 }
 
 fn string_initializer_bytes(declaration: &SemDeclaration) -> Option<Vec<u8>> {
+    if let SemExprKind::Literal(SemLiteral::CString(bytes)) = &declaration.initializer.as_ref()?.kind {
+        let mut storage = bytes.clone(); storage.push(0); return Some(storage);
+    }
     let SemExprKind::Literal(SemLiteral::String(value)) = &declaration.initializer.as_ref()?.kind
     else {
         return None;
@@ -6134,6 +6148,7 @@ fn literal_summary(literal: &SemLiteral) -> String {
         SemLiteral::Enum(value) => value.representation().number_literal().text,
         SemLiteral::Number(number) => number.text.clone(),
         SemLiteral::Real { source, .. } => source.text.clone(),
+        SemLiteral::CString(bytes) => format!("c{bytes:?}"),
         SemLiteral::String(value) => format!("{value:?}"),
         SemLiteral::Char(value) => format!("{value:?}"),
         SemLiteral::Constant(value) => value.number_literal().text,
@@ -6164,7 +6179,7 @@ fn literal_value(literal: &SemLiteral, ty: &NirType) -> Option<NirValue> {
         SemLiteral::Real { .. } => return None,
         SemLiteral::Char(value) => u64::from(*value as u16),
         SemLiteral::Constant(value) => value.bits,
-        SemLiteral::String(_) => return None,
+        SemLiteral::String(_) | SemLiteral::CString(_) => return None,
     };
     if ty.kind.is_pointer() {
         return Some(if value == 0 {

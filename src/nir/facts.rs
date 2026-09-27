@@ -317,6 +317,7 @@ pub(crate) fn signature_id(callable: &CallableType, convention: NirCallConventio
                 byte(hash, 1);
                 text(hash, &format!("{fund:?}"));
             }
+            ValueTypeBase::CString => byte(hash, 7),
             ValueTypeBase::Real => byte(hash, 2),
             ValueTypeBase::Enum(identity) => {
                 byte(hash, 6);
@@ -488,6 +489,7 @@ impl NirValue {
 pub(super) fn type_summary(ty: &ValueType) -> String {
     let base = match &ty.base {
         ValueTypeBase::Fund(fund) => format!("{fund:?}"),
+        ValueTypeBase::CString => "SYS.CSTRING".to_string(),
         ValueTypeBase::Real => "REAL".to_string(),
         ValueTypeBase::Enum(identity) => identity.name.clone(),
         ValueTypeBase::Named(identity) => identity.name.clone(),

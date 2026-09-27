@@ -104,6 +104,7 @@ pub enum SemLiteral {
         value: AtariReal,
     },
     String(String),
+    CString(Vec<u8>),
     Char(char),
     Constant(ConstValue),
 }

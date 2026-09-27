@@ -386,6 +386,8 @@ pub struct ValueType {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueTypeBase {
+    /// Canonical read-only byte view; always represented as a data pointer.
+    CString,
     Fund(FundType),
     Enum(EnumIdentity),
     Real,
@@ -2410,6 +2412,13 @@ impl Analyzer {
                 span: expr.span,
             }),
             ExprKind::Number(number) => self.classify_number_subject(number, expr.span),
+            ExprKind::CString(value) => {
+                self.require_native_cstring(expr.span);
+                subject::SemSubject::Expr(subject::SemExpr {
+                    ty: ValueType::cstring(),
+                    kind: subject::SemExprKind::Literal(subject::SemLiteral::CString(value.clone())), span: expr.span,
+                })
+            }
             ExprKind::String(value) => subject::SemSubject::Expr(subject::SemExpr {
                 ty: string_literal_type(),
                 kind: subject::SemExprKind::Literal(subject::SemLiteral::String(value.clone())),
@@ -2547,7 +2556,7 @@ impl Analyzer {
                 }
                 subject::SemSubject::Place(subject::SemPlace {
                     ty,
-                    access: if pointer_type.is_some() {
+                    access: if pointer.ty.is_cstring() { subject::PlaceAccess::ReadOnly } else if pointer_type.is_some() {
                         subject::PlaceAccess::Assignable
                     } else {
                         subject::PlaceAccess::Error
@@ -2689,6 +2698,24 @@ impl Analyzer {
                 self.enum_cast_subject(scope, identity, args, expr.span)
             }
             ExprKind::Call { callee, args }
+                if enums::expression_name(callee).is_some_and(|name| self.is_cstring_type(scope, &name)) =>
+            {
+                self.require_native_cstring(expr.span);
+                if args.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(expr.span, "CSTRING conversion requires one argument"));
+                    return self.subject_error(expr.span);
+                }
+                let mut inner = self.expect_expr(scope, &args[0], args[0].span);
+                if let Some(decayed) = self.array_decay_pointer_type(scope, &args[0]) { inner.ty = decayed; }
+                if !inner.ty.is_cstring() && !inner.ty.as_pointer().is_some_and(|p| matches!(p.pointee.base, ValueTypeBase::Fund(FundType::Byte | FundType::Char)))
+                    && !matches!(self.evaluate_const_expr(&inner), Ok(value) if value.bits == 0) {
+                    self.diagnostics.push(Diagnostic::new(expr.span, "CSTRING conversion requires byte storage or zero"));
+                }
+                let ty = ValueType::cstring();
+                self.resolved_casts.insert(ExpressionSite::new(scope, expr.span), ty.clone());
+                subject::SemSubject::Expr(subject::SemExpr { ty: ty.clone(), kind: subject::SemExprKind::Cast { ty, expr: Box::new(inner) }, span: expr.span })
+            }
+            ExprKind::Call { callee, args }
                 if args.len() == 1 && self.contextual_scalar_cast_type(scope, callee).is_some() =>
             {
                 let scalar = self
@@ -2741,6 +2768,13 @@ impl Analyzer {
             }
             ExprKind::Index { base, index } => {
                 self.index_subject(scope, base, std::slice::from_ref(index.as_ref()), expr.span)
+            }
+            ExprKind::Field { .. } if enums::expression_name(expr).is_some_and(|name| self.is_cstring_type(scope, &name)) => {
+                self.require_native_cstring(expr.span);
+                subject::SemSubject::TypeRef(subject::SemTypeRef {
+                    ty: ValueType::cstring(), kind: subject::SemTypeRefKind::Inline(TypeRef {
+                        base: TypeBase::Named("SYS.CSTRING".into()), pointer: false }), span: expr.span,
+                })
             }
             ExprKind::Field { base, field } => {
                 if let Some(owner) = self.variant_type_for_expr(scope, base) {
@@ -3134,6 +3168,13 @@ impl Analyzer {
         span: Span,
     ) -> subject::SemSubject {
         if self.lookup_symbol(scope, name).is_none() {
+            if name.eq_ignore_ascii_case("CSTRING") {
+                self.require_native_cstring(span);
+                return subject::SemSubject::TypeRef(subject::SemTypeRef {
+                    ty: ValueType::cstring(),
+                    kind: subject::SemTypeRefKind::Inline(TypeRef { base: TypeBase::Named("SYS.CSTRING".into()), pointer: false }), span,
+                });
+            }
             let scalar = contextual_scalar_type_name(name);
             if let Some(scalar) = scalar {
                 return subject::SemSubject::TypeRef(subject::SemTypeRef {
@@ -3867,6 +3908,7 @@ impl Analyzer {
         actual: &ValueType,
     ) -> bool {
         debug_assert!(expected.pointer);
+        if expected.is_cstring() || actual.is_cstring() { return expected == actual; }
         if actual.pointer {
             return pointer_value_types_compatible(expected, actual);
         }
@@ -4500,6 +4542,7 @@ impl Analyzer {
         let valid_value_type = matches!(field.ty.base, TypeBase::Fund(_) | TypeBase::Callable(_))
             || field.ty.pointer
             || self.value_type_from_type_ref(scope, &field.ty).as_enum().is_some()
+            || self.value_type_from_type_ref(scope, &field.ty).is_cstring()
             || matches!(&field.ty.base, TypeBase::Named(name) if self.builtin_scalar_type(scope, name).is_some())
             || self.type_ref_is_record(scope, &field.ty);
         let inline_array = field.storage == VarStorage::Array && self.options.embedded_record_arrays;
@@ -4679,9 +4722,17 @@ impl Analyzer {
         }
         if (declaration.storage == VarStorage::Array || is_string_type_ref(&declaration.ty))
             && (entry.size.is_some() || entry.initializer.as_ref().is_some_and(|expr|
-                matches!(expr.kind, ExprKind::InitializerList(_) | ExprKind::String(_))))
+                matches!(expr.kind, ExprKind::InitializerList(_) | ExprKind::String(_)
+            | ExprKind::CString(_))))
         {
             self.static_array_backings.insert(symbol);
+        }
+        if let Some(Expr { kind: ExprKind::CString(bytes), span, .. }) = &entry.initializer {
+            self.require_native_cstring(*span);
+            if declaration.storage == VarStorage::Array {
+                let required = bytes.len() as u32 + 1;
+                if entry.size.is_none() { self.array_lengths.insert(symbol, required); }
+            }
         }
         let Some(size) = &entry.size else {
             return;
@@ -4735,7 +4786,8 @@ impl Analyzer {
         };
         if matches!(
             initializer.kind,
-            ExprKind::InitializerList(_) | ExprKind::String(_) | ExprKind::Raw
+            ExprKind::InitializerList(_) | ExprKind::String(_)
+            | ExprKind::CString(_) | ExprKind::Raw
         ) {
             return;
         }
@@ -4778,7 +4830,8 @@ impl Analyzer {
         let Some(initializer) = &entry.initializer else {
             return;
         };
-        if matches!(initializer.kind, ExprKind::InitializerList(_) | ExprKind::String(_))
+        if matches!(initializer.kind, ExprKind::InitializerList(_) | ExprKind::String(_)
+            | ExprKind::CString(_))
             && self.contains_union(&element_type)
         {
             self.diagnostics.push(Diagnostic::new(initializer.span,
@@ -5024,6 +5077,24 @@ impl Analyzer {
                     }
                 }
             }
+            ExprKind::CString(bytes) if decl.storage == VarStorage::Array => {
+                self.require_native_cstring(initializer.span);
+                if element_type != ValueType::fund(FundType::Byte) {
+                    self.diagnostics.push(Diagnostic::new(initializer.span, "C-string array initialization requires BYTE ARRAY"));
+                }
+                if self.symbols.lookup(scope, &entry.name).and_then(|id| self.array_lengths.get(&id))
+                    .is_some_and(|length| (*length as usize) < bytes.len() + 1) {
+                    self.diagnostics.push(Diagnostic::new(initializer.span, "C-string initializer including NUL exceeds array capacity"));
+                }
+            }
+            ExprKind::CString(_) => {
+                self.require_native_cstring(initializer.span);
+                self.diagnostics.push(Diagnostic::new(initializer.span,
+                    "a C-string declaration initializer requires BYTE ARRAY; assign a CSTRING view inside a routine or use LET"));
+            }
+            ExprKind::String(_) if element_type.is_cstring() => self.diagnostics.push(Diagnostic::new(
+                initializer.span, "an Action! string cannot initialize a CSTRING view",
+            )),
             ExprKind::String(_) if element_type.as_enum().is_some() => self.diagnostics.push(Diagnostic::new(
                 initializer.span, "enum storage cannot use a string initializer",
             )),
@@ -5099,6 +5170,11 @@ impl Analyzer {
             return;
         };
 
+        if self.is_cstring_type(scope, name) {
+            self.require_native_cstring(span);
+            if ty.pointer { self.diagnostics.push(Diagnostic::new(span, "CSTRING is already a pointer view; POINTER qualification is not supported")); }
+            return;
+        }
         if self.builtin_scalar_type(scope, name).is_some()
             || self.is_sys_native_real_type(scope, name)
         {
@@ -5187,6 +5263,7 @@ impl Analyzer {
         let TypeBase::Named(name) = &ty.base else {
             return value;
         };
+        if self.is_cstring_type(scope, name) { return ValueType::cstring(); }
         if let Some(scalar) = self.builtin_scalar_type(scope, name) {
             value.base = ValueTypeBase::Fund(scalar.fund_type());
             return value;
@@ -5206,6 +5283,7 @@ impl Analyzer {
             )
         {
             let symbol = &self.symbols.symbols[symbol_id.0];
+            if value.is_cstring() { value.pointer = ty.pointer; }
             value.base = if let Some(identity) = symbol.ty.as_ref().and_then(ValueType::as_enum) {
                 ValueTypeBase::Enum(identity.clone())
             } else if symbol.ty.as_ref().is_some_and(ValueType::is_real) {
@@ -5227,6 +5305,18 @@ impl Analyzer {
         self.modules
             .get(module_id.0 as usize)
             .is_some_and(|module| module.path.canonical_name() == "sys")
+    }
+
+    fn is_cstring_type(&self, scope: ScopeId, name: &QualifiedName) -> bool {
+        (name.components.len() == 2 && name.components[0].eq_ignore_ascii_case("SYS") && name.components[1].eq_ignore_ascii_case("CSTRING")) ||
+            (name.components.len() == 1 && name.components[0].eq_ignore_ascii_case("CSTRING") && matches!(
+                resolve_semantic_name(&self.symbols, &self.modules, scope, name), SemanticNameResolution::Unknown))
+    }
+
+    fn require_native_cstring(&mut self, span: Span) {
+        if self.options.target != TargetId::Wdc65816Native {
+            self.diagnostics.push(Diagnostic::new(span, "CSTRING requires wdc-65816-native"));
+        }
     }
 
     fn builtin_scalar_type(&self, scope: ScopeId, name: &QualifiedName) -> Option<ScalarType> {
@@ -5630,6 +5720,7 @@ impl ValueType {
     }
 
     fn from_type_ref(ty: &TypeRef) -> Self {
+        if matches!(&ty.base, TypeBase::Named(name) if name.eq_ignore_ascii_case("CSTRING") || name.to_string().eq_ignore_ascii_case("SYS.CSTRING")) { return Self::cstring(); }
         let base = match &ty.base {
             TypeBase::Applied { .. } => ValueTypeBase::Error,
             TypeBase::Fund(fund) => ValueTypeBase::Fund(*fund),
@@ -5710,7 +5801,7 @@ impl SemanticCallableSignature {
 fn callable_kind_from_symbol(symbol: &Symbol) -> RoutineKind {
     match (&symbol.class, symbol.ty.as_ref()) {
         (SymbolClass::Func | SymbolClass::BuiltinFunc, Some(ty)) => match ty.base {
-            ValueTypeBase::Fund(_) | ValueTypeBase::Enum(_) => RoutineKind::Func { return_type: ty.routine_result_type().unwrap() },
+            ValueTypeBase::CString | ValueTypeBase::Fund(_) | ValueTypeBase::Enum(_) => RoutineKind::Func { return_type: ty.routine_result_type().unwrap() },
             ValueTypeBase::Real => RoutineKind::Proc,
             ValueTypeBase::Named(_) => RoutineKind::Proc,
             ValueTypeBase::Callable(_) => RoutineKind::Proc,
@@ -5956,6 +6047,7 @@ fn evaluate_exact_fixed_address_expr(
         subject::SemExprKind::Selection { .. } | subject::SemExprKind::Call { .. } | subject::SemExprKind::VariantConstructor { .. } => Err(FixedArrayAddressError::RuntimeDependent),
         subject::SemExprKind::Literal(subject::SemLiteral::Real { .. })
         | subject::SemExprKind::Literal(subject::SemLiteral::String(_))
+        | subject::SemExprKind::Literal(subject::SemLiteral::CString(_))
         | subject::SemExprKind::CurrentLocation
         | subject::SemExprKind::Raw(_)
         | subject::SemExprKind::Error => Err(FixedArrayAddressError::Invalid),
@@ -6019,7 +6111,7 @@ fn evaluate_const_expr_for_layout(expr: &subject::SemExpr, layout: TargetLayout)
         ),
         subject::SemExprKind::Literal(subject::SemLiteral::Constant(value)) => value.bits,
         subject::SemExprKind::Literal(subject::SemLiteral::Enum(value)) => u64::from(value.bits),
-        subject::SemExprKind::Literal(subject::SemLiteral::String(_)) => {
+        subject::SemExprKind::Literal(subject::SemLiteral::String(_) | subject::SemLiteral::CString(_)) => {
             return Err("strings are not supported in CONST expressions".to_string());
         }
         subject::SemExprKind::Cast { expr: inner, .. } => evaluate_const_expr_for_layout(inner, layout)?.cast_for_layout(scalar, layout).bits,

@@ -1,0 +1,11 @@
+MODULE CSTRING_EXAMPLE
+USE CSTRING.IMPL AS STR
+SIZE required
+BYTE success
+PROC Main()
+  BYTE ARRAY path(32)=c"D1:"
+  required=STR.strlcat(path,c"STORY.TXT",SIZEOF(path))
+  IF required>=SIZEOF(path) THEN success=0 RETURN FI
+  success=BYTE(STR.strcmp(CSTRING(path),c"D1:STORY.TXT")=0)
+RETURN
+ENDMODULE

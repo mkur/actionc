@@ -1009,6 +1009,7 @@ pub enum SemLiteral {
         value: AtariReal,
     },
     String(String),
+    CString(Vec<u8>),
     Char(char),
     Constant(ConstValue),
 }
@@ -2135,6 +2136,7 @@ fn literal_summary(literal: &SemLiteral) -> String {
         SemLiteral::Enum(value) => format!("{}({})", value.identity.name, value.bits),
         SemLiteral::Number(number) => number.text.clone(),
         SemLiteral::Real { source, .. } => source.text.clone(),
+        SemLiteral::CString(bytes) => format!("c{bytes:?}"),
         SemLiteral::String(text) => format!("{text:?}"),
         SemLiteral::Char(ch) => format!("'{ch}'"),
         SemLiteral::Constant(value) => const_value_summary(*value),
@@ -2300,6 +2302,7 @@ fn type_summary(ty: &ValueType) -> String {
     let base = match &ty.base {
         ValueTypeBase::Fund(fund) => format!("{fund:?}"),
         ValueTypeBase::Enum(identity) => identity.name.clone(),
+        ValueTypeBase::CString => "SYS.CSTRING".to_string(),
         ValueTypeBase::Real => "REAL".to_string(),
         ValueTypeBase::Named(identity) => identity.name.clone(),
         ValueTypeBase::Callable(callable) => callable_type_summary(callable),
@@ -3843,6 +3846,7 @@ impl<'a> IrBuilder<'a> {
             }
             ExprKind::Number(number) => SemExprKind::Literal(SemLiteral::Number(number.clone())),
             ExprKind::String(value) => SemExprKind::Literal(SemLiteral::String(value.clone())),
+            ExprKind::CString(value) => SemExprKind::Literal(SemLiteral::CString(value.clone())),
             ExprKind::Char(value) => SemExprKind::Literal(SemLiteral::Char(*value)),
             ExprKind::TypeRef(_) => SemExprKind::Raw(expr.text.clone()),
             ExprKind::Name(name) => self
@@ -3977,6 +3981,7 @@ impl<'a> IrBuilder<'a> {
             SemExprKind::CurrentLocation => card_type(),
             SemExprKind::Literal(SemLiteral::Number(number)) => value_type_for_number(number),
             SemExprKind::Literal(SemLiteral::Real { .. }) => ValueType::real(),
+            SemExprKind::Literal(SemLiteral::CString(_)) => ValueType::cstring(),
             SemExprKind::Literal(SemLiteral::String(_)) => ValueType::pointer_to(char_type()),
             SemExprKind::Literal(SemLiteral::Char(_)) => char_type(),
             SemExprKind::Literal(SemLiteral::Constant(value)) => value.value_type(),
@@ -4717,6 +4722,7 @@ impl<'a> IrBuilder<'a> {
             | ExprKind::TypeRef(_)
             | ExprKind::Number(_)
             | ExprKind::String(_)
+            | ExprKind::CString(_)
             | ExprKind::Char(_)
             | ExprKind::Unary { .. }
             | ExprKind::Binary { .. }
@@ -4754,6 +4760,8 @@ impl<'a> IrBuilder<'a> {
                 | SymbolClass::Record => PlaceAccess::ReadOnly,
             },
             SemLValueKind::UnresolvedName(_) => PlaceAccess::Error,
+            SemLValueKind::Deref { pointer } if pointer.ty.is_cstring() => PlaceAccess::ReadOnly,
+            SemLValueKind::Index { base, .. } if base.ty.is_cstring() => PlaceAccess::ReadOnly,
             SemLValueKind::Deref { .. } | SemLValueKind::Index { .. } | SemLValueKind::MultiIndex(_) => PlaceAccess::Assignable,
             SemLValueKind::Field { base, .. } => {
                 if base.ty.is_pointer() { PlaceAccess::Assignable } else { base.access }
@@ -5321,6 +5329,7 @@ impl<'a> IrBuilder<'a> {
         if let Some(symbol) = self.qualified_symbol_ref(scope, name, Span::new(0, 0))
             && matches!(symbol.class, SymbolClass::Type | SymbolClass::Record)
         {
+            if value.is_cstring() { value.pointer = ty.pointer; }
             value.base = if let Some(identity) = symbol.ty.as_ref().and_then(ValueType::as_enum) {
                 ValueTypeBase::Enum(identity.clone())
             } else if symbol.ty.as_ref().is_some_and(ValueType::is_real) {
@@ -5335,11 +5344,13 @@ impl<'a> IrBuilder<'a> {
             || name.to_string().eq_ignore_ascii_case("SYS.LONGCARD")
             || name.to_string().eq_ignore_ascii_case("SYS.ADDRESS")
             || name.to_string().eq_ignore_ascii_case("SYS.SIZE")
+            || name.to_string().eq_ignore_ascii_case("SYS.CSTRING")
         {
             value.base = match name.components.last().map(|part| part.to_ascii_uppercase()) {
                 Some(name) if name == "LONGINT" => ValueTypeBase::Fund(FundType::LongInt),
                 Some(name) if name == "LONGCARD" => ValueTypeBase::Fund(FundType::LongCard),
                 Some(name) if name == "ADDRESS" => ValueTypeBase::Fund(FundType::Address),
+                Some(name) if name == "CSTRING" => { value.pointer = true; ValueTypeBase::CString },
                 Some(name) if name == "SIZE" => ValueTypeBase::Fund(FundType::Size),
                 _ => value.base,
             };
@@ -5356,6 +5367,7 @@ impl From<&VarDecl> for ValueType {
 
 impl From<&crate::ast::TypeRef> for ValueType {
     fn from(value: &crate::ast::TypeRef) -> Self {
+        if matches!(&value.base, crate::ast::TypeBase::Named(name) if name.eq_ignore_ascii_case("CSTRING") || name.to_string().eq_ignore_ascii_case("SYS.CSTRING")) { return Self::cstring(); }
         let base = match &value.base {
             crate::ast::TypeBase::Applied { .. } => ValueTypeBase::Error,
             crate::ast::TypeBase::Fund(fund) => ValueTypeBase::Fund(*fund),
@@ -5438,6 +5450,7 @@ fn type_ref_from_value(value: &ValueType) -> crate::ast::TypeRef {
         base: match &value.base {
             ValueTypeBase::Fund(fund) => crate::ast::TypeBase::Fund(*fund),
             ValueTypeBase::Enum(identity) => crate::ast::TypeBase::Named(QualifiedName::new(identity.name.split('.').map(str::to_string).collect::<Vec<_>>())),
+            ValueTypeBase::CString => crate::ast::TypeBase::Named("SYS.CSTRING".into()),
             ValueTypeBase::Real => crate::ast::TypeBase::NativeReal,
             ValueTypeBase::Named(identity) => crate::ast::TypeBase::Named(identity.name.as_str().into()),
             ValueTypeBase::Callable(callable) => {
@@ -5448,7 +5461,7 @@ fn type_ref_from_value(value: &ValueType) -> crate::ast::TypeRef {
             }
             ValueTypeBase::Error => crate::ast::TypeBase::Named("<error>".into()),
         },
-        pointer: value.pointer,
+        pointer: value.pointer && !value.is_cstring(),
     }
 }
 

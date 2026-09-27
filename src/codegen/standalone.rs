@@ -909,6 +909,7 @@ fn rewrite_expr_names(expr: &mut Expr, replacements: &BTreeMap<String, String>) 
         | ExprKind::TypeRef(_)
         | ExprKind::Number(_)
         | ExprKind::String(_)
+            | ExprKind::CString(_)
         | ExprKind::Char(_) => {}
     }
 }
@@ -1127,6 +1128,7 @@ fn collect_expr_names(expr: &Expr, candidates: &BTreeSet<String>, output: &mut B
         | ExprKind::TypeRef(_)
         | ExprKind::Number(_)
         | ExprKind::String(_)
+            | ExprKind::CString(_)
         | ExprKind::Char(_) => {}
     }
 }

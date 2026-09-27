@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "abi": "action65816.native.v1",
+  "module": "CSTRING",
+  "implementation": "CSTRING.IMPL",
+  "providers": {
+    "strlen": {
+      "result": "SIZE",
+      "arguments": [
+        [
+          "SYS.CSTRING",
+          "text"
+        ]
+      ],
+      "symbol": "cstring_strlen_v1",
+      "signature": 1818637244
+    },
+    "strnlen": {
+      "result": "SIZE",
+      "arguments": [
+        [
+          "BYTE POINTER",
+          "bytes"
+        ],
+        [
+          "SIZE",
+          "maximum"
+        ]
+      ],
+      "symbol": "cstring_strnlen_v1",
+      "signature": 1904729536
+    },
+    "strcmp": {
+      "result": "INT",
+      "arguments": [
+        [
+          "SYS.CSTRING",
+          "left"
+        ],
+        [
+          "SYS.CSTRING",
+          "right"
+        ]
+      ],
+      "symbol": "cstring_strcmp_v1",
+      "signature": 3031792884
+    },
+    "strncmp": {
+      "result": "INT",
+      "arguments": [
+        [
+          "SYS.CSTRING",
+          "left"
+        ],
+        [
+          "SYS.CSTRING",
+          "right"
+        ],
+        [
+          "SIZE",
+          "maximum"
+        ]
+      ],
+      "symbol": "cstring_strncmp_v1",
+      "signature": 565784175
+    },
+    "strchr": {
+      "result": "SYS.CSTRING",
+      "arguments": [
+        [
+          "SYS.CSTRING",
+          "text"
+        ],
+        [
+          "BYTE",
+          "value"
+        ]
+      ],
+      "symbol": "cstring_strchr_v1",
+      "signature": 1156764685
+    },
+    "strlcpy": {
+      "result": "SIZE",
+      "arguments": [
+        [
+          "BYTE POINTER",
+          "destination"
+        ],
+        [
+          "SYS.CSTRING",
+          "source"
+        ],
+        [
+          "SIZE",
+          "capacity"
+        ]
+      ],
+      "symbol": "cstring_strlcpy_v1",
+      "signature": 3599940068
+    },
+    "strlcat": {
+      "result": "SIZE",
+      "arguments": [
+        [
+          "BYTE POINTER",
+          "destination"
+        ],
+        [
+          "SYS.CSTRING",
+          "source"
+        ],
+        [
+          "SIZE",
+          "capacity"
+        ]
+      ],
+      "symbol": "cstring_strlcat_v1",
+      "signature": 3599940068
+    }
+  }
+}

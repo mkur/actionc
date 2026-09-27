@@ -251,6 +251,7 @@ impl Generator {
             | ExprKind::TypeRef(_)
             | ExprKind::Number(_)
             | ExprKind::String(_)
+            | ExprKind::CString(_)
             | ExprKind::Char(_) => ExpressionSideEffectFacts::pure(),
             ExprKind::Cast { expr, .. } => self.expr_side_effect_facts(expr),
             ExprKind::Name(name) => {

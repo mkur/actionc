@@ -306,3 +306,5 @@ and the bundled AltirraOS image is covered by its
 [file-specific permissive license](roms/ALTIRRAOS-LICENSE); ROM provenance and
 licensing notes are recorded in [roms/README.md](roms/README.md). Material under
 `corpora/` is not relicensed by the `actionc` license.
+
+Native 65816 programs can use [C-string literals and the CSTRING library](docs/cstring.md).

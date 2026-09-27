@@ -253,6 +253,16 @@ impl Harness {
         bus.load_o65(image);
         Self::with_bus(bus, caller, irq_mask, image.stack_overflow())
     }
+    pub fn new_compact(
+        image: &actionc::mir65816::o65::compact::Image,
+        caller: &[u8], irq_mask: u8, overflow: u32,
+    ) -> Self {
+        let mut bus = Bus::new();
+        for s in &image.segments { bus.map(s.address, &s.bytes, s.writable); }
+        for z in &image.zero_fill { bus.map(z.address, &vec![0; z.size as usize], z.writable); }
+        Self::with_bus(bus, caller, irq_mask, overflow)
+    }
+
     fn with_bus(mut bus: Bus, caller: &[u8], irq_mask: u8, overflow: u32) -> Self {
         bus.map(0x040000, caller, false);
         bus.map(overflow, &[0xdb, 0xea], false); // platform fault sink: STP
