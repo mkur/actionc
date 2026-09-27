@@ -10,7 +10,10 @@ use super::{
 use crate::mir65816::image::{Segment, ZeroFill};
 use std::collections::BTreeSet;
 
-const HEADER: &[u8; 8] = b"A8C3\x01\x00\x00\x00";
+const ABI_REVISION: u16 = crate::mir65816::abi::generated::ABI_VERSION as u16;
+const HEADER: &[u8; 8] = &[
+    b'A', b'8', b'C', b'3', ABI_REVISION as u8, (ABI_REVISION >> 8) as u8, 0, 0,
+];
 
 pub(super) fn descriptor(p: &Profile) -> Vec<u8> {
     let mut bytes = HEADER.to_vec();

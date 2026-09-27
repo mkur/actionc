@@ -167,8 +167,8 @@ trailer of **8 + 4 × import count bytes**:
 
 | Bytes | Meaning |
 | --- | --- |
-| 0–3 | ASCII `A8C3`, compact profile v2 |
-| 4–5 | little-endian native ABI revision, 1 (`action65816.native.v2`) |
+| 0–3 | ASCII `A8C3`, compact profile v3 |
+| 4–5 | little-endian native ABI revision, 2 (`action65816.native.v2`) |
 | 6–7 | reserved flags, zero |
 | 8 onward | little-endian 32-bit signature per standard import, in order |
 

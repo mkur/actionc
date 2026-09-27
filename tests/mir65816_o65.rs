@@ -502,6 +502,11 @@ fn compact_profile_keeps_proofs_on_host_and_matches_rich_relocation() {
         let info = o65::compact::inspect(&bytes).unwrap();
         assert_eq!(file.text.len() as u32, compact.section_sizes()[0] + 12);
         assert_eq!(info.text_bytes, compact.section_sizes()[0]);
+        let header = &file.text[info.text_bytes as usize..info.text_bytes as usize + 8];
+        assert_eq!(header, b"A8C3\x02\0\0\0");
+        let mut stale = file.clone();
+        stale.text[info.text_bytes as usize + 4] = 1;
+        assert!(o65::compact::inspect(&o65::wire::encode(&stale).unwrap()).is_err());
         assert_eq!(info.imports[0].signature, 0);
         assert!(
             serde_json::to_value(compact.profile()).unwrap()["routines"]
@@ -572,7 +577,7 @@ fn compact_standard_split_relocations_preserve_carries_and_bound_full_targets() 
         .unwrap()
         .value;
     file.text.truncate(start as usize);
-    file.text.extend(b"A8C3\x01\0\0\0\0\0\0\0");
+    file.text.extend(b"A8C3\x02\0\0\0\0\0\0\0");
     file.lengths[0] = file.text.len() as u32;
     file.exports
         .iter_mut()
