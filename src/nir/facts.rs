@@ -299,7 +299,7 @@ pub fn runtime_symbol_id(name: &str) -> RuntimeSymbolId {
     RuntimeSymbolId(hash)
 }
 
-pub(super) fn signature_id(callable: &CallableType, convention: NirCallConvention) -> SignatureId {
+pub(crate) fn signature_id(callable: &CallableType, convention: NirCallConvention) -> SignatureId {
     fn byte(hash: &mut u32, value: u8) {
         *hash ^= u32::from(value);
         *hash = hash.wrapping_mul(16_777_619);

@@ -77,8 +77,8 @@ pub struct SemProgram {
     /// Stable identity of the source root module. Legacy source regions share
     /// `None`; named compilations use the loader-assigned module identity.
     pub root_module: Option<ModuleId>,
-    /// Stable identity of the last source PROC in the root program which emits
-    /// code. Link selection and runtime composition must preserve this value
+    /// Stable identity of the selected root entry (by default the last emitted
+    /// source PROC). Link selection and runtime composition must preserve it
     /// instead of inferring an entry from transformed routine order.
     pub entry_routine: Option<SymbolId>,
 }
@@ -90,6 +90,28 @@ pub struct SemOrigin {
 }
 
 impl SemProgram {
+    /// Explicit frontend entry selection precedes NIR lowering and retention.
+    pub fn select_program_entry(&mut self, name: &str) -> Result<(), String> {
+        let mut matches = self.modules.iter()
+            .filter(|module| module.id == self.root_module)
+            .flat_map(|module| &module.items)
+            .filter_map(|item| match item {
+                SemItem::Routine(routine) if routine.symbol.qualified_name.rsplit('.').next()
+                    .is_some_and(|leaf| leaf.eq_ignore_ascii_case(name)) => Some(routine),
+                _ => None,
+            });
+        let routine = matches.next().ok_or_else(|| format!("missing root entry routine: {name}"))?;
+        if matches.next().is_some() {
+            return Err(format!("ambiguous root entry routine: {name}"));
+        }
+        if routine.is_external || routine.system_address.as_ref().is_some_and(|address|
+            !matches!(address.kind, SemExprKind::CurrentLocation)) {
+            return Err(format!("entry must be an emitted root routine: {name}"));
+        }
+        self.entry_routine = Some(routine.symbol.id);
+        Ok(())
+    }
+
     pub(crate) fn program_entry_routine(&self) -> Option<&SemRoutine> {
         let entry = self.entry_routine?;
         Some(

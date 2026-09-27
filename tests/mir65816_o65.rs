@@ -5,13 +5,18 @@ use actionc::{
     target::TargetId,
 };
 fn mir(source: &str, optimize: bool) -> mir65816::Mir65816Program {
+    mir_entry(source, optimize, None)
+}
+fn mir_entry(source: &str, optimize: bool, entry: Option<&str>) -> mir65816::Mir65816Program {
     let ast = parser::parse(&lexer::tokenize(source).unwrap()).unwrap();
     let model = semantic::analyze_with_options(
         &ast,
         semantic::SemanticOptions::modern().with_target(TargetId::Wdc65816Native),
     )
     .unwrap();
-    let n = nir::lower_program(&semantic::ir::lower_program(&ast, &model));
+    let mut semir = semantic::ir::lower_program(&ast, &model);
+    if let Some(name) = entry { semir.select_program_entry(name).unwrap(); }
+    let n = nir::lower_program(&semir);
     let n = if optimize {
         nir::optimize_program_with_promotion(&n, nir::NirPromotionPolicy::Native65816).unwrap()
     } else {
@@ -475,9 +480,9 @@ fn corrupted_descriptors_and_late_streams_never_panic() {
 fn compact_profile_keeps_proofs_on_host_and_matches_rich_relocation() {
     use o65::profile::*;
     for optimize in [false, true] {
-        let program = mir(
-            "CARD value,initial=[7] BYTE ARRAY table=[1 2 3] PROC Main() value=initial+CARD(table(1)) RETURN",
-            optimize,
+        let program = mir_entry(
+            "CARD value,initial=[7] BYTE ARRAY table=[1 2 3] LONGINT FUNC Main() value=initial+CARD(table(1)) RETURN(LONGINT(value))",
+            optimize, Some("Main"),
         );
         let rich = o65::prepare(&program, &Default::default()).unwrap();
         let compact = o65::prepare(
@@ -534,9 +539,9 @@ fn compact_profile_keeps_proofs_on_host_and_matches_rich_relocation() {
         };
         options.nmi_extra_stack = 1;
         assert!(o65::prepare(&program, &options).is_err());
-        let absolute = mir(
-            "BYTE hardware=$d000 PROC Main() hardware=1 RETURN",
-            optimize,
+        let absolute = mir_entry(
+            "BYTE hardware=$d000 LONGINT FUNC Main() hardware=1 RETURN(0)",
+            optimize, Some("Main"),
         );
         assert!(
             o65::prepare(
@@ -563,7 +568,7 @@ fn compact_standard_split_relocations_preserve_carries_and_bound_full_targets() 
         .unwrap()
         .value;
     file.text.truncate(start as usize);
-    file.text.extend(b"A8C1\x01\0\0\0\0\0\0\0");
+    file.text.extend(b"A8C2\x01\0\0\0\0\0\0\0");
     file.lengths[0] = file.text.len() as u32;
     file.exports
         .iter_mut()

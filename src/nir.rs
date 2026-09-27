@@ -17,6 +17,7 @@ mod verifier;
 mod tests;
 
 use crate::semantic::ir::SemProgram;
+pub(crate) use facts::signature_id;
 
 pub use crate::target::{
     AddressSpaceId, AddressValue, ByteOffset, ByteSize, RoutineActivationModel,

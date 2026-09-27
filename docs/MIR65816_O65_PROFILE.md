@@ -160,14 +160,14 @@ change that preserves validation of complete address values and ABI maps.
 
 ## Compact checked Task applications
 
-`actionc.o65.compact.v1` uses the same standard o65 header, section payloads,
+`actionc.o65.compact.v2` uses the same standard o65 header, section payloads,
 import names and relocation streams. Its two exports are `__a816_entry_v1`
-and `__a816_o65_compact_v1`, both text offsets. The latter marks an exact
+and `__a816_o65_compact_v2`, both text offsets. The latter marks an exact
 trailer of **8 + 4 × import count bytes**:
 
 | Bytes | Meaning |
 | --- | --- |
-| 0–3 | ASCII `A8C1`, compact profile v1 |
+| 0–3 | ASCII `A8C2`, compact profile v2 |
 | 4–5 | little-endian native ABI revision, 1 (`action65816.native.v1`) |
 | 6–7 | reserved flags, zero |
 | 8 onward | little-endian 32-bit signature per standard import, in order |
@@ -175,7 +175,7 @@ trailer of **8 + 4 × import count bytes**:
 No count, symbol name, entry offset or relocation record is duplicated.
 The first import is `__a816_stack_overflow_v1`, signature zero. Ordinary
 imports are checked Task-only routines with zero unchecked stack allowance
-and preserved IRQ state. The entry is checked `PROC()`; extra NMI stack
+and preserved IRQ state. The entry is a checked no-argument `LONGINT FUNC`, returning A16/X16; extra NMI stack
 allowance, arithmetic-fault imports and absolute storage are unsupported.
 The compiler rejects contracts outside this profile instead of discarding
 incompatible attributes. Runtime stack checks remain in the emitted code.
@@ -200,3 +200,9 @@ signatures without fabricating unavailable physical argument or debug maps.
 `compact::relocate` is the host reference for this profile; `validate` accepts
 both the compact and detailed profiles. Existing detailed profile inspection
 and relocation APIs retain their original meaning.
+
+Use `actionc-65816 --entry Main` to select a root-module function before NIR
+lowering and optimization, including during `--emit-interfaces`. Missing,
+ambiguous, external and absolute-address entries are rejected. Without `--entry`,
+the default remains the last emitted root procedure. Compact v1 is rejected;
+rebuild commands and their loader together for the v2 entry contract.

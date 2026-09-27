@@ -10,7 +10,7 @@ use super::{
 use crate::mir65816::image::{Segment, ZeroFill};
 use std::collections::BTreeSet;
 
-const HEADER: &[u8; 8] = b"A8C1\x01\x00\x00\x00";
+const HEADER: &[u8; 8] = b"A8C2\x01\x00\x00\x00";
 
 pub(super) fn descriptor(p: &Profile) -> Vec<u8> {
     let mut bytes = HEADER.to_vec();
@@ -37,14 +37,14 @@ pub(super) fn admit(a: &Artifact) -> Result<(), String> {
         .ok_or("missing compact entry")?;
     if p.nmi_extra_stack != 0
         || p.version != 1
-        || entry.contract.signature != 0xa27be3e4
+        || entry.contract.signature != compact_entry_signature()
         || !entry.contract.arguments.is_empty()
-        || entry.contract.result != 0
+        || entry.contract.result != 4
         || entry.contract.incoming != 1
         || p.objects.iter().any(|o| o.location.section.is_none())
         || p.imports.iter().skip(1).any(|i| !ordinary(&i.contract))
     {
-        return Err("compact v1 requires a checked void Task entry, Task-only preserving imports, no absolute storage, arithmetic fault or extra NMI allowance".into());
+        return Err(format!("compact v2 requires a checked no-argument LONGINT function entry (signature {:08x}, got {:08x}), Task-only preserving imports, no absolute storage, arithmetic fault or extra NMI allowance", compact_entry_signature(), entry.contract.signature));
     }
     // Run the rich host proof checks before omitting them from the file.
     let file = wire::File {

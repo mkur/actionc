@@ -189,8 +189,8 @@ fn canonical_input_aliases_cannot_be_overwritten() {
 fn compact_cli_keeps_full_report_off_disk_and_rejects_contract_changes() {
     for newline in ["\n", "\r\n"] {
         for optimize in [false, true] {
-            let d=Directory::new(&"MODULE API\nPUBLIC EXTERNAL CARD FUNC Host(CARD value)\nCARD output\nPROC Main()\noutput=Host(7)\nRETURN\nENDMODULE\n".replace('\n',newline));
-            let interfaces = d.run(&["--emit-interfaces"]);
+            let d=Directory::new(&"MODULE API\nPUBLIC EXTERNAL CARD FUNC Host(CARD value)\nCARD output\nLONGINT FUNC Main()\noutput=Host(7)\nRETURN(LONGINT(output))\nENDMODULE\n".replace('\n',newline));
+            let interfaces = d.run(&["--emit-interfaces", "--entry", "Main"]);
             assert!(interfaces.status.success());
             let interfaces: serde_json::Value = serde_json::from_slice(&interfaces.stdout).unwrap();
             let options = serde_json::json!({"profile":o65::profile::COMPACT_ID,"nmi_extra_stack":0,"imports":[{"symbol":interfaces[0]["symbol"],"name":"Host","stack_peak":0,"checks_stack":true,"domains":1}]});
@@ -200,7 +200,7 @@ fn compact_cli_keeps_full_report_off_disk_and_rejects_contract_changes() {
             )
             .unwrap();
             let mut args = ARGS.to_vec();
-            args.extend(["--o65-report", "report.json"]);
+            args.extend(["--o65-report", "report.json", "--entry", "Main"]);
             if !optimize {
                 args.push("--no-opt");
             }
@@ -249,5 +249,50 @@ fn compact_cli_keeps_full_report_off_disk_and_rejects_contract_changes() {
                 assert_eq!(std::fs::read(d.0.join(target)).unwrap(), before);
             }
         }
+    }
+}
+
+#[test]
+fn explicit_function_entry_survives_selection_and_rejects_wrong_contracts() {
+    for optimize in [false, true] {
+        for source in [
+            "LONGINT FUNC Main() RETURN(-70000)",
+            "LONGINT FUNC Main() RETURN(123456) PROC Last() RETURN",
+            "LONGINT FUNC Main() RETURN(0) LONGINT FUNC Helper() RETURN(7)",
+        ] {
+            let d = Directory::new(source);
+            std::fs::write(d.0.join("options.json"), serde_json::to_vec(&o65::Options {
+                profile: o65::profile::COMPACT_ID.into(), ..Default::default()
+            }).unwrap()).unwrap();
+            let mut args = ARGS.to_vec();
+            args.extend(["--entry", "mAiN", "--o65-report", "report.json"]);
+            if !optimize { args.push("--no-opt"); }
+            let output = d.run(&args);
+            assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+            let report: serde_json::Value = serde_json::from_slice(&std::fs::read(d.0.join("report.json")).unwrap()).unwrap();
+            let entry = report["routines"].as_array().unwrap().iter().find(|r| r["offset"] == report["entry"]).unwrap();
+            assert_eq!(entry["name"], "Main");
+            assert_eq!(entry["contract"]["result"], 4);
+            assert_eq!(entry["contract"]["signature"], o65::profile::compact_entry_signature());
+            let bytes = std::fs::read(d.0.join("main.o65")).unwrap();
+            let mut old = o65::decode(&bytes).unwrap();
+            old.exports.iter_mut().find(|e| e.name == o65::profile::COMPACT_DESCRIPTOR).unwrap().name = "__a816_o65_compact_v1".into();
+            assert!(o65::validate(&o65::wire::encode(&old).unwrap()).is_err());
+        }
+    }
+    for source in [
+        "PROC Main() RETURN", "CARD FUNC Main() RETURN(0)",
+        "LONGCARD FUNC Main() RETURN(0)", "LONGINT FUNC Main(BYTE arg) RETURN(0)",
+        "LONGINT FUNC Other() RETURN(0)", "EXTERNAL LONGINT FUNC Main()",
+        "LONGINT FUNC Main=$4000()",
+    ] {
+        let d = Directory::new(source);
+        std::fs::write(d.0.join("options.json"), serde_json::to_vec(&o65::Options {
+            profile: o65::profile::COMPACT_ID.into(), ..Default::default()
+        }).unwrap()).unwrap();
+        let mut args = ARGS.to_vec(); args.extend(["--entry", "Main"]);
+        let output = d.run(&args);
+        assert!(!output.status.success(), "accepted: {source}");
+        assert!(!d.0.join("main.o65").exists());
     }
 }

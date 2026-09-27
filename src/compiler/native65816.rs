@@ -34,6 +34,15 @@ pub fn prepare_file(
     optimize: bool,
     modules: &ModuleLoadOptions,
 ) -> Result<Prepared, CompileError> {
+    prepare_file_with_entry(path, optimize, modules, None)
+}
+
+pub fn prepare_file_with_entry(
+    path: impl AsRef<Path>,
+    optimize: bool,
+    modules: &ModuleLoadOptions,
+    entry: Option<&str>,
+) -> Result<Prepared, CompileError> {
     let path = path.as_ref();
     let loaded = load_compilation(path, modules).map_err(|d| {
         let source = std::fs::read(path)
@@ -54,7 +63,10 @@ pub fn prepare_file(
             Some(&loaded.source_map),
         )
     })?;
-    let semir = semantic::ir::lower_compilation(&loaded, &model);
+    let mut semir = semantic::ir::lower_compilation(&loaded, &model);
+    if let Some(name) = entry {
+        semir.select_program_entry(name).map_err(CompileError::configuration)?;
+    }
     // The shared declaration-address resolver still uses a 16-bit address
     // cursor. A wider bare declaration initializer can otherwise become data
     // silently. Keep that source form out of this emitter's advertised subset.
