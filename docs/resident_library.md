@@ -2,8 +2,13 @@
 ; Compile-time system constants (qualified access with USE SYS)
 ; ----------------------------------------------------------------------
 
-; SYS.MAXLONGCARD is the largest LONGCARD value: 4294967295.
-; It adds no runtime storage or import.
+; INT is signed 16-bit; LONGINT is signed 32-bit on every target.
+; SYS.MAXLONGCARD is the largest unsigned 32-bit value: 4294967295.
+; These constants add no runtime storage or imports.
+CONST INT MININT=-32768
+CONST INT MAXINT=32767
+CONST LONGINT MINLONGINT=-2147483648
+CONST LONGINT MAXLONGINT=2147483647
 CONST LONGCARD MAXLONGCARD=$ffffffff
 
 ; ----------------------------------------------------------------------

@@ -2,8 +2,12 @@
 ; addresses live in compiler-owned binding units, never in this public module.
 MODULE SYS
 
-; Fixed-width unsigned limit; USE SYS and refer to SYS.MAXLONGCARD.
-; This compile-time constant has no runtime storage or import.
+; Fixed-width integer limits; USE SYS and qualify each name with SYS.
+; These compile-time constants have no runtime storage or imports.
+PUBLIC CONST INT MININT=-32768
+PUBLIC CONST INT MAXINT=32767
+PUBLIC CONST LONGINT MINLONGINT=-2147483648
+PUBLIC CONST LONGINT MAXLONGINT=2147483647
 PUBLIC CONST LONGCARD MAXLONGCARD=$ffffffff
 
 PUBLIC EXTERNAL PROC Zero(BYTE POINTER address, CARD size)
