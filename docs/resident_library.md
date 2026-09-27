@@ -1,4 +1,12 @@
 ; ----------------------------------------------------------------------
+; Compile-time system constants (qualified access with USE SYS)
+; ----------------------------------------------------------------------
+
+; SYS.MAXLONGCARD is the largest LONGCARD value: 4294967295.
+; It adds no runtime storage or import.
+CONST LONGCARD MAXLONGCARD=$ffffffff
+
+; ----------------------------------------------------------------------
 ; Output routines
 ; ----------------------------------------------------------------------
 
