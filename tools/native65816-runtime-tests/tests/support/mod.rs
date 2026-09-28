@@ -32,6 +32,7 @@ impl Drop for Temp {
 
 pub fn layout() -> LinkOptions {
     LinkOptions {
+        stack_checks: true,
         code_origin: 0x018000,
         data_origin: 0x120000,
         read_only_origin: None,

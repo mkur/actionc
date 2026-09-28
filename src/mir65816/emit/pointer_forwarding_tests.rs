@@ -264,6 +264,7 @@ fn final_direct_call_counts_repeated_arguments_and_expires_before_transfer() {
     assert_eq!(plan.bindings.len(), 1);
     assert_eq!(plan.bindings[0].uses, [at].into());
     let mut b = Builder {
+        stack_checks: true,
         routine: &r,
         code: TrackedEmitter65816::for_test(&frame),
         frame,

@@ -1,6 +1,7 @@
 use super::*;
 fn builder(r: &Mir65816Routine) -> Builder<'_> {
     Builder {
+        stack_checks: true,
         next_block: None,
         loop_x: None,
         borrowed: BTreeMap::new(),
@@ -503,6 +504,7 @@ fn incoming_classifier_rejects_address_escape_writes_and_bad_extent_before_emiss
             _ => {}
         }
         let mut b = Builder {
+            stack_checks: true,
             next_block: None,
             loop_x: None,
             borrowed: BTreeMap::new(),
@@ -632,6 +634,7 @@ fn incoming_metadata_and_unrelated_stores_cannot_grant_permission() {
             r.frame.objects[0].addressable = true;
         }
         let mut b = Builder {
+            stack_checks: true,
             next_block: None,
             loop_x: None,
             borrowed: BTreeMap::new(),

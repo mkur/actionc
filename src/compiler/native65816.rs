@@ -154,7 +154,8 @@ impl Prepared {
     }
 
     pub fn compile(&self, layout: &mir65816::image::LinkOptions) -> Result<Compiled, CompileError> {
-        let machine = mir65816::emit::materialize(&self.mir).map_err(codegen)?;
+        let machine = mir65816::emit::materialize_with_stack_checks(&self.mir, layout.stack_checks)
+            .map_err(codegen)?;
         let image = mir65816::image::link(&self.mir, &machine, layout).map_err(codegen)?;
         Ok(Compiled {
             image,

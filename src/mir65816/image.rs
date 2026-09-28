@@ -10,6 +10,13 @@ use std::collections::{BTreeMap, BTreeSet};
 
 const LIMIT: u32 = 0x1000000;
 
+fn checks_enabled() -> bool {
+    true
+}
+fn is_enabled(value: &bool) -> bool {
+    *value
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IrqEffect {
@@ -39,6 +46,9 @@ pub struct AssemblyImport {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LinkOptions {
+    /// Platform-wide opt-out for controlled unchecked builds. Defaults to on.
+    #[serde(default = "checks_enabled", skip_serializing_if = "is_enabled")]
+    pub stack_checks: bool,
     #[serde(deserialize_with = "json_address::deserialize")]
     pub code_origin: u32,
     #[serde(deserialize_with = "json_address::deserialize")]
@@ -200,6 +210,9 @@ pub struct DataSymbol {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Image {
+    /// Omitted for checked images; false explicitly identifies unchecked code.
+    #[serde(default = "checks_enabled", skip_serializing_if = "is_enabled")]
+    pub stack_checks: bool,
     pub format: String,
     pub version: u32,
     pub target: String,
@@ -257,7 +270,7 @@ impl Image {
             extents.push((zero.address, end(zero.address, zero.size)?));
         }
         for import in &self.imports {
-            if import.abi != self.abi || !import.checks_stack {
+            if import.abi != self.abi || (self.stack_checks && !import.checks_stack) {
                 return Err("assembly import must implement the checked native ABI".into());
             }
             extents.push((import.address, end(import.address, import.size)?));
@@ -421,6 +434,9 @@ pub fn link(
     machine: &emit::MachineProgram,
     options: &LinkOptions,
 ) -> Result<Image, String> {
+    if machine.stack_checks != options.stack_checks {
+        return Err("emission and link stack-check settings differ".into());
+    }
     if arithmetic::prepare(program)? != machine.prepared {
         return Err("machine code belongs to a different prepared program".into());
     }
@@ -645,6 +661,7 @@ pub fn link(
         return Err("native image requires one emitted program entry".into());
     }
     let mut image = Image {
+        stack_checks: machine.stack_checks,
         format: "actionc-65816-image".into(),
         version: if arithmetic_fault.is_some() { 4 } else { 3 },
         target: "wdc-65816-native".into(),

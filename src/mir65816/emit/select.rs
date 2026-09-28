@@ -286,6 +286,7 @@ impl From<Location> for Memory {
 }
 
 struct Builder<'a> {
+    stack_checks: bool,
     routine: &'a Mir65816Routine,
     frame: AllocatedFrame,
     code: TrackedEmitter65816,
@@ -314,6 +315,7 @@ fn routine_with_replay(
         routine,
         &[],
         _trace,
+        true,
         #[cfg(feature = "native65816-state-proof")]
         replay,
     )
@@ -322,16 +324,18 @@ pub(super) fn routine_with_data(
     routine: &Mir65816Routine,
     data: &[Mir65816Data],
     _trace: bool,
+    stack_checks: bool,
     #[cfg(feature = "native65816-state-proof")] replay: bool,
 ) -> Result<MachineRoutine, String> {
     if let Some(helper) = routine.helper {
-        return arithmetic::emit(routine, helper, _trace);
+        return arithmetic::emit(routine, helper, _trace, stack_checks);
     }
     let frame = AllocatedFrame::new(routine)?;
     let addresses = addresses::Plan::new(routine, &frame, data)?;
     let pointers = pointer_forwarding::Plan::new(routine, &frame)?;
     let loop_x = loop_x::LoopXPlan::new(routine, &frame)?;
     let mut b = Builder {
+        stack_checks,
         routine,
         frame,
         loop_x,
@@ -359,8 +363,12 @@ pub(super) fn routine_with_data(
             b.code.register_home(*home);
         }
     }
-    b.check_stack(b.frame.extent);
-    b.code.op(Implied::Tcs); // TCS: checked new S in A, no write/push before the check.
+    if stack_checks {
+        b.check_stack(b.frame.extent);
+        b.code.op(Implied::Tcs); // Checked new S in A; no earlier write/push.
+    } else {
+        b.reserve(b.frame.extent);
+    }
     b.code.establish_body();
     for parameter in &routine.frame.parameters {
         if let Some(object) = parameter.frame_object {
@@ -1688,6 +1696,9 @@ impl Builder<'_> {
         Ok(())
     }
     fn check_stack(&mut self, bytes: u16) {
+        if !self.stack_checks {
+            return;
+        }
         self.code.barrier();
         // A/X/Y are caller-clobbered. X retains the unchanged S for the raw
         // overflow adapter. Neither branch changes I, D, DBR or the stack.

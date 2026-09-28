@@ -18,6 +18,7 @@ pub(in crate::mir65816::emit) fn program() -> Mir65816Program {
 
 fn builder(routine: &Mir65816Routine) -> Builder<'_> {
     Builder {
+        stack_checks: true,
         next_block: None,
         loop_x: None,
         borrowed: BTreeMap::new(),

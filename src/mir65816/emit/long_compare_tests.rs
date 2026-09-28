@@ -22,6 +22,7 @@ fn builder(routine: &Mir65816Routine) -> Builder<'_> {
         .map(|b| (b.id, code.label()))
         .collect();
     Builder {
+        stack_checks: true,
         routine,
         frame,
         code,

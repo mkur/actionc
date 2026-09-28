@@ -44,6 +44,7 @@ fn builder(routine: &Mir65816Routine, bytes: u8) -> Builder<'_> {
     }
     let code = TrackedEmitter65816::for_test(&frame);
     Builder {
+        stack_checks: true,
         routine,
         frame,
         code,

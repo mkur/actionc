@@ -4,7 +4,9 @@ use super::*;
 fn pushes_place_each_payload_and_padding_byte_once_at_dynamic_stack_offsets() {
     // Enumerate independent layouts/values, then decode the emitted LDA/PHA
     // stream into a tiny stack oracle. No selector choices drive the oracle.
-    for pattern in 0..1024u32 {
+    for (pattern, initial_width) in (0..1024u32).flat_map(|pattern| {
+        [None, Some(Width::Byte), Some(Width::Word)].map(|width| (pattern, width))
+    }) {
         let mut arguments = vec![];
         let mut padding = vec![];
         let mut expected = vec![];
@@ -34,14 +36,22 @@ fn pushes_place_each_payload_and_padding_byte_once_at_dynamic_stack_offsets() {
         let plan = Plan::new(&arguments, &[], &padding, expected.len() as u16).unwrap();
         let p = super::super::tests::program();
         let mut b = super::super::tests::builder(&p.routines[1]);
-        // Emission begins without width permission, just as after a guard join.
+        // Cover a guard join and the known widths retained without a guard.
         b.code.barrier();
         let label = b.code.label();
         b.code.mark(label);
+        if let Some(width) = initial_width {
+            if width == Width::Word {
+                b.code.a16();
+            } else {
+                b.code.a8();
+            }
+        }
         let start = b.code.position();
         plan.emit(&mut b, &[]).unwrap();
         let code = &b.code.code().bytes[start..];
-        let (mut at, mut word, mut a, mut s) = (0, false, 0u16, 200usize);
+        let (mut at, mut word, mut a, mut s) =
+            (0, initial_width == Some(Width::Word), 0u16, 200usize);
         let mut stack = [0xa5u8; 512];
         for i in 0..5 {
             stack[200 + 32 + i * 4..200 + 36 + i * 4]

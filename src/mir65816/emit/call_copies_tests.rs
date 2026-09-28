@@ -21,6 +21,7 @@ pub(super) fn builder(routine: &Mir65816Routine) -> Builder<'_> {
     let frame = AllocatedFrame::new(routine).unwrap();
     let code = TrackedEmitter65816::for_test(&frame);
     Builder {
+        stack_checks: true,
         routine,
         frame,
         code,

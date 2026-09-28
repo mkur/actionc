@@ -23,6 +23,7 @@ fn mir(source: &str, optimize: bool) -> mir65816::Mir65816Program {
 
 fn layout() -> image::LinkOptions {
     image::LinkOptions {
+        stack_checks: true,
         code_origin: 0x18000,
         data_origin: 0x120000,
         read_only_origin: None,
@@ -32,6 +33,126 @@ fn layout() -> image::LinkOptions {
         nmi_extra_stack: 7,
         imports: vec![],
     }
+}
+
+#[test]
+fn unchecked_emission_removes_entry_and_call_checks_but_keeps_stack_contract() {
+    for optimize in [false, true] {
+        let program = mir(
+            "CARD result CARD FUNC Work(CARD n) RETURN(n+1) PROC Main() result=Work(41) RETURN",
+            optimize,
+        );
+        let checked = emit::materialize(&program).unwrap();
+        let unchecked = emit::materialize_with_stack_checks(&program, false).unwrap();
+        assert!(checked.routines.iter().any(|r| {
+            r.code
+                .fixups
+                .iter()
+                .any(|f| f.target == emit::Target::StackOverflow)
+        }));
+        assert!(unchecked.routines.iter().all(|r| {
+            r.code
+                .fixups
+                .iter()
+                .all(|f| f.target != emit::Target::StackOverflow)
+        }));
+        assert!(
+            image::link(&program, &unchecked, &layout())
+                .unwrap_err()
+                .contains("settings differ")
+        );
+        let mut options = layout();
+        options.stack_checks = false;
+        assert!(
+            image::link(&program, &checked, &options)
+                .unwrap_err()
+                .contains("settings differ")
+        );
+        let a = image::link(&program, &checked, &layout()).unwrap();
+        let b = image::link(&program, &unchecked, &options).unwrap();
+        assert_eq!(
+            (a.task_headroom, a.irq_headroom),
+            (b.task_headroom, b.irq_headroom)
+        );
+        for (x, y) in a.routines.iter().zip(&b.routines) {
+            assert!(y.size < x.size);
+            assert_eq!(
+                (x.fixed_frame, x.local_stack_peak, x.outgoing_bytes),
+                (y.fixed_frame, y.local_stack_peak, y.outgoing_bytes)
+            );
+        }
+        assert!(
+            !image::Image::from_json(&b.to_json().unwrap())
+                .unwrap()
+                .stack_checks
+        );
+        assert!(
+            image::Image::from_json(&a.to_json().unwrap())
+                .unwrap()
+                .stack_checks
+        );
+    }
+}
+
+#[test]
+fn unchecked_arithmetic_helpers_keep_faults_and_prepared_program_identity() {
+    for optimize in [false, true] {
+        let program = mir(
+            "SIZE a,b,product LONGINT x,y,quotient PROC Main() product=a*b quotient=x/y RETURN",
+            optimize,
+        );
+        let machine = emit::materialize_with_stack_checks(&program, false).unwrap();
+        assert!(machine.prepared.routines.iter().any(|r| r.helper.is_some()));
+        assert!(machine.routines.iter().all(|r| {
+            r.code
+                .fixups
+                .iter()
+                .all(|f| f.target != emit::Target::StackOverflow)
+        }));
+        assert!(machine.routines.iter().any(|r| {
+            r.code
+                .fixups
+                .iter()
+                .any(|f| f.target == emit::Target::ArithmeticFault)
+        }));
+        let mut options = layout();
+        options.stack_checks = false;
+        options.arithmetic_fault = Some(0x049000);
+        let image = image::link(&program, &machine, &options).unwrap();
+        assert_eq!(image.version, 4);
+        assert_eq!(image.arithmetic_fault, options.arithmetic_fault);
+        assert!(!image.stack_checks);
+        assert!(image::Image::from_json(&image.to_json().unwrap()).is_ok());
+    }
+}
+
+#[test]
+fn unchecked_import_requires_explicit_platform_opt_out() {
+    let mut program = mir("PROC Host() RETURN PROC Main() Host() RETURN", false);
+    program.routines[0].entry.external = true;
+    program.routines[0].entry.external_symbol = Some(nir::runtime_symbol_id("TEST.Host"));
+    let mut options = layout();
+    options.imports.push(image::AssemblyImport {
+        symbol: nir::runtime_symbol_id("TEST.Host").0,
+        signature: program.routines[0].signature.0,
+        abi: mir65816::abi::generated::ABI_NAME.into(),
+        address: 0x40100,
+        size: 1,
+        stack_peak: 1,
+        checks_stack: false,
+        irq_effect: image::IrqEffect::Preserve,
+    });
+    let checked = emit::materialize(&program).unwrap();
+    assert!(
+        image::link(&program, &checked, &options)
+            .unwrap_err()
+            .contains("checked native ABI")
+    );
+    options.stack_checks = false;
+    let unchecked = emit::materialize_with_stack_checks(&program, false).unwrap();
+    let mut image = image::link(&program, &unchecked, &options).unwrap();
+    image.stack_checks = true;
+    assert!(image.verify().is_err());
 }
 
 #[test]

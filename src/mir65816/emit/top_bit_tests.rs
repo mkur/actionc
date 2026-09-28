@@ -7,6 +7,7 @@ fn top_bit_selection_requires_exact_adjacent_sole_use_private_values() {
         for case in 0..10 {
             let frame = AllocatedFrame::stack(r).unwrap();
             let mut b = Builder {
+                stack_checks: true,
                 code: TrackedEmitter65816::for_test(&frame),
                 frame,
                 routine: r,

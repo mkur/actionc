@@ -1,5 +1,6 @@
 //! Complete outgoing areas built from high addresses down, using exact PHA chunks.
 use super::*;
+use crate::mir65816::emit::state::Width;
 
 #[cfg(test)]
 #[path = "call_push_tests.rs"]
@@ -189,6 +190,20 @@ impl Plan {
         values: &[Mir65816Value],
     ) -> Result<(), String> {
         let start = b.code.position();
+        // Planning assumes unknown M after a guard join. Without a guard,
+        // known M can remove the first mode request; preceding PEA preserves it.
+        let first_width = self
+            .chunks
+            .iter()
+            .find(|chunk| chunk.immediate.is_none())
+            .map_or(Width::Word, |chunk| {
+                if chunk.width == 2 {
+                    Width::Word
+                } else {
+                    Width::Byte
+                }
+            });
+        let cost = self.cost - 2 + b.code.mode_cost(first_width);
         for chunk in &self.chunks {
             if let Some(value) = chunk.immediate {
                 b.code.instruction(Instruction::ArgumentPushWord(value))?;
@@ -212,7 +227,7 @@ impl Plan {
             b.code.instruction(Instruction::ArgumentPush)?;
         }
         b.code.a16();
-        debug_assert_eq!(b.code.position() - start, self.cost);
+        debug_assert_eq!(b.code.position() - start, cost);
         Ok(())
     }
 }

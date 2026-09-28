@@ -18,6 +18,7 @@ fn dp_arithmetic_and_return_preserve_adjacent_forwarding() {
         );
     }
     let mut b = Builder {
+        stack_checks: true,
         next_block: None,
         loop_x: None,
         borrowed: BTreeMap::new(),

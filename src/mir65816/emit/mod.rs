@@ -40,16 +40,29 @@ pub struct MachineProgram {
     /// The verified, legalized graph used by allocation, emission and linking.
     pub prepared: Mir65816Program,
     pub routines: Vec<MachineRoutine>,
+    pub stack_checks: bool,
 }
 
 pub fn materialize(program: &Mir65816Program) -> Result<MachineProgram, String> {
-    materialize_inner(program, false)
+    materialize_with_stack_checks(program, true)
 }
 
-fn materialize_inner(program: &Mir65816Program, trace: bool) -> Result<MachineProgram, String> {
+pub fn materialize_with_stack_checks(
+    program: &Mir65816Program,
+    stack_checks: bool,
+) -> Result<MachineProgram, String> {
+    materialize_inner(program, false, stack_checks)
+}
+
+fn materialize_inner(
+    program: &Mir65816Program,
+    trace: bool,
+    stack_checks: bool,
+) -> Result<MachineProgram, String> {
     materialize_path(
         program,
         trace,
+        stack_checks,
         #[cfg(feature = "native65816-state-proof")]
         true,
     )
@@ -57,6 +70,7 @@ fn materialize_inner(program: &Mir65816Program, trace: bool) -> Result<MachinePr
 fn materialize_path(
     program: &Mir65816Program,
     trace: bool,
+    stack_checks: bool,
     #[cfg(feature = "native65816-state-proof")] replay: bool,
 ) -> Result<MachineProgram, String> {
     verify_program(program).map_err(|e| format!("invalid MIR65816: {e:?}"))?;
@@ -91,13 +105,18 @@ fn materialize_path(
                 routine,
                 &program.data,
                 trace,
+                stack_checks,
                 #[cfg(feature = "native65816-state-proof")]
                 replay,
             )
             .map_err(|e| format!("{}: {e}", routine.name))?,
         );
     }
-    Ok(MachineProgram { prepared, routines })
+    Ok(MachineProgram {
+        prepared,
+        routines,
+        stack_checks,
+    })
 }
 
 #[cfg(test)]

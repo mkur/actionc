@@ -15,6 +15,7 @@ pub(super) fn emit(
     routine: &Mir65816Routine,
     helper: Helper,
     trace: bool,
+    stack_checks: bool,
 ) -> Result<MachineRoutine, String> {
     let frame = AllocatedFrame {
         extent: 0,
@@ -24,6 +25,7 @@ pub(super) fn emit(
         edge_copies: vec![],
     };
     let mut b = Builder {
+        stack_checks,
         routine,
         frame,
         code: TrackedEmitter65816::for_entry(routine.prologue.required_mode),
@@ -37,8 +39,13 @@ pub(super) fn emit(
         b.code.trace();
     }
     let _ = trace;
-    b.check_stack(0);
-    b.code.op(Implied::Tcs);
+    if stack_checks {
+        b.check_stack(0);
+        b.code.op(Implied::Tcs);
+    } else {
+        // The zero-frame body starts at the current S, without changing it.
+        b.code.op(Implied::Tsc);
+    }
     b.code.establish_body();
     let words = if helper.bytes <= 2 { 1 } else { 2 };
     for (i, target) in [LEFT, RHS].into_iter().enumerate() {

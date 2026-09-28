@@ -41,6 +41,7 @@ fn builder<'a>(r: &'a Mir65816Routine, op: &Mir65816Op, source: u16, dest: u16) 
         }),
     );
     Builder {
+        stack_checks: true,
         routine: r,
         code: TrackedEmitter65816::for_test(&frame),
         frame,

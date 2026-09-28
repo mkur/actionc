@@ -207,7 +207,7 @@ pub struct RoutineTrace {
 pub fn materialize_with_trace(
     program: &super::Mir65816Program,
 ) -> Result<(super::MachineProgram, Vec<RoutineTrace>), String> {
-    let mut machine = super::materialize_inner(program, true)?;
+    let mut machine = super::materialize_inner(program, true, true)?;
     let traces = machine
         .routines
         .iter_mut()
@@ -239,7 +239,7 @@ fn materialize_replay_path(
     trace: bool,
     replay: bool,
 ) -> Result<(super::MachineProgram, Vec<RoutineTrace>), String> {
-    let mut machine = super::materialize_path(program, trace, replay)?;
+    let mut machine = super::materialize_path(program, trace, true, replay)?;
     let traces = machine
         .routines
         .iter_mut()

@@ -6,6 +6,7 @@ fn builder(routine: &Mir65816Routine, offset: u16, width: u8) -> Builder<'_> {
         .temps
         .insert(TempId(999), Location::Stack(Slot { offset, width }));
     Builder {
+        stack_checks: true,
         routine,
         code: TrackedEmitter65816::for_test(&frame),
         frame,

@@ -19,6 +19,7 @@ fn program(ty: &str) -> Mir65816Program {
 fn builder(routine: &Mir65816Routine) -> Builder<'_> {
     let frame = AllocatedFrame::new(routine).unwrap();
     Builder {
+        stack_checks: true,
         routine,
         code: TrackedEmitter65816::for_test(&frame),
         frame,

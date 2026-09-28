@@ -66,6 +66,22 @@ Compilation validates the image before publishing one self-contained JSON
 file by rename. Loaded sources and the layout file cannot be output targets;
 a compilation failure leaves an existing output intact.
 
+JSON layouts accept `"stack_checks": false` for an explicit platform-wide
+unchecked build; omission defaults to true. This removes generated entry and
+call-reservation checks, including arithmetic-helper entry checks, while
+preserving frames, calling conventions, stack budgets and interrupt headroom.
+Assembly import `checks_stack` declarations
+must describe the actual assembly: unchecked imports are admitted only when
+the image disables checks. Frame/displacement and placement validation still run.
+Native v3/v4 images include `"stack_checks": false` for unchecked code; checked images
+omit the field. Consumers must treat omission as true and reject a setting that
+differs from the assembled platform. Experimental o65 remains checked.
+
+The lower-level emitter exposes `materialize_with_stack_checks`; the linker
+rejects a mismatch between emitted code and the layout's setting. Unchecked code
+retains the physical ABI but provides no stack-overflow detection guarantee.
+Arithmetic faults, including division by zero, remain enabled.
+
 The library entry points are
 [`compiler::native65816`](../src/compiler/native65816.rs),
 [`mir65816::emit::materialize`](../src/mir65816/emit/mod.rs), and

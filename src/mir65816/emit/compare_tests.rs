@@ -18,6 +18,7 @@ fn program() -> Mir65816Program {
 }
 fn builder(r: &Mir65816Routine) -> Builder<'_> {
     Builder {
+        stack_checks: true,
         next_block: None,
         loop_x: None,
         borrowed: BTreeMap::new(),

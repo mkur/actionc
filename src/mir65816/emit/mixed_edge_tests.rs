@@ -13,6 +13,7 @@ fn program() -> Mir65816Program {
 fn builder(r: &Mir65816Routine) -> Builder<'_> {
     let frame = AllocatedFrame::stack(&word_tests::program().routines[0]).unwrap();
     let mut b = Builder {
+        stack_checks: true,
         code: TrackedEmitter65816::for_test(&frame),
         frame,
         routine: r,
