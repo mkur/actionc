@@ -19,6 +19,28 @@ fn lower(source: &str, target: TargetId) -> nir::NirProgram {
 }
 
 #[test]
+fn size_products_retain_the_unsigned_target_width() {
+    for target in [TargetId::Wdc65816Native, TargetId::Wdc65816Small, TargetId::Motorola68000] {
+        let program = lower(
+            "SIZE count=[512],stride=[128],bytes ADDRESS base=[$18000],end\nPROC Main()\nbytes=count*stride+SIZE(1)\nend=base+count*stride\nRETURN",
+            target,
+        );
+        let optimized = nir::optimize_program(&program).expect("optimize SIZE products");
+        for candidate in [&program, &optimized] {
+            nir::verify_program(candidate).expect("verify SIZE product/address offset");
+            if target == TargetId::Motorola68000 {
+                mir68k::lower_program(candidate).expect("lower SIZE product on 68000");
+            } else {
+                let mir = mir65816::lower_program(candidate).expect("lower SIZE product on 65816");
+                if target == TargetId::Wdc65816Native {
+                    mir65816::emit::materialize(&mir).expect("emit SIZE product on 65816");
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn longint_and_longcard_are_contextual_fixed_width_types() {
     let program = lower(
         "LONGINT signedValue=-200000

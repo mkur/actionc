@@ -153,7 +153,9 @@ Equality, ordering, masks, and shifts are valid. Multiplication of an
 `ADDRESS` is a diagnostic. Typed pointer offsets remain the preferred source
 operation when a pointee type is known.
 
-`SIZE` supports ordinary unsigned arithmetic and comparisons. `SYS.SIZEOF`,
+`SIZE` supports ordinary unsigned arithmetic and comparisons. Multiplication
+retains the unsigned target-sized result rather than the classic `INT` result
+used for narrow integer operands. `SYS.SIZEOF`,
 `SYS.ELEMENTS`, `SYS.ALIGNOF`, and `SYS.OFFSETOF` produce `SIZE`; their
 evaluation remains arbitrary precision until conversion to the selected
 target type.

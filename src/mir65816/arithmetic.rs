@@ -20,7 +20,7 @@ pub struct Helper {
 impl Helper {
     pub fn verify(self) -> Result<(), String> {
         let valid = match self.operation {
-            Operation::Multiply => matches!(self.bytes, 2 | 4) && !self.signed,
+            Operation::Multiply => matches!(self.bytes, 2..=4) && !self.signed,
             _ => matches!((self.bytes, self.signed), (1..=4, false) | (2 | 4, true)),
         };
         if valid {

@@ -461,7 +461,8 @@ impl ScalarType {
     /// `constant_result` is the untruncated 16-bit result when both operands
     /// are compile-time constants.  The cartridge keeps dynamic byte addition
     /// and subtraction byte-sized, but widens a constant byte result which no
-    /// longer fits in a byte.  Multiplication is always an INT operation.
+    /// longer fits in a byte. Multiplication of classic narrow scalars is an
+    /// INT operation; wide integers and target-sized SIZE retain their type.
     pub fn arithmetic_result(
         op: BinaryOp,
         left: Self,
@@ -473,7 +474,7 @@ impl ScalarType {
         }
         let promoted = Self::promote_binary(left, right);
         match op {
-            BinaryOp::Mul if matches!(promoted, Self::LongInt | Self::LongCard) => promoted,
+            BinaryOp::Mul if matches!(promoted, Self::LongInt | Self::LongCard | Self::Size) => promoted,
             BinaryOp::Mul => Self::Int,
             BinaryOp::Add | BinaryOp::Sub
                 if promoted == Self::Byte

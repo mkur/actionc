@@ -783,6 +783,11 @@ integer width before generated multiplication/addition. No executable shape or
 source-coordinate syntax reaches a MIR backend. Ordinary source coordinate
 expressions keep their own arithmetic types before the conversion.
 
+Source SIZE multiplication keeps the unsigned target-sized SIZE domain through
+NIR and emission. It must not narrow to the classic signed INT product; both
+raw and optimized native code support the 24-bit product. Ordinary narrow
+integer multiplication retains its cartridge-compatible INT rule.
+
 Generated ADDRESS multiplication is distinct from Action's ordinary INT
 multiplication rule: its result and both inputs must have the same target-sized
 unsigned ADDRESS domain. The verifier rejects narrow inputs, noninteger indexes,

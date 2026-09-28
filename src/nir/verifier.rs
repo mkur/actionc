@@ -1819,6 +1819,9 @@ impl NirVerifier {
                 }
                 if *op == NirBinaryOp::Mul && ty.kind != NirTypeKind::I16
                     && !ty.kind.integer().is_some_and(|integer| integer.bits == 32)
+                    && !ty.kind.integer().is_some_and(|integer|
+                        integer.role == NirIntegerRole::Size && !integer.signed
+                            && integer.bits == self.target_layout.size_integer_bits)
                     && address_domain.is_none()
                 {
                     self.diagnostics.push(NirDiagnostic::block(
