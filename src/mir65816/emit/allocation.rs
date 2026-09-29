@@ -100,12 +100,23 @@ impl AllocatedFrame {
 
     pub(super) fn stack(routine: &Mir65816Routine) -> Result<Self, String> {
         let demand = super::home_demand::Plan::new(routine);
+        let mut frame = Self::layout(routine, &demand)?;
+        frame.verify_stack(routine)?;
+        let interference = super::liveness::interference(routine)?;
+        frame.coalesce_edges(routine, &interference)?;
+        frame.coalesce_pointer_casts(routine)?;
+        Ok(frame)
+    }
+
+    // A bounded layout preview lets demand planning retain the existing exact
+    // call/stack geometry checks. It never recursively plans or verifies demand.
+    pub(super) fn layout(routine: &Mir65816Routine, demand: &super::home_demand::Plan) -> Result<Self, String> {
         let interference = super::liveness::interference(routine)?;
         let mut cursor = routine.frame.extent.get() + 1;
         let mut ordered = routine
             .temps
             .iter()
-            .filter(|(id, _)| demand.accumulator(*id).is_none())
+            .filter(|(id, _)| !demand.omits(*id))
             .map(|(id, ty)| {
                 Ok((
                     *id,
@@ -200,9 +211,6 @@ impl AllocatedFrame {
         frame.spill_bytes = extent - routine.frame.extent.get() as u16;
         frame.peak_below_entry = local_peak(routine, extent)?;
         frame.edge_copies = edge_copies;
-        frame.verify_stack(routine)?;
-        frame.coalesce_edges(routine, &interference)?;
-        frame.coalesce_pointer_casts(routine)?;
         Ok(frame)
     }
 
@@ -236,7 +244,7 @@ impl AllocatedFrame {
             Ok(())
         };
         for (id, ty) in &routine.temps {
-            if demand.accumulator(*id).is_some() {
+            if demand.omits(*id) {
                 if self.temps.contains_key(id) {
                     return Err("register-only temporary has a memory home".into());
                 }
@@ -252,7 +260,7 @@ impl AllocatedFrame {
             }
             check_slot(slot)?;
             for other in &graph[id] {
-                if demand.accumulator(*other).is_some() {
+                if demand.omits(*other) {
                     continue;
                 }
                 let other_slot = self
@@ -271,7 +279,7 @@ impl AllocatedFrame {
             .flat_map(|b| &b.ops)
             .filter_map(super::liveness::pointer_copy)
         {
-            if demand.accumulator(source).is_some() || demand.accumulator(dest).is_some() {
+            if demand.omits(source) || demand.omits(dest) {
                 continue;
             }
             let source = self.temps[&source].stack()?;

@@ -24,7 +24,7 @@ impl Source {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Binding {
     temp: TempId,
     source: Source,
@@ -32,8 +32,8 @@ struct Binding {
     uses: BTreeSet<usize>,
 }
 
-#[derive(Default, Debug)]
-pub(super) struct Plan {
+#[derive(Clone, Default, Debug)]
+pub(in crate::mir65816::emit) struct Plan {
     bindings: Vec<Binding>,
 }
 
@@ -358,10 +358,28 @@ fn terminal(
     }
 }
 
+pub(super) fn pointer_alias(r: &Mir65816Routine, op: &Mir65816Op) -> Option<(TempId, TempId)> {
+    let (dest, value) = match op {
+        Mir65816Op::Cast { dest, from, to, value, kind, .. }
+            if from.get() == 3 && to == from && matches!(kind, NirCastKind::Pointer | NirCastKind::Integer | NirCastKind::IntegerToPointer | NirCastKind::PointerToInteger) => (*dest, value),
+        Mir65816Op::AddressOf { dest, width, address }
+            if width.get() == 3 && canonical(address) => {
+                let Mir65816AddressBase::Indirect(value) = &address.base else { return None; };
+                (*dest, value)
+            }
+        _ => return None,
+    };
+    let Mir65816Value::Temp(input, width) = value else { return None; };
+    let scalar24 = |id| r.temps.iter().any(|(t, ty)| *t == id && ty.width == Some(ByteSize::new(3))
+        && (ty.pointer || ty.kind.integer().is_some_and(|i| i.bits == 24)));
+    (width.get() == 3 && scalar24(dest) && scalar24(*input)).then_some((dest, *input))
+}
+
 impl Plan {
-    pub(super) fn new(routine: &Mir65816Routine, frame: &AllocatedFrame) -> Result<Self, String> {
+    pub(in crate::mir65816::emit) fn new(routine: &Mir65816Routine, frame: &AllocatedFrame) -> Result<Self, String> {
         let mut plan = Self::default();
         let counts = liveness::input_counts(routine);
+        let definitions = liveness::definition_counts(routine);
         for block in &routine.blocks {
             for (index, op) in block.ops.iter().enumerate() {
                 let Mir65816Op::Load {
@@ -376,11 +394,9 @@ impl Plan {
                 if width.get() != 3 || counts.get(dest).copied().unwrap_or(0) == 0 {
                     continue;
                 }
-                let Some(Location::Stack(capture)) = frame.temps.get(dest) else {
-                    continue;
-                };
-                if capture.width != 3 {
-                    return Err("pointer capture width mismatch".into());
+                if let Some(home) = frame.temps.get(dest) {
+                    let Location::Stack(capture) = home else { continue; };
+                    if capture.width != 3 { return Err("pointer capture width mismatch".into()); }
                 }
                 let Some(source) = (match address.base {
                     Mir65816AddressBase::Parameter(_) => incoming(routine, frame, address)?,
@@ -389,12 +405,6 @@ impl Plan {
                 }) else {
                     continue;
                 };
-                abi::stack::access_displacement(
-                    ByteOffset::new(capture.offset.into()),
-                    ByteSize::new(3),
-                    ByteSize::ZERO,
-                )
-                .map_err(|e| e.to_string())?;
                 if frame
                     .temps
                     .values()
@@ -402,64 +412,72 @@ impl Plan {
                 {
                     return Err("temporary overlaps authoritative pointer source".into());
                 }
-                let mut uses = BTreeSet::new();
+                // Aliases share the same authoritative source, but retain
+                // separate definitions/use sets. Admission is atomic over the
+                // complete group, including otherwise hidden address uses.
+                if definitions.get(dest) != Some(&1) { continue; }
+                let mut group = BTreeMap::from([(*dest, (index, BTreeSet::new()))]);
                 let mut covered = 0;
                 for (at, consumer) in block.ops.iter().enumerate().skip(index + 1) {
-                    let occurrences = liveness::operation_inputs(consumer)
-                        .iter()
-                        .filter(|id| **id == *dest)
-                        .count();
+                    let inputs = liveness::operation_inputs(consumer);
+                    let used: Vec<_> = group.keys().copied().filter(|id| inputs.contains(id)).collect();
+                    let occurrences = inputs.iter().filter(|id| group.contains_key(id)).count();
                     if barrier(consumer) {
-                        // Admission is atomic over all routine-wide uses. A
-                        // terminal use never weakens the barrier for later ops.
                         if occurrences != 0
-                            && covered + occurrences == counts[dest]
-                            && terminal(routine, frame, consumer, *dest, source)
+                            && covered + occurrences == group.keys().map(|id| counts[id]).sum::<usize>()
+                            && used.iter().all(|id| terminal(routine, frame, consumer, *id, source))
                         {
-                            uses.insert(at);
+                            for id in used { group.get_mut(&id).unwrap().1.insert(at); }
                             covered += occurrences;
                         }
                         break;
                     }
+                    let alias = pointer_alias(routine, consumer).filter(|(_, input)| group.contains_key(input));
                     if occurrences != 0 {
-                        if !supported(consumer, *dest) {
-                            break;
-                        }
-                        uses.insert(at);
+                        if alias.is_none() && !used.iter().all(|id| supported(consumer, *id)) { break; }
+                        for id in used { group.get_mut(&id).unwrap().1.insert(at); }
                         covered += occurrences;
                     }
-                    if covered == counts[dest] {
-                        break;
+                    if let Some((alias, _)) = alias {
+                        if definitions.get(&alias) != Some(&1) || counts.get(&alias).copied().unwrap_or(0) == 0 { break; }
+                        group.insert(alias, (at, BTreeSet::new()));
                     }
+                    if covered == group.keys().map(|id| counts[id]).sum::<usize>() { break; }
                 }
-                if covered != counts[dest]
+                if covered != group.keys().map(|id| counts[id]).sum::<usize>()
                     && !block.ops[index + 1..].iter().any(barrier)
-                    && matches!(
-                        routine.result_home,
-                        Some(Mir65816AbiHome::NativeResult(
-                            abi::ResultLocation::A16X8ZeroExtended
-                        ))
-                    )
-                    && matches!(&block.terminator, Mir65816Terminator::Return {value:Some(Mir65816Value::Temp(id,w)),..} if id==dest && w.get()==3)
+                    && routine.result_home == Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16X8ZeroExtended))
+                    && let Mir65816Terminator::Return { value: Some(Mir65816Value::Temp(id, w)), .. } = &block.terminator
+                    && w.get() == 3
+                    && let Some((_, uses)) = group.get_mut(id)
                 {
                     uses.insert(block.ops.len());
                     covered += 1;
                 }
-                // The exhaustive routine-wide count includes hidden address and
-                // index uses, all terminators/edges and other blocks. Any use
-                // not explicitly admitted retains the entire original capture.
-                if covered != counts[dest] {
-                    continue;
+                if covered != group.keys().map(|id| counts[id]).sum::<usize>() { continue; }
+                for (temp, (at, uses)) in group {
+                    plan.bindings.push(Binding { temp, source, definition: (block.id, at), uses });
                 }
-                plan.bindings.push(Binding {
-                    temp: *dest,
-                    source,
-                    definition: (block.id, index),
-                    uses,
-                });
             }
         }
         Ok(plan)
+    }
+
+    pub(in crate::mir65816::emit) fn temps(&self) -> impl Iterator<Item = TempId> + '_ {
+        self.bindings.iter().map(|b| b.temp)
+    }
+
+    pub(super) fn resolve(&self, routine: &Mir65816Routine, frame: &AllocatedFrame) -> Result<Self, String> {
+        let checked = Self::new(routine, frame)?;
+        let mut resolved = Self::default();
+        for binding in &self.bindings {
+            let actual = checked.bindings.iter().find(|b| b.temp == binding.temp
+                && b.definition == binding.definition && b.uses == binding.uses
+                && b.source.kind == binding.source.kind)
+                .ok_or("borrowed pointer demand no longer valid in final frame")?;
+            resolved.bindings.push(actual.clone());
+        }
+        Ok(resolved)
     }
 
     /// Install only the preflighted read bindings for this exact source site.
@@ -484,7 +502,7 @@ impl Plan {
             .any(|binding| binding.definition == (block, index))
         {
             // Retain the operation's conservative fact boundary, but publish no
-            // fabricated store/definition for the reserved, unwritten home.
+            // fabricated store/definition for the omitted home.
             b.code.barrier();
             true
         } else {

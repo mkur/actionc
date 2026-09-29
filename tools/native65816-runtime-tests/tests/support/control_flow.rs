@@ -92,7 +92,9 @@ pub fn dispatches(
             };
             let captured = |value: &Mir65816Value| match value {
                 Mir65816Value::Temp(id, bytes) => {
-                    bytes.get() == 3 && m.frame.temps[id].stack().is_ok()
+                    // Sparse three-byte comparison operands use verified borrowed
+                    // incoming/local stack homes, not a reserved capture.
+                    bytes.get() == 3 && m.frame.temps.get(id).is_none_or(|h| h.stack().is_ok())
                 }
                 Mir65816Value::Param(_) => true,
                 _ => false,

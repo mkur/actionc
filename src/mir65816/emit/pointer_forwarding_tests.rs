@@ -471,7 +471,7 @@ fn source_routine(source: &str) -> Mir65816Routine {
 }
 
 #[test]
-fn adjacent_pointer_binding_keeps_authoritative_identity_and_reserved_homes() {
+fn adjacent_pointer_binding_keeps_authoritative_identity_without_reserved_homes() {
     let r = routine();
     let frame = AllocatedFrame::new(&r).unwrap();
     let plan = Plan::new(&r, &frame).unwrap();
@@ -657,12 +657,12 @@ fn same_block_multi_use_admission_is_atomic_across_every_use_and_barrier() {
 }
 
 #[test]
-fn native_pointer_returns_bind_but_identity_casts_keep_their_allocated_home() {
+fn native_pointer_returns_and_identity_casts_borrow_authoritative_homes() {
     for (source, expected) in [
         ("ADDRESS FUNC Read(ADDRESS p) RETURN(p)", 1),
         (
             "ADDRESS FUNC Read(ADDRESS p) RETURN(ADDRESS(BYTE POINTER(p)))",
-            0,
+            4,
         ),
     ] {
         let mut r = source_routine(source);
@@ -683,9 +683,10 @@ fn native_pointer_returns_bind_but_identity_casts_keep_their_allocated_home() {
         let plan = Plan::new(&r, &f).unwrap();
         assert_eq!(plan.bindings.len(), expected);
         let m = super::super::routine(&r, false).unwrap();
+        assert!(plan.bindings.iter().any(|b| b.uses.contains(&r.blocks[0].ops.len())));
         for b in &plan.bindings {
             assert!(m.code.mir_spans[&b.definition].is_empty());
-            assert!(b.uses.contains(&r.blocks[0].ops.len()));
+            assert!(!m.frame.temps.contains_key(&b.temp));
         }
     }
 }
@@ -760,7 +761,7 @@ fn local_sources_require_complete_unescaped_automatic_ownership() {
         .iter_mut()
         .find(|o| o.id == object)
         .unwrap()
-        .stack_offset = ByteOffset::new(frame.temps[&temp].slot().offset.into());
+        .stack_offset = ByteOffset::new(frame.extent.into());
     assert!(Plan::new(&bad, &frame).is_err());
     let machine = super::super::routine(&base, false).unwrap();
     assert!(machine.code.mir_spans[&definition].is_empty());

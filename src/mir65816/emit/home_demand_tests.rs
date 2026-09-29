@@ -437,3 +437,38 @@ fn home_demand_sparse_map_verification_rejects_unapproved_omissions() {
     }
     assert!(f.verify_stack(&changed).is_err());
 }
+
+#[test]
+fn borrowed_pointer_aliases_have_no_fictitious_owned_homes() {
+    for optimize in [false, true] {
+        let p = program("TYPE Box=[BYTE tag BYTE POINTER link] PROC Work(Box POINTER target BYTE POINTER ptr) target.link=BYTE POINTER(ADDRESS(ptr)) RETURN PROC Main() RETURN", optimize);
+        let m = materialize(&p).unwrap();
+        let r = &m.prepared.routines[0];
+        let plan = Plan::new(r);
+        assert!(plan.decisions.values().any(|d| matches!(d, Decision::Borrowed)));
+        let f = &m.routines[0].frame;
+        assert_eq!(f.extent, 0);
+        f.verify_stack(r).unwrap();
+        let id = *plan.decisions.iter().find(|(_, d)| matches!(d, Decision::Borrowed)).unwrap().0;
+        let mut forged = f.clone();
+        forged.temps.insert(id, Location::Stack(Slot { offset: 2, width: 3 }));
+        assert!(forged.verify_stack(r).is_err());
+    }
+}
+
+#[test]
+fn pointer_alias_demand_keeps_mutable_snapshots_across_writes() {
+    for optimize in [false, true] {
+        let p = program("BYTE POINTER shared PROC Work(BYTE POINTER target) BYTE POINTER saved saved=shared shared=target target^=saved^ RETURN PROC Main() RETURN", optimize);
+        let m = materialize(&p).unwrap();
+        let r = &m.prepared.routines[0];
+        let plan = Plan::new(r);
+        for op in r.blocks.iter().flat_map(|b| &b.ops) {
+            if let Mir65816Op::Load { dest, address, width, .. } = op
+                && width.get() == 3 && matches!(address.base, Mir65816AddressBase::Static(_) | Mir65816AddressBase::External(_)) {
+                assert!(!plan.omits(*dest));
+            }
+        }
+        m.routines[0].frame.verify_stack(r).unwrap();
+    }
+}

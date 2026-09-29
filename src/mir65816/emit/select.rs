@@ -67,7 +67,7 @@ mod mixed_edges;
 #[path = "parameter.rs"]
 mod parameter;
 #[path = "pointer_forwarding.rs"]
-mod pointer_forwarding;
+pub(super) mod pointer_forwarding;
 #[path = "pointer_values.rs"]
 mod pointer_values;
 #[path = "shifts.rs"]
@@ -338,7 +338,7 @@ pub(super) fn routine_with_data(
     let demand = home_demand::Plan::new(routine);
     let frame = AllocatedFrame::new(routine)?;
     let addresses = addresses::Plan::new(routine, &frame, data)?;
-    let pointers = pointer_forwarding::Plan::new(routine, &frame)?;
+    let pointers = demand.pointers.resolve(routine, &frame)?;
     let loop_x = loop_x::LoopXPlan::new(routine, &frame)?;
     let mut b = Builder {
         stack_checks,
@@ -1464,6 +1464,10 @@ impl Builder<'_> {
     fn value_memory(&self, value: &Mir65816Value) -> Result<Option<Memory>, String> {
         Ok(match value {
             Mir65816Value::Temp(id, bytes) => {
+                if let Some(source) = self.borrowed.get(id) {
+                    if bytes.get() != 3 { return Err("borrowed pointer width mismatch".into()); }
+                    return Ok(Some(source.memory()));
+                }
                 let slot = self.temp(*id)?;
                 if slot.slot().width != width(*bytes)? {
                     return Err("temporary width mismatch".into());
@@ -1588,7 +1592,7 @@ impl Builder<'_> {
                     return Err("indirect address requires a 24-bit pointer".into());
                 }
                 if let Mir65816Value::Temp(id, _) = value
-                    && let Location::DirectPage(slot) = self.temp(*id)?
+                    && let Some(Location::DirectPage(slot)) = self.frame.temps.get(id)
                 {
                     if address.index.is_some() || displacement > u32::from(u16::MAX) - 3 {
                         return Err("unmodelled resident pointer addressing".into());

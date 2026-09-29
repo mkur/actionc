@@ -391,3 +391,15 @@ fn add_clique(graph: &mut Interference, live: &Live) {
             .extend(live.iter().copied().filter(|other| *other != id));
     }
 }
+
+/// Count every definition, including block parameters, for local demand proofs.
+pub(super) fn definition_counts(routine: &Mir65816Routine) -> BTreeMap<TempId, usize> {
+    let mut counts = BTreeMap::new();
+    for block in &routine.blocks {
+        for (id, _) in &block.params { *counts.entry(*id).or_default() += 1; }
+        for op in &block.ops {
+            if let Some(id) = operation_output(op) { *counts.entry(id).or_default() += 1; }
+        }
+    }
+    counts
+}

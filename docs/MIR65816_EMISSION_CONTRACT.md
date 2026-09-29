@@ -1438,9 +1438,11 @@ still an ordering barrier; the binding never applies to subsequent operations.
 The stored value and index cannot also use that capture. Address preparation
 uses the existing read resolver and consumes the complete source before the
 unchanged external write. Exact payload widths, address arithmetic and access
-order are preserved. Cast/edge uses and unsupported roles retain the complete
-capture. Allocated homes and conservative tracking boundaries remain, without
-publishing a definition for an omitted temporary write.
+order are preserved. Representation-preserving three-byte casts and zero-offset
+indirect AddressOf may extend the same checked binding; every alias definition
+and use is validated. Edge uses and unsupported roles retain the capture.
+The storage-demand plan omits the admitted capture/alias homes before final
+allocation, without publishing definitions for unwritten storage.
 
 An immutable incoming pointer binding may also end at a resolved direct native
 call when every remaining occurrence is an exact three-byte argument. Complete
@@ -1450,8 +1452,8 @@ exceed displacement 255. Both incremental pushes and reservation/store packing
 use the same resolved read home. Arguments and padding retain their original
 ABI slots, guard-before-construction order and peak. The binding is cleared
 before JSL, so neither callee execution nor native-result capture inherits it.
-Indirect targets, width-changing arguments, cast consumers and uses after the
-call retain the original captures.
+Indirect targets, width-changing arguments and uses after the call retain
+the original captures.
 
 A complete non-addressable local pointer may likewise supply its final store
 address. The existing local ownership, canonical-access and frame-disjointness
@@ -1464,7 +1466,7 @@ this address-base rule.
 Local pointer bindings may also end in exact three-byte arguments of a resolved
 direct native call. They use the same full-outgoing-delta reach check as incoming
 sources, keep their non-addressable ownership proof, and expire before transfer.
-Both packing paths read the local home; reserved capture slots remain unread.
+Both packing paths read the local home; omitted captures have no reserved slot.
 A local write or call before the consumer, or a later use of the capture, still
 rejects the whole binding.
 
@@ -1479,3 +1481,23 @@ pointer may coexist with a borrowed payload. External stores retain the low
 word and exact bank byte in ascending order; only disjoint private transfers may
 use the established two overlapping words within three bytes. No fourth byte is
 touched, no binding crosses the store, and every writable home remains allocated.
+
+
+### Borrowed pointer storage demand
+
+The demand planner previews the ordinary accumulator-aware stack layout to
+preflight existing pointer-binding geometry, then allocates only demanded
+homes. Final binding resolution rechecks the same source identities and complete
+use sets with compacted incoming offsets. Layout preview does not recursively
+invoke demand verification. The independent frame verifier reconstructs the
+plan and rejects missing unapproved homes or fabricated borrowed homes.
+
+Immutable incoming and complete non-addressable local sources may feed bounded
+same-block alias groups. Representation-preserving three-byte casts and a
+zero-offset indirect AddressOf retain all bits without an owned result home.
+Definitions must be unique and every routine-wide occurrence accounted for;
+barriers, source modifications and escapes retain the existing fallback.
+Borrowed read resolution precedes owned-home lookup. Closed DP allocation
+profiles keep their established ownership. Stack guard policy and reserved
+bank-zero capacity are unchanged. See the
+[address-consumer plan](MIR65816_ADDRESS_CONSUMERS_PLAN.md).

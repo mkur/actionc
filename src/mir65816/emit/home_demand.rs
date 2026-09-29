@@ -30,10 +30,12 @@ pub(super) struct Accumulator {
 pub(super) enum Decision {
     Memory(MemoryReason),
     Accumulator(Accumulator),
+    Borrowed,
 }
 
 pub(super) struct Plan {
     pub decisions: BTreeMap<TempId, Decision>,
+    pub(super) pointers: select::pointer_forwarding::Plan,
     producers: BTreeMap<(BlockId, usize), TempId>,
     consumers: BTreeMap<(BlockId, usize), TempId>,
 }
@@ -138,6 +140,7 @@ impl Plan {
                 .iter()
                 .map(|(id, _)| (*id, Decision::Memory(MemoryReason::UnsupportedProducer)))
                 .collect(),
+            pointers: select::pointer_forwarding::Plan::default(),
             producers: BTreeMap::new(),
             consumers: BTreeMap::new(),
         };
@@ -381,7 +384,21 @@ impl Plan {
                 plan.decisions.insert(id, decision);
             }
         }
+        // Plan on the conservative pre-borrowing layout, then allocate only
+        // demanded homes. Compaction cannot increase incoming displacements.
+        // Closed DP profiles retain ownership of their complete allocation.
+        if AllocatedFrame::pointer_leaf(r).ok().flatten().is_none()
+            && let Ok(preview) = AllocatedFrame::layout(r, &plan)
+            && let Ok(pointers) = select::pointer_forwarding::Plan::new(r, &preview)
+        {
+            for id in pointers.temps() { plan.decisions.insert(id, Decision::Borrowed); }
+            plan.pointers = pointers;
+        }
         plan
+    }
+
+    pub fn omits(&self, id: TempId) -> bool {
+        matches!(self.decisions.get(&id), Some(Decision::Accumulator(_) | Decision::Borrowed))
     }
 
     pub fn accumulator(&self, id: TempId) -> Option<Accumulator> {
@@ -392,7 +409,7 @@ impl Plan {
     }
 
     pub fn count(&self) -> usize {
-        self.producers.len()
+        self.decisions.keys().filter(|&&id| self.omits(id)).count()
     }
 
     pub fn producer(&self, block: BlockId, index: usize) -> Option<Accumulator> {
