@@ -364,25 +364,60 @@ fn terminal(
     }
 }
 
-pub(in crate::mir65816::emit) fn pointer_alias(r: &Mir65816Routine, op: &Mir65816Op) -> Option<(TempId, TempId)> {
+pub(in crate::mir65816::emit) fn pointer_alias(
+    r: &Mir65816Routine,
+    op: &Mir65816Op,
+) -> Option<(TempId, TempId)> {
     let (dest, value) = match op {
-        Mir65816Op::Cast { dest, from, to, value, kind, .. }
-            if from.get() == 3 && to == from && matches!(kind, NirCastKind::Pointer | NirCastKind::Integer | NirCastKind::IntegerToPointer | NirCastKind::PointerToInteger) => (*dest, value),
-        Mir65816Op::AddressOf { dest, width, address }
-            if width.get() == 3 && canonical(address) => {
-                let Mir65816AddressBase::Indirect(value) = &address.base else { return None; };
-                (*dest, value)
-            }
+        Mir65816Op::Cast {
+            dest,
+            from,
+            to,
+            value,
+            kind,
+            ..
+        } if from.get() == 3
+            && to == from
+            && matches!(
+                kind,
+                NirCastKind::Pointer
+                    | NirCastKind::Integer
+                    | NirCastKind::IntegerToPointer
+                    | NirCastKind::PointerToInteger
+            ) =>
+        {
+            (*dest, value)
+        }
+        Mir65816Op::AddressOf {
+            dest,
+            width,
+            address,
+        } if width.get() == 3 && canonical(address) => {
+            let Mir65816AddressBase::Indirect(value) = &address.base else {
+                return None;
+            };
+            (*dest, value)
+        }
         _ => return None,
     };
-    let Mir65816Value::Temp(input, width) = value else { return None; };
-    let scalar24 = |id| r.temps.iter().any(|(t, ty)| *t == id && ty.width == Some(ByteSize::new(3))
-        && (ty.pointer || ty.kind.integer().is_some_and(|i| i.bits == 24)));
+    let Mir65816Value::Temp(input, width) = value else {
+        return None;
+    };
+    let scalar24 = |id| {
+        r.temps.iter().any(|(t, ty)| {
+            *t == id
+                && ty.width == Some(ByteSize::new(3))
+                && (ty.pointer || ty.kind.integer().is_some_and(|i| i.bits == 24))
+        })
+    };
     (width.get() == 3 && scalar24(dest) && scalar24(*input)).then_some((dest, *input))
 }
 
 impl Plan {
-    pub(in crate::mir65816::emit) fn new(routine: &Mir65816Routine, frame: &AllocatedFrame) -> Result<Self, String> {
+    pub(in crate::mir65816::emit) fn new(
+        routine: &Mir65816Routine,
+        frame: &AllocatedFrame,
+    ) -> Result<Self, String> {
         let mut plan = Self::default();
         let counts = liveness::input_counts(routine);
         let definitions = liveness::definition_counts(routine);
@@ -401,8 +436,12 @@ impl Plan {
                     continue;
                 }
                 if let Some(home) = frame.temps.get(dest) {
-                    let Location::Stack(capture) = home else { continue; };
-                    if capture.width != 3 { return Err("pointer capture width mismatch".into()); }
+                    let Location::Stack(capture) = home else {
+                        continue;
+                    };
+                    if capture.width != 3 {
+                        return Err("pointer capture width mismatch".into());
+                    }
                 }
                 let Some(source) = (match address.base {
                     Mir65816AddressBase::Parameter(_) => incoming(routine, frame, address)?,
@@ -421,65 +460,117 @@ impl Plan {
                 // Aliases share the same authoritative source, but retain
                 // separate definitions/use sets. Admission is atomic over the
                 // complete group, including otherwise hidden address uses.
-                if definitions.get(dest) != Some(&1) { continue; }
+                if definitions.get(dest) != Some(&1) {
+                    continue;
+                }
                 let mut group = BTreeMap::from([(*dest, (index, BTreeSet::new()))]);
                 let mut covered = 0;
                 for (at, consumer) in block.ops.iter().enumerate().skip(index + 1) {
                     let inputs = liveness::operation_inputs(consumer);
-                    let used: Vec<_> = group.keys().copied().filter(|id| inputs.contains(id)).collect();
+                    let used: Vec<_> = group
+                        .keys()
+                        .copied()
+                        .filter(|id| inputs.contains(id))
+                        .collect();
                     let occurrences = inputs.iter().filter(|id| group.contains_key(id)).count();
                     if barrier(consumer) {
                         if occurrences != 0
-                            && covered + occurrences == group.keys().map(|id| counts[id]).sum::<usize>()
-                            && used.iter().all(|id| terminal(routine, frame, consumer, *id, source))
+                            && covered + occurrences
+                                == group.keys().map(|id| counts[id]).sum::<usize>()
+                            && used
+                                .iter()
+                                .all(|id| terminal(routine, frame, consumer, *id, source))
                         {
-                            for id in used { group.get_mut(&id).unwrap().1.insert(at); }
+                            for id in used {
+                                group.get_mut(&id).unwrap().1.insert(at);
+                            }
                             covered += occurrences;
                         }
                         break;
                     }
-                    let alias = pointer_alias(routine, consumer).filter(|(_, input)| group.contains_key(input));
+                    let alias = pointer_alias(routine, consumer)
+                        .filter(|(_, input)| group.contains_key(input));
                     if occurrences != 0 {
-                        if alias.is_none() && !used.iter().all(|id| supported(consumer, *id)) { break; }
-                        for id in used { group.get_mut(&id).unwrap().1.insert(at); }
+                        if alias.is_none() && !used.iter().all(|id| supported(consumer, *id)) {
+                            break;
+                        }
+                        for id in used {
+                            group.get_mut(&id).unwrap().1.insert(at);
+                        }
                         covered += occurrences;
                     }
                     if let Some((alias, _)) = alias {
-                        if definitions.get(&alias) != Some(&1) || counts.get(&alias).copied().unwrap_or(0) == 0 { break; }
+                        if definitions.get(&alias) != Some(&1)
+                            || counts.get(&alias).copied().unwrap_or(0) == 0
+                        {
+                            break;
+                        }
                         group.insert(alias, (at, BTreeSet::new()));
                     }
-                    if covered == group.keys().map(|id| counts[id]).sum::<usize>() { break; }
+                    if covered == group.keys().map(|id| counts[id]).sum::<usize>() {
+                        break;
+                    }
                 }
                 if covered != group.keys().map(|id| counts[id]).sum::<usize>()
                     && !block.ops[index + 1..].iter().any(barrier)
-                    && routine.result_home == Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16X8ZeroExtended))
-                    && let Mir65816Terminator::Return { value: Some(Mir65816Value::Temp(id, w)), .. } = &block.terminator
+                    && routine.result_home
+                        == Some(Mir65816AbiHome::NativeResult(
+                            abi::ResultLocation::A16X8ZeroExtended,
+                        ))
+                    && let Mir65816Terminator::Return {
+                        value: Some(Mir65816Value::Temp(id, w)),
+                        ..
+                    } = &block.terminator
                     && w.get() == 3
                     && let Some((_, uses)) = group.get_mut(id)
                 {
                     uses.insert(block.ops.len());
                     covered += 1;
                 }
-                if covered != group.keys().map(|id| counts[id]).sum::<usize>() { continue; }
+                if covered != group.keys().map(|id| counts[id]).sum::<usize>() {
+                    continue;
+                }
                 for (temp, (at, uses)) in group {
-                    plan.bindings.push(Binding { temp, source, definition: (block.id, at), uses });
+                    plan.bindings.push(Binding {
+                        temp,
+                        source,
+                        definition: (block.id, at),
+                        uses,
+                    });
                 }
             }
         }
         Ok(plan)
     }
 
+    pub(super) fn read_home(&self, site: (BlockId, usize), temp: TempId) -> Option<Slot> {
+        self.bindings
+            .iter()
+            .find(|b| b.temp == temp && b.definition.0 == site.0 && b.uses.contains(&site.1))
+            .map(|b| b.source.home)
+    }
+
     pub(in crate::mir65816::emit) fn temps(&self) -> impl Iterator<Item = TempId> + '_ {
         self.bindings.iter().map(|b| b.temp)
     }
 
-    pub(super) fn resolve(&self, routine: &Mir65816Routine, frame: &AllocatedFrame) -> Result<Self, String> {
+    pub(super) fn resolve(
+        &self,
+        routine: &Mir65816Routine,
+        frame: &AllocatedFrame,
+    ) -> Result<Self, String> {
         let checked = Self::new(routine, frame)?;
         let mut resolved = Self::default();
         for binding in &self.bindings {
-            let actual = checked.bindings.iter().find(|b| b.temp == binding.temp
-                && b.definition == binding.definition && b.uses == binding.uses
-                && b.source.kind == binding.source.kind)
+            let actual = checked
+                .bindings
+                .iter()
+                .find(|b| {
+                    b.temp == binding.temp
+                        && b.definition == binding.definition
+                        && b.uses == binding.uses
+                        && b.source.kind == binding.source.kind
+                })
                 .ok_or("borrowed pointer demand no longer valid in final frame")?;
             resolved.bindings.push(actual.clone());
         }

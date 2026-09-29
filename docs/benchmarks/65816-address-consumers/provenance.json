@@ -1,0 +1,12 @@
+{
+  "compiler_baseline": "979205e4",
+  "compiler_candidate": "ec2995ad plus slice 4 in this commit; exact source digest below",
+  "compiler_source_digest": "46ede930521524fd8daaf0a4f7c1660064fb0380a284eb90a5eb1e261924cf8b",
+  "compiler_executable_sha256": "194af4c1c363fbf5592ba1fa8f2c3ee0dc027655e622ba6c306158f73509c2a9",
+  "exec_revision": "134130bdb8ce1374ca7d5e6011ed98c4ccd62151",
+  "exec_input_count": 133,
+  "exec_input_digest": "751059513e938ac69f5d578219029b39347388dccda46797916d30d03eb7898d",
+  "measurement": "unchanged generated Exec inputs; local compiler override; compile only",
+  "baseline_image_sha256": "728f8cd652bba56e46829a13c95555f46c65fc6cb37520cf7cc58e78eb35f798",
+  "candidate_image_sha256": "a5ff065145b9348e58ce6a7fdf6d5ad04044a624295712f37bcf6909041bd3f7"
+}

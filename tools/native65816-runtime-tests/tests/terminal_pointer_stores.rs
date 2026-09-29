@@ -94,7 +94,7 @@ fn final_pointer_values_preserve_private_copies_and_exact_external_traffic() {
                     })
                     .unwrap();
                 assert_ne!(base, value);
-                let captures = [base, value].map(|id| {
+                for id in [base, value] {
                     let (b, i, address) = r
                         .blocks
                         .iter()
@@ -126,8 +126,8 @@ fn final_pointer_values_preserve_private_copies_and_exact_external_traffic() {
                             local || private
                         );
                     }
-                    m.frame.temps[&id].stack().unwrap().offset
-                });
+                    assert!(!m.frame.temps.contains_key(&id));
+                }
                 let span = &m.code.mir_spans[&(block, index)];
                 let bytes = prepared.compile_o65(&Default::default()).unwrap().bytes;
                 for variant in 0..3 {
@@ -173,19 +173,7 @@ fn final_pointer_values_preserve_private_copies_and_exact_external_traffic() {
                             h.bus.map(target - 1, &[0xa5; 5], true);
                             h.bus.watched.extend(target - 1..target + 4);
                             reach(&mut h, address + span.start as u32);
-                            let body = usize::from(h.cpu.registers().s);
-                            for slot in captures {
-                                h.bus.ram[body + slot as usize..body + slot as usize + 3]
-                                    .fill(0xa7);
-                            }
-                            let before = h.bus.reads.len();
                             reach(&mut h, address + span.end as u32);
-                            for slot in captures {
-                                assert!(!h.bus.reads[before..].iter().any(|&a| {
-                                    (body + slot as usize..body + slot as usize + 3)
-                                        .contains(&(a as usize))
-                                }));
-                            }
                             h.run();
                             h.guards(mask);
                             assert_eq!(h.bus.value(target, 3), value);

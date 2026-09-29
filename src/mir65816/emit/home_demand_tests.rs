@@ -441,17 +441,35 @@ fn home_demand_sparse_map_verification_rejects_unapproved_omissions() {
 #[test]
 fn borrowed_pointer_aliases_have_no_fictitious_owned_homes() {
     for optimize in [false, true] {
-        let p = program("TYPE Box=[BYTE tag BYTE POINTER link] PROC Work(Box POINTER target BYTE POINTER ptr) target.link=BYTE POINTER(ADDRESS(ptr)) RETURN PROC Main() RETURN", optimize);
+        let p = program(
+            "TYPE Box=[BYTE tag BYTE POINTER link] PROC Work(Box POINTER target BYTE POINTER ptr) target.link=BYTE POINTER(ADDRESS(ptr)) RETURN PROC Main() RETURN",
+            optimize,
+        );
         let m = materialize(&p).unwrap();
         let r = &m.prepared.routines[0];
         let plan = Plan::new(r);
-        assert!(plan.decisions.values().any(|d| matches!(d, Decision::Borrowed)));
+        assert!(
+            plan.decisions
+                .values()
+                .any(|d| matches!(d, Decision::Borrowed))
+        );
         let f = &m.routines[0].frame;
         assert_eq!(f.extent, 0);
         f.verify_stack(r).unwrap();
-        let id = *plan.decisions.iter().find(|(_, d)| matches!(d, Decision::Borrowed)).unwrap().0;
+        let id = *plan
+            .decisions
+            .iter()
+            .find(|(_, d)| matches!(d, Decision::Borrowed))
+            .unwrap()
+            .0;
         let mut forged = f.clone();
-        forged.temps.insert(id, Location::Stack(Slot { offset: 2, width: 3 }));
+        forged.temps.insert(
+            id,
+            Location::Stack(Slot {
+                offset: 2,
+                width: 3,
+            }),
+        );
         assert!(forged.verify_stack(r).is_err());
     }
 }
@@ -459,13 +477,26 @@ fn borrowed_pointer_aliases_have_no_fictitious_owned_homes() {
 #[test]
 fn pointer_alias_demand_keeps_mutable_snapshots_across_writes() {
     for optimize in [false, true] {
-        let p = program("BYTE POINTER shared PROC Work(BYTE POINTER target) BYTE POINTER saved saved=shared shared=target target^=saved^ RETURN PROC Main() RETURN", optimize);
+        let p = program(
+            "BYTE POINTER shared PROC Work(BYTE POINTER target) BYTE POINTER saved saved=shared shared=target target^=saved^ RETURN PROC Main() RETURN",
+            optimize,
+        );
         let m = materialize(&p).unwrap();
         let r = &m.prepared.routines[0];
         let plan = Plan::new(r);
         for op in r.blocks.iter().flat_map(|b| &b.ops) {
-            if let Mir65816Op::Load { dest, address, width, .. } = op
-                && width.get() == 3 && matches!(address.base, Mir65816AddressBase::Static(_) | Mir65816AddressBase::External(_)) {
+            if let Mir65816Op::Load {
+                dest,
+                address,
+                width,
+                ..
+            } = op
+                && width.get() == 3
+                && matches!(
+                    address.base,
+                    Mir65816AddressBase::Static(_) | Mir65816AddressBase::External(_)
+                )
+            {
                 assert!(!plan.omits(*dest));
             }
         }
@@ -473,42 +504,80 @@ fn pointer_alias_demand_keeps_mutable_snapshots_across_writes() {
     }
 }
 
-
 #[test]
 fn address_results_flow_through_casts_and_borrowed_definitions_into_stores() {
-    for optimize in [false,true] {
-        let p=program("TYPE Node=[Node POINTER next,prev] TYPE Header=[Node POINTER head,tail,last] PROC Work(Header POINTER chain) chain.head=Node POINTER(@chain.tail) chain.tail=NULL chain.last=Node POINTER(@chain.head) RETURN PROC Main() RETURN",optimize);
-        let m=materialize(&p).unwrap();
-        let r=&m.prepared.routines[0];
-        let f=&m.routines[0].frame;
-        assert_eq!(f.extent,0,"{optimize}: {r:#?}");
+    for optimize in [false, true] {
+        let p = program(
+            "TYPE Node=[Node POINTER next,prev] TYPE Header=[Node POINTER head,tail,last] PROC Work(Header POINTER chain) chain.head=Node POINTER(@chain.tail) chain.tail=NULL chain.last=Node POINTER(@chain.head) RETURN PROC Main() RETURN",
+            optimize,
+        );
+        let m = materialize(&p).unwrap();
+        let r = &m.prepared.routines[0];
+        let f = &m.routines[0].frame;
+        assert_eq!(f.extent, 0, "{optimize}: {r:#?}");
         assert!(f.temps.is_empty());
         f.verify_stack(r).unwrap();
-        let demand=Plan::new(r);
-        assert!(demand.decisions.values().any(|d| matches!(d,Decision::Accumulator(a) if a.bytes==3)));
+        let demand = Plan::new(r);
+        assert!(
+            demand
+                .decisions
+                .values()
+                .any(|d| matches!(d,Decision::Accumulator(a) if a.bytes==3))
+        );
         #[cfg(feature = "native65816-state-proof")]
         {
-            let (reference,_) = super::super::proof::materialize_reference(&p,false).unwrap();
-            super::super::proof::compare_replay_output(&reference.routines[0].code,&m.routines[0].code).unwrap();
+            let (reference, _) = super::super::proof::materialize_reference(&p, false).unwrap();
+            super::super::proof::compare_replay_output(
+                &reference.routines[0].code,
+                &m.routines[0].code,
+            )
+            .unwrap();
         }
     }
 }
 
-
 #[test]
 fn prepared_bases_are_reused_only_until_a_possible_clobber() {
-    for optimize in [false,true] {
-        for (body, reuse) in [("RETURN(p.a+p.b)",true),
-            ("CARD first first=p.a p.a=17 RETURN(first+p.a)",false)] {
-            let p=program(&format!("TYPE Packet=[CARD a,b] CARD FUNC Work(Packet POINTER p) {body} PROC Main() RETURN"),optimize);
-            let m=materialize(&p).unwrap();
-            let records=m.routines[0].code.selected.as_ref().unwrap().records();
-            let decisions:Vec<_>=records.iter().enumerate()
-                .filter(|(_,r)| matches!(r.action,selected::Action::Request(selected::Request::StagePointer(..))))
-                .map(|(i,_)| records.iter().find(|r| matches!(r.action,selected::Action::EndRequest(n) if n.0==i)).unwrap().decision).collect();
+    for optimize in [false, true] {
+        for (body, reuse) in [
+            ("RETURN(p.a+p.b)", true),
+            ("CARD first first=p.a p.a=17 RETURN(first+p.a)", false),
+        ] {
+            let p = program(
+                &format!(
+                    "TYPE Packet=[CARD a,b] CARD FUNC Work(Packet POINTER p) {body} PROC Main() RETURN"
+                ),
+                optimize,
+            );
+            let m = materialize(&p).unwrap();
+            let records = m.routines[0].code.selected.as_ref().unwrap().records();
+            let decisions: Vec<_> = records
+                .iter()
+                .enumerate()
+                .filter(|(_, r)| {
+                    matches!(
+                        r.action,
+                        selected::Action::Request(selected::Request::StagePointer(..))
+                    )
+                })
+                .map(|(i, _)| {
+                    records
+                        .iter()
+                        .find(|r| matches!(r.action,selected::Action::EndRequest(n) if n.0==i))
+                        .unwrap()
+                        .decision
+                })
+                .collect();
             assert!(decisions.contains(&Some(false)));
-            assert!(decisions.contains(&Some(true)),"{optimize}/{body}: {decisions:?}");
-            assert_eq!(decisions.last(),Some(&Some(reuse)),"{optimize}/{body}: {decisions:?}");
+            assert!(
+                decisions.contains(&Some(true)),
+                "{optimize}/{body}: {decisions:?}"
+            );
+            assert_eq!(
+                decisions.last(),
+                Some(&Some(reuse)),
+                "{optimize}/{body}: {decisions:?}"
+            );
         }
     }
 }

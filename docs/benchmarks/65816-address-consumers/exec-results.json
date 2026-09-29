@@ -1,0 +1,16 @@
+{
+  "routines": 960,
+  "routine_bytes_before": 485991,
+  "routine_bytes_after": 479099,
+  "shrinking_routines": 405,
+  "growing_routines": 10,
+  "shrinking_frames": 461,
+  "growing_frames": 0,
+  "shrinking_local_peaks": 461,
+  "growing_local_peaks": 0,
+  "growth_bytes": 32,
+  "frame_maps_validated": 960,
+  "fixed_bank_zero_delta": 0,
+  "per_task_bank_zero_delta": 0,
+  "saved_bytes": 6892
+}

@@ -118,6 +118,51 @@ fn chain_program() -> Mir65816Program {
 }
 
 #[test]
+fn indexed_selection_reads_borrowed_inputs_without_inventing_owned_homes() {
+    for optimize in [false, true] {
+        for index in ["3", "i"] {
+            let source = format!(
+                "PROC Touch() RETURN PROC Work(ADDRESS POINTER p ADDRESS value BYTE i) p({index})=value Touch() RETURN PROC Main() RETURN"
+            );
+            let ast = crate::parser::parse(&crate::lexer::tokenize(&source).unwrap()).unwrap();
+            let model = crate::semantic::analyze_with_options(
+                &ast,
+                crate::semantic::SemanticOptions::modern().with_target(TargetId::Wdc65816Native),
+            )
+            .unwrap();
+            let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+            let nir = if optimize {
+                crate::nir::optimize_program(&nir).unwrap()
+            } else {
+                nir
+            };
+            let p = crate::mir65816::lower_program(&nir).unwrap();
+            let machine = materialize(&p).unwrap();
+            let r = machine
+                .prepared
+                .routines
+                .iter()
+                .find(|r| r.name == "Work")
+                .unwrap();
+            let frame = &machine
+                .routines
+                .iter()
+                .find(|m| m.id == r.id)
+                .unwrap()
+                .frame;
+            let demand = home_demand::Plan::new(r);
+            assert!(demand.pointers.temps().count() >= 2);
+            for temp in demand.pointers.temps() {
+                assert!(!frame.temps.contains_key(&temp));
+            }
+            let plan = Plan::new(r, frame, &p.data).unwrap();
+            assert_eq!(plan.constants.len(), usize::from(index == "3"));
+            assert_eq!(plan.indexed.len(), usize::from(index == "i"));
+        }
+    }
+}
+
+#[test]
 fn chains_keep_other_uses_and_reject_loaded_or_cross_barrier_provenance() {
     let p = chain_program();
     let original = p.routines.iter().find(|r| r.name == "Work").unwrap();

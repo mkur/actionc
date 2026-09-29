@@ -1497,7 +1497,11 @@ same-block alias groups. Representation-preserving three-byte casts and a
 zero-offset indirect AddressOf retain all bits without an owned result home.
 Definitions must be unique and every routine-wide occurrence accounted for;
 barriers, source modifications and escapes retain the existing fallback.
-Borrowed read resolution precedes owned-home lookup. Closed DP allocation
+Borrowed read resolution precedes owned-home lookup. Constant and scaled-index
+selectors use the same checked read bindings at the authorized operation site;
+an omitted capture neither disables address selection nor becomes writable
+storage. Final layout resolution checks every physical source range.
+Closed DP allocation
 profiles keep their established ownership. Stack guard policy and reserved
 bank-zero capacity are unchanged. See the
 [address-consumer plan](MIR65816_ADDRESS_CONSUMERS_PLAN.md).

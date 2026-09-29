@@ -42,7 +42,7 @@ fn reach(h: &mut Harness, pc: u32) {
 }
 
 #[test]
-fn final_pointer_arguments_keep_complete_areas_results_and_reserved_homes_unread() {
+fn final_pointer_arguments_keep_complete_areas_results_and_omit_borrowed_homes() {
     let source = "BYTE POINTER base=$7100\nADDRESS result=$7200\nADDRESS FUNC Echo(BYTE a BYTE POINTER p LONGCARD n BYTE POINTER q CARD b) RETURN(ADDRESS(p))\nADDRESS FUNC Forward(BYTE POINTER p) RETURN(Echo(3,p,LONGCARD($89abcdef),p,$4321))\nPROC Main() result=Forward(base) RETURN\n";
     for local in [false, true] {
         let source = if local {
@@ -91,7 +91,8 @@ fn final_pointer_arguments_keep_complete_areas_results_and_reserved_homes_unread
                                 })
                                 && m.code.mir_spans[&(b.id, i)].is_empty()
                             {
-                                omitted.push(m.frame.temps[dest].stack().unwrap().offset);
+                                assert!(!m.frame.temps.contains_key(dest));
+                                omitted.push(*dest);
                             }
                         }
                         if let Mir65816Op::Call { plan, .. } = op {
@@ -142,19 +143,7 @@ fn final_pointer_arguments_keep_complete_areas_results_and_reserved_homes_unread
                             };
                             h.bus.ram[0x7100..0x7103].copy_from_slice(&value.to_le_bytes()[..3]);
                             reach(&mut h, address("Forward") + offset as u32);
-                            let body = h.cpu.registers().s as usize;
-                            for &slot in &omitted {
-                                h.bus.ram[body + slot as usize..body + slot as usize + 3]
-                                    .fill(0xa7);
-                            }
-                            let before = h.bus.reads.len();
                             reach(&mut h, address("Echo"));
-                            for &slot in &omitted {
-                                assert!(!h.bus.reads[before..].iter().any(|&a| {
-                                    (body + slot as usize..body + slot as usize + 3)
-                                        .contains(&(a as usize))
-                                }));
-                            }
                             let mut expected = vec![0; plan.outgoing_bytes.get() as usize];
                             for (home, bits) in plan.arguments.iter().zip([
                                 3,

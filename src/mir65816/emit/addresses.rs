@@ -96,6 +96,8 @@ struct Indexed {
 fn indexed_address(
     routine: &Mir65816Routine,
     frame: &AllocatedFrame,
+    reads: &pointer_forwarding::Plan,
+    site: (BlockId, usize),
     address: &Mir65816Address,
     known: &BTreeMap<TempId, Symbol>,
     data: &[Mir65816Data],
@@ -131,7 +133,7 @@ fn indexed_address(
     if !profitable_scale(stride) {
         return Ok(None);
     }
-    let Some(index) = checked_stack_home(frame, id, width.get() as u8)? else {
+    let Some(index) = checked_input_home(frame, reads, site, id, width.get() as u8)? else {
         return Ok(None);
     };
     let mut unindexed = address.clone();
@@ -146,7 +148,7 @@ fn indexed_address(
         };
         match value {
             Mir65816Value::Temp(id, width) if width.get() == 3 => {
-                if checked_stack_home(frame, *id, 3)?.is_none() {
+                if checked_input_home(frame, reads, site, *id, 3)?.is_none() {
                     return Ok(None);
                 }
             }
@@ -250,20 +252,21 @@ impl Plan {
         data: &[Mir65816Data],
     ) -> Result<Self, String> {
         let demand = home_demand::Plan::new(routine);
+        let reads = demand.pointers.resolve(routine, frame)?;
         let mut plan = Self::default();
         let mut uses = liveness::input_counts(routine);
         for block in &routine.blocks {
             let mut known = BTreeMap::new();
             for (i, op) in block.ops.iter().enumerate() {
-                if demand.producer(block.id, i).is_some() || demand.consumer(block.id, i).is_some()
+                if demand.producer(block.id, i).is_some()
+                    || demand.consumer(block.id, i).is_some()
                     || liveness::operation_output(op).is_some_and(|id| demand.omits(id))
-                    || liveness::operation_inputs(op).iter().any(|id| demand.omits(*id))
                 {
                     // Its exact direct access is selected into A; it has no
                     // memory capture for the address selector to populate.
                     continue;
                 }
-                if let Some(offset) = constant_index(frame, op)? {
+                if let Some(offset) = constant_index(frame, &reads, (block.id, i), op)? {
                     // Keep the smaller direct-symbol BYTE path when available.
                     let address = match op {
                         Mir65816Op::Load { address, .. } | Mir65816Op::Store { address, .. } => {
@@ -300,8 +303,16 @@ impl Plan {
                 } = op
                     && (1..=4).contains(&width.get())
                     && checked_stack_home(frame, *dest, width.get() as u8)?.is_some()
-                    && let Some(indexed) =
-                        indexed_address(routine, frame, address, &known, data, width.get() as u8)?
+                    && let Some(indexed) = indexed_address(
+                        routine,
+                        frame,
+                        &reads,
+                        (block.id, i),
+                        address,
+                        &known,
+                        data,
+                        width.get() as u8,
+                    )?
                 {
                     if matches!(indexed.base, IndexedBase::Symbol(_)) {
                         remove_base_use(address, &mut uses)?;
@@ -316,9 +327,17 @@ impl Plan {
                     volatile: false,
                 } = op
                     && (1..=4).contains(&width.get())
-                    && captured_payload(frame, value, width.get() as u8)?
-                    && let Some(indexed) =
-                        indexed_address(routine, frame, address, &known, data, width.get() as u8)?
+                    && captured_payload(frame, &reads, (block.id, i), value, width.get() as u8)?
+                    && let Some(indexed) = indexed_address(
+                        routine,
+                        frame,
+                        &reads,
+                        (block.id, i),
+                        address,
+                        &known,
+                        data,
+                        width.get() as u8,
+                    )?
                 {
                     if matches!(indexed.base, IndexedBase::Symbol(_)) {
                         remove_base_use(address, &mut uses)?;
@@ -427,7 +446,7 @@ impl Plan {
                 return Err("constant index lost its captured base".into());
             };
             b.code.barrier();
-            b.pointer_value(value, PTR)?;
+            b.prepare_pointer_base(value)?;
             let memory = Memory::Pointer { slot: PTR, offset };
             match op {
                 Mir65816Op::Load { dest, width, .. } => {
@@ -464,7 +483,7 @@ impl Plan {
                     Target::Data(symbol.target),
                     symbol.addend,
                 ))?,
-                IndexedBase::Captured(value) => b.pointer_value(value, PTR)?,
+                IndexedBase::Captured(value) => b.prepare_pointer_base(value)?,
             }
             if indexed.index.width == 1 {
                 b.code.a8();
@@ -590,7 +609,12 @@ impl Plan {
     }
 }
 
-fn constant_index(frame: &AllocatedFrame, op: &Mir65816Op) -> Result<Option<u16>, String> {
+fn constant_index(
+    frame: &AllocatedFrame,
+    reads: &pointer_forwarding::Plan,
+    site: (BlockId, usize),
+    op: &Mir65816Op,
+) -> Result<Option<u16>, String> {
     let (address, bytes) = match op {
         Mir65816Op::Load {
             address,
@@ -608,7 +632,7 @@ fn constant_index(frame: &AllocatedFrame, op: &Mir65816Op) -> Result<Option<u16>
             width,
             volatile: false,
         } if (1..=4).contains(&width.get())
-            && captured_payload(frame, value, width.get() as u8)? =>
+            && captured_payload(frame, reads, site, value, width.get() as u8)? =>
         {
             (address, width.get())
         }
@@ -620,7 +644,7 @@ fn constant_index(frame: &AllocatedFrame, op: &Mir65816Op) -> Result<Option<u16>
     let Mir65816AddressBase::Indirect(Mir65816Value::Temp(id, width)) = address.base else {
         return Ok(None);
     };
-    if width.get() != 3 || checked_stack_home(frame, id, 3)?.is_none() {
+    if width.get() != 3 || checked_input_home(frame, reads, site, id, 3)?.is_none() {
         return Ok(None);
     }
     let value = match index.value {
@@ -635,6 +659,24 @@ fn constant_index(frame: &AllocatedFrame, op: &Mir65816Op) -> Result<Option<u16>
     }
     let offset = value * u64::from(stride) + u64::from(address.displacement.get());
     Ok((offset + u64::from(bytes) - 1 <= 65535).then_some(offset as u16))
+}
+
+// Read bindings are distinct from the frame's writable owned homes. The
+// complete pointer plan has already rechecked their final physical geometry.
+fn checked_input_home(
+    frame: &AllocatedFrame,
+    reads: &pointer_forwarding::Plan,
+    site: (BlockId, usize),
+    id: TempId,
+    bytes: u8,
+) -> Result<Option<Slot>, String> {
+    if let Some(source) = reads.read_home(site, id) {
+        if source.width != bytes {
+            return Err("borrowed address input width mismatch".into());
+        }
+        return Ok(Some(source));
+    }
+    checked_stack_home(frame, id, bytes)
 }
 
 fn checked_stack_home(
@@ -694,6 +736,8 @@ fn payload_constant(value: &Mir65816Value) -> Option<u32> {
 
 fn captured_payload(
     frame: &AllocatedFrame,
+    reads: &pointer_forwarding::Plan,
+    site: (BlockId, usize),
     value: &Mir65816Value,
     bytes: u8,
 ) -> Result<bool, String> {
@@ -702,7 +746,7 @@ fn captured_payload(
     }
     match value {
         Mir65816Value::Temp(id, width) if width.get() == u32::from(bytes) => {
-            Ok(checked_stack_home(frame, *id, bytes)?.is_some())
+            Ok(checked_input_home(frame, reads, site, *id, bytes)?.is_some())
         }
         _ => Ok(false),
     }

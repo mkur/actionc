@@ -158,17 +158,24 @@ fn wide_return_tails_match_ca65_touch_only_private_bytes_and_restore_both_lanes(
             let c = p.compile(&layout()).unwrap();
             let image = c.image;
             for &name in &NAMES[..5] {
-                let r = p.mir.routines.iter().find(|r| r.name == name).unwrap();
+                let r = c
+                    .machine
+                    .prepared
+                    .routines
+                    .iter()
+                    .find(|r| r.name == name)
+                    .unwrap();
                 let m = c.machine.routines.iter().find(|m| m.id == r.id).unwrap();
                 let block = r.blocks.last().unwrap();
                 // Tail-jump wrappers have no local return sequence. Their
                 // execution is covered above and in forwarding_wrappers;
                 // call_returns covers ordinary calls returning native lanes.
                 if m.code.forwarding_target().is_some()
-                    || (name == "Direct" && matches!(
-                        block.ops.last(),
-                        Some(actionc::mir65816::Mir65816Op::Call { .. })
-                    ))
+                    || (name == "Direct"
+                        && matches!(
+                            block.ops.last(),
+                            Some(actionc::mir65816::Mir65816Op::Call { .. })
+                        ))
                 {
                     continue;
                 }
@@ -180,7 +187,67 @@ fn wide_return_tails_match_ca65_touch_only_private_bytes_and_restore_both_lanes(
                     panic!()
                 };
                 let at = match value {
-                    Mir65816Value::Temp(id, _) => m.frame.temps[id].slot().offset,
+                    Mir65816Value::Temp(id, _) => {
+                        if let Some(home) = m.frame.temps.get(id) {
+                            home.slot().offset
+                        } else {
+                            // Borrowed returns have no capture. Derive the
+                            // expected real source from the fixture's load.
+                            use actionc::mir65816::{
+                                Mir65816AbiHome, Mir65816AddressBase, Mir65816Op,
+                            };
+                            let mut source = *id;
+                            let address = loop {
+                                let definition = r.blocks.iter().flat_map(|b| &b.ops).find(|op| {
+                                    matches!(op, Mir65816Op::Load {dest, ..} | Mir65816Op::Cast {dest, ..} if *dest == source)
+                                }).expect("borrowed return definition");
+                                match definition {
+                                    Mir65816Op::Load { address, .. } => break address,
+                                    Mir65816Op::Cast {
+                                        from,
+                                        to,
+                                        value: Mir65816Value::Temp(input, _),
+                                        ..
+                                    } => {
+                                        assert_eq!(from.get(), 3);
+                                        assert_eq!(to.get(), 3);
+                                        assert!(!m.frame.temps.contains_key(input));
+                                        source = *input;
+                                    }
+                                    _ => panic!("unexpected borrowed return alias"),
+                                }
+                            };
+                            assert!(address.index.is_none());
+                            assert_eq!(address.displacement.get(), 0);
+                            let object = |id| {
+                                r.frame
+                                    .objects
+                                    .iter()
+                                    .find(|o| o.id == id)
+                                    .unwrap()
+                                    .stack_offset
+                                    .get() as u16
+                            };
+                            match address.base {
+                                Mir65816AddressBase::AutomaticFrame(id) => object(id),
+                                Mir65816AddressBase::Parameter(id) => {
+                                    let parameter =
+                                        r.frame.parameters.iter().find(|p| p.param == id).unwrap();
+                                    if let Some(id) = parameter.frame_object {
+                                        object(id)
+                                    } else {
+                                        let Mir65816AbiHome::StackArgument { offset, .. } =
+                                            parameter.incoming
+                                        else {
+                                            panic!()
+                                        };
+                                        m.frame.extent + 4 + offset.get() as u16
+                                    }
+                                }
+                                _ => panic!("unexpected borrowed return source"),
+                            }
+                        }
+                    }
                     Mir65816Value::Param(_) => {
                         assert_eq!(m.frame.extent, 0);
                         4

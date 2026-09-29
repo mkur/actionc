@@ -1,11 +1,11 @@
 # MIR65816 address values and indirect consumers
 
-Status: slices 1–3 implemented; integration and measurement in progress. Compiler baseline: `979205e4`.
+Status: all four slices implemented and validated. Compiler baseline: `979205e4`.
 This change belongs in actionc; Exec routines remain ordinary source code.
 
 ## Problem and measured baseline
 
-`EXECLISTS.NewList` currently emits 133 bytes and reserves a 12-byte frame.
+At the baseline, `EXECLISTS.NewList` emits 133 bytes and reserves a 12-byte frame.
 The three stores initialize a header with `chain + 3`, null and `chain`.
 The emitted code nevertheless captures the computed addresses, reloads them
 for stores and stages the same incoming pointer into DP three times.
@@ -239,5 +239,28 @@ runtime tests pass, including two-task IRQ/NMI reentry through both the new
 A/X store schedule and cached base lifetime; the three existing forwarding
 runtime tests pass as well. Reserved bank-zero delta: 0 fixed / 0 per task.
 The first whole-Exec comparison found lost indexed-address selection around
-sparse borrowed inputs; slice 4 will reconcile those read-only consumers before
-publishing final size evidence.
+sparse borrowed inputs; slice 4 reconciles those read-only consumers.
+
+Slice 4 gives constant and scaled-index selectors checked, site-specific reads
+from borrowed sources without inventing owned homes. Existing native tests now
+require absent borrowed homes and retain their independent argument, return-lane
+and memory-traffic checks. A new unit regression keeps constant/dynamic indexed
+selection active for borrowed base and payload inputs; a native regression
+checks address-expression stores at two independently relocated o65 placements.
+
+The final comparison saves **6,892 bytes** across 960 routines: 485,991 to
+479,099 bytes. 405 routines shrink; ten grow by a total of 32 bytes, at most
+eight each. 461 frames and local peaks shrink; none grow. NewList is **120 bytes,
+frame 0**, down from 133/12. Its existing 28-byte entry guard remains, as do
+reloads after unresolved stores. There are no NewList-specific selectors.
+
+All 960 frame maps validate. Backend validation covers 329 unit cases (one
+existing ignored), 39 emission/o65/state-boundary integrations and 59 native
+cases, including raw/optimized execution, exact access extents, bank carry,
+relocation, stack guards and IRQ/NMI reentry. The 329 unit cases consist of the
+328-case backend batch plus the final indexed-input regression. No hosted
+Exec qualification or play-image refresh was performed. Reserved bank-zero
+delta: **0 fixed / 0 per task**.
+
+See the [measurement record](benchmarks/65816-address-consumers/README.md) for
+the complete routine comparison, growth cases, emitted NewList and provenance.
