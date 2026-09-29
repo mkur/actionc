@@ -1520,3 +1520,20 @@ consume the complete low word and bank from A/X, so no source byte is read after
 the first write. Width/carry/wrap semantics and exact external extents remain
 unchanged. Unsupported schedules keep ordinary captures. Existing stack-bounds
 validation remains even when all temporary homes disappear.
+
+
+### Prepared indirect-base reuse
+
+A typed StagePointer request stages a complete checked stack pointer into the
+existing DP triplet, or reuses a prior matching source identity, source extent,
+stack depth and scratch generation. A miss emits the real three-byte read and
+copy before publishing the fact. Replay reconstructs both the request and its
+hit/miss decision; stored decisions cannot authorize an omission.
+
+Typed instruction effects revoke the fact on overlapping source/scratch writes,
+unknown or indirect writes, calls/control transfers and S/D/DBR/native-domain
+changes. Labels and volatile accesses also revoke it. Disjoint private writes
+and ordinary reads may preserve it; no pointee load is eliminated. This fact is
+independent of the existing adjacent accumulator permission and does not weaken
+the physical home analysis's conservative alias rules. In particular, NewList's
+unresolved field stores require staging its base again for the next store.

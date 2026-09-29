@@ -84,7 +84,9 @@ mod tests {
     use super::*;
     use crate::nir::BlockId;
     fn routine() -> Mir65816Routine {
-        let source = "ADDRESS FUNC Work(ADDRESS p) RETURN(ADDRESS(BYTE POINTER(p)))";
+        // A global read needs a real snapshot; incoming aliases now have no
+        // allocated homes and exercise a different storage strategy.
+        let source = "ADDRESS p ADDRESS FUNC Work() RETURN(ADDRESS(BYTE POINTER(p)))";
         let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
         let model = crate::semantic::analyze_with_options(
             &ast,

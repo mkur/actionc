@@ -103,3 +103,95 @@ fn scalar_expressions_survive_indirect_destination_preparation() {
         }
     }
 }
+
+
+#[test]
+fn repeated_field_reads_reuse_addresses_but_observe_writes_and_calls() {
+    for body in [
+        "RETURN(p.a+p.b)",
+        "CARD first first=p.a p.a=17 RETURN(first+p.a)",
+        "CARD first first=p.a Mutate(p) RETURN(first+p.a)",
+    ] {
+        let source=format!("TYPE Packet=[CARD a,b] CARD result=$7100 \
+            PROC Mutate(Packet POINTER p) p.a=17 RETURN \
+            CARD FUNC Work(Packet POINTER p) {body} \
+            PROC Main() result=Work(Packet POINTER($12fffe)) RETURN");
+        for optimize in [false,true] {
+            let image=compile(&source,optimize);
+            let mut h=Harness::new(&image,&caller(image.entry),0);
+            h.bus.map(0x12fffe,&[5,0,9,0],true);
+            h.run(); h.guards(0);
+            assert_eq!(h.bus.value(0x7100,2),if body.contains("17")||body.contains("Mutate") {22} else {14});
+            let reads:Vec<_>=h.bus.reads.iter().filter(|a| (0x12fffe..0x130002).contains(*a)).copied().collect();
+            assert_eq!(reads,if body=="RETURN(p.a+p.b)" {vec![0x12fffe,0x12ffff,0x130000,0x130001]} else {vec![0x12fffe,0x12ffff,0x12fffe,0x12ffff]});
+        }
+    }
+}
+
+#[test]
+fn address_store_and_cached_base_lifetimes_survive_irq_nmi_and_reentry() {
+    use actionc_vm::native65816::Inputs;
+    use std::collections::BTreeSet;
+    use support::context::*;
+    let source = r#"MODULE TEST PUBLIC EXTERNAL PROC Yield()
+        VOLATILE BYTE irqAck=$7800 CARD taskA=$7000,taskB=$7002 BYTE current
+        TYPE Source=[BYTE ARRAY padding(3) BYTE last]
+        TYPE Job=[Source POINTER item BYTE done ADDRESS result BYTE POINTER peer CARD left,right,sum]
+        PROC Fill(Job POINTER work Source POINTER item)
+          work.result=ADDRESS(@item.last)
+          work.sum=work.left+work.right
+        RETURN
+        CARD FUNC Dispatch(CARD saved BYTE reason)
+          irqAck=1 Fill(Job POINTER($7140),Source POINTER($ffffff))
+          IF current=0 THEN taskA=saved current=1 RETURN(taskB) FI
+          taskB=saved current=0 RETURN(taskA)
+        PROC Task(Job POINTER work)
+          Fill(work,work.item) work.done=1
+          WHILE work.peer^=0 DO Yield() OD
+        RETURN
+        PROC Main() RETURN ENDMODULE"#;
+    let check=|h:&ContextHarness| {
+        h.guards(); assert_eq!(h.bus.value(DONE,2),1);
+        for (job,result,sum) in [(0x7100,1,14),(0x7120,0x130002,254),(0x7140,2,18)] {
+            assert_eq!(h.bus.value(job+4,3),result);
+            assert_eq!(h.bus.value(job+14,2),sum);
+        }
+    };
+    for optimize in [false,true] {
+        let mut h=ContextHarness::new(source,optimize,"Task",&[0x7100,0x7120]);
+        // Check real newline-sensitive source loading in both representations.
+        let crlf=ContextHarness::new(&source.replace('\n',"\r\n"),optimize,"Task",&[0x7100,0x7120]);
+        assert_eq!(h.image.to_json().unwrap(),crlf.image.to_json().unwrap());
+        for (job,input,peer,left,right) in [
+            (0x7100usize,0xfffffeu32,0x7123u32,5u16,9u16),
+            (0x7120,0x12ffff,0x7103,255,65535),
+            (0x7140,0,0,7,11)] {
+            h.bus.ram[job..job+3].copy_from_slice(&input.to_le_bytes()[..3]);
+            h.bus.ram[job+7..job+10].copy_from_slice(&peer.to_le_bytes()[..3]);
+            h.bus.ram[job+10..job+12].copy_from_slice(&left.to_le_bytes());
+            h.bus.ram[job+12..job+14].copy_from_slice(&right.to_le_bytes());
+        }
+        let start=context::routine(&h.image,"Fill");
+        let end=start+h.image.routines.iter().find(|r|r.address==start).unwrap().size;
+        let mut seen=BTreeSet::new();
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() {break;}
+            let r=h.cpu.registers();
+            if h.cpu.is_instruction_boundary() && r.p&4==0 && [0x2000,0x2100].contains(&r.d)
+                && (start..end).contains(&h.cpu.pc()) && seen.insert((r.d,h.cpu.pc())) {
+                let saved_cpu=h.cpu.clone(); let saved_bus=h.bus.clone();
+                let mut pending=true;
+                for tick in 0..2_000_000 {
+                    if h.cpu.is_stopped() {break;}
+                    let writes=h.bus.writes.len();
+                    h.tick(Inputs {irq:pending,nmi:tick==40,..Default::default()});
+                    if h.bus.writes[writes..].iter().any(|&(at,_)|at==IRQ_ACK) {pending=false;}
+                }
+                check(&h); h.cpu=saved_cpu; h.bus=saved_bus;
+            }
+            h.tick(Inputs::default());
+        }
+        check(&h);
+        assert!(seen.len()>=40,"only {} selected instruction sites",seen.len());
+    }
+}

@@ -1,6 +1,6 @@
 # MIR65816 address values and indirect consumers
 
-Status: slices 1–2 implemented; slices 3–4 pending. Compiler baseline: `979205e4`.
+Status: slices 1–3 implemented; integration and measurement in progress. Compiler baseline: `979205e4`.
 This change belongs in actionc; Exec routines remain ordinary source code.
 
 ## Problem and measured baseline
@@ -230,3 +230,14 @@ and no temporary homes in raw and optimized modes. Twelve demand unit cases,
 four address-consumer runtime cases and seven existing expression runtime cases
 pass, including 24-bit wrap and exact external store traces. Reserved bank-zero
 delta: 0 fixed / 0 per task.
+
+
+Slice 3 implements typed, replayed DP base staging with generation and physical
+write invalidation. The ownership audit retains invalidation after unresolved
+indirect writes: NewList still stages its base for each store. Six address
+runtime tests pass, including two-task IRQ/NMI reentry through both the new
+A/X store schedule and cached base lifetime; the three existing forwarding
+runtime tests pass as well. Reserved bank-zero delta: 0 fixed / 0 per task.
+The first whole-Exec comparison found lost indexed-address selection around
+sparse borrowed inputs; slice 4 will reconcile those read-only consumers before
+publishing final size evidence.

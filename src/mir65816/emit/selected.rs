@@ -70,6 +70,8 @@ pub(super) enum Request {
     Mode(Width),
     EstablishBody,
     Barrier,
+    StagePointer(super::tracked::PointerOrigin, Slot, u8),
+    ForgetPointer,
     PrepareReturnJoin,
     RegisterHome(Location),
     DeclareBlocks(Vec<Label>),

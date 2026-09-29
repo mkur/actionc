@@ -1604,7 +1604,18 @@ impl Builder<'_> {
                         offset: displacement as u16,
                     });
                 }
-                self.pointer_value(value, PTR)?;
+                if self.code.delta() == 0 && let Some(Memory::Stack(offset)) = self.value_memory(value)? {
+                    let origin = match value {
+                        Mir65816Value::Temp(id, _) => self.borrowed.get(id)
+                            .map_or(PointerOrigin::Temporary(*id), |s| s.origin()),
+                        Mir65816Value::Param(id) => PointerOrigin::Parameter(*id),
+                        _ => unreachable!("stack-backed pointer"),
+                    };
+                    self.displacement(offset, 2)?;
+                    self.code.stage_pointer(origin, Slot {offset: offset as u16,width:3}, PTR);
+                } else {
+                    self.pointer_value(value, PTR)?;
+                }
                 Memory::Pointer {
                     slot: PTR,
                     offset: 0,
@@ -1921,6 +1932,10 @@ impl Builder<'_> {
         Ok(())
     }
     fn operation(&mut self, op: &Mir65816Op) -> Result<(), String> {
+        if matches!(op, Mir65816Op::Load { volatile: true, .. } | Mir65816Op::Store { volatile: true, .. }
+            | Mir65816Op::Copy { source_volatile: true, .. } | Mir65816Op::Copy { destination_volatile: true, .. }) {
+            self.code.forget_pointer();
+        }
         if let Mir65816Op::AddressOf {
             dest,
             address,
@@ -2039,6 +2054,7 @@ impl Builder<'_> {
                     return Err("load temporary width mismatch".into());
                 }
                 self.transfer(memory, slot.into(), slot.slot().width, !volatile)?;
+                if *volatile { self.code.forget_pointer(); }
                 if !volatile && bytes.get() == 2 && Self::direct_word_address(address) {
                     self.remember_word(*dest);
                 }

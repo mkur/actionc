@@ -91,6 +91,7 @@ impl SelectedCfg {
                                 | Request::ConsumeFrame(..)
                                 | Request::StoreIncoming(..)
                                 | Request::LoadX(..)
+                                | Request::StagePointer(..)
                         )
                     );
                     if r.decision.is_some() != returns_decision {

@@ -493,3 +493,22 @@ fn address_results_flow_through_casts_and_borrowed_definitions_into_stores() {
         }
     }
 }
+
+
+#[test]
+fn prepared_bases_are_reused_only_until_a_possible_clobber() {
+    for optimize in [false,true] {
+        for (body, reuse) in [("RETURN(p.a+p.b)",true),
+            ("CARD first first=p.a p.a=17 RETURN(first+p.a)",false)] {
+            let p=program(&format!("TYPE Packet=[CARD a,b] CARD FUNC Work(Packet POINTER p) {body} PROC Main() RETURN"),optimize);
+            let m=materialize(&p).unwrap();
+            let records=m.routines[0].code.selected.as_ref().unwrap().records();
+            let decisions:Vec<_>=records.iter().enumerate()
+                .filter(|(_,r)| matches!(r.action,selected::Action::Request(selected::Request::StagePointer(..))))
+                .map(|(i,_)| records.iter().find(|r| matches!(r.action,selected::Action::EndRequest(n) if n.0==i)).unwrap().decision).collect();
+            assert!(decisions.contains(&Some(false)));
+            assert!(decisions.contains(&Some(true)),"{optimize}/{body}: {decisions:?}");
+            assert_eq!(decisions.last(),Some(&Some(reuse)),"{optimize}/{body}: {decisions:?}");
+        }
+    }
+}

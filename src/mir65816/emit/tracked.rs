@@ -9,6 +9,9 @@ pub use encoding::{
 use std::collections::{BTreeMap, BTreeSet};
 #[path = "x_state.rs"]
 mod x_state;
+#[path = "pointer_state.rs"]
+mod pointer_state;
+pub(super) use pointer_state::PointerOrigin;
 pub(super) use x_state::XContract;
 
 use super::effects::CallContract;
@@ -48,6 +51,8 @@ pub(super) struct TrackedEmitter65816 {
     planned_loads: Vec<super::rewrite::pilot::Candidate>,
     #[cfg(feature = "native65816-state-proof")]
     reference_planning: bool,
+    pointer: Option<pointer_state::Resident>,
+    pointer_generation: u64,
     x_contract: Option<XContract>,
     x_reserved: bool,
     x_valid: bool,
@@ -349,6 +354,7 @@ impl TrackedEmitter65816 {
             .entries
             .get(&label)
             .expect("label requires incoming execution contract");
+        self.invalidate_pointer();
         self.state.values_barrier();
         self.state.env = entry.env;
         self.x_join(entry.x_word);
@@ -495,6 +501,7 @@ impl TrackedEmitter65816 {
                 e.anchor == Some(e.depth) && e.pushes == 0,
                 "shared return requires the allocated body frame"
             );
+            this.invalidate_pointer();
             this.state.values_barrier();
             this.x_join(false);
         });
@@ -682,6 +689,7 @@ impl TrackedEmitter65816 {
     // be called by selectors without deriving the corresponding typed effects.
     pub(super) fn instruction(&mut self, instruction: Instruction) -> Result<(), String> {
         let effects = instruction.effects(self.state.env);
+        self.pointer_effects(&effects);
         let before = Boundary::of(&self.state);
         let continuation = if matches!(instruction, Instruction::IndirectTransfer(_)) {
             self.indirect_resume.map(|(label, _)| label)

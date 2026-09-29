@@ -19,6 +19,12 @@ pub(super) struct Source {
 }
 
 impl Source {
+    pub(super) fn origin(self) -> PointerOrigin {
+        match self.kind {
+            SourceKind::Parameter(id) => PointerOrigin::Parameter(id),
+            SourceKind::FrameObject(id) => PointerOrigin::Frame(id),
+        }
+    }
     pub(super) fn memory(self) -> Memory {
         Memory::Stack(self.home.offset.into())
     }
