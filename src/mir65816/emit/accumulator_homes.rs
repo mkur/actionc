@@ -15,6 +15,7 @@ impl home_demand::Plan {
                 return Err("accumulator producer unexpectedly has a memory home".into());
             }
             b.code.barrier();
+            if range.bytes == 3 && b.address_expression(op)? { return Ok(true); }
             match op {
                 Mir65816Op::Load { address, .. } => {
                     let source = b.prepare_address(address)?;
@@ -177,28 +178,7 @@ impl home_demand::Plan {
             return Ok(false);
         }
         if let Mir65816Op::Store { address, .. } = op {
-            let destination = b.prepare_address(address)?;
-            b.check_transfer(destination, destination, range.bytes)?;
-            let frame = if range.bytes == 2 {
-                b.frame_word(address)?
-            } else {
-                None
-            };
-            if let Some((_, slot)) = frame {
-                b.code.register_home(slot);
-            }
-            b.code.barrier();
-            if range.bytes == 1 {
-                b.code.a8();
-            } else {
-                b.code.a16();
-            }
-            b.store_memory(destination, 0)?;
-            b.code.barrier();
-            if let Some((object, slot)) = frame {
-                b.code
-                    .remember_frame_word(object, address.displacement.get(), slot);
-            }
+            b.expression_store(address, range.bytes)?;
             return Ok(true);
         }
         let Mir65816Op::Cast { dest, to, .. } = op else {

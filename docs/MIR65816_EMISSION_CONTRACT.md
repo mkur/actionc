@@ -1501,3 +1501,22 @@ Borrowed read resolution precedes owned-home lookup. Closed DP allocation
 profiles keep their established ownership. Stack guard policy and reserved
 bank-zero capacity are unchanged. See the
 [address-consumer plan](MIR65816_ADDRESS_CONSUMERS_PLAN.md).
+
+
+### Address expressions consumed by stores
+
+Nonvolatile unindexed indirect stores can consume BYTE/CARD expressions in A.
+A complete 24-bit AddressOf or constant pointer Add/Sub can likewise produce
+A16/X8 for its sole store consumer, through representation-preserving casts.
+Only checked borrowed definitions, which emit no instructions, may intervene.
+The complete def-use chain is selected before omitting homes. Source reads and
+arithmetic execute at their original producer site; nothing is moved through
+an observable access or call.
+
+For indirect destination setup, Y temporarily preserves the low result while
+A stages the base. The admitted setup does not use X/Y or dynamic indexing.
+A is restored before Y becomes the field displacement. Three-byte stores then
+consume the complete low word and bank from A/X, so no source byte is read after
+the first write. Width/carry/wrap semantics and exact external extents remain
+unchanged. Unsupported schedules keep ordinary captures. Existing stack-bounds
+validation remains even when all temporary homes disappear.

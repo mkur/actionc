@@ -472,3 +472,24 @@ fn pointer_alias_demand_keeps_mutable_snapshots_across_writes() {
         m.routines[0].frame.verify_stack(r).unwrap();
     }
 }
+
+
+#[test]
+fn address_results_flow_through_casts_and_borrowed_definitions_into_stores() {
+    for optimize in [false,true] {
+        let p=program("TYPE Node=[Node POINTER next,prev] TYPE Header=[Node POINTER head,tail,last] PROC Work(Header POINTER chain) chain.head=Node POINTER(@chain.tail) chain.tail=NULL chain.last=Node POINTER(@chain.head) RETURN PROC Main() RETURN",optimize);
+        let m=materialize(&p).unwrap();
+        let r=&m.prepared.routines[0];
+        let f=&m.routines[0].frame;
+        assert_eq!(f.extent,0,"{optimize}: {r:#?}");
+        assert!(f.temps.is_empty());
+        f.verify_stack(r).unwrap();
+        let demand=Plan::new(r);
+        assert!(demand.decisions.values().any(|d| matches!(d,Decision::Accumulator(a) if a.bytes==3)));
+        #[cfg(feature = "native65816-state-proof")]
+        {
+            let (reference,_) = super::super::proof::materialize_reference(&p,false).unwrap();
+            super::super::proof::compare_replay_output(&reference.routines[0].code,&m.routines[0].code).unwrap();
+        }
+    }
+}

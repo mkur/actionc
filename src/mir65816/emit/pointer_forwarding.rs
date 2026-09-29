@@ -358,7 +358,7 @@ fn terminal(
     }
 }
 
-pub(super) fn pointer_alias(r: &Mir65816Routine, op: &Mir65816Op) -> Option<(TempId, TempId)> {
+pub(in crate::mir65816::emit) fn pointer_alias(r: &Mir65816Routine, op: &Mir65816Op) -> Option<(TempId, TempId)> {
     let (dest, value) = match op {
         Mir65816Op::Cast { dest, from, to, value, kind, .. }
             if from.get() == 3 && to == from && matches!(kind, NirCastKind::Pointer | NirCastKind::Integer | NirCastKind::IntegerToPointer | NirCastKind::PointerToInteger) => (*dest, value),

@@ -1,6 +1,6 @@
 # MIR65816 address values and indirect consumers
 
-Status: slice 1 implemented; slices 2–4 pending. Compiler baseline: `979205e4`.
+Status: slices 1–2 implemented; slices 3–4 pending. Compiler baseline: `979205e4`.
 This change belongs in actionc; Exec routines remain ordinary source code.
 
 ## Problem and measured baseline
@@ -221,3 +221,12 @@ for banked field stores and mutable-pointer snapshots, together with the three
 pointer-forwarding runtime cases (including IRQ/NMI) and six pointer-value cases.
 The 18 forwarding and 11 demand unit cases pass; the integration batch follows
 with the remaining slices. Reserved bank-zero delta: 0 fixed / 0 per task.
+
+
+Slice 2 selects pure address results through cast chains and omitted borrowed
+definitions into indirect stores. BYTE/CARD expression stores use the same
+checked destination schedule. The NewList-shaped regression has zero frame
+and no temporary homes in raw and optimized modes. Twelve demand unit cases,
+four address-consumer runtime cases and seven existing expression runtime cases
+pass, including 24-bit wrap and exact external store traces. Reserved bank-zero
+delta: 0 fixed / 0 per task.

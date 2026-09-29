@@ -314,7 +314,7 @@ impl Plan {
                                 && *input == id
                                 && actual == width
                                 && width.get() == bytes
-                                && frame_store(r, address, bytes)
+                                && (frame_store(r, address, bytes) || indirect_store(r, address, bytes))
                         }
                         Some(Mir65816Op::Compare {
                             left: Mir65816Value::Temp(input, actual),
@@ -394,6 +394,7 @@ impl Plan {
             for id in pointers.temps() { plan.decisions.insert(id, Decision::Borrowed); }
             plan.pointers = pointers;
         }
+        plan.select_pointer_stores(r, &counts, &definitions);
         plan
     }
 
@@ -434,5 +435,89 @@ impl Plan {
              Mir65816Terminator::Return { value: Some(Mir65816Value::Temp(id, width)), .. })
              if dest == id && bytes == width && plan.result == r.result_home
                 && liveness::input_counts(r).get(dest) == Some(&1))
+    }
+}
+
+
+pub(super) fn indirect_store(r: &Mir65816Routine, address: &Mir65816Address, bytes: u32) -> bool {
+    if address.index.is_some() || !(1..=3).contains(&bytes)
+        || address.displacement.get() > 65535 - (bytes - 1) { return false; }
+    match &address.base {
+        Mir65816AddressBase::Indirect(Mir65816Value::Temp(id, w)) => w.get() == 3
+            && r.temps.iter().any(|(t, ty)| t == id && ty.width == Some(*w)),
+        Mir65816AddressBase::Indirect(Mir65816Value::Param(id)) => r.frame.parameters.iter().any(|p|
+            p.param == *id && matches!(p.incoming, Mir65816AbiHome::StackArgument { size, .. } if size.get() == 3)),
+        _ => false,
+    }
+}
+
+pub(super) fn pointer_expression(op: &Mir65816Op) -> Option<(&Mir65816Value, u32, bool)> {
+    let constant = |v: &Mir65816Value| match v {
+        Mir65816Value::U8(n) => Some(u32::from(*n)),
+        Mir65816Value::U16(n) => Some(u32::from(*n)),
+        Mir65816Value::U24(n) if *n <= 65535 => Some(*n),
+        _ => None,
+    };
+    match op {
+        Mir65816Op::AddressOf { address, width, .. } if width.get() == 3 && address.index.is_none()
+            && address.displacement.get() <= 65535 => {
+            let Mir65816AddressBase::Indirect(base) = &address.base else { return None; };
+            Some((base, address.displacement.get(), false))
+        }
+        Mir65816Op::PointerOffset { width, base, offset, subtract, offset_signed: false, .. }
+            if width.get() == 3 => Some((base, constant(offset)?, *subtract)),
+        Mir65816Op::Binary { width, operation, left, right, signed: false, .. }
+            if width.get() == 3 && matches!(operation, NirBinaryOp::Add | NirBinaryOp::Sub) =>
+            Some((left, constant(right)?, *operation == NirBinaryOp::Sub)),
+        _ => None,
+    }
+}
+
+impl Plan {
+    fn select_pointer_stores(&mut self, r: &Mir65816Routine, counts: &BTreeMap<TempId, usize>, definitions: &BTreeMap<TempId, usize>) {
+        if scalar::admitted(r) { return; }
+        for block in &r.blocks {
+            for (at, op) in block.ops.iter().enumerate() {
+                let Some((base, _, _)) = pointer_expression(op) else { continue; };
+                let Some(id) = liveness::operation_output(op) else { continue; };
+                if self.omits(id) || counts.get(&id) != Some(&1) || definitions.get(&id) != Some(&1) { continue; }
+                let available = match base {
+                    Mir65816Value::Temp(id, w) => w.get() == 3 && self.accumulator(*id).is_none(),
+                    Mir65816Value::Param(id) => r.frame.parameters.iter().any(|p| p.param == *id
+                        && matches!(p.incoming, Mir65816AbiHome::StackArgument { size, .. } if size.get() == 3)),
+                    _ => false,
+                };
+                if !available { continue; }
+                let mut chain = vec![(at, id)];
+                let mut current = id;
+                let mut store = None;
+                for (next, consumer) in block.ops.iter().enumerate().skip(at+1) {
+                    if let Some((alias, input)) = select::pointer_forwarding::pointer_alias(r, consumer)
+                        && input == current && counts.get(&alias) == Some(&1) && definitions.get(&alias) == Some(&1)
+                        && !self.omits(alias) {
+                        chain.push((next, alias)); current = alias; continue;
+                    }
+                    if liveness::operation_output(consumer).is_some_and(|id| matches!(self.decisions.get(&id), Some(Decision::Borrowed))) {
+                        // This checked definition emits no instructions. Its
+                        // read binding does not promise any register value.
+                        continue;
+                    }
+                    if let Mir65816Op::Store { address, value: Mir65816Value::Temp(value, w), width, volatile: false } = consumer
+                        && *value == current && w.get() == 3 && width == w && indirect_store(r, address, 3)
+                        && !liveness::operation_inputs(consumer).iter().any(|id| chain.iter().any(|(_, c)| c == id) && *id != current)
+                        && !matches!(&address.base, Mir65816AddressBase::Indirect(Mir65816Value::Temp(t,_)) if *t == current)
+                    { store = Some(next); }
+                    break;
+                }
+                let Some(store) = store else { continue; };
+                for (i, &(producer, id)) in chain.iter().enumerate() {
+                    let consumer = chain.get(i+1).map_or(store, |c| c.0);
+                    let range = Accumulator { block: block.id, producer, consumer, bytes: 3 };
+                    self.decisions.insert(id, Decision::Accumulator(range));
+                    self.producers.insert((block.id, producer), id);
+                    self.consumers.insert((block.id, consumer), id);
+                }
+            }
+        }
     }
 }

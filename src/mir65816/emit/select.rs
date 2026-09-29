@@ -42,6 +42,8 @@ use copies::acyclic_word_order;
 mod accumulator;
 #[path = "accumulator_homes.rs"]
 mod accumulator_homes;
+#[path = "address_consumers.rs"]
+mod address_consumers;
 #[path = "addresses.rs"]
 mod addresses;
 #[path = "arithmetic.rs"]
