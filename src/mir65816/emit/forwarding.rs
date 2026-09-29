@@ -39,11 +39,7 @@ fn candidate(
     r: &Mir65816Routine,
     routines: &BTreeMap<RoutineId, &Mir65816Routine>,
 ) -> Option<Plan> {
-    // F1 admits one-argument functions; other forwarding shapes retain their
-    // ordinary call until the next executable slice.
     if !ordinary(r)
-        || r.frame.parameters.len() != 1
-        || r.result_home.is_none()
         || !r.frame.objects.is_empty()
         || r.frame.extent.get() != 0
         || r.frame.parameters.iter().any(|p| p.frame_object.is_some())
@@ -243,6 +239,10 @@ impl Plan {
         if trace {
             emitter.trace();
         }
+        // Keep the ordinary entry-block identity for listings and machine-code
+        // instrumentation even though this block needs no prologue.
+        let entry = emitter.label();
+        emitter.mark(entry);
         for index in 0..r.blocks[0].ops.len() {
             let start = emitter.position();
             emitter.begin_source(self.block, index);

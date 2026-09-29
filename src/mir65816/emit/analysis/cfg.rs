@@ -450,7 +450,9 @@ fn validate_instruction(r: &Record, form: &Instruction) -> Result<(), String> {
             expected.current_domain = true;
         }
         Instruction::NativeForward(_) => {
-            if before != super::super::state::State65816::default().env {
+            let mut entry = super::super::state::State65816::default().env;
+            entry.irq_preserved = before.irq_preserved;
+            if r.encoded.start != 0 || before != entry {
                 return Err("selected forwarding transfer changed its entry environment".into());
             }
         }

@@ -746,7 +746,11 @@ impl TrackedEmitter65816 {
             Instruction::NativeReturn(_) => self.emit_implied(Implied::Rtl),
             Instruction::NativeForward(ref plan) => {
                 self.live();
-                if self.state.env != State65816::default().env || self.x_reserved {
+                let mut entry = State65816::default().env;
+                // Binding the entry label drops this analysis witness without
+                // emitting an instruction or changing the physical I bit.
+                entry.irq_preserved = self.state.env.irq_preserved;
+                if self.position() != 0 || self.state.env != entry || self.x_reserved {
                     return Err("forwarding transfer requires the unchanged native entry".into());
                 }
                 self.code.reference(ReferenceOp::Jml.opcode(), Target::Routine(plan.target()), 0, None);

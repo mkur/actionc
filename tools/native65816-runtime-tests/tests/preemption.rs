@@ -2244,6 +2244,53 @@ fn accumulator_homes_survive_irq_and_nmi_between_producer_and_widening() {
 }
 
 #[test]
+fn forwarding_jumps_preserve_inherited_frames_across_irq_and_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n", "\n")
+            .replace("CARD FUNC Read(", "CARD FUNC ForwardLeaf(CARD a) RETURN(a+1)\nCARD FUNC ForwardInner(CARD a) RETURN(ForwardLeaf(a))\nCARD FUNC ForwardOuter(CARD a) RETURN(ForwardInner(a))\nCARD FUNC Read(")
+            .replace("  work.done=1", "  work.result==+ForwardOuter(42)-43\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    for optimize in [false, true] {
+        let mut h = machine_source(&source, optimize);
+        let addresses: BTreeSet<_> = h.image.routines.iter()
+            .filter(|r| ["FORWARDINNER", "FORWARDOUTER"].iter().any(|n| r.name.to_uppercase().contains(n)))
+            .map(|r| { assert_eq!((r.size, r.fixed_frame, r.local_stack_peak), (4, 0, 0)); r.address })
+            .collect();
+        assert_eq!(addresses.len(), 2);
+        let mut seen = BTreeSet::new();
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() { break; }
+            let r = h.cpu.registers();
+            let pc = h.cpu.pc();
+            if h.cpu.is_instruction_boundary() && r.p & 4 == 0
+                && [0x2000, 0x2100].contains(&r.d) && addresses.contains(&pc)
+                && seen.insert((r.d, pc))
+            {
+                let cpu = h.cpu.clone();
+                let bus = h.bus.clone();
+                run_checked_fused_irq(&mut h);
+                check(&h);
+                h.cpu = cpu.clone(); h.bus = bus.clone();
+                run_checked_frame_nmi(&mut h);
+                check(&h);
+                h.cpu = cpu; h.bus = bus;
+            }
+            h.tick(Inputs::default());
+        }
+        check(&h);
+        assert_eq!(seen.len(), 4, "both wrapper jumps in both task domains");
+        for seed in [0x81620260916, 0x5eedcafe] {
+            let mut h = machine_source(&source, optimize);
+            run_injected(&mut h, false, Some(seed));
+            check(&h);
+        }
+    }
+}
+
+#[test]
 fn size_add_sub_restore_low_word_carry_and_borrow_across_the_a8_tail() {
     let original = fixture("preemption.act");
     let modify = |s: &str| {

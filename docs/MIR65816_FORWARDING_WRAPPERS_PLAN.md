@@ -1,6 +1,6 @@
 # MIR65816 forwarding wrappers
 
-Status: F1 implemented; F2 and F3 remain planned.
+Status: F1 and F2 implemented; F3 measurement/documentation is in progress.
 
 ## Objective
 
@@ -176,3 +176,16 @@ admission, corrupted proofs/maps and forwarding cycles. The executed wrapper is
 four bytes, preserves the entire entry register state except PC/PBR, performs no
 stack writes, and returns to the original caller. Fixed/per-task bank-zero
 reservation delta: **0 / 0 bytes**. No Exec image has been refreshed.
+
+F2 extends the same proof to zero/multiple arguments, procedures and acyclic
+wrapper chains, and retains an entry-block label for machine instrumentation.
+Validation passes: 322 MIR65816 unit tests (one existing ignored test), 39
+emission/o65/snapshot integration tests, and 21 focused native runtime tests
+across forwarding wrappers, call pushes/returns, indirect entry, wide returns,
+stack checks/faults and forwarding-boundary preemption. Execution covers raw and
+optimized MIR, mixed argument padding, cross-bank jumps, all native result
+widths, two o65 placements and IRQ/NMI restoration at both wrapper entries in
+both task domains. Changed instrumentation checks LF/CRLF input. The ordinary
+call-cleanup fixture now performs an observable store before its call so that
+it continues to exercise cleanup; the new tests cover pure tail wrappers.
+Reserved bank-zero delta remains **0 fixed / 0 per task bytes**.

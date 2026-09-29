@@ -306,9 +306,11 @@ fn forwarded_calls_and_recursive_returns_execute_at_two_o65_placements() {
 
 #[test]
 fn forwarded_result_cleanup_survives_irq_and_nmi_at_each_instruction() {
+    // The observable store keeps this an ordinary call: this test targets
+    // argument cleanup, while forwarding_wrappers covers terminal jumps.
     for &(ty, width) in TYPES {
         let source = format!(
-            "MODULE TEST\nBYTE irqAck=$7800\n{ty} scratch\n{ty} FUNC Echo({ty} value) RETURN(value)\n{ty} FUNC Forward({ty} value) RETURN(Echo(value))\nCARD FUNC Dispatch(CARD saved BYTE reason) scratch=Forward({ty}(7)) irqAck=1 RETURN(saved)\nPROC Task({ty} POINTER argument) argument^=Forward(argument^) RETURN\nPROC Main() RETURN\nENDMODULE\n"
+            "MODULE TEST\nBYTE irqAck=$7800,entered\n{ty} scratch\n{ty} FUNC Echo({ty} value) RETURN(value)\n{ty} FUNC Forward({ty} value) entered=1 RETURN(Echo(value))\nCARD FUNC Dispatch(CARD saved BYTE reason) scratch=Forward({ty}(7)) irqAck=1 RETURN(saved)\nPROC Task({ty} POINTER argument) argument^=Forward(argument^) RETURN\nPROC Main() RETURN\nENDMODULE\n"
         );
         for optimize in [false, true] {
             for domain in 0..2 {
