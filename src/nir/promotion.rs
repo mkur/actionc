@@ -58,6 +58,42 @@ pub(super) fn promote_program(
     Ok(promoted)
 }
 
+/// Profitability admission only. Address formation through a pointer does not
+/// expose the storage holding that pointer. Taking a local/parameter's address
+/// does, and is deliberately outside this bounded identity extension.
+fn pointer_leaf_operation(routine: &NirRoutine, op: &NirOp) -> bool {
+    let pointer = |ty: &NirType| ty.width == Some(ByteSize::new(3))
+        && matches!(ty.kind, super::NirTypeKind::Pointer { address_space, .. }
+            if address_space == crate::target::TargetLayout::DATA_ADDRESS_SPACE);
+    let address = |ty: &NirType| ty.width == Some(ByteSize::new(3))
+        && ty.kind.integer().is_some_and(|i| i.bits == 24 && !i.signed
+            && i.role == super::NirIntegerRole::Address);
+    let pointer_value = |value: &NirValue| match value {
+        NirValue::Temp { ty, .. } => pointer(ty),
+        NirValue::Param(id) => routine.params.iter().any(|p| p.id == *id && pointer(&p.ty)),
+        _ => false,
+    };
+    match op {
+        NirOp::Load { .. } | NirOp::Store { .. } => true,
+        NirOp::Cast { src, from, to, kind, .. }
+            if matches!(src, NirValue::Temp { .. } | NirValue::Param(_)) => match kind {
+                NirCastKind::Pointer => pointer(from) && pointer(to),
+                NirCastKind::PointerToInteger => pointer(from) && address(to),
+                NirCastKind::IntegerToPointer => address(from) && pointer(to),
+                _ => false,
+            },
+        NirOp::AddrOf { ty, place, .. } if pointer(ty) || address(ty) => {
+            let mut place = place;
+            while let NirPlaceKind::Field { base, offset, .. } = &place.kind {
+                if offset.get() != 0 { return false; }
+                place = base;
+            }
+            matches!(&place.kind, NirPlaceKind::Deref { addr } if pointer_value(addr))
+        }
+        _ => false,
+    }
+}
+
 fn promote_routine(
     routine: &mut NirRoutine,
     analysis: &NirRoutineStorageAnalysis,
@@ -85,7 +121,7 @@ fn promote_routine(
         && routine.blocks[0]
             .ops
             .iter()
-            .all(|op| matches!(op, NirOp::Load { .. } | NirOp::Store { .. }));
+            .all(|op| pointer_leaf_operation(routine, op));
     // Requested expansion benefits from removing private scalar scratch even
     // below the automatic hot/relay cost gates. Storage legality still comes
     // entirely from the shared analysis, including current-invocation definite

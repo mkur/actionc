@@ -440,9 +440,11 @@ fn home_demand_sparse_map_verification_rejects_unapproved_omissions() {
 
 #[test]
 fn borrowed_pointer_aliases_have_no_fictitious_owned_homes() {
+    // The byte field store keeps this on the borrowed-home path; pointer-only
+    // casts can now use the closed resident allocator instead.
     for optimize in [false, true] {
         let p = program(
-            "TYPE Box=[BYTE tag BYTE POINTER link] PROC Work(Box POINTER target BYTE POINTER ptr) target.link=BYTE POINTER(ADDRESS(ptr)) RETURN PROC Main() RETURN",
+            "TYPE Box=[BYTE tag BYTE POINTER link] PROC Work(Box POINTER target BYTE POINTER ptr) target.tag=1 target.link=BYTE POINTER(ADDRESS(ptr)) RETURN PROC Main() RETURN",
             optimize,
         );
         let m = materialize(&p).unwrap();

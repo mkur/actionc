@@ -1,6 +1,6 @@
 # Resident pointers in bounded 65816 leaf routines
 
-Status: slice 1 implemented; slices 2 and 3 pending.
+Status: slices 1 and 2 implemented; integration qualification pending.
 
 ## Goal and baseline
 
@@ -186,3 +186,22 @@ cover raw/optimized execution, all address bits, exact access traces, relocated
 code and IRQ/NMI/task reentry. Two older unit expectations were updated because
 same-home identities now emit no instructions. Reserved bank-zero delta is
 0 fixed bytes / 0 bytes per task.
+
+## Slice 2 result
+
+The Native65816 policy now admits pointer/ADDRESS casts and zero-offset
+indirect addresses without weakening private-storage proofs. AddHead meets
+the zero-frame/96-byte goal; renamed records and changed field displacements
+exercise the same path. Native raw NIR keeps its 146-byte, four-byte-frame
+implementation. The new identity allocator requires an empty object frame:
+without promotion, resident captures had displaced the smaller borrowed/local
+stack strategy. Existing load/store-only DP admission is unchanged.
+
+Seven NIR promotion tests and 18 native cases across `address_consumers`,
+`pointer_allocation` and `pointer_reload` pass. The backend batch passed 335
+cases with two fixture failures; all 18 home-demand cases then passed after
+keeping the borrowing fixture outside the new DP profile and retaining the
+local-load fixture's conservative (non-Native65816) optimization policy.
+Native checks cover raw/optimized AddHead, aliases, the empty-list sentinel,
+exact accesses, relocation and context reentry. Shared NIR/repository checks
+are batched with final integration. Reserved bank-zero delta: 0 fixed / 0 per task.

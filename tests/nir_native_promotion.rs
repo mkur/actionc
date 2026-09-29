@@ -172,3 +172,67 @@ fn volatile_pointer_operations_do_not_enter_leaf_promotion() {
         nir::optimize_program_with_promotion(&input, NirPromotionPolicy::Native65816).unwrap();
     assert!(result.routines[0].locals.iter().any(|l| l.name == "left"));
 }
+
+const INSERT: &str = "TYPE Node=[Node POINTER next,previous] TYPE Chain=[Node POINTER head,tail,previous] \
+    PROC Insert(Chain POINTER chain Node POINTER item) LET first=chain.head \
+    item.previous=Node POINTER(@chain.head) item.next=first \
+    first.previous=item chain.head=item RETURN";
+
+#[test]
+fn native_pointer_identities_allow_private_homes_to_become_resident_values() {
+    for source in [INSERT.to_string(), INSERT.replace("Node", "Entry").replace("previous", "back")
+        .replace("Entry POINTER next,back", "Entry POINTER next BYTE pad Entry POINTER back")] {
+        let input = lower(&source, TargetId::Wdc65816Native);
+        let promoted = nir::optimize_program_with_promotion(&input, NirPromotionPolicy::Native65816).unwrap();
+        let r = &promoted.routines[0];
+        assert!(r.locals.is_empty(), "{}", nir::format_program(&promoted));
+        let mut incoming = Vec::new();
+        let mut reads = 0;
+        let mut writes = 0;
+        for op in &r.blocks[0].ops {
+            match op {
+                nir::NirOp::Load { place, .. } => {
+                    if let nir::NirPlaceKind::Param { id, .. } = &place.kind { incoming.push(*id); }
+                    else { assert_eq!(writes, 0); reads += 1; }
+                }
+                nir::NirOp::Store { .. } => writes += 1,
+                nir::NirOp::AddrOf { .. } | nir::NirOp::Cast { .. } => {},
+                _ => panic!("unexpected operation {op:?}"),
+            }
+        }
+        assert_eq!(incoming.len(), 2); incoming.sort(); incoming.dedup();
+        assert_eq!((incoming.len(), reads, writes), (2, 1, 4));
+        let mir = actionc::mir65816::lower_program(&promoted).unwrap();
+        let machine = actionc::mir65816::emit::materialize(&mir).unwrap();
+        assert_eq!(machine.routines[0].frame.extent, 0);
+        assert!(machine.routines[0].code.bytes.len() <= 96);
+    }
+    for target in [TargetId::Atari6502, TargetId::Wdc65816Small, TargetId::Motorola68000] {
+        let input = lower(INSERT, target);
+        assert_eq!(nir::optimize_program_with_promotion(&input, NirPromotionPolicy::NativeLoops).unwrap(),
+            nir::optimize_program_with_promotion(&input, NirPromotionPolicy::Native65816).unwrap());
+    }
+}
+
+#[test]
+fn native_pointer_identity_promotion_keeps_storage_and_operation_boundaries() {
+    for source in [
+        INSERT.replace("PROC Insert", "Node POINTER escape PROC Insert").replace("LET first=chain.head", "Node POINTER first first=chain.head escape=@first"),
+        INSERT.replace("@chain.head", "@chain.tail"),
+        INSERT.replace("PROC Insert", "PROC Barrier() RETURN PROC Insert").replace("item.next=first", "Barrier() item.next=first"),
+    ] {
+        let input = lower(&source, TargetId::Wdc65816Native);
+        let promoted = nir::optimize_program_with_promotion(&input, NirPromotionPolicy::Native65816).unwrap();
+        let r = promoted.routines.iter().find(|r| r.name == "Insert").unwrap();
+        assert!(r.locals.iter().any(|l| l.name == "first" || l.name.ends_with("::first")), "{}", nir::format_program(&promoted));
+        actionc::mir65816::emit::materialize(&actionc::mir65816::lower_program(&promoted).unwrap()).unwrap();
+    }
+    // A mutable parameter can have its own home; it cannot be mistaken for
+    // an immutable incoming value. Existing promotion of other private homes
+    // still applies where storage analysis proves it safe.
+    let input = lower(&INSERT.replace("item.next=first", "item=first item.next=first"), TargetId::Wdc65816Native);
+    let promoted = nir::optimize_program_with_promotion(&input, NirPromotionPolicy::Native65816).unwrap();
+    let r = &promoted.routines[0];
+    assert!(r.blocks[0].ops.iter().any(|op| matches!(op, nir::NirOp::Store { place: nir::NirPlace { kind: nir::NirPlaceKind::Param { .. }, .. }, .. })));
+    actionc::mir65816::emit::materialize(&actionc::mir65816::lower_program(&promoted).unwrap()).unwrap();
+}

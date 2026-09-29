@@ -1218,3 +1218,13 @@ fn pointer_identity_selection_handles_zero_addresses_cast_chains_and_rejects_non
         }
     }
 }
+
+#[test]
+fn resident_identities_leave_unpromoted_private_storage_on_the_stack_path() {
+    let source = "TYPE Link=[Link POINTER a,b] Link POINTER input=$7100,output=$7300 \
+        PROC Work() LET saved=input output=Link POINTER(ADDRESS(@saved.a)) output=saved RETURN";
+    let p = mir(source, false);
+    assert!(p.routines[0].frame.extent.get() > 0);
+    assert!(emit::AllocatedFrame::pointer_leaf(&p.routines[0]).unwrap().is_none());
+    emit::materialize(&p).unwrap();
+}

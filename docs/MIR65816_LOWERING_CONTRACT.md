@@ -87,7 +87,13 @@ This does not change record field offsets or array strides.
 
 The native driver applies the verified `Native65816` NIR promotion policy before
 lowering. Eligible private pointer locals become typed values, and immutable
-pointer parameters are captured once. Existing home elision removes unused
+pointer parameters are captured once. The bounded single-block policy also
+permits representation-preserving data-pointer/ADDRESS casts and zero-offset
+addresses formed through a pointer. These operations do not expose the pointer's
+own storage. Addressed/escaping storage, definite initialization, volatility and
+call barriers retain the shared storage-analysis rules; other targets' policies
+are unchanged. Indirect memory accesses retain their original snapshots and
+order. Existing home elision removes unused
 local objects; lowering never re-creates a home from a display name. MIR owns
 physical placement and scratch proofs, including the bounded pointer-leaf
 allocator described by the [emission contract](MIR65816_EMISSION_CONTRACT.md).

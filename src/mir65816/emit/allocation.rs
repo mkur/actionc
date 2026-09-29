@@ -518,6 +518,13 @@ fn leaf_intervals(routine: &Mir65816Routine) -> Option<PointerRanges> {
     }
     for (at, op) in block.ops.iter().enumerate() {
         if let Some((dest, source)) = pointer_identity(routine, op) {
+            // Identity extension is profitable after private storage promotion.
+            // Retain the stack path's borrowed/direct-local transfers while
+            // invocation objects remain; the original load/store profile keeps
+            // its existing admission and schedules.
+            if routine.frame.extent.get() != 0 {
+                return None;
+            }
             use_value(
                 &Mir65816Value::Temp(source, ByteSize::new(3)),
                 at,

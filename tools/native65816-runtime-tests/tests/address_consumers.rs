@@ -15,7 +15,12 @@ fn loaded_list_head_goes_directly_to_local_with_aliases_and_relocation() {
         let prepared = prepare(source, optimize);
         let image = prepared.compile(&layout()).unwrap().image;
         let work = image.routines.iter().find(|r| r.name == "Work").unwrap();
-        assert_eq!((work.size, work.fixed_frame, work.spill_bytes), (146, 4, 0));
+        if optimize {
+            assert!(work.size <= 96);
+            assert_eq!((work.fixed_frame, work.spill_bytes), (0, 0));
+        } else {
+            assert_eq!((work.size, work.fixed_frame, work.spill_bytes), (146, 4, 0));
+        }
         let bytes = prepared.compile_o65(&Default::default()).unwrap().bytes;
         for variant in 0..3 {
             let loaded = (variant > 0).then(|| {
