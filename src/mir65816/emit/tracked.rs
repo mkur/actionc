@@ -53,6 +53,7 @@ pub(super) struct TrackedEmitter65816 {
     reference_planning: bool,
     pointer: Option<pointer_state::Resident>,
     pointer_generation: u64,
+    pointer_store: Option<super::select::pointer_stores::Contract>,
     x_contract: Option<XContract>,
     x_reserved: bool,
     x_valid: bool,
@@ -156,6 +157,7 @@ impl TrackedEmitter65816 {
     }
     pub fn begin_source(&mut self, block: BlockId, index: usize) {
         assert!(self.recording.source.is_none());
+        assert!(self.pointer_store.is_none());
         let source = Source { block, index };
         self.recording.source = Some(source);
         let b = Boundary::of(&self.state);
@@ -239,6 +241,7 @@ impl TrackedEmitter65816 {
             b,
         );
         self.recording.source = None;
+        self.pointer_store = None;
     }
     pub fn label(&mut self) -> Label {
         let label = self.code.label();

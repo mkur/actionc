@@ -70,6 +70,8 @@ mod mixed_edges;
 mod parameter;
 #[path = "pointer_forwarding.rs"]
 pub(super) mod pointer_forwarding;
+#[path = "pointer_stores.rs"]
+pub(super) mod pointer_stores;
 #[path = "pointer_values.rs"]
 mod pointer_values;
 #[path = "shifts.rs"]
@@ -492,7 +494,7 @@ pub(super) fn routine_with_data(
             for (op_index, op) in prefix.iter().enumerate() {
                 let start = b.code.code().bytes.len();
                 b.code.begin_source(block.id, op_index);
-                if !pointers.enter(&mut b, block.id, op_index)
+                if !b.enter_pointer_operation(&pointers, block.id, op_index, op)?
                     && !component_stores.emit(&mut b, op_index, op)?
                     && !demand.emit(&mut b, block.id, op_index, op)?
                     && !assignments.emit(&mut b, op_index)?
@@ -519,7 +521,7 @@ pub(super) fn routine_with_data(
             }
             let start = b.code.code().bytes.len();
             b.code.begin_source(block.id, prefix.len());
-            let omitted = pointers.enter(&mut b, block.id, prefix.len())
+            let omitted = b.enter_pointer_operation(&pointers, block.id, prefix.len(), last)?
                 || component_stores.emit(&mut b, prefix.len(), last)?
                 || demand.emit(&mut b, block.id, prefix.len(), last)?
                 || assignments.emit(&mut b, prefix.len())?;
@@ -1573,26 +1575,8 @@ impl Builder<'_> {
         Ok(())
     }
     fn prepare_pointer_base(&mut self, value: &Mir65816Value) -> Result<(), String> {
-        if self.code.delta() == 0
-            && let Some(Memory::Stack(offset)) = self.value_memory(value)?
-        {
-            let origin = match value {
-                Mir65816Value::Temp(id, _) => self
-                    .borrowed
-                    .get(id)
-                    .map_or(PointerOrigin::Temporary(*id), |s| s.origin()),
-                Mir65816Value::Param(id) => PointerOrigin::Parameter(*id),
-                _ => unreachable!("stack-backed pointer"),
-            };
-            self.displacement(offset, 2)?;
-            self.code.stage_pointer(
-                origin,
-                Slot {
-                    offset: offset as u16,
-                    width: 3,
-                },
-                PTR,
-            );
+        if let Some((origin, source)) = self.stack_pointer_source(value)? {
+            self.code.stage_pointer(origin, source, PTR);
         } else {
             self.pointer_value(value, PTR)?;
         }

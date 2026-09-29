@@ -276,6 +276,14 @@ modify the owner, kind or bounds. No scratch value survives an ordinary call
 unless first copied to invocation storage. Recursion and helper-to-helper
 calls obey this rule, including partial pointers and arithmetic state.
 
+Scratch is compiler storage, not storage for ordinary program objects. An
+ordinary object pointer must not target the active compiler scratch region or
+unexposed invocation temporaries/incoming homes. This ownership rule also
+allows live pointer temporaries in DP to survive ordinary object stores.
+Address-taken frame objects remain aliasable program storage. Raw assembly and
+runtime bridges own their explicitly declared scratch accesses and call effects;
+physical reachability alone does not make compiler-owned storage a program object.
+
 Scratch **may** be live across asynchronous suspension: its entire domain block
 stays allocated and untouched while another task or the IRQ dispatcher runs.
 IRQ callbacks use the IRQ block. Task callbacks use their task's block and

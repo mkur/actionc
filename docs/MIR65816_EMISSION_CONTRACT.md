@@ -1564,9 +1564,25 @@ copy before publishing the fact. Replay reconstructs both the request and its
 hit/miss decision; stored decisions cannot authorize an omission.
 
 Typed instruction effects revoke the fact on overlapping source/scratch writes,
-unknown or indirect writes, calls/control transfers and S/D/DBR/native-domain
-changes. Labels and volatile accesses also revoke it. Disjoint private writes
-and ordinary reads may preserve it; no pointee load is eliminated. This fact is
-independent of the existing adjacent accumulator permission and does not weaken
-the physical home analysis's conservative alias rules. In particular, NewList's
-unresolved field stores require staging its base again for the next store.
+unproved writes, calls/control transfers and S/D/DBR/native-domain changes.
+Labels and volatile accesses also revoke it. Disjoint private writes and ordinary
+reads may preserve it; no pointee load is eliminated.
+
+An AllowPointerStore request may preserve the base through a nonvolatile,
+unindexed indirect scalar store. Its sealed contract comes from verified MIR,
+resolved borrowed bindings and final allocation. It names the exact source
+operation, pointer identity/home and field extent. Only private temporary homes,
+immutable incoming arguments and unexposed local homes qualify. The ABI's
+compiler-scratch ownership excludes ordinary object stores from that scratch
+and those unexposed sources; address-taken objects remain aliasable. Each actual
+write must match the resident base, unchanged stack depth, scratch triplet and
+bounded constant displacement/width. A mismatch invalidates the fact normally;
+no discarded fact is restored. The permission ends with the MIR operation and
+cannot authorize a later raw store. Replay checks the source site and rebuilds
+all hit/miss decisions, including instruction-level invalidation.
+
+This preservation is independent of adjacent accumulator permissions. Instruction
+effects and the physical home analysis's conservative alias rules are unchanged.
+Absolute/symbolic stores, volatile accesses, dynamic indexing and unproved source
+ownership keep their fallback. NewList's ordinary field stores now stage its
+incoming base once. See the [preservation plan](MIR65816_BASE_PRESERVATION_PLAN.md).

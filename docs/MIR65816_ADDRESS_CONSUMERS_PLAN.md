@@ -234,7 +234,10 @@ delta: 0 fixed / 0 per task.
 
 Slice 3 implements typed, replayed DP base staging with generation and physical
 write invalidation. The ownership audit retains invalidation after unresolved
-indirect writes: NewList still stages its base for each store. Six address
+indirect writes: NewList initially staged its base for each store. The later
+[base-preservation slice](MIR65816_BASE_PRESERVATION_PLAN.md) adds the checked
+ordinary-store contract described above, while retaining generic invalidation.
+Six address
 runtime tests pass, including two-task IRQ/NMI reentry through both the new
 A/X store schedule and cached base lifetime; the three existing forwarding
 runtime tests pass as well. Reserved bank-zero delta: 0 fixed / 0 per task.

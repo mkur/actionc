@@ -71,6 +71,7 @@ pub(super) enum Request {
     EstablishBody,
     Barrier,
     StagePointer(super::tracked::PointerOrigin, Slot, u8),
+    AllowPointerStore(super::select::pointer_stores::Contract),
     ForgetPointer,
     PrepareReturnJoin,
     RegisterHome(Location),

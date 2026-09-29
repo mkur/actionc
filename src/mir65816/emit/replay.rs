@@ -157,7 +157,10 @@ impl Request {
             Self::Mode(super::state::Width::Word) => e.a16(),
             Self::EstablishBody => e.establish_body(),
             Self::Barrier => e.barrier(),
-            Self::StagePointer(origin, source, slot) => { e.stage_pointer(*origin, *source, *slot); }
+            Self::StagePointer(origin, source, slot) => {
+                e.stage_pointer(*origin, *source, *slot);
+            }
+            Self::AllowPointerStore(contract) => e.allow_pointer_store(*contract),
             Self::ForgetPointer => e.forget_pointer(),
             Self::PrepareReturnJoin => e.prepare_return_join(),
             Self::RegisterHome(h) => e.register_home(*h),

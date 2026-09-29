@@ -30,6 +30,17 @@ impl TrackedEmitter65816 {
         self.request(Request::ForgetPointer, |this| this.invalidate_pointer());
     }
 
+    pub fn allow_pointer_store(
+        &mut self,
+        contract: super::super::select::pointer_stores::Contract,
+    ) {
+        self.request(Request::AllowPointerStore(contract), |this| {
+            assert_eq!(this.recording.source, Some(contract.site()));
+            assert!(this.pointer_store.is_none());
+            this.pointer_store = Some(contract);
+        });
+    }
+
     pub(super) fn pointer_effects(&mut self, effects: &effects::InstructionEffects) {
         let Some(pointer) = self.pointer else {
             return;
@@ -59,6 +70,31 @@ impl TrackedEmitter65816 {
                         i64::from(pointer.scratch),
                         3,
                     ),
+                    Memory::IndirectLong {
+                        pointer: slot,
+                        indexed_y,
+                        bytes,
+                    } => {
+                        let offset = if indexed_y {
+                            match self.state.y {
+                                Value::Constant(n, Width::Word) => Some(n),
+                                _ => None,
+                            }
+                        } else {
+                            Some(0)
+                        };
+                        !(slot == pointer.scratch
+                            && self.state.env.current_domain
+                            && self.state.env.native
+                            && self.state.env.index == Width::Word
+                            && self.state.env.depth == pointer.depth
+                            && self
+                                .pointer_store
+                                .zip(offset)
+                                .is_some_and(|(contract, offset)| {
+                                    contract.covers(pointer.origin, pointer.source, offset, bytes)
+                                }))
+                    }
                     // Absolute, symbolic and indirect targets retain the same
                     // conservative may-alias rule as physical home analysis.
                     _ => true,

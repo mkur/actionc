@@ -51,6 +51,11 @@ impl SelectedCfg {
                 Action::Request(request) => {
                     parents.push(Node(i));
                     match request {
+                        Request::AllowPointerStore(contract)
+                            if r.source != Some(contract.site()) =>
+                        {
+                            return Err("pointer store contract outside its MIR operation".into());
+                        }
                         Request::DeclareBlocks(declared) => {
                             if !blocks.is_empty() {
                                 return Err("duplicate MIR block declaration".into());

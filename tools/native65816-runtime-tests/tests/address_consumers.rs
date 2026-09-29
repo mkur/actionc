@@ -2,6 +2,80 @@ mod support;
 use support::*;
 
 #[test]
+fn list_initialization_stages_one_base_and_writes_exact_fields_across_banks() {
+    let source = "TYPE Links=[Links POINTER head,tail,previous] Links POINTER input=$7100 \
+        PROC Work(Links POINTER p) p.head=Links POINTER(@p.tail) p.tail=NULL \
+        p.previous=Links POINTER(@p.head) RETURN PROC Main() Work(input) RETURN";
+    for optimize in [false, true] {
+        let image = compile(source, optimize);
+        let work = image.routines.iter().find(|r| r.name == "Work").unwrap();
+        assert_eq!(work.size, 63);
+        assert_eq!(work.fixed_frame, 0);
+        for base in [0x7200u32, 0x12fffc, 0x32fffe] {
+            for mask in [0, 4] {
+                let mut h = Harness::new(&image, &caller(image.entry), mask);
+                h.bus.ram[0x7100..0x7103].copy_from_slice(&base.to_le_bytes()[..3]);
+                if base >= 0x10000 {
+                    h.bus.map(base - 1, &[0xa5; 11], true);
+                } else {
+                    h.bus.ram[base as usize - 1..base as usize + 10].fill(0xa5);
+                }
+                h.run();
+                h.guards(mask);
+                assert_eq!(h.bus.value(base, 3), base + 3);
+                assert_eq!(h.bus.value(base + 3, 3), 0);
+                assert_eq!(h.bus.value(base + 6, 3), base);
+                assert_eq!(h.bus.ram[base as usize - 1], 0xa5);
+                assert_eq!(h.bus.ram[base as usize + 9], 0xa5);
+                let writes: Vec<_> = h
+                    .bus
+                    .writes
+                    .iter()
+                    .filter(|(a, _)| (base..base + 9).contains(a))
+                    .map(|(a, _)| *a)
+                    .collect();
+                assert_eq!(writes, (base..base + 9).collect::<Vec<_>>());
+                let staging: Vec<_> = h
+                    .bus
+                    .writes
+                    .iter()
+                    .filter(|(a, _)| (0x2080..0x2083).contains(a))
+                    .map(|(a, _)| *a)
+                    .collect();
+                assert_eq!(staging, [0x2080, 0x2081, 0x2081, 0x2082]);
+            }
+        }
+    }
+}
+
+#[test]
+fn base_reuse_observes_mutation_of_address_taken_and_public_pointer_sources() {
+    for body in [
+        "ADDRESS POINTER alias alias=ADDRESS POINTER(@p) p.a=11 alias^=ADDRESS(replacement) p.a=22",
+        "p.a=11 p=replacement p.a=22",
+        "shared=p shared.a=11 shared=replacement shared.a=22",
+    ] {
+        let source = format!(
+            "TYPE Packet=[CARD a,b] Packet POINTER shared=$7100 \
+            PROC Work(Packet POINTER p,replacement) {body} RETURN \
+            PROC Main() Work(Packet POINTER($7200),Packet POINTER($7300)) RETURN"
+        );
+        for optimize in [false, true] {
+            let image = compile(&source, optimize);
+            let mut h = Harness::new(&image, &caller(image.entry), 0);
+            h.bus.ram[0x7200..0x7204].fill(0xa5);
+            h.bus.ram[0x7300..0x7304].fill(0xa5);
+            h.run();
+            h.guards(0);
+            assert_eq!(h.bus.value(0x7200, 2), 11);
+            assert_eq!(h.bus.value(0x7300, 2), 22);
+            assert_eq!(h.bus.value(0x7202, 2), 0xa5a5);
+            assert_eq!(h.bus.value(0x7302, 2), 0xa5a5);
+        }
+    }
+}
+
+#[test]
 fn address_expression_stores_keep_relocated_bases_and_exact_extents() {
     use actionc::mir65816::o65 as format;
     let source = "TYPE Item=[BYTE ARRAY padding(3) BYTE last] \

@@ -602,7 +602,11 @@ fn prepared_bases_are_reused_only_until_a_possible_clobber() {
     for optimize in [false, true] {
         for (body, reuse) in [
             ("RETURN(p.a+p.b)", true),
-            ("CARD first first=p.a p.a=17 RETURN(first+p.a)", false),
+            ("CARD first first=p.a p.a=17 RETURN(first+p.a)", true),
+            (
+                "CARD first BYTE raw=$7200 first=p.a raw=17 RETURN(first+p.a)",
+                false,
+            ),
         ] {
             let p = program(
                 &format!(
@@ -630,10 +634,6 @@ fn prepared_bases_are_reused_only_until_a_possible_clobber() {
                 })
                 .collect();
             assert!(decisions.contains(&Some(false)));
-            assert!(
-                decisions.contains(&Some(true)),
-                "{optimize}/{body}: {decisions:?}"
-            );
             assert_eq!(
                 decisions.last(),
                 Some(&Some(reuse)),
@@ -641,4 +641,128 @@ fn prepared_bases_are_reused_only_until_a_possible_clobber() {
             );
         }
     }
+}
+
+#[test]
+fn ordinary_stores_keep_one_base_and_volatile_stores_keep_the_fallback() {
+    use super::super::selected::{Action, Request};
+    for optimize in [false, true] {
+        for volatile in [false, true] {
+            let mut p = program(
+                "TYPE Links=[Links POINTER head,tail,previous] \
+                 PROC Work(Links POINTER p) p.head=Links POINTER(@p.tail) \
+                 p.tail=NULL p.previous=Links POINTER(@p.head) RETURN PROC Main() RETURN",
+                optimize,
+            );
+            for op in p.routines[0].blocks.iter_mut().flat_map(|b| &mut b.ops) {
+                if let Mir65816Op::Store { volatile: v, .. } = op {
+                    *v = volatile;
+                }
+            }
+            let m = materialize(&p).unwrap();
+            let work = &m.routines[0];
+            let records = work.code.selected.as_ref().unwrap().records();
+            let decisions: Vec<_> = records
+                .iter()
+                .enumerate()
+                .filter_map(|(i, r)| {
+                    matches!(r.action, Action::Request(Request::StagePointer(..))).then(|| {
+                        records
+                            .iter()
+                            .find(|r| matches!(r.action,Action::EndRequest(n) if n.0==i))
+                            .unwrap()
+                            .decision
+                            .unwrap()
+                    })
+                })
+                .collect();
+            assert_eq!(decisions, [false, !volatile, !volatile]);
+            assert_eq!(
+                records
+                    .iter()
+                    .filter(|r| matches!(r.action, Action::Request(Request::AllowPointerStore(_))))
+                    .count(),
+                if volatile { 0 } else { 3 }
+            );
+            if !volatile {
+                assert_eq!(work.frame.extent, 0);
+                assert_eq!(work.code.bytes.len(), 63);
+            }
+        }
+    }
+}
+
+#[test]
+fn checked_store_permission_matches_source_extent_and_operation_scope() {
+    use super::super::selected::{Action, ByteOp, Implied, Request, WordOp};
+    use super::super::tracked::TrackedEmitter65816;
+    let p = program(
+        "TYPE Pair=[CARD a,b] PROC Work(Pair POINTER p) p.a=7 RETURN PROC Main() RETURN",
+        false,
+    );
+    let m = materialize(&p).unwrap();
+    let work = &m.routines[0];
+    let records = work.code.selected.as_ref().unwrap().records();
+    let contract = records
+        .iter()
+        .find_map(|r| match r.action {
+            Action::Request(Request::AllowPointerStore(c)) => Some(c),
+            _ => None,
+        })
+        .unwrap();
+    let (origin, home, ptr) = records
+        .iter()
+        .find_map(|r| match r.action {
+            Action::Request(Request::StagePointer(o, h, p)) => Some((o, h, p)),
+            _ => None,
+        })
+        .unwrap();
+    for variant in 0..7 {
+        let mut e = TrackedEmitter65816::default();
+        e.test_frame(work.frame.extent);
+        let site = contract.site();
+        e.begin_source(site.block, site.index);
+        e.allow_pointer_store(contract);
+        let other = Slot {
+            offset: home.offset + 3,
+            width: 3,
+        };
+        let staged = if variant == 4 { other } else { home };
+        assert!(!e.stage_pointer(origin, staged, ptr));
+        match variant {
+            0 => e.byte(ByteOp::StaIndirect, ptr),
+            1 => {
+                e.word(WordOp::LdyImm, 2);
+                e.byte(ByteOp::StaIndirectY, ptr);
+            }
+            2 => e.byte(ByteOp::StaIndirect, ptr + 3),
+            3 => {
+                e.byte(ByteOp::LdaStack, home.offset as u8);
+                e.op(Implied::Tay);
+                e.byte(ByteOp::StaIndirectY, ptr);
+            }
+            4 => e.byte(ByteOp::StaIndirect, ptr),
+            5 => e.byte(ByteOp::StaStack, home.offset as u8),
+            6 => e.byte(ByteOp::StaDp, ptr),
+            _ => unreachable!(),
+        }
+        assert_eq!(
+            e.stage_pointer(origin, staged, ptr),
+            variant == 0,
+            "variant {variant}"
+        );
+        e.span(site.block, site.index, 0);
+        // The next raw operation cannot inherit the preceding store permission.
+        e.byte(ByteOp::StaIndirect, ptr);
+        assert!(!e.stage_pointer(origin, staged, ptr));
+    }
+    let mut wrong_site = TrackedEmitter65816::default();
+    wrong_site.test_frame(work.frame.extent);
+    wrong_site.begin_source(contract.site().block, contract.site().index + 1);
+    assert!(
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            wrong_site.allow_pointer_store(contract);
+        }))
+        .is_err()
+    );
 }
