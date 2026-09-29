@@ -5,7 +5,7 @@ use super::*;
 impl Builder<'_> {
     /// This slice excludes incoming parameters, address-taken objects and all
     /// indirect/indexed/external accesses. Both bytes belong to this object.
-    fn frame_word(
+    pub(super) fn frame_word(
         &self,
         address: &Mir65816Address,
     ) -> Result<Option<(Mir65816FrameObjectId, Slot)>, String> {

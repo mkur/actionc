@@ -251,7 +251,7 @@ fn native_word_comparisons_keep_byte_result_homes_frames_and_guard_budgets() {
             (
                 "CARD FUNC Work(CARD n) CARD total total=0 WHILE n#0 DO total==+n n==-1 OD RETURN(total) PROC Main() RETURN",
                 220,
-                if optimize { 6 } else { 14 },
+                if optimize { 6 } else { 12 },
             ),
         ] {
             let program = mir(source, optimize);
@@ -514,20 +514,26 @@ fn stack_reuse_keeps_closed_operations_and_rejects_corrupt_plans() {
 
 #[test]
 fn reused_stack_homes_keep_the_incoming_last_byte_at_255() {
-    for (padding, accepted) in [(244, true), (246, false)] {
-        let program = mir(
-            &format!(
+    // The expression now has no temporary homes. Padding alone places the
+    // incoming word at 254..255; another two bytes must still be rejected.
+    for (padding, accepted) in [(250, true), (252, false)] {
+        let source = format!(
                 "CARD FUNC Edge(CARD n) BYTE ARRAY padding({padding}) RETURN(n+1+2+3+4) PROC Main() RETURN"
-            ),
-            false,
-        );
+            );
+        let ast = parser::parse(&lexer::tokenize(&source).unwrap()).unwrap();
+        let model = semantic::analyze_with_options(&ast, semantic::SemanticOptions::modern().with_target(TargetId::Wdc65816Native)).unwrap();
+        let nir = nir::lower_program(&semantic::ir::lower_program(&ast, &model));
+        let program = mir65816::lower_program(&nir);
         if accepted {
+            let program = program.unwrap();
             let machine = emit::materialize(&program).unwrap();
             assert_eq!(machine.routines[0].frame.extent, 250);
             let linked = image::link(&program, &machine, &layout()).unwrap();
             assert_eq!(linked.routines[0].arguments[0].body_displacement, 254);
         } else {
-            let error = emit::materialize(&program).unwrap_err();
+            // With no temporary spill overhead the oversized object is already
+            // rejected during lowering, before allocation can reach emission.
+            let error = format!("{:?}", program.unwrap_err());
             assert!(
                 error.contains("stack-relative access at 256 with width 2"),
                 "{error}"

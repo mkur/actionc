@@ -24,6 +24,11 @@
 //! two bytes. This reconciles the snapshot with upstream 1d9873cb.
 //! Upper-half DP ownership shifts only DP homes and instruction operands by
 //! $80. Storage-demand planning leaves these fixtures' emission unchanged.
+//! Expression consumers omit adjacent capture/reload pairs for frame stores,
+//! comparisons and returns, carry a sole call argument through Y, and return
+//! wide XOR results in A/X. Raw sum_loop and both recursive_sum frames shrink;
+//! guards remain present with adjusted reservations and incoming offsets.
+//! Labels, fixups, sparse home maps and MIR spans follow the selected bytes.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]

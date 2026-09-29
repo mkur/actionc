@@ -76,7 +76,7 @@ fn captured_byte_returns_read_exactly_one_byte_then_share_native_teardown() {
                     b.return_value(Some(&value)).unwrap();
                     let mut expected = if a8 { vec![] } else { vec![0xe2, 0x20] };
                     expected.extend([0xa3, source, 0xc2, 0x20, 0x29, 0xff, 0]);
-                    if !zero_frame {
+                    if frame.extent != 0 {
                         expected.extend([
                             0xa8,
                             0x3b,

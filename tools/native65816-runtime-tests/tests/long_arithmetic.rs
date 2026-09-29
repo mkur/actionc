@@ -118,7 +118,9 @@ fn long_arithmetic_boundaries_carries_borrows_casts_and_mutable_parameters() {
 #[test]
 fn long_arithmetic_selected_words_match_ca65_and_use_no_scratch() {
     for optimize in [false, true] {
-        let p = prepare(&source("LONGCARD"), optimize);
+        // Signed expressions retain the materialized word selector exercised
+        // here. Register-only unsigned return lanes have their own runtime tests.
+        let p = prepare(&source("LONGINT"), optimize);
         let c = p.compile(&layout()).unwrap();
         let caller = caller(c.image.entry);
         for (name, carry, alu) in [("AddLong", "clc", "adc"), ("SubLong", "sec", "sbc")] {

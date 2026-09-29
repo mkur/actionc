@@ -2235,8 +2235,8 @@ fn accumulator_homes_survive_irq_and_nmi_between_producer_and_widening() {
     let original = fixture("preemption.act");
     let modify = |s: &str| {
         s.replace("\r\n", "\n")
-            .replace("CARD FUNC Read(", "LONGCARD FUNC HomeDemandByte(BYTE a) RETURN(LONGCARD(a))\nSIZE FUNC HomeDemandWord(CARD a) RETURN(SIZE(a RSH 2))\nCARD FUNC Read(")
-            .replace("  work.done=1", "  work.result==+CARD(HomeDemandByte(128))+CARD(HomeDemandWord($8001))-$2080\n  work.done=1")
+            .replace("CARD FUNC Read(", "LONGCARD FUNC HomeDemandByte(BYTE a) BYTE v v=(a RSH 1) LSH 1 IF (v & $80)=$80 THEN RETURN(LONGCARD(v)) FI RETURN(LONGCARD(0))\nCARD FUNC ExprArgument(CARD a) RETURN(a)\nSIZE FUNC HomeDemandWord(CARD a) RETURN(SIZE(ExprArgument(((a RSH 2) LSH 1)+CARD($F000))))\nCARD FUNC Read(")
+            .replace("  work.done=1", "  work.result==+CARD(HomeDemandByte(128))+CARD(HomeDemandWord($8001))-$3080\n  work.done=1")
     };
     let source = modify(&original);
     assert_eq!(source, modify(&original.replace('\n', "\r\n")));

@@ -6,6 +6,37 @@ use super::*;
 mod tests;
 
 impl Builder<'_> {
+    pub(super) fn long_expression_return(
+        &mut self,
+        bytes: u8,
+        operation: NirBinaryOp,
+        left: &Mir65816Value,
+        right: &Mir65816Value,
+    ) -> Result<(), String> {
+        let left = self
+            .long_arithmetic_operand(left, bytes)?
+            .ok_or("invalid wide expression operand")?;
+        let right = self
+            .long_arithmetic_operand(right, bytes)?
+            .ok_or("invalid wide expression operand")?;
+        self.code.a16();
+        self.edge_load(left.word(false));
+        self.word_binary_rhs(operation, right.word(false), true);
+        self.code.op(Implied::Tay); // Preserve low word without consuming carry.
+        if bytes == 3 {
+            self.code.a8();
+            self.load_byte_operand(left.high_byte());
+            self.arithmetic_high_byte(operation, right.high_byte());
+            self.code.a16();
+            self.code.word(WordOp::AndImm, 0xff);
+        } else {
+            self.edge_load(left.word(true));
+            self.word_binary_rhs(operation, right.word(true), false);
+        }
+        self.code.op(Implied::Tax);
+        self.code.op(Implied::Tya);
+        Ok(())
+    }
     fn long_arithmetic_operand(
         &self,
         value: &Mir65816Value,

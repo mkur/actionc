@@ -18,6 +18,7 @@ pub(super) fn plan(
             continue;
         };
         if *width != ByteSize::ONE
+            || !b.frame.temps.contains_key(loaded)
             || counts.get(loaded) != Some(&1)
             || !matches!(ops[1], Mir65816Op::Compare { .. })
         {

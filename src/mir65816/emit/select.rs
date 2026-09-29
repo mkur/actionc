@@ -73,7 +73,7 @@ mod pointer_values;
 #[path = "shifts.rs"]
 mod shifts;
 #[path = "top_bits.rs"]
-mod top_bits;
+pub(super) mod top_bits;
 #[path = "wide_returns.rs"]
 mod wide_returns;
 use super::tracked::*;
@@ -170,6 +170,7 @@ struct WordCondition {
     kind: WordComparison,
     left: WordOperand,
     left_temp: Option<TempId>,
+    left_in_a: bool,
     right: WordOperand,
     destination: u8,
     predicate: Branch,
@@ -475,16 +476,26 @@ pub(super) fn routine_with_data(
         b.next_block = routine.blocks.get(index + 1).map(|b| b.id);
         b.code.mark(b.blocks[&block.id]);
         let byte_consumers = byte_consumers::plan(&b, block, &input_counts)?;
-        let incoming = b.incoming_comparisons(block, &input_counts)?;
-        let top_bit = top_bits::plan(&b, block, &input_counts)?;
+        let mut incoming = b.incoming_comparisons(block, &input_counts)?;
+        incoming.extend(demand.comparisons(&b, block)?);
+        let top_bit = if block
+            .ops
+            .len()
+            .checked_sub(1)
+            .is_some_and(|i| demand.consumer(block.id, i).is_some())
+        {
+            None
+        } else {
+            top_bits::plan(&b, block, &input_counts)?
+        };
         let assignments =
             direct_assignments::Plan::new(routine, &b.frame, block, &input_counts, data);
         if let Some((last, prefix)) = block.ops.split_last() {
             for (op_index, op) in prefix.iter().enumerate() {
                 let start = b.code.code().bytes.len();
                 b.code.begin_source(block.id, op_index);
-                if !demand.emit(&mut b, block.id, op_index, op)?
-                    && !pointers.enter(&mut b, block.id, op_index)
+                if !pointers.enter(&mut b, block.id, op_index)
+                    && !demand.emit(&mut b, block.id, op_index, op)?
                     && !assignments.emit(&mut b, op_index)?
                 {
                     if top_bit.is_some() && op_index + 1 == prefix.len() {
@@ -509,8 +520,8 @@ pub(super) fn routine_with_data(
             }
             let start = b.code.code().bytes.len();
             b.code.begin_source(block.id, prefix.len());
-            let omitted = demand.emit(&mut b, block.id, prefix.len(), last)?
-                || pointers.enter(&mut b, block.id, prefix.len())
+            let omitted = pointers.enter(&mut b, block.id, prefix.len())
+                || demand.emit(&mut b, block.id, prefix.len(), last)?
                 || assignments.emit(&mut b, prefix.len())?;
             if !omitted
                 && b.compare_branch_prepared(
@@ -528,9 +539,12 @@ pub(super) fn routine_with_data(
                     .fused_span(block.id, prefix.len(), start, block.ops.len());
                 continue;
             }
-            forwarded_return = b
-                .call_return(last, &block.terminator, &input_counts)
-                .map_err(|e| format!("b{}: {e}", block.id.0))?;
+            forwarded_return = if omitted {
+                demand.call_returns(routine, block, prefix.len())
+            } else {
+                b.call_return(last, &block.terminator, &input_counts)
+                    .map_err(|e| format!("b{}: {e}", block.id.0))?
+            };
             if !omitted && !forwarded_return {
                 if let Some(condition) = incoming
                     .get(&prefix.len())
@@ -567,7 +581,7 @@ pub(super) fn routine_with_data(
                 b.edge_last(then_edge)?;
             }
             Mir65816Terminator::Return { value, .. } => {
-                if !forwarded_return {
+                if !forwarded_return && !demand.prepare_return(&mut b, block) {
                     b.prepare_return_value(value.as_ref())?;
                 }
                 if let Some((owner, label)) = shared_tail.filter(|_| returns.contains(&block.id)) {
@@ -816,6 +830,7 @@ impl Builder<'_> {
             kind,
             left,
             left_temp,
+            left_in_a: false,
             right,
             destination,
             predicate,
@@ -1173,9 +1188,12 @@ impl Builder<'_> {
             self.code.barrier(); // Retain the fallback's forwarding boundary.
         }
         self.code.a16();
-        self.load_checked_word(condition.left, condition.left_temp);
-        // LDA/TXA establish full-word N/Z. The adjacent-load omission contract
-        // proves these same flags, not merely A's value. Eq/Ne consume only Z.
+        if !condition.left_in_a {
+            self.load_checked_word(condition.left, condition.left_temp);
+        }
+        // Loads and admitted A16 expression producers establish full-word N/Z.
+        // Stored-value forwarding separately proves those same flags. Eq/Ne
+        // against zero can consume Z directly in either case.
         let zero_test = matches!(condition.predicate, Branch::Equal | Branch::NotEqual)
             && condition.right == WordOperand::Immediate(0);
         match condition.kind {
@@ -2430,9 +2448,25 @@ impl Builder<'_> {
         plan: &Mir65816CallPlan,
         result_use: CallResultUse,
     ) -> Result<(), String> {
+        self.call_with_accumulator(target, args, result, plan, result_use, None)
+    }
+    fn call_with_accumulator(
+        &mut self,
+        target: &Mir65816CallTarget,
+        args: &[Mir65816Value],
+        result: Option<(TempId, ByteSize)>,
+        plan: &Mir65816CallPlan,
+        result_use: CallResultUse,
+        accumulator: Option<TempId>,
+    ) -> Result<(), String> {
         let padding = outgoing_padding(&plan.arguments, plan.outgoing_bytes)?;
-        let arguments =
-            self.call_arguments(args, plan, target, (!padding.is_empty()).then_some(false))?;
+        let arguments = self.call_arguments_with_a(
+            args,
+            plan,
+            target,
+            (!padding.is_empty()).then_some(false),
+            accumulator,
+        )?;
         let capture = self.call_result(result, plan)?;
         if result_use == CallResultUse::Return && capture.is_none() {
             return Err("forwarded call return requires a native result".into());
@@ -2466,8 +2500,16 @@ impl Builder<'_> {
             .is_some()
             .then(|| call_copies::pushes::Plan::new(&arguments, args, &padding, outgoing))
             .flatten();
+        if accumulator.is_some() && pushes.is_none() {
+            return Err("accumulator argument requires checked pushes".into());
+        }
         self.code.barrier();
         self.code.a16();
+        if accumulator.is_some() {
+            // The stack guard clobbers A/X, but preserves Y. The checked push
+            // consumes Y before JSL; no value lives across the call in Y.
+            self.code.op(Implied::Tay);
+        }
         self.check_stack(
             outgoing
                 .checked_add(transfer)

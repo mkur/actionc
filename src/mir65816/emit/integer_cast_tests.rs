@@ -14,7 +14,7 @@ fn program() -> Mir65816Program {
 }
 
 fn builder<'a>(r: &'a Mir65816Routine, op: &Mir65816Op, source: u16, dest: u16) -> Builder<'a> {
-    let mut frame = AllocatedFrame::stack(r).unwrap();
+    let mut frame = AllocatedFrame::materialized_fixture(r).unwrap();
     frame.extent = 256;
     let Mir65816Op::Cast {
         dest: id,

@@ -15,6 +15,61 @@ fn constant(v: &Mir65816Value) -> Option<u32> {
         _ => None,
     }
 }
+
+// Retain the existing flag-only top-bit selector's capture ownership. It
+// consumes the mask without emitting AND; the general expression path must
+// not allocate that same region differently before it can be selected.
+pub(in crate::mir65816::emit) fn owns_mask(
+    block: &Mir65816Block,
+    index: usize,
+    counts: &BTreeMap<TempId, usize>,
+) -> bool {
+    if index + 2 != block.ops.len() {
+        return false;
+    }
+    let (
+        Mir65816Op::Binary {
+            dest: masked,
+            width,
+            operation: NirBinaryOp::And,
+            left,
+            right,
+            ..
+        },
+        Mir65816Op::Compare {
+            dest,
+            width: compared,
+            operation,
+            left: a,
+            right: z,
+            ..
+        },
+    ) = (&block.ops[index], &block.ops[index + 1])
+    else {
+        return false;
+    };
+    if !matches!(width.get(), 1 | 2 | 4)
+        || width != compared
+        || counts.get(masked) != Some(&1)
+        || counts.get(dest) != Some(&1)
+        || !matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne)
+        || !matches!(&block.terminator, Mir65816Terminator::Branch { condition: Mir65816Value::Temp(id,w), .. } if id == dest && *w == ByteSize::ONE)
+    {
+        return false;
+    }
+    let is_masked =
+        |v: &Mir65816Value| matches!(v, Mir65816Value::Temp(t,w) if t == masked && w == width);
+    let top = 1 << (width.get() * 8 - 1);
+    let operand = if constant(left) == Some(top) {
+        right
+    } else if constant(right) == Some(top) {
+        left
+    } else {
+        return false;
+    };
+    matches!(operand, Mir65816Value::Temp(_, w) if w == width)
+        && ((is_masked(a) && constant(z) == Some(0)) || (is_masked(z) && constant(a) == Some(0)))
+}
 pub(super) fn plan(
     b: &Builder<'_>,
     block: &Mir65816Block,

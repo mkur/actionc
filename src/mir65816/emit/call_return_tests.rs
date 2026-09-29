@@ -17,7 +17,7 @@ fn program(ty: &str) -> Mir65816Program {
 }
 
 fn builder(routine: &Mir65816Routine) -> Builder<'_> {
-    let frame = AllocatedFrame::new(routine).unwrap();
+    let frame = AllocatedFrame::materialized_fixture(routine).unwrap();
     Builder {
         stack_checks: true,
         routine,

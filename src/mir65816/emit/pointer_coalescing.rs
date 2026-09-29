@@ -12,6 +12,7 @@ impl AllocatedFrame {
             .iter()
             .flat_map(|b| &b.ops)
             .filter_map(liveness::pointer_copy)
+            .filter(|(a, b)| self.temps.contains_key(a) && self.temps.contains_key(b))
             .collect();
         if pairs.is_empty() {
             return Ok(());

@@ -33,22 +33,30 @@ fn home_demand_removes_memory_homes_before_emitting_unsigned_widening() {
             let machine = materialize(&p).unwrap();
             let r = &machine.prepared.routines[0];
             let plan = Plan::new(r);
-            assert_eq!(plan.count(), 1, "{from}/{to}/{optimize}");
+            assert_eq!(
+                plan.count(),
+                if to == "CARD" {
+                    1
+                } else if to == "SIZE" {
+                    3
+                } else {
+                    2
+                },
+                "{from}/{to}/{optimize}"
+            );
             let emitted = &machine.routines[0];
             emitted.frame.verify_stack(r).unwrap();
-            // Only the widened result remains, aligned at S+2. An isolated
-            // CARD -> LONGCARD used to require an eight-byte frame.
-            // Raw SIZE returns also contain a pre-existing identity cast;
-            // its coalescer deliberately retains reserved frame capacity.
-            if to != "SIZE" {
-                assert_eq!(emitted.frame.extent, if to == "LONGCARD" { 6 } else { 4 });
-            }
+            // Wide returns keep A/X throughout; BYTE -> CARD still materializes
+            // its widened word because narrow cast producers are not admitted.
+            assert_eq!(emitted.frame.extent, if to == "CARD" { 4 } else { 0 });
             for (id, decision) in &plan.decisions {
                 if let Decision::Accumulator(a) = decision {
                     assert!(!emitted.frame.temps.contains_key(id));
                     let span = emitted.code.mir_spans[&(a.block, a.producer)].clone();
                     let bytes = &emitted.code.bytes[span];
-                    assert_eq!(*bytes.last().unwrap(), emitted.frame.extent as u8 + 4);
+                    if matches!(r.blocks[0].ops[a.producer], Mir65816Op::Load { .. }) {
+                        assert_eq!(*bytes.last().unwrap(), emitted.frame.extent as u8 + 4);
+                    }
                     assert!(!bytes.contains(&0x83), "producer must not store to stack");
                 }
             }
@@ -83,11 +91,19 @@ fn home_demand_keeps_native_word_arithmetic_in_a_until_its_cast() {
             let m = materialize(&p).unwrap();
             let r = &m.prepared.routines[0];
             let plan = Plan::new(r);
-            assert_eq!(plan.count(), 1, "{op}/{optimize}");
+            let chained = optimize || matches!(op, "LSH" | "RSH");
+            assert_eq!(
+                plan.count(),
+                (if chained { 2 } else { 1 }) + 2,
+                "{op}/{optimize}"
+            );
             let (&id, _) = plan
                 .decisions
                 .iter()
-                .find(|(_, d)| matches!(d, Decision::Accumulator(_)))
+                .find(|(_, d)| {
+                    matches!(d, Decision::Accumulator(a)
+                    if matches!(r.blocks[0].ops[a.producer], Mir65816Op::Binary { .. }))
+                })
                 .unwrap();
             let a = plan.accumulator(id).unwrap();
             assert!(matches!(
@@ -98,6 +114,177 @@ fn home_demand_keeps_native_word_arithmetic_in_a_until_its_cast() {
             m.routines[0].frame.verify_stack(r).unwrap();
         }
     }
+}
+
+#[test]
+fn expression_chains_select_every_link_before_assigning_homes() {
+    for optimize in [false, true] {
+        let p = program(
+            "SIZE FUNC Work(CARD value) RETURN(SIZE((value RSH 1) LSH 2)) PROC Main() RETURN",
+            optimize,
+        );
+        let m = materialize(&p).unwrap();
+        let r = &m.prepared.routines[0];
+        let plan = Plan::new(r);
+        assert_eq!(plan.count(), 5);
+        let emitted = &m.routines[0];
+        emitted.frame.verify_stack(r).unwrap();
+        for (id, decision) in &plan.decisions {
+            let Decision::Accumulator(a) = decision else {
+                continue;
+            };
+            assert!(!emitted.frame.temps.contains_key(id));
+            let span = emitted.code.mir_spans[&(a.block, a.producer)].clone();
+            let bytes = &emitted.code.bytes[span];
+            match &r.blocks[0].ops[a.producer] {
+                Mir65816Op::Load { .. } => {
+                    assert_eq!(bytes, [0xa3, emitted.frame.extent as u8 + 4]);
+                    assert!(plan.consumer(a.block, a.producer).is_none());
+                }
+                Mir65816Op::Binary { operation, .. } => {
+                    assert!(plan.consumer(a.block, a.producer).is_some());
+                    assert_eq!(
+                        bytes,
+                        if *operation == NirBinaryOp::Rsh {
+                            &[0x4a][..]
+                        } else {
+                            &[0x0a, 0x0a][..]
+                        }
+                    );
+                }
+                Mir65816Op::Cast { .. } => assert!(!bytes.contains(&0x83)),
+                _ => panic!("unexpected expression producer"),
+            }
+        }
+        #[cfg(feature = "native65816-state-proof")]
+        {
+            let (reference, _) = super::super::proof::materialize_reference(&p, false).unwrap();
+            super::super::proof::compare_replay_output(&reference.routines[0].code, &emitted.code)
+                .unwrap();
+        }
+    }
+}
+
+#[test]
+fn expression_chains_stop_at_unsupported_links_without_losing_the_safe_suffix() {
+    let p = program(
+        "SIZE FUNC Work(CARD value) RETURN(SIZE((value RSH 1) LSH 2)) PROC Main() RETURN",
+        false,
+    );
+    let original = &p.routines[0];
+    let load = liveness::operation_output(&original.blocks[0].ops[0]).unwrap();
+    for variant in 0..6 {
+        let mut r = original.clone();
+        if variant == 0 {
+            if let Mir65816Op::Load { volatile, .. } = &mut r.blocks[0].ops[0] {
+                *volatile = true;
+            }
+        } else if let Mir65816Op::Binary {
+            operation,
+            signed,
+            left,
+            right,
+            ..
+        } = &mut r.blocks[0].ops[1]
+        {
+            match variant {
+                1 => *signed = true,
+                2 => *right = Mir65816Value::U8(4),
+                3 => *operation = NirBinaryOp::Mul,
+                4 => {
+                    // No commutation: A would hold the right-hand operand.
+                    *operation = NirBinaryOp::Sub;
+                    std::mem::swap(left, right);
+                }
+                5 => {
+                    // Two operand occurrences are two uses, even in one op.
+                    *operation = NirBinaryOp::Add;
+                    *right = left.clone();
+                }
+                _ => unreachable!(),
+            }
+        }
+        let plan = Plan::new(&r);
+        assert!(plan.accumulator(load).is_none(), "variant {variant}");
+        assert!(
+            plan.producer(r.blocks[0].id, 2).is_some(),
+            "safe suffix {variant}"
+        );
+    }
+}
+
+#[test]
+fn expression_terminal_consumers_share_sparse_allocation_and_replay() {
+    for source in [
+        "CARD FUNC Work(CARD value) RETURN((value RSH 1) LSH 2)",
+        "BYTE FUNC Work(BYTE value) BYTE local local=value+7 RETURN(local)",
+        "BYTE FUNC Work(CARD value) IF (value RSH 1)<$4000 THEN RETURN(1) FI RETURN(0)",
+        "CARD FUNC Echo(CARD value) RETURN(value) CARD FUNC Work(CARD value) RETURN(Echo(value RSH 1))",
+        "SIZE FUNC Work(SIZE a,b) RETURN(a+b)",
+        "LONGCARD FUNC Work(LONGCARD a,b) RETURN(a-b)",
+    ] {
+        for optimize in [false, true] {
+            let p = program(&format!("{source} PROC Main() RETURN"), optimize);
+            let m = materialize(&p).unwrap();
+            let index = m
+                .prepared
+                .routines
+                .iter()
+                .position(|r| r.name == "Work")
+                .unwrap();
+            let r = &m.prepared.routines[index];
+            let plan = Plan::new(r);
+            assert!(plan.count() >= 1, "{source}/{optimize}");
+            m.routines[index].frame.verify_stack(r).unwrap();
+            for id in plan.producers.values() {
+                assert!(!m.routines[index].frame.temps.contains_key(id));
+            }
+            #[cfg(feature = "native65816-state-proof")]
+            {
+                let (reference, _) = super::super::proof::materialize_reference(&p, false).unwrap();
+                super::super::proof::compare_replay_output(
+                    &reference.routines[index].code,
+                    &m.routines[index].code,
+                )
+                .unwrap();
+            }
+        }
+    }
+}
+
+#[test]
+fn expression_call_admission_keeps_multiple_arguments_and_indirect_transfers_materialized() {
+    let p = program(
+        "PROC Use(CARD a,b) RETURN PROC Work(CARD value) Use(value RSH 1, value RSH 2) RETURN PROC Main() RETURN",
+        true,
+    );
+    let r = p.routines.iter().find(|r| r.name == "Work").unwrap();
+    let call = r.blocks[0]
+        .ops
+        .iter()
+        .position(|op| matches!(op, Mir65816Op::Call { .. }))
+        .unwrap();
+    assert!(Plan::new(r).consumer(r.blocks[0].id, call).is_none());
+    let p = program(
+        "PROC Use(CARD a) RETURN PROC Work(CARD value) Use(value RSH 1) RETURN PROC Main() RETURN",
+        true,
+    );
+    let mut r = p
+        .routines
+        .iter()
+        .find(|r| r.name == "Work")
+        .unwrap()
+        .clone();
+    let call = r.blocks[0]
+        .ops
+        .iter()
+        .position(|op| matches!(op, Mir65816Op::Call { .. }))
+        .unwrap();
+    assert!(Plan::new(&r).consumer(r.blocks[0].id, call).is_some());
+    if let Mir65816Op::Call { target, .. } = &mut r.blocks[0].ops[call] {
+        *target = Mir65816CallTarget::Indirect(Mir65816Value::U24(0x18000), ByteSize::new(3));
+    }
+    assert!(Plan::new(&r).consumer(r.blocks[0].id, call).is_none());
 }
 
 #[test]
@@ -189,7 +376,7 @@ fn home_demand_requires_a_complete_adjacent_single_use_lifetime() {
             }
             _ => unreachable!(),
         }
-        assert_eq!(Plan::new(&r).count(), 0, "variant {variant}");
+        assert!(Plan::new(&r).accumulator(id).is_none(), "variant {variant}");
     }
 }
 
@@ -220,13 +407,14 @@ fn home_demand_does_not_carry_a_value_across_a_call() {
         .unwrap();
     let call = r.blocks[0].ops.remove(call);
     r.blocks[0].ops.insert(a.consumer - 1, call);
-    assert_eq!(Plan::new(&r).count(), 0);
+    let id = liveness::operation_output(&r.blocks[0].ops[a.producer - 1]).unwrap();
+    assert!(Plan::new(&r).accumulator(id).is_none());
 }
 
 #[test]
 fn home_demand_sparse_map_verification_rejects_unapproved_omissions() {
     let p = program(
-        "SIZE FUNC Work(CARD value) RETURN(SIZE(value)) PROC Main() RETURN",
+        "CARD FUNC Work(BYTE value) RETURN(CARD(value)) PROC Main() RETURN",
         false,
     );
     let r = &p.routines[0];

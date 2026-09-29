@@ -14,7 +14,7 @@ fn program() -> Mir65816Program {
     crate::mir65816::lower_program(&nir).unwrap()
 }
 fn builder(routine: &Mir65816Routine) -> Builder<'_> {
-    let frame = AllocatedFrame::stack(routine).unwrap();
+    let frame = AllocatedFrame::materialized_fixture(routine).unwrap();
     Builder {
         stack_checks: true,
         routine,

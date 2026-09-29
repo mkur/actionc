@@ -120,6 +120,11 @@ impl Plan {
                 for width in 1..=2.min(remaining) {
                     let low = cells[remaining - width];
                     let high = cells[remaining - 1];
+                    if let Source::Accumulator(bytes) = source(low)
+                        && (low.byte != 0 || width != usize::from(bytes))
+                    {
+                        continue;
+                    }
                     let pea = width == 2 && immediate(low).is_some() && immediate(high).is_some();
                     if width == 2
                         && !pea
@@ -129,7 +134,9 @@ impl Plan {
                     {
                         continue;
                     }
-                    let load = if width == 2 && matches!(source(low), Source::Immediate(_)) {
+                    let load = if matches!(source(low), Source::Accumulator(_)) {
+                        1
+                    } else if width == 2 && matches!(source(low), Source::Immediate(_)) {
                         3
                     } else {
                         2
@@ -215,6 +222,7 @@ impl Plan {
                 b.code.a8();
             }
             match chunk.source {
+                Source::Accumulator(_) => b.code.op(Implied::Tya),
                 Source::Immediate(value) if chunk.width == 2 => b
                     .code
                     .word(WordOp::LdaImm, (value >> (8 * chunk.byte)) as u16),

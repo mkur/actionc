@@ -1,7 +1,7 @@
 use super::*;
 
 fn builder(routine: &Mir65816Routine) -> Builder<'_> {
-    let frame = AllocatedFrame::new(routine).unwrap();
+    let frame = AllocatedFrame::materialized_fixture(routine).unwrap();
     let mut code = TrackedEmitter65816::for_test(&frame);
     let blocks = routine
         .blocks

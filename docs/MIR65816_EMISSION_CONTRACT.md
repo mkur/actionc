@@ -1012,16 +1012,44 @@ Only MIR value temporaries share storage. Frame objects, addressed locals and
 mutable parameters retain their dedicated homes. No temporary address escapes,
 and allocation itself performs no alias-sensitive load forwarding or memory
 reordering.
-Before assigning homes, a typed storage-demand plan identifies bounded A8/A16
-lifetimes. An unsigned BYTE/CARD direct nonvolatile load, or native CARD
-Add/Sub/And/Or/Xor or constant 1–3-bit shift, may feed its sole use in the
-immediately following unsigned widening cast to 2–4 bytes. Every definition
-and operand use is counted across
-the routine. Labels, calls, other intervening operations and CFG edges cannot
-be crossed. The producer executes at its original source site; the consumer
-uses A without a capture/reload. BYTE widening stays in A8 and writes explicit
-zero high bytes, so dirty hidden B never reaches the result.
-The widened result retains a normal home. All other shapes retain memory.
+Before assigning homes, a typed storage-demand plan identifies bounded register
+lifetimes. An unsigned BYTE/CARD direct nonvolatile load, Add/Sub/And/Or/Xor,
+or constant 1–3-bit shift may feed an adjacent consumer without a capture.
+Every definition and operand occurrence is counted across the routine; only
+single-definition, single-use temporaries qualify. Working backward from a
+supported consumer, the planner admits expression links through the left
+operand. Each link consumes and produces A8/A16 at its original width. The
+right operand remains immediate or complete memory-backed storage. No loads,
+evaluation order or arithmetic are moved; labels, unrelated operations and CFG
+edges end the lifetime. A rejected link leaves a materialized input for any
+eligible suffix.
+
+Narrow terminal consumers are unsigned widening, exact-width native returns,
+direct stores into bounded mutable frame objects/parameters, unsigned Eq/Ne/Lt/Ge
+comparisons, and a sole exact-width argument to a direct/helper/runtime call.
+Comparisons use the existing Boolean-materialization or fused-branch selector.
+Eq/Ne against zero may use the producer's matching-width Z; other admitted
+comparisons establish CMP flags. Signed ordering, Gt/Le, indirect/indexed or
+external stores, multiple arguments and indirect calls retain captures. Existing
+top-bit tests and the closed scalar-DP/X profile keep ownership of their shapes.
+Pointer/address allocation profiles retain their existing eligibility rules.
+
+For a call argument, the checked push plan must cover the sole one- or two-byte
+payload at offset zero and any ABI padding. TAY preserves the expression across
+the A/X-clobbering stack guard; TYA/PHA places it in the outgoing slot before
+JSL. It is not live in a register across the call. Guard coverage, outgoing
+extent, call-result forwarding and callee clobbers remain unchanged.
+
+Unsigned SIZE/LONGCARD Add/Sub/And/Or/Xor may produce native A/X results directly
+for return, optionally through adjacent same-width integer identity casts.
+Inputs must have complete private homes or be immediate values. The low-word
+result stays in Y while the high byte/word consumes its carry/borrow; SIZE
+clears X's high byte. Narrow unsigned widening into such a return also avoids
+a home. Other wide consumers and ADDRESS/pointer results retain their prior
+paths. BYTE returns and widening clear dirty hidden B explicitly; materialized
+widening writes explicit zero high bytes instead. These register assignments
+are bounded selections, not a general register allocator. See the
+[expression-consumer plan](MIR65816_EXPRESSION_CONSUMERS_PLAN.md).
 
 Register-only temporaries are absent from allocation and image memory maps.
 Allocation verification independently recomputes their eligibility and rejects

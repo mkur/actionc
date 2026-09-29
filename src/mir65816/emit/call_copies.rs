@@ -10,6 +10,7 @@ pub(super) mod pushes;
 
 #[derive(Clone, Copy)]
 enum Source {
+    Accumulator(u8),
     Immediate(u32),
     Home(Memory),
     Bytes,
@@ -94,12 +95,24 @@ impl Builder<'_> {
         Ok(())
     }
 
+    #[cfg(test)]
     pub(super) fn call_arguments(
         &self,
         args: &[Mir65816Value],
         plan: &Mir65816CallPlan,
         target: &Mir65816CallTarget,
         first_word: Option<bool>,
+    ) -> Result<Vec<Argument>, String> {
+        self.call_arguments_with_a(args, plan, target, first_word, None)
+    }
+
+    pub(super) fn call_arguments_with_a(
+        &self,
+        args: &[Mir65816Value],
+        plan: &Mir65816CallPlan,
+        target: &Mir65816CallTarget,
+        first_word: Option<bool>,
+        accumulator: Option<TempId>,
     ) -> Result<Vec<Argument>, String> {
         if self.code.delta() != 0 || args.len() != plan.arguments.len() {
             return Err("invalid call argument count or stack phase".into());
@@ -124,6 +137,18 @@ impl Builder<'_> {
             .map_err(|e| e.to_string())?
             .get() as u8;
             let source_bytes = self.value_width(value)?;
+            if matches!(value, Mir65816Value::Temp(id, _) if Some(*id) == accumulator) {
+                if source_bytes != bytes || !matches!(bytes, 1 | 2) {
+                    return Err("invalid accumulator argument width".into());
+                }
+                arguments.push(Argument {
+                    source: Source::Accumulator(bytes),
+                    displacement,
+                    bytes,
+                    copy: ArgumentCopy::Bytes,
+                });
+                continue;
+            }
             let memory = self.value_memory(value)?;
             if let Some(memory) = memory {
                 Self::check_call_home(memory, source_bytes.min(bytes), delta)?;
@@ -219,7 +244,9 @@ impl Builder<'_> {
                     self.code.word(WordOp::LdaImm, (value >> (8 * byte)) as u16)
                 }
                 Source::Home(memory) => self.load_memory(memory, byte.into())?,
-                Source::Bytes => unreachable!("byte fallback is never selected wide"),
+                Source::Bytes | Source::Accumulator(_) => {
+                    unreachable!("non-memory argument is never selected wide")
+                }
             }
             self.code.byte(ByteOp::StaStack, arg.displacement + byte);
         }

@@ -108,7 +108,8 @@ fn native_bitwise_preserves_signed_unsigned_lanes_constants_and_call_captures() 
 }
 #[test]
 fn native_bitwise_matches_ca65_and_touches_only_complete_private_words() {
-    for (ty, width) in [("CARD", 2), ("LONGCARD", 4)] {
+    // Signed inputs exercise the retained materialized selector.
+    for (ty, width) in [("INT", 2), ("LONGINT", 4)] {
         for optimize in [false, true] {
             let p = prepare(&source(ty, width), optimize);
             let c = p.compile(&layout()).unwrap();

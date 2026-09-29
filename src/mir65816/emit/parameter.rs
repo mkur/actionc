@@ -115,6 +115,7 @@ impl Builder<'_> {
                 continue;
             };
             if width.get() != 2
+                || !self.frame.temps.contains_key(loaded)
                 || counts.get(loaded) != Some(&1)
                 || !matches!(pair[1], Mir65816Op::Compare { .. })
             {

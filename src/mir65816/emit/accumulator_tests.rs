@@ -6,8 +6,8 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
         loop_x: None,
         borrowed: BTreeMap::new(),
         routine: r,
-        frame: AllocatedFrame::stack(r).unwrap(),
-        code: TrackedEmitter65816::for_test(&AllocatedFrame::stack(r).unwrap()),
+        frame: AllocatedFrame::materialized_fixture(r).unwrap(),
+        code: TrackedEmitter65816::for_test(&AllocatedFrame::materialized_fixture(r).unwrap()),
         blocks: BTreeMap::new(),
     }
 }

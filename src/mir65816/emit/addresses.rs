@@ -255,7 +255,8 @@ impl Plan {
         for block in &routine.blocks {
             let mut known = BTreeMap::new();
             for (i, op) in block.ops.iter().enumerate() {
-                if demand.producer(block.id, i).is_some() {
+                if demand.producer(block.id, i).is_some() || demand.consumer(block.id, i).is_some()
+                {
                     // Its exact direct access is selected into A; it has no
                     // memory capture for the address selector to populate.
                     continue;

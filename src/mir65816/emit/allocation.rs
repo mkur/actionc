@@ -29,6 +29,38 @@ pub(super) fn width(width: ByteSize) -> Result<u8, String> {
 }
 
 impl AllocatedFrame {
+    /// Unit selectors may deliberately test materialized fallback forms without
+    /// running the whole-routine demand selector. Give those fixtures real,
+    /// disjoint homes; production allocation must never use this path.
+    #[cfg(test)]
+    pub(super) fn materialized_fixture(routine: &Mir65816Routine) -> Result<Self, String> {
+        let mut frame = Self::stack(routine)?;
+        let mut cursor = u32::from(frame.extent) + 1;
+        for (id, ty) in &routine.temps {
+            if frame.temps.contains_key(id) {
+                continue;
+            }
+            let bytes = width(ty.width.ok_or("missing fixture width")?)?;
+            if bytes > 1 {
+                cursor = (cursor + 1) & !1;
+            }
+            frame.temps.insert(
+                *id,
+                Location::Stack(Slot {
+                    offset: cursor as u16,
+                    width: bytes,
+                }),
+            );
+            cursor += u32::from(bytes);
+        }
+        frame.extent = abi::stack::fixed_extent(ByteSize::new(cursor - 1))
+            .map_err(|e| e.to_string())?
+            .get() as u16;
+        frame.spill_bytes = frame.extent - routine.frame.extent.get() as u16;
+        frame.peak_below_entry = local_peak(routine, frame.extent)?;
+        Ok(frame)
+    }
+
     pub(super) fn new(routine: &Mir65816Routine) -> Result<Self, String> {
         if let Some(frame) = Self::pointer_leaf(routine)? {
             return Ok(frame);
@@ -211,6 +243,9 @@ impl AllocatedFrame {
             .flat_map(|b| &b.ops)
             .filter_map(super::liveness::pointer_copy)
         {
+            if demand.accumulator(source).is_some() || demand.accumulator(dest).is_some() {
+                continue;
+            }
             let source = self.temps[&source].stack()?;
             let dest = self.temps[&dest].stack()?;
             if overlap(source, dest) && source != dest {

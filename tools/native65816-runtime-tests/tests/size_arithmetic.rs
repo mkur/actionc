@@ -126,7 +126,18 @@ fn size_arithmetic_wraps_at_24_bits_and_preserves_exact_extents() {
 #[test]
 fn size_add_sub_match_ca65_without_scratch_or_a_fourth_byte() {
     for optimize in [false, true] {
-        let p = prepare(&source("SIZE"), optimize);
+        // Array stores retain complete result homes for this materialized-path
+        // oracle. Direct A/X returns are covered by home_demand.rs.
+        let source = source("SIZE")
+            .replace(
+                "RETURN(x+y)",
+                "SIZE ARRAY captured(1) captured(0)=x+y RETURN(captured(0))",
+            )
+            .replace(
+                "RETURN(x-y)",
+                "SIZE ARRAY captured(1) captured(0)=x-y RETURN(captured(0))",
+            );
+        let p = prepare(&source, optimize);
         let c = p.compile(&layout()).unwrap();
         for (name, carry, alu) in [("Add24", "clc", "adc"), ("Sub24", "sec", "sbc")] {
             let r = p.mir.routines.iter().find(|r| r.name == name).unwrap();
@@ -147,7 +158,12 @@ fn size_add_sub_match_ca65_without_scratch_or_a_fourth_byte() {
                     })
                 })
                 .unwrap();
-            let span = &m.code.mir_spans[&(block, index)];
+            let mut span = m.code.mir_spans[&(block, index)].clone();
+            // Array setup may leave A8. Compare the arithmetic after its
+            // explicit A16 entry so both implementations start in that mode.
+            if m.code.bytes[span.clone()].starts_with(&[0xc2, 0x20]) {
+                span.start += 2;
+            }
             let start = linked.address + span.start as u32;
             let end = linked.address + span.end as u32;
             // An omitted capture borrows the immutable parameter's original
