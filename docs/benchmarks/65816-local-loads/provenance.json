@@ -1,0 +1,19 @@
+{
+  "compiler_baseline": "b9b35d30",
+  "compiler_candidate": "b9b35d30 plus direct local loads in this commit",
+  "compiler_source_digest": "eed8310102f7a6c2b21d776f4ca863e73cb7c4561dc578a685e03bacd6786307",
+  "compiler_executable_sha256": "6a2a26e8c5e37723a0b31005898052ac72e0f2eaf1ffa546832df2fc519475f1",
+  "exec_revision": "134130bdb8ce1374ca7d5e6011ed98c4ccd62151",
+  "exec_input_count": 133,
+  "exec_input_digest": "751059513e938ac69f5d578219029b39347388dccda46797916d30d03eb7898d",
+  "baseline_image_sha256": "09282f6b4c91c9c92ccbb5940b30b4f489050abacb95cd1479516d29a37603ef",
+  "candidate_image_sha256": "fc84bf17b9de045252abe7a5cb567aaefd88b72d20d5b4ff51de3b575c2c685d",
+  "routine_bytes_before": 472442,
+  "routine_bytes_after": 472114,
+  "changed_routines": 34,
+  "grown_routines": 0,
+  "smaller_frames": 2,
+  "saved_bytes": 328,
+  "fixed_bank_zero_delta": 0,
+  "per_task_bank_zero_delta": 0
+}

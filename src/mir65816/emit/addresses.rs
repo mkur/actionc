@@ -260,6 +260,7 @@ impl Plan {
             for (i, op) in block.ops.iter().enumerate() {
                 if demand.producer(block.id, i).is_some()
                     || demand.consumer(block.id, i).is_some()
+                    || demand.locals.owns(block.id, i)
                     || liveness::operation_output(op).is_some_and(|id| demand.omits(id))
                 {
                     // Its exact direct access is selected into A; it has no

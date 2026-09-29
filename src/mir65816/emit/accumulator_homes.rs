@@ -9,13 +9,18 @@ impl home_demand::Plan {
         index: usize,
         op: &Mir65816Op,
     ) -> Result<bool, String> {
+        if self.locals.emit(b, block, index, op)? {
+            return Ok(true);
+        }
         if let Some(range) = self.producer(block, index) {
             let id = liveness::operation_output(op).ok_or("missing accumulator producer")?;
             if b.frame.temps.contains_key(&id) {
                 return Err("accumulator producer unexpectedly has a memory home".into());
             }
             b.code.barrier();
-            if range.bytes == 3 && b.address_expression(op)? { return Ok(true); }
+            if range.bytes == 3 && b.address_expression(op)? {
+                return Ok(true);
+            }
             match op {
                 Mir65816Op::Load { address, .. } => {
                     let source = b.prepare_address(address)?;

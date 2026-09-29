@@ -497,7 +497,12 @@ fn pointer_alias_demand_keeps_mutable_snapshots_across_writes() {
                     Mir65816AddressBase::Static(_) | Mir65816AddressBase::External(_)
                 )
             {
-                assert!(!plan.omits(*dest));
+                // Keep the snapshot in owned storage. It may now be captured
+                // directly in saved, but may never borrow the mutable global.
+                assert!(matches!(
+                    plan.decisions[dest],
+                    Decision::Memory(_) | Decision::LocalLoad
+                ));
             }
         }
         m.routines[0].frame.verify_stack(r).unwrap();
@@ -765,4 +770,99 @@ fn checked_store_permission_matches_source_extent_and_operation_scope() {
         }))
         .is_err()
     );
+}
+
+#[test]
+fn immediate_pointer_load_initializes_local_without_a_capture_home() {
+    for optimize in [false, true] {
+        let p = program(
+            "TYPE Node=[Node POINTER next,previous] TYPE Chain=[Node POINTER head,tail,previous] \
+             PROC Work(Chain POINTER chain Node POINTER item) LET first=chain.head \
+             item.previous=Node POINTER(@chain.head) item.next=first \
+             first.previous=item chain.head=item RETURN PROC Main() RETURN",
+            optimize,
+        );
+        let m = materialize(&p).unwrap();
+        let work = &m.routines[0];
+        let r = &m.prepared.routines[0];
+        let plan = Plan::new(r);
+        let captures: Vec<_> = plan.locals.temps().collect();
+        assert_eq!(captures.len(), 1);
+        assert_eq!(plan.decisions[&captures[0]], Decision::LocalLoad);
+        assert!(!work.frame.temps.contains_key(&captures[0]));
+        assert_eq!((work.frame.extent, work.frame.spill_bytes), (4, 0));
+        assert_eq!(work.code.bytes.len(), 146);
+        work.frame.verify_stack(r).unwrap();
+        for b in &r.blocks {
+            for (i, op) in b.ops.iter().enumerate() {
+                if matches!(op, Mir65816Op::Load { dest, .. } if captures.contains(dest)) {
+                    assert!(!work.code.mir_spans[&(b.id, i)].is_empty());
+                    assert!(work.code.mir_spans[&(b.id, i + 1)].is_empty());
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn direct_local_loads_keep_captures_for_escape_volatility_and_multiple_uses() {
+    // Multiple later uses keep the local present in both raw and optimized MIR.
+    let source = "TYPE Node=[Node POINTER next,previous] TYPE Chain=[Node POINTER head,tail,previous] \
+        PROC Work(Chain POINTER chain Node POINTER item) LET first=chain.head \
+        item.previous=Node POINTER(@chain.head) item.next=first \
+        first.previous=item chain.head=item RETURN PROC Main() RETURN";
+    for optimize in [false, true] {
+        let original = program(source, optimize);
+        assert_eq!(Plan::new(&original.routines[0]).locals.temps().count(), 1);
+        for variant in 0..4 {
+            let mut p = original.clone();
+            let r = &mut p.routines[0];
+            let index = r.blocks[0]
+                .ops
+                .windows(2)
+                .position(|ops| {
+                    matches!(
+                        (&ops[0], &ops[1]),
+                        (
+                            Mir65816Op::Load {
+                                address: Mir65816Address {
+                                    base: Mir65816AddressBase::Indirect(_),
+                                    ..
+                                },
+                                ..
+                            },
+                            Mir65816Op::Store {
+                                address: Mir65816Address {
+                                    base: Mir65816AddressBase::AutomaticFrame(_),
+                                    ..
+                                },
+                                ..
+                            }
+                        )
+                    )
+                })
+                .unwrap();
+            match variant {
+                0 => r.frame.objects[0].addressable = true,
+                1 => {
+                    if let Mir65816Op::Load { volatile, .. } = &mut r.blocks[0].ops[index] {
+                        *volatile = true;
+                    }
+                }
+                2 => {
+                    if let Mir65816Op::Store { volatile, .. } = &mut r.blocks[0].ops[index + 1] {
+                        *volatile = true;
+                    }
+                }
+                3 => {
+                    let extra = r.blocks[0].ops[index + 1].clone();
+                    r.blocks[0].ops.insert(index + 2, extra);
+                }
+                _ => unreachable!(),
+            }
+            let plan = Plan::new(r);
+            assert_eq!(plan.locals.temps().count(), 0, "{optimize}/{variant}");
+            materialize(&p).unwrap();
+        }
+    }
 }

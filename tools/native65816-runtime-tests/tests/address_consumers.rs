@@ -2,6 +2,123 @@ mod support;
 use support::*;
 
 #[test]
+fn loaded_list_head_goes_directly_to_local_with_aliases_and_relocation() {
+    use actionc::mir65816::o65 as format;
+    use actionc_vm::native65816::Access;
+    use std::collections::BTreeMap;
+    let source = "TYPE Node=[Node POINTER next,previous] TYPE Chain=[Node POINTER head,tail,previous] \
+        Chain POINTER chainInput=$7100 Node POINTER itemInput=$7104 \
+        PROC Work(Chain POINTER chain Node POINTER item) LET first=chain.head \
+        item.previous=Node POINTER(@chain.head) item.next=first \
+        first.previous=item chain.head=item RETURN PROC Main() Work(chainInput,itemInput) RETURN";
+    for optimize in [false, true] {
+        let prepared = prepare(source, optimize);
+        let image = prepared.compile(&layout()).unwrap().image;
+        let work = image.routines.iter().find(|r| r.name == "Work").unwrap();
+        assert_eq!((work.size, work.fixed_frame, work.spill_bytes), (146, 4, 0));
+        let bytes = prepared.compile_o65(&Default::default()).unwrap().bytes;
+        for variant in 0..3 {
+            let loaded = (variant > 0).then(|| {
+                format::relocate(
+                    &bytes,
+                    &o65::placement(&bytes, variant - 1, vec![o65::fault(variant - 1)]),
+                )
+                .unwrap()
+            });
+            for (chain, item, first) in [
+                (0x12fffeu32, 0x32fffcu32, 0x43fffeu32),
+                (0x12fffe, 0x32fffc, 0x130001), // Empty-list tail sentinel.
+                (0x12fffe, 0x32fffc, 0x32fffc),
+                (0x12fffe, 0x12fffe, 0x43fffe),
+            ] {
+                for mask in [0, 4] {
+                    let mut h = if let Some(l) = &loaded {
+                        Harness::new_o65(l, &caller(l.entry()), mask)
+                    } else {
+                        Harness::new(&image, &caller(image.entry), mask)
+                    };
+                    let regions = [0x12fff0..0x130030, 0x32fff0..0x330030, 0x43fff0..0x440030];
+                    for range in &regions {
+                        h.bus.map(range.start, &[0xa5; 64], true);
+                        h.bus.watched.extend(range.clone());
+                    }
+                    h.bus.ram[0x7100..0x7103].copy_from_slice(&chain.to_le_bytes()[..3]);
+                    h.bus.ram[0x7104..0x7107].copy_from_slice(&item.to_le_bytes()[..3]);
+                    h.bus.ram[chain as usize..chain as usize + 3]
+                        .copy_from_slice(&first.to_le_bytes()[..3]);
+                    let mut expected: BTreeMap<_, _> = regions
+                        .iter()
+                        .flat_map(|r| r.clone())
+                        .map(|a| (a, h.bus.ram[a as usize]))
+                        .collect();
+                    let mut trace: Vec<_> = (chain..chain + 3).map(|a| (a, Access::Read)).collect();
+                    for (at, value) in [
+                        (item + 3, chain),
+                        (item, first),
+                        (first + 3, item),
+                        (chain, item),
+                    ] {
+                        for byte in 0..3 {
+                            let value = (value >> (8 * byte)) as u8;
+                            expected.insert(at + byte, value);
+                            trace.push((at + byte, Access::Write(value)));
+                        }
+                    }
+                    h.run();
+                    h.guards(mask);
+                    for (at, value) in expected {
+                        assert_eq!(h.bus.ram[at as usize], value);
+                    }
+                    assert_eq!(
+                        h.bus
+                            .trace
+                            .iter()
+                            .map(|(_, at, op)| (*at, *op))
+                            .collect::<Vec<_>>(),
+                        trace
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn three_byte_local_snapshots_keep_source_reads_before_later_mutations() {
+    for ty in ["BYTE POINTER", "ADDRESS", "SIZE"] {
+        for volatile in ["", "VOLATILE "] {
+            // The source language rejects VOLATILE pointer declarations;
+            // pointer volatility is covered by the MIR admission regression.
+            if ty == "BYTE POINTER" && !volatile.is_empty() {
+                continue;
+            }
+            let source = format!(
+                "{volatile}{ty} input=$7200 {ty} output=$7300 \
+                PROC Work() LET saved=input input={ty}(0) output=saved RETURN PROC Main() Work() RETURN"
+            );
+            for optimize in [false, true] {
+                let image = compile(&source, optimize);
+                let mut h = Harness::new(&image, &caller(image.entry), 0);
+                h.bus.ram[0x7200..0x7203].copy_from_slice(&[0xcd, 0xab, 0x89]);
+                h.run();
+                h.guards(0);
+                assert_eq!(h.bus.value(0x7300, 3), 0x89abcd);
+                assert_eq!(h.bus.value(0x7200, 3), 0);
+                assert_eq!(
+                    h.bus
+                        .reads
+                        .iter()
+                        .filter(|a| (0x7200..0x7203).contains(*a))
+                        .copied()
+                        .collect::<Vec<_>>(),
+                    [0x7200, 0x7201, 0x7202]
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn list_initialization_stages_one_base_and_writes_exact_fields_across_banks() {
     let source = "TYPE Links=[Links POINTER head,tail,previous] Links POINTER input=$7100 \
         PROC Work(Links POINTER p) p.head=Links POINTER(@p.tail) p.tail=NULL \
@@ -360,7 +477,8 @@ fn address_store_and_cached_base_lifetimes_survive_irq_nmi_and_reentry() {
         TYPE Source=[BYTE ARRAY padding(3) BYTE last]
         TYPE Job=[Source POINTER item BYTE done ADDRESS result BYTE POINTER peer CARD left,right,sum]
         PROC Fill(Job POINTER work Source POINTER item)
-          work.result=ADDRESS(@item.last)
+          LET saved=work.item
+          work.result=ADDRESS(@saved.last)
           work.sum=work.left+work.right
         RETURN
         CARD FUNC Dispatch(CARD saved BYTE reason)
@@ -393,7 +511,7 @@ fn address_store_and_cached_base_lifetimes_survive_irq_nmi_and_reentry() {
         for (job, input, peer, left, right) in [
             (0x7100usize, 0xfffffeu32, 0x7123u32, 5u16, 9u16),
             (0x7120, 0x12ffff, 0x7103, 255, 65535),
-            (0x7140, 0, 0, 7, 11),
+            (0x7140, 0xffffff, 0, 7, 11),
         ] {
             h.bus.ram[job..job + 3].copy_from_slice(&input.to_le_bytes()[..3]);
             h.bus.ram[job + 7..job + 10].copy_from_slice(&peer.to_le_bytes()[..3]);

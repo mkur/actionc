@@ -60,6 +60,8 @@ mod constant_stores;
 mod direct_assignments;
 #[path = "integer_casts.rs"]
 mod integer_casts;
+#[path = "local_loads.rs"]
+pub(super) mod local_loads;
 #[path = "long_arithmetic.rs"]
 mod long_arithmetic;
 #[path = "long_order.rs"]

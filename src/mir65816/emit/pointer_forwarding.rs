@@ -113,7 +113,10 @@ fn incoming(
     }))
 }
 
-fn local(routine: &Mir65816Routine, address: &Mir65816Address) -> Result<Option<Source>, String> {
+pub(super) fn local(
+    routine: &Mir65816Routine,
+    address: &Mir65816Address,
+) -> Result<Option<Source>, String> {
     let Mir65816AddressBase::AutomaticFrame(id) = address.base else {
         return Ok(None);
     };

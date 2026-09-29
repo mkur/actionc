@@ -1103,6 +1103,23 @@ alignment, incoming offsets, staging and peak usage are recomputed from actual
 storage. The native ABI and stack-check policy are unchanged. See the
 [storage-demand plan](MIR65816_STORAGE_DEMAND_PLAN.md).
 
+A nonvolatile, unindexed three-byte load followed immediately by its only
+consumer, a complete store to an unexposed local, may write directly into that
+local's final home. This applies to pointers, ADDRESS and SIZE. The planner
+counts definitions and every use before allocation, and reuses the existing
+routine-wide local ownership proof: no address escape, aggregate copy,
+partial/volatile access or overlapping frame object. The source read remains
+at its original site with the same byte extent and order. Only private stores
+change destination; the following local-copy operation emits no instructions.
+The local itself retains the snapshot across later source mutations and calls.
+
+The temporary receives no allocation or fictitious alias home; frame sizes,
+incoming offsets and guards follow the resulting layout. Allocation verification
+recomputes this admission alongside register and borrowed-home decisions.
+Volatile/indexed accesses, address-taken locals, multiple uses/definitions and
+nonadjacent consumers retain captures. Existing borrowing selections and the
+closed scalar/pointer DP allocation profiles keep their established schedules.
+
 Values live across calls and helpers remain on the invocation's stack, outside
 call-clobbered registers and DP scratch. Allocation is deterministic (descending
 width, then interference count, then ID; first available aligned byte range),

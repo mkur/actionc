@@ -32,11 +32,13 @@ pub(super) enum Decision {
     Memory(MemoryReason),
     Accumulator(Accumulator),
     Borrowed,
+    LocalLoad,
 }
 
 pub(super) struct Plan {
     pub decisions: BTreeMap<TempId, Decision>,
     pub(super) pointers: select::pointer_forwarding::Plan,
+    pub(super) locals: select::local_loads::Plan,
     producers: BTreeMap<(BlockId, usize), TempId>,
     consumers: BTreeMap<(BlockId, usize), TempId>,
 }
@@ -142,6 +144,7 @@ impl Plan {
                 .map(|(id, _)| (*id, Decision::Memory(MemoryReason::UnsupportedProducer)))
                 .collect(),
             pointers: select::pointer_forwarding::Plan::default(),
+            locals: select::local_loads::Plan::default(),
             producers: BTreeMap::new(),
             consumers: BTreeMap::new(),
         };
@@ -389,7 +392,8 @@ impl Plan {
         // Plan on the conservative pre-borrowing layout, then allocate only
         // demanded homes. Compaction cannot increase incoming displacements.
         // Closed DP profiles retain ownership of their complete allocation.
-        if AllocatedFrame::pointer_leaf(r).ok().flatten().is_none()
+        let pointer_leaf = AllocatedFrame::pointer_leaf(r).ok().flatten().is_some();
+        if !pointer_leaf
             && let Ok(preview) = AllocatedFrame::layout(r, &plan)
             && let Ok(pointers) = select::pointer_forwarding::Plan::new(r, &preview)
         {
@@ -398,6 +402,12 @@ impl Plan {
             }
             plan.pointers = pointers;
         }
+        if !pointer_leaf {
+            plan.locals = select::local_loads::Plan::new(r, &plan, &counts, &definitions);
+            for id in plan.locals.temps() {
+                plan.decisions.insert(id, Decision::LocalLoad);
+            }
+        }
         plan.select_pointer_stores(r, &counts, &definitions);
         plan
     }
@@ -405,7 +415,7 @@ impl Plan {
     pub fn omits(&self, id: TempId) -> bool {
         matches!(
             self.decisions.get(&id),
-            Some(Decision::Accumulator(_) | Decision::Borrowed)
+            Some(Decision::Accumulator(_) | Decision::Borrowed | Decision::LocalLoad)
         )
     }
 
