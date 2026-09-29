@@ -5,6 +5,7 @@ mod analysis;
 mod coalescing;
 mod copies;
 mod effects;
+mod forwarding;
 mod home_demand;
 pub(super) mod layout;
 mod liveness;
@@ -89,6 +90,7 @@ fn materialize_path(
     }
     let prepared = arithmetic::prepare(program)?;
     let program = &prepared;
+    let forwarding = forwarding::plans(program);
     let mut routines = Vec::new();
     for routine in &program.routines {
         // External Action! interfaces are linked to explicitly described assembly.
@@ -100,6 +102,10 @@ fn materialize_path(
                 "{}: fixed/current-location routine placement is unsupported",
                 routine.name
             ));
+        }
+        if let Some(plan) = forwarding.get(&routine.id) {
+            routines.push(plan.emit(program, routine, trace)?);
+            continue;
         }
         routines.push(
             select::routine_with_data(

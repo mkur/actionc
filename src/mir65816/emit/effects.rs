@@ -103,6 +103,7 @@ pub enum Control {
     Call {
         target: Option<Target>,
     },
+    Forward(Target),
     Return,
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -579,6 +580,20 @@ impl Instruction {
             }
             Self::IndirectTransfer(ref contract) => e.call(contract.as_ref(), None, true),
             Self::NativeCall(target, ref contract) => e.call(Some(contract), Some(target), false),
+            Self::NativeForward(ref plan) => {
+                e.environment_reads |= env::ALL;
+                e.environment_writes |= env::PC | env::PBR;
+                // Boundary dependencies, not new pushes: the destination
+                // inherits these bytes from the original caller.
+                e.stack(Access::Read, 1, 3);
+                for home in plan.arguments() {
+                    if let Mir65816AbiHome::StackArgument { offset, size, .. } = home {
+                        e.stack(Access::Read, 4 + offset.get() as i32, size.get() as u16);
+                    }
+                }
+                e.control = Control::Forward(Target::Routine(plan.target()));
+                e.barrier = true;
+            }
             Self::NativeReturn(result) => {
                 e.reads = result_registers(result);
                 e.stack(Access::Read, 1, 3);

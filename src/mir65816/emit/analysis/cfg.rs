@@ -158,7 +158,7 @@ impl SelectedCfg {
                         _ => {}
                     }
                     match effects.control {
-                        Control::Jump(_) | Control::Return => live = false,
+                        Control::Jump(_) | Control::Return | Control::Forward(_) => live = false,
                         Control::Call { target: None } => {
                             if continuation.is_none() {
                                 return Err("indirect call without continuation".into());
@@ -241,6 +241,7 @@ impl SelectedCfg {
                     Control::Jump(Target::Label(l)) => vec![label(l)?],
                     Control::Jump(Target::StackOverflow | Target::ArithmeticFault) => vec![faults],
                     Control::Return => vec![returns],
+                    Control::Forward(_) => vec![],
                     Control::Jump(_) => return Err("unsupported selected transfer boundary".into()),
                 },
                 _ => vec![next],
@@ -448,6 +449,11 @@ fn validate_instruction(r: &Record, form: &Instruction) -> Result<(), String> {
             expected.dbr = Some(0);
             expected.current_domain = true;
         }
+        Instruction::NativeForward(_) => {
+            if before != super::super::state::State65816::default().env {
+                return Err("selected forwarding transfer changed its entry environment".into());
+            }
+        }
         Instruction::NativeReturn(_) | Instruction::Implied(Implied::Rtl) => {
             if before.depth != 0
                 || before.pushes != 0
@@ -572,6 +578,7 @@ pub(in crate::mir65816::emit) fn reconcile(records: &[Record], code: &Code) -> R
                     reference(op.opcode(), *target, *addend, *byte)
                 }
                 Instruction::NativeCall(target, _) => reference(0x22, *target, 0, None),
+                Instruction::NativeForward(plan) => reference(0x5c, Target::Routine(plan.target()), 0, None),
                 Instruction::ArgumentPush => vec![0x48],
                 Instruction::ArgumentPushWord(value) => {
                     let [lo, hi] = value.to_le_bytes();

@@ -44,6 +44,8 @@ pub(super) enum Instruction {
     ArgumentPushWord(u16),
     IndirectTransfer(Option<CallContract>),
     NativeCall(Target, CallContract),
+    /// Terminal transfer inherits the original caller's arguments and return.
+    NativeForward(Box<super::forwarding::Plan>),
     NativeReturn(Option<ResultLocation>),
 }
 

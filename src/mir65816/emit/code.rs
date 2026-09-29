@@ -92,6 +92,15 @@ pub struct Code {
 }
 
 impl Code {
+    /// Selected terminal dependency; it creates no local call reservation.
+    pub fn forwarding_target(&self) -> Option<RoutineId> {
+        use super::super::selected::{Action, Instruction};
+        self.selected.as_ref()?.records().iter().find_map(|r| match &r.action {
+            Action::Instruction { form: Instruction::NativeForward(plan), .. } => Some(plan.target()),
+            _ => None,
+        })
+    }
+
     pub(super) fn label(&mut self) -> Label {
         let label = Label(self.next_label);
         self.next_label += 1;

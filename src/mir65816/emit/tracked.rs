@@ -744,6 +744,15 @@ impl TrackedEmitter65816 {
                 self.emit_reference(ReferenceOp::Jsl, target, 0, None)
             }
             Instruction::NativeReturn(_) => self.emit_implied(Implied::Rtl),
+            Instruction::NativeForward(ref plan) => {
+                self.live();
+                if self.state.env != State65816::default().env || self.x_reserved {
+                    return Err("forwarding transfer requires the unchanged native entry".into());
+                }
+                self.code.reference(ReferenceOp::Jml.opcode(), Target::Routine(plan.target()), 0, None);
+                self.unreachable = true;
+                self.observe();
+            }
         }
         self.recording.add(
             Action::Instruction {

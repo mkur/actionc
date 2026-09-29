@@ -787,6 +787,7 @@ pub fn link(
                 .blocks
                 .iter()
                 .flat_map(|b| &b.ops)
+                .filter(|_| r.code.forwarding_target().is_none())
                 .filter_map(|op| {
                     if let Mir65816Op::Call { plan, .. } = op {
                         Some(CallCost {

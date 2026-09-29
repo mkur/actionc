@@ -29,6 +29,34 @@ pub(super) fn width(width: ByteSize) -> Result<u8, String> {
 }
 
 impl AllocatedFrame {
+    pub(super) fn forwarding(
+        program: &Mir65816Program,
+        routine: &Mir65816Routine,
+        plan: &super::forwarding::Plan,
+    ) -> Result<Self, String> {
+        let frame = Self {
+            extent: 0, spill_bytes: 0, peak_below_entry: 0,
+            temps: BTreeMap::new(), edge_copies: Vec::new(),
+        };
+        frame.verify_forwarding(program, routine, plan)?;
+        Ok(frame)
+    }
+
+    pub(super) fn verify_forwarding(
+        &self,
+        program: &Mir65816Program,
+        routine: &Mir65816Routine,
+        plan: &super::forwarding::Plan,
+    ) -> Result<(), String> {
+        // Recompute the complete correspondence and cycle proof. Empty homes
+        // alone never authorize removing frame allocation or entry checks.
+        plan.verify(program, routine)?;
+        if self.extent != 0 || self.spill_bytes != 0 || self.peak_below_entry != 0
+            || !self.temps.is_empty() || !self.edge_copies.is_empty()
+        { return Err("forwarding wrapper must have zero local storage and peak".into()); }
+        Ok(())
+    }
+
     /// Unit selectors may deliberately test materialized fallback forms without
     /// running the whole-routine demand selector. Give those fixtures real,
     /// disjoint homes; production allocation must never use this path.
