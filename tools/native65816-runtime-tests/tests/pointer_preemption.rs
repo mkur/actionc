@@ -139,11 +139,15 @@ fn every_enabled_pointer_leaf_instruction_preserves_both_tasks_and_irq_scratch()
             h.tick(Inputs::default());
         }
         check(&h);
-        assert!(
-            seen.len() >= 80,
-            "only {} task/instruction sites",
-            seen.len()
-        );
+        // Empty-frame entries no longer contain the reservation guard. Prove
+        // coverage in both tasks rather than requiring obsolete instruction
+        // counts from a longer implementation.
+        let sites = |domain| seen.iter().filter_map(|&(d, pc)| (d == domain).then_some(pc))
+            .collect::<BTreeSet<_>>();
+        let first = sites(0x2000);
+        assert!(first.contains(&address));
+        assert!(first.contains(&(end - 1))); // RTL is also an interrupt boundary.
+        assert_eq!(first, sites(0x2100));
         eprintln!(
             "pointer leaf optimize={optimize}: {} task/instruction IRQ sites",
             seen.len()

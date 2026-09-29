@@ -1,6 +1,7 @@
 # Resident pointers in bounded 65816 leaf routines
 
-Status: slices 1 and 2 implemented; integration qualification pending.
+Status: all three slices implemented and qualified for the affected compiler/native paths.
+Two unrelated full-repository failures are recorded in the result below.
 
 ## Goal and baseline
 
@@ -22,8 +23,8 @@ same 24-bit value as `chain` and needs no additional slot or copy.
 
 The [current listing](benchmarks/65816-local-loads/addhead.asm) is measured
 compiler output. The proposed assembly has been assembled to confirm 96 bytes;
-it still needs execution qualification. Measure cycles under the same native
-harness; do not infer a cycle count from code size. The size and zero-frame
+slice 3 now qualifies it against generated code. Measure cycles under the same
+native harness; do not infer a cycle count from code size. The size and zero-frame
 target apply to optimized NIR. Raw NIR must remain correct and retain its
 existing conservative fallback where private locals are not promoted.
 
@@ -205,3 +206,30 @@ local-load fixture's conservative (non-Native65816) optimization policy.
 Native checks cover raw/optimized AddHead, aliases, the empty-list sentinel,
 exact accesses, relocation and context reentry. Shared NIR/repository checks
 are batched with final integration. Reserved bank-zero delta: 0 fixed / 0 per task.
+
+## Slice 3 result
+
+Generated AddHead matches the independent reference at **96 bytes / 195 cycles**,
+versus **146 bytes / 277 cycles** for the retained raw stack path. Its frame,
+spill storage and local stack peak are zero. Raw and optimized execution match
+an exact memory oracle for separate banks, overlapping nodes, the empty-list
+sentinel and LF/CRLF fixtures. IRQ injection covers all 96 optimized and 140 raw
+(task, instruction) sites, with NMI and dispatcher reentry.
+
+The same 133 Exec inputs produce **472,064 routine-code bytes**, down from
+472,114. Only AddHead changes; nothing grows. All 960 frame maps pass. The
+[measurement record](benchmarks/65816-resident-pointers/README.md) includes the
+assembly, per-routine table, compiler/input hashes and validation details.
+
+All 46 native cases in the eleven affected targets pass in debug (focused
+batches) and release (one qualification run). The 337-case backend unit set
+passes across its batch and fixture follow-up; 28 emission integration cases,
+seven promotion cases, NIR snapshots and the 51-fixture NIR sweep pass. The
+full repository run exposed two unrelated remaining failures: `nir_corpus`
+expects an obsolete total of 362 instead of 363 successful fixtures, and
+`samples` cannot resolve SHARED.SCREEN from the pre-existing untracked VBXE
+sample. Those sources were left unchanged. Earlier failures of old home-demand,
+coalescing and IRQ-site-count assumptions were corrected in their fixtures.
+
+Final reserved bank-zero delta: **0 fixed bytes / 0 bytes per task**. No ABI,
+image format, Exec compiler pin, play image or hosted qualification is changed.

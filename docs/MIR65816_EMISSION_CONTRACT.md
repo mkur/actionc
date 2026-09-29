@@ -952,18 +952,38 @@ subset; banked MMIO uses explicit pointers.
 
 Temporary locations explicitly distinguish stack and direct-page homes. The
 selector consumes a verified pointer-leaf plan when eligible. Its whitelist admits
-only a single bounded block of ordinary three-byte pointer loads/stores and a
-void return, with no indexes or calls. These operations may touch only their
-allocated homes and addressed memory. The default sequence uses A/Y/flags and
-closed def/use intervals, with three deterministic ABI slots (D+0, D+3, D+6).
+a single bounded block (at most 64 operations) of ordinary three-byte pointer
+loads/stores and a void return, with no indexes or calls. These operations may
+touch only their allocated homes and addressed memory. The default sequence
+uses A/Y/flags and closed def/use intervals, with three deterministic ABI slots
+at D+$80, D+$83 and D+$86.
+
+With no remaining object frame, the same plan also admits representation-preserving
+data-pointer casts, data-pointer/ADDRESS conversions, and zero-displacement
+unindexed addresses through captured pointers. It proves identities from typed
+MIR, never from width alone or equal runtime contents. A complete identity group
+shares one home and the union of its uses, including simultaneous uses as address
+and data. Every temporary retains its logical type/ID and truthful physical map.
+Same-home casts/addresses emit no transfer and cannot enter generic address
+construction using resident scratch. Unpromoted object frames retain the smaller
+borrowed/direct-local stack path for routines containing these identities; the
+original load/store-only DP admission is unchanged.
+
+The verifier rebuilds identities and group lifetimes independently. Closed DP
+allocation owns the entire home-demand plan, so borrowed reads, local-load
+forwarding and expression consumers cannot also claim its operations. No object
+load is replaced by an identity: public reads remain complete ordered snapshots.
+Taking a local/parameter's storage address is outside this identity extension.
 
 If that assignment exceeds three slots, one bounded exception can avoid the
 whole-routine stack fallback: a three-byte indirect load may reuse its dying
-base's complete DP home. The verifier checks the exact defining load, last use,
-widths, identities, slot ownership, all other live ranges and frame accounting.
+base's complete DP home. Every alias of that base must die at the same operation
+or earlier. The verifier checks the exact defining load, group last use, widths,
+identities, slot ownership, all other live ranges and frame accounting.
 Selection rechecks that exact operation before emitting any instruction. Calls,
-volatile accesses, indexes, joins, non-pointer values and function results remain
-outside the whitelist; unproved pressure still rejects the entire candidate.
+volatile accesses, indexes, joins, unrelated scalar values, nonzero address
+arithmetic and function results remain outside the whitelist; unproved pressure
+still rejects the entire candidate.
 
 The exceptional sequence captures the low word in X16, then the bank byte in
 A8, before writing any destination byte. It writes the private bank byte first,

@@ -95,7 +95,11 @@ fn coalesced_pointer_casts_have_empty_spans_and_exact_replay() {
                     {
                         if from.get() == 3
                             && to.get() == 3
-                            && m.frame.temps[dest] == m.frame.temps[source]
+                            && (matches!((m.frame.temps.get(dest), m.frame.temps.get(source)),
+                                (Some(a), Some(b)) if a == b)
+                                // Borrowed identities have no owned temporary
+                                // home; they must also emit no cast transfer.
+                                || !m.frame.temps.contains_key(dest))
                         {
                             assert!(m.code.mir_spans[&(b.id, i)].is_empty());
                             removed += 1;
