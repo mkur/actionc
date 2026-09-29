@@ -441,6 +441,11 @@ Checked Exec code must verify that each impending reservation's lowest S is
 at least stack_floor **before** changing S or pushing. A proven combined check
 can cover several operations. Account for F, O, direct-call return bytes (3),
 indirect transfer peak (6), temporary pushes and every callee's own checks.
+An empty frame reserves nothing and needs no entry guard or S adjustment.
+Its caller or platform entry stub must supply a valid native stack, return
+record and arguments. Calls inside such a routine still check their own complete
+reservation. Stack checks need not diagnose an invalid S on entry to an empty
+leaf that makes no further reservation.
 The entry stubs above have no extra pushes before switching stacks; changing
 that sequence changes H. The NMI handler has a published instruction/stack
 bound. Overflow transfers with JML to `__a816_stack_overflow_v2`, without

@@ -75,7 +75,11 @@ fn unchecked_emission_removes_entry_and_call_checks_but_keeps_stack_contract() {
             (b.task_headroom, b.irq_headroom)
         );
         for (x, y) in a.routines.iter().zip(&b.routines) {
-            assert!(y.size < x.size);
+            if x.fixed_frame != 0 || !x.calls.is_empty() {
+                assert!(y.size < x.size);
+            } else {
+                assert_eq!(y.size, x.size);
+            }
             assert_eq!(
                 (x.fixed_frame, x.local_stack_peak, x.outgoing_bytes),
                 (y.fixed_frame, y.local_stack_peak, y.outgoing_bytes)
@@ -268,7 +272,7 @@ fn native_word_comparisons_keep_byte_result_homes_frames_and_guard_budgets() {
 }
 
 #[test]
-fn native_word_identity_uses_zero_frame_and_retains_entry_guard() {
+fn native_word_identity_uses_zero_frame_without_entry_instructions() {
     for optimize in [false, true] {
         let program = mir(
             "CARD FUNC Echo(CARD value) RETURN(value) PROC Main() RETURN",
@@ -277,7 +281,15 @@ fn native_word_identity_uses_zero_frame_and_retains_entry_guard() {
         let machine = emit::materialize(&program).unwrap();
         let image = image::link(&program, &machine, &layout()).unwrap();
         let echo = image.routines.iter().find(|r| r.name == "Echo").unwrap();
-        assert!(echo.size <= 70, "{optimize}: {} bytes", echo.size);
+        let code = &machine
+            .routines
+            .iter()
+            .find(|r| r.id.0 == echo.id)
+            .unwrap()
+            .code;
+        assert_eq!(&code.bytes[..2], &[0xa3, 4]); // Starts directly with the incoming load.
+        assert!(code.bytes.len() <= 5); // Optional existing DP capture, then RTL.
+        assert!(code.fixups.is_empty());
         assert_eq!(
             (echo.fixed_frame, echo.spill_bytes, echo.local_stack_peak),
             (0, 0, 0)
@@ -291,6 +303,17 @@ fn native_word_identity_uses_zero_frame_and_retains_entry_guard() {
             [(0, 4, 2)]
         );
         assert!(echo.calls.is_empty());
+        let empty = machine
+            .routines
+            .iter()
+            .find(|r| {
+                program
+                    .routines
+                    .iter()
+                    .any(|p| p.id == r.id && p.name == "Main")
+            })
+            .unwrap();
+        assert_eq!(empty.code.bytes, [0x6b]);
     }
 }
 
@@ -518,10 +541,14 @@ fn reused_stack_homes_keep_the_incoming_last_byte_at_255() {
     // incoming word at 254..255; another two bytes must still be rejected.
     for (padding, accepted) in [(250, true), (252, false)] {
         let source = format!(
-                "CARD FUNC Edge(CARD n) BYTE ARRAY padding({padding}) RETURN(n+1+2+3+4) PROC Main() RETURN"
-            );
+            "CARD FUNC Edge(CARD n) BYTE ARRAY padding({padding}) RETURN(n+1+2+3+4) PROC Main() RETURN"
+        );
         let ast = parser::parse(&lexer::tokenize(&source).unwrap()).unwrap();
-        let model = semantic::analyze_with_options(&ast, semantic::SemanticOptions::modern().with_target(TargetId::Wdc65816Native)).unwrap();
+        let model = semantic::analyze_with_options(
+            &ast,
+            semantic::SemanticOptions::modern().with_target(TargetId::Wdc65816Native),
+        )
+        .unwrap();
         let nir = nir::lower_program(&semantic::ir::lower_program(&ast, &model));
         let program = mir65816::lower_program(&nir);
         if accepted {

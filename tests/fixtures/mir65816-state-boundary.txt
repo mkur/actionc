@@ -1,10 +1,10 @@
 accumulator_forwarding.act/false/RoutineId(0)
 frame=AllocatedFrame { extent: 0, spill_bytes: 0, peak_below_entry: 0, temps: {TempId(0): DirectPage(Slot { offset: 162, width: 2 }), TempId(1): DirectPage(Slot { offset: 160, width: 2 }), TempId(2): DirectPage(Slot { offset: 162, width: 2 }), TempId(3): DirectPage(Slot { offset: 160, width: 2 }), TempId(4): DirectPage(Slot { offset: 162, width: 2 })}, edge_copies: [] }
-bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 00, 00, 90, 04, c5, c4, b0, 07, a9, 00, 00, 5c, 00, 00, 00, 1b, a3, 04, 85, a2, 18, 69, 01, 00, 85, a0, 18, 69, 02, 00, 85, a2, 38, e9, 03, 00, 85, a0, 18, 69, ff, ff, 85, a2, 6b]
-labels={Label(0): 28, Label(1): 10, Label(2): 20, Label(3): 27}
-fixups=[Fixup { offset: 24, target: StackOverflow, addend: 0, byte: None }]
+bytes=[a3, 04, 85, a2, 18, 69, 01, 00, 85, a0, 18, 69, 02, 00, 85, a2, 38, e9, 03, 00, 85, a0, 18, 69, ff, ff, 85, a2, 6b]
+labels={Label(0): 0}
+fixups=[]
 returns=[]
-spans={(BlockId(0), 0): 28..32, (BlockId(0), 1): 32..38, (BlockId(0), 2): 38..44, (BlockId(0), 3): 44..50, (BlockId(0), 4): 50..56, (BlockId(0), 5): 56..57}
+spans={(BlockId(0), 0): 0..4, (BlockId(0), 1): 4..10, (BlockId(0), 2): 10..16, (BlockId(0), 3): 16..22, (BlockId(0), 4): 22..28, (BlockId(0), 5): 28..29}
 accumulator_forwarding.act/false/RoutineId(1)
 frame=AllocatedFrame { extent: 2, spill_bytes: 2, peak_below_entry: 2, temps: {TempId(0): DirectPage(Slot { offset: 160, width: 2 }), TempId(1): DirectPage(Slot { offset: 162, width: 2 }), TempId(2): Stack(Slot { offset: 1, width: 1 }), TempId(3): DirectPage(Slot { offset: 160, width: 2 }), TempId(4): DirectPage(Slot { offset: 160, width: 2 })}, edge_copies: [] }
 bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 02, 00, 90, 04, c5, c4, b0, 07, a9, 02, 00, 5c, 00, 00, 00, 1b, a3, 06, 85, a0, a3, 08, c5, a0, 90, 02, 80, 11, c2, 20, a3, 06, 85, a0, c2, 20, a8, 3b, 18, 69, 02, 00, 1b, 98, 6b, a3, 08, 85, a0, 80, ef]
@@ -28,11 +28,11 @@ returns=[]
 spans={(BlockId(0), 0): 28..32, (BlockId(0), 1): 32..83, (BlockId(0), 2): 83..89, (BlockId(0), 3): 89..95, (BlockId(0), 4): 95..101, (BlockId(0), 5): 101..155, (BlockId(0), 6): 155..161, (BlockId(0), 7): 161..165, (BlockId(0), 8): 165..212, (BlockId(0), 9): 212..226, (BlockId(0), 10): 226..234, (BlockId(0), 11): 234..240, (BlockId(0), 12): 240..246, (BlockId(0), 13): 246..260, (BlockId(0), 14): 260..272, (BlockId(0), 15): 272..280, (BlockId(0), 16): 280..287}
 accumulator_forwarding.act/true/RoutineId(0)
 frame=AllocatedFrame { extent: 0, spill_bytes: 0, peak_below_entry: 0, temps: {TempId(0): DirectPage(Slot { offset: 160, width: 2 }), TempId(4): DirectPage(Slot { offset: 162, width: 2 })}, edge_copies: [] }
-bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 00, 00, 90, 04, c5, c4, b0, 07, a9, 00, 00, 5c, 00, 00, 00, 1b, a3, 04, 85, a0, 18, 69, ff, ff, 85, a2, 6b]
-labels={Label(0): 28, Label(1): 10, Label(2): 20, Label(3): 27}
-fixups=[Fixup { offset: 24, target: StackOverflow, addend: 0, byte: None }]
+bytes=[a3, 04, 85, a0, 18, 69, ff, ff, 85, a2, 6b]
+labels={Label(0): 0}
+fixups=[]
 returns=[]
-spans={(BlockId(0), 0): 28..32, (BlockId(0), 1): 32..38, (BlockId(0), 2): 38..39}
+spans={(BlockId(0), 0): 0..4, (BlockId(0), 1): 4..10, (BlockId(0), 2): 10..11}
 accumulator_forwarding.act/true/RoutineId(1)
 frame=AllocatedFrame { extent: 2, spill_bytes: 2, peak_below_entry: 2, temps: {TempId(0): DirectPage(Slot { offset: 160, width: 2 }), TempId(1): DirectPage(Slot { offset: 162, width: 2 }), TempId(2): Stack(Slot { offset: 1, width: 1 }), TempId(3): DirectPage(Slot { offset: 160, width: 2 }), TempId(4): DirectPage(Slot { offset: 160, width: 2 })}, edge_copies: [] }
 bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 02, 00, 90, 04, c5, c4, b0, 07, a9, 02, 00, 5c, 00, 00, 00, 1b, a3, 06, 85, a0, a3, 08, c5, a0, 90, 02, 80, 11, c2, 20, a3, 06, 85, a0, c2, 20, a8, 3b, 18, 69, 02, 00, 1b, 98, 6b, a3, 08, 85, a0, 80, ef]
@@ -63,11 +63,11 @@ returns=[]
 spans={(BlockId(0), 0): 40..50, (BlockId(0), 1): 50..56, (BlockId(0), 2): 56..56, (BlockId(1), 0): 56..60, (BlockId(1), 1): 60..70, (BlockId(1), 2): 70..82, (BlockId(2), 0): 82..86, (BlockId(2), 1): 86..88, (BlockId(2), 2): 88..91, (BlockId(2), 3): 91..93, (BlockId(2), 4): 93..95, (BlockId(2), 5): 95..99, (BlockId(2), 6): 99..101, (BlockId(2), 7): 101..103, (BlockId(3), 0): 103..105, (BlockId(3), 1): 105..114}
 code_quality/sum_loop.act/false/RoutineId(1)
 frame=AllocatedFrame { extent: 0, spill_bytes: 0, peak_below_entry: 0, temps: {}, edge_copies: [] }
-bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 00, 00, 90, 04, c5, c4, b0, 07, a9, 00, 00, 5c, 00, 00, 00, 1b, 6b]
-labels={Label(0): 28, Label(1): 10, Label(2): 20, Label(3): 27}
-fixups=[Fixup { offset: 24, target: StackOverflow, addend: 0, byte: None }]
+bytes=[6b]
+labels={Label(0): 0}
+fixups=[]
 returns=[]
-spans={(BlockId(0), 0): 28..29}
+spans={(BlockId(0), 0): 0..1}
 code_quality/sum_loop.act/true/RoutineId(0)
 frame=AllocatedFrame { extent: 6, spill_bytes: 2, peak_below_entry: 6, temps: {TempId(1): DirectPage(Slot { offset: 160, width: 2 }), TempId(3): Stack(Slot { offset: 5, width: 1 }), TempId(4): DirectPage(Slot { offset: 164, width: 2 }), TempId(6): DirectPage(Slot { offset: 160, width: 2 }), TempId(7): DirectPage(Slot { offset: 162, width: 2 }), TempId(8): DirectPage(Slot { offset: 164, width: 2 }), TempId(10): DirectPage(Slot { offset: 162, width: 2 })}, edge_copies: [] }
 bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 06, 00, 90, 04, c5, c4, b0, 07, a9, 06, 00, 5c, 00, 00, 00, 1b, e2, 20, a3, 0a, 83, 02, a3, 0b, 83, 03, c2, 20, a9, 00, 00, 85, a2, a3, 02, 85, a0, d0, 02, 80, 1f, c2, 20, a3, 02, 85, a4, a5, a2, 18, 65, a4, 85, a0, a3, 02, 85, a2, 38, e9, 01, 00, 85, a4, 83, 02, a5, a0, 85, a2, 80, d9, a5, a2, a8, 3b, 18, 69, 06, 00, 1b, 98, 6b]
@@ -77,11 +77,11 @@ returns=[]
 spans={(BlockId(0), 0): 40..45, (BlockId(1), 0): 45..49, (BlockId(1), 1): 49..55, (BlockId(2), 0): 55..59, (BlockId(2), 1): 59..66, (BlockId(2), 2): 66..70, (BlockId(2), 3): 70..76, (BlockId(2), 4): 76..78, (BlockId(2), 5): 78..84, (BlockId(3), 0): 84..95}
 code_quality/sum_loop.act/true/RoutineId(1)
 frame=AllocatedFrame { extent: 0, spill_bytes: 0, peak_below_entry: 0, temps: {}, edge_copies: [] }
-bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 00, 00, 90, 04, c5, c4, b0, 07, a9, 00, 00, 5c, 00, 00, 00, 1b, 6b]
-labels={Label(0): 28, Label(1): 10, Label(2): 20, Label(3): 27}
-fixups=[Fixup { offset: 24, target: StackOverflow, addend: 0, byte: None }]
+bytes=[6b]
+labels={Label(0): 0}
+fixups=[]
 returns=[]
-spans={(BlockId(0), 0): 28..29}
+spans={(BlockId(0), 0): 0..1}
 code_quality/wide_shift.act/false/RoutineId(0)
 frame=AllocatedFrame { extent: 18, spill_bytes: 18, peak_below_entry: 18, temps: {TempId(0): Stack(Slot { offset: 6, width: 4 }), TempId(1): Stack(Slot { offset: 10, width: 4 }), TempId(2): Stack(Slot { offset: 2, width: 4 }), TempId(3): Stack(Slot { offset: 10, width: 4 }), TempId(4): Stack(Slot { offset: 14, width: 4 }), TempId(5): Stack(Slot { offset: 6, width: 4 })}, edge_copies: [] }
 bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 12, 00, 90, 04, c5, c4, b0, 07, a9, 12, 00, 5c, 00, 00, 00, 1b, a3, 16, 83, 06, a3, 18, 83, 08, e2, 20, a9, 05, 83, 0a, a9, 00, 83, 0b, 83, 0c, 83, 0d, a3, 06, 85, 88, a3, 07, 85, 89, a3, 08, 85, 8a, a3, 09, 85, 8b, a3, 0b, d0, 27, a3, 0c, d0, 23, a3, 0d, d0, 1f, a3, 0a, c9, 20, b0, 19, c9, 00, f0, 1f, c2, 20, 29, ff, 00, aa, e2, 20, 06, 88, 26, 89, 26, 8a, 26, 8b, ca, d0, f5, 80, 0a, a9, 00, 85, 88, 85, 89, 85, 8a, 85, 8b, a5, 88, 83, 02, a5, 89, 83, 03, a5, 8a, 83, 04, a5, 8b, 83, 05, c2, 20, a3, 16, 83, 0a, a3, 18, 83, 0c, e2, 20, a9, 03, 83, 0e, a9, 00, 83, 0f, 83, 10, 83, 11, a3, 0a, 85, 88, a3, 0b, 85, 89, a3, 0c, 85, 8a, a3, 0d, 85, 8b, a3, 0f, d0, 27, a3, 10, d0, 23, a3, 11, d0, 1f, a3, 0e, c9, 20, b0, 19, c9, 00, f0, 1f, c2, 20, 29, ff, 00, aa, e2, 20, 46, 8b, 66, 8a, 66, 89, 66, 88, ca, d0, f5, 80, 0a, a9, 00, 85, 88, 85, 89, 85, 8a, 85, 8b, a5, 88, 83, 06, a5, 89, 83, 07, a5, 8a, 83, 08, a5, 8b, 83, 09, c2, 20, a3, 02, 43, 06, a8, a3, 04, 43, 08, aa, 98, a8, 3b, 18, 69, 12, 00, 1b, 98, 6b]
@@ -91,11 +91,11 @@ returns=[]
 spans={(BlockId(0), 0): 28..36, (BlockId(0), 1): 36..50, (BlockId(0), 2): 50..135, (BlockId(0), 3): 135..145, (BlockId(0), 4): 145..159, (BlockId(0), 5): 159..244, (BlockId(0), 6): 244..257, (BlockId(0), 7): 257..266}
 code_quality/wide_shift.act/false/RoutineId(1)
 frame=AllocatedFrame { extent: 0, spill_bytes: 0, peak_below_entry: 0, temps: {}, edge_copies: [] }
-bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 00, 00, 90, 04, c5, c4, b0, 07, a9, 00, 00, 5c, 00, 00, 00, 1b, 6b]
-labels={Label(0): 28, Label(1): 10, Label(2): 20, Label(3): 27}
-fixups=[Fixup { offset: 24, target: StackOverflow, addend: 0, byte: None }]
+bytes=[6b]
+labels={Label(0): 0}
+fixups=[]
 returns=[]
-spans={(BlockId(0), 0): 28..29}
+spans={(BlockId(0), 0): 0..1}
 code_quality/wide_shift.act/true/RoutineId(0)
 frame=AllocatedFrame { extent: 14, spill_bytes: 14, peak_below_entry: 14, temps: {TempId(0): Stack(Slot { offset: 6, width: 4 }), TempId(2): Stack(Slot { offset: 2, width: 4 }), TempId(3): Stack(Slot { offset: 10, width: 4 }), TempId(5): Stack(Slot { offset: 6, width: 4 })}, edge_copies: [] }
 bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 0e, 00, 90, 04, c5, c4, b0, 07, a9, 0e, 00, 5c, 00, 00, 00, 1b, a3, 12, 83, 06, a3, 14, 83, 08, a3, 06, 85, 88, a3, 08, 85, 8a, a9, 05, 00, aa, 06, 88, 26, 8a, ca, d0, f9, c2, 20, a5, 88, 83, 02, a5, 8a, 83, 04, a3, 12, 83, 0a, a3, 14, 83, 0c, a3, 0a, 85, 88, a3, 0c, 85, 8a, a9, 03, 00, aa, 46, 8a, 66, 88, ca, d0, f9, c2, 20, a5, 88, 83, 06, a5, 8a, 83, 08, a3, 02, 43, 06, a8, a3, 04, 43, 08, aa, 98, a8, 3b, 18, 69, 0e, 00, 1b, 98, 6b]
@@ -105,11 +105,11 @@ returns=[]
 spans={(BlockId(0), 0): 28..36, (BlockId(0), 1): 36..65, (BlockId(0), 2): 65..73, (BlockId(0), 3): 73..102, (BlockId(0), 4): 102..113, (BlockId(0), 5): 113..122}
 code_quality/wide_shift.act/true/RoutineId(1)
 frame=AllocatedFrame { extent: 0, spill_bytes: 0, peak_below_entry: 0, temps: {}, edge_copies: [] }
-bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 00, 00, 90, 04, c5, c4, b0, 07, a9, 00, 00, 5c, 00, 00, 00, 1b, 6b]
-labels={Label(0): 28, Label(1): 10, Label(2): 20, Label(3): 27}
-fixups=[Fixup { offset: 24, target: StackOverflow, addend: 0, byte: None }]
+bytes=[6b]
+labels={Label(0): 0}
+fixups=[]
 returns=[]
-spans={(BlockId(0), 0): 28..29}
+spans={(BlockId(0), 0): 0..1}
 code_quality/forward_copy.act/false/RoutineId(0)
 frame=AllocatedFrame { extent: 18, spill_bytes: 8, peak_below_entry: 18, temps: {TempId(0): Stack(Slot { offset: 12, width: 2 }), TempId(1): Stack(Slot { offset: 14, width: 2 }), TempId(2): Stack(Slot { offset: 11, width: 1 }), TempId(3): Stack(Slot { offset: 12, width: 3 }), TempId(4): Stack(Slot { offset: 16, width: 3 }), TempId(5): Stack(Slot { offset: 11, width: 1 }), TempId(6): Stack(Slot { offset: 12, width: 3 }), TempId(7): Stack(Slot { offset: 16, width: 3 }), TempId(8): Stack(Slot { offset: 12, width: 3 }), TempId(9): Stack(Slot { offset: 16, width: 3 })}, edge_copies: [] }
 bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 12, 00, 90, 04, c5, c4, b0, 07, a9, 12, 00, 5c, 00, 00, 00, 1b, e2, 20, a3, 16, 83, 01, a3, 17, 83, 02, a3, 18, 83, 03, c2, 20, e2, 20, a3, 19, 83, 04, a3, 1a, 83, 05, a3, 1b, 83, 06, c2, 20, e2, 20, a3, 1c, 83, 08, a3, 1d, 83, 09, c2, 20, a3, 08, 83, 0c, e2, 20, a9, 00, 83, 0e, a9, 00, 83, 0f, c2, 20, a3, 0c, c3, 0e, d0, 03, 82, 81, 00, c2, 20, a3, 01, 83, 0c, a3, 02, 83, 0d, a3, 04, 83, 10, a3, 05, 83, 11, a3, 10, 85, 80, a3, 11, 85, 81, e2, 20, a7, 80, 83, 0b, c2, 20, a3, 0c, 85, 80, a3, 0d, 85, 81, e2, 20, a3, 0b, 87, 80, c2, 20, a3, 01, 83, 0c, a3, 02, 83, 0d, a3, 0c, 18, 69, 01, 00, 83, 10, e2, 20, a3, 0e, 69, 00, 83, 12, c2, 20, a3, 10, 83, 01, a3, 11, 83, 02, a3, 04, 83, 0c, a3, 05, 83, 0d, a3, 0c, 18, 69, 01, 00, 83, 10, e2, 20, a3, 0e, 69, 00, 83, 12, c2, 20, a3, 10, 83, 04, a3, 11, 83, 05, a3, 08, 38, e9, 01, 00, 83, 08, 82, 66, ff, 3b, 18, 69, 12, 00, 1b, 6b]
@@ -119,11 +119,11 @@ returns=[]
 spans={(BlockId(0), 0): 72..72, (BlockId(1), 0): 72..76, (BlockId(1), 1): 76..86, (BlockId(1), 2): 86..99, (BlockId(2), 0): 99..107, (BlockId(2), 1): 107..115, (BlockId(2), 2): 115..129, (BlockId(2), 3): 129..145, (BlockId(2), 4): 145..155, (BlockId(2), 5): 155..171, (BlockId(2), 6): 171..181, (BlockId(2), 7): 181..189, (BlockId(2), 8): 189..205, (BlockId(2), 9): 205..215, (BlockId(2), 10): 215..217, (BlockId(2), 11): 217..221, (BlockId(2), 12): 221..223, (BlockId(2), 13): 223..226, (BlockId(3), 0): 226..233}
 code_quality/forward_copy.act/false/RoutineId(1)
 frame=AllocatedFrame { extent: 0, spill_bytes: 0, peak_below_entry: 0, temps: {}, edge_copies: [] }
-bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 00, 00, 90, 04, c5, c4, b0, 07, a9, 00, 00, 5c, 00, 00, 00, 1b, 6b]
-labels={Label(0): 28, Label(1): 10, Label(2): 20, Label(3): 27}
-fixups=[Fixup { offset: 24, target: StackOverflow, addend: 0, byte: None }]
+bytes=[6b]
+labels={Label(0): 0}
+fixups=[]
 returns=[]
-spans={(BlockId(0), 0): 28..29}
+spans={(BlockId(0), 0): 0..1}
 code_quality/forward_copy.act/true/RoutineId(0)
 frame=AllocatedFrame { extent: 18, spill_bytes: 8, peak_below_entry: 18, temps: {TempId(2): Stack(Slot { offset: 11, width: 1 }), TempId(3): Stack(Slot { offset: 12, width: 3 }), TempId(4): Stack(Slot { offset: 16, width: 3 }), TempId(5): Stack(Slot { offset: 11, width: 1 }), TempId(6): Stack(Slot { offset: 12, width: 3 }), TempId(7): Stack(Slot { offset: 16, width: 3 }), TempId(8): Stack(Slot { offset: 12, width: 3 }), TempId(9): Stack(Slot { offset: 16, width: 3 })}, edge_copies: [] }
 bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 12, 00, 90, 04, c5, c4, b0, 07, a9, 12, 00, 5c, 00, 00, 00, 1b, e2, 20, a3, 16, 83, 01, a3, 17, 83, 02, a3, 18, 83, 03, c2, 20, e2, 20, a3, 19, 83, 04, a3, 1a, 83, 05, a3, 1b, 83, 06, c2, 20, e2, 20, a3, 1c, 83, 08, a3, 1d, 83, 09, c2, 20, a3, 08, d0, 03, 82, 81, 00, c2, 20, a3, 01, 83, 0c, a3, 02, 83, 0d, a3, 04, 83, 10, a3, 05, 83, 11, a3, 10, 85, 80, a3, 11, 85, 81, e2, 20, a7, 80, 83, 0b, c2, 20, a3, 0c, 85, 80, a3, 0d, 85, 81, e2, 20, a3, 0b, 87, 80, c2, 20, a3, 01, 83, 0c, a3, 02, 83, 0d, a3, 0c, 18, 69, 01, 00, 83, 10, e2, 20, a3, 0e, 69, 00, 83, 12, c2, 20, a3, 10, 83, 01, a3, 11, 83, 02, a3, 04, 83, 0c, a3, 05, 83, 0d, a3, 0c, 18, 69, 01, 00, 83, 10, e2, 20, a3, 0e, 69, 00, 83, 12, c2, 20, a3, 10, 83, 04, a3, 11, 83, 05, a3, 08, 38, e9, 01, 00, 83, 08, 82, 78, ff, 3b, 18, 69, 12, 00, 1b, 6b]
@@ -133,11 +133,11 @@ returns=[]
 spans={(BlockId(0), 0): 72..72, (BlockId(1), 0): 72..74, (BlockId(1), 1): 74..81, (BlockId(2), 0): 81..89, (BlockId(2), 1): 89..97, (BlockId(2), 2): 97..111, (BlockId(2), 3): 111..127, (BlockId(2), 4): 127..137, (BlockId(2), 5): 137..153, (BlockId(2), 6): 153..163, (BlockId(2), 7): 163..171, (BlockId(2), 8): 171..187, (BlockId(2), 9): 187..197, (BlockId(2), 10): 197..199, (BlockId(2), 11): 199..203, (BlockId(2), 12): 203..205, (BlockId(2), 13): 205..208, (BlockId(3), 0): 208..215}
 code_quality/forward_copy.act/true/RoutineId(1)
 frame=AllocatedFrame { extent: 0, spill_bytes: 0, peak_below_entry: 0, temps: {}, edge_copies: [] }
-bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 00, 00, 90, 04, c5, c4, b0, 07, a9, 00, 00, 5c, 00, 00, 00, 1b, 6b]
-labels={Label(0): 28, Label(1): 10, Label(2): 20, Label(3): 27}
-fixups=[Fixup { offset: 24, target: StackOverflow, addend: 0, byte: None }]
+bytes=[6b]
+labels={Label(0): 0}
+fixups=[]
 returns=[]
-spans={(BlockId(0), 0): 28..29}
+spans={(BlockId(0), 0): 0..1}
 code_quality/recursive_sum.act/false/RoutineId(0)
 frame=AllocatedFrame { extent: 6, spill_bytes: 6, peak_below_entry: 12, temps: {TempId(0): Stack(Slot { offset: 2, width: 2 }), TempId(1): Stack(Slot { offset: 4, width: 2 }), TempId(2): Stack(Slot { offset: 1, width: 1 }), TempId(3): Stack(Slot { offset: 2, width: 2 }), TempId(6): Stack(Slot { offset: 4, width: 2 })}, edge_copies: [] }
 bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 06, 00, 90, 04, c5, c4, b0, 07, a9, 06, 00, 5c, 00, 00, 00, 1b, a3, 0a, 83, 02, e2, 20, a9, 00, 83, 04, a9, 00, 83, 05, c2, 20, a3, 02, c3, 04, f0, 02, 80, 10, c2, 20, a9, 00, 00, c2, 20, a8, 3b, 18, 69, 06, 00, 1b, 98, 6b, a3, 0a, 83, 02, a3, 0a, 38, e9, 01, 00, a8, 3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 06, 00, 90, 04, c5, c4, b0, 07, a9, 06, 00, 5c, 00, 00, 00, e2, 20, a9, 00, 48, c2, 20, 98, 48, 22, 00, 00, 00, a8, 3b, 18, 69, 03, 00, 1b, 98, 83, 04, a3, 02, 18, 63, 04, 80, b1]
@@ -147,11 +147,11 @@ returns=[]
 spans={(BlockId(0), 0): 28..32, (BlockId(0), 1): 32..42, (BlockId(0), 2): 42..54, (BlockId(1), 0): 54..68, (BlockId(2), 0): 68..72, (BlockId(2), 1): 72..74, (BlockId(2), 2): 74..78, (BlockId(2), 3): 78..129, (BlockId(2), 4): 129..134, (BlockId(2), 5): 134..136}
 code_quality/recursive_sum.act/false/RoutineId(1)
 frame=AllocatedFrame { extent: 0, spill_bytes: 0, peak_below_entry: 0, temps: {}, edge_copies: [] }
-bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 00, 00, 90, 04, c5, c4, b0, 07, a9, 00, 00, 5c, 00, 00, 00, 1b, 6b]
-labels={Label(0): 28, Label(1): 10, Label(2): 20, Label(3): 27}
-fixups=[Fixup { offset: 24, target: StackOverflow, addend: 0, byte: None }]
+bytes=[6b]
+labels={Label(0): 0}
+fixups=[]
 returns=[]
-spans={(BlockId(0), 0): 28..29}
+spans={(BlockId(0), 0): 0..1}
 code_quality/recursive_sum.act/true/RoutineId(0)
 frame=AllocatedFrame { extent: 6, spill_bytes: 6, peak_below_entry: 12, temps: {TempId(2): Stack(Slot { offset: 1, width: 1 }), TempId(3): Stack(Slot { offset: 2, width: 2 }), TempId(6): Stack(Slot { offset: 4, width: 2 })}, edge_copies: [] }
 bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 06, 00, 90, 04, c5, c4, b0, 07, a9, 06, 00, 5c, 00, 00, 00, 1b, a3, 0a, f0, 02, 80, 10, c2, 20, a9, 00, 00, c2, 20, a8, 3b, 18, 69, 06, 00, 1b, 98, 6b, a3, 0a, 83, 02, a3, 02, 38, e9, 01, 00, a8, 3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 06, 00, 90, 04, c5, c4, b0, 07, a9, 06, 00, 5c, 00, 00, 00, e2, 20, a9, 00, 48, c2, 20, 98, 48, 22, 00, 00, 00, a8, 3b, 18, 69, 03, 00, 1b, 98, 83, 04, a3, 02, 18, 63, 04, 80, b1]
@@ -161,8 +161,8 @@ returns=[]
 spans={(BlockId(0), 0): 28..30, (BlockId(0), 1): 30..36, (BlockId(1), 0): 36..50, (BlockId(2), 0): 50..54, (BlockId(2), 1): 54..60, (BlockId(2), 2): 60..111, (BlockId(2), 3): 111..116, (BlockId(2), 4): 116..118}
 code_quality/recursive_sum.act/true/RoutineId(1)
 frame=AllocatedFrame { extent: 0, spill_bytes: 0, peak_below_entry: 0, temps: {}, edge_copies: [] }
-bytes=[3b, aa, c5, c6, 90, 04, f0, 02, 80, 0a, 38, e9, 00, 00, 90, 04, c5, c4, b0, 07, a9, 00, 00, 5c, 00, 00, 00, 1b, 6b]
-labels={Label(0): 28, Label(1): 10, Label(2): 20, Label(3): 27}
-fixups=[Fixup { offset: 24, target: StackOverflow, addend: 0, byte: None }]
+bytes=[6b]
+labels={Label(0): 0}
+fixups=[]
 returns=[]
-spans={(BlockId(0), 0): 28..29}
+spans={(BlockId(0), 0): 0..1}

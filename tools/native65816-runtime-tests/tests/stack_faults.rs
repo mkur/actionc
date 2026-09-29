@@ -3,6 +3,78 @@ use actionc_vm::native65816::{Inputs, Machine};
 use support::*;
 
 #[test]
+fn empty_frames_return_without_stack_writes_or_domain_limit_reads() {
+    for (source, name, expected) in [
+        ("PROC Main() RETURN", "Main", 0xd5aa),
+        (
+            "CARD FUNC Echo(CARD value) RETURN(value) PROC Main() RETURN",
+            "Echo",
+            0xbeef,
+        ),
+    ] {
+        for optimize in [false, true] {
+            let prepared = prepare(source, optimize);
+            let checked = prepared.compile(&layout()).unwrap();
+            let mut options = layout();
+            options.stack_checks = false;
+            let unchecked = prepared.compile(&options).unwrap();
+            assert_eq!(
+                serde_json::to_value(&checked.image.segments).unwrap(),
+                serde_json::to_value(&unchecked.image.segments).unwrap()
+            );
+            let routine = checked
+                .image
+                .routines
+                .iter()
+                .find(|r| r.name == name)
+                .unwrap();
+            assert_eq!(routine.fixed_frame, 0);
+            for mask in [0, 4] {
+                for initial_s in [0x4019usize, 0x5fe8] {
+                    let image = &checked.image;
+                    let mut h = Harness::new(image, &[0xdb, 0xea], mask);
+                    let mut r = h.cpu.registers();
+                    r.s = initial_s as u16;
+                    r.pc = routine.address as u16;
+                    r.pbr = (routine.address >> 16) as u8;
+                    r.a = 0xd5aa;
+                    r.x = 0xbeef;
+                    r.y = 0x1234;
+                    h.cpu = Machine::start_at(r);
+                    // RTL returns to the harness's stop instruction at $040000.
+                    h.bus.ram[initial_s + 1..initial_s + 4].copy_from_slice(&[0xff, 0xff, 4]);
+                    h.bus.ram[initial_s + 4..initial_s + 6]
+                        .copy_from_slice(&0xbeefu16.to_le_bytes());
+                    h.run();
+                    let out = h.cpu.registers();
+                    assert_eq!(
+                        (out.a, out.x, out.y, out.s, out.d, out.dbr, out.p & 0x3c),
+                        (
+                            expected,
+                            0xbeef,
+                            0x1234,
+                            initial_s as u16 + 3,
+                            0x2000,
+                            0,
+                            mask
+                        )
+                    );
+                    assert!(
+                        h.bus
+                            .writes
+                            .iter()
+                            .all(|(a, _)| (0x2080..0x20c0).contains(a))
+                    );
+                    assert!(!h.bus.reads.iter().any(|a| (0x20c4..0x20c8).contains(a)));
+                    assert_eq!(&h.bus.ram[0x2000..0x2080], h.caller_workspace);
+                    assert_eq!(&h.bus.ram[0x20c0..0x2100], h.domain_tail);
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn entry_reservations_fault_before_stack_writes_on_floor_wrap_and_ceiling_errors() {
     let image = compile("PROC Main() CARD value value=42 RETURN", false);
     let frame = image

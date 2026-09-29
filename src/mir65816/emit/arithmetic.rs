@@ -39,14 +39,7 @@ pub(super) fn emit(
         b.code.trace();
     }
     let _ = trace;
-    if stack_checks {
-        b.check_stack(0);
-        b.code.op(Implied::Tcs);
-    } else {
-        // The zero-frame body starts at the current S, without changing it.
-        b.code.op(Implied::Tsc);
-    }
-    b.code.establish_body();
+    b.enter_frame();
     let words = if helper.bytes <= 2 { 1 } else { 2 };
     for (i, target) in [LEFT, RHS].into_iter().enumerate() {
         let source = b.incoming(ParamId(i as u32))? as u8;

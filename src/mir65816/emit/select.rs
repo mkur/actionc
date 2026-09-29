@@ -371,13 +371,7 @@ pub(super) fn routine_with_data(
             b.code.register_home(*home);
         }
     }
-    if stack_checks {
-        b.check_stack(b.frame.extent);
-        b.code.op(Implied::Tcs); // Checked new S in A; no earlier write/push.
-    } else {
-        b.reserve(b.frame.extent);
-    }
-    b.code.establish_body();
+    b.enter_frame();
     for parameter in &routine.frame.parameters {
         if let Some(object) = parameter.frame_object {
             let source = b.incoming(parameter.param)?;
@@ -1758,6 +1752,20 @@ impl Builder<'_> {
             }
         }
         Ok(())
+    }
+    fn enter_frame(&mut self) {
+        // Frame verification has accounted for all locals, captures and edge
+        // staging. An empty frame inherits the caller's valid S unchanged;
+        // later calls still check their complete reservation before any push.
+        if self.frame.extent != 0 {
+            if self.stack_checks {
+                self.check_stack(self.frame.extent);
+                self.code.op(Implied::Tcs);
+            } else {
+                self.reserve(self.frame.extent);
+            }
+        }
+        self.code.establish_body();
     }
     fn check_stack(&mut self, bytes: u16) {
         if !self.stack_checks {

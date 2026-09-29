@@ -1,0 +1,17 @@
+{
+  "compiler_baseline": "6455ebc7",
+  "compiler_candidate": "empty-frame guard removal in this commit",
+  "compiler_source_digest": "0f229f68775c924764ab6e4f090b8d894315094eda8974cab9c279e1a6421309",
+  "compiler_executable_sha256": "0f6ba44caf97cf74f8b3a9db8a44e707cd438aa03c664d06cec5024000644bf2",
+  "exec_revision": "134130bdb8ce1374ca7d5e6011ed98c4ccd62151",
+  "exec_input_count": 133,
+  "exec_input_digest": "751059513e938ac69f5d578219029b39347388dccda46797916d30d03eb7898d",
+  "baseline_image_sha256": "a5ff065145b9348e58ce6a7fdf6d5ad04044a624295712f37bcf6909041bd3f7",
+  "candidate_image_sha256": "a8092909978b880d7b80ea72faed3ec6295b3383c8cda4adbf7e71208610c1ee",
+  "routine_bytes_before": 479099,
+  "routine_bytes_after": 478763,
+  "changed_routines": 12,
+  "saved_bytes": 336,
+  "fixed_bank_zero_delta": 0,
+  "per_task_bank_zero_delta": 0
+}

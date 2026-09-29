@@ -84,7 +84,7 @@ fn emitted_entry_and_call_guards_match_independent_reference_on_all_boundary_pat
     for optimize in [false, true] {
         let compiled = prepare(SOURCE, optimize).compile(&layout()).unwrap();
         let sites = guard::sites(&compiled);
-        assert!(sites.iter().any(|s| s.amount == 0));
+        assert!(sites.iter().all(|s| s.amount != 0));
         assert!(sites.iter().any(|s| s.amount == 6)); // word call: O=3 + JSL=3
         assert!(sites.iter().any(|s| s.amount == 9)); // word indirect: O=3 + transfer=6
         for site in sites {

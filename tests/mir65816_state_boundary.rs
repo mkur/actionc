@@ -29,6 +29,8 @@
 //! wide XOR results in A/X. Raw sum_loop and both recursive_sum frames shrink;
 //! guards remain present with adjusted reservations and incoming offsets.
 //! Labels, fixups, sparse home maps and MIR spans follow the selected bytes.
+//! Empty-frame entries now remove the 28-byte guard/adjustment prefix. Frames
+//! and body bytes are unchanged; later labels, fixups and spans move with it.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]

@@ -21,6 +21,36 @@ fn simple() -> Code {
     e.native_return(None).unwrap();
     finish(e)
 }
+
+#[test]
+fn empty_body_anchor_cannot_invent_a_stack_change_or_accumulator_equation() {
+    let mut e = TrackedEmitter65816::default();
+    e.a16();
+    e.establish_body();
+    e.native_return(None).unwrap();
+    let code = finish(e);
+    let selected = code.selected.as_ref().unwrap();
+    let end = selected
+        .records
+        .iter()
+        .position(|r| {
+            matches!(r.action, Action::EndRequest(n)
+            if matches!(selected.records[n.0].action, Action::Request(Request::EstablishBody)))
+        })
+        .unwrap();
+    for mutation in 0..3 {
+        let mut records = selected.records.clone();
+        match mutation {
+            0 => {
+                records[end].after.env.depth = 1;
+                records[end].after.env.anchor = Some(1);
+            }
+            1 => records[end].after.stack_a = Some(0),
+            _ => records[end].after.env.pushes = 1,
+        }
+        assert!(SelectedCfg::build(&records).is_err());
+    }
+}
 fn graph_code() -> Code {
     let mut e = TrackedEmitter65816::default();
     let safe = e.label();
@@ -275,7 +305,18 @@ fn malformed_labels_requests_modes_and_stack_equations_block_the_graph() {
 }
 #[test]
 fn reconciliation_rejects_bytes_fixups_sources_and_encoding_boundaries() {
-    let program = super::super::select::word_tests::program();
+    // A real local array keeps an entry guard/fault relocation to corrupt.
+    let ast = crate::parser::parse(&crate::lexer::tokenize(
+        "CARD FUNC Work(CARD value) CARD ARRAY scratch(2) scratch(0)=value RETURN(scratch(0)) PROC Main() RETURN"
+    ).unwrap()).unwrap();
+    let model = crate::semantic::analyze_with_options(
+        &ast,
+        crate::semantic::SemanticOptions::modern()
+            .with_target(crate::target::TargetId::Wdc65816Native),
+    )
+    .unwrap();
+    let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+    let program = crate::mir65816::lower_program(&nir).unwrap();
     let p = super::super::materialize(&program).unwrap();
     let code = &p.routines[0].code;
     let s = code.selected.as_ref().unwrap();

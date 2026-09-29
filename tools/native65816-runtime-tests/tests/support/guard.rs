@@ -40,9 +40,14 @@ pub fn sites(c: &Compiled) -> Vec<Guard> {
                 amount,
             });
         }
-        assert_eq!(sites.len() - before, 1 + r.calls.len());
-        assert_eq!(sites[before].start, r.address);
-        assert_eq!(sites[before].amount, r.fixed_frame);
+        assert_eq!(
+            sites.len() - before,
+            usize::from(r.fixed_frame != 0) + r.calls.len()
+        );
+        if r.fixed_frame != 0 {
+            assert_eq!(sites[before].start, r.address);
+            assert_eq!(sites[before].amount, r.fixed_frame);
+        }
     }
     sites
 }

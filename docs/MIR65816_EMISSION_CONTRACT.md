@@ -82,6 +82,23 @@ rejects a mismatch between emitted code and the layout's setting. Unchecked code
 retains the physical ABI but provides no stack-overflow detection guarantee.
 Arithmetic faults, including division by zero, remain enabled.
 
+### Empty frames
+
+An allocated frame of zero bytes emits no entry guard or stack adjustment in
+either checked or unchecked builds. This applies to ordinary routines and the
+zero-frame arithmetic helpers. The typed body anchor uses the unchanged native
+entry S; it does not emit TSC merely to establish an accumulator equation.
+Nonempty frames retain their checks and reservations. Calls from an empty-frame
+routine still check outgoing arguments and the complete direct/indirect transfer
+peak before any push or stack write.
+
+These checks protect impending reservations; they are not an unconditional
+validation of every routine entry. Native callers and platform entry stubs must
+already supply a valid S, return record, arguments and domain. An empty leaf no
+longer diagnoses an invalid entry S by reading the domain's floor/ceiling.
+Interrupt headroom, frame maps and public argument/result conventions are
+unchanged. See the [measurement](benchmarks/65816-empty-frames/README.md).
+
 The library entry points are
 [`compiler::native65816`](../src/compiler/native65816.rs),
 [`mir65816::emit::materialize`](../src/mir65816/emit/mod.rs), and
@@ -1502,8 +1519,8 @@ selectors use the same checked read bindings at the authorized operation site;
 an omitted capture neither disables address selection nor becomes writable
 storage. Final layout resolution checks every physical source range.
 Closed DP allocation
-profiles keep their established ownership. Stack guard policy and reserved
-bank-zero capacity are unchanged. See the
+profiles keep their established ownership. Reserved bank-zero capacity is
+unchanged; entry guards follow the empty-frame rule above. See the
 [address-consumer plan](MIR65816_ADDRESS_CONSUMERS_PLAN.md).
 
 
@@ -1522,8 +1539,8 @@ A stages the base. The admitted setup does not use X/Y or dynamic indexing.
 A is restored before Y becomes the field displacement. Three-byte stores then
 consume the complete low word and bank from A/X, so no source byte is read after
 the first write. Width/carry/wrap semantics and exact external extents remain
-unchanged. Unsupported schedules keep ordinary captures. Existing stack-bounds
-validation remains even when all temporary homes disappear.
+unchanged. Unsupported schedules keep ordinary captures. If all local storage
+disappears, the resulting empty frame needs no entry reservation or guard.
 
 
 ### Prepared indirect-base reuse

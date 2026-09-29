@@ -1,5 +1,36 @@
 use super::{Slot, TempId, state::*, tracked::*};
 
+#[test]
+fn empty_body_uses_entry_stack_equation_without_instructions_or_a_value() {
+    let mut e = TrackedEmitter65816::default();
+    assert_eq!(e.boundary().stack_a, None);
+    e.establish_body();
+    assert!(e.code().bytes.is_empty());
+    assert_eq!(e.boundary().env.anchor, Some(0));
+    assert_eq!(e.boundary().stack_a, None);
+    assert_eq!(e.delta(), 0);
+}
+
+#[test]
+#[should_panic]
+fn body_anchor_cannot_hide_an_outstanding_push() {
+    let mut e = TrackedEmitter65816::default();
+    e.op(Implied::Pha);
+    e.establish_body();
+}
+
+#[test]
+#[should_panic]
+fn nonempty_body_still_requires_the_allocated_stack_equation_in_a() {
+    let mut e = TrackedEmitter65816::default();
+    e.op(Implied::Tsc);
+    e.op(Implied::Sec);
+    e.word(WordOp::SbcImm, 2);
+    e.op(Implied::Tcs);
+    e.word(WordOp::LdaImm, 7);
+    e.establish_body();
+}
+
 fn mir_loop() -> (TrackedEmitter65816, super::Label) {
     let mut e = TrackedEmitter65816::default();
     e.test_frame(8);

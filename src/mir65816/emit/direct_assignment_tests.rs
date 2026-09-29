@@ -50,7 +50,7 @@ fn direct_assignments_emit_exact_pieces_without_temporary_traffic() {
             assert_eq!(&machine.code.bytes[span], expected, "{ty}/{optimize}");
             if bytes == 3 {
                 assert_eq!(machine.frame.extent, 0);
-                assert_eq!(machine.code.bytes.len(), 49); // Guard + direct copy + RTL.
+                assert_eq!(machine.code.bytes.len(), 21); // Direct copy + RTL; no frame.
             }
             #[cfg(feature = "native65816-state-proof")]
             {

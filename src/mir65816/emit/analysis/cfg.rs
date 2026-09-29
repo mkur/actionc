@@ -103,10 +103,14 @@ impl SelectedCfg {
                         }
                     }
                     if let Action::Request(Request::EstablishBody) = records[begin.0].action {
+                        let mut anchored = r.before.env;
+                        anchored.anchor = Some(anchored.depth);
                         if r.before.env.anchor.is_some()
-                            || r.after.env.anchor != Some(r.after.env.depth)
+                            || r.after.env != anchored
                             || r.after.env.pushes != 0
-                            || r.after.stack_a != Some(-r.after.env.depth)
+                            || r.after.stack_a != r.before.stack_a
+                            || (r.after.env.depth != 0
+                                && r.after.stack_a != Some(-r.after.env.depth))
                         {
                             return Err("invalid selected body anchor".into());
                         }
@@ -581,7 +585,9 @@ pub(in crate::mir65816::emit) fn reconcile(records: &[Record], code: &Code) -> R
                     reference(op.opcode(), *target, *addend, *byte)
                 }
                 Instruction::NativeCall(target, _) => reference(0x22, *target, 0, None),
-                Instruction::NativeForward(plan) => reference(0x5c, Target::Routine(plan.target()), 0, None),
+                Instruction::NativeForward(plan) => {
+                    reference(0x5c, Target::Routine(plan.target()), 0, None)
+                }
                 Instruction::ArgumentPush => vec![0x48],
                 Instruction::ArgumentPushWord(value) => {
                     let [lo, hi] = value.to_le_bytes();

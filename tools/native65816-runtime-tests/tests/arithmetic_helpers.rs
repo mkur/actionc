@@ -196,7 +196,7 @@ fn multiplication_keeps_the_resolved_width_before_consumer_widening() {
             ("BYTE", 1, 2),
             ("CARD", 2, 2),
             ("INT", 2, 2),
-            ("SIZE", 3, 2),
+            ("SIZE", 3, 3),
             ("LONGCARD", 4, 4),
             ("LONGINT", 4, 4),
         ] {
@@ -222,9 +222,11 @@ fn multiplication_keeps_the_resolved_width_before_consumer_widening() {
                     maximum = (a, b);
                 }
                 let low = a.wrapping_mul(b);
-                // Narrow MUL has signed INT type; widening to LONGCARD sign-extends.
+                // BYTE/CARD MUL has signed INT type. SIZE keeps all 24 bits.
                 let expected = if product_width == 2 {
                     i32::from(low as i16) as u32
+                } else if product_width == 3 {
+                    low & 0xffffff
                 } else {
                     low
                 };
@@ -470,8 +472,10 @@ fn constant_reductions_execute_all_powers_without_helpers() {
                 h.guards(4);
                 for bit in 0..bits {
                     let product = a.wrapping_mul(1u32 << bit);
-                    let product = if width < 4 {
+                    let product = if width < 3 {
                         i32::from(product as i16) as u32
+                    } else if width == 3 {
+                        product & 0xffffff
                     } else {
                         product
                     };
@@ -526,63 +530,50 @@ fn runtime_zero_fault_preserves_prior_effects_and_never_stores_a_result() {
     }
 }
 #[test]
-fn zero_frame_helper_checks_floor_and_ceiling_before_any_scratch_or_argument_access() {
-    let i = image("CARD a,b,q PROC Main() q=a/b RETURN", false);
-    let helper = i
-        .routines
-        .iter()
-        .find(|r| r.name == "__a816_div_u16_v2")
-        .unwrap();
-    for mask in [0, 4] {
-        for s in [0u16, 0x4018, 0x5ff2] {
-            let mut h = Harness::new(&i, &caller(i.entry), mask);
-            let mut r = h.cpu.registers();
-            r.s = s;
-            r.pc = helper.address as u16;
-            r.pbr = (helper.address >> 16) as u8;
-            h.cpu = Machine::start_at(r);
-            assert!(
-                h.cpu
-                    .run_until(
-                        &mut h.bus,
-                        1000,
-                        |_| Inputs::default(),
-                        |c| c.pc() == i.stack_overflow && c.is_instruction_boundary()
-                    )
-                    .unwrap()
-            );
-            let r = h.cpu.registers();
-            assert_eq!((r.a, r.x, r.s, r.p & 0x3c), (0, s, s, mask));
-            assert!(h.bus.writes.is_empty());
-        }
-        let mut h = Harness::new(&i, &caller(i.entry), mask);
-        let mut r = h.cpu.registers();
-        r.s = 0x401a;
-        r.pc = helper.address as u16;
-        r.pbr = (helper.address >> 16) as u8;
-        h.cpu = Machine::start_at(r);
-        h.bus.ram[0x20c4..0x20c6].copy_from_slice(&0x401au16.to_le_bytes());
-        let body = i
+fn zero_frame_helper_uses_the_entry_stack_without_a_guard_or_reservation() {
+    for optimize in [false, true] {
+        let i = image("CARD a,b,q PROC Main() q=a/b RETURN", optimize);
+        let helper = i
+            .routines
+            .iter()
+            .find(|r| r.name == "__a816_div_u16_v2")
+            .unwrap();
+        assert_eq!((helper.fixed_frame, helper.local_stack_peak), (0, 0));
+        let code = &i
             .segments
             .iter()
             .find(|s| s.address == helper.address)
             .unwrap()
-            .bytes
-            .windows(2)
-            .position(|b| b == [0xa3, 4])
-            .unwrap() as u32
-            + helper.address;
-        assert!(
-            h.cpu
-                .run_until(
-                    &mut h.bus,
-                    1000,
-                    |_| Inputs::default(),
-                    |c| c.is_instruction_boundary() && c.pc() == body
-                )
-                .unwrap()
-        );
-        assert!(h.bus.writes.is_empty());
+            .bytes;
+        assert_eq!(&code[..2], &[0xa3, 4]); // Read the first argument immediately.
+        for mask in [0, 4] {
+            for initial_s in [0x4019usize, 0x5f00] {
+                let mut h = Harness::new(&i, &[0xdb, 0xea], mask);
+                let mut r = h.cpu.registers();
+                r.s = initial_s as u16;
+                r.pc = helper.address as u16;
+                r.pbr = (helper.address >> 16) as u8;
+                h.cpu = Machine::start_at(r);
+                h.bus.ram[initial_s + 1..initial_s + 4].copy_from_slice(&[0xff, 0xff, 4]);
+                h.bus.ram[initial_s + 4..initial_s + 6].copy_from_slice(&0xbeefu16.to_le_bytes());
+                h.bus.ram[initial_s + 6..initial_s + 8].copy_from_slice(&3u16.to_le_bytes());
+                h.run();
+                let out = h.cpu.registers();
+                assert_eq!(
+                    (out.a, out.s, out.d, out.dbr, out.p & 0x3c),
+                    (0xbeef / 3, initial_s as u16 + 3, 0x2000, 0, mask)
+                );
+                assert!(
+                    h.bus
+                        .writes
+                        .iter()
+                        .all(|(a, _)| (0x2080..0x20c0).contains(a))
+                );
+                assert!(!h.bus.reads.iter().any(|a| (0x20c4..0x20c8).contains(a)));
+                assert_eq!(&h.bus.ram[0x2000..0x2080], h.caller_workspace);
+                assert_eq!(&h.bus.ram[0x20c0..0x2100], h.domain_tail);
+            }
+        }
     }
 }
 

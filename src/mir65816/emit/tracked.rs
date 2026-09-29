@@ -7,10 +7,10 @@ pub use encoding::{
     Code, ConditionalBranch, Fixup, JumpEncoding, Label, LocalJump, MirTransfer, Target,
 };
 use std::collections::{BTreeMap, BTreeSet};
-#[path = "x_state.rs"]
-mod x_state;
 #[path = "pointer_state.rs"]
 mod pointer_state;
+#[path = "x_state.rs"]
+mod x_state;
 pub(super) use pointer_state::PointerOrigin;
 pub(super) use x_state::XContract;
 
@@ -480,7 +480,12 @@ impl TrackedEmitter65816 {
     pub fn establish_body(&mut self) {
         self.request(Request::EstablishBody, |this| {
             assert!(this.state.env.anchor.is_none() && this.state.env.pushes == 0);
-            assert!(matches!(this.state.a,Value::StackAddress(s) if -s == this.state.env.depth));
+            // With no reservation S still has its native-entry value. That
+            // tracked equation establishes the body without manufacturing A=S.
+            assert!(
+                this.state.env.depth == 0
+                    || matches!(this.state.a,Value::StackAddress(s) if -s == this.state.env.depth)
+            );
             this.state.env.anchor = Some(this.state.env.depth);
         })
     }
@@ -761,7 +766,12 @@ impl TrackedEmitter65816 {
                 if self.position() != 0 || self.state.env != entry || self.x_reserved {
                     return Err("forwarding transfer requires the unchanged native entry".into());
                 }
-                self.code.reference(ReferenceOp::Jml.opcode(), Target::Routine(plan.target()), 0, None);
+                self.code.reference(
+                    ReferenceOp::Jml.opcode(),
+                    Target::Routine(plan.target()),
+                    0,
+                    None,
+                );
                 self.unreachable = true;
                 self.observe();
             }
