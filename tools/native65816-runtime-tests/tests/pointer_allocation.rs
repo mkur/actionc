@@ -230,3 +230,33 @@ fn pointer_leaves_match_stack_selection_for_swaps_chains_and_pressure() {
         }
     }
 }
+
+#[test]
+fn resident_address_and_cast_identities_preserve_all_bits_without_pointee_reads() {
+    let source = "TYPE Link=[Link POINTER a,b] Link POINTER input=$7100,output=$7300 \
+        PROC Work() output=Link POINTER(ADDRESS(@input.a)) RETURN PROC Main() Work() RETURN";
+    for optimize in [false, true] {
+        let image = compile(source, optimize);
+        let work = image.routines.iter().find(|r| r.name == "Work").unwrap();
+        assert_eq!(work.fixed_frame, 0);
+        let homes: std::collections::BTreeSet<_> = work.temporaries.iter().map(|t| match t.home {
+            actionc::mir65816::image::TemporaryHome::DirectPage { offset } => offset,
+            _ => panic!("identity was spilled"),
+        }).collect();
+        assert_eq!(homes.len(), 1);
+        for value in [0u32, 0x21ffff, 0xffffff] {
+            for mask in [0, 4] {
+                let mut h = Harness::new(&image, &caller(image.entry), mask);
+                h.bus.ram[0x7100..0x7103].copy_from_slice(&value.to_le_bytes()[..3]);
+                h.bus.watched.extend(0x7100..0x7104);
+                h.bus.watched.extend(0x7300..0x7304);
+                h.run();
+                h.guards(mask);
+                assert_eq!(h.bus.value(0x7300, 3), value);
+                let mut expected: Vec<_> = (0x7100..0x7103).map(|a| (a, Access::Read)).collect();
+                expected.extend((0..3).map(|i| (0x7300+i, Access::Write((value >> (i*8)) as u8))));
+                assert_eq!(h.bus.trace.iter().map(|(_, a, op)| (*a, *op)).collect::<Vec<_>>(), expected);
+            }
+        }
+    }
+}

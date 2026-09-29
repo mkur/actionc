@@ -1127,3 +1127,94 @@ fn scalar_dp_transport_rejects_unaligned_outside_mixed_and_calling_maps() {
     work.temporaries[0].home = image::TemporaryHome::DirectPage { offset: 32 };
     assert!(image::Image::from_json(&serde_json::to_vec(&image).unwrap()).is_err());
 }
+
+// Insert an identity into an already-promoted leaf, independent of the NIR
+// profitability policy. Keep original uses as well as alias uses alive.
+fn leaf_with_identity() -> mir65816::Mir65816Program {
+    use mir65816::{Mir65816Op, Mir65816Value};
+    let mut p = mir("TYPE Link=[Link POINTER a,b,c] PROC Work(Link POINTER p) \
+        Link POINTER a,b,c a=p.a b=p.b c=p.c a.a=b b.a=c c.a=a RETURN", true);
+    let r = &mut p.routines[0];
+    let Mir65816Op::Load { dest: root, .. } = r.blocks[0].ops[0] else { panic!() };
+    let alias = nir::TempId(900);
+    let ty = r.temps.iter().find(|(id, _)| *id == root).unwrap().1.clone();
+    r.temps.push((alias, ty));
+    r.blocks[0].ops.insert(1, Mir65816Op::Cast {
+        dest: alias, from: actionc::target::ByteSize::new(3), from_signed: false,
+        to: actionc::target::ByteSize::new(3), kind: nir::NirCastKind::Pointer,
+        value: Mir65816Value::Temp(root, actionc::target::ByteSize::new(3)),
+    });
+    // The final input load uses the alias. The dying root's full value must be
+    // read before its slot becomes the newly loaded pointer's destination.
+    if let Mir65816Op::Load { address, .. } = &mut r.blocks[0].ops[4] {
+        address.base = mir65816::Mir65816AddressBase::Indirect(
+            Mir65816Value::Temp(alias, actionc::target::ByteSize::new(3)));
+    } else { panic!() }
+    mir65816::verify_program(&p).unwrap();
+    p
+}
+
+#[test]
+fn pointer_identity_groups_share_homes_and_recheck_every_alias_lifetime() {
+    use mir65816::{Mir65816Op, Mir65816Value, emit::AllocatedFrame};
+    let p = leaf_with_identity();
+    let r = &p.routines[0];
+    let f = AllocatedFrame::pointer_leaf(r).unwrap().unwrap();
+    let Mir65816Op::Cast { dest, value: Mir65816Value::Temp(root, _), .. } = r.blocks[0].ops[1] else { panic!() };
+    assert_eq!(f.temps[&dest], f.temps[&root]);
+    assert_eq!(f.extent, 0);
+    let Mir65816Op::Load { dest: replacement, .. } = r.blocks[0].ops[4] else { panic!() };
+    assert_eq!(f.temps[&dest], f.temps[&replacement]);
+    emit::materialize(&p).unwrap();
+    let mut corrupt = f.clone();
+    corrupt.temps.insert(dest, emit::Location::DirectPage(emit::Slot { offset: 131, width: 3 }));
+    assert!(corrupt.verify_pointer_leaf(r).is_err());
+    // A late use of either name prevents the dying-base exception. Four
+    // different values now coexist, even though there are five temporary IDs.
+    for id in [root, dest] {
+        let mut p = p.clone();
+        let r = &mut p.routines[0];
+        let mut store = r.blocks[0].ops.last().unwrap().clone();
+        if let Mir65816Op::Store { value, .. } = &mut store {
+            *value = Mir65816Value::Temp(id, actionc::target::ByteSize::new(3));
+        } else { panic!() }
+        r.blocks[0].ops.push(store);
+        assert!(AllocatedFrame::pointer_leaf(r).unwrap().is_none());
+        assert!(f.verify_pointer_leaf(r).is_err());
+        emit::materialize(&p).unwrap();
+    }
+}
+
+#[test]
+fn pointer_identity_selection_handles_zero_addresses_cast_chains_and_rejects_nonidentities() {
+    use mir65816::{Mir65816Op, emit::AllocatedFrame};
+    let declarations = "TYPE Link=[Link POINTER a,b] Link POINTER input=$7100,output=$7300 ";
+    for optimize in [false, true] {
+        let p = mir(&format!("{declarations}PROC Work() output=Link POINTER(ADDRESS(@input.a)) RETURN"), optimize);
+        let r = &p.routines[0];
+        let f = AllocatedFrame::pointer_leaf(r).unwrap().unwrap();
+        assert!(f.temps.len() > 1);
+        assert!(f.temps.values().all(|home| *home == *f.temps.values().next().unwrap()));
+        assert_eq!(f.extent, 0);
+        // Keeping only the read and store produces the same machine bytes.
+        let machine = emit::materialize(&p).unwrap();
+        let mut direct = mir(&format!("{declarations}PROC Work() output=input RETURN"), optimize);
+        direct.routines[0].id = r.id;
+        assert_eq!(machine.routines[0].code.bytes, emit::materialize(&direct).unwrap().routines[0].code.bytes);
+        for problem in 0..4 {
+            let mut bad = p.clone();
+            let r = &mut bad.routines[0];
+            let op = r.blocks[0].ops.iter_mut().find(|op| matches!(op, Mir65816Op::AddressOf { .. })).unwrap();
+            let Mir65816Op::AddressOf { address, .. } = op else { unreachable!() };
+            match problem {
+                0 => address.displacement = actionc::target::ByteOffset::new(3),
+                1 => address.base = mir65816::Mir65816AddressBase::External(mir65816::Mir65816ExternalAddress::Absolute(actionc::target::AddressValue { value: 0x7100, address_space: actionc::target::TargetLayout::DATA_ADDRESS_SPACE })),
+                2 => { if let Mir65816Op::Load { volatile, .. } = &mut r.blocks[0].ops[0] { *volatile = true; } },
+                3 => { let (_, ty) = r.temps.last_mut().unwrap(); ty.kind = nir::NirTypeKind::Integer(nir::NirIntegerType::size(24)); },
+                _ => unreachable!(),
+            }
+            assert!(AllocatedFrame::pointer_leaf(r).unwrap().is_none());
+            assert!(f.verify_pointer_leaf(r).is_err());
+        }
+    }
+}

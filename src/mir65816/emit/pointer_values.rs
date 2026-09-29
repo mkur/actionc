@@ -59,7 +59,7 @@ impl Builder<'_> {
         if matches!((source, destination), (Memory::Stack(a), Memory::Stack(b)) if a == b)
             || matches!((source, destination), (Memory::DirectPage(a), Memory::DirectPage(b)) if a == b)
         {
-            return Ok(false);
+            return Ok(address.displacement.get() == 0);
         }
         self.code.barrier();
         let offset = address.displacement.get() as u16;
@@ -196,7 +196,9 @@ impl Builder<'_> {
         self.code.barrier();
         // All current same-width three-byte cast kinds preserve representation.
         // Keep the semantic cast and its result home; only select its transfer.
-        if matches!((source, destination), (Memory::Stack(a), Memory::Stack(b)) if a == b) {
+        if matches!((source, destination), (Memory::Stack(a), Memory::Stack(b)) if a == b)
+            || matches!((source, destination), (Memory::DirectPage(a), Memory::DirectPage(b)) if a == b)
+        {
             // The allocated home already contains the complete result. Keep
             // the current M/A/flags facts; no imaginary transfer took place.
             return Ok(true);

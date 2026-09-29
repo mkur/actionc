@@ -69,7 +69,7 @@ fn native_pointer_casts_copy_exact_private_extents_in_both_entry_widths() {
                 let frame = b.frame.clone();
                 assert!(b.pointer_cast(TempId(999), &value).unwrap());
                 let mut expected = vec![];
-                if !matches!((src,dst), (Location::Stack(a),Location::Stack(b)) if a==b) {
+                if src != dst {
                     if byte {
                         expected.extend([0xc2, 0x20]);
                     }
@@ -212,7 +212,7 @@ fn zero_offset_address_formation_keeps_unsupported_bases_and_geometry_atomic() {
         if problem >= 6 {
             assert!(result.is_err());
         } else {
-            assert_eq!(result, Ok(false));
+            assert_eq!(result, Ok(problem == 4));
         }
         assert_eq!(format!("{:?}", b.code), before);
     }

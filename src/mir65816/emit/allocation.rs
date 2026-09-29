@@ -414,11 +414,76 @@ struct Interval {
     last: usize,
 }
 
+/// Each immutable identity owns a closed lifetime. Alias temporaries retain
+/// their IDs and maps, but share their root's complete physical value.
+struct PointerRanges {
+    roots: BTreeMap<TempId, TempId>,
+    ranges: BTreeMap<TempId, Interval>,
+}
+
+fn pointer_type(ty: &crate::nir::NirType) -> bool {
+    ty.width == Some(ByteSize::new(3))
+        && matches!(ty.kind, crate::nir::NirTypeKind::Pointer { address_space, .. }
+            if address_space == crate::target::TargetLayout::DATA_ADDRESS_SPACE)
+}
+
+fn address_type(ty: &crate::nir::NirType) -> bool {
+    ty.width == Some(ByteSize::new(3))
+        && ty.kind.integer().is_some_and(|i| {
+            i.bits == 24 && !i.signed && i.role == crate::nir::NirIntegerRole::Address
+        })
+}
+
+/// Exact representation identities only: no arithmetic, dereference, storage
+/// escape, callable conversion or arbitrary same-width integer equivalence.
+fn pointer_identity(routine: &Mir65816Routine, op: &Mir65816Op) -> Option<(TempId, TempId)> {
+    let (dest, source, kind) = match op {
+        Mir65816Op::Cast {
+            dest,
+            from,
+            from_signed: false,
+            to,
+            kind,
+            value: Mir65816Value::Temp(source, width),
+        } if from.get() == 3 && to.get() == 3 && width.get() == 3 => (*dest, *source, Some(*kind)),
+        Mir65816Op::AddressOf {
+            dest,
+            width,
+            address,
+        } if width.get() == 3 && address.index.is_none() && address.displacement.get() == 0 => {
+            let Mir65816AddressBase::Indirect(Mir65816Value::Temp(source, width)) = &address.base
+            else {
+                return None;
+            };
+            if width.get() != 3 {
+                return None;
+            }
+            (*dest, *source, None)
+        }
+        _ => return None,
+    };
+    let ty = |id| {
+        routine
+            .temps
+            .iter()
+            .find(|(t, _)| *t == id)
+            .map(|(_, ty)| ty)
+    };
+    let (input, output) = (ty(source)?, ty(dest)?);
+    let allowed = match kind {
+        Some(NirCastKind::Pointer) => pointer_type(input) && pointer_type(output),
+        Some(NirCastKind::PointerToInteger) => pointer_type(input) && address_type(output),
+        Some(NirCastKind::IntegerToPointer) => address_type(input) && pointer_type(output),
+        None => pointer_type(input) && (pointer_type(output) || address_type(output)),
+        _ => false,
+    };
+    allowed.then_some((dest, source))
+}
+
 /// The whitelist is also the scratch contract: these operations use A/Y/flags,
-/// their declared homes and the declared memory address only. No PTR/RESULT/
-/// arithmetic scratch is available while these residents exist. Prologue
-/// checks read the separate ABI stack-bound slots; there are no call boundaries.
-fn leaf_intervals(routine: &Mir65816Routine) -> Option<BTreeMap<TempId, Interval>> {
+/// their declared homes and the declared memory address only. Identities emit
+/// nothing. No PTR/RESULT/arithmetic scratch is available while residents exist.
+fn leaf_intervals(routine: &Mir65816Routine) -> Option<PointerRanges> {
     let [block] = routine.blocks.as_slice() else {
         return None;
     };
@@ -429,43 +494,61 @@ fn leaf_intervals(routine: &Mir65816Routine) -> Option<BTreeMap<TempId, Interval
             block.terminator,
             Mir65816Terminator::Return { value: None, .. }
         )
-        || routine.temps.iter().any(|(_, ty)| {
-            ty.width != Some(ByteSize::new(3))
-                || !matches!(ty.kind, crate::nir::NirTypeKind::Pointer { .. })
-        })
+        || routine
+            .temps
+            .iter()
+            .any(|(_, ty)| !pointer_type(ty) && !address_type(ty))
     {
         return None;
     }
-    let mut intervals = BTreeMap::<TempId, Interval>::new();
-    fn use_value(
-        value: &Mir65816Value,
-        at: usize,
-        intervals: &mut BTreeMap<TempId, Interval>,
-    ) -> Option<()> {
+    let mut plan = PointerRanges {
+        roots: BTreeMap::new(),
+        ranges: BTreeMap::new(),
+    };
+    fn use_value(value: &Mir65816Value, at: usize, plan: &mut PointerRanges) -> Option<()> {
         let Mir65816Value::Temp(id, width) = value else {
             return None;
         };
         if width.get() != 3 {
             return None;
         }
-        intervals.get_mut(id)?.last = at;
+        let root = plan.roots.get(id)?;
+        plan.ranges.get_mut(root)?.last = at;
         Some(())
     }
     for (at, op) in block.ops.iter().enumerate() {
+        if let Some((dest, source)) = pointer_identity(routine, op) {
+            use_value(
+                &Mir65816Value::Temp(source, ByteSize::new(3)),
+                at,
+                &mut plan,
+            )?;
+            if plan.roots.insert(dest, plan.roots[&source]).is_some() {
+                return None;
+            }
+            continue;
+        }
         let (address, dest) = match op {
             Mir65816Op::Load {
                 dest,
                 width,
                 address,
                 volatile: false,
-            } if width.get() == 3 => (address, Some(*dest)),
+            } if width.get() == 3
+                && routine
+                    .temps
+                    .iter()
+                    .any(|(id, ty)| id == dest && pointer_type(ty)) =>
+            {
+                (address, Some(*dest))
+            }
             Mir65816Op::Store {
                 address,
                 value,
                 width,
                 volatile: false,
             } if width.get() == 3 => {
-                use_value(value, at, &mut intervals)?;
+                use_value(value, at, &mut plan)?;
                 (address, None)
             }
             _ => return None,
@@ -474,7 +557,7 @@ fn leaf_intervals(routine: &Mir65816Routine) -> Option<BTreeMap<TempId, Interval
             return None;
         }
         match &address.base {
-            Mir65816AddressBase::Indirect(value) => use_value(value, at, &mut intervals)?,
+            Mir65816AddressBase::Indirect(value) => use_value(value, at, &mut plan)?,
             Mir65816AddressBase::AutomaticFrame(_)
             | Mir65816AddressBase::Parameter(_)
             | Mir65816AddressBase::External(_)
@@ -482,39 +565,34 @@ fn leaf_intervals(routine: &Mir65816Routine) -> Option<BTreeMap<TempId, Interval
             _ => return None,
         }
         if let Some(id) = dest {
-            if intervals
-                .insert(
-                    id,
-                    Interval {
-                        first: at,
-                        last: at,
-                    },
-                )
-                .is_some()
-            {
+            if plan.roots.insert(id, id).is_some() {
                 return None;
             }
+            plan.ranges.insert(
+                id,
+                Interval {
+                    first: at,
+                    last: at,
+                },
+            );
         }
     }
-    if intervals.len() != routine.temps.len()
+    if plan.roots.len() != routine.temps.len()
         || routine
             .temps
             .iter()
-            .any(|(id, _)| !intervals.contains_key(id))
+            .any(|(id, _)| !plan.roots.contains_key(id))
     {
         return None;
     }
-    Some(intervals)
+    Some(plan)
 }
 
 /// The only whole-operation lifetime exception: an indirect three-byte load
 /// consumes its dying base completely before writing the replacement home.
-/// leaf_intervals already excludes calls, volatile accesses, indexes, non-pointer
-/// values, CFG joins and results. In that closed whitelist no value lives in X.
-fn reload_bases(
-    routine: &Mir65816Routine,
-    ranges: &BTreeMap<TempId, Interval>,
-) -> BTreeMap<TempId, TempId> {
+/// leaf_intervals already excludes calls, volatile accesses, indexes,
+/// unrelated scalar values, CFG joins and results. In that closed whitelist no value lives in X.
+fn reload_bases(routine: &Mir65816Routine, plan: &PointerRanges) -> BTreeMap<TempId, TempId> {
     routine.blocks[0]
         .ops
         .iter()
@@ -528,7 +606,9 @@ fn reload_bases(
                         ..
                     },
                 ..
-            } if ranges[base].last == at && base != dest => Some((*dest, *base)),
+            } if plan.ranges[&plan.roots[base]].last == at && base != dest => {
+                Some((*dest, plan.roots[base]))
+            }
             _ => None,
         })
         .collect()
@@ -594,8 +674,8 @@ impl AllocatedFrame {
         }
         self.verify_pointer_leaf(routine)?;
         let ranges = leaf_intervals(routine).ok_or("pointer reload outside bounded leaf")?;
-        if reload_bases(routine, &ranges).get(dest) != Some(base)
-            || routine.blocks[0].ops.get(ranges[dest].first) != Some(op)
+        if reload_bases(routine, &ranges).get(dest) != ranges.roots.get(base)
+            || routine.blocks[0].ops.get(ranges.ranges[dest].first) != Some(op)
         {
             return Err("pointer reload does not consume its dying base".into());
         }
@@ -612,11 +692,16 @@ impl AllocatedFrame {
         };
         // Preserve the smaller existing sequence whenever three closed slots
         // suffice. Pay for X capture only to avoid a whole-routine stack fallback.
-        let Some(temps) = pointer_homes(&intervals, &BTreeMap::new())
-            .or_else(|| pointer_homes(&intervals, &reload_bases(routine, &intervals)))
+        let Some(temps) = pointer_homes(&intervals.ranges, &BTreeMap::new())
+            .or_else(|| pointer_homes(&intervals.ranges, &reload_bases(routine, &intervals)))
         else {
             return Ok(None);
         };
+        let temps = intervals
+            .roots
+            .iter()
+            .map(|(&id, root)| (id, temps[root]))
+            .collect();
         let extent = abi::stack::fixed_extent(routine.frame.extent)
             .map_err(|e| e.to_string())?
             .get() as u16;
@@ -636,7 +721,7 @@ impl AllocatedFrame {
     pub fn verify_pointer_leaf(&self, routine: &Mir65816Routine) -> Result<(), String> {
         let ranges =
             leaf_intervals(routine).ok_or("unsupported operation in direct-page allocation")?;
-        if self.temps.len() != ranges.len()
+        if self.temps.len() != ranges.roots.len()
             || !self.edge_copies.is_empty()
             || u32::from(self.extent) != routine.frame.extent.get()
             || self.spill_bytes != 0
@@ -645,14 +730,19 @@ impl AllocatedFrame {
             return Err("invalid direct-page frame accounting".into());
         }
         let reloads = reload_bases(routine, &ranges);
-        for (&id, range) in &ranges {
+        for (&id, &root) in &ranges.roots {
+            if self.temps.get(&id) != self.temps.get(&root) {
+                return Err("pointer identity has a different physical home".into());
+            }
+        }
+        for (&id, range) in &ranges.ranges {
             let Some(Location::DirectPage(slot)) = self.temps.get(&id) else {
                 return Err("missing direct-page temporary location".into());
             };
             if slot.width != 3 || !POINTER_SLOTS.contains(&slot.offset) {
                 return Err("direct-page temporary exceeds owned pointer scratch".into());
             }
-            for (&other, other_range) in ranges.range(..id) {
+            for (&other, other_range) in ranges.ranges.range(..id) {
                 if self.temps[&other] == self.temps[&id]
                     && range.first <= other_range.last
                     && other_range.first <= range.last

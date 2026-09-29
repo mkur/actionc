@@ -148,9 +148,9 @@ impl Plan {
             producers: BTreeMap::new(),
             consumers: BTreeMap::new(),
         };
-        // The closed scalar-DP/X profile keeps ownership of its complete
+        // Closed scalar-DP/X and pointer profiles keep ownership of their complete
         // home classes and loop-carried values. Do not mix allocators here.
-        if scalar::admitted(r) {
+        if scalar::admitted(r) || AllocatedFrame::pointer_leaf(r).ok().flatten().is_some() {
             return plan;
         }
         for block in &r.blocks {
