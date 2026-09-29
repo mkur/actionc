@@ -146,6 +146,26 @@ address. Normal completion restores `S_call`; caller cleanup adds O, returning
 to the original even body S. The call including cleanup has net stack delta
 zero. There is no red zone below S: interrupts can write there immediately.
 
+### Forwarding entries
+
+A proven forwarding wrapper may execute JML to another ordinary native entry
+while retaining its entry S. The destination then inherits the original far
+return address and incoming argument area; its RTL returns directly to the
+original caller, which performs the single argument cleanup. This is valid
+only when the physical argument layouts and result contracts match, the
+argument values are unchanged, and no wrapper frame or work needs completion.
+The wrapper preserves the ordinary entry modes, D, DBR and I at the transfer.
+It keeps its own callable address; it is not a linker alias for its destination.
+
+The current compiler admits bounded acyclic chains of such wrappers and keeps
+ordinary calls for unsupported shapes. A checked wrapper needs no reservation
+check because it changes neither S nor memory; the eventual ordinary target
+checks its own stack requirements. Its frame map reports zero additional local
+stack use and no local call reservation. The inherited caller storage and
+callee requirements still apply, and a whole-task bound remains unknown. See
+the [selection plan](MIR65816_FORWARDING_WRAPPERS_PLAN.md) for admission rules.
+This introduces no native ABI version, argument-layout or result-lane change.
+
 ### Frame layout and cleanup
 
 After entry the callee reserves an **even** extent F, keeping body S even.

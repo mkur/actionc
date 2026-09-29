@@ -234,6 +234,33 @@ and typed call/return effects and replay still describe the actual instructions.
 This is ordinary JSL/cleanup/RTL using the declared callee ABI.
 See the [call-result measurements](benchmarks/65816-call-results/README.md).
 
+A whole-routine forwarding plan takes precedence over ordinary allocation and
+call selection. It proves that one block contains only incoming-parameter
+reads, representation-preserving pointer/identity casts, one direct call and
+its unchanged return. All arguments must correspond to the original parameters
+in order, with identical physical offsets, widths, alignment, padding and total
+extent. Native result homes and entry/return boundaries must match. Frame
+objects, mutated/addressed parameters, extra operations, volatile reads,
+conversions, unknown targets and cycles among forwarding candidates disqualify
+the wrapper. Its target must be an ordinary generated routine in this program.
+
+The frame verifier independently recomputes this proof before accepting zero
+frame/spill/peak and empty home maps. The selected `NativeForward` instruction
+is a terminal JML to a routine fixup, at byte zero, with unchanged entry stack
+and native environment. Typed replay rechecks that boundary and has no local
+continuation. The entry-block label and all MIR source spans remain present;
+omitted operations have empty spans, and the call owns the four jump bytes.
+The wrapper retains a distinct public address and its declared signature.
+
+The caller's argument area and far return address are inherited by the target;
+no new storage, return address, argument cleanup or local epilogue is emitted.
+The target retains its normal stack-check policy. The wrapper's image `calls`
+list is empty because no local call reservation occurs; its declared incoming
+extent is unchanged, and `whole_task_stack_bound` stays unknown. Routine fixups
+retain the target dependency for linking and o65 relocation. This uses existing
+artifact formats and reserves no additional stack/DP capacity. See the
+[forwarding-wrapper plan](MIR65816_FORWARDING_WRAPPERS_PLAN.md).
+
 The state owns width-qualified immutable A/X/Y values, N/Z provenance, C/V,
 execution modes and environment, exact private stack-home generations, stack
 movement and the existing single-use adjacent-word permission. DP and unknown

@@ -1,0 +1,14 @@
+{
+  "routines": 960,
+  "forwarding_wrappers": 41,
+  "routine_bytes_before": 489875,
+  "routine_bytes_after": 485991,
+  "shrinking_routines": 41,
+  "growing_routines": 0,
+  "shrinking_frames": 39,
+  "growing_frames": 0,
+  "fixed_bank_zero_delta": 0,
+  "per_task_bank_zero_delta": 0,
+  "frame_maps_validated": 960,
+  "saved_bytes": 3884
+}

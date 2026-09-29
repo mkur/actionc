@@ -1,0 +1,12 @@
+{
+  "compiler_baseline": "4bf1b1015ddb7f52db3cc162ba65247e2bcfd38c",
+  "compiler_candidate": "8b9799b6fd8d1f3564ae95637e9a0277dd0c8742",
+  "compiler_source_digest": "b0eda5f6fe9d76a4c351d3a1727e32481f28187b9e3050154c288bb5d0832e2a",
+  "compiler_executable_sha256": "ca05eabf588a2dff87b8f437cb05c61c448faad7c6bafb84a96f1ccdeb2b89a2",
+  "exec_revision": "134130bdb8ce1374ca7d5e6011ed98c4ccd62151",
+  "exec_input_count": 133,
+  "exec_input_digest": "751059513e938ac69f5d578219029b39347388dccda46797916d30d03eb7898d",
+  "measurement": "unchanged generated Exec inputs; local compiler override; compile only",
+  "baseline_image_sha256": "3bb1ecc5ea460265dffa224fd5e0fe8b7a06ab875c78c235cd9bd4ea5b48f476",
+  "candidate_image_sha256": "728f8cd652bba56e46829a13c95555f46c65fc6cb37520cf7cc58e78eb35f798"
+}

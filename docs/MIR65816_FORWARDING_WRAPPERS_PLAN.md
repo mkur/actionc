@@ -1,6 +1,6 @@
 # MIR65816 forwarding wrappers
 
-Status: F1 and F2 implemented; F3 measurement/documentation is in progress.
+Status: F1–F3 complete.
 
 ## Objective
 
@@ -189,3 +189,16 @@ both task domains. Changed instrumentation checks LF/CRLF input. The ordinary
 call-cleanup fixture now performs an observable store before its call so that
 it continues to exercise cleanup; the new tests cover pure tail wrappers.
 Reserved bank-zero delta remains **0 fixed / 0 per task bytes**.
+
+F3 measures 41 forwarding wrappers in the unchanged 960-routine Exec build:
+**489,875 -> 485,991 routine code bytes**, saving **3,884 bytes**. No other
+routine changes size; 39 frames shrink and none grow. `IsMinListEmpty` is now
+4 bytes (was 94), and `NewMinList` is 4 (was 90). Both have zero frame and
+additional local stack use. All 960 frame maps validate. The ABI and emission
+contracts now document inherited arguments/return addresses and terminal
+transfer accounting. See the
+[measurements and per-wrapper inventory](benchmarks/65816-forwarding-wrappers/README.md)
+for provenance and fallbacks.
+This is a local-override compile measurement, not a hosted-image qualification;
+the Exec pin and play image remain unchanged. Bank-zero reservation delta is
+**0 fixed / 0 per task bytes**.
