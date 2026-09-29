@@ -995,7 +995,27 @@ unchanged. See the [bounded X plan](MIR65816_LOOP_X_RESIDENCY_PLAN.md).
 
 Only MIR value temporaries share storage. Frame objects, addressed locals and
 mutable parameters retain their dedicated homes. No temporary address escapes,
-and no alias-sensitive load forwarding or memory reordering is performed.
+and allocation itself performs no alias-sensitive load forwarding or memory
+reordering.
+Before assigning homes, a typed storage-demand plan identifies bounded A8/A16
+lifetimes. An unsigned BYTE/CARD direct nonvolatile load, or native CARD
+Add/Sub/And/Or/Xor or constant 1–3-bit shift, may feed its sole use in the
+immediately following unsigned widening cast to 2–4 bytes. Every definition
+and operand use is counted across
+the routine. Labels, calls, other intervening operations and CFG edges cannot
+be crossed. The producer executes at its original source site; the consumer
+uses A without a capture/reload. BYTE widening stays in A8 and writes explicit
+zero high bytes, so dirty hidden B never reaches the result.
+The widened result retains a normal home. All other shapes retain memory.
+
+Register-only temporaries are absent from allocation and image memory maps.
+Allocation verification independently recomputes their eligibility and rejects
+both an unapproved missing home and a memory home for an admitted register-only
+value. Remaining memory homes retain closed-operation interference. Frame
+alignment, incoming offsets, staging and peak usage are recomputed from actual
+storage. The native ABI and stack-check policy are unchanged. See the
+[storage-demand plan](MIR65816_STORAGE_DEMAND_PLAN.md).
+
 Values live across calls and helpers remain on the invocation's stack, outside
 call-clobbered registers and DP scratch. Allocation is deterministic (descending
 width, then interference count, then ID; first available aligned byte range),
@@ -1003,6 +1023,20 @@ and is rechecked against liveness, byte extents, frame objects, staging slots
 and final accounting before selection. It need not find the minimum frame.
 Both raw and optimized emission use allocation; `--no-opt` controls NIR passes.
 See the [measurements and scope](MIR65816_TEMPORARY_ALLOCATION.md).
+
+Adjacent ordinary scalar loads/stores may copy directly between disjoint
+compiler-allocated globals, local frame objects and parameter homes, including
+disjoint fields within one such object. Incoming arguments remain read-only;
+mutable parameters use their allocated frame objects. The load
+must have exactly one use, the following store, and both widths must agree in
+the range 1–4 bytes. Selection checks complete object extents and excludes
+absolute placements, aliases, volatile accesses, indexing and indirect bases.
+External word/byte pieces are read and written exactly once; private frame
+copies retain their existing word selection. A three-byte pointer never
+touches a fourth byte. The earlier load's span is empty and the store's
+span owns the copy. No operation, label or call is crossed. Other shapes retain
+their original capture-before-store sequence. This selection removes temporary
+traffic; allocation maps, reserved frames and stack-check policy are unchanged.
 
 The allocated even fixed frame must fit 254 bytes. Incoming offsets are
 recomputed after allocation. Every emitted stack-relative byte access is

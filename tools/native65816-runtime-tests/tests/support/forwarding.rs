@@ -296,6 +296,10 @@ pub fn index(
                     );
                     continue; // Incoming comparison reads its original home.
                 }
+                if p.is_empty() && kind == Kind::Store {
+                    assert!(matches!(producer, Mir65816Op::Load { .. }));
+                    continue; // A direct assignment has no captured word.
+                }
                 // The old adjacent-word probe ends at a local instruction. A
                 // shared return instead transfers the result through a checked
                 // internal join; its separate runtime tests cover those lanes.

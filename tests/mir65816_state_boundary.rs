@@ -22,6 +22,8 @@
 //! (raw/optimized) and optimized recursive_sum. Their loads remain at the
 //! comparison; frames and guards are unchanged, and later positions move by
 //! two bytes. This reconciles the snapshot with upstream 1d9873cb.
+//! Upper-half DP ownership shifts only DP homes and instruction operands by
+//! $80. Storage-demand planning leaves these fixtures' emission unchanged.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]

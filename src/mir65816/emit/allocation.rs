@@ -14,6 +14,8 @@ pub struct AllocatedFrame {
     /// Exact local reservation/transfer peak, excluding callees' reservations
     /// and the platform's separately reserved interrupt headroom.
     pub peak_below_entry: u16,
+    /// Materialized temporaries only. Storage-demand-verified accumulator
+    /// lifetimes have no fictitious stack/DP entry.
     pub temps: BTreeMap<TempId, Location>,
     /// Scratch pool in capture order; selective move indices need not be dense.
     pub edge_copies: Vec<Slot>,
@@ -37,11 +39,13 @@ impl AllocatedFrame {
     }
 
     pub(super) fn stack(routine: &Mir65816Routine) -> Result<Self, String> {
+        let demand = super::home_demand::Plan::new(routine);
         let interference = super::liveness::interference(routine)?;
         let mut cursor = routine.frame.extent.get() + 1;
         let mut ordered = routine
             .temps
             .iter()
+            .filter(|(id, _)| demand.accumulator(*id).is_none())
             .map(|(id, ty)| {
                 Ok((
                     *id,
@@ -145,8 +149,11 @@ impl AllocatedFrame {
     /// Recheck physical byte overlap against closed-operation CFG liveness.
     /// Image maps alone cannot establish the lifetime proof for shared homes.
     pub fn verify_stack(&self, routine: &Mir65816Routine) -> Result<(), String> {
+        // Recompute register admission from typed MIR; a sparse map alone is
+        // never permission to omit a value's capture or reserved storage.
+        let demand = super::home_demand::Plan::new(routine);
         let graph = super::liveness::pointer_copy_interference(routine)?;
-        if self.temps.len() != routine.temps.len() {
+        if self.temps.len() + demand.count() != routine.temps.len() {
             return Err("invalid stack temporary count".into());
         }
         let mut end = routine.frame.extent.get();
@@ -169,6 +176,12 @@ impl AllocatedFrame {
             Ok(())
         };
         for (id, ty) in &routine.temps {
+            if demand.accumulator(*id).is_some() {
+                if self.temps.contains_key(id) {
+                    return Err("register-only temporary has a memory home".into());
+                }
+                continue;
+            }
             let slot = self
                 .temps
                 .get(id)
@@ -179,6 +192,9 @@ impl AllocatedFrame {
             }
             check_slot(slot)?;
             for other in &graph[id] {
+                if demand.accumulator(*other).is_some() {
+                    continue;
+                }
                 let other_slot = self
                     .temps
                     .get(other)

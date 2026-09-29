@@ -70,7 +70,7 @@ pub fn index(
                 );
                 assert_eq!(b.params.last().unwrap().0, *param);
                 let home = homes::of(m.frame.temps[param]).unwrap();
-                assert!((288..=318).contains(&home));
+                assert!((416..=446).contains(&home));
                 let mut updates = vec![];
                 for block in &r.blocks {
                     for (j, op) in block.ops.iter().enumerate() {

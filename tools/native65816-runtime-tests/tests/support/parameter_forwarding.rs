@@ -127,7 +127,8 @@ fn load(
     }
     // Native argument starts one byte above the three-byte return address.
     let source = u8::try_from(u32::from(m.frame.extent) + 4 + offset.get()).unwrap();
-    let capture = homes::of(m.frame.temps[dest])?;
+    // Register-only widening producers have no capture to forward.
+    let capture = homes::of(*m.frame.temps.get(dest)?)?;
     assert!((1..=254).contains(&source));
     assert!(u16::from(source).abs_diff(capture) >= 2);
     Some((id, source, *dest, capture))
@@ -150,10 +151,12 @@ pub fn index(
                 };
                 let p = &m.code.mir_spans[&(b.id, i)];
                 if p.is_empty() {
-                    // Adjacent incoming comparisons have no capture to track.
+                    // Adjacent comparisons and direct assignments have no
+                    // parameter capture to track.
                     assert!(
                         matches!(b.ops.get(i+1),Some(Mir65816Op::Compare{left:Mir65816Value::Temp(t,_),..}) if *t==temp)
                             || matches!(b.ops.get(i+1),Some(Mir65816Op::Compare{right:Mir65816Value::Temp(t,_),..}) if *t==temp)
+                            || matches!(b.ops.get(i+1),Some(Mir65816Op::Store{value:Mir65816Value::Temp(t,w),width,volatile:false,..}) if *t==temp && w.get()==2 && width.get()==2)
                     );
                     continue;
                 }

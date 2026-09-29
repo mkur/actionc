@@ -17,7 +17,10 @@ pub(super) fn plan(
         else {
             continue;
         };
-        if *width != ByteSize::ONE || counts.get(loaded) != Some(&1) {
+        if *width != ByteSize::ONE
+            || counts.get(loaded) != Some(&1)
+            || !matches!(ops[1], Mir65816Op::Compare { .. })
+        {
             continue;
         }
         let Location::Stack(home) = b.temp(*loaded)? else {

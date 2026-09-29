@@ -1,10 +1,11 @@
-//! Conservative native instruction selection. Every live value has invocation
-//! storage or a verified per-domain pointer home; scratch is dead at calls.
+//! Conservative native instruction selection. Values have invocation storage,
+//! a verified domain home or a bounded accumulator lifetime; scratch dies at calls.
 mod allocation;
 mod analysis;
 mod coalescing;
 mod copies;
 mod effects;
+mod home_demand;
 pub(super) mod layout;
 mod liveness;
 mod loop_x;

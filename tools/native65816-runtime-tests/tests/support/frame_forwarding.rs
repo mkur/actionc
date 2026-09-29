@@ -109,7 +109,8 @@ pub fn index(
                 let source =
                     u8::try_from(object.stack_offset.get() + a.displacement.get()).unwrap();
                 assert!((1..=254).contains(&source));
-                let Some(destination) = homes::of(m.frame.temps[dest]) else {
+                // A register-only widening producer has no capture store.
+                let Some(destination) = m.frame.temps.get(dest).copied().and_then(homes::of) else {
                     continue;
                 };
                 let p = &m.code.mir_spans[&(b.id, i)];

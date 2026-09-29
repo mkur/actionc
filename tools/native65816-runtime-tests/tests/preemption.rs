@@ -1337,7 +1337,8 @@ fn forwarding_source(source: &str) -> String {
             r#"
 CARD FUNC ForwardAdd(CARD x) RETURN(x+1+2)
 CARD FUNC ForwardSub(CARD x) x=x-1 RETURN(x)
-CARD FUNC ForwardGt(CARD x,y) IF x>y THEN RETURN(x) FI RETURN(y)
+; Arithmetic keeps a captured comparison operand after incoming-load fusion.
+CARD FUNC ForwardGt(CARD x,y) IF x+1>y+1 THEN RETURN(x) FI RETURN(y)
 CARD FUNC Read"#,
         )
         .replace(
@@ -1464,7 +1465,7 @@ fn forwarded_values_flags_and_return_teardown_survive_both_task_irq_domains() {
                 forwarding::Kind::Store,
                 forwarding::Kind::Return,
             ] {
-                assert!(forms.contains(&(d, k)));
+                assert!(forms.contains(&(d, k)), "missing {d:04x}/{k:?}: {forms:?}");
             }
             for b in [false, true] {
                 assert!(truth.contains(&(d, b)));
@@ -1628,7 +1629,9 @@ fn parameter_forwarding_source(source: &str) -> String {
     source.replace("\r\n", "\n")
         .replace("BYTE POINTER other,buffer]", "BYTE POINTER other,buffer CARD pair,bridge,zero,negative]")
         .replace("CARD FUNC Read", "CARD FUNC ParamPair(CARD pad,x) RETURN(x+x)\nCARD FUNC ParamBridge(CARD pad,x) CARD a a=x RETURN(x+a)\nCARD FUNC Read")
-        .replace("  work.done=1", "  work.pair=ParamPair(work.seed,work.seed)\n  work.bridge=ParamBridge(work.seed,work.seed)\n  work.zero=ParamPair(1,0)\n  work.negative=ParamBridge(2,32768)\n  work.done=1")
+        // ParamBridge now copies directly; ParamPair retains the capture whose
+        // negative N/Z state this interrupt test needs to observe.
+        .replace("  work.done=1", "  work.pair=ParamPair(work.seed,work.seed)\n  work.bridge=ParamBridge(work.seed,work.seed)\n  work.zero=ParamPair(1,0)\n  work.negative=ParamPair(2,32768)\n  work.done=1")
 }
 fn parameter_machine(source: &str, optimize: bool) -> ContextHarness {
     initialize(ContextHarness::from_prepared(
@@ -2225,4 +2228,17 @@ fn byte_word_zero_tests_restore_flags_under_irq_nmi() {
     let source = modify(&original);
     assert_eq!(source, modify(&original.replace('\n', "\r\n")));
     check_narrow_preemption(&source, ["ZEROBYTE", "ZEROWORD"], "zero-tests");
+}
+
+#[test]
+fn accumulator_homes_survive_irq_and_nmi_between_producer_and_widening() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n", "\n")
+            .replace("CARD FUNC Read(", "LONGCARD FUNC HomeDemandByte(BYTE a) RETURN(LONGCARD(a))\nSIZE FUNC HomeDemandWord(CARD a) RETURN(SIZE(a RSH 2))\nCARD FUNC Read(")
+            .replace("  work.done=1", "  work.result==+CARD(HomeDemandByte(128))+CARD(HomeDemandWord($8001))-$2080\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["HOMEDEMANDBYTE", "HOMEDEMANDWORD"], "accumulator-homes");
 }

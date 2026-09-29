@@ -150,6 +150,10 @@ pub(super) fn operation_inputs(op: &Mir65816Op) -> Vec<TempId> {
     Uses::operation(op).occurrences
 }
 
+pub(super) fn operation_output(op: &Mir65816Op) -> Option<TempId> {
+    Uses::operation(op).output
+}
+
 /// Every operand occurrence, including repeated address/value operands. Shared
 /// with address selection so new MIR operations cannot hide a live producer.
 pub(super) fn input_counts(routine: &Mir65816Routine) -> BTreeMap<TempId, usize> {

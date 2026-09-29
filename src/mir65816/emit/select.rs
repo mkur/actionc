@@ -40,6 +40,8 @@ use copies::acyclic_word_order;
 
 #[path = "accumulator.rs"]
 mod accumulator;
+#[path = "accumulator_homes.rs"]
+mod accumulator_homes;
 #[path = "addresses.rs"]
 mod addresses;
 #[path = "arithmetic.rs"]
@@ -52,6 +54,8 @@ mod call_copies;
 mod call_returns;
 #[path = "constant_stores.rs"]
 mod constant_stores;
+#[path = "direct_assignments.rs"]
+mod direct_assignments;
 #[path = "integer_casts.rs"]
 mod integer_casts;
 #[path = "long_arithmetic.rs"]
@@ -330,6 +334,7 @@ pub(super) fn routine_with_data(
     if let Some(helper) = routine.helper {
         return arithmetic::emit(routine, helper, _trace, stack_checks);
     }
+    let demand = home_demand::Plan::new(routine);
     let frame = AllocatedFrame::new(routine)?;
     let addresses = addresses::Plan::new(routine, &frame, data)?;
     let pointers = pointer_forwarding::Plan::new(routine, &frame)?;
@@ -472,11 +477,16 @@ pub(super) fn routine_with_data(
         let byte_consumers = byte_consumers::plan(&b, block, &input_counts)?;
         let incoming = b.incoming_comparisons(block, &input_counts)?;
         let top_bit = top_bits::plan(&b, block, &input_counts)?;
+        let assignments =
+            direct_assignments::Plan::new(routine, &b.frame, block, &input_counts, data);
         if let Some((last, prefix)) = block.ops.split_last() {
             for (op_index, op) in prefix.iter().enumerate() {
                 let start = b.code.code().bytes.len();
                 b.code.begin_source(block.id, op_index);
-                if !pointers.enter(&mut b, block.id, op_index) {
+                if !demand.emit(&mut b, block.id, op_index, op)?
+                    && !pointers.enter(&mut b, block.id, op_index)
+                    && !assignments.emit(&mut b, op_index)?
+                {
                     if top_bit.is_some() && op_index + 1 == prefix.len() {
                         b.code.barrier();
                     } else if incoming.contains_key(&(op_index + 1)) {
@@ -499,7 +509,9 @@ pub(super) fn routine_with_data(
             }
             let start = b.code.code().bytes.len();
             b.code.begin_source(block.id, prefix.len());
-            let omitted = pointers.enter(&mut b, block.id, prefix.len());
+            let omitted = demand.emit(&mut b, block.id, prefix.len(), last)?
+                || pointers.enter(&mut b, block.id, prefix.len())
+                || assignments.emit(&mut b, prefix.len())?;
             if !omitted
                 && b.compare_branch_prepared(
                     last,

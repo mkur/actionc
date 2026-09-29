@@ -114,7 +114,10 @@ impl Builder<'_> {
             else {
                 continue;
             };
-            if width.get() != 2 || counts.get(loaded) != Some(&1) {
+            if width.get() != 2
+                || counts.get(loaded) != Some(&1)
+                || !matches!(pair[1], Mir65816Op::Compare { .. })
+            {
                 continue;
             }
             let Some((id, incoming)) = self.incoming_word(address)? else {
