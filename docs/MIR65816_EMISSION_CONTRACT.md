@@ -1527,20 +1527,32 @@ unchanged; entry guards follow the empty-frame rule above. See the
 ### Address expressions consumed by stores
 
 Nonvolatile unindexed indirect stores can consume BYTE/CARD expressions in A.
-A complete 24-bit AddressOf or constant pointer Add/Sub can likewise produce
-A16/X8 for its sole store consumer, through representation-preserving casts.
-Only checked borrowed definitions, which emit no instructions, may intervene.
-The complete def-use chain is selected before omitting homes. Source reads and
-arithmetic execute at their original producer site; nothing is moved through
-an observable access or call.
+A complete 24-bit AddressOf or constant pointer Add/Sub can likewise feed its
+sole store consumer through representation-preserving casts. Only checked
+borrowed definitions, which emit no instructions, may intervene. The complete
+def-use chain is selected before omitting homes.
 
-For indirect destination setup, Y temporarily preserves the low result while
-A stages the base. The admitted setup does not use X/Y or dynamic indexing.
-A is restored before Y becomes the field displacement. Three-byte stores then
-consume the complete low word and bank from A/X, so no source byte is read after
-the first write. Width/carry/wrap semantics and exact external extents remain
-unchanged. Unsupported schedules keep ordinary captures. If all local storage
-disappears, the resulting empty frame needs no entry reservation or guard.
+When the full source is in a private stack temporary or a checked unexposed
+parameter/local home, selection prepares the destination first, then computes
+and immediately stores the low word. It loads the source bank in A8, propagates
+carry/borrow and stores that byte. STA, SEP and displacement setup preserve
+carry. This schedule creates no complete A/X result, requires no temporary
+register transfers or bank-lane cleanup, and omits the same homes as the A/X
+schedule. Arithmetic moves only across the admitted identity aliases and
+omitted private definitions, never an observable access or call. Public and
+volatile source reads still capture all three bytes before the first write;
+partial source/destination overlap cannot change the computed result. The
+private source home remains authoritative after that write; this does not
+extend the lifetime of a prepared DP base across unknown writes.
+
+Other admitted address sources retain the A16/X8 schedule at the producer.
+For that schedule and scalar expressions, Y temporarily preserves the low
+result while A stages the destination base. The admitted setup does not use
+X/Y or dynamic indexing. A is restored before Y becomes the field displacement;
+three-byte stores consume the complete low word and bank from A/X. Unsupported
+def-use chains keep ordinary captures. Both schedules preserve width/carry/wrap
+semantics and exact external extents. If all local storage disappears, the
+resulting empty frame needs no entry reservation or guard.
 
 
 ### Prepared indirect-base reuse

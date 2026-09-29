@@ -18,8 +18,9 @@ pub(super) enum MemoryReason {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct Accumulator {
-    // One/two bytes use A8/A16. Three/four bytes use native A/X result
-    // lanes and may only flow through identity casts into a return.
+    // One/two bytes use A8/A16. Three/four bytes may use native A/X result
+    // lanes; sole address-store chains can instead emit their components at
+    // the store. Both schedules omit the same checked temporary homes.
     pub block: BlockId,
     pub producer: usize,
     pub consumer: usize,

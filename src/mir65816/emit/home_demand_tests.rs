@@ -537,6 +537,67 @@ fn address_results_flow_through_casts_and_borrowed_definitions_into_stores() {
 }
 
 #[test]
+fn sole_address_store_consumes_word_and_bank_without_building_a_register_result() {
+    use super::super::selected::{Action, ByteOp, Implied, Instruction};
+    for optimize in [false, true] {
+        let p = program(
+            "TYPE Item=[Item POINTER next,previous] PROC Work(Item POINTER p) p.next=Item POINTER(@p.previous) RETURN PROC Main() RETURN",
+            optimize,
+        );
+        let m = materialize(&p).unwrap();
+        let work = &m.routines[0];
+        assert_eq!(work.frame.extent, 0);
+        let instructions: Vec<_> = work
+            .code
+            .selected
+            .as_ref()
+            .unwrap()
+            .records()
+            .iter()
+            .filter_map(|r| {
+                if let Action::Instruction { form, .. } = &r.action {
+                    Some(form)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert!(!instructions.iter().any(|op| matches!(
+            op,
+            Instruction::Implied(Implied::Tax | Implied::Tay | Implied::Txa | Implied::Tya)
+        )));
+        let word_store = instructions
+            .iter()
+            .position(|op| {
+                matches!(
+                    op,
+                    Instruction::Byte(ByteOp::StaIndirect | ByteOp::StaIndirectY, _)
+                )
+            })
+            .unwrap();
+        let bank_add = instructions
+            .iter()
+            .position(|op| matches!(op, Instruction::Byte(ByteOp::AdcImm, 0)))
+            .unwrap();
+        assert!(word_store < bank_add);
+        assert!(
+            instructions[bank_add + 1..]
+                .iter()
+                .any(|op| matches!(op, Instruction::Byte(ByteOp::StaIndirectY, _)))
+        );
+        for (block, index) in m.prepared.routines[0].blocks.iter().flat_map(|b| {
+            b.ops
+                .iter()
+                .enumerate()
+                .filter(|(_, op)| matches!(op, Mir65816Op::AddressOf { .. }))
+                .map(|(i, _)| (b.id, i))
+        }) {
+            assert!(work.code.mir_spans[&(block, index)].is_empty());
+        }
+    }
+}
+
+#[test]
 fn prepared_bases_are_reused_only_until_a_possible_clobber() {
     for optimize in [false, true] {
         for (body, reuse) in [

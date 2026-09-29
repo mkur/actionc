@@ -1,0 +1,17 @@
+{
+  "compiler_baseline": "9dac668a",
+  "compiler_candidate": "9dac668a plus component stores in this commit",
+  "compiler_source_digest": "42a38543188c4b2cddeacae46b17bf2cd13ac29a349e32d4b9b9f7886a733ca3",
+  "compiler_executable_sha256": "0233794566451a9b18cf14595241e5b49b33b6e1c908b3f22c51450a59593086",
+  "exec_revision": "134130bdb8ce1374ca7d5e6011ed98c4ccd62151",
+  "exec_input_count": 133,
+  "exec_input_digest": "751059513e938ac69f5d578219029b39347388dccda46797916d30d03eb7898d",
+  "baseline_image_sha256": "a8092909978b880d7b80ea72faed3ec6295b3383c8cda4adbf7e71208610c1ee",
+  "candidate_image_sha256": "606c2f7c6348be53a39cda094a6d602c03712321a4f04bfb5387d9538fc2a31c",
+  "routine_bytes_before": 478763,
+  "routine_bytes_after": 478620,
+  "changed_routines": 10,
+  "saved_bytes": 143,
+  "fixed_bank_zero_delta": 0,
+  "per_task_bank_zero_delta": 0
+}

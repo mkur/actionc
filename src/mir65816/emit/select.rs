@@ -486,11 +486,14 @@ pub(super) fn routine_with_data(
         };
         let assignments =
             direct_assignments::Plan::new(routine, &b.frame, block, &input_counts, data);
+        let component_stores =
+            address_consumers::Plan::new(routine, &b.frame, block, &demand, &pointers)?;
         if let Some((last, prefix)) = block.ops.split_last() {
             for (op_index, op) in prefix.iter().enumerate() {
                 let start = b.code.code().bytes.len();
                 b.code.begin_source(block.id, op_index);
                 if !pointers.enter(&mut b, block.id, op_index)
+                    && !component_stores.emit(&mut b, op_index, op)?
                     && !demand.emit(&mut b, block.id, op_index, op)?
                     && !assignments.emit(&mut b, op_index)?
                 {
@@ -517,6 +520,7 @@ pub(super) fn routine_with_data(
             let start = b.code.code().bytes.len();
             b.code.begin_source(block.id, prefix.len());
             let omitted = pointers.enter(&mut b, block.id, prefix.len())
+                || component_stores.emit(&mut b, prefix.len(), last)?
                 || demand.emit(&mut b, block.id, prefix.len(), last)?
                 || assignments.emit(&mut b, prefix.len())?;
             if !omitted

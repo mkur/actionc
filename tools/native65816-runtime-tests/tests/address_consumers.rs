@@ -141,6 +141,67 @@ fn address_results_store_with_bank_carry_and_exact_three_byte_writes() {
 }
 
 #[test]
+fn component_stores_keep_carry_borrow_and_snapshots_when_public_source_overlaps_output() {
+    use actionc_vm::native65816::Access;
+    for operation in ["+", "-"] {
+        for volatile in ["", "VOLATILE "] {
+            let source = format!(
+                "{volatile}ADDRESS input=$7200 ADDRESS POINTER destination=$7100 \
+                PROC Work(ADDRESS POINTER target) target^=input{operation}SIZE(3) RETURN \
+                PROC Main() Work(destination) RETURN"
+            );
+            for optimize in [false, true] {
+                let image = compile(&source, optimize);
+                for input in [0u32, 1, 2, 0xffff, 0x10000, 0xabcdef, 0xfffffe, 0xffffff] {
+                    for target in [0x71ffu32, 0x7200, 0x7201] {
+                        let mut h = Harness::new(&image, &caller(image.entry), 0);
+                        h.bus.ram[0x71fe..0x7206].fill(0xa5);
+                        h.bus.ram[0x7100..0x7103].copy_from_slice(&target.to_le_bytes()[..3]);
+                        h.bus.ram[0x7200..0x7203].copy_from_slice(&input.to_le_bytes()[..3]);
+                        h.bus.watched.extend(0x71fe..0x7206);
+                        let before = h.bus.ram[0x71fe..0x7206].to_vec();
+                        h.run();
+                        h.guards(0);
+                        let expected = if operation == "+" {
+                            input.wrapping_add(3)
+                        } else {
+                            input.wrapping_sub(3)
+                        } & 0xffffff;
+                        assert_eq!(h.bus.value(target, 3), expected);
+                        let first_write = h
+                            .bus
+                            .trace
+                            .iter()
+                            .position(|(_, _, access)| matches!(access, Access::Write(_)))
+                            .unwrap();
+                        let reads: Vec<_> = h.bus.trace[..first_write]
+                            .iter()
+                            .map(|(_, at, _)| *at)
+                            .collect();
+                        assert_eq!(reads, vec![0x7200, 0x7201, 0x7202]);
+                        let stores: Vec<_> = h.bus.trace[first_write..]
+                            .iter()
+                            .map(|(_, at, access)| (*at, *access))
+                            .collect();
+                        assert_eq!(
+                            stores,
+                            (0..3)
+                                .map(|n| (target + n, Access::Write((expected >> (8 * n)) as u8)))
+                                .collect::<Vec<_>>()
+                        );
+                        for at in 0x71fe..0x7206 {
+                            if !(target..target + 3).contains(&at) {
+                                assert_eq!(h.bus.ram[at as usize], before[(at - 0x71fe) as usize]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn scalar_expressions_survive_indirect_destination_preparation() {
     for (ty, bits) in [("BYTE", 8), ("CARD", 16)] {
         let source = format!(
