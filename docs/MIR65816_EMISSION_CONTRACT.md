@@ -611,18 +611,33 @@ frame homes. No DP allocation, scratch, X/Y use, pushes, helper call, frame/ABI
 change or additional external access is introduced. Original volatile and
 aliased captures remain separate and unchanged. Guard policy is unaffected.
 
-Two- and four-byte AND/OR/XOR use the same complete-operand preflight as native
-ADD/SUB, with one A16 operation and result store per word. Two-byte operands may
-also use already-admitted scalar DP homes; this does not expand DP allocation
-eligibility. Four-byte operands retain the stack/immediate restriction and
-whole-identity-or-disjoint geometry. Numeric widening, unsupported forms and
+Three-byte integer ADD/SUB (including SIZE and address differences) uses the
+same selector with an A16 low word and an exact A8 high-byte tail.
+STA, SEP and LDA preserve low-word carry/borrow;
+the result wraps modulo 2^24. Complete three-byte stack temps, parameter homes
+and numeric constants are admitted, with the same identity/disjoint rule.
+The final byte is checked after transient S movement; a fourth byte is never
+read or written. Narrow constants zero-extend and wider constants truncate to
+the operation width. Captured narrow values still require an explicit cast.
+Unsupported homes, including DP operands outside the existing pointer-step
+path, retain their fallback. Arithmetic uses no DP scratch and changes neither
+frame allocation nor guards. Reserved bank-zero delta: zero fixed bytes and
+zero bytes per task.
+See the [24-bit arithmetic measurements](benchmarks/65816-size-arithmetic/README.md).
+
+Two-, three- and four-byte AND/OR/XOR use the same complete-operand preflight as
+native ADD/SUB, with one A16 operation and result store per word. Two-byte
+operands may also use already-admitted scalar DP homes; this does not expand DP allocation
+eligibility. Three-byte values use an exact A8 high-byte operation, preserving
+C/V across both parts. Three- and four-byte operands retain the stack/immediate
+restriction and whole-identity-or-disjoint geometry. Numeric widening, unsupported forms and
 malformed-home handling are unchanged. Signedness does not change the bitwise
 representation or result. No DP staging, carry setup, helper or extra source
 access is needed.
 
-Typed stack-relative AND/EOR and word-immediate ORA participate in tracked
-selection, effects and replay. Stack operand encoding remains one byte while
-its memory extent follows M. Logical operations read/write A and write N/Z,
+Typed stack-relative AND/EOR and byte/word-immediate AND/ORA/EOR participate in
+tracked selection, effects and replay. Stack operand encoding remains one byte
+while its memory extent follows M. Logical operations read/write A and write N/Z,
 preserving C/V, X/Y and environment state. A four-byte result leaves only its
 high word in A/N/Z and never establishes a whole-long accumulator identity.
 External/volatile captures remain complete and in source order. See the
@@ -862,8 +877,8 @@ Typed three-byte Add/Sub by numeric one uses the same captured-home preflight
 and native low-word arithmetic, followed by A8 bank carry/borrow. Addition also
 admits one on the left. Complete identical homes are safe because the low-word
 store cannot touch the bank source; partial overlaps retain the bytewise path.
-Other constants, noncaptured operands and other widths keep their existing
-selection. The result wraps modulo 24 bits. This is value computation, with no
+Other constants and operands use the general arithmetic selection described
+above. The result wraps modulo 24 bits. This is value computation, with no
 dereference, new scratch reservation, external access reordering or change to
 whole-operation interference. Normal tracked arithmetic effects invalidate the
 accumulator and flags; calls and control-flow boundaries restore A16 as usual.

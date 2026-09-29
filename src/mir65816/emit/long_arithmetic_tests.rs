@@ -1,8 +1,12 @@
 use super::*;
 
 fn program() -> Mir65816Program {
+    program_for("LONGCARD")
+}
+
+fn program_for(ty: &str) -> Mir65816Program {
     let ast = crate::parser::parse(
-        &crate::lexer::tokenize("LONGCARD FUNC Work(LONGCARD a,b) a=a+b RETURN(a-b)").unwrap(),
+        &crate::lexer::tokenize(&format!("{ty} FUNC Work({ty} a,b) a=a+b RETURN(a-b)")).unwrap(),
     )
     .unwrap();
     let model = crate::semantic::analyze_with_options(
@@ -83,7 +87,7 @@ fn long_arithmetic_preflights_last_bytes_delta_and_mutable_parameter_homes() {
         let (at, bytes) = b.parameter(param.param).unwrap();
         assert_eq!(bytes, 4);
         assert_eq!(
-            b.long_arithmetic_operand(&Mir65816Value::Param(param.param))
+            b.long_arithmetic_operand(&Mir65816Value::Param(param.param), 4)
                 .unwrap(),
             Some(LongOperand::Stack {
                 low: at as u8,
@@ -99,7 +103,7 @@ fn long_arithmetic_preflights_last_bytes_delta_and_mutable_parameter_homes() {
         (Mir65816Value::U32(u32::MAX), u32::MAX),
     ] {
         assert_eq!(
-            b.long_arithmetic_operand(&value).unwrap(),
+            b.long_arithmetic_operand(&value, 4).unwrap(),
             Some(LongOperand::Immediate(expected))
         );
     }
@@ -202,7 +206,7 @@ fn long_arithmetic_fallbacks_and_bad_homes_leave_emitter_untouched() {
     for (bytes, operation) in [
         (1, NirBinaryOp::Add),
         (2, NirBinaryOp::Sub),
-        (3, NirBinaryOp::Add),
+        (3, NirBinaryOp::Mul),
         (4, NirBinaryOp::Mul),
     ] {
         let mut b = builder(r);
@@ -321,5 +325,180 @@ fn native_long_bitwise_reads_two_checked_words_without_carry_or_scratch() {
         let before = format!("{:?}", s.code);
         assert!(s.long_binary(dest, 4, op, &left, &right).is_err());
         assert_eq!(before, format!("{:?}", s.code));
+    }
+}
+
+#[test]
+fn size_arithmetic_preflights_exact_three_byte_homes_before_emitting() {
+    let p = program_for("SIZE");
+    let r = &p.routines[0];
+    let (dest, left, right) = operands(r);
+    let Mir65816Value::Temp(a, _) = left else {
+        panic!()
+    };
+    let Mir65816Value::Temp(b, _) = right else {
+        panic!()
+    };
+    for id in [dest, a, b] {
+        for (offset, delta, valid) in [
+            (0, 0, false),
+            (253, 0, true),
+            (254, 0, false),
+            (252, 1, true),
+            (253, 1, false),
+            (2, u32::MAX, false),
+        ] {
+            let mut s = builder(r);
+            s.frame
+                .temps
+                .insert(id, Location::Stack(Slot { offset, width: 3 }));
+            s.code.test_delta(delta);
+            s.code.a8();
+            let before = format!("{:?}", s.code);
+            let result = s.long_binary(dest, 3, NirBinaryOp::Add, &left, &right);
+            if valid {
+                assert_eq!(result, Ok(true));
+            } else {
+                assert!(result.is_err(), "{id:?}/{offset}/{delta}");
+                assert_eq!(format!("{:?}", s.code), before);
+            }
+        }
+    }
+    let s = builder(r);
+    assert!(r.frame.parameters[0].frame_object.is_some());
+    for param in &r.frame.parameters {
+        let (at, bytes) = s.parameter(param.param).unwrap();
+        assert_eq!(bytes, 3);
+        assert_eq!(
+            s.long_arithmetic_operand(&Mir65816Value::Param(param.param), 3)
+                .unwrap(),
+            Some(LongOperand::Stack {
+                low: at as u8,
+                high: (at + 2) as u8
+            })
+        );
+    }
+}
+
+#[test]
+fn size_arithmetic_selects_word_then_byte_and_checks_overlap() {
+    let p = program_for("SIZE");
+    let r = &p.routines[0];
+    let (dest, left, right) = operands(r);
+    let Mir65816Value::Temp(a, _) = left else {
+        panic!()
+    };
+    let Mir65816Value::Temp(b, _) = right else {
+        panic!()
+    };
+    for (op, stack, immediate, carry) in [
+        (NirBinaryOp::Add, 0x63, 0x69, Some(0x18)),
+        (NirBinaryOp::Sub, 0xe3, 0xe9, Some(0x38)),
+        (NirBinaryOp::And, 0x23, 0x29, None),
+        (NirBinaryOp::Or, 0x03, 0x09, None),
+        (NirBinaryOp::Xor, 0x43, 0x49, None),
+    ] {
+        for (first, second, valid) in [
+            (32u16, 40u16, true),
+            (40, 32, true),
+            (32, 32, true),
+            (29, 35, true),
+            (30, 40, false),
+            (31, 40, false),
+            (33, 40, false),
+            (40, 34, false),
+        ] {
+            for literal in [false, true] {
+                if literal && !valid {
+                    continue;
+                }
+                let mut s = builder(r);
+                for (id, offset) in [(dest, 32), (a, first), (b, second)] {
+                    s.frame
+                        .temps
+                        .insert(id, Location::Stack(Slot { offset, width: 3 }));
+                }
+                s.code.a8();
+                let start = s.code.code().bytes.len();
+                let before = format!("{:?}", s.code);
+                let rhs = if literal {
+                    Mir65816Value::U24(0x8100ff)
+                } else {
+                    right.clone()
+                };
+                assert_eq!(s.long_binary(dest, 3, op, &left, &rhs), Ok(valid));
+                if !valid {
+                    assert_eq!(format!("{:?}", s.code), before);
+                    continue;
+                }
+                let mut expected = vec![0xc2, 0x20, 0xa3, first as u8];
+                expected.extend(carry);
+                if literal {
+                    expected.extend([immediate, 0xff, 0]);
+                } else {
+                    expected.extend([stack, second as u8]);
+                }
+                expected.extend([0x83, 32, 0xe2, 0x20, 0xa3, first as u8 + 2]);
+                if literal {
+                    expected.extend([immediate, 0x81]);
+                } else {
+                    expected.extend([stack, second as u8 + 2]);
+                }
+                expected.extend([0x83, 34]);
+                assert_eq!(s.code.code().bytes[start..], expected);
+            }
+        }
+    }
+}
+
+#[test]
+fn size_arithmetic_unsupported_and_malformed_operands_do_not_mutate_emission() {
+    let p = program_for("SIZE");
+    let r = &p.routines[0];
+    let (dest, left, right) = operands(r);
+    let Mir65816Value::Temp(a, _) = left else {
+        panic!()
+    };
+    for case in 0..5 {
+        let mut s = builder(r);
+        let mut input = left.clone();
+        let mut rhs = right.clone();
+        match case {
+            0 => {
+                s.frame.temps.insert(
+                    a,
+                    Location::DirectPage(Slot {
+                        offset: 0x80,
+                        width: 3,
+                    }),
+                );
+            }
+            1 => input = Mir65816Value::RoutineAddress(0, ByteSize::new(3)),
+            2 => {
+                s.frame.temps.insert(
+                    dest,
+                    Location::Stack(Slot {
+                        offset: 32,
+                        width: 2,
+                    }),
+                );
+            }
+            3 => {
+                s.frame.temps.remove(&a);
+            }
+            4 => {
+                input = Mir65816Value::RoutineAddress(0, ByteSize::new(3));
+                rhs = Mir65816Value::Temp(TempId(9999), ByteSize::new(3));
+            }
+            _ => unreachable!(),
+        }
+        let before = format!("{:?}", s.code);
+        let result = s.long_binary(dest, 3, NirBinaryOp::Sub, &input, &rhs);
+        if case < 2 {
+            assert_eq!(result, Ok(false));
+        } else {
+            assert!(result.is_err());
+        }
+        assert_eq!(format!("{:?}", s.code), before);
     }
 }

@@ -2242,3 +2242,24 @@ fn accumulator_homes_survive_irq_and_nmi_between_producer_and_widening() {
     assert_eq!(source, modify(&original.replace('\n', "\r\n")));
     check_narrow_preemption(&source, ["HOMEDEMANDBYTE", "HOMEDEMANDWORD"], "accumulator-homes");
 }
+
+#[test]
+fn size_add_sub_restore_low_word_carry_and_borrow_across_the_a8_tail() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n", "\n")
+            .replace("CARD FUNC Read(",
+                "BYTE FUNC SizeAddCheck(SIZE a,b,expected) RETURN((a+b)=expected)\nBYTE FUNC SizeSubCheck(SIZE a,b,expected) RETURN((a-b)=expected)\nCARD FUNC Read(")
+            .replace("  work.done=1", r#"
+  work.result==+CARD(SizeAddCheck(SIZE($FFFF),SIZE(1),SIZE($10000)))
+  work.result==+CARD(SizeAddCheck(SIZE($FFFFFF),SIZE(1),SIZE(0)))
+  work.result==+CARD(SizeAddCheck(SIZE(1),SIZE(1),SIZE(2)))
+  work.result==+CARD(SizeSubCheck(SIZE($10000),SIZE(1),SIZE($FFFF)))
+  work.result==+CARD(SizeSubCheck(SIZE(0),SIZE(1),SIZE($FFFFFF)))
+  work.result==+CARD(SizeSubCheck(SIZE(2),SIZE(1),SIZE(1)))-6
+  work.done=1"#)
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["SIZEADDCHECK", "SIZESUBCHECK"], "size-add-sub");
+}

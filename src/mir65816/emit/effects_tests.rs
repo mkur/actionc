@@ -164,6 +164,8 @@ fn immediate_forms_and_index_comparison_do_not_invent_memory_reads() {
         (ByteOp::AdcImm, 0xff, 0xff, C, NZCV),
         (ByteOp::SbcImm, 0xff, 0xff, C, NZCV),
         (ByteOp::CmpImm, 0xff, 0, 0, NZ | C),
+        (ByteOp::AndImm, 0xff, 0xff, 0, NZ),
+        (ByteOp::OraImm, 0xff, 0xff, 0, NZ),
         (ByteOp::EorImm, 0xff, 0xff, 0, NZ),
     ] {
         let e = fx(Instruction::Byte(op, 7), Width::Byte, Width::Word);

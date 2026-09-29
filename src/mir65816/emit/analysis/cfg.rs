@@ -347,7 +347,13 @@ fn validate_instruction(r: &Record, form: &Instruction) -> Result<(), String> {
     let mut expected = before;
     match form {
         Instruction::Byte(
-            ByteOp::LdaImm | ByteOp::AdcImm | ByteOp::SbcImm | ByteOp::CmpImm | ByteOp::EorImm,
+            ByteOp::LdaImm
+            | ByteOp::AdcImm
+            | ByteOp::SbcImm
+            | ByteOp::CmpImm
+            | ByteOp::AndImm
+            | ByteOp::OraImm
+            | ByteOp::EorImm,
             _,
         )
         | Instruction::Reference(ReferenceOp::LdaByte, _, _, _)

@@ -212,6 +212,8 @@ impl TrackedEmitter65816 {
                     | AdcImm
                     | SbcImm
                     | CmpImm
+                    | AndImm
+                    | OraImm
                     | EorImm
                     | LdaStack
                     | StaStack

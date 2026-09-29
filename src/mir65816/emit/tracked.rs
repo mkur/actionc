@@ -961,7 +961,10 @@ impl TrackedEmitter65816 {
         self.live();
         self.x_byte(op, value);
         let width = self.state.env.m;
-        let immediate = matches!(op, LdaImm | AdcImm | SbcImm | CmpImm | EorImm);
+        let immediate = matches!(
+            op,
+            LdaImm | AdcImm | SbcImm | CmpImm | AndImm | OraImm | EorImm
+        );
         if immediate {
             self.width(Width::Byte);
         }
@@ -991,10 +994,17 @@ impl TrackedEmitter65816 {
             AdcImm | AdcStack | AdcDp => self.state.arithmetic(rhs, false),
             SbcImm | SbcStack | SbcDp => self.state.arithmetic(rhs, true),
             CmpImm | CmpStack | CmpDp => self.state.compare(rhs),
-            AndDp | AndStack | OraDp | OraStack | EorDp | EorStack | EorImm => {
+            AndDp | AndStack | OraDp | OraStack | EorDp | EorStack | AndImm | OraImm | EorImm => {
                 let result = match (op, self.state.a, rhs) {
-                    (EorImm, Value::Constant(a, w), Value::Constant(b, _)) => {
-                        State65816::constant(a ^ b, w)
+                    (AndImm | OraImm | EorImm, Value::Constant(a, w), Value::Constant(b, _)) => {
+                        State65816::constant(
+                            match op {
+                                AndImm => a & b,
+                                OraImm => a | b,
+                                _ => a ^ b,
+                            },
+                            w,
+                        )
                     }
                     _ => self.state.fresh(width),
                 };
