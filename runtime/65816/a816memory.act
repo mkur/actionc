@@ -1,29 +1,8 @@
 MODULE A816MEMORY
-; Ordinary, reentrant native-v2 helpers. Each invocation owns its parameters.
-; Pointer movement wraps at 24 bits; callers supply valid contiguous objects.
-PUBLIC PROC Clear(BYTE POINTER destination SIZE length)
-  WHILE length>0 DO
-    destination^=0
-    destination==+1
-    length==-1
-  OD
-RETURN
-
-PUBLIC PROC Move(BYTE POINTER destination,source SIZE length)
-  IF ADDRESS(destination)>ADDRESS(source) THEN
-    destination=destination+length
-    source=source+length
-    WHILE length>0 DO
-      destination==-1 source==-1
-      destination^=source^
-      length==-1
-    OD
-  ELSE
-    WHILE length>0 DO
-      destination^=source^
-      destination==+1 source==+1
-      length==-1
-    OD
-  FI
-RETURN
+; Link memory.s in the embedding platform. Ordinary, reentrant native-v2 calls:
+; no stack use, allocation, interrupt masking or shared writable state.
+; Callers provide valid contiguous ordinary-memory objects; Move permits overlap.
+PUBLIC EXTERNAL PROC Clear(BYTE POINTER destination SIZE length)
+PUBLIC EXTERNAL PROC Move(BYTE POINTER destination,source SIZE length)
+PUBLIC EXTERNAL PROC Fill(BYTE POINTER destination BYTE value SIZE length)
 ENDMODULE

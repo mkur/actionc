@@ -79,8 +79,15 @@ impl ContextHarness {
         let provisional = runtime(0x018000);
         let mut options = layout();
         options.arithmetic_fault = Some(0x049000);
+        let memory = memory_runtime::assembly();
+        memory_runtime::bind(&prepared, &mut options, &memory);
         for r in prepared.mir.routines.iter().filter(|r| r.entry.external) {
             let symbol = r.entry.external_symbol.unwrap();
+            if ["Move", "Clear", "Fill"].iter().any(|name| {
+                symbol == actionc::nir::runtime_symbol_id(&format!("A816MEMORY.{name}"))
+            }) {
+                continue;
+            }
             let (name, peak) = if symbol == actionc::nir::runtime_symbol_id("TEST.Yield") {
                 ("__a816_yield_v2", 1)
             } else if symbol == actionc::nir::runtime_symbol_id("TEST.SaveIRQ") {
@@ -143,6 +150,7 @@ impl ContextHarness {
             std::fs::write(stem.with_extension("layout.json"),serde_json::to_vec_pretty(&serde_json::json!({"bridge_origin":0x8000,"symbols":runtime.symbols,"arguments":arguments,"task_entry":task_entry,"irq_dp":IRQ_DP,"irq_stack_top":IRQ_TOP,"task_stacks":[[0x4000,0x4fff],[0x5000,0x5fff]],"task_domains":[0x2000,0x2100],"nmi_minimum_interval_cycles":250})).unwrap()).unwrap();
         }
         let mut h = Self::from_loaded(image, runtime, task_entry, arguments);
+        h.bus.map(memory_runtime::ORIGIN, &memory.bytes, false);
         h.bus.single_word_edges = sites;
         h.bus.forwarded_words = forwarded;
         h
@@ -219,7 +227,8 @@ impl<I: ContextImage> ContextHarness<I> {
             nmi_extra: 0,
         };
         bus.map(IRQ_DP.into(), &irq.bytes().unwrap(), true);
-        bus.ram[usize::from(IRQ_DP)..usize::from(IRQ_DP)+128].copy_from_slice(&workspace_pattern(IRQ_DP));
+        bus.ram[usize::from(IRQ_DP)..usize::from(IRQ_DP) + 128]
+            .copy_from_slice(&workspace_pattern(IRQ_DP));
         bus.map(0x6000, &[0xa5; 0x1000], true);
         bus.map(0x7000, &[0; 0x400], true);
         let mut domains = Vec::new();
@@ -247,7 +256,7 @@ impl<I: ContextImage> ContextHarness<I> {
             .unwrap();
             bus.map(domain.direct_page.into(), &domain.bytes().unwrap(), true);
             let base = usize::from(domain.direct_page);
-            bus.ram[base..base+128].copy_from_slice(&workspace_pattern(domain.direct_page));
+            bus.ram[base..base + 128].copy_from_slice(&workspace_pattern(domain.direct_page));
             bus.map(lo.into(), &[0xa5; 0x1000], true);
             let at = usize::from(task.saved_s) + 1;
             bus.ram[at..at + 19].copy_from_slice(&task.bytes);
@@ -290,10 +299,16 @@ impl<I: ContextImage> ContextHarness<I> {
         assert_eq!(self.bus.value(DONE, 2), 1);
     }
     pub fn guards(&self) {
-        assert_eq!(&self.bus.ram[usize::from(IRQ_DP)..usize::from(IRQ_DP)+128], workspace_pattern(IRQ_DP));
+        assert_eq!(
+            &self.bus.ram[usize::from(IRQ_DP)..usize::from(IRQ_DP) + 128],
+            workspace_pattern(IRQ_DP)
+        );
         for d in &self.domains {
             let base = usize::from(d.direct_page);
-            assert_eq!(&self.bus.ram[base..base+128], workspace_pattern(d.direct_page));
+            assert_eq!(
+                &self.bus.ram[base..base + 128],
+                workspace_pattern(d.direct_page)
+            );
             let lo = usize::from(d.stack_low);
             let hi = usize::from(d.body_s);
             assert_eq!(&self.bus.ram[lo..lo + 8], &[0xa5; 8]);

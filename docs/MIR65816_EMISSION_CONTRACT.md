@@ -442,8 +442,15 @@ to execute code or publish it in image/o65 formats.
   descriptor cells separate from their invocation-owned backing.
 - `USE A816MEMORY` with `--module-path runtime/65816` provides
   `Move(BYTE POINTER destination,source SIZE length)` and
-  `Clear(BYTE POINTER destination SIZE length)`. Move handles overlap; both
-  operate on ordinary contiguous memory and use invocation storage.
+  `Clear(BYTE POINTER destination SIZE length)` and
+  `Fill(BYTE POINTER destination BYTE value SIZE length)`. These ordinary native
+  imports bind to [memory.s](../runtime/65816/memory.s), with physical signatures
+  in [memory.json](../runtime/65816/memory.json). Move handles overlap. The host
+  includes the assembly in its code segment and binds the exported entry/end
+  labels; the helpers use no stack, allocation or interrupt masking. They use
+  only caller-domain scratch and preserve D/DBR/S/I. Word copies/fills handle
+  exact odd tails and 24-bit lengths across banks; zero length touches no buffer.
+  Buffers must be valid contiguous ordinary memory, not volatile device memory.
 - Branches, loops, direct/mutual recursion and block-parameter transfers are supported.
   Parallel edge copies preserve every source until consumed; cyclic edges save
   sources endangered by earlier assignments before writing destinations.

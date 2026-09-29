@@ -258,8 +258,9 @@ RETURN
 ENDMODULE
 "#;
     for optimize in [false, true] {
-        let image = compile(source, optimize);
+        let (image, assembly) = memory_runtime::compile_memory(source, optimize);
         let mut h = Harness::new(&image, &caller(image.entry), 0);
+        h.bus.map(memory_runtime::ORIGIN, &assembly.bytes, false);
         let initial: Vec<u8> = (0..64).map(|n| n + 10).collect();
         h.bus.map(0x12fff0, &initial, true);
         h.run();
