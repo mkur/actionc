@@ -25,6 +25,43 @@ const MODULE_AWARE_FIXTURES: &[&str] = &[
     "fixtures/runtime/tacle/adpcm_enc/adpcm_enc.act",
 ];
 
+fn corpus_sources(repo_root: &Path) -> Vec<String> {
+    let mut directories = CORPUS_ROOTS
+        .iter()
+        .map(|root| repo_root.join(root))
+        .collect::<Vec<_>>();
+    let mut sources = Vec::new();
+    while let Some(directory) = directories.pop() {
+        for entry in std::fs::read_dir(&directory).unwrap_or_else(|error| {
+            panic!("read corpus directory {}: {error}", directory.display())
+        }) {
+            let path = entry.expect("read corpus directory entry").path();
+            if path.is_dir() {
+                // Match the sweep's exclusion of generated outputs.
+                if !matches!(
+                    path.file_name().and_then(|name| name.to_str()),
+                    Some("outputs" | "target" | ".git")
+                ) {
+                    directories.push(path);
+                }
+            } else if path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("act"))
+            {
+                sources.push(
+                    path.strip_prefix(repo_root)
+                        .expect("fixture inside repository")
+                        .to_string_lossy()
+                        .replace('\\', "/"),
+                );
+            }
+        }
+    }
+    sources.sort();
+    sources
+}
+
 #[test]
 fn broad_fixture_corpus_verifies_lowered_and_optimized_nir() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -44,6 +81,14 @@ fn broad_fixture_corpus_verifies_lowered_and_optimized_nir() {
         Some(1),
         "unexpected sweep status\n{stdout}\n{stderr}"
     );
+    let expected_sources = corpus_sources(repo_root);
+    // Exercise report parsing with both Unix and Windows line endings.
+    let stdout = stdout.replace("\r\n", "\n");
+    check_corpus_report(&stdout, &expected_sources);
+    check_corpus_report(&stdout.replace('\n', "\r\n"), &expected_sources);
+}
+
+fn check_corpus_report(stdout: &str, expected_sources: &[String]) {
     let semantic_failures = stdout
         .lines()
         .filter(|line| line.starts_with("SEMFAIL"))
@@ -57,10 +102,26 @@ fn broad_fixture_corpus_verifies_lowered_and_optimized_nir() {
             "unexpected {unexpected} in NIR corpus sweep:\n{stdout}"
         );
     }
+    // Require one result for every fixture, including newly added sources.
+    // A count derived only from stdout could silently accept skipped fixtures.
+    let mut reported_sources = stdout
+        .lines()
+        .filter_map(|line| {
+            let mut fields = line.split_whitespace();
+            matches!(fields.next(), Some("OK" | "SEMFAIL"))
+                .then(|| fields.next().expect("fixture path in sweep result"))
+        })
+        .collect::<Vec<_>>();
+    reported_sources.sort();
+    assert_eq!(reported_sources, expected_sources, "NIR corpus coverage");
+
+    let expected_summary = format!(
+        "NIR sweep summary: ok={} load_failed=0 sem_failed={} lower_failed=0 verify_failed=0 optimize_failed=0",
+        expected_sources.len() - MODULE_AWARE_FIXTURES.len(),
+        MODULE_AWARE_FIXTURES.len(),
+    );
     assert!(
-        stdout.contains(
-            "NIR sweep summary: ok=362 load_failed=0 sem_failed=14 lower_failed=0 verify_failed=0 optimize_failed=0"
-        ),
+        stdout.lines().any(|line| line == expected_summary),
         "unexpected NIR corpus totals:\n{stdout}"
     );
 }
