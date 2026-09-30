@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+pub mod memory_runtime;
 use actionc::{
     compiler::native65816,
     includes::ModuleLoadOptions,

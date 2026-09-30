@@ -156,7 +156,19 @@ fn module_inputs_are_protected_by_the_o65_publisher() {
     let mut modules = ModuleLoadOptions::default();
     modules.module_paths.push(root.join("runtime/65816"));
     let prepared = native65816::prepare_file(d.0.join("main.act"), false, &modules).unwrap();
-    let compiled = prepared.compile_o65(&Default::default()).unwrap();
+    let mut options = o65::Options::default();
+    for name in ["Clear"] {
+        let name = format!("A816MEMORY.{name}");
+        options.imports.push(o65::Binding {
+            symbol: actionc::nir::runtime_symbol_id(&name).0,
+            name: name.replace('.', "_"),
+            stack_peak: 0,
+            checks_stack: true,
+            domains: 3,
+            irq_effect: Default::default(),
+        });
+    }
+    let compiled = prepared.compile_o65(&options).unwrap();
     let loaded = compiled
         .source_paths
         .iter()

@@ -1,0 +1,33 @@
+{
+  "abi": "action65816.native.v2",
+  "stack_peak": 0,
+  "irq_effect": "preserve",
+  "imports": {
+    "Clear": {
+      "label": "a816_memory_clear",
+      "arguments": [
+        {"alignment": 1, "offset": 0, "size": 3},
+        {"alignment": 2, "offset": 4, "size": 3}
+      ],
+      "outgoing_bytes": 7
+    },
+    "Move": {
+      "label": "a816_memory_move",
+      "arguments": [
+        {"alignment": 1, "offset": 0, "size": 3},
+        {"alignment": 1, "offset": 3, "size": 3},
+        {"alignment": 2, "offset": 6, "size": 3}
+      ],
+      "outgoing_bytes": 9
+    },
+    "Fill": {
+      "label": "a816_memory_fill",
+      "arguments": [
+        {"alignment": 1, "offset": 0, "size": 3},
+        {"alignment": 1, "offset": 3, "size": 1},
+        {"alignment": 2, "offset": 4, "size": 3}
+      ],
+      "outgoing_bytes": 7
+    }
+  }
+}
