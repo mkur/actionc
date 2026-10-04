@@ -138,10 +138,20 @@ fn direct_and_indirect_result_captures_match_ca65_and_preserve_neighbor_bytes() 
                         let Some((id, _)) = result else {
                             discarded += 1;
                             let span = &m.code.mir_spans[&(block.id, i)];
-                            let [lo, hi] = (plan.outgoing_bytes.get() as u16).to_le_bytes();
+                            let expected = assemble(
+                                &stack_release_asm(plan.outgoing_bytes.get() as u16),
+                                0x050000,
+                            );
+                            // A later guard can keep C/V conservatively live.
+                            // Check either exact independently assembled release;
+                            // the VM still checks the full stack and memory trace.
+                            let fallback = assemble(
+                                &format!("tsc\nclc\nadc #{}\ntcs\n", plan.outgoing_bytes.get()),
+                                0x050000,
+                            );
                             assert!(
-                                m.code.bytes[span.clone()]
-                                    .ends_with(&[0x3b, 0x18, 0x69, lo, hi, 0x1b])
+                                m.code.bytes[span.clone()].ends_with(&expected)
+                                    || m.code.bytes[span.clone()].ends_with(&fallback)
                             );
                             continue;
                         };

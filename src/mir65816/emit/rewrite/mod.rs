@@ -6,6 +6,7 @@ pub(super) mod modes;
 pub(super) mod pilot;
 mod plan;
 pub(super) mod rules;
+pub(super) mod small_stack;
 pub(super) mod zero_index;
 
 #[cfg(test)]

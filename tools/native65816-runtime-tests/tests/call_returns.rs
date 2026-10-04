@@ -182,14 +182,14 @@ fn forwarded_results_match_ca65_without_private_spills_or_reloads() {
                 .unwrap();
             let cleanup = assemble(
                 &format!(
-                    "tay\ntsc\nclc\nadc #{}\ntcs\ntya\n",
-                    plan.outgoing_bytes.get()
+                    "tay\n{}tya\n",
+                    stack_release_asm(plan.outgoing_bytes.get() as u16)
                 ),
                 0x050000,
             );
             assert_eq!(&m.code.bytes[jsl + 4..call_span.end], cleanup);
             let teardown = assemble(
-                &format!("tay\ntsc\nclc\nadc #{}\ntcs\ntya\nrtl\n", m.frame.extent),
+                &format!("tay\n{}tya\nrtl\n", stack_release_asm(m.frame.extent)),
                 0x050000,
             );
             assert_eq!(&m.code.bytes[tail.clone()], teardown);
@@ -339,6 +339,20 @@ fn forwarded_result_cleanup_survives_irq_and_nmi_at_each_instruction() {
                     .copied()
                     .find(|&at| segment.bytes[at] == 0x22)
                     .unwrap();
+                let routine = h
+                    .image
+                    .routines
+                    .iter()
+                    .find(|r| r.address == address)
+                    .unwrap();
+                let cleanup = format!(
+                    "tay\n{}tya\ntay\n{}tya\nrtl\n",
+                    stack_release_asm(routine.outgoing_bytes as u16),
+                    stack_release_asm(routine.fixed_frame)
+                );
+                let expected = assemble(&cleanup, 0x050000);
+                assert_eq!(&segment.bytes[jsl + 4..], expected);
+                let expected_sites = forwarding::instructions(&expected).len();
                 let end = address + segment.bytes.len() as u32;
                 assert!(
                     h.cpu
@@ -416,7 +430,7 @@ fn forwarded_result_cleanup_survives_irq_and_nmi_at_each_instruction() {
                     }
                     sites += 1;
                 }
-                assert_eq!(sites, 13); // six cleanup + six frame release + RTL
+                assert_eq!(sites, expected_sites); // every independently assembled boundary
                 h.run();
                 h.guards();
                 assert_eq!(h.bus.value(argument as u32, width.into()), value);

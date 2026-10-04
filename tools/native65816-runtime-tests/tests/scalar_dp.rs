@@ -9,7 +9,7 @@ use actionc::{
     nir::{BlockId, TempId},
     target::ByteSize,
 };
-use actionc_vm::native65816::{Inputs, Machine};
+use actionc_vm::native65816::Inputs;
 use support::*;
 
 fn capacity_program(n: u32, optimize: bool) -> native65816::Prepared {

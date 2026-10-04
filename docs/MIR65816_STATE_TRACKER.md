@@ -56,6 +56,16 @@ transformation retains the original routine.
 Changed selections advance their generation; old analysis sites cannot be
 reused. Source spans may become empty when their only mode change disappears.
 
+The small-stack rewrite replaces only the arithmetic within a contiguous typed
+TSC / carry setup / immediate ADC or SBC / TCS window. The amount must be one
+through three, A must be 16 bits, decimal mode must be clear, and both C and V
+must be dead after the arithmetic. Guard branches consuming carry remain intact.
+Repeated INC A or DEC A preserves the final A/N/Z and stack equation modulo
+65536. TSC, TCS, result preservation and all memory effects remain explicit.
+Native A16 steps retain checked stack-address facts; A8 steps cannot establish
+one. The selected verifier checks each step's equation, and ordinary checked
+rewrite replay validates subsequent decisions, control flow and layout.
+
 ## Unchanged measurements
 
 The [strict equality report](benchmarks/65816-state-tracker/equality.json) covers

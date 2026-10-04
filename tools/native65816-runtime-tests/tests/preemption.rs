@@ -167,17 +167,18 @@ fn return_window(h: &ContextHarness) -> Option<ReturnWindow> {
     let mut bytes = vec![];
     let mut addresses = vec![pc];
     if r.fixed_frame != 0 {
-        bytes.extend([
-            0xa8,
-            0x3b,
-            0x18,
-            0x69,
-            r.fixed_frame as u8,
-            (r.fixed_frame >> 8) as u8,
-            0x1b,
-            0x98,
-        ]);
-        addresses.extend([0, 1, 2, 3, 6, 7].map(|offset| tail + offset));
+        bytes.extend([0xa8, 0x3b]);
+        if r.fixed_frame <= 3 {
+            bytes.extend(std::iter::repeat_n(0x1a, usize::from(r.fixed_frame)));
+        } else {
+            bytes.extend([0x18, 0x69, r.fixed_frame as u8, (r.fixed_frame >> 8) as u8]);
+        }
+        bytes.extend([0x1b, 0x98]);
+        addresses.extend(
+            forwarding::instructions(&bytes)
+                .keys()
+                .map(|&offset| tail + offset as u32),
+        );
     }
     addresses.push(tail + bytes.len() as u32);
     bytes.push(0x6b);

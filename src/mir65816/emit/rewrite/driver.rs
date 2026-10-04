@@ -77,6 +77,10 @@ impl Driver {
         if preserves_indirect {
             super::zero_index::prove(&context, plan)?;
         }
+        let stack_equation = plan.rule == Rule::SmallStack;
+        if stack_equation {
+            super::small_stack::prove(&context, plan)?;
+        }
         let mut original = Vec::new();
         for (i, record) in (start..=end).zip(records) {
             let Action::Instruction { form, effects, .. } = &record.action else {
@@ -86,7 +90,8 @@ impl Driver {
                 || effects.control != Control::Next
                 || effects.environment_writes != 0
                 || (effects.barrier && !preserves_indirect)
-                || record.before != record.after
+                || record.before.env != record.after.env
+                || (!stack_equation && record.before != record.after)
             {
                 return Err("protected instruction/environment in rewrite window".into());
             }
@@ -150,7 +155,8 @@ impl Driver {
         // Closed rules also validate replacement reads and live-state
         // equivalence. No arbitrary replacement wins through deadness alone.
         match plan.rule {
-            Rule::ZeroIndex => {} // Complete memory/live-state proof above.
+            Rule::ZeroIndex => {}  // Complete memory/live-state proof above.
+            Rule::SmallStack => {} // Exact stack equation and dead C/V proof above.
             #[cfg(test)]
             Rule::Identity if original == plan.replacement => {}
             Rule::Adjacent {
@@ -209,8 +215,11 @@ fn replace(
     let mut map = BTreeMap::new();
     for (i, record) in old.iter().enumerate() {
         if i == start {
+            let mut at = record.clone();
             for form in replacement {
-                records.push(instruction_record(form, record));
+                let next = instruction_record(form, &at);
+                at.before = next.after;
+                records.push(next);
             }
         }
         if (start..end).contains(&i) {
@@ -223,6 +232,23 @@ fn replace(
 }
 
 fn instruction_record(form: &Instruction, at: &Record) -> Record {
+    let mut after = at.before;
+    if let Instruction::Implied(
+        op @ (super::super::selected::Implied::IncA | super::super::selected::Implied::DecA),
+    ) = form
+    {
+        after.stack_a = if after.env.m == super::super::state::Width::Word {
+            after.stack_a.map(|s| {
+                s + if *op == super::super::selected::Implied::IncA {
+                    1
+                } else {
+                    -1
+                }
+            })
+        } else {
+            None
+        };
+    }
     Record {
         action: Action::Instruction {
             form: form.clone(),
@@ -233,7 +259,7 @@ fn instruction_record(form: &Instruction, at: &Record) -> Record {
         source: at.source,
         encoded: at.encoded.start..at.encoded.start,
         before: at.before,
-        after: at.before,
+        after,
         decision: None,
     }
 }

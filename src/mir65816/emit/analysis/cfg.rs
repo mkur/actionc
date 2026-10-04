@@ -407,6 +407,18 @@ fn validate_instruction(r: &Record, form: &Instruction) -> Result<(), String> {
                 .stack_a
                 .ok_or("selected TCS without stack equation")?;
         }
+        Instruction::Implied(op @ (Implied::IncA | Implied::DecA)) => {
+            let equation = if before.m == Width::Word {
+                r.before
+                    .stack_a
+                    .map(|s| s + if *op == Implied::IncA { 1 } else { -1 })
+            } else {
+                None
+            };
+            if r.after.stack_a != equation {
+                return Err("selected accumulator step has an invalid stack equation".into());
+            }
+        }
         Instruction::ArgumentPush | Instruction::ArgumentPushWord(_) => {
             if before.pushes != 0 || before.anchor.is_none_or(|a| before.depth < a) {
                 return Err("selected argument push outside body stack phase".into());

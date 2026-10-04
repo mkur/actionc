@@ -958,7 +958,7 @@ impl TrackedEmitter65816 {
                 self.state.y = value;
                 self.state.nz = value;
             }
-            DecA | Dex | Inx => {
+            IncA | DecA | Dex | Inx => {
                 let (value, width) = if matches!(op, Dex | Inx) {
                     (self.state.x, self.state.env.index)
                 } else {
@@ -966,13 +966,16 @@ impl TrackedEmitter65816 {
                 };
                 let value = match value {
                     Value::Constant(v, _) => State65816::constant(
-                        if op == Inx {
+                        if matches!(op, IncA | Inx) {
                             v.wrapping_add(1)
                         } else {
                             v.wrapping_sub(1)
                         },
                         width,
                     ),
+                    Value::StackAddress(s) if width == Width::Word && matches!(op, IncA | DecA) => {
+                        Value::StackAddress(s + if matches!(op, IncA | Inx) { 1 } else { -1 })
+                    }
                     _ => self.state.fresh(width),
                 };
                 if matches!(op, Dex | Inx) {

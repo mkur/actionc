@@ -135,8 +135,8 @@ PROC Main() RETURN
                         };
                         if r.fixed_frame != 0 {
                             tail.push_str(&format!(
-                                "tay\ntsc\nclc\nadc #{}\ntcs\ntya\n",
-                                r.fixed_frame
+                                "tay\n{}tya\n",
+                                stack_release_asm(r.fixed_frame)
                             ));
                         }
                         tail.push_str("rtl\n");

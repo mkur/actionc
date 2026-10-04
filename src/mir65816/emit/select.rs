@@ -626,8 +626,14 @@ pub(super) fn routine_with_data(
         return Ok(MachineRoutine {
             id: routine.id,
             frame: b.frame,
-            code: super::rewrite::modes::apply(
-                super::rewrite::zero_index::apply(super::layout::finalize(direct, true)?, _trace)?,
+            code: super::rewrite::small_stack::apply(
+                super::rewrite::modes::apply(
+                    super::rewrite::zero_index::apply(
+                        super::layout::finalize(direct, true)?,
+                        _trace,
+                    )?,
+                    _trace,
+                )?,
                 _trace,
             )?,
         });
@@ -635,6 +641,7 @@ pub(super) fn routine_with_data(
     let code = super::rewrite::pilot::apply(&direct, &candidates, _trace)?;
     let code = super::rewrite::zero_index::apply(code, _trace)?;
     let code = super::rewrite::modes::apply(code, _trace)?;
+    let code = super::rewrite::small_stack::apply(code, _trace)?;
     Ok(MachineRoutine {
         id: routine.id,
         frame: b.frame,

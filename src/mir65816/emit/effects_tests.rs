@@ -273,8 +273,13 @@ fn transfers_hidden_a_and_index_updates_follow_their_own_widths() {
                 );
                 assert_eq!(e.environment_reads & (env::M | env::X), env::X);
             }
-            let e = fx(Instruction::Implied(Implied::DecA), m, x);
-            assert_eq!((e.reads.a, e.writes.a), (mask(m), mask(m)));
+            for op in [Implied::IncA, Implied::DecA] {
+                let e = fx(Instruction::Implied(op), m, x);
+                assert_eq!(
+                    (e.reads.a, e.writes.a, e.flag_reads, e.flag_writes),
+                    (mask(m), mask(m), 0, NZ)
+                );
+            }
             let e = fx(Instruction::Implied(Implied::Xba), m, x);
             assert_eq!((e.reads.a, e.writes.a, e.flag_writes), (0xffff, 0xffff, NZ));
         }

@@ -33,6 +33,8 @@
 //! and body bytes are unchanged; later labels, fixups and spans move with it.
 //! Checked width joins and overwritten mode requests remove REP/SEP, retaining
 //! allocation frames and regenerating labels, fixups, spans and branch offsets.
+//! Checked small stack releases replace dead-C/V arithmetic with INC A and
+//! remap later positions; allocation frames and carry-consuming guards agree.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]

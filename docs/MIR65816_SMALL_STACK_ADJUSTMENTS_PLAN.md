@@ -88,3 +88,45 @@ include the actual incoming/local read when it feeds A directly. The zero-frame
 test now checks the published inherited-stack contract; stack-fault tests retain
 responsibility for new reservations. Host LF/CRLF variants pass through the
 changed comparison/parameter fixture preparation paths.
+
+## Implemented behavior and measurement
+
+The closed selected-code rewrite shortens eligible A16 binary stack adjustments
+and replays the resulting routine before publication. INC/DEC preserve checked
+stack equations only at word width. Live C/V, intervening selected events and
+unproved state keep the original sequence. The state-boundary snapshot changes
+are intentional emission changes: shorter bytes and shifted labels/spans, with
+identical frame descriptions.
+
+The frozen inputs retain all 166 source hashes and the layout hash. All 899
+routine signatures, argument/result layouts, frames, temporary homes, spill
+counts and stack bounds are unchanged, as are data and zero-fill regions.
+
+| Profile | Before | After | Saved |
+| --- | ---: | ---: | ---: |
+| Optimized, unchecked | 334,256 | 330,552 | 3,704 |
+| Optimized, guarded | 444,271 | 443,016 | 1,255 |
+| Raw, unchecked | 381,526 | 377,888 | 3,638 |
+
+Unchecked optimized output replaces all 1,926 modeled windows, saving 3,694
+bytes directly and another 10 through shorter branches. Guarded output replaces
+692 windows and retains 1,198 conservative fallbacks, whose static model totals
+2,370 bytes. The raw profile replaces all 1,895 windows. Branch relaxation adds
+three bytes of savings in guarded output and five in raw output.
+
+Independent ca65/VM comparisons cover both directions, stack wraparound, both
+accumulator widths, hidden B, flags, full result lanes and interrupt restoration.
+One- and two-byte adjustments save three and one cycles respectively. Three-byte
+adjustments save one byte but cost one extra cycle; this implements the planned
+code-size tradeoff. Compact measurements and validation provenance are recorded
+in [results.json](benchmarks/65816-small-stack/results.json). These measurements
+do not claim a hosted Exec boot qualification.
+
+Final validation passed: 350 MIR65816 library tests, 86 root integration tests,
+73 focused debug runtime tests across 12 targets, and all 346 active tests in
+the unfiltered native release suite. Six existing opt-in release tests remain
+ignored; there are no baseline exclusions. The disassembler's 10 tests and
+both LF/CRLF snapshot reads pass. The release qualification manifest verifies
+stable compiler/test inputs and records the pinned VM plus its status-timing
+patch. No shared frontend or NIR contract changed, so validation stays scoped
+to the 65816 backend.

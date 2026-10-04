@@ -60,6 +60,16 @@ pub fn compile(source: &str, optimize: bool) -> Image {
     // machine objects. The VM has no knowledge of Action! operations.
     Image::from_json(&compiled.image.to_json().unwrap()).unwrap()
 }
+// Independent ca65 oracle for a binary A16 release with dead C/V.
+// ABI result preservation remains explicit in each caller of this helper.
+pub fn stack_release_asm(bytes: u16) -> String {
+    match bytes {
+        0 => String::new(),
+        1..=3 => format!("tsc\n{}tcs\n", "inc a\n".repeat(usize::from(bytes))),
+        _ => format!("tsc\nclc\nadc #{bytes}\ntcs\n"),
+    }
+}
+
 pub struct Assembly {
     pub bytes: Vec<u8>,
     pub symbols: std::collections::BTreeMap<String, u32>,

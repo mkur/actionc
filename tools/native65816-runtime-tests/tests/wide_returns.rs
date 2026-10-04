@@ -266,10 +266,7 @@ fn wide_return_tails_match_ca65_touch_only_private_bytes_and_restore_both_lanes(
                     if bytes == 3 { "xba\nand #$00ff\n" } else { "" }
                 ));
                 if m.frame.extent != 0 {
-                    asm.push_str(&format!(
-                        "tay\ntsc\nclc\nadc #{}\ntcs\ntya\n",
-                        m.frame.extent
-                    ));
+                    asm.push_str(&format!("tay\n{}tya\n", stack_release_asm(m.frame.extent)));
                 }
                 asm.push_str("rtl\n");
                 assert_eq!(&m.code.bytes[span.clone()], assemble(&asm, 0x050000));

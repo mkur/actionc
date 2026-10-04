@@ -1,0 +1,273 @@
+{
+  "baseline_compiler": "2f950d43",
+  "implementation": "commit containing this report",
+  "exec_revision": "154bcf5a45605aeee57de5420ec4604e4ff7b30c",
+  "scope": "Compiler-generated code for frozen Exec demo inputs; excludes platform assembly, packaging and hosted Exec boot qualification.",
+  "routines": 899,
+  "unique_source_files": 166,
+  "source_hashes_unchanged": true,
+  "source_hashes_sha256": "56bf267e46ae2e6cb1e39111679e8ec75b5f453489ac99cd232d4f38e8bd8de1",
+  "layout_sha256": "07eb5fc477d5b2ef378f4b82f90ea6b233c5205a4aa0abc40288b20ddebe1370",
+  "profiles": {
+    "optimized-unchecked": {
+      "baseline_code_bytes": 334256,
+      "final_code_bytes": 330552,
+      "saved_bytes": 3704,
+      "baseline_image_sha256": "cc33b7781c5cceacf3a67d4439907df0c2a57575694b39fa7b54cc152dd42f45",
+      "final_image_sha256": "9357e53dd49cfac5cfd42a2975b80930c8cbb756f662d7f64bbdb94a3f09d3bc",
+      "baseline_adjustment_windows": {
+        "reserve/2": 36,
+        "release/2": 36,
+        "release/3": 1005,
+        "release/1": 846,
+        "reserve/3": 1,
+        "reserve/1": 2
+      },
+      "remaining_adjustment_windows": {},
+      "rewritten_adjustment_windows": {
+        "reserve/2": 36,
+        "release/2": 36,
+        "release/3": 1005,
+        "release/1": 846,
+        "reserve/3": 1,
+        "reserve/1": 2
+      },
+      "baseline_modeled_savings": 3694,
+      "remaining_modeled_savings": 0,
+      "direct_adjustment_saved_bytes": 3694,
+      "additional_short_branch_saved_bytes": 10,
+      "saved_percent": 1.108
+    },
+    "optimized-guarded": {
+      "baseline_code_bytes": 444271,
+      "final_code_bytes": 443016,
+      "saved_bytes": 1255,
+      "baseline_image_sha256": "37b09ec08fb5c436a29c60209dcd48a9fcfc35e9075d677e488103047ff8f5c9",
+      "final_image_sha256": "967f59dc2bc2b732dfd4cee9dc2d1aec59dfda2bec205ef0cb05608d193443a8",
+      "baseline_adjustment_windows": {
+        "release/2": 36,
+        "release/3": 1005,
+        "release/1": 846,
+        "reserve/3": 1,
+        "reserve/1": 2
+      },
+      "remaining_adjustment_windows": {
+        "release/3": 612,
+        "release/1": 586
+      },
+      "rewritten_adjustment_windows": {
+        "release/2": 36,
+        "release/3": 393,
+        "release/1": 260,
+        "reserve/3": 1,
+        "reserve/1": 2
+      },
+      "baseline_modeled_savings": 3622,
+      "remaining_modeled_savings": 2370,
+      "direct_adjustment_saved_bytes": 1252,
+      "additional_short_branch_saved_bytes": 3,
+      "saved_percent": 0.282
+    },
+    "raw-unchecked": {
+      "baseline_code_bytes": 381526,
+      "final_code_bytes": 377888,
+      "saved_bytes": 3638,
+      "baseline_image_sha256": "4761489191547c3fb67776260d4f716f739ca81388b671efc6654b3ad22f7f8a",
+      "final_image_sha256": "ab1c10359d575b8532fca4e0d53576fc862c6852975bad1518a9fed5954762ab",
+      "baseline_adjustment_windows": {
+        "release/3": 1005,
+        "reserve/2": 20,
+        "release/2": 20,
+        "release/1": 847,
+        "reserve/3": 1,
+        "reserve/1": 2
+      },
+      "remaining_adjustment_windows": {},
+      "rewritten_adjustment_windows": {
+        "release/3": 1005,
+        "reserve/2": 20,
+        "release/2": 20,
+        "release/1": 847,
+        "reserve/3": 1,
+        "reserve/1": 2
+      },
+      "baseline_modeled_savings": 3633,
+      "remaining_modeled_savings": 0,
+      "direct_adjustment_saved_bytes": 3633,
+      "additional_short_branch_saved_bytes": 5,
+      "saved_percent": 0.954
+    }
+  },
+  "initialized_data_bytes": 1385,
+  "initialized_data_and_zero_fill_unchanged": true,
+  "signatures_argument_result_layouts_frames_spills_temporary_homes_and_stack_bounds_unchanged": true,
+  "remaining_candidates_scope": "Static windows retained conservatively when the closed selected-code proof, liveness, or replay does not authorize replacement; not promised savings.",
+  "cycles_per_adjustment": {
+    "1": {
+      "saved_bytes": 3,
+      "saved_cycles": 3
+    },
+    "2": {
+      "saved_bytes": 2,
+      "saved_cycles": 1
+    },
+    "3": {
+      "saved_bytes": 1,
+      "saved_cycles": -1
+    }
+  },
+  "baseline_repairs": {
+    "commit": "fe10d496",
+    "previously_failing_tests": 10,
+    "affected_targets": 8,
+    "focused_debug_passed": 58
+  },
+  "source_hashes_encoding": "SHA-256 of Python json.dumps(source_hashes, sort_keys=True), UTF-8 without trailing newline; keys are the absolute paths in the local frozen-input provenance.",
+  "validation": {
+    "library": {
+      "command": "cargo test --lib --features native65816-state-proof mir65816",
+      "passed": 350,
+      "ignored": 1,
+      "filtered_out": 2583,
+      "failed": 0
+    },
+    "integration": {
+      "command": [
+        "cargo",
+        "test",
+        "--features",
+        "native65816-state-proof",
+        "--no-fail-fast",
+        "--test",
+        "actionc_65816_cli",
+        "--test",
+        "actionc_65816_o65_cli",
+        "--test",
+        "mir65816_abi",
+        "--test",
+        "mir65816_address_selection",
+        "--test",
+        "mir65816_arithmetic",
+        "--test",
+        "mir65816_contract",
+        "--test",
+        "mir65816_copy_inventory",
+        "--test",
+        "mir65816_emission",
+        "--test",
+        "mir65816_movement_inventory",
+        "--test",
+        "mir65816_o65",
+        "--test",
+        "mir65816_register_inventory",
+        "--test",
+        "mir65816_scalar_dp_inventory",
+        "--test",
+        "mir65816_state_boundary"
+      ],
+      "targets": [
+        "actionc_65816_cli",
+        "actionc_65816_o65_cli",
+        "mir65816_abi",
+        "mir65816_address_selection",
+        "mir65816_arithmetic",
+        "mir65816_contract",
+        "mir65816_copy_inventory",
+        "mir65816_emission",
+        "mir65816_movement_inventory",
+        "mir65816_o65",
+        "mir65816_register_inventory",
+        "mir65816_scalar_dp_inventory",
+        "mir65816_state_boundary"
+      ],
+      "passed": 86,
+      "ignored": 4,
+      "filtered_out": 0,
+      "failed": 0,
+      "snapshot_note": "Intentional shorter emission and shifted labels/spans, with identical frame lines; updated snapshot passed through the actual LF and CRLF read path."
+    },
+    "native_debug": {
+      "scope": "Focused target runs; each target is counted only at its last successful run after relevant test corrections. No test-name exclusions. The final unfiltered release manifest qualifies the complete final inputs.",
+      "command_prefix": [
+        "python3",
+        "-B",
+        "tools/native65816-runtime-tests/qualify.py"
+      ],
+      "target_pass_counts": {
+        "small_stack": 4,
+        "call_copies": 2,
+        "call_returns": 3,
+        "captured_byte_returns": 3,
+        "byte_returns": 2,
+        "wide_returns": 3,
+        "word_returns": 3,
+        "preemption": 33,
+        "stack_faults": 4,
+        "guard_branches": 3,
+        "replay": 2,
+        "state_tracking": 11
+      },
+      "passed": 73,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    "disassembler": {
+      "command": "PYTHONPATH=tools python3 -B -m unittest tools/test_disassemble65816.py",
+      "passed": 10
+    },
+    "emission_snapshot_line_endings": [
+      "LF",
+      "CRLF"
+    ],
+    "native_release": {
+      "command": [
+        "python3",
+        "-B",
+        "tools/native65816-runtime-tests/qualify.py",
+        "--release",
+        "--no-fail-fast"
+      ],
+      "target_results": 88,
+      "passed": 346,
+      "failed": 0,
+      "ignored": 6,
+      "filtered_out": 0,
+      "baseline_exclusions": [],
+      "ignored_tests": [
+        [
+          "execute_parallel_corpus",
+          "requires build.py artifacts and A816_COMPARISON_MANIFEST"
+        ],
+        [
+          "compare_crc_kernels",
+          "build external artifacts with tools/compare65816/crc.py first"
+        ],
+        [
+          "compare_dijkstra_artifacts",
+          "build external artifacts with tools/compare65816/dijkstra.py first"
+        ],
+        [
+          "observe_every_reload_claim_on_saved_raw_and_optimized_images",
+          "requires A816_MOVEMENT_INVENTORY and A816_COMPARISON_MANIFEST"
+        ],
+        [
+          "compare_sieve_kernels",
+          "build external artifacts with tools/compare65816/sieve.py first"
+        ],
+        [
+          "export_work_and_execute_size_ladder",
+          "explicit work-count and size-ladder qualification"
+        ]
+      ],
+      "local_manifest": "tools/native65816-runtime-tests/target/qualification/run-3noxbmgv/manifest.json",
+      "manifest_sha256": "4f6f4f5a8e158328f0a0c3afa364556972a1fde24969c383686a5d6d741c5f5b",
+      "compiler_and_fixture_inputs_sha256": "6927a58207966e0993d0d3f16f79c85b79e995acd5f2137ed77307e62cdd2a41",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "ca65": "ca65 V2.18 - N/A",
+      "ld65": "ld65 V2.18 - N/A"
+    }
+  }
+}

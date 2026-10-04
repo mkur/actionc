@@ -346,7 +346,7 @@ impl Instruction {
                     e.writes.y = 0xffff;
                     e.flag_writes = NZ;
                 }
-                Implied::DecA => {
+                Implied::IncA | Implied::DecA => {
                     e.environment_reads |= env::M;
                     e.reads.a = mask(m);
                     e.writes.a = mask(m);

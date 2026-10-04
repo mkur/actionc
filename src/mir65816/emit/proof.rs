@@ -10,6 +10,35 @@ pub use super::effects::{
 pub use super::tracked::Event;
 pub use super::work::{Counts as WorkCounts, measure as measure_work};
 
+/// Balanced independent probe; the restoring sequence deliberately retains a
+/// NOP so only the requested adjustment can be rewritten.
+pub fn small_stack_probe(
+    amount: u16,
+    subtract: bool,
+) -> Result<(Code, Code, Vec<Snapshot>), String> {
+    let mut before = super::rewrite::small_stack::probe(amount, subtract, None, false, true);
+    let mut after = super::rewrite::small_stack::apply(before.clone(), true)?;
+    before.state_trace.clear();
+    let snapshots = std::mem::take(&mut after.state_trace);
+    Ok((before, after, snapshots))
+}
+
+pub fn accumulator_step_probe(value: u16, byte: bool, subtract: bool) -> Code {
+    let mut e = TrackedEmitter65816::default();
+    e.word(WordOp::LdaImm, value);
+    if byte {
+        e.a8();
+    }
+    e.op(if subtract {
+        Implied::DecA
+    } else {
+        Implied::IncA
+    });
+    e.a16();
+    e.native_return(None).unwrap();
+    e.finish()
+}
+
 /// Independent VM qualification of the closed overwritten-mode transformation.
 pub fn overwritten_mode_probe(byte: bool) -> Result<(Code, Code, Vec<Snapshot>), String> {
     let mut e = TrackedEmitter65816::default();

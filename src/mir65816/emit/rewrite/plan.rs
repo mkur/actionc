@@ -9,6 +9,7 @@ use super::super::{
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Rule {
     ZeroIndex,
+    SmallStack,
     #[cfg(test)]
     Identity,
     Adjacent {

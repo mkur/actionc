@@ -311,16 +311,10 @@ fn executed_word_return_tails_read_only_the_source_and_restore_the_stack() {
                         vec![0xa9, 0, 0x80]
                     };
                     if r.fixed_frame != 0 {
-                        expected.extend([
-                            0xa8,
-                            0x3b,
-                            0x18,
-                            0x69,
-                            r.fixed_frame as u8,
-                            (r.fixed_frame >> 8) as u8,
-                            0x1b,
-                            0x98,
-                        ]);
+                        expected.extend(assemble(
+                            &format!("tay\n{}tya\n", stack_release_asm(r.fixed_frame)),
+                            0x050000,
+                        ));
                     }
                     expected.push(0x6b);
                     assert_eq!(

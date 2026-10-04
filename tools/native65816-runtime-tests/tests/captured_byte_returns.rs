@@ -189,10 +189,7 @@ fn captured_return_tails_match_ca65_clear_hidden_b_and_read_no_neighbor_or_scrat
             };
             asm.push_str(&format!("lda {source},s\nrep #$20\n.a16\nand #$00ff\n"));
             if m.frame.extent != 0 {
-                asm.push_str(&format!(
-                    "tay\ntsc\nclc\nadc #{}\ntcs\ntya\n",
-                    m.frame.extent
-                ));
+                asm.push_str(&format!("tay\n{}tya\n", stack_release_asm(m.frame.extent)));
             }
             asm.push_str("rtl\n");
             assert_eq!(&m.code.bytes[span.clone()], assemble(&asm, 0x050000));
