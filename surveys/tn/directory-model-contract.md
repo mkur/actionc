@@ -20,6 +20,10 @@ caller-owned: eight bytes for MyDOS, 512 for the large-source fixture. Large
 backings are uninitialized byte arrays with typed pointers; no whole-directory
 copy is required to switch panels.
 
+The VM behavioral checks are temporarily ignored pending fixture updates for
+the DirBatch field reorder. Re-enabling them must validate header publication,
+entry addresses, ordering, rendering and backing-store guards.
+
 The source-shape probe compiled in modern classic and MIR6502 with the existing
 zero-page allocation SETs and ORG $2C00. Aggregate fields precede BYTE field
 lists to avoid a parser ambiguity; backing addresses use explicit CARD casts.

@@ -19,7 +19,10 @@ pub fn routine_address(listing: &str, name: &str) -> u16 {
 
 pub fn global_address(listing: &str, name: &str) -> u16 {
     let label = format!("global_{name}:");
-    let mut lines = listing.lines().skip_while(|line| *line != label);
+    // Listings preserve declaration spelling; Action! identifiers ignore case.
+    let mut lines = listing
+        .lines()
+        .skip_while(|line| !line.eq_ignore_ascii_case(&label));
     assert!(lines.next().is_some(), "missing global {name}");
     lines
         .find_map(|line| {
@@ -28,4 +31,18 @@ pub fn global_address(listing: &str, name: &str) -> u16 {
             u16::from_str_radix(address, 16).ok()
         })
         .unwrap_or_else(|| panic!("missing address for {name}"))
+}
+
+#[test]
+fn global_lookup_preserves_identifier_boundaries_with_lf_and_crlf() {
+    let listing = "global_currentDirectory:\n    .BYTE $00 ; $3000: 00\n\
+                   global_currentDir:\n    .BYTE $00,$00 ; $3001: 00 00\n\
+                   global_currentDir_2:\n    .BYTE $00 ; $3003: 00\n";
+    for listing in [listing.to_owned(), listing.replace('\n', "\r\n")] {
+        for name in ["currentdir", "currentDir", "CURRENTDIR"] {
+            assert_eq!(global_address(&listing, name), 0x3001);
+        }
+        assert_eq!(global_address(&listing, "currentdirectory"), 0x3000);
+        assert_eq!(global_address(&listing, "currentdir_2"), 0x3003);
+    }
 }
