@@ -1,0 +1,95 @@
+{
+  "baseline_compiler": "8ce1bd08",
+  "exec_revision": "154bcf5a45605aeee57de5420ec4604e4ff7b30c",
+  "source_count": 166,
+  "routines": 899,
+  "scope": "Compiler code bytes; excludes platform assembly and hosted Exec qualification.",
+  "baseline_code_bytes": {
+    "optimized_unchecked": 326894,
+    "optimized_guarded": 439350,
+    "raw_unchecked": 374735
+  },
+  "constant_slice": {
+    "optimized_unchecked_code_bytes": 326122,
+    "saved_bytes": 772,
+    "audit_sites": [
+      {
+        "routine": "M_TASKPOLICY_PROCESSCANREMOVE_140447A5",
+        "block": 8,
+        "index": 10,
+        "before": 57,
+        "after": 8
+      },
+      {
+        "routine": "M_CONSOLEWINDOWS_TAKE_9FD09734",
+        "block": 1,
+        "index": 1,
+        "before": 123,
+        "after": 10
+      },
+      {
+        "routine": "M_CONSOLEDRIVER_ADMITWORKER_8B81C455",
+        "block": 2,
+        "index": 9,
+        "before": 55,
+        "after": 10
+      },
+      {
+        "routine": "M_CONSOLEDRIVER_INITIALIZE_D6CB2592",
+        "block": 0,
+        "index": 3,
+        "before": 123,
+        "after": 10
+      },
+      {
+        "routine": "M_CONSOLEDRIVER_FREESTORAGE_02676B4B",
+        "block": 0,
+        "index": 3,
+        "before": 123,
+        "after": 10
+      },
+      {
+        "routine": "M_MYDOSFILE_CHAIN_94A5D226",
+        "block": 0,
+        "index": 2,
+        "before": 55,
+        "after": 10
+      },
+      {
+        "routine": "M_SDFS_MAP_D6A7DDA3",
+        "block": 0,
+        "index": 2,
+        "before": 55,
+        "after": 10
+      },
+      {
+        "routine": "M_DEMO_SHELLDIR_42E4EEF3",
+        "block": 15,
+        "index": 2,
+        "before": 55,
+        "after": 10
+      },
+      {
+        "routine": "M_DEMO_SHELLTASKS_EC8AA98C",
+        "block": 9,
+        "index": 2,
+        "before": 55,
+        "after": 10
+      },
+      {
+        "routine": "M_DEMO_SHELLMOUNTS_AF3EE75C",
+        "block": 4,
+        "index": 2,
+        "before": 55,
+        "after": 10
+      }
+    ]
+  },
+  "unchanged": [
+    "166 source hashes",
+    "per-profile layout",
+    "routine signatures, arguments, results, frames, homes, calls and stack bounds",
+    "initialized data and zero-fill"
+  ],
+  "initialized_data_bytes": 1385
+}

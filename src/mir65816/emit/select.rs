@@ -60,6 +60,8 @@ mod constant_stores;
 mod direct_assignments;
 #[path = "integer_casts.rs"]
 mod integer_casts;
+#[path = "indexed_addresses.rs"]
+mod indexed_addresses;
 #[path = "local_loads.rs"]
 pub(super) mod local_loads;
 #[path = "long_arithmetic.rs"]
@@ -1995,7 +1997,9 @@ impl Builder<'_> {
             width,
         } = op
             && width.get() == 3
-            && (self.symbol_address(*dest, address)? || self.pointer_address(*dest, address)?)
+            && (self.symbol_address(*dest, address)?
+                || self.indexed_pointer_address(*dest, address)?
+                || self.pointer_address(*dest, address)?)
         {
             return Ok(());
         }

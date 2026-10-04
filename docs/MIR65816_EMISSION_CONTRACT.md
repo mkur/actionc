@@ -1462,6 +1462,15 @@ extension zeros. No frame, lifetime, alias or ABI contract is weakened.
 
 ### Constant indexes through captured pointers
 
+Three-byte `AddressOf` may fold an unsigned numeric index and constant stride
+into a bounded displacement using host u64 arithmetic. A nonzero stride below
+2^24 and `index * stride + displacement <= 65535` are required. Selection reuses
+the checked private pointer copy or low-word/bank-byte addition, including
+read-only source bindings and complete-home/overlap checks before emission.
+It forms a wrapping 24-bit value without reading through it. Symbolic and
+component-address consumers retain priority; unsupported forms keep their
+existing paths. See the [indexed-address plan](MIR65816_INDEXED_ADDRESS_PLAN.md).
+
 A nonvolatile scalar load/store may fold an unsigned numeric index and constant
 stride into its Y displacement. Selection checks the complete three-byte private
 base home, exact payload homes, and `index * stride + displacement + width - 1

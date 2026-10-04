@@ -103,3 +103,17 @@ update the emission contract and this plan. Validate all 166 source hashes,
 per-profile layouts, routine signatures/arguments/results, frames, homes, stack
 bounds and initialized/zero-fill data against baseline. Separate measured code
 savings from the model and from any future hosted Exec qualification.
+
+## Constant-index slice
+
+Implemented constant folding through the existing checked pointer selector.
+Frozen optimized unchecked Exec is 326,122 code bytes, saving 772 bytes against
+the baseline. All 166 source hashes, layout bytes, 899 routine contracts/homes
+and data agree with baseline. Measurements are recorded in
+[results.json](benchmarks/65816-indexed-addresses/results.json).
+
+Focused validation: 17 indexed-address library tests; 3 new native tests plus
+the existing 8 address-selection and 6 pointer-value tests. New tests cover
+ca65 encodings, register state, exact private traffic, boundary/fallback values,
+LF/CRLF preparation, guards, raw/optimized modes, relocation and IRQ/NMI after
+nested calls. Full backend qualification follows the BYTE-index slice.
