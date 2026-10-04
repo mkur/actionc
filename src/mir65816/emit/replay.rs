@@ -151,7 +151,7 @@ fn walk(
 }
 
 impl Request {
-    fn replay(&self, e: &mut TrackedEmitter65816) {
+    pub(super) fn replay(&self, e: &mut TrackedEmitter65816) {
         match self {
             Self::Mode(super::state::Width::Byte) => e.a8(),
             Self::Mode(super::state::Width::Word) => e.a16(),

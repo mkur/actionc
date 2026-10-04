@@ -130,6 +130,12 @@ impl TrackedEmitter65816 {
     pub fn recorded(&self) -> &[Record] {
         &self.recording.records
     }
+    pub fn finish_reselected(mut self, original: &SelectedRoutine) -> Result<Code, String> {
+        let recording = std::mem::take(&mut self.recording);
+        let mut code = self.finish();
+        code.selected = Some(Box::new(original.reselected(recording, &code)?));
+        Ok(code)
+    }
     pub fn boundary(&self) -> Boundary {
         Boundary::of(&self.state)
     }

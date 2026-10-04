@@ -34,6 +34,16 @@ register/home/NZ relations. Opaque identities are never compared across dynamic
 loop iterations or invocations. Relocated bytes are checked after explicit
 rebasing before observations are tested.
 
+The selected-code mode rewrite removes a top-level accumulator-width request
+only when another pure `$20` request overwrites it before an instruction or
+label. Source attribution, label allocation and explicit value barriers may
+intervene; other requests and all physical instructions stop the window. Mixed
+status masks and index-width changes are excluded. Fresh tracked emission
+recomputes requests, effects and observations, checks the physical environment
+at each retained consumer, and verifies a new selected CFG before layout.
+Changed selections advance their generation; old analysis sites cannot be
+reused. Source spans may become empty when their only mode change disappears.
+
 ## Unchanged measurements
 
 The [strict equality report](benchmarks/65816-state-tracker/equality.json) covers

@@ -626,14 +626,15 @@ pub(super) fn routine_with_data(
         return Ok(MachineRoutine {
             id: routine.id,
             frame: b.frame,
-            code: super::rewrite::zero_index::apply(
-                super::layout::finalize(direct, true)?,
+            code: super::rewrite::modes::apply(
+                super::rewrite::zero_index::apply(super::layout::finalize(direct, true)?, _trace)?,
                 _trace,
             )?,
         });
     }
     let code = super::rewrite::pilot::apply(&direct, &candidates, _trace)?;
     let code = super::rewrite::zero_index::apply(code, _trace)?;
+    let code = super::rewrite::modes::apply(code, _trace)?;
     Ok(MachineRoutine {
         id: routine.id,
         frame: b.frame,

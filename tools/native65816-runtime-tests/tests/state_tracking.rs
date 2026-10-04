@@ -373,7 +373,7 @@ fn trace_loop(source: &str, kind: u8) {
                         &h.bus.ram[base as usize..base as usize + expected.len()],
                         expected
                     );
-                    let mut observations = 0;
+                    let mut observations = std::collections::BTreeSet::new();
                     for _ in 0..100_000 {
                         if h.cpu.is_stopped() {
                             break;
@@ -386,12 +386,17 @@ fn trace_loop(source: &str, kind: u8) {
                                 .and_then(|pc| at.get(&(pc as usize)))
                             {
                                 check(s, h.cpu.registers(), 0x5ff0 - outgoing - 3, &h.bus, irq);
-                                observations += 1;
+                                observations.insert(s.pc);
                             }
                         }
                         h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
                     }
-                    assert!(h.cpu.is_stopped() && observations > 10);
+                    assert!(h.cpu.is_stopped());
+                    // Mode elimination changes instruction counts. Require the
+                    // actual entry and return boundary, and check every reached
+                    // snapshot above, rather than a historical minimum count.
+                    assert!(observations.contains(&0));
+                    assert!(observations.contains(&(routine.code.bytes.len() - 1)));
                     h.guards(irq);
                     assert_eq!(
                         h.bus.value(0x7000, 2),
@@ -417,7 +422,7 @@ fn trace_loop(source: &str, kind: u8) {
                         std::fs::write(stem.with_extension("bin"), &expected).unwrap();
                         std::fs::write(
                             stem.with_extension("txt"),
-                            format!("observations={observations}\n{trace:#?}"),
+                            format!("observed_sites={observations:?}\n{trace:#?}"),
                         )
                         .unwrap();
                     }

@@ -238,6 +238,15 @@ impl SelectedRoutine {
             code,
         )
     }
+    pub fn reselected(&self, recording: Recording, code: &Code) -> Result<Self, String> {
+        Self::build(
+            self.identity.checked_next_selection()?,
+            &self.allocation,
+            self.home_contract.clone(),
+            recording,
+            code,
+        )
+    }
     fn build(
         identity: Identity,
         allocation: &AllocatedFrame,

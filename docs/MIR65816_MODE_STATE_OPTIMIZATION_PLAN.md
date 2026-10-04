@@ -104,4 +104,17 @@ other backends and unrelated dirty workspace files remain outside this patch.
 
 ## Results
 
-Implementation and measurements pending.
+Slice 1 reduces optimized unchecked Exec code from 350,372 to 344,150 bytes:
+6,222 bytes saved across the unchanged 899-routine workload. All 166 source
+hashes match the baseline. Removing an overwritten request can also make its
+successor unnecessary, explaining savings above the single-instruction model.
+
+The first slice passes 341 active MIR65816 library tests (one existing ignored
+test), plus native control-flow, guard, replay and state-tracking targets. The
+VM probe independently checks both store widths, hidden B, flags and cycles.
+Replay inventory coverage includes the existing pointer request families, and
+the trace test now checks actual entry/return coverage instead of requiring a
+historical instruction count. The native test lockfile uses the corrected CPU
+path expected by the qualification runner, without dependency version updates.
+
+Slice 2 and final qualification pending.

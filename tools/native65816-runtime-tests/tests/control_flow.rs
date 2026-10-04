@@ -3,6 +3,60 @@ use actionc_vm::native65816::{Inputs, Machine, Registers};
 use support::*;
 
 #[test]
+fn overwritten_typed_requests_preserve_hidden_b_flags_and_store_width() {
+    use actionc::mir65816::emit::proof;
+    let caller = assemble("jsl $040000\nstp\nnop", 0x030000);
+    for byte in [false, true] {
+        let (before, after, snapshots) = proof::overwritten_mode_probe(byte).unwrap();
+        assert_eq!(before.bytes.len() - after.bytes.len(), 4);
+        let (replayed, observed) = proof::replay_code(&after, true).unwrap();
+        assert_eq!(observed, snapshots);
+        proof::compare_replay_output(&after, &replayed).unwrap();
+        for a in [0, 0xff, 0x100, 0xab80, 0xffff] {
+            for p in (0..=255u8).filter(|p| p & 0x38 == 0) {
+                let run = |code: &[u8]| {
+                    let mut bus = Bus::new();
+                    bus.map(0x040000, code, false);
+                    bus.map(0x030000, &caller, false);
+                    bus.map(0x4000, &[0xa5; 0x2000], true);
+                    let mut cpu = Machine::start_at(Registers {
+                        a,
+                        x: 0x5678,
+                        y: 0x9abc,
+                        s: 0x5fe0,
+                        d: 0x2000,
+                        dbr: 0,
+                        pbr: 3,
+                        pc: 0,
+                        p,
+                        emulation_mode: false,
+                    });
+                    assert!(
+                        cpu.run_until(&mut bus, 100, |_| Inputs::default(), |c| c.is_stopped())
+                            .unwrap()
+                    );
+                    let r = cpu.registers();
+                    assert_eq!((r.a, r.x, r.y, r.s, r.p), (a, 0x5678, 0x9abc, 0x5fe0, p));
+                    assert_eq!(
+                        bus.value(0x5fe2, 2),
+                        if byte {
+                            0xa500 | u32::from(a & 255)
+                        } else {
+                            u32::from(a)
+                        }
+                    );
+                    (cpu.cycles(), bus.writes)
+                };
+                let (before_cycles, before_writes) = run(&before.bytes);
+                let (after_cycles, after_writes) = run(&after.bytes);
+                assert_eq!(before_cycles - after_cycles, 6);
+                assert_eq!(before_writes, after_writes);
+            }
+        }
+    }
+}
+
+#[test]
 fn redundant_native_rep_omission_preserves_hidden_lane_flags_and_memory() {
     let before = assemble("rep #$20\nsta 2,s\nstp\nnop", 0x040000);
     let after = assemble("sta 2,s\nstp\nnop", 0x040000);

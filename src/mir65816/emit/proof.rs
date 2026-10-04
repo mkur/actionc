@@ -10,6 +10,39 @@ pub use super::effects::{
 pub use super::tracked::Event;
 pub use super::work::{Counts as WorkCounts, measure as measure_work};
 
+/// Independent VM qualification of the closed overwritten-mode transformation.
+pub fn overwritten_mode_probe(byte: bool) -> Result<(Code, Code, Vec<Snapshot>), String> {
+    let mut e = TrackedEmitter65816::default();
+    e.trace();
+    if byte {
+        e.a8();
+        e.a16();
+        e.a8();
+    } else {
+        e.a16();
+        e.a8();
+        e.a16();
+    }
+    e.byte(ByteOp::StaStack, 5);
+    e.a16();
+    e.native_return(None)?;
+    let frame = super::AllocatedFrame {
+        extent: 0,
+        spill_bytes: 0,
+        peak_below_entry: 0,
+        temps: Default::default(),
+        edge_copies: vec![],
+    };
+    let mut before = super::layout::finalize(
+        e.finish_selected(crate::nir::RoutineId(0), &frame, None)?,
+        true,
+    )?;
+    let mut after = super::rewrite::modes::apply(before.clone(), true)?;
+    before.state_trace.clear();
+    let snapshots = std::mem::take(&mut after.state_trace);
+    Ok((before, after, snapshots))
+}
+
 pub use super::analysis::homes::{HomeAccess, HomeByte, HomeInfo, HomeOwner};
 pub use super::analysis::machine_liveness::{ConditionFlag, MachineLive, RegisterLane};
 /// Read-only analyses tied to this immutable selection/allocation snapshot.

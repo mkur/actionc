@@ -2,6 +2,7 @@
 //! remain test consumers; each production rule proves its own equivalence.
 pub(super) mod context;
 pub(super) mod driver;
+pub(super) mod modes;
 pub(super) mod pilot;
 mod plan;
 pub(super) mod rules;
