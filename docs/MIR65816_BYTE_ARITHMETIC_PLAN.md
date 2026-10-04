@@ -90,3 +90,21 @@ Keep unrelated working-tree changes intact. Store bulky measurements under
 Compare all 166 source hashes, layouts, signatures, arguments/results, frames,
 homes, calls, stack bounds, initialized data and zero-fill against baseline.
 Distinguish actual total code savings, candidate span savings and modeled savings.
+
+## Immediate slice
+
+Implemented direct U8 RHS selection using the existing checked BYTE classifier
+and typed expression arithmetic. The result keeps its allocated stack home.
+All 143 audited immediate spans shrink by four bytes (572 bytes total); the 93
+private-RHS spans are unchanged. Optimized unchecked Exec is 324,037 bytes,
+saving 578 bytes including neighboring code changes. Source/layout hashes and
+all routine/ABI/frame/data facts match baseline. See
+[results.json](benchmarks/65816-byte-arithmetic/results.json).
+
+Two selector unit tests and three new native tests pass, as do the existing
+BYTE-consumer test and four top-bit branch tests. Native checks include all 256
+left values against five immediate boundaries for each operation, independent
+ca65/register/flag checks, exact private traffic, guards, LF/CRLF, capture order,
+two o65 placements and IRQ/NMI after earlier calls. Boundary constants are
+substituted into verified MIR so source constant folding cannot remove the
+selector cases being tested.

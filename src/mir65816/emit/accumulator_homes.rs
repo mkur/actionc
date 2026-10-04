@@ -297,7 +297,7 @@ impl home_demand::Plan {
 }
 
 impl Builder<'_> {
-    fn byte_expression_rhs(&mut self, operation: NirBinaryOp, right: ByteOperand) {
+    pub(super) fn byte_expression_rhs(&mut self, operation: NirBinaryOp, right: ByteOperand) {
         let (immediate, stack) = match operation {
             NirBinaryOp::Add => {
                 self.code.op(Implied::Clc);

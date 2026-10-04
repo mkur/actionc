@@ -48,6 +48,8 @@ mod address_consumers;
 mod addresses;
 #[path = "arithmetic.rs"]
 mod arithmetic;
+#[path = "byte_arithmetic.rs"]
+mod byte_arithmetic;
 #[path = "byte_consumers.rs"]
 mod byte_consumers;
 #[path = "call_copies.rs"]
@@ -2040,7 +2042,8 @@ impl Builder<'_> {
             && (self.constant_shift(*dest, width(*bytes)?, *operation, left, right)?
                 || self.captured_pointer_step(*dest, width(*bytes)?, *operation, left, right)?
                 || self.long_binary(*dest, width(*bytes)?, *operation, left, right)?
-                || self.word_binary(*dest, width(*bytes)?, *operation, left, right)?)
+                || self.word_binary(*dest, width(*bytes)?, *operation, left, right)?
+                || self.direct_byte_binary(*dest, width(*bytes)?, *operation, left, right)?)
         {
             return Ok(());
         }

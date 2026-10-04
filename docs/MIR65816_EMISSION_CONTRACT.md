@@ -630,6 +630,17 @@ See the [local transfer plan](MIR65816_LOCAL_RELAXATION_PLAN.md).
 
 ### Scalar instruction selection
 
+Materialized BYTE Add/Sub/AND/OR/XOR with a U8 right operand may use a direct
+A8 immediate instruction and an exact-byte stack result store, without RIGHT
+scratch staging. Complete stack operands and the writable result are checked
+before emission, including transient S movement. Source captures and their
+external access order remain unchanged. Add/Sub initialize carry with CLC/SEC;
+logical operations preserve C/V. Hidden B, X/Y and allocation remain intact.
+Conservative barriers and existing expression/fusion/DP/X owners retain their
+contracts; no new capture binding or retained-A/flag witness is created.
+Unsupported widths, symbolic operands, DP homes and unhandled borrowed inputs
+retain existing paths. See the [BYTE arithmetic plan](MIR65816_BYTE_ARITHMETIC_PLAN.md).
+
 Two-byte integer ADD/SUB may use native sixteen-bit A with one ADC/SBC and
 an immediate store to the existing two-byte stack result home. Eligible operands
 are two-byte stack temps/parameters and U8/U16 constants; U8 constants are

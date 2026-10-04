@@ -1,0 +1,33 @@
+{
+  "baseline_compiler": "13220e50",
+  "exec_revision": "154bcf5a45605aeee57de5420ec4604e4ff7b30c",
+  "source_count": 166,
+  "routines": 899,
+  "baseline_code_bytes": {
+    "optimized-unchecked": 324615,
+    "optimized-guarded": 437062,
+    "raw-unchecked": 372460
+  },
+  "initialized_data_bytes": 1385,
+  "scope": "Compiler-generated Exec code; excludes platform assembly and hosted Exec boot qualification.",
+  "immediate_slice": {
+    "optimized_unchecked_code_bytes": 324037,
+    "saved_bytes": 578,
+    "audit": {
+      "U8": {
+        "sites": 143,
+        "before_bytes": 1751,
+        "after_bytes": 1179,
+        "saved_bytes": 572
+      },
+      "Temp": {
+        "sites": 93,
+        "before_bytes": 934,
+        "after_bytes": 934,
+        "saved_bytes": 0
+      }
+    },
+    "image_sha256": "bfa225f232794765742ee3c415b7733cde51256fada0909cc7a29a8cd3752619"
+  },
+  "abi_frames_homes_stack_bounds_data_and_layout_unchanged": true
+}
