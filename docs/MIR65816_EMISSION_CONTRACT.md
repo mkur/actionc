@@ -1471,6 +1471,19 @@ It forms a wrapping 24-bit value without reading through it. Symbolic and
 component-address consumers retain priority; unsupported forms keep their
 existing paths. See the [indexed-address plan](MIR65816_INDEXED_ADDRESS_PLAN.md).
 
+A captured unsigned BYTE index may likewise form a three-byte address when
+`255 * stride + displacement <= 65535`. The index has an exact one-byte stack
+home; base/result are complete disjoint stack homes. Preflight includes actual
+borrowed base reads and transient stack reach. A8 captures the index, A16 AND
+clears hidden B, and bounded shifts/adds form the offset. Non-power-of-two
+scaling uses the existing INDEX scratch word only when a conservative cost
+bound proves a saving. Low-word addition preserves carry through STA/SEP/LDA
+into the exact bank-byte ADC, including wrap at 24 bits. No pointed-to memory,
+fourth pointer byte, X/Y register, allocation or call lifetime is involved.
+Signed/wider indices, unbounded offsets, DP index/base/result homes and unsafe
+overlap retain the existing selectors. Barriers and typed selected effects
+remain authoritative through replay.
+
 A nonvolatile scalar load/store may fold an unsigned numeric index and constant
 stride into its Y displacement. Selection checks the complete three-byte private
 base home, exact payload homes, and `index * stride + displacement + width - 1

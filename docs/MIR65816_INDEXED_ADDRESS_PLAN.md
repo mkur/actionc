@@ -117,3 +117,23 @@ the existing 8 address-selection and 6 pointer-value tests. New tests cover
 ca65 encodings, register state, exact private traffic, boundary/fallback values,
 LF/CRLF preparation, guards, raw/optimized modes, relocation and IRQ/NMI after
 nested calls. Full backend qualification follows the BYTE-index slice.
+
+## BYTE-index slice
+
+Implemented exact-width unsigned BYTE capture and bounded A16 shift/add, followed
+by low-word and bank-byte addition. Existing INDEX scratch handles non-power-of-two
+strides; checked pointer-source resolution handles borrowed parameter/local bases.
+Four selector unit tests cover encodings, bounds, types, stack reach and atomic
+refusal. Seven native tests cover all 256 indices, ca65/register/traffic oracles,
+borrowed locals after calls, fallbacks, relocation, line endings and IRQ/NMI,
+including non-power-of-two scaling after earlier calls. Existing address/pointer
+runtime targets remain green.
+
+Optimized unchecked Exec is now 324,615 bytes: 1,507 bytes below the constant slice
+and 2,279 below baseline. All 26 audited sites are selected: constant spans shrink
+from 756 to 98 bytes and BYTE spans from 1,816 to 501 bytes. Their actual 1,973-byte
+span saving exceeds the original 1,925-byte model. Four additional indexed-address
+sites save 274 bytes; neighboring mode/branch changes save a net 32 bytes. There
+are no refused audited candidates. Wider/signed indices, unbounded offsets and
+unsupported homes retain existing fallbacks. Full backend qualification remains
+the final step.

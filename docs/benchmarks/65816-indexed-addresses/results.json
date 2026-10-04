@@ -83,7 +83,8 @@
         "before": 55,
         "after": 10
       }
-    ]
+    ],
+    "implementation": "d1cf461a"
   },
   "unchanged": [
     "166 source hashes",
@@ -91,5 +92,266 @@
     "routine signatures, arguments, results, frames, homes, calls and stack bounds",
     "initialized data and zero-fill"
   ],
-  "initialized_data_bytes": 1385
+  "initialized_data_bytes": 1385,
+  "profiles": {
+    "optimized-unchecked": {
+      "before_code_bytes": 326894,
+      "after_code_bytes": 324615,
+      "saved_bytes": 2279,
+      "routines_that_grew": 0,
+      "image_sha256": "98c2518e6574b7305563dbf4a437ed9313aefd172502efd70a8af7485860280e",
+      "layout_sha256": "8cb9c32687306ca27629e591087951e089244078881f1c7c0c4db8d711b02f56"
+    },
+    "optimized-guarded": {
+      "before_code_bytes": 439350,
+      "after_code_bytes": 437062,
+      "saved_bytes": 2288,
+      "routines_that_grew": 0,
+      "image_sha256": "7608f7b39efc6e26b120e4df63565d57d15c6f02eef70c6428b2d0c334595c57",
+      "layout_sha256": "5cb5c42909fe9c904438a257ce2eb10a7eb3696a65f64482e94948b2f6f09074"
+    },
+    "raw-unchecked": {
+      "before_code_bytes": 374735,
+      "after_code_bytes": 372460,
+      "saved_bytes": 2275,
+      "routines_that_grew": 0,
+      "image_sha256": "1c63d5b025a198c92da265d8db857483240f5eca844b13a564b3daa7c276fba2",
+      "layout_sha256": "8cb9c32687306ca27629e591087951e089244078881f1c7c0c4db8d711b02f56"
+    }
+  },
+  "source_hashes_sha256": "56bf267e46ae2e6cb1e39111679e8ec75b5f453489ac99cd232d4f38e8bd8de1",
+  "source_hashes_encoding": "SHA256 of json.dumps(source_hashes, sort_keys=True).encode()",
+  "original_input_layout_sha256": "07eb5fc477d5b2ef378f4b82f90ea6b233c5205a4aa0abc40288b20ddebe1370",
+  "audited_sites": {
+    "selected": 26,
+    "refused": 0,
+    "before_bytes": 2572,
+    "after_bytes": 599,
+    "original_modeled_saving_bytes": 1925,
+    "actual_span_saving_bytes": 1973,
+    "sites": [
+      {
+        "routine": "M_TASKPOLICY_PROCESSFOR_0276CBEE",
+        "block": 0,
+        "index": 3,
+        "subset": "bounded BYTE index",
+        "before": 97,
+        "after": 27
+      },
+      {
+        "routine": "M_TASKPOLICY_PROCESSCANREMOVE_140447A5",
+        "block": 8,
+        "index": 10,
+        "subset": "constant index",
+        "before": 57,
+        "after": 8
+      },
+      {
+        "routine": "M_CONSOLEWINDOWS_FIND_07AFDE1C",
+        "block": 0,
+        "index": 5,
+        "subset": "bounded BYTE index",
+        "before": 123,
+        "after": 33
+      },
+      {
+        "routine": "M_CONSOLEWINDOWS_BOUND_2C2AAE27",
+        "block": 2,
+        "index": 1,
+        "subset": "bounded BYTE index",
+        "before": 123,
+        "after": 33
+      },
+      {
+        "routine": "M_CONSOLEWINDOWS_BOUND_2C2AAE27",
+        "block": 6,
+        "index": 1,
+        "subset": "bounded BYTE index",
+        "before": 123,
+        "after": 33
+      },
+      {
+        "routine": "M_CONSOLEWINDOWS_RESERVE_27D75673",
+        "block": 4,
+        "index": 1,
+        "subset": "bounded BYTE index",
+        "before": 123,
+        "after": 33
+      },
+      {
+        "routine": "M_CONSOLEWINDOWS_TAKE_9FD09734",
+        "block": 1,
+        "index": 1,
+        "subset": "constant index",
+        "before": 123,
+        "after": 10
+      },
+      {
+        "routine": "M_CONSOLEWINDOWS_TAKE_9FD09734",
+        "block": 8,
+        "index": 5,
+        "subset": "bounded BYTE index",
+        "before": 123,
+        "after": 33
+      },
+      {
+        "routine": "M_CONSOLEFOREGROUND_ALLOCATE_F1C749CC",
+        "block": 9,
+        "index": 4,
+        "subset": "bounded BYTE index",
+        "before": 79,
+        "after": 24
+      },
+      {
+        "routine": "M_CONSOLEFOREGROUND_RESOLVE_9B8D664B",
+        "block": 2,
+        "index": 5,
+        "subset": "bounded BYTE index",
+        "before": 79,
+        "after": 24
+      },
+      {
+        "routine": "M_CONSOLEFOREGROUND_DELIVER_8D52BBDC",
+        "block": 2,
+        "index": 5,
+        "subset": "bounded BYTE index",
+        "before": 79,
+        "after": 24
+      },
+      {
+        "routine": "M_CONSOLEDRIVER_RUNNABLE_F91A82EB",
+        "block": 7,
+        "index": 1,
+        "subset": "bounded BYTE index",
+        "before": 123,
+        "after": 33
+      },
+      {
+        "routine": "M_CONSOLEDRIVER_ADMITWORKER_8B81C455",
+        "block": 2,
+        "index": 9,
+        "subset": "constant index",
+        "before": 55,
+        "after": 10
+      },
+      {
+        "routine": "M_CONSOLEDRIVER_INITIALIZE_D6CB2592",
+        "block": 0,
+        "index": 3,
+        "subset": "constant index",
+        "before": 123,
+        "after": 10
+      },
+      {
+        "routine": "M_CONSOLEDRIVER_FREESTORAGE_02676B4B",
+        "block": 0,
+        "index": 3,
+        "subset": "constant index",
+        "before": 123,
+        "after": 10
+      },
+      {
+        "routine": "M_CONSOLETILING_HIDELOCKED_54ED13CF",
+        "block": 6,
+        "index": 1,
+        "subset": "bounded BYTE index",
+        "before": 123,
+        "after": 33
+      },
+      {
+        "routine": "M_CONSOLETILING_HIDELOCKED_54ED13CF",
+        "block": 10,
+        "index": 1,
+        "subset": "bounded BYTE index",
+        "before": 123,
+        "after": 33
+      },
+      {
+        "routine": "M_CONSOLETILING_SHOW_26065EE8",
+        "block": 14,
+        "index": 1,
+        "subset": "bounded BYTE index",
+        "before": 123,
+        "after": 33
+      },
+      {
+        "routine": "M_MYDOSFILE_CHAIN_94A5D226",
+        "block": 0,
+        "index": 2,
+        "subset": "constant index",
+        "before": 55,
+        "after": 10
+      },
+      {
+        "routine": "M_SDFS_MAP_D6A7DDA3",
+        "block": 0,
+        "index": 2,
+        "subset": "constant index",
+        "before": 55,
+        "after": 10
+      },
+      {
+        "routine": "M_FSINIT_CONFIG_A7C873FA",
+        "block": 7,
+        "index": 0,
+        "subset": "bounded BYTE index",
+        "before": 125,
+        "after": 35
+      },
+      {
+        "routine": "M_FSINIT_CONFIG_A7C873FA",
+        "block": 23,
+        "index": 0,
+        "subset": "bounded BYTE index",
+        "before": 125,
+        "after": 35
+      },
+      {
+        "routine": "M_FSINIT_CONFIG_A7C873FA",
+        "block": 26,
+        "index": 0,
+        "subset": "bounded BYTE index",
+        "before": 125,
+        "after": 35
+      },
+      {
+        "routine": "M_DEMO_SHELLDIR_42E4EEF3",
+        "block": 15,
+        "index": 2,
+        "subset": "constant index",
+        "before": 55,
+        "after": 10
+      },
+      {
+        "routine": "M_DEMO_SHELLTASKS_EC8AA98C",
+        "block": 9,
+        "index": 2,
+        "subset": "constant index",
+        "before": 55,
+        "after": 10
+      },
+      {
+        "routine": "M_DEMO_SHELLMOUNTS_AF3EE75C",
+        "block": 4,
+        "index": 2,
+        "subset": "constant index",
+        "before": 55,
+        "after": 10
+      }
+    ]
+  },
+  "additional_savings": {
+    "indexed_address_sites": 4,
+    "indexed_address_span_bytes": 274,
+    "net_neighbor_mode_and_branch_bytes": 32,
+    "total_bytes": 306
+  },
+  "fallbacks": "Signed/wider indices, offsets exceeding 65535, unsafe overlap, unsupported homes and existing selector ownership retain prior paths. No audited candidate was refused.",
+  "byte_slice": {
+    "optimized_unchecked_code_bytes": 324615,
+    "incremental_saved_bytes": 1507,
+    "focused_library_tests_passed": 4,
+    "focused_native_tests_passed": 21
+  },
+  "abi_frames_homes_stack_bounds_and_data_unchanged": true
 }

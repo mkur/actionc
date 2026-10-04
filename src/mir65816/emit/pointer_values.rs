@@ -163,7 +163,7 @@ impl Builder<'_> {
         }
         Ok(())
     }
-    fn pointer_copy_homes(
+    pub(super) fn pointer_copy_homes(
         &self,
         dest: TempId,
         value: &Mir65816Value,
