@@ -58,7 +58,7 @@
     },
     {
       "name": "terminal direct scalar calls and LONG stores",
-      "implementation": "commit containing this stage record",
+      "implementation": "9723ffc0",
       "optimized_unchecked_code_bytes": 326894,
       "saved_bytes": 3658,
       "incremental_saved_bytes": 1874,
@@ -361,5 +361,149 @@
   "abi_frames_homes_stack_bounds_initialized_data_and_zero_fill_unchanged": true,
   "source_hashes_sha256": "56bf267e46ae2e6cb1e39111679e8ec75b5f453489ac99cd232d4f38e8bd8de1",
   "source_hashes_encoding": "SHA256 of json.dumps(source_hashes, sort_keys=True).encode()",
-  "original_input_layout_sha256": "07eb5fc477d5b2ef378f4b82f90ea6b233c5205a4aa0abc40288b20ddebe1370"
+  "original_input_layout_sha256": "07eb5fc477d5b2ef378f4b82f90ea6b233c5205a4aa0abc40288b20ddebe1370",
+  "implementation": "5dbd8c02",
+  "validation": {
+    "library": {
+      "command": "cargo test --lib --features native65816-state-proof mir65816",
+      "passed": 357,
+      "failed": 0,
+      "ignored": 1,
+      "filtered_out": 2583
+    },
+    "integration": {
+      "command": [
+        "cargo",
+        "test",
+        "--features",
+        "native65816-state-proof",
+        "--no-fail-fast",
+        "--test",
+        "actionc_65816_cli",
+        "--test",
+        "actionc_65816_o65_cli",
+        "--test",
+        "mir65816_abi",
+        "--test",
+        "mir65816_address_selection",
+        "--test",
+        "mir65816_arithmetic",
+        "--test",
+        "mir65816_contract",
+        "--test",
+        "mir65816_copy_inventory",
+        "--test",
+        "mir65816_emission",
+        "--test",
+        "mir65816_movement_inventory",
+        "--test",
+        "mir65816_o65",
+        "--test",
+        "mir65816_register_inventory",
+        "--test",
+        "mir65816_scalar_dp_inventory",
+        "--test",
+        "mir65816_state_boundary"
+      ],
+      "targets": [
+        "actionc_65816_cli",
+        "actionc_65816_o65_cli",
+        "mir65816_abi",
+        "mir65816_address_selection",
+        "mir65816_arithmetic",
+        "mir65816_contract",
+        "mir65816_copy_inventory",
+        "mir65816_emission",
+        "mir65816_movement_inventory",
+        "mir65816_o65",
+        "mir65816_register_inventory",
+        "mir65816_scalar_dp_inventory",
+        "mir65816_state_boundary"
+      ],
+      "passed": 86,
+      "failed": 0,
+      "ignored": 4,
+      "filtered_out": 0
+    },
+    "emission_snapshot": {
+      "changed": false,
+      "line_endings_checked": [
+        "LF",
+        "CRLF"
+      ],
+      "path": "tests/fixtures/mir65816-state-boundary.txt"
+    },
+    "disassembler": {
+      "command": "PYTHONPATH=tools python3 -B -m unittest tools/test_disassemble65816.py",
+      "passed": 10
+    },
+    "focused_native_final_slice": {
+      "command": "python3 -B tools/native65816-runtime-tests/qualify.py --test scalar_forwarding --test call_copies --test call_pushes --test home_definitions --test pointer_forwarding --no-fail-fast",
+      "passed": 13,
+      "failed": 0,
+      "local_manifest": "tools/native65816-runtime-tests/target/qualification/run-hvtbgf8g/manifest.json"
+    },
+    "focused_native_fusion_regression": {
+      "command": "python3 -B tools/native65816-runtime-tests/qualify.py --test top_bit_branches --test scalar_forwarding --no-fail-fast",
+      "passed": 9,
+      "failed": 0,
+      "local_manifest": "tools/native65816-runtime-tests/target/qualification/run-q62xos0u/manifest.json"
+    },
+    "native_release": {
+      "command": [
+        "python3",
+        "-B",
+        "tools/native65816-runtime-tests/qualify.py",
+        "--release",
+        "--no-fail-fast"
+      ],
+      "target_results": 89,
+      "passed": 351,
+      "failed": 0,
+      "ignored": 6,
+      "filtered_out": 0,
+      "baseline_exclusions": [],
+      "local_manifest": "tools/native65816-runtime-tests/target/qualification/run-tivtojse/manifest.json",
+      "manifest_sha256": "d47708b6a361457cce57d9de5243ebedf6ca811e9b2ea9459e94b498724fd0b3",
+      "compiler_revision": "5dbd8c025908a1ee439ffd8e4e574be3d661c7d6",
+      "compiler_and_fixture_inputs_sha256": "ec1798460f67c74199bd38eb21be3f5ec389b570c6c764bd3f7af44a730b847b",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "ca65": "ca65 V2.18 - N/A",
+      "ld65": "ld65 V2.18 - N/A",
+      "ignored_tests": [
+        [
+          "execute_parallel_corpus",
+          "requires build.py artifacts and A816_COMPARISON_MANIFEST"
+        ],
+        [
+          "compare_crc_kernels",
+          "build external artifacts with tools/compare65816/crc.py first"
+        ],
+        [
+          "compare_dijkstra_artifacts",
+          "build external artifacts with tools/compare65816/dijkstra.py first"
+        ],
+        [
+          "observe_every_reload_claim_on_saved_raw_and_optimized_images",
+          "requires A816_MOVEMENT_INVENTORY and A816_COMPARISON_MANIFEST"
+        ],
+        [
+          "compare_sieve_kernels",
+          "build external artifacts with tools/compare65816/sieve.py first"
+        ],
+        [
+          "export_work_and_execute_size_ladder",
+          "explicit work-count and size-ladder qualification"
+        ]
+      ]
+    }
+  },
+  "regression_coverage": "Top-bit branch selection retains the original capture because it consumes it after omitting AND. The independent parameter proof index recognizes exact-width direct-call arguments without creating retained-A witnesses.",
+  "final_rebuild": {
+    "compiler": "5dbd8c02",
+    "all_three_profile_images_layouts_and_inventories_identical_to_measured_artifacts": true,
+    "all_166_source_hashes_rechecked": true
+  }
 }

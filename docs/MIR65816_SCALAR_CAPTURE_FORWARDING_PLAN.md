@@ -137,3 +137,19 @@ proofs; extending those contracts requires a separate slice. LONG shifts retain
 their separate selectors. These refusals are deliberate boundaries, not pending
 work in this plan. Retained capture homes remain available for a later allocation
 change; this implementation changes only executable traffic.
+
+Top-bit AND/compare/branch selection retains ownership of its original capture:
+the source read occurs at the later comparison after AND is omitted. Focused
+regressions cover both LONG types, operand roles and parameter/local sources.
+The independent incoming-word proof index also recognizes exact-width terminal
+arguments without inventing retained accumulator witnesses.
+
+Final qualification passes: 357 MIR65816 library tests, 86 root integration tests,
+all 351 active native release tests across 89 targets, and 10 disassembler tests.
+The six existing native opt-in external checks remain ignored; no baseline
+failures are excluded. The unchanged emission snapshot passes actual LF and
+CRLF reads. The native manifest records stable compiler/test inputs at
+`5dbd8c02`, the pinned VM and its status-timing patch. Rebuilding all three Exec
+profiles at that revision produces byte-identical images, layouts and inventories
+to the measurements above. This completes the plan within the stated selector
+boundaries; hosted Exec boot qualification remains outside this measurement.
