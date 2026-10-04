@@ -124,7 +124,7 @@ checks all 65,536 operand pairs for all five operations, with both incoming C/V
 settings, host flag/value oracles and ca65 checks at boundary values. Other mode
 and guard combinations check every left value against right-hand boundaries.
 Tests also cover mutable parameters, local captures, exact external access order,
-relocation and IRQ/NMI after calls. Full backend qualification is the final step.
+relocation and IRQ/NMI after calls. Final backend qualification is recorded below.
 
 The first full native run exposed a size assumption in the generated multi-bank
 fixture: its 400 increments per routine no longer produced more than 64 KiB.
@@ -132,3 +132,37 @@ Increase the workload to 528 increments per routine, retaining the eight
 routines, the greater-than-64-KiB assertion, both relocation placements and the
 same final counter value of 128. This changes test input volume only; compiler
 contracts, expected behavior and Exec measurements are unchanged.
+
+## Completion and qualification
+
+Plan: `fd3380aa`. Immediate slice: `09fc4418`. Private-operand slice: `d82313f8`.
+The multi-bank fixture correction is `2c3eb2c7`; it produces 80,902 code bytes in
+both modes and passes at both placements without changing its expected result.
+
+| Frozen Exec profile | Before | After | Saved |
+| --- | ---: | ---: | ---: |
+| Optimized unchecked | 324,615 | 323,664 | 951 |
+| Optimized guarded | 437,062 | 436,111 | 951 |
+| Raw unchecked | 372,460 | 371,818 | 642 |
+
+Both optimized profiles select all 143 immediate and 93 private audited sites.
+Raw selects 66 immediate and 94 private sites, saving 640 bytes in their spans
+plus two in neighboring code. No routine grows in any profile. All 899 routine
+signatures, arguments/results, frames, homes, calls and stack bounds remain
+unchanged, as do initialized data, zero-fill and per-profile layout bytes.
+All 166 source hashes match. Final images, layouts and inventories reproduce the
+measured artifacts exactly. Initialized compiler data remains 1,385 bytes.
+
+Final validation: 366 MIR65816 library tests, 86 root integration tests and ten
+disassembler tests pass. The full native release runner passes 364 tests across
+91 targets with no failures or baseline exclusions. Existing opt-in checks stay
+ignored (one library, four root integration and six native). The unchanged
+emission snapshot passes with LF and CRLF; both newline conventions also pass
+the new native source preparation paths.
+
+The native qualification manifest is
+`tools/native65816-runtime-tests/target/qualification/run-ba0jcli1/manifest.json`.
+[Results and provenance](benchmarks/65816-byte-arithmetic/results.json) record its
+hash, stable compiler/fixture input digest, VM/tool versions, commands and image
+hashes. The measurements cover compiler-generated code; platform assembly and
+hosted Exec boot qualification remain outside this work.

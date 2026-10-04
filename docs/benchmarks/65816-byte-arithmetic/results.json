@@ -84,7 +84,8 @@
     "audited_sites": 93,
     "audited_span_saving_bytes": 372,
     "focused_unit_tests_passed": 5,
-    "focused_native_tests_passed": 14
+    "focused_native_tests_passed": 14,
+    "implementation": "d82313f8"
   },
   "audited_sites": {
     "immediate": 143,
@@ -94,5 +95,167 @@
     "modeled_saving_bytes": 944,
     "actual_span_saving_bytes": 944
   },
-  "fallbacks": "Wider/symbolic operands, DP homes, unhandled read bindings, shifts and other existing selector owners retain established paths. No audited candidate was refused."
+  "fallbacks": "Wider/symbolic operands, DP homes, unhandled read bindings, shifts and other existing selector owners retain established paths. No audited candidate was refused.",
+  "implementation": "d82313f8",
+  "validation": {
+    "library": {
+      "command": "cargo test --lib --features native65816-state-proof mir65816",
+      "passed": 366,
+      "failed": 0,
+      "ignored": 1,
+      "measured": 0,
+      "filtered_out": 2583
+    },
+    "integration": {
+      "command": [
+        "cargo",
+        "test",
+        "--features",
+        "native65816-state-proof",
+        "--no-fail-fast",
+        "--test",
+        "actionc_65816_cli",
+        "--test",
+        "actionc_65816_o65_cli",
+        "--test",
+        "mir65816_abi",
+        "--test",
+        "mir65816_address_selection",
+        "--test",
+        "mir65816_arithmetic",
+        "--test",
+        "mir65816_contract",
+        "--test",
+        "mir65816_copy_inventory",
+        "--test",
+        "mir65816_emission",
+        "--test",
+        "mir65816_movement_inventory",
+        "--test",
+        "mir65816_o65",
+        "--test",
+        "mir65816_register_inventory",
+        "--test",
+        "mir65816_scalar_dp_inventory",
+        "--test",
+        "mir65816_state_boundary"
+      ],
+      "targets": [
+        "actionc_65816_cli",
+        "actionc_65816_o65_cli",
+        "mir65816_abi",
+        "mir65816_address_selection",
+        "mir65816_arithmetic",
+        "mir65816_contract",
+        "mir65816_copy_inventory",
+        "mir65816_emission",
+        "mir65816_movement_inventory",
+        "mir65816_o65",
+        "mir65816_register_inventory",
+        "mir65816_scalar_dp_inventory",
+        "mir65816_state_boundary"
+      ],
+      "passed": 86,
+      "failed": 0,
+      "ignored": 4,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    "focused_native": {
+      "passed": 14,
+      "targets": [
+        "byte_arithmetic",
+        "arithmetic",
+        "home_demand"
+      ],
+      "local_manifest": "tools/native65816-runtime-tests/target/qualification/run-2uhl7foz/manifest.json"
+    },
+    "emission_snapshot": {
+      "changed": false,
+      "line_endings_checked": [
+        "LF",
+        "CRLF"
+      ],
+      "path": "tests/fixtures/mir65816-state-boundary.txt"
+    },
+    "disassembler": {
+      "command": "PYTHONPATH=tools python3 -B -m unittest tools/test_disassemble65816.py",
+      "passed": 10
+    },
+    "new_native_coverage": "Exhaustive 256 left-byte values against five immediate boundaries and all 65536 private operand pairs for each of five operations, both incoming C/V settings, independent host arithmetic/flag and ca65 oracles, exact private traffic, hidden B, mutable parameters and captured locals across calls, unchanged external traces, raw/optimized, guards, LF/CRLF, two o65 placements and IRQ/NMI after nested calls.",
+    "multibank_fixture": {
+      "initial_full_run_passed": 363,
+      "initial_full_run_failed": 1,
+      "initial_failure": "Generated multi-bank source became smaller than 65536 bytes after BYTE selection.",
+      "routines": 8,
+      "increments_per_routine_before": 400,
+      "increments_per_routine_after": 528,
+      "expected_counter_unchanged": 128,
+      "retained_checks": [
+        "code size above 65536 bytes",
+        "raw and optimized modes",
+        "execution at both o65 placements"
+      ],
+      "focused_test_passed": 1,
+      "local_manifest": "tools/native65816-runtime-tests/target/qualification/run-dveeyim6/manifest.json",
+      "final_raw_and_optimized_code_bytes": 80902
+    },
+    "native_release": {
+      "command": [
+        "python3",
+        "-B",
+        "tools/native65816-runtime-tests/qualify.py",
+        "--release",
+        "--no-fail-fast"
+      ],
+      "target_results": 91,
+      "passed": 364,
+      "failed": 0,
+      "ignored": 6,
+      "measured": 0,
+      "filtered_out": 0,
+      "baseline_exclusions": [],
+      "local_manifest": "tools/native65816-runtime-tests/target/qualification/run-ba0jcli1/manifest.json",
+      "manifest_sha256": "64be7de387d1520d4d53047389752d3d2239662448e0d65029aa8064f9b2a184",
+      "compiler_revision": "2c3eb2c7d48fb2f906dcf205e0cdb02d403970c3",
+      "compiler_and_fixture_inputs_sha256": "8c3b4b733983d24b100df93573abb79ca21979ef1199da145485b0490bf23c44",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "ca65": "ca65 V2.18 - N/A",
+      "ld65": "ld65 V2.18 - N/A",
+      "ignored_tests": [
+        [
+          "execute_parallel_corpus",
+          "requires build.py artifacts and A816_COMPARISON_MANIFEST"
+        ],
+        [
+          "compare_crc_kernels",
+          "build external artifacts with tools/compare65816/crc.py first"
+        ],
+        [
+          "compare_dijkstra_artifacts",
+          "build external artifacts with tools/compare65816/dijkstra.py first"
+        ],
+        [
+          "observe_every_reload_claim_on_saved_raw_and_optimized_images",
+          "requires A816_MOVEMENT_INVENTORY and A816_COMPARISON_MANIFEST"
+        ],
+        [
+          "compare_sieve_kernels",
+          "build external artifacts with tools/compare65816/sieve.py first"
+        ],
+        [
+          "export_work_and_execute_size_ladder",
+          "explicit work-count and size-ladder qualification"
+        ]
+      ]
+    }
+  },
+  "final_rebuild": {
+    "compiler": "d82313f8",
+    "all_three_profile_images_layouts_and_inventories_identical_to_measured_artifacts": true,
+    "all_166_source_hashes_rechecked": true,
+    "qualified_revision": "2c3eb2c7d48fb2f906dcf205e0cdb02d403970c3"
+  }
 }
