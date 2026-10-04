@@ -112,3 +112,37 @@ fn empty_successor_request_is_materialized_after_removal() {
     // this pass cannot claim savings by dropping the demanded width too.
     replay::equivalent(&original, &result).unwrap();
 }
+
+#[test]
+fn changed_consume_decision_keeps_the_original_selection() {
+    use crate::mir65816::emit::{Slot, copies::WordHome};
+    use crate::nir::TempId;
+    let mut e = TrackedEmitter65816::default();
+    e.op(Implied::Tsc);
+    e.op(Implied::Sec);
+    e.word(WordOp::SbcImm, 8);
+    e.op(Implied::Tcs);
+    e.establish_body();
+    let home = Slot {
+        offset: 2,
+        width: 2,
+    };
+    e.register_home(home);
+    e.a16();
+    e.word(WordOp::LdaImm, 7);
+    e.byte(ByteOp::StaStack, 2);
+    e.remember_word(TempId(0), home);
+    e.a8();
+    e.a16();
+    assert!(!e.consume_word(Some(TempId(0)), Some(home.into()), Some(WordHome::Stack(2))));
+    e.byte(ByteOp::LdaStack, 2);
+    e.op(Implied::Tsc);
+    e.op(Implied::Clc);
+    e.word(WordOp::AdcImm, 8);
+    e.op(Implied::Tcs);
+    let original = finish(e);
+    let site = original.selected.as_ref().unwrap().site(Node(0)).unwrap();
+    let result = apply(original.clone(), false).unwrap();
+    replay::equivalent(&original, &result).unwrap();
+    assert!(result.selected.as_ref().unwrap().validate(site).is_ok());
+}

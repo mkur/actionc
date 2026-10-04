@@ -28,7 +28,6 @@ impl Window {
             self.yes,
             self.yes + 2,
             self.done,
-            self.done + 2,
             self.end,
         ]
     }
@@ -78,7 +77,7 @@ pub fn window(
         };
     let right = operand(false)?;
     let branch = at;
-    let end = branch + 16;
+    let end = branch + 14;
     if end > routine.address + routine.size {
         return None;
     }
@@ -89,7 +88,7 @@ pub fn window(
     let yes = branch + 8;
     let done = branch + 12;
     let expected = [
-        code[0], 6, 0xe2, 0x20, 0xa9, 0, 0x80, 4, 0xe2, 0x20, 0xa9, 1, 0xe2, 0x20, 0x83, code[15],
+        code[0], 6, 0xe2, 0x20, 0xa9, 0, 0x80, 4, 0xe2, 0x20, 0xa9, 1, 0x83, code[13],
     ];
     if code != expected {
         return None;
@@ -103,7 +102,7 @@ pub fn window(
         done,
         end,
         sources: [left, right],
-        dest: code[15],
+        dest: code[13],
         predicate: code[0],
     })
 }

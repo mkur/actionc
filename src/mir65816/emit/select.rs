@@ -1320,7 +1320,7 @@ impl Builder<'_> {
         self.code.a8();
         self.code.byte(ByteOp::LdaImm, 1);
         self.code.mark(done);
-        self.code.a8(); // Joins never inherit the fallthrough mode knowledge.
+        self.code.a8(); // The join checks every incoming execution width.
         self.code.byte(ByteOp::StaStack, condition.destination());
     }
     fn load_memory(&mut self, memory: Memory, byte: u32) -> Result<(), String> {
@@ -1937,7 +1937,7 @@ impl Builder<'_> {
                 .get(&edge.target)
                 .ok_or("missing branch target label")?;
             // No copies need A8. Keep the successor's A16 contract, including
-            // at branch labels where local mode knowledge has been invalidated.
+            // at branch labels where register/value knowledge has been invalidated.
             self.code.a16();
             self.finish_edge(target, fallthrough);
             return Ok(());

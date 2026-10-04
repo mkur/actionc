@@ -420,7 +420,7 @@ fn native_long_comparisons_match_ca65_and_touch_only_captured_word_parts() {
                     // the conservative mode setup at each materialization join.
                     let reference = assemble(
                         &format!(
-                            "lda {left},s\ncmp {right},s\nbne {unequal}\nlda {},s\ncmp {},s\n{branch} yes\n{}sep #$20\n.a8\nlda #0\nbra done\nyes:\nsep #$20\nlda #1\ndone:\nsep #$20\nsta {dest},s\n",
+                            "lda {left},s\ncmp {right},s\nbne {unequal}\nlda {},s\ncmp {},s\n{branch} yes\n{}sep #$20\n.a8\nlda #0\nbra done\nyes:\nsep #$20\nlda #1\ndone:\nsta {dest},s\n",
                             left + 2,
                             right + 2,
                             if name == "Equal" { "no:\n" } else { "" }

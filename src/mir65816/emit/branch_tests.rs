@@ -82,7 +82,7 @@ fn fused_selection_uses_one_dispatch_and_retains_both_edges_and_frame() {
             expected.extend(encode(c, false));
             expected.extend([opcode ^ 0x20, 4, 0x5c, 0, 0, 0]);
             expected.extend([0x5c, 0, 0, 0]); // false edge already knows A16
-            expected.extend([0xc2, 0x20, 0x5c, 0, 0, 0]); // true label resets knowledge
+            expected.extend([0x5c, 0, 0, 0]); // true edge also proves A16
             assert!(b.compare_branch(&op, &block.terminator, &sole).unwrap());
             assert_eq!(&b.code.code().bytes[prefix..], expected);
             assert_eq!(b.code.code().fixups.len(), 3);

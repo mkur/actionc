@@ -109,7 +109,7 @@ pub fn check(p: &native65816::Prepared, c: &native65816::Compiled) -> usize {
                     let destination = m.frame.temps[dest].stack().unwrap().offset as u8;
                     assert_eq!(
                         &bytes[at + 8..span.end],
-                        &[0xe2, 0x20, 0xa9, 1, 0xe2, 0x20, 0x83, destination]
+                        &[0xe2, 0x20, 0xa9, 1, 0x83, destination]
                     );
                 }
                 count += 1;

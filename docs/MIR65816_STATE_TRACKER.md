@@ -18,13 +18,22 @@ private stack ranges and contents generations. Overlap, indirect/DP writes,
 calls and joins invalidate relations conservatively. A byte constant cannot
 establish the hidden high accumulator lane. There is no source-memory cache.
 
-Checked execution widths remain separate from permission to omit REP/SEP; every
-label revokes that permission. Incoming edges and local backedges must agree
-with execution contracts. The guard and S-transfer sequences retain checked
-stack-address equations, a body anchor, outgoing displacement and transfer phase.
+Checked execution widths remain separate from permission to omit REP/SEP.
+Internal labels retain width permission from an actual incoming execution
+contract, including native indirect-call continuations. Every incoming edge,
+including a later backedge, must agree with that contract. Declared MIR entries
+need complete checked predecessor obligations; dead or unproved declarations
+retain an explicit width request. A local label without an incoming edge cannot
+invent a contract. Selected-CFG verification independently checks reachable
+edges, so stored join observations cannot authorize incompatible widths.
+
+Joins still discard register, flag and memory-value knowledge; retaining M does
+not establish A, hidden B, NZ or an alias fact. The guard and S-transfer sequences
+retain checked stack-address equations, a body anchor, outgoing displacement
+and transfer phase.
 The indirect six-byte peak and normal return are separate events. Import IRQ
 effects are unavailable until linking, so I preservation becomes unknown after
-calls and joins. No additional optimization is enabled.
+calls and joins. Raw status masks and index-width changes remain explicit.
 
 The default-off `native65816-state-proof` feature exposes immutable observations
 and fixed probes. Ordinary compilation records no snapshots. Trace-on/off code,
@@ -41,6 +50,9 @@ intervene; other requests and all physical instructions stop the window. Mixed
 status masks and index-width changes are excluded. Fresh tracked emission
 recomputes requests, effects and observations, checks the physical environment
 at each retained consumer, and verifies a new selected CFG before layout.
+Consume decisions must also remain identical: selection may have used one to
+omit a later load or pointer setup. If fresh emission changes a decision, the
+transformation retains the original routine.
 Changed selections advance their generation; old analysis sites cannot be
 reused. Source spans may become empty when their only mode change disappears.
 

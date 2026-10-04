@@ -117,4 +117,48 @@ the trace test now checks actual entry/return coverage instead of requiring a
 historical instruction count. The native test lockfile uses the corrected CPU
 path expected by the qualification runner, without dependency version updates.
 
-Slice 2 and final qualification pending.
+Slice 2 retains the checked width at internal labels and native call
+continuations. Late incoming edges still have to satisfy the original execution
+contract; memory and register-value facts remain conservative. Re-emission also
+preserves consume decisions, since selection may have relied on a decision to
+omit a later load or pointer setup. A changed decision retains the original
+routine.
+
+| Exec profile | Baseline code bytes | Final code bytes | Saved bytes |
+| --- | ---: | ---: | ---: |
+| Optimized, guards off | 350,372 | 334,256 | 16,116 (4.60%) |
+| Optimized, guards on | 457,661 | 444,271 | 13,390 (2.93%) |
+| Raw, guards off | 399,348 | 381,526 | 17,822 (4.46%) |
+
+All three final builds retain the same 899 routines, signatures, argument/result
+layouts, frames, spill sizes, temporary homes and stack bounds. Initialized data
+(1,385 bytes) and zero-fill descriptors are identical. All 166 loaded source
+hashes and the original layout hash match the baseline. The optimized unchecked
+disassembly leaves one redundant and 193 adjacent overwritten mode candidates
+(388 modeled bytes); these are outside the implemented proof and do not justify
+extending this slice. All routine byte streams and MIR span totals reconcile.
+
+The reviewed emission snapshot changes intentionally: mode instructions disappear
+and labels, spans, fixups and branch offsets follow the smaller output. Frame
+lines are unchanged. This is an emission optimization, with no NIR or printer
+contract change. The snapshot passed with actual LF and CRLF fixture bytes.
+
+Final validation passes 346 active MIR65816 library tests (one existing ignored
+test), 86 integration tests across 13 targets (four existing ignored tests),
+and 53 debug runtime tests for control flow, state tracking, replay, guards and
+preemption. Release runtime qualification passes 332 tests across all 87 targets,
+with six existing opt-in tests ignored and ten baseline failures excluded by
+name. The qualified runner confirms unchanged compiler and fixture hashes.
+
+The initial unfiltered runtime run exposed ten failures also reproduced at
+`de51e276` in an isolated checkout with the same corrected CPU. These concern
+existing forwarding/home assumptions, old DP ranges, a guard expectation,
+relocation and coverage counts. They remain enabled in source and are explicitly
+excluded only from the final qualification command. This is not an unfiltered
+green runtime suite. Both preemption exclusions also apply to the focused debug
+run. Exact test names, baseline failures, commands, image hashes and qualification
+manifest hashes are in the [measurement report](benchmarks/65816-mode-state/results.json).
+
+No shared frontend/NIR contract changed, so validation is scoped to MIR65816.
+Hosted Exec boot qualification remains separate from these compiler/runtime
+checks and compilation measurements.

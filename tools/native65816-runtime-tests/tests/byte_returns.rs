@@ -129,7 +129,7 @@ PROC Main() RETURN
                     h.bus.ram[0x7100..0x7102].copy_from_slice(&value.to_le_bytes());
                     if let Some(constant) = constant.filter(|_| name != "Pick" || value != 0) {
                         let mut tail = if name == "Pick" {
-                            "rep #$20\n".to_string()
+                            String::new() // Shared join already proves A16.
                         } else {
                             format!("lda #{constant}\n")
                         };

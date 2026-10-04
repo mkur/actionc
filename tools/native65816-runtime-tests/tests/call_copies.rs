@@ -146,14 +146,21 @@ fn direct_and_indirect_result_captures_match_ca65_and_preserve_neighbor_bytes() 
                             continue;
                         };
                         let home = m.frame.temps[id].stack().unwrap().offset;
-                        let suffix = match width {
-                            1 => format!("sep #$20\n.a8\nsta {home},s\nrep #$20\n.a16\n"),
+                        let span = &m.code.mir_spans[&(block.id, i)];
+                        let restores = m.code.bytes[span.clone()].ends_with(&[0xc2, 0x20]);
+                        let mut suffix = match width {
+                            1 => format!("sep #$20\n.a8\nsta {home},s\n"),
                             2 => format!("sta {home},s\n"),
-                            3 => format!(
-                                "sta {home},s\ntxa\nsep #$20\n.a8\nsta {},s\nrep #$20\n.a16\n",
-                                home + 2
-                            ),
+                            3 => format!("sta {home},s\ntxa\nsep #$20\n.a8\nsta {},s\n", home + 2),
                             _ => format!("sta {home},s\ntxa\nsta {},s\n", home + 2),
+                        };
+                        if restores {
+                            suffix.push_str("rep #$20\n.a16\n");
+                        }
+                        let mode = if matches!(width, 1 | 3) && !restores {
+                            0x20
+                        } else {
+                            0
                         };
                         let end = base + m.code.mir_spans[&(block.id, i)].end as u32;
                         let expected = assemble(&suffix, 0x041000);
@@ -164,7 +171,7 @@ fn direct_and_indirect_result_captures_match_ca65_and_preserve_neighbor_bytes() 
                             &segment.bytes[(start - base) as usize..(end - base) as usize],
                             expected
                         );
-                        captures.push((start, end, home));
+                        captures.push((start, end, home, mode));
                     }
                 }
             }
@@ -180,7 +187,7 @@ fn direct_and_indirect_result_captures_match_ca65_and_preserve_neighbor_bytes() 
                     h.bus.map(0x041000, &leaf, false);
                     h.bus.ram[0x7100..0x7104].copy_from_slice(&value.to_le_bytes());
                     h.bus.ram[0x7200..0x7220].fill(0xa5);
-                    for &(start, end, home) in &captures {
+                    for &(start, end, home, mode) in &captures {
                         reach(&mut h, start);
                         let r = h.cpu.registers();
                         let at = usize::from(r.s) + usize::from(home);
@@ -213,7 +220,7 @@ fn direct_and_indirect_result_captures_match_ca65_and_preserve_neighbor_bytes() 
                                 after.y,
                                 after.p & 0x3c
                             ),
-                            (r.s, r.d, r.dbr, r.x, r.y, r.p & 4)
+                            (r.s, r.d, r.dbr, r.x, r.y, (r.p & 4) | mode)
                         );
                     }
                     h.run();

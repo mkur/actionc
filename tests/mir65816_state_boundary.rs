@@ -31,6 +31,8 @@
 //! Labels, fixups, sparse home maps and MIR spans follow the selected bytes.
 //! Empty-frame entries now remove the 28-byte guard/adjustment prefix. Frames
 //! and body bytes are unchanged; later labels, fixups and spans move with it.
+//! Checked width joins and overwritten mode requests remove REP/SEP, retaining
+//! allocation frames and regenerating labels, fixups, spans and branch offsets.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]

@@ -145,9 +145,10 @@ fn check_interrupt_reentry(source: &str) {
                     )
                     .unwrap()
             );
-            let mut sites = 0;
+            let mut sites = std::collections::BTreeSet::new();
             while (address..end).contains(&h.cpu.pc()) {
                 let checkpoint = h.cpu.clone();
+                sites.insert(h.cpu.pc());
                 let memory = h.bus.clone();
                 for mask in [0, 4] {
                     let mut r = checkpoint.registers();
@@ -205,10 +206,10 @@ fn check_interrupt_reentry(source: &str) {
                 while !h.cpu.is_instruction_boundary() {
                     h.tick(Inputs::default());
                 }
-                sites += 1;
             }
 
-            assert!(sites >= 8);
+            assert!(sites.contains(&address));
+            assert!(sites.contains(&(end - 1))); // Every reached site, through RTL.
             h.run();
             h.guards();
         }

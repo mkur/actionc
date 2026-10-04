@@ -124,6 +124,7 @@ pub(in crate::mir65816::emit) fn apply(code: Code, trace: bool) -> Result<Code, 
         if actual != record.before.env {
             return Err("mode rewrite changed an instruction environment".into());
         }
+        let output_start = emitter.recorded().len();
         match &record.action {
             Action::Instruction { form, .. } => emitter.instruction(form.clone())?,
             Action::Request(request) => request.replay(&mut emitter),
@@ -154,6 +155,18 @@ pub(in crate::mir65816::emit) fn apply(code: Code, trace: bool) -> Result<Code, 
                 }
             }
             _ => return Err("unexpected mode rewrite action".into()),
+        }
+        // Selection may have used a consume result to omit a later load or
+        // pointer setup. Re-emission must preserve those decisions, not just
+        // widths. A different witness keeps the original routine unchanged.
+        if !records[range.clone()]
+            .iter()
+            .filter_map(|r| r.decision)
+            .eq(emitter.recorded()[output_start..]
+                .iter()
+                .filter_map(|r| r.decision))
+        {
+            return Ok(code);
         }
     }
     let mut scratch = layout::finalize(emitter.finish_reselected(selected)?, true)?;

@@ -110,8 +110,6 @@ fn word_comparison_predicates_use_checked_operands_and_byte_results() {
                     0x20,
                     0xa9,
                     1,
-                    0xe2,
-                    0x20,
                     0x83,
                     dest_offset as u8,
                 ]);

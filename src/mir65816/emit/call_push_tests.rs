@@ -51,7 +51,7 @@ fn pushes_place_each_payload_and_padding_byte_once_at_dynamic_stack_offsets() {
         plan.emit(&mut b, &[]).unwrap();
         let code = &b.code.code().bytes[start..];
         let (mut at, mut word, mut a, mut s) =
-            (0, initial_width == Some(Width::Word), 0u16, 200usize);
+            (0, initial_width != Some(Width::Byte), 0u16, 200usize);
         let mut stack = [0xa5u8; 512];
         for i in 0..5 {
             stack[200 + 32 + i * 4..200 + 36 + i * 4]

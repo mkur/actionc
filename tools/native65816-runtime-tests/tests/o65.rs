@@ -106,9 +106,10 @@ RETURN
                                     );
                                     assert_eq!(
                                         (w.edges[0].len(), w.edges[1].len()),
-                                        (1, 1),
-                                        "relocated false jump and true REP/fallthrough remain checked"
+                                        (1, 0),
+                                        "relocated false jump and true fallthrough remain checked"
                                     );
+                                    assert_eq!(w.targets[1], w.yes);
                                     reached += 1;
                                 }
                             }

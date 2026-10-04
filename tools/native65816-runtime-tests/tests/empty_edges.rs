@@ -144,7 +144,8 @@ fn empty_goto_fallthrough_and_both_branch_forms_execute_without_data_traffic() {
                                 comparison::fused_window(&h.cpu, &h.bus, &image.routines)
                             {
                                 fusions += 1;
-                                assert_eq!((w.edges[0].len(), w.edges[1].len()), (1, 1));
+                                assert_eq!((w.edges[0].len(), w.edges[1].len()), (1, 0));
+                                assert_eq!(w.targets[1], w.yes); // Checked fallthrough.
                             }
                             if let Some(transfers) = edges.get(&h.cpu.pc()) {
                                 let mut advanced = false;

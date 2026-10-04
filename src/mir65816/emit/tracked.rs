@@ -373,7 +373,12 @@ impl TrackedEmitter65816 {
                 self.state.a = Value::StackAddress(s);
             }
         }
-        self.state.mode_permission = self.proved_blocks.contains(&label);
+        // Local entries originate in actual edges (or the checked native call
+        // continuation). Every later edge must match, including backedges.
+        // Declared MIR blocks instead need the complete predecessor obligations;
+        // a speculative/dead declaration alone cannot authorize omission.
+        self.state.mode_permission =
+            !self.blocks.contains(&label) || self.proved_blocks.contains(&label);
         if self.blocks.contains(&label) {
             self.active_block = Some(label);
         }

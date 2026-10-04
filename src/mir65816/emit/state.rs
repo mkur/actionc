@@ -89,7 +89,7 @@ pub(super) struct State65816 {
     pub nz: Value,
     pub carry: Option<bool>,
     pub overflow: Option<bool>,
-    /// Permission from an explicit width request; revoked at every label.
+    /// Permission from a width request or a checked incoming execution contract.
     pub mode_permission: bool,
     pub adjacent: Option<AdjacentWord>,
     pub incoming: Option<IncomingWord>,

@@ -23,6 +23,33 @@ fn simple() -> Code {
 }
 
 #[test]
+fn omitted_mode_request_cannot_hide_a_forged_join_width() {
+    let mut e = TrackedEmitter65816::default();
+    let label = e.label();
+    e.a8();
+    e.branch(Branch::Equal, label);
+    e.mark(label);
+    let at = e.position();
+    e.a8();
+    assert_eq!(at, e.position());
+    e.byte(ByteOp::StaStack, 2);
+    e.a16();
+    e.native_return(None).unwrap();
+    let code = finish(e);
+    let mut records = code.selected.as_ref().unwrap().records.clone();
+    let join = records
+        .iter_mut()
+        .find(|r| matches!(r.action, Action::Bind(_)))
+        .unwrap();
+    join.after.env.m = Width::Word;
+    assert!(
+        SelectedCfg::build(&records)
+            .unwrap_err()
+            .contains("incompatible mode")
+    );
+}
+
+#[test]
 fn empty_body_anchor_cannot_invent_a_stack_change_or_accumulator_equation() {
     let mut e = TrackedEmitter65816::default();
     e.a16();

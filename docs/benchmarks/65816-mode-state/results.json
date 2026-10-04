@@ -1,0 +1,231 @@
+{
+  "baseline_compiler": "de51e2761cb99c232cbf1dc131a8101183194f1b",
+  "implementation": "5b5690a0 plus the checked-width join commit containing this report",
+  "exec_revision": "154bcf5a45605aeee57de5420ec4604e4ff7b30c",
+  "scope": "Compiler-generated code for existing Exec demo inputs; excludes platform assembly, packaging and hosted Exec boot qualification.",
+  "routines": 899,
+  "unique_source_files": 166,
+  "source_hashes_unchanged": true,
+  "source_hashes_sha256": "13e7f22144c5a983a05d46e4d6bd02455b4e59cd0f6a84ca13e09ac6304ddb18",
+  "layout_sha256": "07eb5fc477d5b2ef378f4b82f90ea6b233c5205a4aa0abc40288b20ddebe1370",
+  "initialized_data_bytes": 1385,
+  "initialized_data_and_zero_fill_unchanged": true,
+  "signatures_argument_result_layouts_frames_spills_temporary_homes_and_stack_bounds_unchanged": true,
+  "profiles": {
+    "optimized-unchecked": {
+      "baseline_code_bytes": 350372,
+      "final_code_bytes": 334256,
+      "saved_bytes": 16116,
+      "baseline_image_sha256": "dd9a4a1970b328d9af44055026b63cefec6d9120bf3c2fd42453b8dc5b352145",
+      "final_image_sha256": "cc33b7781c5cceacf3a67d4439907df0c2a57575694b39fa7b54cc152dd42f45"
+    },
+    "optimized-guarded": {
+      "baseline_code_bytes": 457661,
+      "final_code_bytes": 444271,
+      "saved_bytes": 13390,
+      "baseline_image_sha256": "7711f5d56589b8663a407558267731eaa18a4082f6e4d0205b65d259b5da9c92",
+      "final_image_sha256": "37b09ec08fb5c436a29c60209dcd48a9fcfc35e9075d677e488103047ff8f5c9"
+    },
+    "raw-unchecked": {
+      "baseline_code_bytes": 399348,
+      "final_code_bytes": 381526,
+      "saved_bytes": 17822,
+      "baseline_image_sha256": "c4967c9593bf7f5205fb902e8a1da8ee82ca64952ee922c0242ea96047f768db",
+      "final_image_sha256": "4761489191547c3fb67776260d4f716f739ca81388b671efc6654b3ad22f7f8a"
+    }
+  },
+  "remaining_mode_candidates": {
+    "redundant": 1,
+    "adjacent_overwritten": 193,
+    "modeled_bytes": 388,
+    "scope": "Static candidates outside the implemented proof; not promised savings."
+  },
+  "validation": {
+    "library": {
+      "command": "cargo test --lib --features native65816-state-proof mir65816",
+      "target_results": 1,
+      "passed": 346,
+      "failed": 0,
+      "ignored": 1,
+      "filtered_out": 2583
+    },
+    "integration": {
+      "command": [
+        "cargo",
+        "test",
+        "--features",
+        "native65816-state-proof",
+        "--no-fail-fast",
+        "--test",
+        "actionc_65816_cli",
+        "--test",
+        "actionc_65816_o65_cli",
+        "--test",
+        "mir65816_abi",
+        "--test",
+        "mir65816_address_selection",
+        "--test",
+        "mir65816_arithmetic",
+        "--test",
+        "mir65816_contract",
+        "--test",
+        "mir65816_copy_inventory",
+        "--test",
+        "mir65816_emission",
+        "--test",
+        "mir65816_movement_inventory",
+        "--test",
+        "mir65816_o65",
+        "--test",
+        "mir65816_register_inventory",
+        "--test",
+        "mir65816_scalar_dp_inventory",
+        "--test",
+        "mir65816_state_boundary"
+      ],
+      "targets": [
+        "actionc_65816_cli",
+        "actionc_65816_o65_cli",
+        "mir65816_abi",
+        "mir65816_address_selection",
+        "mir65816_arithmetic",
+        "mir65816_contract",
+        "mir65816_copy_inventory",
+        "mir65816_emission",
+        "mir65816_movement_inventory",
+        "mir65816_o65",
+        "mir65816_register_inventory",
+        "mir65816_scalar_dp_inventory",
+        "mir65816_state_boundary"
+      ],
+      "target_results": 13,
+      "passed": 86,
+      "failed": 0,
+      "ignored": 4,
+      "filtered_out": 0
+    },
+    "native_debug": {
+      "command": [
+        "python3",
+        "-B",
+        "tools/native65816-runtime-tests/qualify.py",
+        "--test",
+        "control_flow",
+        "--test",
+        "state_tracking",
+        "--test",
+        "replay",
+        "--test",
+        "guard_branches",
+        "--test",
+        "preemption",
+        "--",
+        "--skip",
+        "irq_at_each_reachable_enabled_instruction_preserves_two_context_results",
+        "--skip",
+        "scalar_dp_words_and_staged_cycles_survive_task_switches_and_irq_scalar_calls"
+      ],
+      "target_results": 5,
+      "passed": 53,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 2,
+      "local_manifest": "tools/native65816-runtime-tests/target/qualification/run-535p7tbj/manifest.json",
+      "manifest_sha256": "fccc5876f2dd0e1a35a8a10954528f19fa1439a05973379917783f053f40d4ad",
+      "compiler_and_fixture_inputs_sha256": "a5bcf99f1f45fb1adcc8bcf7ffc3f44a99f7af62f09dff567d3d3e631ba6de40",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+    },
+    "native_release": {
+      "command": [
+        "python3",
+        "-B",
+        "tools/native65816-runtime-tests/qualify.py",
+        "--release",
+        "--no-fail-fast",
+        "--",
+        "--skip",
+        "generated_private_words_preserve_results_flags_stores_and_volatile_order",
+        "--skip",
+        "captured_return_tails_match_ca65_clear_hidden_b_and_read_no_neighbor_or_scratch",
+        "--skip",
+        "canonical_homes_and_liveness_cover_raw_and_optimized_selection",
+        "--skip",
+        "relocated_fused_branches_consume_flags_and_fix_both_edge_transfers",
+        "--skip",
+        "relocated_tasks_preserve_domains_under_irq_nmi_and_instruction_injection",
+        "--skip",
+        "incoming_comparisons_cover_operands_unsigned_boundaries_and_boolean_forms",
+        "--skip",
+        "typed_parameter_probes_execute_both_shapes_flat_and_at_two_o65_placements",
+        "--skip",
+        "irq_at_each_reachable_enabled_instruction_preserves_two_context_results",
+        "--skip",
+        "scalar_dp_words_and_staged_cycles_survive_task_switches_and_irq_scalar_calls",
+        "--skip",
+        "zero_frame_scalar_guard_still_faults_before_resident_writes"
+      ],
+      "target_results": 87,
+      "passed": 332,
+      "failed": 0,
+      "ignored": 6,
+      "filtered_out": 10,
+      "local_manifest": "tools/native65816-runtime-tests/target/qualification/run-89r6fsch/manifest.json",
+      "manifest_sha256": "252cd54f15951fdbbb963059a736e0bebde15664c0f31a01bfef8eaa1a7e9567",
+      "compiler_and_fixture_inputs_sha256": "a5bcf99f1f45fb1adcc8bcf7ffc3f44a99f7af62f09dff567d3d3e631ba6de40",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+    },
+    "emission_snapshot_line_endings": [
+      "LF",
+      "CRLF"
+    ],
+    "baseline_exclusions": {
+      "compiler": "de51e2761cb99c232cbf1dc131a8101183194f1b",
+      "profile": "release",
+      "scope": "Reproduced in an isolated baseline checkout using the same qualified CPU override. Tests remain enabled in source. Final native release qualification excludes these ten by name; it is not an unfiltered green suite.",
+      "failures": [
+        {
+          "test": "generated_private_words_preserve_results_flags_stores_and_volatile_order",
+          "baseline_failure": "Forwarding families contain Arithmetic, Store and Return; assertion also expects Compare."
+        },
+        {
+          "test": "captured_return_tails_match_ca65_clear_hidden_b_and_read_no_neighbor_or_scratch",
+          "baseline_failure": "Missing captured return temporary home."
+        },
+        {
+          "test": "canonical_homes_and_liveness_cover_raw_and_optimized_selection",
+          "baseline_failure": "Home privacy/entry-defined assertion fails after upper-half DP allocation."
+        },
+        {
+          "test": "relocated_fused_branches_consume_flags_and_fix_both_edge_transfers",
+          "baseline_failure": "Seven reached fused windows; assertion expects eight."
+        },
+        {
+          "test": "relocated_tasks_preserve_domains_under_irq_nmi_and_instruction_injection",
+          "baseline_failure": "Unresolved o65 interface name."
+        },
+        {
+          "test": "incoming_comparisons_cover_operands_unsigned_boundaries_and_boolean_forms",
+          "baseline_failure": "Incoming load span is not empty."
+        },
+        {
+          "test": "typed_parameter_probes_execute_both_shapes_flat_and_at_two_o65_placements",
+          "baseline_failure": "One parameter forwarding opportunity; assertion expects two."
+        },
+        {
+          "test": "irq_at_each_reachable_enabled_instruction_preserves_two_context_results",
+          "baseline_failure": "Expected STA stack opcode after arithmetic, observed REP."
+        },
+        {
+          "test": "scalar_dp_words_and_staged_cycles_survive_task_switches_and_irq_scalar_calls",
+          "baseline_failure": "Expected lower-half DP temporary offsets 32..62."
+        },
+        {
+          "test": "zero_frame_scalar_guard_still_faults_before_resident_writes",
+          "baseline_failure": "Zero-frame guard test reaches unmapped read $a5a5a6."
+        }
+      ]
+    }
+  }
+}

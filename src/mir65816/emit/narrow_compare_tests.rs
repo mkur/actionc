@@ -94,12 +94,8 @@ fn byte_predicates_use_exact_a8_operands_and_two_boolean_arms() {
                 0,
                 0,
                 0,
-                0xe2,
-                0x20,
                 0xa9,
                 1,
-                0xe2,
-                0x20,
                 0x83,
                 b.temp(dest).unwrap().slot().offset as u8,
             ]);
@@ -224,8 +220,8 @@ fn byte_fusion_restores_a16_and_omits_boolean_home_traffic() {
     assert_eq!(
         &b.code.code().bytes[start..],
         &[
-            0xe2, 0x20, 0xa3, a, 0xc3, c, 0xc2, 0x20, 0xb0, 4, 0x5c, 0, 0, 0, 0x5c, 0, 0, 0, 0xc2,
-            0x20, 0x5c, 0, 0, 0
+            0xe2, 0x20, 0xa3, a, 0xc3, c, 0xc2, 0x20, 0xb0, 4, 0x5c, 0, 0, 0, 0x5c, 0, 0, 0, 0x5c,
+            0, 0, 0
         ]
     );
     assert_eq!(b.frame.temps, homes);

@@ -232,18 +232,20 @@ fn flags_partial_lanes_calls_and_status_masks() {
     assert!(s.homes.is_empty());
 }
 #[test]
-fn labels_preserve_execution_contract_but_revoke_omission_and_values() {
+fn labels_preserve_execution_width_and_omission_but_revoke_values() {
     let mut e = TrackedEmitter65816::default();
     e.a8();
     e.byte(ByteOp::LdaImm, 1);
     let l = e.label();
     e.branch(Branch::Equal, l);
     e.mark(l);
+    assert_eq!(e.state_for_incoming_test().a, Value::Unknown);
+    assert_eq!(e.state_for_incoming_test().nz, Value::Unknown);
     let start = e.position();
     e.byte(ByteOp::LdaImm, 2);
     assert_eq!(e.position() - start, 2);
     e.a8();
-    assert_eq!(&e.code().bytes[e.position() - 2..], &[0xe2, 0x20]);
+    assert_eq!(e.position() - start, 2);
 }
 #[test]
 #[should_panic(expected = "incompatible execution contracts")]
@@ -323,7 +325,7 @@ fn a_byte_constant_cannot_invent_the_hidden_high_lane_on_transfer() {
     assert_eq!(v, Value::Constant(0x81, Width::Byte));
 }
 #[test]
-fn call_and_join_invalidate_value_and_flag_relations_without_new_mode_omissions() {
+fn call_and_join_invalidate_values_and_flags_but_retain_checked_widths() {
     use super::Target;
     let mut e = TrackedEmitter65816::default();
     let slot = Slot {
@@ -352,7 +354,77 @@ fn call_and_join_invalidate_value_and_flag_relations_without_new_mode_omissions(
     let label = e.label();
     e.mark(label);
     e.a16();
-    assert_eq!(e.position(), before + 2);
+    assert_eq!(e.position(), before);
+}
+
+#[test]
+fn local_diamonds_and_late_backedges_keep_both_accumulator_widths() {
+    for width in [Width::Byte, Width::Word] {
+        let mut e = TrackedEmitter65816::default();
+        let head = e.label();
+        let right = e.label();
+        let done = e.label();
+        if width == Width::Byte {
+            e.a8();
+        } else {
+            e.a16();
+        }
+        e.mark(head);
+        e.branch(Branch::Equal, right);
+        e.jump(done);
+        e.mark(right);
+        let at = e.position();
+        if width == Width::Byte {
+            e.a8();
+        } else {
+            e.a16();
+        }
+        assert_eq!(e.position(), at);
+        e.branch(Branch::NotEqual, head);
+        e.mark(done);
+        let at = e.position();
+        if width == Width::Byte {
+            e.a8();
+        } else {
+            e.a16();
+        }
+        assert_eq!(e.position(), at);
+        e.byte(ByteOp::StaStack, 2);
+        e.a16();
+        e.native_return(None).unwrap();
+        let frame = super::AllocatedFrame {
+            extent: 0,
+            spill_bytes: 0,
+            peak_below_entry: 0,
+            temps: Default::default(),
+            edge_copies: vec![],
+        };
+        let code = e
+            .finish_selected(super::RoutineId(0), &frame, None)
+            .unwrap();
+        let fresh = super::replay::emit(code.selected.as_ref().unwrap(), false).unwrap();
+        super::replay::equivalent(&code, &fresh).unwrap();
+    }
+}
+
+#[test]
+#[should_panic(expected = "label requires incoming execution contract")]
+fn local_entry_cannot_invent_a_width_without_a_predecessor() {
+    let mut e = TrackedEmitter65816::default();
+    let label = e.label();
+    e.native_return(None).unwrap();
+    e.mark(label);
+}
+
+#[test]
+#[should_panic(expected = "incompatible execution contracts")]
+fn a_diamond_with_different_incoming_widths_is_rejected() {
+    let mut e = TrackedEmitter65816::default();
+    let join = e.label();
+    e.a8();
+    e.branch(Branch::Equal, join);
+    e.a16();
+    e.jump(join);
 }
 
 #[test]

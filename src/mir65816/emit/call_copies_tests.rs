@@ -450,10 +450,7 @@ fn discarded_call_cleanup_omits_preservation_for_every_native_result_width() {
                 4 => 5,
                 _ => unreachable!(),
             };
-            // The indirect resume label drops mode permission. A wide
-            // capture restates A16; discarded cleanup needs no such request.
-            let capture_bytes =
-                capture_bytes + usize::from(indirect && result.unwrap().1.get() > 1) * 2;
+            // Direct and indirect native continuations both prove A16.
             assert_eq!(
                 used.code.code().bytes.len() - discarded.code.code().bytes.len(),
                 capture_bytes + 2

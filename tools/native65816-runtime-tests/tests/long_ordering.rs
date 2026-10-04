@@ -505,7 +505,7 @@ fn check_order_encodings(signed: bool) {
             };
             let reference = assemble(
                 &format!(
-                    "{calculation}\ndecide:\n{branch} yes\nsep #$20\n.a8\nlda #0\nbra done\nyes:\nsep #$20\nlda #1\ndone:\nsep #$20\nsta {dest},s"
+                    "{calculation}\ndecide:\n{branch} yes\nsep #$20\n.a8\nlda #0\nbra done\nyes:\nsep #$20\nlda #1\ndone:\nsta {dest},s"
                 ),
                 start,
             );
