@@ -1402,6 +1402,9 @@ alias the nonescaping private source under the invocation-storage contract.
 Volatile stores, indirect calls, width conversion and unresolved geometry keep
 their captures. Narrow arithmetic/comparisons/stores, omitted accumulator homes
 and DP/X allocations retain their existing selectors and A/N/Z witnesses.
+Top-bit AND/compare/branch selection also retains its original capture: its
+source read occurs at the comparison after the AND has been omitted, outside
+the scalar binding's adjacent consumer window.
 
 ### Bounded BYTE indexes
 

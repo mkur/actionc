@@ -333,3 +333,47 @@ fn terminal_long_stores_refuse_volatile_partial_and_overlapping_destinations() {
         assert!(Plan::new(&r, &frame).unwrap().bindings.is_empty());
     }
 }
+
+#[test]
+fn top_bit_branch_selector_keeps_its_original_long_capture() {
+    for ty in ["LONGCARD", "LONGINT"] {
+        for local in [false, true] {
+            for swap in [false, true] {
+                let value = if local { "saved" } else { "x" };
+                let mask = format!("{ty}($80000000)");
+                let expr = if swap {
+                    format!("{mask} AND {value}")
+                } else {
+                    format!("{value} AND {mask}")
+                };
+                let r = routine(&format!(
+                    "PROC Touch() RETURN BYTE FUNC Work({ty} x) {} IF ({expr})#0 THEN RETURN(17) FI RETURN(23)",
+                    if local {
+                        format!("{ty} saved saved=x Touch()")
+                    } else {
+                        String::new()
+                    }
+                ));
+                let frame = AllocatedFrame::new(&r).unwrap();
+                let plan = Plan::new(&r, &frame).unwrap();
+                let counts = liveness::input_counts(&r);
+                let (block, mask) =
+                    r.blocks
+                        .iter()
+                        .find_map(|b| {
+                            b.ops.iter().enumerate().find_map(|(i, _)| {
+                                top_bits::owns_mask(b, i, &counts).then_some((b, i))
+                            })
+                        })
+                        .unwrap();
+                let Mir65816Op::Load { dest, .. } = block.ops[mask - 1] else {
+                    panic!("adjacent private capture")
+                };
+                assert!(!plan.bindings.iter().any(|b| b.temp == dest));
+                let m = super::super::routine(&r, true).unwrap();
+                assert!(!m.code.mir_spans[&(block.id, mask - 1)].is_empty());
+                assert!(m.code.mir_spans[&(block.id, mask)].is_empty());
+            }
+        }
+    }
+}

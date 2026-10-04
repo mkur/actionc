@@ -133,6 +133,34 @@ fn load(
     assert!(u16::from(source).abs_diff(capture) >= 2);
     Some((id, source, *dest, capture))
 }
+
+// A terminal argument reads the immutable incoming slot while building the
+// outgoing area. It creates no retained-A parameter witness for this index.
+// Check typed argument identity/width and the worst displacement independently;
+// scalar_forwarding tests check actual payload reads, padding and callee values.
+fn terminal_argument(op: Option<&Mir65816Op>, temp: TempId, source: u8) -> bool {
+    let Some(Mir65816Op::Call {
+        target: Mir65816CallTarget::Direct(_),
+        args,
+        plan,
+        ..
+    }) = op
+    else {
+        return false;
+    };
+    if args.len() != plan.arguments.len() || u32::from(source) + 1 + plan.outgoing_bytes.get() > 255
+    {
+        return false;
+    }
+    let arguments: Vec<_> = args
+        .iter()
+        .zip(&plan.arguments)
+        .filter(|(value, _)| matches!(value, Mir65816Value::Temp(id, _) if *id == temp))
+        .collect();
+    matches!(arguments.as_slice(), [(Mir65816Value::Temp(_, width), Mir65816AbiHome::StackArgument { size, .. })]
+        if width.get() == 2 && size.get() == 2)
+}
+
 pub fn index(
     mir: &Mir65816Program,
     machine: &MachineProgram,
@@ -151,12 +179,13 @@ pub fn index(
                 };
                 let p = &m.code.mir_spans[&(b.id, i)];
                 if p.is_empty() {
-                    // Adjacent comparisons and direct assignments have no
-                    // parameter capture to track.
+                    // Comparisons, direct assignments and terminal arguments
+                    // have no retained parameter capture to track.
                     assert!(
                         matches!(b.ops.get(i+1),Some(Mir65816Op::Compare{left:Mir65816Value::Temp(t,_),..}) if *t==temp)
                             || matches!(b.ops.get(i+1),Some(Mir65816Op::Compare{right:Mir65816Value::Temp(t,_),..}) if *t==temp)
                             || matches!(b.ops.get(i+1),Some(Mir65816Op::Store{value:Mir65816Value::Temp(t,w),width,volatile:false,..}) if *t==temp && w.get()==2 && width.get()==2)
+                            || terminal_argument(b.ops.get(i + 1), temp, source)
                     );
                     continue;
                 }

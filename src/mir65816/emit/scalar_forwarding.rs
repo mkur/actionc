@@ -371,6 +371,9 @@ impl Plan {
                     .count()
                     != 1
                     || !supported(r, frame, consumer)
+                    // This selector reads the original capture at the later
+                    // comparison after omitting AND. Keep its proof ownership.
+                    || top_bits::owns_mask(block, index + 1, &counts)
                 {
                     continue;
                 }
