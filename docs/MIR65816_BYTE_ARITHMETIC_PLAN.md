@@ -108,3 +108,20 @@ ca65/register/flag checks, exact private traffic, guards, LF/CRLF, capture order
 two o65 placements and IRQ/NMI after earlier calls. Boundary constants are
 substituted into verified MIR so source constant folding cannot remove the
 selector cases being tested.
+
+## Private-operand slice
+
+The same selection now consumes exact BYTE stack captures and current parameter
+homes directly. Both inputs precede the store, including identical homes;
+mutable parameters use their authoritative frame location. All 93 audited
+private-RHS sites save four bytes each. Optimized unchecked Exec is 323,664 bytes,
+373 below the immediate slice and 951 below baseline. All 236 audited sites are
+selected: 944 bytes saved in their spans plus seven bytes in neighboring code.
+
+Five unit tests and fourteen focused native tests pass (six new arithmetic tests,
+the existing arithmetic target and seven storage-demand tests). Private arithmetic
+checks all 65,536 operand pairs for all five operations, with both incoming C/V
+settings, host flag/value oracles and ca65 checks at boundary values. Other mode
+and guard combinations check every left value against right-hand boundaries.
+Tests also cover mutable parameters, local captures, exact external access order,
+relocation and IRQ/NMI after calls. Full backend qualification is the final step.

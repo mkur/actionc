@@ -48,9 +48,6 @@ impl Builder<'_> {
         {
             return Ok(false);
         }
-        let Mir65816Value::U8(right) = right else {
-            return Ok(false);
-        };
         let destination = self.temp(dest)?;
         if destination.slot().width != 1 {
             return Err("BYTE arithmetic result width mismatch".into());
@@ -62,7 +59,9 @@ impl Builder<'_> {
             return Err("BYTE arithmetic requires a nonzero result home".into());
         }
         let destination = self.displacement(destination.offset.into(), 0)?;
-        let Some(left) = self.arithmetic_byte_operand(left)? else {
+        let left = self.arithmetic_byte_operand(left)?;
+        let right = self.arithmetic_byte_operand(right)?;
+        let (Some(left), Some(right)) = (left, right) else {
             return Ok(false);
         };
         // Both reads precede the exact-byte store, including identical homes.
@@ -70,7 +69,7 @@ impl Builder<'_> {
         self.code.barrier();
         self.code.a8();
         self.load_byte_operand(left);
-        self.byte_expression_rhs(operation, ByteOperand::Immediate(*right));
+        self.byte_expression_rhs(operation, right);
         self.code.byte(ByteOp::StaStack, destination);
         Ok(true)
     }

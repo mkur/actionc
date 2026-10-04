@@ -27,7 +27,72 @@
         "saved_bytes": 0
       }
     },
-    "image_sha256": "bfa225f232794765742ee3c415b7733cde51256fada0909cc7a29a8cd3752619"
+    "image_sha256": "bfa225f232794765742ee3c415b7733cde51256fada0909cc7a29a8cd3752619",
+    "implementation": "09fc4418"
   },
-  "abi_frames_homes_stack_bounds_data_and_layout_unchanged": true
+  "abi_frames_homes_stack_bounds_data_and_layout_unchanged": true,
+  "profiles": {
+    "optimized-unchecked": {
+      "before_code_bytes": 324615,
+      "after_code_bytes": 323664,
+      "saved_bytes": 951,
+      "selected_sites_by_rhs": {
+        "U8": 143,
+        "Temp": 93
+      },
+      "candidate_span_saving_bytes": 944,
+      "net_neighbor_and_branch_saving_bytes": 7,
+      "routines_that_grew": 0,
+      "image_sha256": "87a48d73eb1b90054f42fb97e46d8460c88d30e6ab98b3f2bb1d19f2853ca1f6",
+      "layout_sha256": "8cb9c32687306ca27629e591087951e089244078881f1c7c0c4db8d711b02f56"
+    },
+    "optimized-guarded": {
+      "before_code_bytes": 437062,
+      "after_code_bytes": 436111,
+      "saved_bytes": 951,
+      "selected_sites_by_rhs": {
+        "U8": 143,
+        "Temp": 93
+      },
+      "candidate_span_saving_bytes": 944,
+      "net_neighbor_and_branch_saving_bytes": 7,
+      "routines_that_grew": 0,
+      "image_sha256": "346f6db0a4f542bf455e49bca8eae12137ff35f92344dc12d3d6ce77fe57a845",
+      "layout_sha256": "5cb5c42909fe9c904438a257ce2eb10a7eb3696a65f64482e94948b2f6f09074"
+    },
+    "raw-unchecked": {
+      "before_code_bytes": 372460,
+      "after_code_bytes": 371818,
+      "saved_bytes": 642,
+      "selected_sites_by_rhs": {
+        "U8": 66,
+        "Temp": 94
+      },
+      "candidate_span_saving_bytes": 640,
+      "net_neighbor_and_branch_saving_bytes": 2,
+      "routines_that_grew": 0,
+      "image_sha256": "361f569ef80cb0cfd0be657f2265d8a6fadc367587d2fd14387ef66cf6e8df68",
+      "layout_sha256": "8cb9c32687306ca27629e591087951e089244078881f1c7c0c4db8d711b02f56"
+    }
+  },
+  "source_hashes_sha256": "56bf267e46ae2e6cb1e39111679e8ec75b5f453489ac99cd232d4f38e8bd8de1",
+  "source_hashes_encoding": "SHA256 of json.dumps(source_hashes, sort_keys=True).encode()",
+  "original_input_layout_sha256": "07eb5fc477d5b2ef378f4b82f90ea6b233c5205a4aa0abc40288b20ddebe1370",
+  "private_slice": {
+    "optimized_unchecked_code_bytes": 323664,
+    "incremental_saved_bytes": 373,
+    "audited_sites": 93,
+    "audited_span_saving_bytes": 372,
+    "focused_unit_tests_passed": 5,
+    "focused_native_tests_passed": 14
+  },
+  "audited_sites": {
+    "immediate": 143,
+    "private": 93,
+    "total": 236,
+    "refused": 0,
+    "modeled_saving_bytes": 944,
+    "actual_span_saving_bytes": 944
+  },
+  "fallbacks": "Wider/symbolic operands, DP homes, unhandled read bindings, shifts and other existing selector owners retain established paths. No audited candidate was refused."
 }
