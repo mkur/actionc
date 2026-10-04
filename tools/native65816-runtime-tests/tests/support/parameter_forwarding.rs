@@ -257,6 +257,18 @@ pub fn prepared(source: &str, optimize: bool) -> native65816::Prepared {
             let original = raw.mir.routines.iter().find(|s| s.id == r.id).unwrap();
             assert_eq!(r.name, original.name);
             *r = original.clone();
+            if r.name.to_ascii_lowercase().contains("parambridge") {
+                // Keep the first capture live beyond its frame store so the
+                // terminal-store rule cannot subsume the bridge being tested.
+                let block = &mut r.blocks[0];
+                let store = block
+                    .ops
+                    .iter()
+                    .find(|op| matches!(op, Mir65816Op::Store { .. }))
+                    .unwrap()
+                    .clone();
+                block.ops.push(store);
+            }
         }
     }
     actionc::mir65816::verify_program(&p.mir).unwrap();

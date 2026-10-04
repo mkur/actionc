@@ -42,7 +42,15 @@ fn incoming_comparisons_cover_operands_unsigned_boundaries_and_boolean_forms() {
                         for (i, op) in b.ops.iter().enumerate() {
                             if matches!(op,Mir65816Op::Load{address,..} if matches!(address.base,Mir65816AddressBase::Parameter(_)))
                             {
-                                assert!(m.code.mir_spans[&(b.id, i)].is_empty());
+                                let span = &m.code.mir_spans[&(b.id, i)];
+                                if !span.is_empty() {
+                                    // Register-only compare preparation retains the
+                                    // incoming read but omits its private capture.
+                                    assert_eq!(
+                                        &m.code.bytes[span.clone()],
+                                        &[0xa3, (m.frame.extent + 4) as u8]
+                                    );
+                                }
                                 omitted += 1;
                             }
                         }

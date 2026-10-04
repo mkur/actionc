@@ -91,11 +91,18 @@ RETURN
                         h.bus.ram[at..at + 2].copy_from_slice(&value.to_le_bytes());
                     }
                     let mut reached = 0;
+                    let mut dispatches = std::collections::BTreeSet::new();
                     for _ in 0..100_000 {
                         if h.cpu.is_stopped() {
                             break;
                         }
                         if h.cpu.is_instruction_boundary() {
+                            for d in h.bus.forwarded_words.dispatches.iter().filter(|d| d.at == h.cpu.pc()) {
+                                assert!(d.short && d.range.contains(&d.target));
+                                assert_eq!(h.bus.ram[d.at as usize], d.predicate);
+                                assert_eq!((i64::from(d.at) + 2 + i64::from(h.bus.ram[d.at as usize + 1] as i8)) as u32, d.target);
+                                dispatches.insert(d.at);
+                            }
                             for r in &image.profile().routines {
                                 let at = image.routine_address(r);
                                 if let Some(w) =
@@ -117,7 +124,11 @@ RETURN
                         h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
                     }
                     assert!(h.cpu.is_stopped());
-                    assert_eq!(reached, 8);
+                    // Optimized a<$8000 loads the global directly, with no
+                    // private capture for the legacy window decoder. All eight
+                    // actual relocated dispatches still execute and are checked.
+                    assert_eq!(reached, if optimize { 7 } else { 8 });
+                    assert_eq!(dispatches.len(), 8);
                     h.guards(mask);
                     let output = native::object(&image, "output") as usize;
                     assert_eq!(
@@ -436,11 +447,15 @@ fn context_image(
 ) {
     use support::context::*;
     let provisional = runtime(0x100000);
+    let memory = memory_runtime::assembly();
     let profile = format::inspect(bytes).unwrap();
     let mut providers = vec![];
     for import in &profile.imports {
         let (address, size) = if import.name == OVERFLOW {
             (FAULT, 2)
+        } else if import.name.starts_with("a816_memory_") {
+            let address = memory.symbols[&import.name];
+            (address, memory.symbols[&format!("{}_end", import.name)] - address)
         } else {
             let a = provisional.symbols[&import.name];
             let e = provisional
@@ -464,6 +479,7 @@ fn context_image(
     let runtime = runtime(native::routine(&image, "Dispatch"));
     assert_eq!(runtime.symbols, provisional.symbols);
     let mut h = ContextHarness::from_loaded(image, runtime, "Task", &[0x7100, 0x7120]);
+    h.bus.map(memory_runtime::ORIGIN, &memory.bytes, false);
     for (i, seed) in [13u16, 41].into_iter().enumerate() {
         let at = 0x7100 + i * 0x20;
         h.bus.ram[at..at + 2].copy_from_slice(&seed.to_le_bytes());
@@ -565,6 +581,8 @@ fn relocated_tasks_preserve_domains_under_irq_nmi_and_instruction_injection() {
                 IrqEffect::Restore,
                 3,
             ),
+            ("A816MEMORY.Move", "a816_memory_move", 0, IrqEffect::Preserve, 3),
+            ("A816MEMORY.Clear", "a816_memory_clear", 0, IrqEffect::Preserve, 3),
         ]
         .into_iter()
         .map(|(symbol, name, stack_peak, irq_effect, domains)| Binding {

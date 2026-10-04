@@ -167,17 +167,66 @@ fn independent_ca65_reload_removal_preserves_full_value_flags_and_traffic() {
 }
 
 const SOURCE: &str = include_str!("fixtures/accumulator_forwarding.act");
+fn capture_comparison(source: &str, optimize: bool) -> actionc::compiler::native65816::Prepared {
+    use actionc::mir65816::{Mir65816Op, Mir65816Value};
+    let mut p = prepare(source, optimize);
+    let address = p
+        .mir
+        .routines
+        .iter()
+        .find(|r| r.name == "Store")
+        .unwrap()
+        .blocks
+        .iter()
+        .flat_map(|b| &b.ops)
+        .find_map(|op| match op {
+            Mir65816Op::Store { address, .. } => Some(address.clone()),
+            _ => None,
+        })
+        .unwrap();
+    let r = p
+        .mir
+        .routines
+        .iter_mut()
+        .find(|r| r.name == "PickMaximum")
+        .unwrap();
+    for block in &mut r.blocks {
+        let value = block.ops.iter().find_map(|op| match op {
+            Mir65816Op::Compare {
+                right: v @ Mir65816Value::Temp(..),
+                ..
+            } => Some(v.clone()),
+            _ => None,
+        });
+        if let Some(value) = value {
+            // A second use keeps this private capture observable, preserving
+            // coverage of resident comparisons after sole-use load forwarding.
+            // Main's later Store call overwrites the extra value.
+            block.ops.push(Mir65816Op::Store {
+                address: address.clone(),
+                value,
+                width: actionc::target::ByteSize::new(2),
+                volatile: false,
+            });
+        }
+    }
+    actionc::mir65816::verify_program(&p.mir).unwrap();
+    p
+}
 #[test]
 fn generated_private_words_preserve_results_flags_stores_and_volatile_order() {
     let source = SOURCE.replace("\r\n", "\n");
     for optimize in [false, true] {
-        let p = prepare(&source, optimize);
+        let p = capture_comparison(&source, optimize);
         let c = p.compile(&layout()).unwrap();
         let image =
             actionc::mir65816::image::Image::from_json(&c.image.to_json().unwrap()).unwrap();
         assert_eq!(
             image.to_json().unwrap(),
-            compile(&source.replace('\n', "\r\n"), optimize)
+            capture_comparison(&source.replace('\n', "\r\n"), optimize)
+                .compile(&layout())
+                .unwrap()
+                .image
                 .to_json()
                 .unwrap()
         );

@@ -118,14 +118,14 @@ fn captured_return_tails_match_ca65_clear_hidden_b_and_read_no_neighbor_or_scrat
         let p = prepared(SOURCE, optimize);
         let c = p.compile(&layout()).unwrap();
         let image = Image::from_json(&c.image.to_json().unwrap()).unwrap();
-        // Direct's immediate result now stays in A; call_returns checks that
+        // Direct/Indirect immediate results stay in A; call_returns checks that
         // path's exact tail and absence of private result traffic.
-        for name in ["Echo", "Incoming", "Mutate", "Indirect"] {
+        for name in ["Echo", "Incoming", "Mutate"] {
             let r = p.mir.routines.iter().find(|r| r.name == name).unwrap();
             let m = c.machine.routines.iter().find(|m| m.id == r.id).unwrap();
             let ir = image.routines.iter().find(|r| r.name == name).unwrap();
             let block = r.blocks.last().unwrap();
-            let span = &m.code.mir_spans[&(block.id, block.ops.len())];
+            let mut span = m.code.mir_spans[&(block.id, block.ops.len())].clone();
             let Mir65816Terminator::Return {
                 value: Some(value), ..
             } = &block.terminator
@@ -133,24 +133,61 @@ fn captured_return_tails_match_ca65_clear_hidden_b_and_read_no_neighbor_or_scrat
                 panic!()
             };
             let source = match value {
-                Mir65816Value::Temp(id, _) => m.frame.temps[id].slot().offset,
+                Mir65816Value::Temp(id, _) => {
+                    m.frame
+                        .temps
+                        .get(id)
+                        .map(|h| h.slot().offset)
+                        .unwrap_or_else(|| {
+                            // A sole byte load can feed A directly without a temp home.
+                            let (index, address) = block
+                                .ops
+                                .iter()
+                                .enumerate()
+                                .find_map(|(i, op)| match op {
+                                    actionc::mir65816::Mir65816Op::Load {
+                                        dest, address, ..
+                                    } if dest == id => Some((i, address)),
+                                    _ => None,
+                                })
+                                .unwrap();
+                            span.start = m.code.mir_spans[&(block.id, index)].start;
+                            use actionc::mir65816::Mir65816AddressBase as Base;
+                            (match address.base {
+                                Base::Parameter(id) => {
+                                    let parameter =
+                                        r.frame.parameters.iter().find(|p| p.param == id).unwrap();
+                                    assert!(parameter.frame_object.is_none());
+                                    m.frame.extent + 4
+                                }
+                                Base::AutomaticFrame(id) => {
+                                    r.frame
+                                        .objects
+                                        .iter()
+                                        .find(|o| o.id == id)
+                                        .unwrap()
+                                        .stack_offset
+                                        .get() as u16
+                                }
+                                _ => panic!("not a byte stack source: {address:?}"),
+                            }) + address.displacement.get() as u16
+                        })
+                }
                 Mir65816Value::Param(_) => {
                     assert_eq!(m.frame.extent, 0);
                     4
                 }
                 _ => panic!(),
             };
-            // Retain the existing MIR terminal-boundary A16 restoration, then
-            // select A8 for the exact-byte read. Only return preparation changes.
-            let restore = m.code.bytes[span.start..].starts_with(&[0xc2, 0x20]);
-            let mut asm = if restore {
-                String::from("rep #$20\n")
+            let bytes = &m.code.bytes[span.clone()];
+            let (prefix, mut asm) = if bytes.starts_with(&[0xc2, 0x20, 0xe2, 0x20]) {
+                (4, String::from("rep #$20\nsep #$20\n.a8\n"))
+            } else if bytes.starts_with(&[0xe2, 0x20]) {
+                (2, String::from("sep #$20\n.a8\n"))
             } else {
-                String::new()
+                (0, String::from(".a8\n"))
             };
-            asm.push_str(&format!(
-                "sep #$20\n.a8\nlda {source},s\nrep #$20\n.a16\nand #$00ff\n"
-            ));
+            asm.push_str(&format!("lda {source},s\nrep #$20\n.a16\nand #$00ff\n"));
             if m.frame.extent != 0 {
                 asm.push_str(&format!(
                     "tay\ntsc\nclc\nadc #{}\ntcs\ntya\n",
@@ -159,7 +196,7 @@ fn captured_return_tails_match_ca65_clear_hidden_b_and_read_no_neighbor_or_scrat
             }
             asm.push_str("rtl\n");
             assert_eq!(&m.code.bytes[span.clone()], assemble(&asm, 0x050000));
-            let tail = ir.address + span.start as u32 + if restore { 4 } else { 2 };
+            let tail = ir.address + span.start as u32 + prefix;
             let caller = assemble_artifact(
                 &format!(
                     "tsc\nsec\nsbc #1\ntcs\nsep #$20\n.a8\nlda f:$007100\nsta 1,s\nrep #$20\n.a16\njsl ${:06x}\n.export returned\nreturned: sta f:$007200\ntsc\nclc\nadc #1\ntcs\nstp\nnop",

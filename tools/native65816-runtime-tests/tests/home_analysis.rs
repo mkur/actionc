@@ -53,8 +53,13 @@ fn canonical_homes_and_liveness_cover_raw_and_optimized_selection() {
                     })
                     .count();
                 for (home, info) in analysis.homes() {
-                    if matches!(home, HomeByte::DirectPage(64..=255)) {
+                    // The ABI reserves the lower half for the caller and
+                    // $C0..$FF for metadata; compiler scratch is $80..$BF.
+                    if matches!(home, HomeByte::DirectPage(0..=127 | 192..=255)) {
                         assert!(!info.private && info.entry_defined);
+                    }
+                    if matches!(home, HomeByte::DirectPage(128..=191)) {
+                        assert!(info.private && !info.entry_defined);
                     }
                     if info.owners.contains(&HomeOwner::ReturnAddress) {
                         assert!(!info.private && info.entry_defined);

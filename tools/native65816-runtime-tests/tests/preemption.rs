@@ -343,7 +343,8 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
                         h.bus.ram[pc as usize - 1],
                         if opcode == 0x63 { 0x18 } else { 0x38 }
                     );
-                    assert_eq!(h.bus.ram[pc as usize + 2], 0x83);
+                    // Capture stores can disappear when the result is consumed
+                    // directly. Interrupt the actual successor with live A/P.
                     word_windows.insert((opcode, pc - 1, pc, pc + 2));
                 }
                 let saved_cpu = h.cpu.clone();
@@ -1917,7 +1918,7 @@ fn scalar_dp_words_and_staged_cycles_survive_task_switches_and_irq_scalar_calls(
             .unwrap();
         assert!(leaf.temporaries.iter().any(|t| matches!(
             t.home,
-            actionc::mir65816::image::TemporaryHome::DirectPage { offset: 32..=62 }
+            actionc::mir65816::image::TemporaryHome::DirectPage { offset: 160..=190 }
         )));
         let range = leaf.address..leaf.address + leaf.size;
         let x = h

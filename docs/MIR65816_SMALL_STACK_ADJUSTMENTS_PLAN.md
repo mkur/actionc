@@ -73,3 +73,18 @@ facts, exact test scope and compact provenance under `docs/benchmarks/`. Keep
 bulky generated artifacts under `target/`. Results must distinguish measured
 savings from the original candidate model and compiler VM coverage from hosted
 Exec qualification.
+
+## Baseline repair
+
+All 58 tests in the eight affected targets pass in focused debug runs without
+exclusions. Existing preemption coverage passes with actual post-arithmetic
+instruction boundaries and upper-half DP homes. The relocated task harness now
+binds and maps its Move/Clear runtime imports. Relocated comparison coverage
+checks all eight dispatches, including the optimized direct global load.
+
+Private comparison and parameter-bridge probes retain deliberate extra uses so
+new sole-use forwarding cannot erase the behavior they test. Byte-return checks
+include the actual incoming/local read when it feeds A directly. The zero-frame
+test now checks the published inherited-stack contract; stack-fault tests retain
+responsibility for new reservations. Host LF/CRLF variants pass through the
+changed comparison/parameter fixture preparation paths.

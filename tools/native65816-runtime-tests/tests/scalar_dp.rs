@@ -120,36 +120,52 @@ fn capacity_edges_execute_every_home_and_preserve_trace_output() {
 }
 
 #[test]
-fn zero_frame_scalar_guard_still_faults_before_resident_writes() {
+fn zero_frame_scalar_entry_inherits_the_checked_caller_stack() {
     for optimize in [false, true] {
         let image = compile(
             "CARD FUNC Work(CARD n) RETURN(n+1) PROC Main() RETURN",
             optimize,
         );
         let work = &image.routines[0];
-        assert_eq!(work.fixed_frame, 0);
-        for mask in [0, 4] {
-            for initial_s in [0x4018, 2, 0x6000] {
-                let mut h = Harness::new(&image, &caller(image.entry), mask);
-                let mut r = h.cpu.registers();
-                r.s = initial_s;
-                r.pc = work.address as u16;
-                r.pbr = (work.address >> 16) as u8;
-                h.cpu = Machine::start_at(r);
+        assert_eq!((work.fixed_frame, work.local_stack_peak), (0, 0));
+        let caller = assemble_artifact(
+            &format!(
+                "tsc\nsec\nsbc #3\ntcs\nlda f:$007100\nsta 1,s\njsl ${:06x}\n.export returned\nreturned: sta f:$007200\ntsc\nclc\nadc #3\ntcs\nstp\nnop",
+                work.address
+            ),
+            0x040000,
+        );
+        for value in [0u16, 0x7fff, 0xffff] {
+            for mask in [0, 4] {
+                let mut h = Harness::new(&image, &caller.bytes, mask);
+                h.bus.ram[0x7100..0x7102].copy_from_slice(&value.to_le_bytes());
+                for pc in [work.address, caller.symbols["returned"]] {
+                    assert!(
+                        h.cpu
+                            .run_until(
+                                &mut h.bus,
+                                10000,
+                                |_| Inputs::default(),
+                                |c| c.is_instruction_boundary() && c.pc() == pc
+                            )
+                            .unwrap()
+                    );
+                    if pc == work.address {
+                        // A zero-frame entry makes no new stack reservation;
+                        // the independent caller already owns its argument area.
+                        h.bus.writes.clear();
+                    }
+                }
                 assert!(
-                    h.cpu
-                        .run_until(
-                            &mut h.bus,
-                            1000,
-                            |_| Inputs::default(),
-                            |c| c.is_instruction_boundary() && c.pc() == image.stack_overflow
-                        )
-                        .unwrap()
+                    !h.bus
+                        .writes
+                        .iter()
+                        .any(|(a, _)| (0x4000..0x6000).contains(a))
                 );
-                let r = h.cpu.registers();
-                assert_eq!((r.a, r.x, r.s), (0, initial_s, initial_s));
-                assert_eq!((r.d, r.dbr, r.p & 0x3c), (0x2000, 0, mask));
-                assert!(h.bus.writes.is_empty());
+                assert_eq!(h.cpu.registers().a, value.wrapping_add(1));
+                h.run();
+                h.guards(mask);
+                assert_eq!(h.bus.value(0x7200, 2), u32::from(value.wrapping_add(1)));
             }
         }
     }
