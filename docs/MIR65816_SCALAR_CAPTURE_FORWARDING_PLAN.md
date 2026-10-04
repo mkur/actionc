@@ -102,3 +102,10 @@ the checked source identity through independent ABI/frame metadata.
 
 See [compact measurements](benchmarks/65816-scalar-forwarding/results.json)
 for counts and validation scope as the remaining slices are completed.
+
+Complete local LONG sources save another 851 bytes: optimized unchecked Exec
+is 328,768 bytes, 1,784 below baseline. All allocation/ABI/data invariants and
+166 source hashes remain unchanged. Four planner tests and seven focused native
+scalar, home-definition and pointer tests pass; arithmetic and IRQ/NMI cases
+exercise local stores followed by an earlier call in both raw and optimized
+builds, ensuring that the local source survives frontend optimization.

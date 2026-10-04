@@ -14,7 +14,7 @@
   "stages": [
     {
       "name": "immutable LONG parameters into adjacent arithmetic/comparisons",
-      "implementation": "commit containing this stage record",
+      "implementation": "a106e605",
       "optimized_unchecked_code_bytes": 329619,
       "saved_bytes": 933,
       "selected_bindings": 116,
@@ -31,6 +31,29 @@
         "long_selector_unit_tests_passed": 14,
         "existing_native_long_tests_passed": 28,
         "note": "28 active tests across long_arithmetic, long_equality, long_ordering and native_bitwise; six exact-encoding oracles were updated and rerun separately."
+      }
+    },
+    {
+      "name": "complete nonescaping local LONG arithmetic/comparisons",
+      "implementation": "commit containing this stage record",
+      "optimized_unchecked_code_bytes": 328768,
+      "saved_bytes": 1784,
+      "incremental_saved_bytes": 851,
+      "selected_bindings": 222,
+      "consumers": {
+        "Compare": 154,
+        "Binary": 68
+      },
+      "sources": {
+        "Incoming": 116,
+        "FrameObject": 106
+      },
+      "abi_frames_homes_stack_bounds_and_data_unchanged": true,
+      "image_sha256": "79240893edaaf00ae618b661d7fa96bb4876552a6a2b9a008b566f2a1f35cc5f",
+      "validation": {
+        "planner_tests_passed": 4,
+        "native_scalar_tests_passed": 3,
+        "existing_home_and_pointer_tests_passed": 4
       }
     }
   ]

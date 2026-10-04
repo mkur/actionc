@@ -161,3 +161,74 @@ fn source_bindings_expire_at_the_exact_consumer_and_never_redirect_writes() {
         matches!(b.value_memory(&value).unwrap(), Some(Memory::Stack(s)) if s == u32::from(allocated.slot().offset))
     );
 }
+
+#[test]
+fn local_long_sources_require_complete_nonescaping_disjoint_ownership() {
+    let base =
+        routine("PROC Touch() RETURN LONGINT FUNC Work(LONGINT x) LONGINT saved saved=x Touch() RETURN(LONGINT(1)+saved)");
+    let frame = AllocatedFrame::new(&base).unwrap();
+    let plan = Plan::new(&base, &frame).unwrap();
+    let binding = plan
+        .bindings
+        .iter()
+        .find(|b| matches!(b.source.kind, SourceKind::FrameObject(_)))
+        .unwrap();
+    let SourceKind::FrameObject(id) = binding.source.kind else {
+        unreachable!()
+    };
+    let machine = super::super::routine(&base, true).unwrap();
+    assert!(machine.code.mir_spans[&binding.definition].is_empty());
+    assert_eq!(format!("{frame:?}"), format!("{:?}", machine.frame));
+    for problem in 0..6 {
+        let mut r = base.clone();
+        let at = r.frame.objects.iter().position(|o| o.id == id).unwrap();
+        match problem {
+            0 => r.frame.objects[at].addressable = true,
+            1 => r.frame.objects[at].size = ByteSize::new(5),
+            2 => {
+                let op = r.blocks[0].ops.iter().find(|op| matches!(op, Mir65816Op::Store { address, .. } if address.base == Mir65816AddressBase::AutomaticFrame(id))).unwrap().clone();
+                r.blocks[0].ops.insert(binding.consumer, op);
+            }
+            3 => {
+                let op = r.blocks[0].ops[binding.definition.1].clone();
+                let Mir65816Op::Load { address, .. } = op else {
+                    unreachable!()
+                };
+                r.blocks[0].ops.push(Mir65816Op::AddressOf {
+                    dest: TempId(99),
+                    width: ByteSize::new(3),
+                    address,
+                });
+            }
+            4 => {
+                for op in &mut r.blocks[0].ops {
+                    if let Mir65816Op::Store {
+                        address, volatile, ..
+                    } = op
+                    {
+                        if address.base == Mir65816AddressBase::AutomaticFrame(id) {
+                            *volatile = true;
+                        }
+                    }
+                }
+            }
+            _ => {
+                r.frame.objects[at].owner =
+                    Mir65816FrameObjectOwner::Param(r.frame.parameters[0].param)
+            }
+        }
+        assert!(
+            !Plan::new(&r, &frame)
+                .unwrap()
+                .bindings
+                .iter()
+                .any(|b| b.temp == binding.temp),
+            "{problem}"
+        );
+    }
+    let mut r = base.clone();
+    let mut overlap = r.frame.objects.iter().find(|o| o.id == id).unwrap().clone();
+    overlap.id = Mir65816FrameObjectId(99);
+    r.frame.objects.push(overlap);
+    assert!(Plan::new(&r, &frame).is_err());
+}

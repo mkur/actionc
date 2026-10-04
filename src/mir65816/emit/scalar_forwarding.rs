@@ -8,6 +8,7 @@ mod tests;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SourceKind {
     Parameter(ParamId),
+    FrameObject(Mir65816FrameObjectId),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -113,6 +114,82 @@ fn operand(
     }
 }
 
+fn local(
+    r: &Mir65816Routine,
+    address: &Mir65816Address,
+    bytes: u8,
+) -> Result<Option<Source>, String> {
+    let Mir65816AddressBase::AutomaticFrame(id) = address.base else {
+        return Ok(None);
+    };
+    if !canonical(address) {
+        return Ok(None);
+    }
+    let object = r
+        .frame
+        .objects
+        .iter()
+        .find(|o| o.id == id)
+        .ok_or("unknown scalar source object")?;
+    if object.addressable
+        || object.size.get() != u32::from(bytes)
+        || !matches!(object.owner, Mir65816FrameObjectOwner::Local(_))
+        || r.frame
+            .parameters
+            .iter()
+            .any(|p| p.frame_object == Some(id))
+    {
+        return Ok(None);
+    }
+    let refers = |a: &Mir65816Address| a.base == address.base;
+    if r.blocks.iter().flat_map(|b| &b.ops).any(|op| match op {
+        Mir65816Op::Load {
+            address,
+            width,
+            volatile,
+            ..
+        }
+        | Mir65816Op::Store {
+            address,
+            width,
+            volatile,
+            ..
+        } => {
+            refers(address) && (*volatile || width.get() != u32::from(bytes) || !canonical(address))
+        }
+        Mir65816Op::AddressOf { address, .. } => refers(address),
+        Mir65816Op::Copy {
+            source,
+            destination,
+            ..
+        } => refers(source) || refers(destination),
+        _ => false,
+    }) {
+        return Ok(None);
+    }
+    let offset = object.stack_offset;
+    let end = u64::from(offset.get()) + u64::from(bytes);
+    if offset.get() == 0 || end > u64::from(r.frame.extent.get()) + 1 {
+        return Err("scalar source exceeds automatic frame extent".into());
+    }
+    if r.frame.objects.iter().any(|o| {
+        o.id != id
+            && u64::from(o.stack_offset.get()) < end
+            && u64::from(offset.get()) < u64::from(o.stack_offset.get()) + u64::from(o.size.get())
+    }) {
+        return Err("scalar source overlaps another frame object".into());
+    }
+    abi::stack::access_displacement(offset, ByteSize::new(bytes.into()), ByteSize::ZERO)
+        .map_err(|e| e.to_string())?;
+    Ok(Some(Source {
+        kind: SourceKind::FrameObject(id),
+        home: Slot {
+            offset: offset.get() as u16,
+            width: bytes,
+        },
+    }))
+}
+
 fn supported(r: &Mir65816Routine, frame: &AllocatedFrame, op: &Mir65816Op) -> bool {
     match op {
         Mir65816Op::Compare {
@@ -189,7 +266,11 @@ impl Plan {
                 {
                     continue;
                 }
-                let Some(source) = incoming(r, frame, address, 4)? else {
+                let Some(source) = (match address.base {
+                    Mir65816AddressBase::Parameter(_) => incoming(r, frame, address, 4)?,
+                    Mir65816AddressBase::AutomaticFrame(_) => local(r, address, 4)?,
+                    _ => None,
+                }) else {
                     continue;
                 };
                 if frame
@@ -221,6 +302,7 @@ impl Plan {
                 consumer: b.consumer,
                 source: match b.source.kind {
                     SourceKind::Parameter(id) => super::super::proof::HomeOwner::Incoming(id),
+                    SourceKind::FrameObject(id) => super::super::proof::HomeOwner::FrameObject(id),
                 },
                 offset: b.source.home.offset,
                 bytes: b.source.home.width,
@@ -235,6 +317,10 @@ impl Plan {
                 match binding.source.kind {
                     SourceKind::Parameter(id) => debug_assert_eq!(
                         b.frame.incoming_home(b.routine, id).unwrap(),
+                        u32::from(binding.source.home.offset)
+                    ),
+                    SourceKind::FrameObject(id) => debug_assert_eq!(
+                        b.object(id).unwrap(),
                         u32::from(binding.source.home.offset)
                     ),
                 }
