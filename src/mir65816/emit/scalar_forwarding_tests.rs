@@ -164,8 +164,9 @@ fn source_bindings_expire_at_the_exact_consumer_and_never_redirect_writes() {
 
 #[test]
 fn local_long_sources_require_complete_nonescaping_disjoint_ownership() {
-    let base =
-        routine("PROC Touch() RETURN LONGINT FUNC Work(LONGINT x) LONGINT saved saved=x Touch() RETURN(LONGINT(1)+saved)");
+    let base = routine(
+        "PROC Touch() RETURN LONGINT FUNC Work(LONGINT x) LONGINT saved saved=x Touch() RETURN(LONGINT(1)+saved)",
+    );
     let frame = AllocatedFrame::new(&base).unwrap();
     let plan = Plan::new(&base, &frame).unwrap();
     let binding = plan
@@ -231,4 +232,104 @@ fn local_long_sources_require_complete_nonescaping_disjoint_ownership() {
     overlap.id = Mir65816FrameObjectId(99);
     r.frame.objects.push(overlap);
     assert!(Plan::new(&r, &frame).is_err());
+}
+
+#[test]
+fn terminal_calls_cover_scalar_widths_and_refuse_unreachable_or_mismatched_arguments() {
+    for (ty, bytes) in [("BYTE", 1), ("CARD", 2), ("LONGINT", 4)] {
+        for local in [false, true] {
+            let r = routine(&format!(
+                "PROC Touch() RETURN PROC Sink(BYTE tag CARD marker {ty} v) RETURN PROC Work({ty} x) {} Sink(7,$CAFE,{}) RETURN",
+                if local {
+                    format!("{ty} saved saved=x Touch()")
+                } else {
+                    String::new()
+                },
+                if local { "saved" } else { "x" }
+            ));
+            let frame = AllocatedFrame::new(&r).unwrap();
+            let plan = Plan::new(&r, &frame).unwrap();
+            let binding = plan
+                .bindings
+                .iter()
+                .find(|b| matches!(r.blocks[0].ops[b.consumer], Mir65816Op::Call { .. }))
+                .unwrap();
+            assert_eq!(binding.source.home.width, bytes);
+            assert_eq!(
+                matches!(binding.source.kind, SourceKind::FrameObject(_)),
+                local
+            );
+            let m = super::super::routine(&r, true).unwrap();
+            assert!(m.code.mir_spans[&binding.definition].is_empty());
+            for problem in 0..3 {
+                let mut forged = r.clone();
+                let Mir65816Op::Call { target, plan, .. } =
+                    &mut forged.blocks[0].ops[binding.consumer]
+                else {
+                    unreachable!()
+                };
+                match problem {
+                    0 => {
+                        *target = Mir65816CallTarget::Indirect(
+                            Mir65816Value::U24(0x123456),
+                            ByteSize::new(3),
+                        )
+                    }
+                    1 => plan.outgoing_bytes = ByteSize::new(255),
+                    _ => {
+                        let Mir65816AbiHome::StackArgument { size, .. } =
+                            plan.arguments.last_mut().unwrap()
+                        else {
+                            unreachable!()
+                        };
+                        *size = ByteSize::new(3);
+                    }
+                }
+                assert!(
+                    !Plan::new(&forged, &frame)
+                        .unwrap()
+                        .bindings
+                        .iter()
+                        .any(|b| b.temp == binding.temp)
+                );
+            }
+        }
+    }
+    // The existing sole narrow argument in A keeps its omitted home and proof.
+    let r = routine("PROC Sink(CARD x) RETURN PROC Work(CARD x) Sink(x) RETURN");
+    let frame = AllocatedFrame::new(&r).unwrap();
+    assert!(Plan::new(&r, &frame).unwrap().bindings.is_empty());
+}
+
+#[test]
+fn terminal_long_stores_refuse_volatile_partial_and_overlapping_destinations() {
+    let r = routine("PROC Work(LONGCARD POINTER p LONGCARD x) p^=x RETURN");
+    let frame = AllocatedFrame::new(&r).unwrap();
+    let plan = Plan::new(&r, &frame).unwrap();
+    assert_eq!(plan.bindings.len(), 1);
+    let binding = &plan.bindings[0];
+    assert!(matches!(
+        r.blocks[0].ops[binding.consumer],
+        Mir65816Op::Store { .. }
+    ));
+    let machine = super::super::routine(&r, true).unwrap();
+    assert!(machine.code.mir_spans[&binding.definition].is_empty());
+    for problem in 0..3 {
+        let mut r = r.clone();
+        let Mir65816Op::Store {
+            address,
+            width,
+            volatile,
+            ..
+        } = &mut r.blocks[0].ops[binding.consumer]
+        else {
+            unreachable!()
+        };
+        match problem {
+            0 => *volatile = true,
+            1 => *width = ByteSize::new(2),
+            _ => address.base = Mir65816AddressBase::Parameter(r.frame.parameters[1].param),
+        }
+        assert!(Plan::new(&r, &frame).unwrap().bindings.is_empty());
+    }
 }

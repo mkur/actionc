@@ -109,3 +109,31 @@ is 328,768 bytes, 1,784 below baseline. All allocation/ABI/data invariants and
 scalar, home-definition and pointer tests pass; arithmetic and IRQ/NMI cases
 exercise local stores followed by an earlier call in both raw and optimized
 builds, ensuring that the local source survives frontend optimization.
+
+Direct terminal calls now admit BYTE, word and LONG arguments from the same
+proved sources; final nonvolatile stores admit LONG values. Arguments are checked
+at the worst outgoing stack displacement and bindings expire before JSL. Stores
+preserve exact external traffic and require disjoint complete frame destinations.
+Independent VM checks cover payload/padding bytes, callee results, bank-crossing
+stores, two o65 placements and interrupt restoration after nested calls.
+
+| Frozen Exec profile | Baseline | Implemented | Saved |
+| --- | ---: | ---: | ---: |
+| Optimized, unchecked | 330,552 | 326,894 | 3,658 |
+| Optimized, guarded | 443,016 | 439,350 | 3,666 |
+| Raw, unchecked | 377,888 | 374,735 | 3,153 |
+
+Optimized output selects 511 bindings: 154 comparisons, 68 arithmetic operations,
+253 calls and 36 stores. No routine grows. All 899 routine allocation/ABI/stack
+records, data regions, 166 source hashes and per-profile layouts are unchanged.
+The terminal slice contributes 1,874 bytes of the unchecked saving.
+
+The implementation covers 510 of the original 624 audited candidates, plus an
+indexed store excluded by that audit. The remaining 114 candidates have an old
+transfer estimate of 420 bytes: 106 narrow arithmetic/comparison consumers,
+seven LONG shifts and one frame destination without mutable ownership metadata.
+Narrow consumers retain their existing accumulator, A/N/Z, fusion and DP/X
+proofs; extending those contracts requires a separate slice. LONG shifts retain
+their separate selectors. These refusals are deliberate boundaries, not pending
+work in this plan. Retained capture homes remain available for a later allocation
+change; this implementation changes only executable traffic.

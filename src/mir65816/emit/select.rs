@@ -477,6 +477,7 @@ pub(super) fn routine_with_data(
     let sole_conditions = liveness::sole_branch_conditions(routine);
     let input_counts = liveness::input_counts(routine);
     for (index, block) in routine.blocks.iter().enumerate() {
+        b.scalar_borrowed.clear();
         let mut forwarded_return = false;
         b.next_block = routine.blocks.get(index + 1).map(|b| b.id);
         b.code.mark(b.blocks[&block.id]);
@@ -2611,6 +2612,7 @@ impl Builder<'_> {
             // Terminal private bindings are authorized only while constructing
             // arguments. Neither the callee nor result capture inherits them.
             self.borrowed.clear();
+            self.scalar_borrowed.clear();
             self.code.a16();
             self.code.native_call(target, plan)?; // JSL
         } else {

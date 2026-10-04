@@ -1376,11 +1376,14 @@ proved private captures, retain allocated writable homes, and substitute checked
 authoritative source reads at explicit consumer sites. They do not manufacture
 home definitions or reuse the incoming/frame word A/N/Z witness.
 
-Adjacent scalar bindings may likewise read an immutable four-byte parameter or
-complete non-addressable local object for one native arithmetic or comparison consumer. Admission requires
-one definition and one operand occurrence across the complete routine, exact
-canonical source width, no mutable home, writes, escape or aggregate alias,
-and a disjoint checked source extent. Locals may have ordinary complete stores
+Adjacent scalar bindings may likewise read an immutable parameter or complete
+non-addressable local object for one adjacent consumer. LONG arithmetic and
+comparisons admit native Add/Sub/AND/OR/XOR and signed/unsigned comparisons;
+direct calls admit BYTE, word and LONG arguments; ordinary final stores admit
+LONG values. Admission requires one definition and one operand occurrence
+across the complete routine, exact canonical source width, no mutable parameter
+home, parameter writes, escape or aggregate alias, and a disjoint checked source
+extent. Locals may have ordinary complete stores
 outside the window; partial access, address escape, aggregate copies, volatility
 and overlapping objects are rejected. The binding applies only to the next
 operation in the same block. Allocated capture homes and frame sizes stay
@@ -1389,6 +1392,16 @@ definition. Only operand reads are redirected, including either LONG operand
 role; result writes still use their allocated homes. Selected effects and
 replay describe the actual source reads. See the
 [scalar forwarding plan](MIR65816_SCALAR_CAPTURE_FORWARDING_PLAN.md).
+
+Terminal direct calls require an exact-width argument, checked outgoing padding
+and full source reach after the worst outgoing reservation. The binding expires
+before JSL and result capture. Terminal stores require a nonvolatile exact-width
+value; frame destinations require complete bounds and disjoint extents. External
+and indirect destinations use the existing exact-width selector and cannot
+alias the nonescaping private source under the invocation-storage contract.
+Volatile stores, indirect calls, width conversion and unresolved geometry keep
+their captures. Narrow arithmetic/comparisons/stores, omitted accumulator homes
+and DP/X allocations retain their existing selectors and A/N/Z witnesses.
 
 ### Bounded BYTE indexes
 

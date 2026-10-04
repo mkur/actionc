@@ -1,5 +1,15 @@
 use super::*;
 pub fn check_work_interrupts(source: &str) {
+    check_interrupts(source, false);
+}
+
+// Resume sampling after nested calls so a source initialized by an earlier
+// call and arguments prepared for a later call both receive interrupt coverage.
+pub fn check_work_interrupts_with_calls(source: &str) {
+    check_interrupts(source, true);
+}
+
+fn check_interrupts(source: &str, follow_calls: bool) {
     use super::context::*;
     use actionc_vm::native65816::{Inputs, Machine};
     for optimize in [false, true] {
@@ -34,6 +44,7 @@ pub fn check_work_interrupts(source: &str) {
                     .unwrap()
             );
             let mut sites = 0;
+            let entry_s = h.cpu.registers().s;
             while (address..end).contains(&h.cpu.pc()) {
                 let checkpoint = h.cpu.clone();
                 let memory = h.bus.clone();
@@ -94,6 +105,20 @@ pub fn check_work_interrupts(source: &str) {
                     h.tick(Inputs::default());
                 }
                 sites += 1;
+                if follow_calls && !(address..end).contains(&h.cpu.pc()) {
+                    assert!(
+                        h.cpu
+                            .run_until(
+                                &mut h.bus,
+                                100_000,
+                                |_| Inputs::default(),
+                                |c| c.is_instruction_boundary()
+                                    && ((address..end).contains(&c.pc())
+                                        || c.registers().s > entry_s)
+                            )
+                            .unwrap()
+                    );
+                }
             }
 
             assert!(sites >= 8);

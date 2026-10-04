@@ -35,7 +35,7 @@
     },
     {
       "name": "complete nonescaping local LONG arithmetic/comparisons",
-      "implementation": "commit containing this stage record",
+      "implementation": "7300e512",
       "optimized_unchecked_code_bytes": 328768,
       "saved_bytes": 1784,
       "incremental_saved_bytes": 851,
@@ -55,6 +55,311 @@
         "native_scalar_tests_passed": 3,
         "existing_home_and_pointer_tests_passed": 4
       }
+    },
+    {
+      "name": "terminal direct scalar calls and LONG stores",
+      "implementation": "commit containing this stage record",
+      "optimized_unchecked_code_bytes": 326894,
+      "saved_bytes": 3658,
+      "incremental_saved_bytes": 1874,
+      "selected_bindings": 511,
+      "validation": {
+        "planner_tests_passed": 6,
+        "native_scalar_tests_passed": 5,
+        "existing_native_call_home_pointer_tests_passed": 8
+      }
     }
-  ]
+  ],
+  "remaining_audited_candidates": {
+    "count": 114,
+    "original_transfer_model_bytes": 420,
+    "by_width_consumer": [
+      {
+        "bytes": 1,
+        "consumer": "Binary",
+        "count": 10
+      },
+      {
+        "bytes": 1,
+        "consumer": "Compare",
+        "count": 23
+      },
+      {
+        "bytes": 2,
+        "consumer": "Binary",
+        "count": 44
+      },
+      {
+        "bytes": 2,
+        "consumer": "Compare",
+        "count": 29
+      },
+      {
+        "bytes": 4,
+        "consumer": "Binary",
+        "count": 7
+      },
+      {
+        "bytes": 4,
+        "consumer": "Store",
+        "count": 1
+      }
+    ],
+    "scope": "Remainder of original 624-candidate audit; modeled bytes are not measured savings. 106 narrow arithmetic/comparisons retain A/N/Z and DP/X selectors; seven LONG shifts retain separate selectors; one frame destination lacks mutable ownership metadata. 510 original candidates are selected, plus one indexed-store candidate excluded by the original audit."
+  },
+  "profiles": {
+    "optimized-unchecked": {
+      "before_code_bytes": 330552,
+      "after_code_bytes": 326894,
+      "saved_bytes": 3658,
+      "selected_bindings": 511,
+      "bindings": [
+        {
+          "bytes": 1,
+          "source": "FrameObject",
+          "consumer": "Call",
+          "count": 8
+        },
+        {
+          "bytes": 1,
+          "source": "Incoming",
+          "consumer": "Call",
+          "count": 29
+        },
+        {
+          "bytes": 2,
+          "source": "FrameObject",
+          "consumer": "Call",
+          "count": 19
+        },
+        {
+          "bytes": 2,
+          "source": "Incoming",
+          "consumer": "Call",
+          "count": 83
+        },
+        {
+          "bytes": 4,
+          "source": "FrameObject",
+          "consumer": "Binary",
+          "count": 29
+        },
+        {
+          "bytes": 4,
+          "source": "FrameObject",
+          "consumer": "Call",
+          "count": 53
+        },
+        {
+          "bytes": 4,
+          "source": "FrameObject",
+          "consumer": "Compare",
+          "count": 77
+        },
+        {
+          "bytes": 4,
+          "source": "FrameObject",
+          "consumer": "Store",
+          "count": 14
+        },
+        {
+          "bytes": 4,
+          "source": "Incoming",
+          "consumer": "Binary",
+          "count": 39
+        },
+        {
+          "bytes": 4,
+          "source": "Incoming",
+          "consumer": "Call",
+          "count": 61
+        },
+        {
+          "bytes": 4,
+          "source": "Incoming",
+          "consumer": "Compare",
+          "count": 77
+        },
+        {
+          "bytes": 4,
+          "source": "Incoming",
+          "consumer": "Store",
+          "count": 22
+        }
+      ],
+      "routines_that_grew": 0,
+      "image_sha256": "0833fe33c8ef7bf20f2807e6ae957740d41bd3ae85256cca989a8836c0914c18",
+      "layout_sha256": "8cb9c32687306ca27629e591087951e089244078881f1c7c0c4db8d711b02f56"
+    },
+    "optimized-guarded": {
+      "before_code_bytes": 443016,
+      "after_code_bytes": 439350,
+      "saved_bytes": 3666,
+      "selected_bindings": 511,
+      "bindings": [
+        {
+          "bytes": 1,
+          "source": "FrameObject",
+          "consumer": "Call",
+          "count": 8
+        },
+        {
+          "bytes": 1,
+          "source": "Incoming",
+          "consumer": "Call",
+          "count": 29
+        },
+        {
+          "bytes": 2,
+          "source": "FrameObject",
+          "consumer": "Call",
+          "count": 19
+        },
+        {
+          "bytes": 2,
+          "source": "Incoming",
+          "consumer": "Call",
+          "count": 83
+        },
+        {
+          "bytes": 4,
+          "source": "FrameObject",
+          "consumer": "Binary",
+          "count": 29
+        },
+        {
+          "bytes": 4,
+          "source": "FrameObject",
+          "consumer": "Call",
+          "count": 53
+        },
+        {
+          "bytes": 4,
+          "source": "FrameObject",
+          "consumer": "Compare",
+          "count": 77
+        },
+        {
+          "bytes": 4,
+          "source": "FrameObject",
+          "consumer": "Store",
+          "count": 14
+        },
+        {
+          "bytes": 4,
+          "source": "Incoming",
+          "consumer": "Binary",
+          "count": 39
+        },
+        {
+          "bytes": 4,
+          "source": "Incoming",
+          "consumer": "Call",
+          "count": 61
+        },
+        {
+          "bytes": 4,
+          "source": "Incoming",
+          "consumer": "Compare",
+          "count": 77
+        },
+        {
+          "bytes": 4,
+          "source": "Incoming",
+          "consumer": "Store",
+          "count": 22
+        }
+      ],
+      "routines_that_grew": 0,
+      "image_sha256": "c400cef1210ed0f7eacae54047691d9d78efe10019e99515248a8bcb3938ab30",
+      "layout_sha256": "5cb5c42909fe9c904438a257ce2eb10a7eb3696a65f64482e94948b2f6f09074"
+    },
+    "raw-unchecked": {
+      "before_code_bytes": 377888,
+      "after_code_bytes": 374735,
+      "saved_bytes": 3153,
+      "selected_bindings": 434,
+      "bindings": [
+        {
+          "bytes": 1,
+          "source": "FrameObject",
+          "consumer": "Call",
+          "count": 22
+        },
+        {
+          "bytes": 1,
+          "source": "Incoming",
+          "consumer": "Call",
+          "count": 26
+        },
+        {
+          "bytes": 2,
+          "source": "FrameObject",
+          "consumer": "Call",
+          "count": 35
+        },
+        {
+          "bytes": 2,
+          "source": "Incoming",
+          "consumer": "Call",
+          "count": 46
+        },
+        {
+          "bytes": 4,
+          "source": "FrameObject",
+          "consumer": "Binary",
+          "count": 47
+        },
+        {
+          "bytes": 4,
+          "source": "FrameObject",
+          "consumer": "Call",
+          "count": 69
+        },
+        {
+          "bytes": 4,
+          "source": "FrameObject",
+          "consumer": "Compare",
+          "count": 35
+        },
+        {
+          "bytes": 4,
+          "source": "FrameObject",
+          "consumer": "Store",
+          "count": 26
+        },
+        {
+          "bytes": 4,
+          "source": "Incoming",
+          "consumer": "Binary",
+          "count": 26
+        },
+        {
+          "bytes": 4,
+          "source": "Incoming",
+          "consumer": "Call",
+          "count": 61
+        },
+        {
+          "bytes": 4,
+          "source": "Incoming",
+          "consumer": "Compare",
+          "count": 19
+        },
+        {
+          "bytes": 4,
+          "source": "Incoming",
+          "consumer": "Store",
+          "count": 22
+        }
+      ],
+      "routines_that_grew": 0,
+      "image_sha256": "b67e07331f0479975e451b5fcccb8fb002a284cb053869ab77ce0cedf46f21ce",
+      "layout_sha256": "8cb9c32687306ca27629e591087951e089244078881f1c7c0c4db8d711b02f56"
+    }
+  },
+  "abi_frames_homes_stack_bounds_initialized_data_and_zero_fill_unchanged": true,
+  "source_hashes_sha256": "56bf267e46ae2e6cb1e39111679e8ec75b5f453489ac99cd232d4f38e8bd8de1",
+  "source_hashes_encoding": "SHA256 of json.dumps(source_hashes, sort_keys=True).encode()",
+  "original_input_layout_sha256": "07eb5fc477d5b2ef378f4b82f90ea6b233c5205a4aa0abc40288b20ddebe1370"
 }

@@ -214,8 +214,111 @@ fn supported(r: &Mir65816Routine, frame: &AllocatedFrame, op: &Mir65816Op) -> bo
                 && operand(r, frame, left, true)
                 && operand(r, frame, right, true)
         }
+        Mir65816Op::Call {
+            target: Mir65816CallTarget::Direct(_),
+            ..
+        } => true,
+        Mir65816Op::Store {
+            width,
+            volatile: false,
+            ..
+        } => width.get() == 4,
         _ => false,
     }
+}
+
+fn terminal(
+    r: &Mir65816Routine,
+    frame: &AllocatedFrame,
+    op: &Mir65816Op,
+    temp: TempId,
+    source: Source,
+) -> bool {
+    let bytes = u32::from(source.home.width);
+    if let Mir65816Op::Call {
+        target: Mir65816CallTarget::Direct(_),
+        args,
+        plan,
+        ..
+    } = op
+    {
+        // Full reservation is the worst displacement, including when the
+        // selected schedule builds the area incrementally with pushes.
+        return args.len() == plan.arguments.len()
+            && effects::CallContract::from_plan(plan, abi::FarTransfer::Jsl).is_ok()
+            && outgoing_padding(&plan.arguments, plan.outgoing_bytes).is_ok()
+            && abi::stack::access_displacement(
+                ByteOffset::new(source.home.offset.into()),
+                ByteSize::new(bytes), plan.outgoing_bytes,
+            ).is_ok()
+            && args.iter().zip(&plan.arguments).all(|(value, home)| {
+                !matches!(value, Mir65816Value::Temp(id, _) if *id == temp)
+                    || matches!((value, home), (Mir65816Value::Temp(_, w), Mir65816AbiHome::StackArgument { size, .. }) if w.get() == bytes && size.get() == bytes)
+            });
+    }
+    let Mir65816Op::Store {
+        address,
+        value,
+        width,
+        volatile: false,
+    } = op
+    else {
+        return bytes == 4 && supported(r, frame, op);
+    };
+    if bytes != 4
+        || width.get() != bytes
+        || !matches!(value, Mir65816Value::Temp(id, w) if *id == temp && w.get() == bytes)
+        || address.displacement.get() > u16::MAX.into()
+    {
+        return false;
+    }
+    // Private, nonescaping invocation storage cannot alias linked memory or an
+    // indirect source-language object. Keep normal exact-width store selection.
+    let (start, extent) = match address.base {
+        Mir65816AddressBase::AutomaticFrame(id) => {
+            let Some(object) = r.frame.objects.iter().find(|o| o.id == id) else {
+                return false;
+            };
+            if !object.mutable
+                || object.stack_offset.get() == 0
+                || u64::from(object.stack_offset.get()) + u64::from(object.size.get())
+                    > u64::from(r.frame.extent.get()) + 1
+            {
+                return false;
+            }
+            (object.stack_offset.get(), object.size.get())
+        }
+        Mir65816AddressBase::Parameter(id) => {
+            if !r
+                .frame
+                .parameters
+                .iter()
+                .any(|p| p.param == id && p.frame_object.is_some())
+            {
+                return false;
+            }
+            let Ok((offset, width)) = frame.parameter_home(r, id) else {
+                return false;
+            };
+            (offset, u32::from(width))
+        }
+        Mir65816AddressBase::Static(NirStorageId::Global(_))
+        | Mir65816AddressBase::External(_)
+        | Mir65816AddressBase::Indirect(_) => return true,
+        _ => return false,
+    };
+    let Some(offset) = start.checked_add(address.displacement.get()) else {
+        return false;
+    };
+    address.index.is_none()
+        && u64::from(address.displacement.get()) + u64::from(bytes) <= u64::from(extent)
+        && offset.abs_diff(u32::from(source.home.offset)) >= bytes
+        && abi::stack::access_displacement(
+            ByteOffset::new(offset),
+            ByteSize::new(bytes),
+            ByteSize::ZERO,
+        )
+        .is_ok()
 }
 
 impl Plan {
@@ -237,11 +340,16 @@ impl Plan {
                 else {
                     continue;
                 };
-                if width.get() != 4
+                if !matches!(width.get(), 1 | 2 | 4)
                     || counts.get(dest) != Some(&1)
                     || definitions.get(dest) != Some(&1)
                     || !r.temps.iter().any(|(id, ty)| {
-                        id == dest && !ty.pointer && ty.kind.integer().is_some_and(|i| i.bits == 32)
+                        id == dest
+                            && !ty.pointer
+                            && ty
+                                .kind
+                                .integer()
+                                .is_some_and(|i| u32::from(i.bits) == width.get() * 8)
                     })
                 {
                     continue;
@@ -251,7 +359,7 @@ impl Plan {
                 let Some(Location::Stack(capture)) = frame.temps.get(dest) else {
                     continue;
                 };
-                if capture.width != 4 {
+                if u32::from(capture.width) != width.get() {
                     return Err("scalar capture width mismatch".into());
                 }
                 let Some(consumer) = block.ops.get(index + 1) else {
@@ -267,12 +375,17 @@ impl Plan {
                     continue;
                 }
                 let Some(source) = (match address.base {
-                    Mir65816AddressBase::Parameter(_) => incoming(r, frame, address, 4)?,
-                    Mir65816AddressBase::AutomaticFrame(_) => local(r, address, 4)?,
+                    Mir65816AddressBase::Parameter(_) => {
+                        incoming(r, frame, address, capture.width)?
+                    }
+                    Mir65816AddressBase::AutomaticFrame(_) => local(r, address, capture.width)?,
                     _ => None,
                 }) else {
                     continue;
                 };
+                if !terminal(r, frame, consumer, *dest, source) {
+                    continue;
+                }
                 if frame
                     .temps
                     .values()
