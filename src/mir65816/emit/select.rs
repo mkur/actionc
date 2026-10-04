@@ -70,6 +70,8 @@ mod long_order;
 mod mixed_edges;
 #[path = "parameter.rs"]
 mod parameter;
+#[path = "scalar_forwarding.rs"]
+pub(super) mod scalar_forwarding;
 #[path = "pointer_forwarding.rs"]
 pub(super) mod pointer_forwarding;
 #[path = "pointer_stores.rs"]
@@ -305,6 +307,7 @@ struct Builder<'a> {
     next_block: Option<BlockId>,
     loop_x: Option<loop_x::LoopXPlan>,
     borrowed: BTreeMap<TempId, pointer_forwarding::Source>,
+    scalar_borrowed: BTreeMap<TempId, scalar_forwarding::Source>,
 }
 
 #[cfg(test)]
@@ -345,6 +348,7 @@ pub(super) fn routine_with_data(
     let frame = AllocatedFrame::new(routine)?;
     let addresses = addresses::Plan::new(routine, &frame, data)?;
     let pointers = demand.pointers.resolve(routine, &frame)?;
+    let scalars = scalar_forwarding::Plan::new(routine, &frame)?;
     let loop_x = loop_x::LoopXPlan::new(routine, &frame)?;
     let mut b = Builder {
         stack_checks,
@@ -352,6 +356,7 @@ pub(super) fn routine_with_data(
         frame,
         loop_x,
         borrowed: BTreeMap::new(),
+        scalar_borrowed: BTreeMap::new(),
         code: TrackedEmitter65816::for_entry(routine.prologue.required_mode),
         blocks: BTreeMap::new(),
         next_block: None,
@@ -496,7 +501,9 @@ pub(super) fn routine_with_data(
             for (op_index, op) in prefix.iter().enumerate() {
                 let start = b.code.code().bytes.len();
                 b.code.begin_source(block.id, op_index);
+                let scalar_omitted = scalars.enter(&mut b, block.id, op_index);
                 if !b.enter_pointer_operation(&pointers, block.id, op_index, op)?
+                    && !scalar_omitted
                     && !component_stores.emit(&mut b, op_index, op)?
                     && !demand.emit(&mut b, block.id, op_index, op)?
                     && !assignments.emit(&mut b, op_index)?
@@ -523,7 +530,9 @@ pub(super) fn routine_with_data(
             }
             let start = b.code.code().bytes.len();
             b.code.begin_source(block.id, prefix.len());
+            let scalar_omitted = scalars.enter(&mut b, block.id, prefix.len());
             let omitted = b.enter_pointer_operation(&pointers, block.id, prefix.len(), last)?
+                || scalar_omitted
                 || component_stores.emit(&mut b, prefix.len(), last)?
                 || demand.emit(&mut b, block.id, prefix.len(), last)?
                 || assignments.emit(&mut b, prefix.len())?;
@@ -566,6 +575,7 @@ pub(super) fn routine_with_data(
         let start = b.code.code().bytes.len();
         b.code.begin_source(block.id, block.ops.len());
         pointers.enter(&mut b, block.id, block.ops.len());
+        scalars.enter(&mut b, block.id, block.ops.len());
         b.code.a16(); // Every MIR control-flow boundary has the ABI width.
         match &block.terminator {
             Mir65816Terminator::Goto(edge) => b.edge_last(edge)?,
@@ -995,7 +1005,9 @@ impl Builder<'_> {
         let offset = match value {
             Mir65816Value::U32(value) => return Ok(Some(LongOperand::Immediate(*value))),
             Mir65816Value::Temp(id, size) => {
-                let location = self.temp(*id)?;
+                let allocated = self.temp(*id)?;
+                let location = self.scalar_borrowed.get(id)
+                    .map_or(allocated, |source| Location::Stack(source.home));
                 if location.slot().width != width(*size)? {
                     return Err("temporary width mismatch".into());
                 }
@@ -1476,6 +1488,12 @@ impl Builder<'_> {
     fn value_memory(&self, value: &Mir65816Value) -> Result<Option<Memory>, String> {
         Ok(match value {
             Mir65816Value::Temp(id, bytes) => {
+                if let Some(source) = self.scalar_borrowed.get(id) {
+                    if bytes.get() != u32::from(source.home.width) {
+                        return Err("borrowed scalar width mismatch".into());
+                    }
+                    return Ok(Some(Memory::Stack(source.home.offset.into())));
+                }
                 if let Some(source) = self.borrowed.get(id) {
                     if bytes.get() != 3 {
                         return Err("borrowed pointer width mismatch".into());

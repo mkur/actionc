@@ -145,8 +145,8 @@ fn long_arithmetic_selected_words_match_ca65_and_use_no_scratch() {
             let span = &m.code.mir_spans[&(block, index)];
             let start = linked.address + span.start as u32;
             let end = linked.address + span.end as u32;
-            let a = m.frame.temps[&left].stack().unwrap().offset;
-            let b = m.frame.temps[&right].stack().unwrap().offset;
+            let a = scalar_read_home(r, m, block, index, left);
+            let b = scalar_read_home(r, m, block, index, right);
             let dest = m.frame.temps[&dest].stack().unwrap().offset;
             let reference = assemble(
                 &format!(

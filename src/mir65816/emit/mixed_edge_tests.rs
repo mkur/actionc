@@ -21,6 +21,7 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
         next_block: None,
         loop_x: None,
         borrowed: BTreeMap::new(),
+        scalar_borrowed: BTreeMap::new(),
     };
     for (id, offset, width) in [(90, 16, 4), (91, 20, 1), (92, 24, 4)] {
         b.frame

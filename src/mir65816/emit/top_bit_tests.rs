@@ -15,6 +15,7 @@ fn top_bit_selection_requires_exact_adjacent_sole_use_private_values() {
                 next_block: None,
                 loop_x: None,
                 borrowed: BTreeMap::new(),
+                scalar_borrowed: BTreeMap::new(),
             };
             for (id, offset, width) in [(100, 32, bytes), (101, 40, bytes), (102, 44, 1)] {
                 b.frame

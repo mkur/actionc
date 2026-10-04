@@ -88,3 +88,17 @@ counts, actual savings and remaining refusals under `docs/benchmarks/`, with
 bulky artifacts in `target/`. Update the emission contract and this plan with
 implementation results. Use nonincremental builds with reduced host debug info.
 Preserve unrelated working-tree changes and commit completed implementation.
+
+## Implementation results
+
+The immutable LONG-parameter arithmetic/comparison slice saves 933 bytes in
+optimized unchecked Exec (330,552 to 329,619), with unchanged ABI, frames,
+temporary homes, stack bounds and initialized data. Planner tests cover both
+operand roles, signed/unsigned operations, extra definitions/uses, escape,
+mutability, malformed homes and binding expiry. Independent ca65/VM checks
+verify exact source reads, result stores, registers and flags; comparisons,
+replay and IRQ/NMI checks pass. Existing LONG byte/traffic oracles now resolve
+the checked source identity through independent ABI/frame metadata.
+
+See [compact measurements](benchmarks/65816-scalar-forwarding/results.json)
+for counts and validation scope as the remaining slices are completed.

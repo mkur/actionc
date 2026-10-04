@@ -388,8 +388,8 @@ fn native_long_comparisons_match_ca65_and_touch_only_captured_word_parts() {
             let span = &m.code.mir_spans[&(block, index)];
             let start = linked.address + span.start as u32;
             let end = linked.address + span.end as u32;
-            let left = m.frame.temps[&left].stack().unwrap().offset;
-            let right = m.frame.temps[&right].stack().unwrap().offset;
+            let left = scalar_read_home(r, m, block, index, left);
+            let right = scalar_read_home(r, m, block, index, right);
             let dest = m.frame.temps[&dest].stack().unwrap().offset;
             let caller = caller(compiled.image.entry);
             for (a, b) in [

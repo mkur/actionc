@@ -216,7 +216,7 @@ fn long_sign_materialization_matches_ca65_and_reads_only_the_private_top_byte() 
             }
             let start = linked.address + span.start as u32;
             let end = linked.address + span.end as u32;
-            let input = m.frame.temps[&source].stack().unwrap().offset + 3;
+            let input = scalar_read_home(r, m, block, i, source) + 3;
             let dest = m.frame.temps[&dest].stack().unwrap().offset;
             let reference = assemble(
                 &format!(
@@ -479,8 +479,8 @@ fn check_order_encodings(signed: bool) {
             let span = &m.code.mir_spans[&(block, i)];
             let start = linked.address + span.start as u32;
             let end = linked.address + span.end as u32;
-            let mut left = m.frame.temps[&a].stack().unwrap().offset;
-            let mut right = m.frame.temps[&b].stack().unwrap().offset;
+            let mut left = scalar_read_home(r, m, block, i, a);
+            let mut right = scalar_read_home(r, m, block, i, b);
             let dest = m.frame.temps[&dest].stack().unwrap().offset;
             if matches!(name, "AtMost" | "Greater") {
                 std::mem::swap(&mut left, &mut right);

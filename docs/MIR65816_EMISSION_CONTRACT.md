@@ -1376,6 +1376,18 @@ proved private captures, retain allocated writable homes, and substitute checked
 authoritative source reads at explicit consumer sites. They do not manufacture
 home definitions or reuse the incoming/frame word A/N/Z witness.
 
+Adjacent scalar bindings may likewise read an immutable four-byte parameter
+directly for one native arithmetic or comparison consumer. Admission requires
+one definition and one operand occurrence across the complete routine, exact
+canonical source width, no mutable home, writes, escape or aggregate alias,
+and a disjoint checked incoming extent. The binding applies only to the next
+operation in the same block. Allocated capture homes and frame sizes stay
+unchanged; an omitted capture emits a conservative state barrier and no home
+definition. Only operand reads are redirected, including either LONG operand
+role; result writes still use their allocated homes. Selected effects and
+replay describe the actual incoming reads. See the
+[scalar forwarding plan](MIR65816_SCALAR_CAPTURE_FORWARDING_PLAN.md).
+
 ### Bounded BYTE indexes
 
 The address selector may zero-extend a verified unsigned BYTE index into A16

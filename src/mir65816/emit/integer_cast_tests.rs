@@ -49,6 +49,7 @@ fn builder<'a>(r: &'a Mir65816Routine, op: &Mir65816Op, source: u16, dest: u16) 
         next_block: None,
         loop_x: None,
         borrowed: BTreeMap::new(),
+        scalar_borrowed: BTreeMap::new(),
     }
 }
 

@@ -144,8 +144,8 @@ fn native_bitwise_matches_ca65_and_touches_only_complete_private_words() {
                     .unwrap();
                 let (dest, left, right) = (
                     m.frame.temps[&dest].stack().unwrap().offset,
-                    m.frame.temps[&left].stack().unwrap().offset,
-                    m.frame.temps[&right].stack().unwrap().offset,
+                    scalar_read_home(r, m, block, i, left),
+                    scalar_read_home(r, m, block, i, right),
                 );
                 let span = &m.code.mir_spans[&(block, i)];
                 let start = linked.address + span.start as u32;

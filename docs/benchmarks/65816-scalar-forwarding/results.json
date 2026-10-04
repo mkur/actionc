@@ -1,0 +1,37 @@
+{
+  "baseline_compiler": "e49813aa",
+  "exec_revision": "154bcf5a45605aeee57de5420ec4604e4ff7b30c",
+  "unique_source_files": 166,
+  "source_hashes_unchanged": true,
+  "routines": 899,
+  "scope": "Frozen compiler-generated Exec demo code, excluding platform assembly and hosted Exec boot qualification.",
+  "baseline_code_bytes": {
+    "optimized-unchecked": 330552,
+    "optimized-guarded": 443016,
+    "raw-unchecked": 377888
+  },
+  "initialized_data_bytes": 1385,
+  "stages": [
+    {
+      "name": "immutable LONG parameters into adjacent arithmetic/comparisons",
+      "implementation": "commit containing this stage record",
+      "optimized_unchecked_code_bytes": 329619,
+      "saved_bytes": 933,
+      "selected_bindings": 116,
+      "consumers": {
+        "Compare": 77,
+        "Binary": 39
+      },
+      "abi_frames_homes_stack_bounds_and_data_unchanged": true,
+      "image_sha256": "85b868679adeb5dca6b5c530ed4a5343924838cb43f61c049374538ac2e1706f",
+      "validation": {
+        "planner_tests_passed": 3,
+        "native_scalar_tests_passed": 3,
+        "existing_native_replay_state_tests_passed": 13,
+        "long_selector_unit_tests_passed": 14,
+        "existing_native_long_tests_passed": 28,
+        "note": "28 active tests across long_arithmetic, long_equality, long_ordering and native_bitwise; six exact-encoding oracles were updated and rerun separately."
+      }
+    }
+  ]
+}

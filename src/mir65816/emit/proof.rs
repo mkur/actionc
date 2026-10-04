@@ -10,6 +10,25 @@ pub use super::effects::{
 pub use super::tracked::Event;
 pub use super::work::{Counts as WorkCounts, measure as measure_work};
 
+/// Checked read-only bindings; allocated writable temporary homes are unchanged.
+#[derive(Clone, Debug)]
+pub struct ScalarRead {
+    pub temp: crate::nir::TempId,
+    pub block: crate::nir::BlockId,
+    pub producer: usize,
+    pub consumer: usize,
+    pub source: HomeOwner,
+    pub offset: u16,
+    pub bytes: u8,
+}
+
+pub fn scalar_reads(
+    routine: &crate::mir65816::Mir65816Routine,
+    frame: &super::AllocatedFrame,
+) -> Result<Vec<ScalarRead>, String> {
+    Ok(super::select::scalar_forwarding::Plan::new(routine, frame)?.observations())
+}
+
 /// Balanced independent probe; the restoring sequence deliberately retains a
 /// NOP so only the requested adjustment can be rewritten.
 pub fn small_stack_probe(

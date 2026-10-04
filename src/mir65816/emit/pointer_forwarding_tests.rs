@@ -272,6 +272,7 @@ fn final_direct_call_counts_repeated_arguments_and_expires_before_transfer() {
         next_block: None,
         loop_x: None,
         borrowed: BTreeMap::new(),
+        scalar_borrowed: BTreeMap::new(),
     };
     assert!(!plan.enter(&mut b, r.blocks[0].id, at));
     assert_eq!(b.borrowed.len(), 1);

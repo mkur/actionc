@@ -22,6 +22,7 @@ fn dp_arithmetic_and_return_preserve_adjacent_forwarding() {
         next_block: None,
         loop_x: None,
         borrowed: BTreeMap::new(),
+        scalar_borrowed: BTreeMap::new(),
         routine: r,
         frame,
         code: TrackedEmitter65816::for_entry(r.prologue.required_mode),

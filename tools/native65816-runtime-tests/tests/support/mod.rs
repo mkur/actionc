@@ -70,6 +70,70 @@ pub fn stack_release_asm(bytes: u16) -> String {
     }
 }
 
+/// Resolve a scalar oracle from typed source identity, checking the compiler's
+/// binding observation against independent ABI/frame metadata and an omitted
+/// producer. Exact instruction and VM traffic assertions remain at each use.
+pub fn scalar_read_home(
+    r: &actionc::mir65816::Mir65816Routine,
+    m: &actionc::mir65816::emit::MachineRoutine,
+    block: actionc::nir::BlockId,
+    index: usize,
+    temp: actionc::nir::TempId,
+) -> u16 {
+    use actionc::mir65816::{Mir65816AbiHome, Mir65816AddressBase, Mir65816Op, emit::proof};
+    let allocated = m.frame.temps[&temp].stack().unwrap();
+    let Some(read) = proof::scalar_reads(r, &m.frame)
+        .unwrap()
+        .into_iter()
+        .find(|s| s.temp == temp && s.block == block && s.consumer == index)
+    else {
+        return allocated.offset;
+    };
+    assert_eq!(read.bytes, allocated.width);
+    assert!(m.code.mir_spans[&(block, read.producer)].is_empty());
+    let b = r.blocks.iter().find(|b| b.id == block).unwrap();
+    let Mir65816Op::Load {
+        dest,
+        width,
+        address,
+        volatile: false,
+    } = &b.ops[read.producer]
+    else {
+        panic!("scalar producer")
+    };
+    assert_eq!(
+        (*dest, width.get(), address.displacement.get()),
+        (temp, u32::from(read.bytes), 0)
+    );
+    assert!(address.index.is_none());
+    let offset = match (&read.source, &address.base) {
+        (proof::HomeOwner::Incoming(id), Mir65816AddressBase::Parameter(source)) => {
+            assert_eq!(id, source);
+            let p = r.frame.parameters.iter().find(|p| p.param == *id).unwrap();
+            assert!(p.frame_object.is_none());
+            let Mir65816AbiHome::StackArgument { offset, size, .. } = p.incoming else {
+                panic!("scalar parameter")
+            };
+            assert_eq!(size.get(), u32::from(read.bytes));
+            u32::from(m.frame.extent) + 4 + offset.get()
+        }
+        (proof::HomeOwner::FrameObject(id), Mir65816AddressBase::AutomaticFrame(source)) => {
+            assert_eq!(id, source);
+            let o = r.frame.objects.iter().find(|o| o.id == *id).unwrap();
+            assert!(!o.addressable);
+            assert_eq!(o.size.get(), u32::from(read.bytes));
+            o.stack_offset.get()
+        }
+        _ => panic!("unproved scalar source"),
+    };
+    assert_eq!(offset, u32::from(read.offset));
+    assert!(
+        (u32::from(allocated.offset)..u32::from(allocated.offset) + u32::from(allocated.width))
+            .all(|b| !(offset..offset + u32::from(read.bytes)).contains(&b))
+    );
+    read.offset
+}
+
 pub struct Assembly {
     pub bytes: Vec<u8>,
     pub symbols: std::collections::BTreeMap<String, u32>,
