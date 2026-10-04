@@ -135,5 +135,32 @@ from 756 to 98 bytes and BYTE spans from 1,816 to 501 bytes. Their actual 1,973-
 span saving exceeds the original 1,925-byte model. Four additional indexed-address
 sites save 274 bytes; neighboring mode/branch changes save a net 32 bytes. There
 are no refused audited candidates. Wider/signed indices, unbounded offsets and
-unsupported homes retain existing fallbacks. Full backend qualification remains
-the final step.
+unsupported homes retain existing fallbacks. Final qualification is recorded below.
+
+## Completion and qualification
+
+Plan committed in `3278ee27`; constant selection in `d1cf461a`; BYTE selection in
+`f5da2404`. Final builds reproduce all three measured images, layouts and
+inventories exactly. All 166 source hashes and the original input layout match;
+all 899 routine signatures, arguments/results, frames, homes, calls, stack bounds,
+initialized data and zero-fill remain unchanged. No routine grew in any profile.
+
+| Frozen Exec profile | Before | After | Saved |
+| --- | ---: | ---: | ---: |
+| Optimized unchecked | 326,894 | 324,615 | 2,279 |
+| Optimized guarded | 439,350 | 437,062 | 2,288 |
+| Raw unchecked | 374,735 | 372,460 | 2,275 |
+
+Final checks: 361 MIR65816 library tests and 86 root integration tests passed;
+the full native release runner passed 358 tests across 90 targets. Existing
+opt-in checks remain ignored (one library, four root integration and six native).
+No baseline test was excluded. Ten disassembler tests passed; the unchanged
+emission snapshot passed with LF and CRLF. New multiline source preparation also
+passes both newline conventions through the actual parser/compile path.
+
+The stable-input native qualification manifest is
+`tools/native65816-runtime-tests/target/qualification/run-ofkgeswc/manifest.json`.
+Its hash, tool/VM provenance, commands and profile hashes are in
+[results.json](benchmarks/65816-indexed-addresses/results.json). Measurements cover
+compiler-generated code; platform assembly and hosted Exec boot qualification
+remain outside this work.

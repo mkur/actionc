@@ -12,79 +12,10 @@
   "constant_slice": {
     "optimized_unchecked_code_bytes": 326122,
     "saved_bytes": 772,
-    "audit_sites": [
-      {
-        "routine": "M_TASKPOLICY_PROCESSCANREMOVE_140447A5",
-        "block": 8,
-        "index": 10,
-        "before": 57,
-        "after": 8
-      },
-      {
-        "routine": "M_CONSOLEWINDOWS_TAKE_9FD09734",
-        "block": 1,
-        "index": 1,
-        "before": 123,
-        "after": 10
-      },
-      {
-        "routine": "M_CONSOLEDRIVER_ADMITWORKER_8B81C455",
-        "block": 2,
-        "index": 9,
-        "before": 55,
-        "after": 10
-      },
-      {
-        "routine": "M_CONSOLEDRIVER_INITIALIZE_D6CB2592",
-        "block": 0,
-        "index": 3,
-        "before": 123,
-        "after": 10
-      },
-      {
-        "routine": "M_CONSOLEDRIVER_FREESTORAGE_02676B4B",
-        "block": 0,
-        "index": 3,
-        "before": 123,
-        "after": 10
-      },
-      {
-        "routine": "M_MYDOSFILE_CHAIN_94A5D226",
-        "block": 0,
-        "index": 2,
-        "before": 55,
-        "after": 10
-      },
-      {
-        "routine": "M_SDFS_MAP_D6A7DDA3",
-        "block": 0,
-        "index": 2,
-        "before": 55,
-        "after": 10
-      },
-      {
-        "routine": "M_DEMO_SHELLDIR_42E4EEF3",
-        "block": 15,
-        "index": 2,
-        "before": 55,
-        "after": 10
-      },
-      {
-        "routine": "M_DEMO_SHELLTASKS_EC8AA98C",
-        "block": 9,
-        "index": 2,
-        "before": 55,
-        "after": 10
-      },
-      {
-        "routine": "M_DEMO_SHELLMOUNTS_AF3EE75C",
-        "block": 4,
-        "index": 2,
-        "before": 55,
-        "after": 10
-      }
-    ],
-    "implementation": "d1cf461a"
+    "implementation": "d1cf461a",
+    "audited_sites": 10,
+    "audited_before_bytes": 756,
+    "audited_after_bytes": 98
   },
   "unchanged": [
     "166 source hashes",
@@ -351,7 +282,157 @@
     "optimized_unchecked_code_bytes": 324615,
     "incremental_saved_bytes": 1507,
     "focused_library_tests_passed": 4,
-    "focused_native_tests_passed": 21
+    "focused_native_tests_passed": 21,
+    "implementation": "f5da2404"
   },
-  "abi_frames_homes_stack_bounds_and_data_unchanged": true
+  "abi_frames_homes_stack_bounds_and_data_unchanged": true,
+  "implementation": "f5da2404",
+  "validation": {
+    "library": {
+      "command": "cargo test --lib --features native65816-state-proof mir65816",
+      "passed": 361,
+      "failed": 0,
+      "ignored": 1,
+      "measured": 0,
+      "filtered_out": 2583
+    },
+    "integration": {
+      "command": [
+        "cargo",
+        "test",
+        "--features",
+        "native65816-state-proof",
+        "--no-fail-fast",
+        "--test",
+        "actionc_65816_cli",
+        "--test",
+        "actionc_65816_o65_cli",
+        "--test",
+        "mir65816_abi",
+        "--test",
+        "mir65816_address_selection",
+        "--test",
+        "mir65816_arithmetic",
+        "--test",
+        "mir65816_contract",
+        "--test",
+        "mir65816_copy_inventory",
+        "--test",
+        "mir65816_emission",
+        "--test",
+        "mir65816_movement_inventory",
+        "--test",
+        "mir65816_o65",
+        "--test",
+        "mir65816_register_inventory",
+        "--test",
+        "mir65816_scalar_dp_inventory",
+        "--test",
+        "mir65816_state_boundary"
+      ],
+      "targets": [
+        "actionc_65816_cli",
+        "actionc_65816_o65_cli",
+        "mir65816_abi",
+        "mir65816_address_selection",
+        "mir65816_arithmetic",
+        "mir65816_contract",
+        "mir65816_copy_inventory",
+        "mir65816_emission",
+        "mir65816_movement_inventory",
+        "mir65816_o65",
+        "mir65816_register_inventory",
+        "mir65816_scalar_dp_inventory",
+        "mir65816_state_boundary"
+      ],
+      "passed": 86,
+      "failed": 0,
+      "ignored": 4,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    "new_native_coverage": "All 256 unsigned BYTE values at strides 1, 3, 128 and 257; stride 38 local bases; ca65, complete registers, exact private reads/writes, hidden B, guards on/off, raw/optimized, LF/CRLF, bank carry/wrap, signed/CARD/overflow fallbacks, two o65 placements, and IRQ/NMI at boundaries after nested calls including INDEX scratch.",
+    "emission_snapshot": {
+      "changed": false,
+      "line_endings_checked": [
+        "LF",
+        "CRLF"
+      ],
+      "path": "tests/fixtures/mir65816-state-boundary.txt"
+    },
+    "disassembler": {
+      "command": "PYTHONPATH=tools python3 -B -m unittest tools/test_disassemble65816.py",
+      "passed": 10
+    },
+    "focused_native": {
+      "passed": 21,
+      "targets": [
+        "indexed_addresses",
+        "address_selection",
+        "pointer_values"
+      ],
+      "local_manifests": [
+        "tools/native65816-runtime-tests/target/qualification/run-jwua249q/manifest.json",
+        "tools/native65816-runtime-tests/target/qualification/run-nsrim3st/manifest.json",
+        "tools/native65816-runtime-tests/target/qualification/run-dmugtq_8/manifest.json"
+      ],
+      "note": "Six indexed tests and fourteen existing tests passed together; the added local-base case and expanded IRQ/NMI case passed separately."
+    },
+    "native_release": {
+      "command": [
+        "python3",
+        "-B",
+        "tools/native65816-runtime-tests/qualify.py",
+        "--release",
+        "--no-fail-fast"
+      ],
+      "target_results": 90,
+      "passed": 358,
+      "failed": 0,
+      "ignored": 6,
+      "measured": 0,
+      "filtered_out": 0,
+      "baseline_exclusions": [],
+      "local_manifest": "tools/native65816-runtime-tests/target/qualification/run-ofkgeswc/manifest.json",
+      "manifest_sha256": "125a8f52988edf380f7ac8e6ade58289c3d25351aad6be838897d85985be242e",
+      "compiler_revision": "f5da24040833173b7cdfb4b05503fb02a74f92a8",
+      "compiler_and_fixture_inputs_sha256": "9de42a77ac34920476c50f192ebc71a4f54de2b674960e6a58f2482a7b974138",
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "ca65": "ca65 V2.18 - N/A",
+      "ld65": "ld65 V2.18 - N/A",
+      "ignored_tests": [
+        [
+          "execute_parallel_corpus",
+          "requires build.py artifacts and A816_COMPARISON_MANIFEST"
+        ],
+        [
+          "compare_crc_kernels",
+          "build external artifacts with tools/compare65816/crc.py first"
+        ],
+        [
+          "compare_dijkstra_artifacts",
+          "build external artifacts with tools/compare65816/dijkstra.py first"
+        ],
+        [
+          "observe_every_reload_claim_on_saved_raw_and_optimized_images",
+          "requires A816_MOVEMENT_INVENTORY and A816_COMPARISON_MANIFEST"
+        ],
+        [
+          "compare_sieve_kernels",
+          "build external artifacts with tools/compare65816/sieve.py first"
+        ],
+        [
+          "export_work_and_execute_size_ladder",
+          "explicit work-count and size-ladder qualification"
+        ]
+      ]
+    }
+  },
+  "final_rebuild": {
+    "compiler": "f5da2404",
+    "all_three_profile_images_layouts_and_inventories_identical_to_measured_artifacts": true,
+    "all_166_source_hashes_rechecked": true
+  }
 }
