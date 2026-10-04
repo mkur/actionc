@@ -321,11 +321,13 @@ fn guard_failure_reaches_the_relocated_raw_adapter_before_frame_writes() {
 }
 #[test]
 fn generated_multi_bank_text_executes_without_wrapping_routines() {
+    // Keep the generated code above one bank after direct BYTE arithmetic
+    // selection. Eight times 528 increments still wraps the counter to 128.
     let mut source = "VOLATILE BYTE counter=$7200 ".to_string();
     for i in 0..8 {
         source.push_str(&format!(
             "PROC Work{i}() {} RETURN ",
-            "counter==+1 ".repeat(400)
+            "counter==+1 ".repeat(528)
         ));
     }
     source.push_str("PROC Main() ");

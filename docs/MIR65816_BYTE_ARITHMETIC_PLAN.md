@@ -125,3 +125,10 @@ settings, host flag/value oracles and ca65 checks at boundary values. Other mode
 and guard combinations check every left value against right-hand boundaries.
 Tests also cover mutable parameters, local captures, exact external access order,
 relocation and IRQ/NMI after calls. Full backend qualification is the final step.
+
+The first full native run exposed a size assumption in the generated multi-bank
+fixture: its 400 increments per routine no longer produced more than 64 KiB.
+Increase the workload to 528 increments per routine, retaining the eight
+routines, the greater-than-64-KiB assertion, both relocation placements and the
+same final counter value of 128. This changes test input volume only; compiler
+contracts, expected behavior and Exec measurements are unchanged.
