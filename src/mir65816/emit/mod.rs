@@ -90,6 +90,14 @@ fn materialize_path(
     }
     let prepared = arithmetic::prepare(program)?;
     let program = &prepared;
+    for routine in &program.routines {
+        if !routine.entry.external && routine.helper.is_none() {
+            // Logical facts precede every physical placement path, including
+            // forwarding. Stage 1 validates them without changing selection.
+            super::analysis::RoutineAnalysis::new(routine)
+                .map_err(|e| format!("{}: invalid logical MIR: {e}", routine.name))?;
+        }
+    }
     let forwarding = forwarding::plans(program);
     let mut routines = Vec::new();
     for routine in &program.routines {

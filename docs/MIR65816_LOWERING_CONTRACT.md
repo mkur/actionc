@@ -54,6 +54,14 @@ the temporary table, unique identities and edge arity/width agreement. Emission
 performs parallel edge copies using invocation storage. Lowering must not drop
 edge values introduced by native loop promotion or infer an entry from its name.
 
+Native emission additionally constructs the immutable
+[logical routine analysis](MIR65816_LOGICAL_ANALYSIS.md) after arithmetic
+preparation and before physical placement. It checks complete definitions,
+operand widths and dominance at reachable uses, and provides generation-checked
+value, CFG, liveness and byte-granular invocation-storage facts. These facts
+consume MIR ownership plans; they do not recover source meaning or replace the
+selected-instruction effect and placement checks.
+
 ## Storage and initialization
 
 `Mir65816DataId` distinguishes global storage, compiler static templates and

@@ -1,5 +1,26 @@
 # actionc / vbcc native 65816 comparison
 
+## Exec816 record/value placement baseline
+
+The [stage-0 scorecard](../../docs/benchmarks/65816-record-placement-stage0/README.md)
+records exact source/tool inputs, three compiler profiles, actual guarded demo
+packages, native traffic/cycles, and focused hosted successes and failures.
+The `freeze_exec_baseline.py` and `exec_record_*.py` tools reproduce that workload
+without building in the live Exec checkout. The Rust `record_probe` inventories
+typed MIR and final code; its debug strings are reporting metadata.
+
+The [stage-1 scorecard](../../docs/benchmarks/65816-record-placement-stage1/README.md)
+qualifies the immutable logical analysis with byte-identical artifacts, native
+executions and paired compiler-cost gates. `exec_record_foundation.py` checks a
+candidate against the frozen workload; `record_probe --features logical-analysis`
+adds the checked routine census without changing the ordinary stage-0 probe.
+
+Native-v2 DP traffic in the `code_quality` runner now counts the actual compiler
+scratch at domain offsets `$80..$BF`. Older saved comparisons retain their
+original measurements; remeasure their DP traffic before using it as a baseline.
+
+## Equivalent Action/C comparison
+
 The [analysis and findings](../../docs/MIR65816_VBCC_COMPARISON.md) accompany
 14 equivalent Action!/C kernels, 66 independently calculated input vectors,
 raw/optimized machine code, and execution on the existing independent native VM.

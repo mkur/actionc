@@ -1,0 +1,29 @@
+MODULE RECORDPROBE
+
+; Independent layout with CARD alignment padding and control-flow probe; no Exec-specific names.
+PUBLIC TYPE Cell=[BYTE flag CARD value Cell POINTER next BYTE ARRAY payload(7)]
+
+PUBLIC CARD FUNC Adjust(Cell POINTER p CARD delta)
+  p.value==+delta
+RETURN(p.value)
+
+PUBLIC CARD FUNC Flow(Cell POINTER first BYTE choose)
+  Cell POINTER p
+  CARD total
+  CARD FUNC POINTER callback(Cell POINTER p CARD delta)
+  p=first callback=@Adjust
+  IF choose THEN total=p.value ELSE total=p.value+7 FI
+  WHILE p<>NULL
+  DO
+    total==+CARD(p.flag)
+    IF p.flag&1 THEN
+      total==+Adjust(p,3)
+    ELSE
+      total==+callback(p,2)
+    FI
+    p.payload(2)=BYTE(total)
+    p=p.next
+  OD
+RETURN(total)
+
+ENDMODULE

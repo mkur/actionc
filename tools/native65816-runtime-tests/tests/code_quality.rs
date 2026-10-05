@@ -179,7 +179,9 @@ fn execute(
     let mut metadata_reads = 0u64;
     let mut padding_reads = 0u64;
     let mut dp_touched = BTreeSet::new();
-    let scratch_end = DP as u32
+    // Native v2 compiler scratch occupies $80..$BF in the current domain.
+    let scratch_start = DP as u32 + if action { 128 } else { 0 };
+    let scratch_end = scratch_start
         + if action {
             64
         } else if calypsi {
@@ -272,7 +274,7 @@ fn execute(
             stack_reads += u64::from(read);
             stack_writes += u64::from(write);
         }
-        if (DP as u32..scratch_end).contains(&cycle.address) {
+        if (scratch_start..scratch_end).contains(&cycle.address) {
             dp_reads += u64::from(read);
             dp_writes += u64::from(write);
             if read || write {

@@ -69,76 +69,12 @@ impl Uses {
         }
     }
 
-    fn address(&mut self, address: &Mir65816Address) {
-        if let Mir65816AddressBase::Indirect(value) = &address.base {
-            self.value(value);
-        }
-        if let Some(index) = &address.index {
-            self.value(&index.value);
-        }
-    }
-
     fn operation(op: &Mir65816Op) -> Self {
         let mut uses = Self::default();
-        // Exhaustive: a new operation must describe its inputs and definition
-        // before it can participate in stack reuse.
-        match op {
-            Mir65816Op::Load { dest, address, .. }
-            | Mir65816Op::AddressOf { dest, address, .. } => {
-                uses.output = Some(*dest);
-                uses.address(address);
-            }
-            Mir65816Op::Store { address, value, .. } => {
-                uses.address(address);
-                uses.value(value);
-            }
-            Mir65816Op::Copy {
-                destination,
-                source,
-                ..
-            } => {
-                uses.address(destination);
-                uses.address(source);
-            }
-            Mir65816Op::Unary { dest, value, .. } | Mir65816Op::Cast { dest, value, .. } => {
-                uses.output = Some(*dest);
-                uses.value(value);
-            }
-            Mir65816Op::PointerOffset {
-                dest, base, offset, ..
-            } => {
-                uses.output = Some(*dest);
-                uses.value(base);
-                uses.value(offset);
-            }
-            Mir65816Op::Binary {
-                dest, left, right, ..
-            }
-            | Mir65816Op::Compare {
-                dest, left, right, ..
-            } => {
-                uses.output = Some(*dest);
-                uses.value(left);
-                uses.value(right);
-            }
-            Mir65816Op::Call {
-                target,
-                args,
-                result,
-                ..
-            } => {
-                match target {
-                    Mir65816CallTarget::Indirect(value, _) => uses.value(value),
-                    Mir65816CallTarget::Direct(_)
-                    | Mir65816CallTarget::Helper(_)
-                    | Mir65816CallTarget::Builtin(_)
-                    | Mir65816CallTarget::Runtime(_) => {}
-                }
-                for value in args {
-                    uses.value(value);
-                }
-                uses.output = result.map(|(id, _)| id);
-            }
+        let census = crate::mir65816::analysis::operands::operation(op);
+        uses.output = census.definition.map(|(id, _)| id);
+        for value in census.inputs {
+            uses.value(value);
         }
         uses.pointer_copy = pointer_copy(op);
         uses
@@ -163,30 +99,8 @@ pub(super) fn input_counts(routine: &Mir65816Routine) -> BTreeMap<TempId, usize>
             all.extend(Uses::operation(op).occurrences);
         }
         let mut term = Uses::default();
-        let edges = match &block.terminator {
-            Mir65816Terminator::Goto(edge) => vec![edge],
-            Mir65816Terminator::Branch {
-                condition,
-                then_edge,
-                else_edge,
-            } => {
-                term.value(condition);
-                vec![then_edge, else_edge]
-            }
-            Mir65816Terminator::Return { value, .. } => {
-                if let Some(value) = value {
-                    term.value(value);
-                }
-                vec![]
-            }
-            Mir65816Terminator::Fallthrough
-            | Mir65816Terminator::Exit
-            | Mir65816Terminator::ArithmeticFault => vec![],
-        };
-        for edge in edges {
-            for value in &edge.args {
-                term.value(value);
-            }
+        for value in crate::mir65816::analysis::operands::terminator(&block.terminator).inputs {
+            term.value(value);
         }
         all.extend(term.occurrences);
     }
@@ -242,46 +156,18 @@ fn interference_inner(
     let mut blocks = Vec::new();
     for (index, block) in routine.blocks.iter().enumerate() {
         let mut terminator = Uses::default();
-        let mut successors = Vec::new();
-        let edges = match &block.terminator {
-            Mir65816Terminator::Goto(edge) => vec![edge],
-            Mir65816Terminator::Branch {
-                condition,
-                then_edge,
-                else_edge,
-            } => {
-                terminator.value(condition);
-                vec![then_edge, else_edge]
-            }
-            Mir65816Terminator::Return { value, .. } => {
-                if let Some(value) = value {
-                    terminator.value(value);
-                }
-                vec![]
-            }
-            Mir65816Terminator::Fallthrough => {
-                let next = routine
-                    .blocks
-                    .get(index + 1)
-                    .ok_or("unresolved terminal fallthrough")?;
-                if !next.params.is_empty() {
-                    return Err("fallthrough cannot supply block parameters".into());
-                }
-                successors.push(index + 1);
-                vec![]
-            }
-            Mir65816Terminator::Exit | Mir65816Terminator::ArithmeticFault => vec![],
-        };
-        for edge in edges {
-            successors.push(
-                *indices
-                    .get(&edge.target)
-                    .ok_or("unknown allocation edge target")?,
-            );
-            for value in &edge.args {
-                terminator.value(value);
-            }
+        for value in crate::mir65816::analysis::operands::terminator(&block.terminator).inputs {
+            terminator.value(value);
         }
+        let successors = crate::mir65816::analysis::operands::successors(routine, index)?
+            .into_iter()
+            .map(|id| {
+                indices
+                    .get(&id)
+                    .copied()
+                    .ok_or_else(|| "unknown allocation edge target".into())
+            })
+            .collect::<Result<Vec<_>, String>>()?;
         blocks.push(Block {
             params: block.params.iter().map(|(id, _)| *id).collect(),
             ops: block.ops.iter().map(Uses::operation).collect(),
@@ -396,9 +282,13 @@ fn add_clique(graph: &mut Interference, live: &Live) {
 pub(super) fn definition_counts(routine: &Mir65816Routine) -> BTreeMap<TempId, usize> {
     let mut counts = BTreeMap::new();
     for block in &routine.blocks {
-        for (id, _) in &block.params { *counts.entry(*id).or_default() += 1; }
+        for (id, _) in &block.params {
+            *counts.entry(*id).or_default() += 1;
+        }
         for op in &block.ops {
-            if let Some(id) = operation_output(op) { *counts.entry(id).or_default() += 1; }
+            if let Some(id) = operation_output(op) {
+                *counts.entry(id).or_default() += 1;
+            }
         }
     }
     counts

@@ -1,0 +1,4783 @@
+{
+  "schema": 1,
+  "compiler_revision": "d7d536c928d343932043ba3f1aea5deb107dd41d",
+  "exec_revision": "57df0d7850031fe7964bfef1e515e4d429e72dff",
+  "compiler_manifest_sha256": "d94d936a9140cf2c23f497e50e49066a34d2d5c688f0d6241b0c473bc82abb2f",
+  "exec_manifest_sha256": "e7079475cd84cfaf4de2b5e6c63f7849e3524a3a4ddc48a9025aaa12c4ae714c",
+  "status": "Baseline captured; unchecked hosted release gate remains open",
+  "profiles": {
+    "optimized-release": {
+      "code_bytes": 444948,
+      "stack_check_bytes": 0,
+      "initialized_data_bytes": 2471,
+      "zero_fill_bytes": 277,
+      "routines": 1156,
+      "categories": {
+        "other": 132224,
+        "stack_relative": 136206,
+        "branches": 35168,
+        "mode_changes": 57622,
+        "absolute_long_memory": 4764,
+        "direct_page": 37596,
+        "indirect_memory": 23412,
+        "JSL": 17644,
+        "JML": 312
+      },
+      "families": {
+        "Load": 117389,
+        "Compare": 57602,
+        "Terminator": 39322,
+        "Prologue/helpers/unspanned": 7529,
+        "Cast": 10098,
+        "Store": 60921,
+        "AddressOf": 15421,
+        "Binary": 17840,
+        "Call": 117051,
+        "PointerOffset": 1646,
+        "Unary": 129
+      },
+      "modules": {
+        "EXECMEMORY": 2663,
+        "EXECLISTS": 1566,
+        "TASKMEMORY": 528,
+        "HEAPCORE": 5218,
+        "HEAPPOLICY": 5726,
+        "PROCESSSTATE": 40,
+        "BOOTCONFIG": 739,
+        "TASKPOLICY": 41851,
+        "TASKSTACKS": 120,
+        "CONSOLECORE": 5252,
+        "CONSOLEBATCH": 1077,
+        "DISPLAY": 1741,
+        "CONSOLEBITMAP": 2263,
+        "CONSOLEWINDOWS": 2380,
+        "INPUT": 10571,
+        "CONSOLECAPTURE": 854,
+        "CONSOLEFOREGROUND": 5362,
+        "CONSOLEINPUT": 2412,
+        "CONSOLEDISPLAY": 14349,
+        "CONSOLECONTROL": 1209,
+        "CONSOLEDRIVER": 17609,
+        "PORTCORE": 439,
+        "SIODRIVER": 11206,
+        "IORESIDENT": 550,
+        "IOCORE": 2078,
+        "CONSOLETILING": 4190,
+        "CONSOLE": 2625,
+        "DOSCORE": 40,
+        "FSOPERATION": 3806,
+        "DOSCLIENT": 4007,
+        "DOSOBJECTS": 883,
+        "BLOCKCACHE": 4274,
+        "BLOCKIO": 5915,
+        "FSCORE": 603,
+        "FS83": 2468,
+        "FSNAMES": 2177,
+        "DOSSTREAMS": 951,
+        "DOSPIPE": 4691,
+        "DOSRAW": 6449,
+        "COOKEDLINE": 7670,
+        "DOSCANCEL": 472,
+        "DOSCOOKED": 4053,
+        "DOSBREAK": 2198,
+        "FSSYSTEM": 1055,
+        "FSREGISTRY": 1931,
+        "DOSWIRE": 89,
+        "FSLEASES": 2407,
+        "FSFILES": 871,
+        "FSLOCKS": 1966,
+        "FSOBJECTS": 157,
+        "FSACTIVE": 260,
+        "BLOCKWIRE": 885,
+        "SDFS": 5136,
+        "MYDOS": 6217,
+        "MYDOSFILE": 8137,
+        "SDFSFILE": 6774,
+        "SDFSDATE": 1142,
+        "SDFSDIR": 4937,
+        "SDFSNAME": 2582,
+        "FSBACKEND": 2412,
+        "FSIO": 1348,
+        "FSWRITEIO": 3018,
+        "FSPACKET": 2841,
+        "FSPORTS": 284,
+        "FSINIT": 7288,
+        "FSALLOC": 5311,
+        "MYDOSWRITE": 8410,
+        "SDFSWRITE": 12768,
+        "FSWRITE": 6328,
+        "FSRELATIVE": 4702,
+        "FSNAMESPACE": 1829,
+        "FSINFO": 1556,
+        "FSDIRECTORY": 4688,
+        "FSHANDLER": 9694,
+        "FSABORT": 1406,
+        "FSWORKER": 1986,
+        "FSMOUNT": 1701,
+        "FSMUX": 395,
+        "FSBOOT": 1524,
+        "DOSCALLS": 19272,
+        "CSTRING": 3108,
+        "DOSUTILITY": 1775,
+        "DOSFAULT": 3927,
+        "DOS": 440,
+        "TASKINSPECT": 1026,
+        "DEVICEINSPECT": 519,
+        "FSINSPECT": 2037,
+        "O65MEMORY": 176,
+        "O65READ": 2616,
+        "O65WIRE": 3013,
+        "O65PROFILE": 785,
+        "PROGRAMIMAGE": 1174,
+        "O65RELOCATIONS": 3339,
+        "O65": 1453,
+        "DOSINHERIT": 3660,
+        "DOSGROUP": 2467,
+        "DOSPROCESS": 5867,
+        "PROCESS": 4636,
+        "DOSARGS": 6507,
+        "DOSCOMMAND": 1546,
+        "PROGRAMAPI": 576,
+        "PROGRAMPROVIDERS": 1934,
+        "PROGRAMPLACE": 1346,
+        "PROGRAM": 1048,
+        "PROGRAMFILE": 1741,
+        "PIPELINE": 3061,
+        "DEMO": 45772,
+        "<runtime>": 817
+      },
+      "largest_frame_bytes": 70,
+      "largest_local_stack_peak": 90,
+      "hosted_status": "unsupported",
+      "compiler_image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+      "packaged_image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+      "logical_inventory_sha256": "7b3712d5c915ddaa92dda91e73755e993002046e3104670ce90e5b23621d6177",
+      "source_files": 256,
+      "compiler_sha256": "3217011b3fbc2d8e3d7a4d5142cdbb36c400f8c1bbf77cb37322e39f081e4294",
+      "hosted_error": "Hosted o65 requires a checked kernel"
+    },
+    "optimized-guarded": {
+      "code_bytes": 594828,
+      "stack_check_bytes": 147771,
+      "initialized_data_bytes": 2470,
+      "zero_fill_bytes": 277,
+      "routines": 1156,
+      "categories": {
+        "other": 179772,
+        "direct_page": 59488,
+        "branches": 90272,
+        "JML": 22204,
+        "stack_relative": 136206,
+        "mode_changes": 61066,
+        "absolute_long_memory": 4764,
+        "indirect_memory": 23412,
+        "JSL": 17644
+      },
+      "families": {
+        "Load": 117627,
+        "Compare": 57785,
+        "Terminator": 39493,
+        "Prologue/helpers/unspanned": 30929,
+        "Cast": 10090,
+        "Store": 60879,
+        "AddressOf": 15415,
+        "Binary": 17840,
+        "Call": 242995,
+        "PointerOffset": 1646,
+        "Unary": 129
+      },
+      "modules": {
+        "EXECMEMORY": 2987,
+        "EXECLISTS": 1886,
+        "TASKMEMORY": 550,
+        "HEAPCORE": 6593,
+        "HEAPPOLICY": 7789,
+        "PROCESSSTATE": 62,
+        "BOOTCONFIG": 876,
+        "TASKPOLICY": 56752,
+        "TASKSTACKS": 164,
+        "CONSOLECORE": 6209,
+        "CONSOLEBATCH": 1276,
+        "DISPLAY": 2441,
+        "CONSOLEBITMAP": 3263,
+        "CONSOLEWINDOWS": 2984,
+        "INPUT": 13838,
+        "CONSOLECAPTURE": 1198,
+        "CONSOLEFOREGROUND": 6919,
+        "CONSOLEINPUT": 3102,
+        "CONSOLEDISPLAY": 18507,
+        "CONSOLECONTROL": 1963,
+        "CONSOLEDRIVER": 25733,
+        "PORTCORE": 714,
+        "SIODRIVER": 15644,
+        "IORESIDENT": 1074,
+        "IOCORE": 3383,
+        "CONSOLETILING": 6084,
+        "CONSOLE": 4254,
+        "DOSCORE": 62,
+        "FSOPERATION": 4819,
+        "DOSCLIENT": 5144,
+        "DOSOBJECTS": 1003,
+        "BLOCKCACHE": 5305,
+        "BLOCKIO": 7665,
+        "FSCORE": 669,
+        "FS83": 2928,
+        "FSNAMES": 3127,
+        "DOSSTREAMS": 1441,
+        "DOSPIPE": 6605,
+        "DOSRAW": 9219,
+        "COOKEDLINE": 9356,
+        "DOSCANCEL": 660,
+        "DOSCOOKED": 5823,
+        "DOSBREAK": 3485,
+        "FSSYSTEM": 1735,
+        "FSREGISTRY": 2677,
+        "DOSWIRE": 111,
+        "FSLEASES": 2967,
+        "FSFILES": 1342,
+        "FSLOCKS": 2484,
+        "FSOBJECTS": 318,
+        "FSACTIVE": 282,
+        "BLOCKWIRE": 1210,
+        "SDFS": 6360,
+        "MYDOS": 7235,
+        "MYDOSFILE": 10438,
+        "SDFSFILE": 8282,
+        "SDFSDATE": 1385,
+        "SDFSDIR": 6476,
+        "SDFSNAME": 3233,
+        "FSBACKEND": 3965,
+        "FSIO": 1619,
+        "FSWRITEIO": 4202,
+        "FSPACKET": 3503,
+        "FSPORTS": 442,
+        "FSINIT": 9586,
+        "FSALLOC": 6585,
+        "MYDOSWRITE": 11015,
+        "SDFSWRITE": 17192,
+        "FSWRITE": 8041,
+        "FSRELATIVE": 5874,
+        "FSNAMESPACE": 2441,
+        "FSINFO": 1693,
+        "FSDIRECTORY": 6137,
+        "FSHANDLER": 12460,
+        "FSABORT": 1584,
+        "FSWORKER": 2894,
+        "FSMOUNT": 2243,
+        "FSMUX": 557,
+        "FSBOOT": 2086,
+        "DOSCALLS": 26632,
+        "CSTRING": 3284,
+        "DOSUTILITY": 2339,
+        "DOSFAULT": 4470,
+        "DOS": 734,
+        "TASKINSPECT": 1105,
+        "DEVICEINSPECT": 656,
+        "FSINSPECT": 2372,
+        "O65MEMORY": 323,
+        "O65READ": 3510,
+        "O65WIRE": 4006,
+        "O65PROFILE": 1076,
+        "PROGRAMIMAGE": 1667,
+        "O65RELOCATIONS": 4051,
+        "O65": 2126,
+        "DOSINHERIT": 5747,
+        "DOSGROUP": 3697,
+        "DOSPROCESS": 7987,
+        "PROCESS": 7090,
+        "DOSARGS": 7237,
+        "DOSCOMMAND": 2221,
+        "PROGRAMAPI": 984,
+        "PROGRAMPROVIDERS": 2412,
+        "PROGRAMPLACE": 1577,
+        "PROGRAM": 1482,
+        "PROGRAMFILE": 2287,
+        "PIPELINE": 4314,
+        "DEMO": 64415,
+        "<runtime>": 817
+      },
+      "largest_frame_bytes": 70,
+      "largest_local_stack_peak": 90,
+      "hosted_status": "packaged",
+      "upper_image_code_bytes": 607398,
+      "upper_image_initialized_data_bytes": 7701,
+      "upper_image_code_plus_initialized_data_bytes": 615099,
+      "xex_file_bytes": 632493,
+      "of816_xex_file_bytes": 657396,
+      "compiler_image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+      "packaged_image_sha256": "9795b15d6d8809e7361076db3e335b6fe21db9d807ff1388b975c4f41759a14a",
+      "logical_inventory_sha256": "54e648d6f4abac9651a2b6b2455071d7b56e09839bb67223abf4e87e0646d8c2",
+      "source_files": 256,
+      "compiler_sha256": "3217011b3fbc2d8e3d7a4d5142cdbb36c400f8c1bbf77cb37322e39f081e4294",
+      "program_xex_sha256": "ab1f780d2ddee6deafd1cb30c914a2ae16c065e2991a57c63f5d5e188b6aa057",
+      "of816_xex_sha256": "f25a379b92a1343314df48fd4ee1ec398c80141867102a35d06548b8d6d67eda",
+      "distribution_sha256": "0b8158b0cd60b26b478310beef73ed79b40b410464f64dd3e534588ef07c164f",
+      "memory": {
+        "adapter_state": {
+          "STATE": 2048,
+          "STATE_BYTES": 256,
+          "OLD_COP": 2080,
+          "CURRENT": 2083,
+          "SWITCHING": 2084,
+          "SWITCH_COUNT": 2086,
+          "GATE_COUNT": 2088,
+          "OS_CALLS": 2090,
+          "FORWARD_COUNT": 2092,
+          "OS_OWNER": 2098,
+          "TASK0": 2112,
+          "TASK1": 2128,
+          "KERNEL_OWNER": 2144,
+          "PROBE0": 2176,
+          "PROBE1": 2208,
+          "OLD_VBI": 2094,
+          "TICK_PENDING": 2096,
+          "VBI_COUNT": 2100,
+          "VBI_DISPATCHES": 2102,
+          "IRQ_DEPTH": 2104,
+          "STATUS": 2048,
+          "NMI_COUNT": 2050,
+          "IRQ_COUNT": 2052,
+          "OS_BUSY": 2054,
+          "RETURN_S": 2056,
+          "RETURN_D": 2058,
+          "RETURN_P": 2060,
+          "OLD_MEMLO": 2062,
+          "OLD_NMI": 2064,
+          "OLD_IRQ": 2067,
+          "FAULT_REQUIRED": 2072,
+          "FAULT_S": 2074,
+          "START_CLOCK": 2076,
+          "END_CLOCK": 2077,
+          "RETURN_DBR": 2078,
+          "RETURN_E": 2079,
+          "WAKE_PENDING": 2106,
+          "IRQ_ALLOW": 2107
+        },
+        "abi": {
+          "abi": "exec816.memory.v1",
+          "version": 1,
+          "record_size": 4,
+          "states": {
+            "UNAVAILABLE": 0,
+            "FREE": 1,
+            "RESERVED": 2,
+            "OWNED": 3
+          },
+          "errors": {
+            "OK": 0,
+            "BANK": 1,
+            "OWNER": 2,
+            "UNAVAILABLE": 3,
+            "RESERVED": 4,
+            "CONFLICT": 5,
+            "OWNERSHIP": 6,
+            "EXHAUSTED": 7,
+            "BOOT": 8
+          },
+          "owners": {
+            "SYSTEM": 1,
+            "IMAGE": 2,
+            "CLIENT_A": 3,
+            "CLIENT_B": 4,
+            "HEAP": 5
+          },
+          "manifest": {
+            "header_size": 32,
+            "extent_size": 8,
+            "magic": "EBM1",
+            "copy": 0,
+            "zero": 1,
+            "executable": 2,
+            "fields": {
+              "magic": 0,
+              "version": 4,
+              "banks": 6,
+              "extents": 8,
+              "entry": 10,
+              "reserved": 13,
+              "size": 14,
+              "identity": 16
+            },
+            "extent_fields": {
+              "address": 0,
+              "kind": 3,
+              "size": 4,
+              "owner": 6
+            }
+          },
+          "record": {
+            "size": 8,
+            "extent": 0,
+            "offset": 2,
+            "count": 4,
+            "kind": 6,
+            "reserved": 7
+          },
+          "bank_fields": {
+            "state": 0,
+            "reserved": 1,
+            "owner": 2
+          },
+          "boot_errors": {
+            "BOUNDS": 1,
+            "MANIFEST": 2,
+            "RECORD": 3,
+            "INCOMPLETE": 4
+          },
+          "boot_fields": {
+            "READY": 0,
+            "ERROR": 1,
+            "NEXT": 2,
+            "OFFSET": 4,
+            "LEFT": 6,
+            "OLD_MEMLO": 8,
+            "ADOPTED": 10,
+            "ID": 16,
+            "CALLS": 32,
+            "ENTERED": 34,
+            "WORK": 40,
+            "RETIRED": 35
+          }
+        },
+        "config": {
+          "max_banks": 64,
+          "max_extents": 64,
+          "staging_bytes": 1024,
+          "kernel_bank": 1,
+          "console": false,
+          "cache_blocks": 512,
+          "stack_checks": true
+        },
+        "profile": {
+          "name": "altirraos-4m",
+          "pin": "toolchain/altirra-4m.json",
+          "usable_banks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63
+          ],
+          "code_origin": 74496,
+          "memlo_limit": 2048,
+          "memtop_required": 36864,
+          "regions": [
+            {
+              "name": "os-low",
+              "address": 0,
+              "size": 2048
+            },
+            {
+              "name": "state",
+              "address": 2048,
+              "size": 256
+            },
+            {
+              "name": "task0-dp",
+              "address": 2816,
+              "size": 256
+            },
+            {
+              "name": "task1-dp",
+              "address": 3072,
+              "size": 256
+            },
+            {
+              "name": "kernel-dp",
+              "address": 2560,
+              "size": 256
+            },
+            {
+              "name": "boot-state",
+              "address": 2304,
+              "size": 256
+            },
+            {
+              "name": "resident",
+              "address": 5120,
+              "size": 4096
+            },
+            {
+              "name": "task0-stack",
+              "address": 9216,
+              "size": 1568
+            },
+            {
+              "name": "kernel-stack",
+              "address": 10784,
+              "size": 1568
+            },
+            {
+              "name": "task1-stack",
+              "address": 12352,
+              "size": 1056
+            },
+            {
+              "name": "manifest",
+              "address": 24576,
+              "size": 2048
+            },
+            {
+              "name": "loader",
+              "address": 26624,
+              "size": 5120
+            },
+            {
+              "name": "staging",
+              "address": 23536,
+              "size": 1040
+            },
+            {
+              "name": "vbxe-aperture",
+              "address": 32768,
+              "size": 4096
+            },
+            {
+              "name": "os-high",
+              "address": 36864,
+              "size": 28672
+            }
+          ],
+          "image_data_bytes": 4096,
+          "direct_pages": {
+            "kernel": 2560,
+            "task_base": 2816,
+            "task_stride": 256
+          },
+          "task_stacks": {
+            "4": {
+              "bases": [
+                9232,
+                12368,
+                13936,
+                15504,
+                17072
+              ],
+              "sizes": [
+                1536,
+                1536,
+                1536,
+                1536,
+                1536
+              ]
+            },
+            "8": {
+              "bases": [
+                9232,
+                12368,
+                13424,
+                14480,
+                15536,
+                16592,
+                17648,
+                20240,
+                22832
+              ],
+              "sizes": [
+                1536,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                2560,
+                2560,
+                512
+              ]
+            }
+          },
+          "resident_segments": {
+            "BOOT": 0,
+            "NMI": 1024,
+            "IRQ": 1280,
+            "GATE": 1536,
+            "CONSOLE": 2048,
+            "STUBS": 2560,
+            "FAULT": 3072,
+            "EXIT": 3328,
+            "COOP_BOOT": 3584
+          },
+          "test_scratch": [
+            {
+              "name": "far-write",
+              "address": 31744,
+              "size": 256
+            },
+            {
+              "name": "register-extension",
+              "address": 32000,
+              "size": 128
+            },
+            {
+              "name": "dp-observer",
+              "address": 32128,
+              "size": 32
+            },
+            {
+              "name": "relocation-sentinel",
+              "address": 32256,
+              "size": 256
+            }
+          ],
+          "data_origin": 70400
+        },
+        "constants": {
+          "VERSION": 1,
+          "KERNEL_BANK": 1,
+          "MAX_BANKS": 64,
+          "TABLE": 65536,
+          "TABLE_BYTES": 256,
+          "MANIFEST": 24576,
+          "MANIFEST_CAPACITY": 2048,
+          "MAX_EXTENTS": 64,
+          "EXTENTS": 24864,
+          "LOADER": 26624,
+          "LOADER_BYTES": 5120,
+          "STAGE": 23536,
+          "PAYLOAD": 23544,
+          "CHUNK": 1024,
+          "MEMLO_LIMIT": 2048,
+          "MEMTOP_REQUIRED": 36864,
+          "READY": 2304,
+          "ERROR": 2305,
+          "NEXT": 2306,
+          "OFFSET": 2308,
+          "LEFT": 2310,
+          "OLD_MEMLO": 2312,
+          "ADOPTED": 2314,
+          "ID": 2320,
+          "CALLS": 2336,
+          "ENTERED": 2338,
+          "WORK": 2344,
+          "RETIRED": 2339,
+          "STATE_UNAVAILABLE": 0,
+          "STATE_FREE": 1,
+          "STATE_RESERVED": 2,
+          "STATE_OWNED": 3,
+          "ERROR_OK": 0,
+          "ERROR_BANK": 1,
+          "ERROR_OWNER": 2,
+          "ERROR_UNAVAILABLE": 3,
+          "ERROR_RESERVED": 4,
+          "ERROR_CONFLICT": 5,
+          "ERROR_OWNERSHIP": 6,
+          "ERROR_EXHAUSTED": 7,
+          "ERROR_BOOT": 8,
+          "OWNER_SYSTEM": 1,
+          "OWNER_IMAGE": 2,
+          "OWNER_CLIENT_A": 3,
+          "OWNER_CLIENT_B": 4,
+          "OWNER_HEAP": 5,
+          "BOOT_ERROR_BOUNDS": 1,
+          "BOOT_ERROR_MANIFEST": 2,
+          "BOOT_ERROR_RECORD": 3,
+          "BOOT_ERROR_INCOMPLETE": 4,
+          "HEADER_BYTES": 32,
+          "EXTENT_BYTES": 8,
+          "RECORD_BYTES": 8,
+          "RECORD_EXTENT": 0,
+          "RECORD_OFFSET": 2,
+          "RECORD_COUNT": 4,
+          "RECORD_KIND": 6,
+          "RECORD_RESERVED": 7,
+          "HEADER_MAGIC": 0,
+          "HEADER_VERSION": 4,
+          "HEADER_BANKS": 6,
+          "HEADER_EXTENTS": 8,
+          "HEADER_ENTRY": 10,
+          "HEADER_RESERVED": 13,
+          "HEADER_SIZE": 14,
+          "HEADER_IDENTITY": 16,
+          "EXTENT_ADDRESS": 0,
+          "EXTENT_KIND": 3,
+          "EXTENT_SIZE": 4,
+          "EXTENT_OWNER": 6,
+          "IMAGE_DATA_BASE": 70400,
+          "IMAGE_DATA_END": 74496
+        },
+        "upper_reservations": [
+          {
+            "name": "bank-table",
+            "address": 65536,
+            "size": 256
+          },
+          {
+            "name": "heap-metadata",
+            "address": 65792,
+            "size": 2112
+          },
+          {
+            "name": "port-registry",
+            "address": 67904,
+            "size": 16
+          },
+          {
+            "name": "device-residents",
+            "address": 67920,
+            "size": 256
+          },
+          {
+            "name": "dos-contexts",
+            "address": 68176,
+            "size": 128
+          },
+          {
+            "name": "dos-service",
+            "address": 68304,
+            "size": 108
+          },
+          {
+            "name": "dos-streams",
+            "address": 68412,
+            "size": 64
+          },
+          {
+            "name": "process-table",
+            "address": 68476,
+            "size": 1028
+          },
+          {
+            "name": "console-resident",
+            "address": 69504,
+            "size": 880
+          },
+          {
+            "name": "boot-settings",
+            "address": 70384,
+            "size": 4
+          },
+          {
+            "name": "image-data-alignment",
+            "address": 70388,
+            "size": 12
+          }
+        ],
+        "regions": {
+          "os-low": [
+            0,
+            2048
+          ],
+          "state": [
+            2048,
+            2304
+          ],
+          "task0-dp": [
+            2816,
+            3072
+          ],
+          "task1-dp": [
+            3072,
+            3328
+          ],
+          "kernel-dp": [
+            2560,
+            2816
+          ],
+          "boot-state": [
+            2304,
+            2560
+          ],
+          "resident": [
+            5120,
+            9216
+          ],
+          "task0-stack": [
+            9216,
+            10784
+          ],
+          "kernel-stack": [
+            10784,
+            12352
+          ],
+          "task1-stack": [
+            12352,
+            13408
+          ],
+          "manifest": [
+            24576,
+            26624
+          ],
+          "loader": [
+            26624,
+            31744
+          ],
+          "staging": [
+            23536,
+            24576
+          ],
+          "vbxe-aperture": [
+            32768,
+            36864
+          ],
+          "os-high": [
+            36864,
+            65536
+          ]
+        },
+        "usable_banks": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63
+        ],
+        "boot_config": {
+          "abi": {
+            "abi": "exec816.boot.v1",
+            "magic": 16965,
+            "version": 1,
+            "size": 8,
+            "boot_state_offset": 128,
+            "fields": {
+              "magic": 0,
+              "version": 2,
+              "size": 3,
+              "cache_blocks": 4,
+              "system_drive": 6,
+              "reserved": 7
+            },
+            "cache": {
+              "default": 512,
+              "minimum": 16,
+              "maximum": 2048,
+              "block_bytes": 128
+            }
+          },
+          "address": 2432,
+          "cache_blocks": 512,
+          "system_drive": 1,
+          "system_slot": 0,
+          "allowed_drives": 127,
+          "settings": 70384
+        },
+        "reclaimed_after_startup": [
+          "manifest"
+        ],
+        "startup_retirement": {
+          "address": 2339,
+          "value": 1,
+          "boundary": "startup_complete",
+          "ranges": [
+            "manifest"
+          ]
+        },
+        "phase_reservations": {
+          "loading": [
+            {
+              "name": "os-low",
+              "address": 0,
+              "size": 2048
+            },
+            {
+              "name": "state",
+              "address": 2048,
+              "size": 256
+            },
+            {
+              "name": "boot-state",
+              "address": 2304,
+              "size": 256
+            },
+            {
+              "name": "kernel-dp",
+              "address": 2560,
+              "size": 256
+            },
+            {
+              "name": "dp0",
+              "address": 2816,
+              "size": 256
+            },
+            {
+              "name": "dp1",
+              "address": 3072,
+              "size": 256
+            },
+            {
+              "name": "resident",
+              "address": 5120,
+              "size": 4096
+            },
+            {
+              "name": "stack0",
+              "address": 9216,
+              "size": 1568
+            },
+            {
+              "name": "kernel-stack",
+              "address": 10784,
+              "size": 1568
+            },
+            {
+              "name": "stack1",
+              "address": 12352,
+              "size": 1056
+            },
+            {
+              "name": "staging",
+              "address": 23536,
+              "size": 1040
+            },
+            {
+              "name": "manifest",
+              "address": 24576,
+              "size": 2048
+            },
+            {
+              "name": "loader",
+              "address": 26624,
+              "size": 5120
+            },
+            {
+              "name": "vbxe-aperture",
+              "address": 32768,
+              "size": 4096
+            },
+            {
+              "name": "os-high",
+              "address": 36864,
+              "size": 28672
+            }
+          ],
+          "initialization": [
+            {
+              "name": "os-low",
+              "address": 0,
+              "size": 2048
+            },
+            {
+              "name": "state",
+              "address": 2048,
+              "size": 256
+            },
+            {
+              "name": "boot-state",
+              "address": 2304,
+              "size": 256
+            },
+            {
+              "name": "kernel-dp",
+              "address": 2560,
+              "size": 256
+            },
+            {
+              "name": "dp0",
+              "address": 2816,
+              "size": 256
+            },
+            {
+              "name": "dp1",
+              "address": 3072,
+              "size": 256
+            },
+            {
+              "name": "dp2",
+              "address": 3328,
+              "size": 256
+            },
+            {
+              "name": "dp3",
+              "address": 3584,
+              "size": 256
+            },
+            {
+              "name": "dp4",
+              "address": 3840,
+              "size": 256
+            },
+            {
+              "name": "dp5",
+              "address": 4096,
+              "size": 256
+            },
+            {
+              "name": "dp6",
+              "address": 4352,
+              "size": 256
+            },
+            {
+              "name": "dp7",
+              "address": 4608,
+              "size": 256
+            },
+            {
+              "name": "dp8",
+              "address": 4864,
+              "size": 256
+            },
+            {
+              "name": "resident",
+              "address": 5120,
+              "size": 4096
+            },
+            {
+              "name": "stack0",
+              "address": 9216,
+              "size": 1568
+            },
+            {
+              "name": "kernel-stack",
+              "address": 10784,
+              "size": 1568
+            },
+            {
+              "name": "stack1",
+              "address": 12352,
+              "size": 1056
+            },
+            {
+              "name": "stack2",
+              "address": 13408,
+              "size": 1056
+            },
+            {
+              "name": "stack3",
+              "address": 14464,
+              "size": 1056
+            },
+            {
+              "name": "stack4",
+              "address": 15520,
+              "size": 1056
+            },
+            {
+              "name": "stack5",
+              "address": 16576,
+              "size": 1056
+            },
+            {
+              "name": "stack6",
+              "address": 17632,
+              "size": 2592
+            },
+            {
+              "name": "stack7",
+              "address": 20224,
+              "size": 2592
+            },
+            {
+              "name": "stack8",
+              "address": 22816,
+              "size": 544
+            },
+            {
+              "name": "manifest",
+              "address": 24576,
+              "size": 2048
+            },
+            {
+              "name": "vbxe-aperture",
+              "address": 32768,
+              "size": 4096
+            },
+            {
+              "name": "os-high",
+              "address": 36864,
+              "size": 28672
+            }
+          ],
+          "runtime": [
+            {
+              "name": "os-low",
+              "address": 0,
+              "size": 2048
+            },
+            {
+              "name": "state",
+              "address": 2048,
+              "size": 256
+            },
+            {
+              "name": "boot-state",
+              "address": 2304,
+              "size": 256
+            },
+            {
+              "name": "kernel-dp",
+              "address": 2560,
+              "size": 256
+            },
+            {
+              "name": "dp0",
+              "address": 2816,
+              "size": 256
+            },
+            {
+              "name": "dp1",
+              "address": 3072,
+              "size": 256
+            },
+            {
+              "name": "dp2",
+              "address": 3328,
+              "size": 256
+            },
+            {
+              "name": "dp3",
+              "address": 3584,
+              "size": 256
+            },
+            {
+              "name": "dp4",
+              "address": 3840,
+              "size": 256
+            },
+            {
+              "name": "dp5",
+              "address": 4096,
+              "size": 256
+            },
+            {
+              "name": "dp6",
+              "address": 4352,
+              "size": 256
+            },
+            {
+              "name": "dp7",
+              "address": 4608,
+              "size": 256
+            },
+            {
+              "name": "dp8",
+              "address": 4864,
+              "size": 256
+            },
+            {
+              "name": "resident",
+              "address": 5120,
+              "size": 4096
+            },
+            {
+              "name": "stack0",
+              "address": 9216,
+              "size": 1568
+            },
+            {
+              "name": "kernel-stack",
+              "address": 10784,
+              "size": 1568
+            },
+            {
+              "name": "stack1",
+              "address": 12352,
+              "size": 1056
+            },
+            {
+              "name": "stack2",
+              "address": 13408,
+              "size": 1056
+            },
+            {
+              "name": "stack3",
+              "address": 14464,
+              "size": 1056
+            },
+            {
+              "name": "stack4",
+              "address": 15520,
+              "size": 1056
+            },
+            {
+              "name": "stack5",
+              "address": 16576,
+              "size": 1056
+            },
+            {
+              "name": "stack6",
+              "address": 17632,
+              "size": 2592
+            },
+            {
+              "name": "stack7",
+              "address": 20224,
+              "size": 2592
+            },
+            {
+              "name": "stack8",
+              "address": 22816,
+              "size": 544
+            },
+            {
+              "name": "vbxe-aperture",
+              "address": 32768,
+              "size": 4096
+            },
+            {
+              "name": "os-high",
+              "address": 36864,
+              "size": 28672
+            }
+          ]
+        },
+        "runtime_reservations": [
+          {
+            "name": "os-low",
+            "address": 0,
+            "size": 2048
+          },
+          {
+            "name": "state",
+            "address": 2048,
+            "size": 256
+          },
+          {
+            "name": "boot-state",
+            "address": 2304,
+            "size": 256
+          },
+          {
+            "name": "kernel-dp",
+            "address": 2560,
+            "size": 256
+          },
+          {
+            "name": "dp0",
+            "address": 2816,
+            "size": 256
+          },
+          {
+            "name": "dp1",
+            "address": 3072,
+            "size": 256
+          },
+          {
+            "name": "dp2",
+            "address": 3328,
+            "size": 256
+          },
+          {
+            "name": "dp3",
+            "address": 3584,
+            "size": 256
+          },
+          {
+            "name": "dp4",
+            "address": 3840,
+            "size": 256
+          },
+          {
+            "name": "dp5",
+            "address": 4096,
+            "size": 256
+          },
+          {
+            "name": "dp6",
+            "address": 4352,
+            "size": 256
+          },
+          {
+            "name": "dp7",
+            "address": 4608,
+            "size": 256
+          },
+          {
+            "name": "dp8",
+            "address": 4864,
+            "size": 256
+          },
+          {
+            "name": "resident",
+            "address": 5120,
+            "size": 4096
+          },
+          {
+            "name": "stack0",
+            "address": 9216,
+            "size": 1568
+          },
+          {
+            "name": "kernel-stack",
+            "address": 10784,
+            "size": 1568
+          },
+          {
+            "name": "stack1",
+            "address": 12352,
+            "size": 1056
+          },
+          {
+            "name": "stack2",
+            "address": 13408,
+            "size": 1056
+          },
+          {
+            "name": "stack3",
+            "address": 14464,
+            "size": 1056
+          },
+          {
+            "name": "stack4",
+            "address": 15520,
+            "size": 1056
+          },
+          {
+            "name": "stack5",
+            "address": 16576,
+            "size": 1056
+          },
+          {
+            "name": "stack6",
+            "address": 17632,
+            "size": 2592
+          },
+          {
+            "name": "stack7",
+            "address": 20224,
+            "size": 2592
+          },
+          {
+            "name": "stack8",
+            "address": 22816,
+            "size": 544
+          },
+          {
+            "name": "vbxe-aperture",
+            "address": 32768,
+            "size": 4096
+          },
+          {
+            "name": "os-high",
+            "address": 36864,
+            "size": 28672
+          }
+        ],
+        "runtime_free_ranges": [
+          {
+            "address": 23360,
+            "size": 9408
+          }
+        ],
+        "diagnostic_scratch": [
+          {
+            "name": "far-write",
+            "address": 31744,
+            "size": 256
+          },
+          {
+            "name": "register-extension",
+            "address": 32000,
+            "size": 128
+          },
+          {
+            "name": "dp-observer",
+            "address": 32128,
+            "size": 32
+          },
+          {
+            "name": "relocation-sentinel",
+            "address": 32256,
+            "size": 256
+          }
+        ],
+        "task_pools": [
+          {
+            "dp": 2816,
+            "dp_reserved_bytes": 256,
+            "stack_base": 9232,
+            "stack_bytes": 1536,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3072,
+            "dp_reserved_bytes": 256,
+            "stack_base": 12368,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3328,
+            "dp_reserved_bytes": 256,
+            "stack_base": 13424,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3584,
+            "dp_reserved_bytes": 256,
+            "stack_base": 14480,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3840,
+            "dp_reserved_bytes": 256,
+            "stack_base": 15536,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4096,
+            "dp_reserved_bytes": 256,
+            "stack_base": 16592,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4352,
+            "dp_reserved_bytes": 256,
+            "stack_base": 17648,
+            "stack_bytes": 2560,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4608,
+            "dp_reserved_bytes": 256,
+            "stack_base": 20240,
+            "stack_bytes": 2560,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4864,
+            "dp_reserved_bytes": 256,
+            "stack_base": 22832,
+            "stack_bytes": 512,
+            "interrupt_reserve": 256
+          }
+        ],
+        "task_capacity": 8,
+        "stack_overrides": {
+          "worker": null,
+          "idle": null
+        },
+        "reclaimed_after_adopt": [
+          "loader",
+          "staging"
+        ],
+        "bank_zero_budget": {
+          "fixed_runtime": 10528,
+          "public": [
+            1824,
+            1312,
+            1312,
+            1312,
+            1312,
+            1312,
+            2848,
+            2848
+          ],
+          "idle": 800,
+          "runtime_excluding_os": 25408,
+          "loading_excluding_os": 21872,
+          "runtime_including_os": 56128,
+          "loading_including_os": 52592
+        },
+        "heap_storage": {
+          "BASE": 65792,
+          "CLAIMS": 65808,
+          "HEADERS": 65888,
+          "CAPACITY": 63,
+          "BYTES": 2112
+        },
+        "ports_storage": {
+          "BASE": 67904,
+          "BYTES": 16,
+          "ACTIVE_BYTES": 11
+        },
+        "io_storage": {
+          "BASE": 67920,
+          "BYTES": 256
+        },
+        "dos_storage": {
+          "BASE": 68176,
+          "BYTES": 128,
+          "CAPACITY": 8,
+          "SHARED": 68304,
+          "SERVICE_BYTES": 108,
+          "STREAMS": 68412,
+          "STREAM_BYTES": 64,
+          "STREAM_SLOTS": 4
+        },
+        "process_storage": {
+          "BASE": 68476,
+          "BYTES": 1028,
+          "CAPACITY": 8,
+          "RECORD_BYTES": 128,
+          "TABLE_BYTES": 1024
+        },
+        "input_storage": {
+          "STATE": 4131424,
+          "CAPTURE": 4131840,
+          "STATE_BYTES": 144,
+          "CAPTURE_BYTES": 560,
+          "ACQUISITIONS": 4132688,
+          "POINTER_STATE": 4146816,
+          "POINTER_CAPTURE": 4147216,
+          "POINTER_RESERVE": 4147200,
+          "POINTER_CAPTURE_BYTES": 1280,
+          "POINTER_RESERVED_BYTES": 1536,
+          "POINTER_GUARD_BYTES": 16
+        },
+        "console_storage": {
+          "BASE": 69504,
+          "BYTES": 880,
+          "INSTANCE": 69664,
+          "PRESENTATION": 69866,
+          "ROUTES": 69920,
+          "WINDOWS": 70192,
+          "BITMAP": 70372,
+          "CAPTURE": 4131840,
+          "GLYPHS": 4132400,
+          "KEYMAP": 4132528
+        },
+        "timer_storage": {
+          "BASE": 4132656,
+          "BYTES": 32
+        },
+        "image_data": {
+          "address": 70400,
+          "size": 4096
+        }
+      }
+    },
+    "raw-guarded": {
+      "code_bytes": 661861,
+      "stack_check_bytes": 148203,
+      "initialized_data_bytes": 2470,
+      "zero_fill_bytes": 277,
+      "routines": 1156,
+      "categories": {
+        "other": 188044,
+        "direct_page": 61354,
+        "branches": 92623,
+        "JML": 22268,
+        "stack_relative": 178254,
+        "mode_changes": 73192,
+        "absolute_long_memory": 4952,
+        "indirect_memory": 23482,
+        "JSL": 17692
+      },
+      "families": {
+        "Load": 130281,
+        "Cast": 53521,
+        "Compare": 60036,
+        "Terminator": 29842,
+        "Prologue/helpers/unspanned": 31041,
+        "Store": 69503,
+        "AddressOf": 14995,
+        "Binary": 22007,
+        "Call": 246453,
+        "Unary": 2544,
+        "PointerOffset": 1638
+      },
+      "modules": {
+        "EXECMEMORY": 3357,
+        "EXECLISTS": 1927,
+        "TASKMEMORY": 580,
+        "HEAPCORE": 7135,
+        "HEAPPOLICY": 9080,
+        "PROCESSSTATE": 62,
+        "BOOTCONFIG": 1109,
+        "TASKPOLICY": 63632,
+        "TASKSTACKS": 164,
+        "CONSOLECORE": 6825,
+        "CONSOLEBATCH": 1388,
+        "DISPLAY": 2642,
+        "CONSOLEBITMAP": 3843,
+        "CONSOLEWINDOWS": 3218,
+        "INPUT": 15658,
+        "CONSOLECAPTURE": 1314,
+        "CONSOLEFOREGROUND": 7522,
+        "CONSOLEINPUT": 3686,
+        "CONSOLEDISPLAY": 19654,
+        "CONSOLECONTROL": 1982,
+        "CONSOLEDRIVER": 27154,
+        "PORTCORE": 810,
+        "SIODRIVER": 17944,
+        "IORESIDENT": 1296,
+        "IOCORE": 3887,
+        "CONSOLETILING": 6338,
+        "CONSOLE": 4601,
+        "DOSCORE": 62,
+        "FSOPERATION": 5358,
+        "DOSCLIENT": 5805,
+        "DOSOBJECTS": 977,
+        "BLOCKCACHE": 5679,
+        "BLOCKIO": 8826,
+        "FSCORE": 813,
+        "FS83": 3163,
+        "FSNAMES": 3288,
+        "DOSSTREAMS": 1845,
+        "DOSPIPE": 7809,
+        "DOSRAW": 10358,
+        "COOKEDLINE": 10187,
+        "DOSCANCEL": 713,
+        "DOSCOOKED": 7555,
+        "DOSBREAK": 4057,
+        "FSSYSTEM": 1768,
+        "FSREGISTRY": 2683,
+        "DOSWIRE": 205,
+        "FSLEASES": 2888,
+        "FSFILES": 1509,
+        "FSLOCKS": 2685,
+        "FSOBJECTS": 348,
+        "FSACTIVE": 282,
+        "BLOCKWIRE": 1274,
+        "SDFS": 7105,
+        "MYDOS": 9219,
+        "MYDOSFILE": 11609,
+        "SDFSFILE": 9415,
+        "SDFSDATE": 1518,
+        "SDFSDIR": 7228,
+        "SDFSNAME": 3515,
+        "FSBACKEND": 3965,
+        "FSIO": 1711,
+        "FSWRITEIO": 4449,
+        "FSPACKET": 3711,
+        "FSPORTS": 509,
+        "FSINIT": 10302,
+        "FSALLOC": 7155,
+        "MYDOSWRITE": 11820,
+        "SDFSWRITE": 18579,
+        "FSWRITE": 8780,
+        "FSRELATIVE": 6153,
+        "FSNAMESPACE": 2728,
+        "FSINFO": 1838,
+        "FSDIRECTORY": 6509,
+        "FSHANDLER": 13687,
+        "FSABORT": 2077,
+        "FSWORKER": 3208,
+        "FSMOUNT": 2647,
+        "FSMUX": 549,
+        "FSBOOT": 2320,
+        "DOSCALLS": 30653,
+        "CSTRING": 3612,
+        "DOSUTILITY": 3449,
+        "DOSFAULT": 5109,
+        "DOS": 768,
+        "TASKINSPECT": 1142,
+        "DEVICEINSPECT": 752,
+        "FSINSPECT": 2395,
+        "O65MEMORY": 370,
+        "O65READ": 3967,
+        "O65WIRE": 4622,
+        "O65PROFILE": 1243,
+        "PROGRAMIMAGE": 1816,
+        "O65RELOCATIONS": 4943,
+        "O65": 2454,
+        "DOSINHERIT": 6463,
+        "DOSGROUP": 3894,
+        "DOSPROCESS": 8298,
+        "PROCESS": 7614,
+        "DOSARGS": 8308,
+        "DOSCOMMAND": 2758,
+        "PROGRAMAPI": 1092,
+        "PROGRAMPROVIDERS": 2949,
+        "PROGRAMPLACE": 1651,
+        "PROGRAM": 1592,
+        "PROGRAMFILE": 2582,
+        "PIPELINE": 5287,
+        "DEMO": 72010,
+        "<runtime>": 817
+      },
+      "largest_frame_bytes": 72,
+      "largest_local_stack_peak": 90,
+      "hosted_status": "packaged",
+      "upper_image_code_bytes": 674431,
+      "upper_image_initialized_data_bytes": 7701,
+      "upper_image_code_plus_initialized_data_bytes": 682132,
+      "xex_file_bytes": 700712,
+      "of816_xex_file_bytes": 725615,
+      "compiler_image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+      "packaged_image_sha256": "7f7989bb49b90cf06c1897f0080ebeb41ef806bcb3b50c27e1deaf69124b25ad",
+      "logical_inventory_sha256": "209fa1dea4170b53a943c008f0ee01b5546a65fc0d68f01f1e858322c9beeede",
+      "source_files": 256,
+      "compiler_sha256": "3217011b3fbc2d8e3d7a4d5142cdbb36c400f8c1bbf77cb37322e39f081e4294",
+      "program_xex_sha256": "26ed80102c148d5f955530c58a92e67f3826c1498b9c5108c3507e2b8e3e1128",
+      "of816_xex_sha256": "f40721e8c06dbeb564c41fea32a0882c21b31d588d3544143a39cee5f257664c",
+      "distribution_sha256": "b56203130e17bb58dd473c852be873effaa4ad32b2be9b087452a5d43d957871",
+      "memory": {
+        "adapter_state": {
+          "STATE": 2048,
+          "STATE_BYTES": 256,
+          "OLD_COP": 2080,
+          "CURRENT": 2083,
+          "SWITCHING": 2084,
+          "SWITCH_COUNT": 2086,
+          "GATE_COUNT": 2088,
+          "OS_CALLS": 2090,
+          "FORWARD_COUNT": 2092,
+          "OS_OWNER": 2098,
+          "TASK0": 2112,
+          "TASK1": 2128,
+          "KERNEL_OWNER": 2144,
+          "PROBE0": 2176,
+          "PROBE1": 2208,
+          "OLD_VBI": 2094,
+          "TICK_PENDING": 2096,
+          "VBI_COUNT": 2100,
+          "VBI_DISPATCHES": 2102,
+          "IRQ_DEPTH": 2104,
+          "STATUS": 2048,
+          "NMI_COUNT": 2050,
+          "IRQ_COUNT": 2052,
+          "OS_BUSY": 2054,
+          "RETURN_S": 2056,
+          "RETURN_D": 2058,
+          "RETURN_P": 2060,
+          "OLD_MEMLO": 2062,
+          "OLD_NMI": 2064,
+          "OLD_IRQ": 2067,
+          "FAULT_REQUIRED": 2072,
+          "FAULT_S": 2074,
+          "START_CLOCK": 2076,
+          "END_CLOCK": 2077,
+          "RETURN_DBR": 2078,
+          "RETURN_E": 2079,
+          "WAKE_PENDING": 2106,
+          "IRQ_ALLOW": 2107
+        },
+        "abi": {
+          "abi": "exec816.memory.v1",
+          "version": 1,
+          "record_size": 4,
+          "states": {
+            "UNAVAILABLE": 0,
+            "FREE": 1,
+            "RESERVED": 2,
+            "OWNED": 3
+          },
+          "errors": {
+            "OK": 0,
+            "BANK": 1,
+            "OWNER": 2,
+            "UNAVAILABLE": 3,
+            "RESERVED": 4,
+            "CONFLICT": 5,
+            "OWNERSHIP": 6,
+            "EXHAUSTED": 7,
+            "BOOT": 8
+          },
+          "owners": {
+            "SYSTEM": 1,
+            "IMAGE": 2,
+            "CLIENT_A": 3,
+            "CLIENT_B": 4,
+            "HEAP": 5
+          },
+          "manifest": {
+            "header_size": 32,
+            "extent_size": 8,
+            "magic": "EBM1",
+            "copy": 0,
+            "zero": 1,
+            "executable": 2,
+            "fields": {
+              "magic": 0,
+              "version": 4,
+              "banks": 6,
+              "extents": 8,
+              "entry": 10,
+              "reserved": 13,
+              "size": 14,
+              "identity": 16
+            },
+            "extent_fields": {
+              "address": 0,
+              "kind": 3,
+              "size": 4,
+              "owner": 6
+            }
+          },
+          "record": {
+            "size": 8,
+            "extent": 0,
+            "offset": 2,
+            "count": 4,
+            "kind": 6,
+            "reserved": 7
+          },
+          "bank_fields": {
+            "state": 0,
+            "reserved": 1,
+            "owner": 2
+          },
+          "boot_errors": {
+            "BOUNDS": 1,
+            "MANIFEST": 2,
+            "RECORD": 3,
+            "INCOMPLETE": 4
+          },
+          "boot_fields": {
+            "READY": 0,
+            "ERROR": 1,
+            "NEXT": 2,
+            "OFFSET": 4,
+            "LEFT": 6,
+            "OLD_MEMLO": 8,
+            "ADOPTED": 10,
+            "ID": 16,
+            "CALLS": 32,
+            "ENTERED": 34,
+            "WORK": 40,
+            "RETIRED": 35
+          }
+        },
+        "config": {
+          "max_banks": 64,
+          "max_extents": 64,
+          "staging_bytes": 1024,
+          "kernel_bank": 1,
+          "console": false,
+          "cache_blocks": 512,
+          "stack_checks": true
+        },
+        "profile": {
+          "name": "altirraos-4m",
+          "pin": "toolchain/altirra-4m.json",
+          "usable_banks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63
+          ],
+          "code_origin": 74496,
+          "memlo_limit": 2048,
+          "memtop_required": 36864,
+          "regions": [
+            {
+              "name": "os-low",
+              "address": 0,
+              "size": 2048
+            },
+            {
+              "name": "state",
+              "address": 2048,
+              "size": 256
+            },
+            {
+              "name": "task0-dp",
+              "address": 2816,
+              "size": 256
+            },
+            {
+              "name": "task1-dp",
+              "address": 3072,
+              "size": 256
+            },
+            {
+              "name": "kernel-dp",
+              "address": 2560,
+              "size": 256
+            },
+            {
+              "name": "boot-state",
+              "address": 2304,
+              "size": 256
+            },
+            {
+              "name": "resident",
+              "address": 5120,
+              "size": 4096
+            },
+            {
+              "name": "task0-stack",
+              "address": 9216,
+              "size": 1568
+            },
+            {
+              "name": "kernel-stack",
+              "address": 10784,
+              "size": 1568
+            },
+            {
+              "name": "task1-stack",
+              "address": 12352,
+              "size": 1056
+            },
+            {
+              "name": "manifest",
+              "address": 24576,
+              "size": 2048
+            },
+            {
+              "name": "loader",
+              "address": 26624,
+              "size": 5120
+            },
+            {
+              "name": "staging",
+              "address": 23536,
+              "size": 1040
+            },
+            {
+              "name": "vbxe-aperture",
+              "address": 32768,
+              "size": 4096
+            },
+            {
+              "name": "os-high",
+              "address": 36864,
+              "size": 28672
+            }
+          ],
+          "image_data_bytes": 4096,
+          "direct_pages": {
+            "kernel": 2560,
+            "task_base": 2816,
+            "task_stride": 256
+          },
+          "task_stacks": {
+            "4": {
+              "bases": [
+                9232,
+                12368,
+                13936,
+                15504,
+                17072
+              ],
+              "sizes": [
+                1536,
+                1536,
+                1536,
+                1536,
+                1536
+              ]
+            },
+            "8": {
+              "bases": [
+                9232,
+                12368,
+                13424,
+                14480,
+                15536,
+                16592,
+                17648,
+                20240,
+                22832
+              ],
+              "sizes": [
+                1536,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                2560,
+                2560,
+                512
+              ]
+            }
+          },
+          "resident_segments": {
+            "BOOT": 0,
+            "NMI": 1024,
+            "IRQ": 1280,
+            "GATE": 1536,
+            "CONSOLE": 2048,
+            "STUBS": 2560,
+            "FAULT": 3072,
+            "EXIT": 3328,
+            "COOP_BOOT": 3584
+          },
+          "test_scratch": [
+            {
+              "name": "far-write",
+              "address": 31744,
+              "size": 256
+            },
+            {
+              "name": "register-extension",
+              "address": 32000,
+              "size": 128
+            },
+            {
+              "name": "dp-observer",
+              "address": 32128,
+              "size": 32
+            },
+            {
+              "name": "relocation-sentinel",
+              "address": 32256,
+              "size": 256
+            }
+          ],
+          "data_origin": 70400
+        },
+        "constants": {
+          "VERSION": 1,
+          "KERNEL_BANK": 1,
+          "MAX_BANKS": 64,
+          "TABLE": 65536,
+          "TABLE_BYTES": 256,
+          "MANIFEST": 24576,
+          "MANIFEST_CAPACITY": 2048,
+          "MAX_EXTENTS": 64,
+          "EXTENTS": 24864,
+          "LOADER": 26624,
+          "LOADER_BYTES": 5120,
+          "STAGE": 23536,
+          "PAYLOAD": 23544,
+          "CHUNK": 1024,
+          "MEMLO_LIMIT": 2048,
+          "MEMTOP_REQUIRED": 36864,
+          "READY": 2304,
+          "ERROR": 2305,
+          "NEXT": 2306,
+          "OFFSET": 2308,
+          "LEFT": 2310,
+          "OLD_MEMLO": 2312,
+          "ADOPTED": 2314,
+          "ID": 2320,
+          "CALLS": 2336,
+          "ENTERED": 2338,
+          "WORK": 2344,
+          "RETIRED": 2339,
+          "STATE_UNAVAILABLE": 0,
+          "STATE_FREE": 1,
+          "STATE_RESERVED": 2,
+          "STATE_OWNED": 3,
+          "ERROR_OK": 0,
+          "ERROR_BANK": 1,
+          "ERROR_OWNER": 2,
+          "ERROR_UNAVAILABLE": 3,
+          "ERROR_RESERVED": 4,
+          "ERROR_CONFLICT": 5,
+          "ERROR_OWNERSHIP": 6,
+          "ERROR_EXHAUSTED": 7,
+          "ERROR_BOOT": 8,
+          "OWNER_SYSTEM": 1,
+          "OWNER_IMAGE": 2,
+          "OWNER_CLIENT_A": 3,
+          "OWNER_CLIENT_B": 4,
+          "OWNER_HEAP": 5,
+          "BOOT_ERROR_BOUNDS": 1,
+          "BOOT_ERROR_MANIFEST": 2,
+          "BOOT_ERROR_RECORD": 3,
+          "BOOT_ERROR_INCOMPLETE": 4,
+          "HEADER_BYTES": 32,
+          "EXTENT_BYTES": 8,
+          "RECORD_BYTES": 8,
+          "RECORD_EXTENT": 0,
+          "RECORD_OFFSET": 2,
+          "RECORD_COUNT": 4,
+          "RECORD_KIND": 6,
+          "RECORD_RESERVED": 7,
+          "HEADER_MAGIC": 0,
+          "HEADER_VERSION": 4,
+          "HEADER_BANKS": 6,
+          "HEADER_EXTENTS": 8,
+          "HEADER_ENTRY": 10,
+          "HEADER_RESERVED": 13,
+          "HEADER_SIZE": 14,
+          "HEADER_IDENTITY": 16,
+          "EXTENT_ADDRESS": 0,
+          "EXTENT_KIND": 3,
+          "EXTENT_SIZE": 4,
+          "EXTENT_OWNER": 6,
+          "IMAGE_DATA_BASE": 70400,
+          "IMAGE_DATA_END": 74496
+        },
+        "upper_reservations": [
+          {
+            "name": "bank-table",
+            "address": 65536,
+            "size": 256
+          },
+          {
+            "name": "heap-metadata",
+            "address": 65792,
+            "size": 2112
+          },
+          {
+            "name": "port-registry",
+            "address": 67904,
+            "size": 16
+          },
+          {
+            "name": "device-residents",
+            "address": 67920,
+            "size": 256
+          },
+          {
+            "name": "dos-contexts",
+            "address": 68176,
+            "size": 128
+          },
+          {
+            "name": "dos-service",
+            "address": 68304,
+            "size": 108
+          },
+          {
+            "name": "dos-streams",
+            "address": 68412,
+            "size": 64
+          },
+          {
+            "name": "process-table",
+            "address": 68476,
+            "size": 1028
+          },
+          {
+            "name": "console-resident",
+            "address": 69504,
+            "size": 880
+          },
+          {
+            "name": "boot-settings",
+            "address": 70384,
+            "size": 4
+          },
+          {
+            "name": "image-data-alignment",
+            "address": 70388,
+            "size": 12
+          }
+        ],
+        "regions": {
+          "os-low": [
+            0,
+            2048
+          ],
+          "state": [
+            2048,
+            2304
+          ],
+          "task0-dp": [
+            2816,
+            3072
+          ],
+          "task1-dp": [
+            3072,
+            3328
+          ],
+          "kernel-dp": [
+            2560,
+            2816
+          ],
+          "boot-state": [
+            2304,
+            2560
+          ],
+          "resident": [
+            5120,
+            9216
+          ],
+          "task0-stack": [
+            9216,
+            10784
+          ],
+          "kernel-stack": [
+            10784,
+            12352
+          ],
+          "task1-stack": [
+            12352,
+            13408
+          ],
+          "manifest": [
+            24576,
+            26624
+          ],
+          "loader": [
+            26624,
+            31744
+          ],
+          "staging": [
+            23536,
+            24576
+          ],
+          "vbxe-aperture": [
+            32768,
+            36864
+          ],
+          "os-high": [
+            36864,
+            65536
+          ]
+        },
+        "usable_banks": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63
+        ],
+        "boot_config": {
+          "abi": {
+            "abi": "exec816.boot.v1",
+            "magic": 16965,
+            "version": 1,
+            "size": 8,
+            "boot_state_offset": 128,
+            "fields": {
+              "magic": 0,
+              "version": 2,
+              "size": 3,
+              "cache_blocks": 4,
+              "system_drive": 6,
+              "reserved": 7
+            },
+            "cache": {
+              "default": 512,
+              "minimum": 16,
+              "maximum": 2048,
+              "block_bytes": 128
+            }
+          },
+          "address": 2432,
+          "cache_blocks": 512,
+          "system_drive": 1,
+          "system_slot": 0,
+          "allowed_drives": 127,
+          "settings": 70384
+        },
+        "reclaimed_after_startup": [
+          "manifest"
+        ],
+        "startup_retirement": {
+          "address": 2339,
+          "value": 1,
+          "boundary": "startup_complete",
+          "ranges": [
+            "manifest"
+          ]
+        },
+        "phase_reservations": {
+          "loading": [
+            {
+              "name": "os-low",
+              "address": 0,
+              "size": 2048
+            },
+            {
+              "name": "state",
+              "address": 2048,
+              "size": 256
+            },
+            {
+              "name": "boot-state",
+              "address": 2304,
+              "size": 256
+            },
+            {
+              "name": "kernel-dp",
+              "address": 2560,
+              "size": 256
+            },
+            {
+              "name": "dp0",
+              "address": 2816,
+              "size": 256
+            },
+            {
+              "name": "dp1",
+              "address": 3072,
+              "size": 256
+            },
+            {
+              "name": "resident",
+              "address": 5120,
+              "size": 4096
+            },
+            {
+              "name": "stack0",
+              "address": 9216,
+              "size": 1568
+            },
+            {
+              "name": "kernel-stack",
+              "address": 10784,
+              "size": 1568
+            },
+            {
+              "name": "stack1",
+              "address": 12352,
+              "size": 1056
+            },
+            {
+              "name": "staging",
+              "address": 23536,
+              "size": 1040
+            },
+            {
+              "name": "manifest",
+              "address": 24576,
+              "size": 2048
+            },
+            {
+              "name": "loader",
+              "address": 26624,
+              "size": 5120
+            },
+            {
+              "name": "vbxe-aperture",
+              "address": 32768,
+              "size": 4096
+            },
+            {
+              "name": "os-high",
+              "address": 36864,
+              "size": 28672
+            }
+          ],
+          "initialization": [
+            {
+              "name": "os-low",
+              "address": 0,
+              "size": 2048
+            },
+            {
+              "name": "state",
+              "address": 2048,
+              "size": 256
+            },
+            {
+              "name": "boot-state",
+              "address": 2304,
+              "size": 256
+            },
+            {
+              "name": "kernel-dp",
+              "address": 2560,
+              "size": 256
+            },
+            {
+              "name": "dp0",
+              "address": 2816,
+              "size": 256
+            },
+            {
+              "name": "dp1",
+              "address": 3072,
+              "size": 256
+            },
+            {
+              "name": "dp2",
+              "address": 3328,
+              "size": 256
+            },
+            {
+              "name": "dp3",
+              "address": 3584,
+              "size": 256
+            },
+            {
+              "name": "dp4",
+              "address": 3840,
+              "size": 256
+            },
+            {
+              "name": "dp5",
+              "address": 4096,
+              "size": 256
+            },
+            {
+              "name": "dp6",
+              "address": 4352,
+              "size": 256
+            },
+            {
+              "name": "dp7",
+              "address": 4608,
+              "size": 256
+            },
+            {
+              "name": "dp8",
+              "address": 4864,
+              "size": 256
+            },
+            {
+              "name": "resident",
+              "address": 5120,
+              "size": 4096
+            },
+            {
+              "name": "stack0",
+              "address": 9216,
+              "size": 1568
+            },
+            {
+              "name": "kernel-stack",
+              "address": 10784,
+              "size": 1568
+            },
+            {
+              "name": "stack1",
+              "address": 12352,
+              "size": 1056
+            },
+            {
+              "name": "stack2",
+              "address": 13408,
+              "size": 1056
+            },
+            {
+              "name": "stack3",
+              "address": 14464,
+              "size": 1056
+            },
+            {
+              "name": "stack4",
+              "address": 15520,
+              "size": 1056
+            },
+            {
+              "name": "stack5",
+              "address": 16576,
+              "size": 1056
+            },
+            {
+              "name": "stack6",
+              "address": 17632,
+              "size": 2592
+            },
+            {
+              "name": "stack7",
+              "address": 20224,
+              "size": 2592
+            },
+            {
+              "name": "stack8",
+              "address": 22816,
+              "size": 544
+            },
+            {
+              "name": "manifest",
+              "address": 24576,
+              "size": 2048
+            },
+            {
+              "name": "vbxe-aperture",
+              "address": 32768,
+              "size": 4096
+            },
+            {
+              "name": "os-high",
+              "address": 36864,
+              "size": 28672
+            }
+          ],
+          "runtime": [
+            {
+              "name": "os-low",
+              "address": 0,
+              "size": 2048
+            },
+            {
+              "name": "state",
+              "address": 2048,
+              "size": 256
+            },
+            {
+              "name": "boot-state",
+              "address": 2304,
+              "size": 256
+            },
+            {
+              "name": "kernel-dp",
+              "address": 2560,
+              "size": 256
+            },
+            {
+              "name": "dp0",
+              "address": 2816,
+              "size": 256
+            },
+            {
+              "name": "dp1",
+              "address": 3072,
+              "size": 256
+            },
+            {
+              "name": "dp2",
+              "address": 3328,
+              "size": 256
+            },
+            {
+              "name": "dp3",
+              "address": 3584,
+              "size": 256
+            },
+            {
+              "name": "dp4",
+              "address": 3840,
+              "size": 256
+            },
+            {
+              "name": "dp5",
+              "address": 4096,
+              "size": 256
+            },
+            {
+              "name": "dp6",
+              "address": 4352,
+              "size": 256
+            },
+            {
+              "name": "dp7",
+              "address": 4608,
+              "size": 256
+            },
+            {
+              "name": "dp8",
+              "address": 4864,
+              "size": 256
+            },
+            {
+              "name": "resident",
+              "address": 5120,
+              "size": 4096
+            },
+            {
+              "name": "stack0",
+              "address": 9216,
+              "size": 1568
+            },
+            {
+              "name": "kernel-stack",
+              "address": 10784,
+              "size": 1568
+            },
+            {
+              "name": "stack1",
+              "address": 12352,
+              "size": 1056
+            },
+            {
+              "name": "stack2",
+              "address": 13408,
+              "size": 1056
+            },
+            {
+              "name": "stack3",
+              "address": 14464,
+              "size": 1056
+            },
+            {
+              "name": "stack4",
+              "address": 15520,
+              "size": 1056
+            },
+            {
+              "name": "stack5",
+              "address": 16576,
+              "size": 1056
+            },
+            {
+              "name": "stack6",
+              "address": 17632,
+              "size": 2592
+            },
+            {
+              "name": "stack7",
+              "address": 20224,
+              "size": 2592
+            },
+            {
+              "name": "stack8",
+              "address": 22816,
+              "size": 544
+            },
+            {
+              "name": "vbxe-aperture",
+              "address": 32768,
+              "size": 4096
+            },
+            {
+              "name": "os-high",
+              "address": 36864,
+              "size": 28672
+            }
+          ]
+        },
+        "runtime_reservations": [
+          {
+            "name": "os-low",
+            "address": 0,
+            "size": 2048
+          },
+          {
+            "name": "state",
+            "address": 2048,
+            "size": 256
+          },
+          {
+            "name": "boot-state",
+            "address": 2304,
+            "size": 256
+          },
+          {
+            "name": "kernel-dp",
+            "address": 2560,
+            "size": 256
+          },
+          {
+            "name": "dp0",
+            "address": 2816,
+            "size": 256
+          },
+          {
+            "name": "dp1",
+            "address": 3072,
+            "size": 256
+          },
+          {
+            "name": "dp2",
+            "address": 3328,
+            "size": 256
+          },
+          {
+            "name": "dp3",
+            "address": 3584,
+            "size": 256
+          },
+          {
+            "name": "dp4",
+            "address": 3840,
+            "size": 256
+          },
+          {
+            "name": "dp5",
+            "address": 4096,
+            "size": 256
+          },
+          {
+            "name": "dp6",
+            "address": 4352,
+            "size": 256
+          },
+          {
+            "name": "dp7",
+            "address": 4608,
+            "size": 256
+          },
+          {
+            "name": "dp8",
+            "address": 4864,
+            "size": 256
+          },
+          {
+            "name": "resident",
+            "address": 5120,
+            "size": 4096
+          },
+          {
+            "name": "stack0",
+            "address": 9216,
+            "size": 1568
+          },
+          {
+            "name": "kernel-stack",
+            "address": 10784,
+            "size": 1568
+          },
+          {
+            "name": "stack1",
+            "address": 12352,
+            "size": 1056
+          },
+          {
+            "name": "stack2",
+            "address": 13408,
+            "size": 1056
+          },
+          {
+            "name": "stack3",
+            "address": 14464,
+            "size": 1056
+          },
+          {
+            "name": "stack4",
+            "address": 15520,
+            "size": 1056
+          },
+          {
+            "name": "stack5",
+            "address": 16576,
+            "size": 1056
+          },
+          {
+            "name": "stack6",
+            "address": 17632,
+            "size": 2592
+          },
+          {
+            "name": "stack7",
+            "address": 20224,
+            "size": 2592
+          },
+          {
+            "name": "stack8",
+            "address": 22816,
+            "size": 544
+          },
+          {
+            "name": "vbxe-aperture",
+            "address": 32768,
+            "size": 4096
+          },
+          {
+            "name": "os-high",
+            "address": 36864,
+            "size": 28672
+          }
+        ],
+        "runtime_free_ranges": [
+          {
+            "address": 23360,
+            "size": 9408
+          }
+        ],
+        "diagnostic_scratch": [
+          {
+            "name": "far-write",
+            "address": 31744,
+            "size": 256
+          },
+          {
+            "name": "register-extension",
+            "address": 32000,
+            "size": 128
+          },
+          {
+            "name": "dp-observer",
+            "address": 32128,
+            "size": 32
+          },
+          {
+            "name": "relocation-sentinel",
+            "address": 32256,
+            "size": 256
+          }
+        ],
+        "task_pools": [
+          {
+            "dp": 2816,
+            "dp_reserved_bytes": 256,
+            "stack_base": 9232,
+            "stack_bytes": 1536,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3072,
+            "dp_reserved_bytes": 256,
+            "stack_base": 12368,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3328,
+            "dp_reserved_bytes": 256,
+            "stack_base": 13424,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3584,
+            "dp_reserved_bytes": 256,
+            "stack_base": 14480,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3840,
+            "dp_reserved_bytes": 256,
+            "stack_base": 15536,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4096,
+            "dp_reserved_bytes": 256,
+            "stack_base": 16592,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4352,
+            "dp_reserved_bytes": 256,
+            "stack_base": 17648,
+            "stack_bytes": 2560,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4608,
+            "dp_reserved_bytes": 256,
+            "stack_base": 20240,
+            "stack_bytes": 2560,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4864,
+            "dp_reserved_bytes": 256,
+            "stack_base": 22832,
+            "stack_bytes": 512,
+            "interrupt_reserve": 256
+          }
+        ],
+        "task_capacity": 8,
+        "stack_overrides": {
+          "worker": null,
+          "idle": null
+        },
+        "reclaimed_after_adopt": [
+          "loader",
+          "staging"
+        ],
+        "bank_zero_budget": {
+          "fixed_runtime": 10528,
+          "public": [
+            1824,
+            1312,
+            1312,
+            1312,
+            1312,
+            1312,
+            2848,
+            2848
+          ],
+          "idle": 800,
+          "runtime_excluding_os": 25408,
+          "loading_excluding_os": 21872,
+          "runtime_including_os": 56128,
+          "loading_including_os": 52592
+        },
+        "heap_storage": {
+          "BASE": 65792,
+          "CLAIMS": 65808,
+          "HEADERS": 65888,
+          "CAPACITY": 63,
+          "BYTES": 2112
+        },
+        "ports_storage": {
+          "BASE": 67904,
+          "BYTES": 16,
+          "ACTIVE_BYTES": 11
+        },
+        "io_storage": {
+          "BASE": 67920,
+          "BYTES": 256
+        },
+        "dos_storage": {
+          "BASE": 68176,
+          "BYTES": 128,
+          "CAPACITY": 8,
+          "SHARED": 68304,
+          "SERVICE_BYTES": 108,
+          "STREAMS": 68412,
+          "STREAM_BYTES": 64,
+          "STREAM_SLOTS": 4
+        },
+        "process_storage": {
+          "BASE": 68476,
+          "BYTES": 1028,
+          "CAPACITY": 8,
+          "RECORD_BYTES": 128,
+          "TABLE_BYTES": 1024
+        },
+        "input_storage": {
+          "STATE": 4131424,
+          "CAPTURE": 4131840,
+          "STATE_BYTES": 144,
+          "CAPTURE_BYTES": 560,
+          "ACQUISITIONS": 4132688,
+          "POINTER_STATE": 4146816,
+          "POINTER_CAPTURE": 4147216,
+          "POINTER_RESERVE": 4147200,
+          "POINTER_CAPTURE_BYTES": 1280,
+          "POINTER_RESERVED_BYTES": 1536,
+          "POINTER_GUARD_BYTES": 16
+        },
+        "console_storage": {
+          "BASE": 69504,
+          "BYTES": 880,
+          "INSTANCE": 69664,
+          "PRESENTATION": 69866,
+          "ROUTES": 69920,
+          "WINDOWS": 70192,
+          "BITMAP": 70372,
+          "CAPTURE": 4131840,
+          "GLYPHS": 4132400,
+          "KEYMAP": 4132528
+        },
+        "timer_storage": {
+          "BASE": 4132656,
+          "BYTES": 32
+        },
+        "image_data": {
+          "address": 70400,
+          "size": 4096
+        }
+      }
+    }
+  },
+  "native": {
+    "optimized-release": {
+      "vectors": 147,
+      "cycles": 86797,
+      "stack_reads": 10391,
+      "stack_writes": 5301,
+      "dp_reads": 6071,
+      "dp_writes": 3944,
+      "guard_cycles": 0,
+      "max_peak_below_entry_s": 42,
+      "private_byte_accesses": 25707,
+      "cases": {
+        "AddHead": {
+          "vectors": 9,
+          "cycles": 1755,
+          "private_byte_accesses": 576
+        },
+        "AddTail": {
+          "vectors": 9,
+          "cycles": 2430,
+          "private_byte_accesses": 720
+        },
+        "Enqueue": {
+          "vectors": 18,
+          "cycles": 20829,
+          "private_byte_accesses": 6207
+        },
+        "FindName": {
+          "vectors": 18,
+          "cycles": 28362,
+          "private_byte_accesses": 8943
+        },
+        "Flow": {
+          "vectors": 12,
+          "cycles": 15406,
+          "private_byte_accesses": 4272
+        },
+        "Insert": {
+          "vectors": 18,
+          "cycles": 6189,
+          "private_byte_accesses": 1746
+        },
+        "IsListEmpty": {
+          "vectors": 9,
+          "cycles": 1326,
+          "private_byte_accesses": 294
+        },
+        "IsMinListEmpty": {
+          "vectors": 9,
+          "cycles": 1362,
+          "private_byte_accesses": 294
+        },
+        "NewList": {
+          "vectors": 9,
+          "cycles": 1134,
+          "private_byte_accesses": 315
+        },
+        "NewMinList": {
+          "vectors": 9,
+          "cycles": 1170,
+          "private_byte_accesses": 315
+        },
+        "RemHead": {
+          "vectors": 9,
+          "cycles": 2715,
+          "private_byte_accesses": 801
+        },
+        "RemTail": {
+          "vectors": 9,
+          "cycles": 2787,
+          "private_byte_accesses": 801
+        },
+        "Remove": {
+          "vectors": 9,
+          "cycles": 1332,
+          "private_byte_accesses": 423
+        }
+      }
+    },
+    "optimized-guarded": {
+      "vectors": 147,
+      "cycles": 91417,
+      "stack_reads": 10391,
+      "stack_writes": 5301,
+      "dp_reads": 6071,
+      "dp_writes": 3944,
+      "guard_cycles": 5550,
+      "max_peak_below_entry_s": 42,
+      "private_byte_accesses": 25707,
+      "cases": {
+        "AddHead": {
+          "vectors": 9,
+          "cycles": 1755,
+          "private_byte_accesses": 576
+        },
+        "AddTail": {
+          "vectors": 9,
+          "cycles": 2592,
+          "private_byte_accesses": 720
+        },
+        "Enqueue": {
+          "vectors": 18,
+          "cycles": 22017,
+          "private_byte_accesses": 6207
+        },
+        "FindName": {
+          "vectors": 18,
+          "cycles": 28686,
+          "private_byte_accesses": 8943
+        },
+        "Flow": {
+          "vectors": 12,
+          "cycles": 16726,
+          "private_byte_accesses": 4272
+        },
+        "Insert": {
+          "vectors": 18,
+          "cycles": 6867,
+          "private_byte_accesses": 1746
+        },
+        "IsListEmpty": {
+          "vectors": 9,
+          "cycles": 1488,
+          "private_byte_accesses": 294
+        },
+        "IsMinListEmpty": {
+          "vectors": 9,
+          "cycles": 1524,
+          "private_byte_accesses": 294
+        },
+        "NewList": {
+          "vectors": 9,
+          "cycles": 1134,
+          "private_byte_accesses": 315
+        },
+        "NewMinList": {
+          "vectors": 9,
+          "cycles": 1170,
+          "private_byte_accesses": 315
+        },
+        "RemHead": {
+          "vectors": 9,
+          "cycles": 3027,
+          "private_byte_accesses": 801
+        },
+        "RemTail": {
+          "vectors": 9,
+          "cycles": 3099,
+          "private_byte_accesses": 801
+        },
+        "Remove": {
+          "vectors": 9,
+          "cycles": 1332,
+          "private_byte_accesses": 423
+        }
+      }
+    },
+    "raw-guarded": {
+      "vectors": 147,
+      "cycles": 90155,
+      "stack_reads": 9896,
+      "stack_writes": 4443,
+      "dp_reads": 6023,
+      "dp_writes": 4454,
+      "guard_cycles": 6525,
+      "max_peak_below_entry_s": 48,
+      "private_byte_accesses": 24816,
+      "cases": {
+        "AddHead": {
+          "vectors": 9,
+          "cycles": 2493,
+          "private_byte_accesses": 720
+        },
+        "AddTail": {
+          "vectors": 9,
+          "cycles": 2592,
+          "private_byte_accesses": 720
+        },
+        "Enqueue": {
+          "vectors": 18,
+          "cycles": 20517,
+          "private_byte_accesses": 5760
+        },
+        "FindName": {
+          "vectors": 18,
+          "cycles": 25164,
+          "private_byte_accesses": 7395
+        },
+        "Flow": {
+          "vectors": 12,
+          "cycles": 15968,
+          "private_byte_accesses": 4056
+        },
+        "Insert": {
+          "vectors": 18,
+          "cycles": 7605,
+          "private_byte_accesses": 1890
+        },
+        "IsListEmpty": {
+          "vectors": 9,
+          "cycles": 1488,
+          "private_byte_accesses": 294
+        },
+        "IsMinListEmpty": {
+          "vectors": 9,
+          "cycles": 1524,
+          "private_byte_accesses": 294
+        },
+        "NewList": {
+          "vectors": 9,
+          "cycles": 1134,
+          "private_byte_accesses": 315
+        },
+        "NewMinList": {
+          "vectors": 9,
+          "cycles": 1170,
+          "private_byte_accesses": 315
+        },
+        "RemHead": {
+          "vectors": 9,
+          "cycles": 3819,
+          "private_byte_accesses": 1065
+        },
+        "RemTail": {
+          "vectors": 9,
+          "cycles": 3891,
+          "private_byte_accesses": 1065
+        },
+        "Remove": {
+          "vectors": 9,
+          "cycles": 2790,
+          "private_byte_accesses": 927
+        }
+      }
+    }
+  },
+  "representatives": {
+    "optimized-release": {
+      "code_bytes": 10262,
+      "routines": [
+        {
+          "name": "EXECLISTS.INSERT",
+          "emitted_name": "M_EXECLISTS_INSERT_468B11BA",
+          "bytes": 257,
+          "frame": 12,
+          "spills": 8,
+          "local_peak": 22,
+          "calls": 2,
+          "blocks": 6
+        },
+        {
+          "name": "EXECLISTS.ENQUEUE",
+          "emitted_name": "M_EXECLISTS_ENQUEUE_763E1E61",
+          "bytes": 267,
+          "frame": 12,
+          "spills": 12,
+          "local_peak": 24,
+          "calls": 2,
+          "blocks": 6
+        },
+        {
+          "name": "TASKPOLICY.CREATE",
+          "emitted_name": "M_TASKPOLICY_CREATE_EE96600A",
+          "bytes": 1472,
+          "frame": 34,
+          "spills": 16,
+          "local_peak": 50,
+          "calls": 10,
+          "blocks": 24
+        },
+        {
+          "name": "TASKPOLICY.PRODUCERCONTROL",
+          "emitted_name": "M_TASKPOLICY_PRODUCERCONTROL_52F9499B",
+          "bytes": 1648,
+          "frame": 32,
+          "spills": 14,
+          "local_peak": 42,
+          "calls": 20,
+          "blocks": 55
+        },
+        {
+          "name": "PORTCORE.CREATEMSGPORT",
+          "emitted_name": "M_PORTCORE_CREATEMSGPORT_A47550A3",
+          "bytes": 350,
+          "frame": 12,
+          "spills": 8,
+          "local_peak": 24,
+          "calls": 5,
+          "blocks": 5
+        },
+        {
+          "name": "DOSSTREAMS.OPENNIL",
+          "emitted_name": "M_DOSSTREAMS_OPENNIL_7EDE8F17",
+          "bytes": 271,
+          "frame": 14,
+          "spills": 8,
+          "local_peak": 26,
+          "calls": 3,
+          "blocks": 3
+        },
+        {
+          "name": "DOSSTREAMS.VALIDBUFFER",
+          "emitted_name": "M_DOSSTREAMS_VALIDBUFFER_D67D80FE",
+          "bytes": 174,
+          "frame": 10,
+          "spills": 10,
+          "local_peak": 22,
+          "calls": 3,
+          "blocks": 7
+        },
+        {
+          "name": "COOKEDLINE.RECALL",
+          "emitted_name": "M_COOKEDLINE_RECALL_089A5861",
+          "bytes": 943,
+          "frame": 24,
+          "spills": 20,
+          "local_peak": 36,
+          "calls": 4,
+          "blocks": 22
+        },
+        {
+          "name": "COOKEDLINE.RENDER",
+          "emitted_name": "M_COOKEDLINE_RENDER_D6B4258E",
+          "bytes": 1655,
+          "frame": 26,
+          "spills": 22,
+          "local_peak": 26,
+          "calls": 0,
+          "blocks": 44
+        },
+        {
+          "name": "SDFSFILE.DRIVE",
+          "emitted_name": "M_SDFSFILE_DRIVE_59FB4F1B",
+          "bytes": 1502,
+          "frame": 36,
+          "spills": 18,
+          "local_peak": 48,
+          "calls": 13,
+          "blocks": 21
+        },
+        {
+          "name": "SDFSFILE.MEASURE",
+          "emitted_name": "M_SDFSFILE_MEASURE_B257955B",
+          "bytes": 1723,
+          "frame": 26,
+          "spills": 20,
+          "local_peak": 38,
+          "calls": 11,
+          "blocks": 31
+        }
+      ]
+    },
+    "optimized-guarded": {
+      "code_bytes": 12613,
+      "routines": [
+        {
+          "name": "EXECLISTS.INSERT",
+          "emitted_name": "M_EXECLISTS_INSERT_468B11BA",
+          "bytes": 333,
+          "frame": 12,
+          "spills": 8,
+          "local_peak": 22,
+          "calls": 2,
+          "blocks": 6
+        },
+        {
+          "name": "EXECLISTS.ENQUEUE",
+          "emitted_name": "M_EXECLISTS_ENQUEUE_763E1E61",
+          "bytes": 347,
+          "frame": 12,
+          "spills": 12,
+          "local_peak": 24,
+          "calls": 2,
+          "blocks": 6
+        },
+        {
+          "name": "TASKPOLICY.CREATE",
+          "emitted_name": "M_TASKPOLICY_CREATE_EE96600A",
+          "bytes": 1782,
+          "frame": 34,
+          "spills": 16,
+          "local_peak": 50,
+          "calls": 10,
+          "blocks": 24
+        },
+        {
+          "name": "TASKPOLICY.PRODUCERCONTROL",
+          "emitted_name": "M_TASKPOLICY_PRODUCERCONTROL_52F9499B",
+          "bytes": 2245,
+          "frame": 32,
+          "spills": 14,
+          "local_peak": 42,
+          "calls": 20,
+          "blocks": 55
+        },
+        {
+          "name": "PORTCORE.CREATEMSGPORT",
+          "emitted_name": "M_PORTCORE_CREATEMSGPORT_A47550A3",
+          "bytes": 515,
+          "frame": 12,
+          "spills": 8,
+          "local_peak": 24,
+          "calls": 5,
+          "blocks": 5
+        },
+        {
+          "name": "DOSSTREAMS.OPENNIL",
+          "emitted_name": "M_DOSSTREAMS_OPENNIL_7EDE8F17",
+          "bytes": 386,
+          "frame": 14,
+          "spills": 8,
+          "local_peak": 26,
+          "calls": 3,
+          "blocks": 3
+        },
+        {
+          "name": "DOSSTREAMS.VALIDBUFFER",
+          "emitted_name": "M_DOSSTREAMS_VALIDBUFFER_D67D80FE",
+          "bytes": 282,
+          "frame": 10,
+          "spills": 10,
+          "local_peak": 22,
+          "calls": 3,
+          "blocks": 7
+        },
+        {
+          "name": "COOKEDLINE.RECALL",
+          "emitted_name": "M_COOKEDLINE_RECALL_089A5861",
+          "bytes": 1085,
+          "frame": 24,
+          "spills": 20,
+          "local_peak": 36,
+          "calls": 4,
+          "blocks": 22
+        },
+        {
+          "name": "COOKEDLINE.RENDER",
+          "emitted_name": "M_COOKEDLINE_RENDER_D6B4258E",
+          "bytes": 1677,
+          "frame": 26,
+          "spills": 22,
+          "local_peak": 26,
+          "calls": 0,
+          "blocks": 44
+        },
+        {
+          "name": "SDFSFILE.DRIVE",
+          "emitted_name": "M_SDFSFILE_DRIVE_59FB4F1B",
+          "bytes": 1909,
+          "frame": 36,
+          "spills": 18,
+          "local_peak": 48,
+          "calls": 13,
+          "blocks": 21
+        },
+        {
+          "name": "SDFSFILE.MEASURE",
+          "emitted_name": "M_SDFSFILE_MEASURE_B257955B",
+          "bytes": 2052,
+          "frame": 26,
+          "spills": 20,
+          "local_peak": 38,
+          "calls": 11,
+          "blocks": 31
+        }
+      ]
+    },
+    "raw-guarded": {
+      "code_bytes": 13908,
+      "routines": [
+        {
+          "name": "EXECLISTS.INSERT",
+          "emitted_name": "M_EXECLISTS_INSERT_468B11BA",
+          "bytes": 333,
+          "frame": 12,
+          "spills": 8,
+          "local_peak": 22,
+          "calls": 2,
+          "blocks": 6
+        },
+        {
+          "name": "EXECLISTS.ENQUEUE",
+          "emitted_name": "M_EXECLISTS_ENQUEUE_763E1E61",
+          "bytes": 323,
+          "frame": 8,
+          "spills": 4,
+          "local_peak": 20,
+          "calls": 2,
+          "blocks": 6
+        },
+        {
+          "name": "TASKPOLICY.CREATE",
+          "emitted_name": "M_TASKPOLICY_CREATE_EE96600A",
+          "bytes": 2011,
+          "frame": 38,
+          "spills": 14,
+          "local_peak": 54,
+          "calls": 10,
+          "blocks": 24
+        },
+        {
+          "name": "TASKPOLICY.PRODUCERCONTROL",
+          "emitted_name": "M_TASKPOLICY_PRODUCERCONTROL_52F9499B",
+          "bytes": 2516,
+          "frame": 32,
+          "spills": 14,
+          "local_peak": 42,
+          "calls": 20,
+          "blocks": 55
+        },
+        {
+          "name": "PORTCORE.CREATEMSGPORT",
+          "emitted_name": "M_PORTCORE_CREATEMSGPORT_A47550A3",
+          "bytes": 580,
+          "frame": 18,
+          "spills": 14,
+          "local_peak": 30,
+          "calls": 5,
+          "blocks": 5
+        },
+        {
+          "name": "DOSSTREAMS.OPENNIL",
+          "emitted_name": "M_DOSSTREAMS_OPENNIL_7EDE8F17",
+          "bytes": 459,
+          "frame": 20,
+          "spills": 14,
+          "local_peak": 32,
+          "calls": 3,
+          "blocks": 3
+        },
+        {
+          "name": "DOSSTREAMS.VALIDBUFFER",
+          "emitted_name": "M_DOSSTREAMS_VALIDBUFFER_D67D80FE",
+          "bytes": 374,
+          "frame": 10,
+          "spills": 10,
+          "local_peak": 22,
+          "calls": 3,
+          "blocks": 7
+        },
+        {
+          "name": "COOKEDLINE.RECALL",
+          "emitted_name": "M_COOKEDLINE_RECALL_089A5861",
+          "bytes": 1060,
+          "frame": 26,
+          "spills": 16,
+          "local_peak": 38,
+          "calls": 4,
+          "blocks": 22
+        },
+        {
+          "name": "COOKEDLINE.RENDER",
+          "emitted_name": "M_COOKEDLINE_RENDER_D6B4258E",
+          "bytes": 1819,
+          "frame": 30,
+          "spills": 14,
+          "local_peak": 30,
+          "calls": 0,
+          "blocks": 44
+        },
+        {
+          "name": "SDFSFILE.DRIVE",
+          "emitted_name": "M_SDFSFILE_DRIVE_59FB4F1B",
+          "bytes": 2156,
+          "frame": 36,
+          "spills": 18,
+          "local_peak": 48,
+          "calls": 13,
+          "blocks": 21
+        },
+        {
+          "name": "SDFSFILE.MEASURE",
+          "emitted_name": "M_SDFSFILE_MEASURE_B257955B",
+          "bytes": 2277,
+          "frame": 38,
+          "spills": 16,
+          "local_peak": 50,
+          "calls": 11,
+          "blocks": 31
+        }
+      ]
+    }
+  },
+  "host": {
+    "scope": "Warm compiler CLI only; excludes interfaces, assembly, media and packaging",
+    "binary_sha256": "3217011b3fbc2d8e3d7a4d5142cdbb36c400f8c1bbf77cb37322e39f081e4294",
+    "rounds": 5,
+    "commands": {
+      "optimized-release": [
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/target/debug/actionc-65816",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-release/task-kernel",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-release",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-release",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/runtime/65816",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io",
+        "--layout",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-release/layout.json",
+        "-o",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/host-timing/image.json",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-release/kernel-program.act"
+      ],
+      "optimized-guarded": [
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/target/debug/actionc-65816",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-guarded/task-kernel",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-guarded",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-guarded",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/runtime/65816",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io",
+        "--layout",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-guarded/layout.json",
+        "-o",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/host-timing/image.json",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-guarded/kernel-program.act"
+      ],
+      "raw-guarded": [
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/target/debug/actionc-65816",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/raw-guarded/task-kernel",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/raw-guarded",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/raw-guarded",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/runtime/65816",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados",
+        "--module-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io",
+        "--layout",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/raw-guarded/layout.json",
+        "-o",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/host-timing/image.json",
+        "--no-opt",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/raw-guarded/kernel-program.act"
+      ]
+    },
+    "samples": [
+      {
+        "round": 0,
+        "profile": "raw-guarded",
+        "wall_seconds": 44.74546804185957,
+        "user_seconds": 43.332716,
+        "system_seconds": 0.821851,
+        "peak_rss_bytes": 1191198720
+      },
+      {
+        "round": 0,
+        "profile": "optimized-guarded",
+        "wall_seconds": 40.717229957925156,
+        "user_seconds": 38.970337,
+        "system_seconds": 0.7101419999999999,
+        "peak_rss_bytes": 1165148160
+      },
+      {
+        "round": 0,
+        "profile": "optimized-release",
+        "wall_seconds": 55.35277154087089,
+        "user_seconds": 53.164193,
+        "system_seconds": 1.147261,
+        "peak_rss_bytes": 894173184
+      },
+      {
+        "round": 1,
+        "profile": "optimized-release",
+        "wall_seconds": 54.54307245905511,
+        "user_seconds": 52.974754,
+        "system_seconds": 1.062842,
+        "peak_rss_bytes": 1051246592
+      },
+      {
+        "round": 1,
+        "profile": "optimized-guarded",
+        "wall_seconds": 39.74196920800023,
+        "user_seconds": 38.365222,
+        "system_seconds": 0.788142,
+        "peak_rss_bytes": 938147840
+      },
+      {
+        "round": 1,
+        "profile": "raw-guarded",
+        "wall_seconds": 45.7334734168835,
+        "user_seconds": 43.632426,
+        "system_seconds": 0.917381,
+        "peak_rss_bytes": 998621184
+      },
+      {
+        "round": 2,
+        "profile": "raw-guarded",
+        "wall_seconds": 46.152662915876135,
+        "user_seconds": 44.257951,
+        "system_seconds": 0.718931,
+        "peak_rss_bytes": 1098629120
+      },
+      {
+        "round": 2,
+        "profile": "optimized-guarded",
+        "wall_seconds": 41.02854770910926,
+        "user_seconds": 39.259725,
+        "system_seconds": 0.77245,
+        "peak_rss_bytes": 1275789312
+      },
+      {
+        "round": 2,
+        "profile": "optimized-release",
+        "wall_seconds": 56.720306374831125,
+        "user_seconds": 54.392166,
+        "system_seconds": 1.039627,
+        "peak_rss_bytes": 907575296
+      },
+      {
+        "round": 3,
+        "profile": "optimized-release",
+        "wall_seconds": 56.05826991680078,
+        "user_seconds": 54.112229,
+        "system_seconds": 1.058709,
+        "peak_rss_bytes": 908099584
+      },
+      {
+        "round": 3,
+        "profile": "optimized-guarded",
+        "wall_seconds": 40.96557895792648,
+        "user_seconds": 39.604048,
+        "system_seconds": 0.804437,
+        "peak_rss_bytes": 891305984
+      },
+      {
+        "round": 3,
+        "profile": "raw-guarded",
+        "wall_seconds": 46.48068833304569,
+        "user_seconds": 44.582554,
+        "system_seconds": 0.8046789999999999,
+        "peak_rss_bytes": 1039777792
+      },
+      {
+        "round": 4,
+        "profile": "raw-guarded",
+        "wall_seconds": 46.09522079187445,
+        "user_seconds": 44.203688,
+        "system_seconds": 0.882625,
+        "peak_rss_bytes": 1079640064
+      },
+      {
+        "round": 4,
+        "profile": "optimized-guarded",
+        "wall_seconds": 40.81604591710493,
+        "user_seconds": 39.234386,
+        "system_seconds": 0.8328059999999999,
+        "peak_rss_bytes": 1212907520
+      },
+      {
+        "round": 4,
+        "profile": "optimized-release",
+        "wall_seconds": 53.593453833134845,
+        "user_seconds": 52.185219,
+        "system_seconds": 0.984158,
+        "peak_rss_bytes": 1188626432
+      }
+    ],
+    "medians": {
+      "optimized-release": {
+        "wall_seconds": 55.35277154087089,
+        "user_seconds": 53.164193,
+        "system_seconds": 1.058709,
+        "peak_rss_bytes": 908099584
+      },
+      "optimized-guarded": {
+        "wall_seconds": 40.81604591710493,
+        "user_seconds": 39.234386,
+        "system_seconds": 0.788142,
+        "peak_rss_bytes": 1165148160
+      },
+      "raw-guarded": {
+        "wall_seconds": 46.09522079187445,
+        "user_seconds": 44.203688,
+        "system_seconds": 0.821851,
+        "peak_rss_bytes": 1079640064
+      }
+    },
+    "conditions": "Warm cache on shared macOS host; other development work was running. Recompare candidates interleaved on the same host."
+  },
+  "host_environment": {
+    "uname": "Darwin MacBook-Pro-mkur.local 24.6.0 Darwin Kernel Version 24.6.0: Tue Jul 21 20:51:05 PDT 2026; root:xnu-11417.140.69.711.44~1/RELEASE_ARM64_T6000 arm64",
+    "python": "Python 3.14.7",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: aarch64-apple-darwin\nrelease: 1.95.0\nLLVM version: 22.1.2",
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+    "ca65": "ca65 V2.18 - N/A",
+    "ld65": "ld65 V2.18 - N/A",
+    "executables": {
+      "python3": {
+        "path": "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/bin/python3.14",
+        "sha256": "d8f1d508de5acfd500f20d1949528375ff4a1f470efb267f00d1770941cdeee3"
+      },
+      "git": {
+        "path": "/usr/bin/git",
+        "sha256": "7f30f076d0e9c38f772a76449fca9da8cf97f6a3d43b94c90a00e4f9ce7ad39e"
+      },
+      "ca65": {
+        "path": "/opt/homebrew/Cellar/cc65/2.19/bin/ca65",
+        "sha256": "1a57997819fd98814e4601b5160df589e7a1a24e1888a80fee51ae450d8fd0ea"
+      },
+      "ld65": {
+        "path": "/opt/homebrew/Cellar/cc65/2.19/bin/ld65",
+        "sha256": "36bb196207a6b2c90a4aa991b419d6113885303951b14b60b455f51c777b3339"
+      },
+      "c++": {
+        "path": "/usr/bin/c++",
+        "sha256": "7f30f076d0e9c38f772a76449fca9da8cf97f6a3d43b94c90a00e4f9ce7ad39e"
+      },
+      "cargo": {
+        "path": "/Users/michalkurcewicz/.rustup/toolchains/1.95.0-aarch64-apple-darwin/bin/cargo",
+        "sha256": "c512bff73c86143b557463f021d0c3d5b0490d97d65040ba59ea2b3427784758"
+      },
+      "rustc": {
+        "path": "/Users/michalkurcewicz/.rustup/toolchains/1.95.0-aarch64-apple-darwin/bin/rustc",
+        "sha256": "b829b733131d4e1673eeebd1f34d06ae1e9ff4977b051313cf42e2a9e79ecf1c"
+      }
+    },
+    "cxx_version": "Apple clang version 17.0.0 (clang-1700.6.4.2)\nTarget: arm64-apple-darwin24.6.0\nThread model: posix\nInstalledDir: /Library/Developer/CommandLineTools/usr/bin"
+  },
+  "hosted": {
+    "cooked-opt": {
+      "status": "pass",
+      "result_sha256": "e3446e68c5ad34b48630a5a93ad8d165c151a2be41ec9b57c8da05d965b7c30f",
+      "elapsed_seconds": 75.86627420806326,
+      "runtime": {
+        "guards": "intact",
+        "status": 0,
+        "native_nmi_count": 104,
+        "native_irq_count": 0,
+        "switches": 1,
+        "created": 0,
+        "stack_observations": [
+          {
+            "slot": 0,
+            "reserved_bytes": 1536,
+            "touched_bytes": 136,
+            "untouched_above_floor": 1144
+          },
+          {
+            "slot": 1,
+            "reserved_bytes": 1024,
+            "touched_bytes": 18,
+            "untouched_above_floor": 750
+          },
+          {
+            "slot": 2,
+            "reserved_bytes": 1024,
+            "touched_bytes": 18,
+            "untouched_above_floor": 750
+          },
+          {
+            "slot": 3,
+            "reserved_bytes": 1024,
+            "touched_bytes": 18,
+            "untouched_above_floor": 750
+          },
+          {
+            "slot": 4,
+            "reserved_bytes": 1024,
+            "touched_bytes": 18,
+            "untouched_above_floor": 750
+          },
+          {
+            "slot": 5,
+            "reserved_bytes": 1024,
+            "touched_bytes": 18,
+            "untouched_above_floor": 750
+          },
+          {
+            "slot": 6,
+            "reserved_bytes": 2560,
+            "touched_bytes": 18,
+            "untouched_above_floor": 2286
+          },
+          {
+            "slot": 7,
+            "reserved_bytes": 2560,
+            "touched_bytes": 18,
+            "untouched_above_floor": 2286
+          },
+          {
+            "slot": 8,
+            "reserved_bytes": 512,
+            "touched_bytes": 24,
+            "untouched_above_floor": 232
+          }
+        ],
+        "kernel_stack_observation": {
+          "reserved_bytes": 1536,
+          "touched_bytes": 270,
+          "untouched_from_base": 1266,
+          "interrupt_reserve_bytes_touched": 0
+        }
+      },
+      "operations": 639,
+      "checks": [
+        239
+      ]
+    },
+    "cooked-raw": {
+      "status": "pass",
+      "result_sha256": "2050e3b92b74902f2598e98d3428c626f1e6914462a5130605c072bd4f731440",
+      "elapsed_seconds": 74.01087808306329,
+      "runtime": {
+        "guards": "intact",
+        "status": 0,
+        "native_nmi_count": 127,
+        "native_irq_count": 0,
+        "switches": 1,
+        "created": 0,
+        "stack_observations": [
+          {
+            "slot": 0,
+            "reserved_bytes": 1536,
+            "touched_bytes": 154,
+            "untouched_above_floor": 1126
+          },
+          {
+            "slot": 1,
+            "reserved_bytes": 1024,
+            "touched_bytes": 18,
+            "untouched_above_floor": 750
+          },
+          {
+            "slot": 2,
+            "reserved_bytes": 1024,
+            "touched_bytes": 18,
+            "untouched_above_floor": 750
+          },
+          {
+            "slot": 3,
+            "reserved_bytes": 1024,
+            "touched_bytes": 18,
+            "untouched_above_floor": 750
+          },
+          {
+            "slot": 4,
+            "reserved_bytes": 1024,
+            "touched_bytes": 18,
+            "untouched_above_floor": 750
+          },
+          {
+            "slot": 5,
+            "reserved_bytes": 1024,
+            "touched_bytes": 18,
+            "untouched_above_floor": 750
+          },
+          {
+            "slot": 6,
+            "reserved_bytes": 2560,
+            "touched_bytes": 18,
+            "untouched_above_floor": 2286
+          },
+          {
+            "slot": 7,
+            "reserved_bytes": 2560,
+            "touched_bytes": 18,
+            "untouched_above_floor": 2286
+          },
+          {
+            "slot": 8,
+            "reserved_bytes": 512,
+            "touched_bytes": 24,
+            "untouched_above_floor": 232
+          }
+        ],
+        "kernel_stack_observation": {
+          "reserved_bytes": 1536,
+          "touched_bytes": 280,
+          "untouched_from_base": 1256,
+          "interrupt_reserve_bytes_touched": 0
+        }
+      },
+      "operations": 639,
+      "checks": [
+        238
+      ]
+    },
+    "demo-opt": {
+      "status": "pass",
+      "result_sha256": "31c3cf9c8a80afb2197af2965134202b21c1bcba8289f706c56434bc835d3a92",
+      "elapsed_seconds": 61.939719666028395,
+      "runtime": {
+        "guards": "intact",
+        "status": 0,
+        "native_nmi_count": 2210,
+        "native_irq_count": 24520,
+        "switches": 6447,
+        "created": 14,
+        "stack_observations": [
+          {
+            "slot": 0,
+            "reserved_bytes": 1536,
+            "touched_bytes": 502,
+            "untouched_above_floor": 778
+          },
+          {
+            "slot": 1,
+            "reserved_bytes": 1024,
+            "touched_bytes": 227,
+            "untouched_above_floor": 541
+          },
+          {
+            "slot": 2,
+            "reserved_bytes": 1024,
+            "touched_bytes": 132,
+            "untouched_above_floor": 636
+          },
+          {
+            "slot": 3,
+            "reserved_bytes": 1024,
+            "touched_bytes": 243,
+            "untouched_above_floor": 525
+          },
+          {
+            "slot": 4,
+            "reserved_bytes": 1024,
+            "touched_bytes": 302,
+            "untouched_above_floor": 466
+          },
+          {
+            "slot": 5,
+            "reserved_bytes": 1024,
+            "touched_bytes": 429,
+            "untouched_above_floor": 339
+          },
+          {
+            "slot": 6,
+            "reserved_bytes": 2560,
+            "touched_bytes": 331,
+            "untouched_above_floor": 1973
+          },
+          {
+            "slot": 7,
+            "reserved_bytes": 2560,
+            "touched_bytes": 18,
+            "untouched_above_floor": 2286
+          },
+          {
+            "slot": 8,
+            "reserved_bytes": 512,
+            "touched_bytes": 58,
+            "untouched_above_floor": 198
+          }
+        ],
+        "kernel_stack_observation": {
+          "reserved_bytes": 1536,
+          "touched_bytes": 274,
+          "untouched_from_base": 1262,
+          "interrupt_reserve_bytes_touched": 0
+        }
+      },
+      "observations": [
+        {
+          "stage": "startup",
+          "prime_frames": 1,
+          "prime_count": 26,
+          "guest_frame": 349
+        },
+        {
+          "stage": "system-volume",
+          "prime_frames": 1,
+          "prime_count": 26,
+          "guest_frame": 350
+        },
+        {
+          "stage": "ASSIGN",
+          "prime_frames": 4,
+          "prime_count": 79,
+          "guest_frame": 548
+        },
+        {
+          "stage": "C:HELLO",
+          "prime_frames": 6,
+          "prime_count": 110,
+          "guest_frame": 648
+        },
+        {
+          "stage": "SYS:C/HELLO",
+          "prime_frames": 8,
+          "prime_count": 139,
+          "guest_frame": 725
+        },
+        {
+          "stage": "SYS:HELLO",
+          "prime_frames": 9,
+          "prime_count": 154,
+          "guest_frame": 770
+        },
+        {
+          "stage": "MOUNT",
+          "prime_frames": 9,
+          "prime_count": 154,
+          "guest_frame": 810
+        },
+        {
+          "stage": "CD SYS:WORK",
+          "prime_frames": 11,
+          "prime_count": 184,
+          "guest_frame": 913
+        },
+        {
+          "stage": "CD",
+          "prime_frames": 12,
+          "prime_count": 197,
+          "guest_frame": 928
+        },
+        {
+          "stage": "HELLO",
+          "prime_frames": 13,
+          "prime_count": 212,
+          "guest_frame": 983
+        },
+        {
+          "stage": "PATH",
+          "prime_frames": 13,
+          "prime_count": 212,
+          "guest_frame": 1007
+        },
+        {
+          "stage": "HEAD SYS:STORY.TXT LINES 3",
+          "prime_frames": 20,
+          "prime_count": 303,
+          "guest_frame": 1378
+        },
+        {
+          "stage": "HEAD MISSING",
+          "prime_frames": 22,
+          "prime_count": 327,
+          "guest_frame": 1487
+        },
+        {
+          "stage": "HEAD ?",
+          "prime_frames": 24,
+          "prime_count": 357,
+          "guest_frame": 1570
+        },
+        {
+          "stage": "TYPE D1:STORY.TXT",
+          "prime_frames": 26,
+          "prime_count": 378,
+          "guest_frame": 1699
+        },
+        {
+          "stage": "TYPE SYS:STORY.TXT",
+          "prime_frames": 28,
+          "prime_count": 408,
+          "guest_frame": 1797
+        },
+        {
+          "stage": "CAT SYS:STORY.TXT | WC",
+          "prime_frames": 37,
+          "prime_count": 517,
+          "guest_frame": 2258
+        },
+        {
+          "stage": "CD SYS:",
+          "prime_frames": 38,
+          "prime_count": 528,
+          "guest_frame": 2293
+        },
+        {
+          "stage": "CD",
+          "prime_frames": 38,
+          "prime_count": 528,
+          "guest_frame": 2308
+        },
+        {
+          "stage": "HELLO",
+          "prime_frames": 39,
+          "prime_count": 539,
+          "guest_frame": 2364
+        },
+        {
+          "stage": "boot-smoke",
+          "prime_frames": 39,
+          "prime_count": 539,
+          "guest_frame": 2368
+        }
+      ],
+      "scope": "Shell boot, disk HELLO, CAT/WC pipeline and EXIT",
+      "bank_zero_delta": {
+        "baseline": "bank-zero-compaction",
+        "baseline_sha256": "a223abfb037c96e7760f38b6c2a8b60365f1cd4e032fda5ce756b609ed1adfa7",
+        "fixed": 0,
+        "per_public_task": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1536,
+          1536
+        ],
+        "idle": 0,
+        "runtime": 3072,
+        "loading": 0
+      }
+    },
+    "demo-raw": {
+      "status": "pass",
+      "result_sha256": "b83823cd0cd25a3906c75d341613182cd9fd547d98970877172453d57af7210f",
+      "elapsed_seconds": 65.12077220808715,
+      "runtime": {
+        "guards": "intact",
+        "status": 0,
+        "native_nmi_count": 2388,
+        "native_irq_count": 26940,
+        "switches": 6826,
+        "created": 14,
+        "stack_observations": [
+          {
+            "slot": 0,
+            "reserved_bytes": 1536,
+            "touched_bytes": 556,
+            "untouched_above_floor": 724
+          },
+          {
+            "slot": 1,
+            "reserved_bytes": 1024,
+            "touched_bytes": 250,
+            "untouched_above_floor": 518
+          },
+          {
+            "slot": 2,
+            "reserved_bytes": 1024,
+            "touched_bytes": 158,
+            "untouched_above_floor": 610
+          },
+          {
+            "slot": 3,
+            "reserved_bytes": 1024,
+            "touched_bytes": 274,
+            "untouched_above_floor": 494
+          },
+          {
+            "slot": 4,
+            "reserved_bytes": 1024,
+            "touched_bytes": 320,
+            "untouched_above_floor": 448
+          },
+          {
+            "slot": 5,
+            "reserved_bytes": 1024,
+            "touched_bytes": 460,
+            "untouched_above_floor": 308
+          },
+          {
+            "slot": 6,
+            "reserved_bytes": 2560,
+            "touched_bytes": 358,
+            "untouched_above_floor": 1946
+          },
+          {
+            "slot": 7,
+            "reserved_bytes": 2560,
+            "touched_bytes": 18,
+            "untouched_above_floor": 2286
+          },
+          {
+            "slot": 8,
+            "reserved_bytes": 512,
+            "touched_bytes": 54,
+            "untouched_above_floor": 202
+          }
+        ],
+        "kernel_stack_observation": {
+          "reserved_bytes": 1536,
+          "touched_bytes": 280,
+          "untouched_from_base": 1256,
+          "interrupt_reserve_bytes_touched": 0
+        }
+      },
+      "observations": [
+        {
+          "stage": "startup",
+          "prime_frames": 1,
+          "prime_count": 26,
+          "guest_frame": 381
+        },
+        {
+          "stage": "system-volume",
+          "prime_frames": 1,
+          "prime_count": 26,
+          "guest_frame": 382
+        },
+        {
+          "stage": "ASSIGN",
+          "prime_frames": 5,
+          "prime_count": 95,
+          "guest_frame": 596
+        },
+        {
+          "stage": "C:HELLO",
+          "prime_frames": 7,
+          "prime_count": 126,
+          "guest_frame": 711
+        },
+        {
+          "stage": "SYS:C/HELLO",
+          "prime_frames": 8,
+          "prime_count": 139,
+          "guest_frame": 791
+        },
+        {
+          "stage": "SYS:HELLO",
+          "prime_frames": 9,
+          "prime_count": 154,
+          "guest_frame": 837
+        },
+        {
+          "stage": "MOUNT",
+          "prime_frames": 10,
+          "prime_count": 168,
+          "guest_frame": 879
+        },
+        {
+          "stage": "CD SYS:WORK",
+          "prime_frames": 12,
+          "prime_count": 197,
+          "guest_frame": 974
+        },
+        {
+          "stage": "CD",
+          "prime_frames": 12,
+          "prime_count": 197,
+          "guest_frame": 990
+        },
+        {
+          "stage": "HELLO",
+          "prime_frames": 13,
+          "prime_count": 212,
+          "guest_frame": 1048
+        },
+        {
+          "stage": "PATH",
+          "prime_frames": 14,
+          "prime_count": 222,
+          "guest_frame": 1073
+        },
+        {
+          "stage": "HEAD SYS:STORY.TXT LINES 3",
+          "prime_frames": 22,
+          "prime_count": 327,
+          "guest_frame": 1490
+        },
+        {
+          "stage": "HEAD MISSING",
+          "prime_frames": 24,
+          "prime_count": 357,
+          "guest_frame": 1611
+        },
+        {
+          "stage": "HEAD ?",
+          "prime_frames": 26,
+          "prime_count": 378,
+          "guest_frame": 1708
+        },
+        {
+          "stage": "TYPE D1:STORY.TXT",
+          "prime_frames": 28,
+          "prime_count": 408,
+          "guest_frame": 1838
+        },
+        {
+          "stage": "TYPE SYS:STORY.TXT",
+          "prime_frames": 30,
+          "prime_count": 431,
+          "guest_frame": 1939
+        },
+        {
+          "stage": "CAT SYS:STORY.TXT | WC",
+          "prime_frames": 40,
+          "prime_count": 551,
+          "guest_frame": 2449
+        },
+        {
+          "stage": "CD SYS:",
+          "prime_frames": 41,
+          "prime_count": 565,
+          "guest_frame": 2486
+        },
+        {
+          "stage": "CD",
+          "prime_frames": 41,
+          "prime_count": 565,
+          "guest_frame": 2502
+        },
+        {
+          "stage": "HELLO",
+          "prime_frames": 42,
+          "prime_count": 575,
+          "guest_frame": 2562
+        },
+        {
+          "stage": "boot-smoke",
+          "prime_frames": 42,
+          "prime_count": 575,
+          "guest_frame": 2566
+        }
+      ],
+      "scope": "Shell boot, disk HELLO, CAT/WC pipeline and EXIT",
+      "bank_zero_delta": {
+        "baseline": "bank-zero-compaction",
+        "baseline_sha256": "a223abfb037c96e7760f38b6c2a8b60365f1cd4e032fda5ce756b609ed1adfa7",
+        "fixed": 0,
+        "per_public_task": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1536,
+          1536
+        ],
+        "idle": 0,
+        "runtime": 3072,
+        "loading": 0
+      }
+    },
+    "dos-routing-opt": {
+      "status": "fail",
+      "result_sha256": "aa3f0ce8fca29876c23b25332daecc2ef4218995cd98bf6ebf97dcd268edf3fe",
+      "elapsed_seconds": 0.6785084169823676,
+      "runtime": {},
+      "error": "Command '['/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/target/debug/actionc-65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/hosted/dos-routing-opt/task-kernel', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/hosted/dos-routing-opt', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/tests/programs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/runtime/65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io', '--emit-interfaces', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/hosted/dos-routing-opt/kernel-program.act']' returned non-zero exit status 1."
+    },
+    "dos-routing-raw": {
+      "status": "fail",
+      "result_sha256": "3e13a1ae30125b883b2d1d6d6c51b119fd5871b1d47fd636416ddc4aebae1800",
+      "elapsed_seconds": 0.5114945841487497,
+      "runtime": {},
+      "error": "Command '['/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/target/debug/actionc-65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/hosted/dos-routing-raw/task-kernel', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/hosted/dos-routing-raw', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/tests/programs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/runtime/65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io', '--emit-interfaces', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/hosted/dos-routing-raw/kernel-program.act']' returned non-zero exit status 1."
+    },
+    "dos-streams-opt": {
+      "status": "fail",
+      "result_sha256": "0f142c59c0039c30e8e4999c4e6e2b549446a6281021a47da5e6871af6ef16dc",
+      "elapsed_seconds": 0.5786104998551309,
+      "runtime": {},
+      "error": "Command '['/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/target/debug/actionc-65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/hosted/dos-streams-opt/task-kernel', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/hosted/dos-streams-opt', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/tests/programs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/runtime/65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io', '--emit-interfaces', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/hosted/dos-streams-opt/kernel-program.act']' returned non-zero exit status 1."
+    },
+    "dos-streams-raw": {
+      "status": "fail",
+      "result_sha256": "683795b474837e0941a6a83d532f460abbfb1c029d53f301896ab5b0fcc9db7d",
+      "elapsed_seconds": 0.49630800005979836,
+      "runtime": {},
+      "error": "Command '['/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/target/debug/actionc-65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/hosted/dos-streams-raw/task-kernel', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/hosted/dos-streams-raw', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/tests/programs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/runtime/65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io', '--emit-interfaces', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/hosted/dos-streams-raw/kernel-program.act']' returned non-zero exit status 1."
+    },
+    "lists-opt": {
+      "status": "fail",
+      "result_sha256": "5f62c5aed96d8ec49bbae08042226d858b38ded0bb09b85bd53234741b2c1214",
+      "elapsed_seconds": 1.185882749967277,
+      "runtime": {},
+      "error": "Resident image payload in bank zero"
+    },
+    "lists-raw": {
+      "status": "fail",
+      "result_sha256": "713cb8f0041c6f630717cb6f1dd0d15b53e146e642dd0ce3b78d3ec7cfd3ef17",
+      "elapsed_seconds": 1.1327584169339389,
+      "runtime": {},
+      "error": "Resident image payload in bank zero"
+    },
+    "of816-opt": {
+      "status": "pass",
+      "result_sha256": "cd917a7669ab3a5cd10be21e95cec835fe7d2230602ae8c67216ae154090af9a",
+      "elapsed_seconds": 7.526635208865628,
+      "runtime": {},
+      "frames": 249,
+      "os_restored": true,
+      "guards": "intact"
+    },
+    "of816-raw": {
+      "status": "pass",
+      "result_sha256": "a2bc07bd4080cd4f8c1bceecdd7ac79c2ca4011d045ebdfb6cf48b627d866f42",
+      "elapsed_seconds": 7.737789209000766,
+      "runtime": {},
+      "frames": 249,
+      "os_restored": true,
+      "guards": "intact"
+    },
+    "ports-opt": {
+      "status": "pass",
+      "result_sha256": "eb0fe66aa17d3566a3c954810f3e94305daef83c037e5b7e960f0c9a107c7a53",
+      "elapsed_seconds": 97.1968387500383,
+      "runtime": {
+        "guards": "intact",
+        "status": 0,
+        "native_nmi_count": 27,
+        "native_irq_count": 262,
+        "switches": 17,
+        "created": 1
+      },
+      "checks": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "ports-raw": {
+      "status": "fail",
+      "result_sha256": "56a7c006f4f64b2cb97d1dff36efcc3743946a4eca4c34360cc36a76a0adbac1",
+      "elapsed_seconds": 106.30358187505044,
+      "runtime": {},
+      "error": "Native interrupt/COP vectors not restored"
+    }
+  },
+  "targets": {
+    "foundation": {
+      "compiler_image_changes": 0,
+      "frame_map_changes": 0,
+      "bank_zero_bytes_added": 0,
+      "host_wall_ratio_max": 1.05,
+      "host_peak_rss_ratio_max": 1.1
+    },
+    "first_benefit": {
+      "representative_code_ratio_max": 0.98,
+      "whole_exec_code_ratio_max": 1.0,
+      "requirement": "General independent probe benefit plus at least two Exec subsystems"
+    },
+    "final": {
+      "release_compiler_code_bytes_max": 422700,
+      "representative_release_code_bytes_max": 9235,
+      "native_release_private_accesses_max": 20565,
+      "native_release_cycles_max": 78117,
+      "individual_vector_cycle_ratio_max": 1.05,
+      "optimized_native_stack_peak_max": 42,
+      "frame_or_local_peak_growth": 0,
+      "bank_zero_bytes_added": 0,
+      "requirement": "Benefits in at least three Exec subsystems, including looping and calling routines; no new hosted failures"
+    }
+  },
+  "measurement_tools": {
+    "tools/compare65816/exec_record_vectors.py": "7ce7d60812fbd735672f21c58fda84a047916b1b960cc6e24c2f434b9cce2415",
+    "tools/compare65816/exec_record_baseline.py": "0df8a2a7cdf7c8bcccb5d18455b5fc012461408ec2dcd8e1059af4c3f7f68361",
+    "tools/compare65816/exec_record_hosted.py": "b8afc6b00c06941015fe3ac334b912d753e07c564389d2a5541d42b3875fccf7",
+    "tools/compare65816/exec_record_report.py": "40f5b982b43df3d162c565c162c5b939dff67bb61cc332f79bc24f65cff8c04c",
+    "tools/compare65816/freeze_exec_baseline.py": "7507499d1515f90e687181f747e5547523e3f9f283cb8ce43bfb2e360f49e570",
+    "tools/compare65816/record_probe/Cargo.toml": "1997bf7490951e195bfc3b076a5da384dd7d26cbd3b92908aaf3cf6d98daef61",
+    "tools/compare65816/record_probe/Cargo.lock": "26c307278b73fe0220c1af7786eac7797641db59607bafc6ec7b275894e6b21a",
+    "tools/compare65816/record_probe/record_flow.act": "c0cdd385d6f685330630c9714f6917542099af3519849e69aa2be5f093f9c3d4",
+    "tools/compare65816/record_probe/src/main.rs": "3f24be7af51df3959376f606005d32be9f860e020fb7753b75e7ec1b57d8fd34",
+    "tools/native65816-runtime-tests/tests/code_quality.rs": "33ad9505140c0d02f89cfa50965ae303129e6c3f6a17f7ac10d35ac10e8c8811"
+  },
+  "probe_binary_sha256": "391911fcccc9eb19cecf384cc63aaf76c6c15a853109a62dc72d6ccd0172da4b",
+  "vm": {
+    "base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+    "patch": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+    "hashes": {
+      "crates/w65c816/Cargo.toml": "4b9b5caba7b1a22980babbf6daf306ff15f2aeea76a3d9b7c59ae35c4927889f",
+      "crates/w65c816/LICENSE": "78754c5276d11823adc191f2927e4688ff31daf1ea9c5d0a5d40435409f675a0",
+      "crates/w65c816/Cargo.lock": "ec6a342aeaf30864e28788c5c8decd6cab7fdb21e5829bbed15046c3a16a994c",
+      "crates/w65c816/build.rs": "6588edf9f3cb35b333be26405d566a0a9566e2a705717b9a3d4071ce8c6ae7e8",
+      "crates/w65c816/.gitignore": "496356604f66811f4a0d31511c92b3bd2c928410ce9b32110d0ce18a7cc1aa41",
+      "crates/w65c816/NOTICE.md": "e958ece36cb8c6d477bd6a4fc1ad881418901e0a440c212a02a9af4d1ae853b4",
+      "crates/w65c816/tools/test_generate_decoder.py": "5ff7e9aeb9aee3f7aa2d188ff685b91dd28b4e83a81e2d2056f408e67fe785e1",
+      "crates/w65c816/tools/generate_decoder.py": "818bb9f9101aea2a49fda72fc41c04fd70a211b106319add2cd34857dbe013f2",
+      "crates/w65c816/tests/reference.rs": "74c62febc7436f8a231d781a14cd910b1deb6f7e123d6d66f101b3d4cee5b80b",
+      "crates/w65c816/tests/limitations.rs": "d66d87b599a6ee318e849f4c95415b1195bf21d0155675e9f85aadc60bbba4da",
+      "crates/w65c816/reference/X65-LICENSE": "eac0ef4790d55fe4ccbb88bc00a5809a7595d31a2c655ab5f9ea27ca1a1394b6",
+      "crates/w65c816/reference/wrapper.c": "9e37fa021036b34db9287c8a3dea98ec27069df495d07afc07ca01ddd73095f3",
+      "crates/w65c816/reference/w65c816s.h": "ba3b343bd4fa77fef0f035c80ac91bf5ac6b1aecd898db009f6350e6c679e90f",
+      "crates/w65c816/src/lib.rs": "93d10ca3981830e4b28a9d3a5f23fe94897dd5700f6e2deb9bf5a0adbdb8bb47",
+      "crates/w65c816/src/decoder.rs": "75edbabfe09f4c30e25e1777f5cb3397b7e6a3098626acb15441edd51496c6c5",
+      "crates/w65c816/src/operations.rs": "1cf52fc5347652108d974fbd1fc60a5437db6e05866e5211815ad71771f3c34d",
+      "crates/w65c816/tests/support/reference.rs": "8c2453e1169fcdaf4f9155318d1b4f247a30ef2e555c203c3d39f4ff4fdfc4ec",
+      "crates/w65c816/tests/data/gilyon-LICENSE": "8d22899b4e22435aefc1865666f889402750a1fffdf8957ce87f03f2d6d40fec",
+      "crates/w65c816/tests/data/cputest816.bin": "124925557cccad606884fdb0037a6bb47977e8ff21b0e3c24403dec069e5d029",
+      "crates/w65c816/tests/data/cputest816/io.asm": "6ef2d710867b21817b349d421d9ba22fd5b4b064862b7490711452de940bbdce",
+      "crates/w65c816/tests/data/cputest816/flat.cfg": "fd57e8402095990567fae4060bf3bac0eeebcf64f29499c22450ca20c8d46576",
+      "crates/w65c816/tests/data/cputest816/Makefile": "fbb0857d448d079aee4aea1a63bb4e0907db13bd82ad716cbe6b69d3f1d95ed3",
+      "crates/w65c816/tests/data/cputest816/main.asm": "c7de080aaddee12a3f9070654d2c90f2d951e9b91ab6127cff06467b61b4b3ca",
+      "crates/w65c816/tests/data/cputest816/README.md": "3f63feeda02262e2a1ccf87d95c36eaeb7e5451c18b4107fa4f56e1f59465d6b"
+    }
+  }
+}

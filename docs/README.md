@@ -53,6 +53,20 @@ crowding the active reference set.
 - [MIR65816_EMISSION_CONTRACT.md](MIR65816_EMISSION_CONTRACT.md)
   - Native scalar emission, freestanding image/assembly interfaces, checked
     allocation, execution evidence and the initial driver's supported subset.
+- [MIR65816_EXEC_COMPILER_ROADMAP.md](MIR65816_EXEC_COMPILER_ROADMAP.md)
+  - Exec816 priorities for record and memory code quality, routine-wide value
+    placement, calls, application footprint, performance and qualification.
+- [MIR65816_RECORD_VALUE_PLACEMENT_PLAN.md](MIR65816_RECORD_VALUE_PLACEMENT_PLAN.md)
+  - Joint plan for record operations and value placement across complete routines,
+    with analysis/resource foundations and staged Exec816 qualification.
+- [Record/value placement stage-0 scorecard](benchmarks/65816-record-placement-stage0/README.md)
+  - Frozen Exec816/compiler inputs, size/traffic/cycle/build-cost baselines,
+    numerical gates and explicit hosted qualification gaps.
+- [MIR65816_LOGICAL_ANALYSIS.md](MIR65816_LOGICAL_ANALYSIS.md)
+  - Immutable logical value/storage facts and generation-checked query ownership.
+- [Record/value placement stage-1 scorecard](benchmarks/65816-record-placement-stage1/README.md)
+  - Qualified logical analysis, unchanged Exec816 artifacts/native costs and
+    paired compiler time/memory gates.
 - [MIR65816_STATE_TRACKER_DESIGN.md](MIR65816_STATE_TRACKER_DESIGN.md)
   - Instruction-aware native state tracking based on the 6502 emitter:
     register/flag/width facts, memory ownership, barriers and staged integration.
