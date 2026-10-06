@@ -7,7 +7,7 @@ pub struct Slot {
     pub width: u8,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AllocatedFrame {
     pub extent: u16,
     pub spill_bytes: u16,
@@ -35,8 +35,11 @@ impl AllocatedFrame {
         plan: &super::forwarding::Plan,
     ) -> Result<Self, String> {
         let frame = Self {
-            extent: 0, spill_bytes: 0, peak_below_entry: 0,
-            temps: BTreeMap::new(), edge_copies: Vec::new(),
+            extent: 0,
+            spill_bytes: 0,
+            peak_below_entry: 0,
+            temps: BTreeMap::new(),
+            edge_copies: Vec::new(),
         };
         frame.verify_forwarding(program, routine, plan)?;
         Ok(frame)
@@ -51,9 +54,14 @@ impl AllocatedFrame {
         // Recompute the complete correspondence and cycle proof. Empty homes
         // alone never authorize removing frame allocation or entry checks.
         plan.verify(program, routine)?;
-        if self.extent != 0 || self.spill_bytes != 0 || self.peak_below_entry != 0
-            || !self.temps.is_empty() || !self.edge_copies.is_empty()
-        { return Err("forwarding wrapper must have zero local storage and peak".into()); }
+        if self.extent != 0
+            || self.spill_bytes != 0
+            || self.peak_below_entry != 0
+            || !self.temps.is_empty()
+            || !self.edge_copies.is_empty()
+        {
+            return Err("forwarding wrapper must have zero local storage and peak".into());
+        }
         Ok(())
     }
 
@@ -89,19 +97,35 @@ impl AllocatedFrame {
         Ok(frame)
     }
 
+    #[cfg(any(test, feature = "native65816-state-proof"))]
     pub(super) fn new(routine: &Mir65816Routine) -> Result<Self, String> {
+        Self::with_demand(routine, &super::home_demand::Plan::new(routine))
+    }
+
+    pub(super) fn with_demand(
+        routine: &Mir65816Routine,
+        demand: &super::home_demand::Plan,
+    ) -> Result<Self, String> {
         if let Some(frame) = Self::pointer_leaf(routine)? {
             return Ok(frame);
         }
-        let mut frame = Self::stack(routine)?;
+        let mut frame = Self::stack_with_demand(routine, demand)?;
         frame.promote_scalar(routine)?;
         Ok(frame)
     }
 
+    #[cfg(test)]
     pub(super) fn stack(routine: &Mir65816Routine) -> Result<Self, String> {
         let demand = super::home_demand::Plan::new(routine);
+        Self::stack_with_demand(routine, &demand)
+    }
+
+    fn stack_with_demand(
+        routine: &Mir65816Routine,
+        demand: &super::home_demand::Plan,
+    ) -> Result<Self, String> {
         let mut frame = Self::layout(routine, &demand)?;
-        frame.verify_stack(routine)?;
+        frame.verify_stack_with_demand(routine, demand)?;
         let interference = super::liveness::interference(routine)?;
         frame.coalesce_edges(routine, &interference)?;
         frame.coalesce_pointer_casts(routine)?;
@@ -110,13 +134,24 @@ impl AllocatedFrame {
 
     // A bounded layout preview lets demand planning retain the existing exact
     // call/stack geometry checks. It never recursively plans or verifies demand.
-    pub(super) fn layout(routine: &Mir65816Routine, demand: &super::home_demand::Plan) -> Result<Self, String> {
+    pub(super) fn layout(
+        routine: &Mir65816Routine,
+        demand: &super::home_demand::Plan,
+    ) -> Result<Self, String> {
+        Self::layout_for_residence(routine, demand, &demand.mixed)
+    }
+
+    pub(super) fn layout_for_residence(
+        routine: &Mir65816Routine,
+        demand: &super::home_demand::Plan,
+        residence: &super::mixed::Plan,
+    ) -> Result<Self, String> {
         let interference = super::liveness::interference(routine)?;
         let mut cursor = routine.frame.extent.get() + 1;
         let mut ordered = routine
             .temps
             .iter()
-            .filter(|(id, _)| !demand.omits(*id))
+            .filter(|(id, _)| !demand.omits(*id) && residence.home(*id).is_none())
             .map(|(id, ty)| {
                 Ok((
                     *id,
@@ -133,7 +168,11 @@ impl AllocatedFrame {
                 *id,
             )
         });
-        let mut temps = BTreeMap::<TempId, Location>::new();
+        let mut temps = residence
+            .values
+            .iter()
+            .filter_map(|(&id, _)| residence.home(id).map(|home| (id, home)))
+            .collect::<BTreeMap<TempId, Location>>();
         for (id, width) in ordered {
             let mut offset = routine.frame.extent.get() + 1;
             loop {
@@ -153,7 +192,7 @@ impl AllocatedFrame {
                 if interference[&id].iter().all(|other| {
                     temps
                         .get(other)
-                        .is_none_or(|home| !overlap(slot, home.slot()))
+                        .is_none_or(|home| !Location::Stack(slot).overlaps(*home))
                 }) {
                     temps.insert(id, Location::Stack(slot));
                     cursor = cursor.max(offset + u32::from(width));
@@ -220,6 +259,14 @@ impl AllocatedFrame {
         // Recompute register admission from typed MIR; a sparse map alone is
         // never permission to omit a value's capture or reserved storage.
         let demand = super::home_demand::Plan::new(routine);
+        self.verify_stack_with_demand(routine, &demand)
+    }
+
+    pub(super) fn verify_stack_with_demand(
+        &self,
+        routine: &Mir65816Routine,
+        demand: &super::home_demand::Plan,
+    ) -> Result<(), String> {
         let graph = super::liveness::pointer_copy_interference(routine)?;
         if self.temps.len() + demand.count() != routine.temps.len() {
             return Err("invalid stack temporary count".into());
@@ -250,11 +297,14 @@ impl AllocatedFrame {
                 }
                 continue;
             }
-            let slot = self
-                .temps
-                .get(id)
-                .ok_or("missing stack temporary")?
-                .stack()?;
+            let home = *self.temps.get(id).ok_or("missing stack temporary")?;
+            if let Some(expected) = demand.mixed.home(*id) {
+                if home != expected {
+                    return Err("mixed residence home mismatch".into());
+                }
+                continue;
+            }
+            let slot = home.stack()?;
             if Some(ByteSize::new(slot.width.into())) != ty.width {
                 return Err("stack temporary width mismatch".into());
             }
@@ -263,12 +313,8 @@ impl AllocatedFrame {
                 if demand.omits(*other) {
                     continue;
                 }
-                let other_slot = self
-                    .temps
-                    .get(other)
-                    .ok_or("missing stack temporary")?
-                    .stack()?;
-                if overlap(slot, other_slot) {
+                let other_slot = self.temps.get(other).ok_or("missing stack temporary")?;
+                if Location::Stack(slot).overlaps(*other_slot) {
                     return Err("overlapping live stack temporaries".into());
                 }
             }
@@ -282,9 +328,9 @@ impl AllocatedFrame {
             if demand.omits(source) || demand.omits(dest) {
                 continue;
             }
-            let source = self.temps[&source].stack()?;
-            let dest = self.temps[&dest].stack()?;
-            if overlap(source, dest) && source != dest {
+            let source = self.temps[&source];
+            let dest = self.temps[&dest];
+            if source.overlaps(dest) && source != dest {
                 return Err("partially overlapping pointer cast homes".into());
             }
         }
@@ -295,7 +341,10 @@ impl AllocatedFrame {
         for (index, &slot) in self.edge_copies.iter().enumerate() {
             check_slot(slot)?;
             if slot.width != required[index]
-                || self.temps.values().any(|home| overlap(slot, home.slot()))
+                || self
+                    .temps
+                    .values()
+                    .any(|home| Location::Stack(slot).overlaps(*home))
                 || self.edge_copies[..index]
                     .iter()
                     .any(|&other| overlap(slot, other))

@@ -255,7 +255,7 @@ fn native_word_comparisons_keep_byte_result_homes_frames_and_guard_budgets() {
             (
                 "CARD FUNC Work(CARD n) CARD total total=0 WHILE n#0 DO total==+n n==-1 OD RETURN(total) PROC Main() RETURN",
                 220,
-                if optimize { 6 } else { 12 },
+                if optimize { 6 } else { 10 },
             ),
         ] {
             let program = mir(source, optimize);
@@ -1082,7 +1082,7 @@ fn pointer_leaf_rechecks_incoming_last_byte_after_removing_spills() {
 }
 
 #[test]
-fn scalar_dp_transport_rejects_unaligned_outside_mixed_and_calling_maps() {
+fn residence_transport_rejects_unaligned_outside_and_incomplete_maps() {
     let p = mir(
         "CARD FUNC Work(CARD a,b) RETURN(a+b) PROC Main() RETURN",
         false,
@@ -1098,7 +1098,7 @@ fn scalar_dp_transport_rejects_unaligned_outside_mixed_and_calling_maps() {
         bad.routines[0].temporaries[0].home = image::TemporaryHome::DirectPage { offset };
         assert!(image::Image::from_json(&serde_json::to_vec(&bad).unwrap()).is_err());
     }
-    for size in [1, 3, 4] {
+    for size in [1, 4] {
         let mut bad = original.clone();
         bad.routines[0].temporaries[0].size = size;
         assert!(image::Image::from_json(&serde_json::to_vec(&bad).unwrap()).is_err());
@@ -1122,9 +1122,10 @@ fn scalar_dp_transport_rejects_unaligned_outside_mixed_and_calling_maps() {
     assert!(
         work.temporaries
             .iter()
-            .all(|t| matches!(t.home, image::TemporaryHome::Stack { .. }))
+            .any(|t| matches!(t.home, image::TemporaryHome::DirectPage { .. }))
     );
-    work.temporaries[0].home = image::TemporaryHome::DirectPage { offset: 32 };
+    assert!(image::Image::from_json(&image.to_json().unwrap()).is_ok());
+    image.routines.iter_mut().find(|r| r.name == "Work").unwrap().temporaries[0].home = image::TemporaryHome::DirectPage { offset: 32 };
     assert!(image::Image::from_json(&serde_json::to_vec(&image).unwrap()).is_err());
 }
 

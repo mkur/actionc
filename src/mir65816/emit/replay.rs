@@ -160,6 +160,9 @@ impl Request {
             Self::StagePointer(origin, source, slot) => {
                 e.stage_pointer(*origin, *source, *slot);
             }
+            Self::CaptureResident(id, source, destination) => {
+                e.capture_resident(*id, *source, *destination)
+            }
             Self::AllowPointerStore(contract) => e.allow_pointer_store(*contract),
             Self::ForgetPointer => e.forget_pointer(),
             Self::PrepareReturnJoin => e.prepare_return_join(),

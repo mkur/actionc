@@ -138,7 +138,7 @@ fn pointer_leaves_match_stack_selection_for_swaps_chains_and_pressure() {
         (
             "Node POINTER a,b,c a=p.next b=p.other c=p.next.next a.other=b b.other=c c.other=a p.next=c",
             vec![(1, 4, 2), (2, 4, 2), (2, 4, 1), (0, 1, 2)],
-            false,
+            true,
         ),
     ] {
         let source = format!(
@@ -166,6 +166,12 @@ fn pointer_leaves_match_stack_selection_for_swaps_chains_and_pressure() {
                 );
                 if resident {
                     assert_eq!(map.fixed_frame, 0);
+                }
+                if body.contains("a,b,c") {
+                    // Four live pointers exceed the old three-slot leaf pool;
+                    // the mixed plan admits them in the larger existing pool.
+                    assert!(map.temporaries.iter().any(|t| matches!(t.home,
+                        TemporaryHome::DirectPage { offset: 160..=188 })));
                 }
             }
             // Force the existing stack selector by marking MIR accesses

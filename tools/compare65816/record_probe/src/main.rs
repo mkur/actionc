@@ -9,6 +9,8 @@ use serde_json::json;
 use std::{fs, path::PathBuf};
 #[cfg(feature = "logical-analysis")]
 mod logical;
+#[cfg(feature = "placement-analysis")]
+mod placement;
 fn kind(op: &Op) -> String {
     match op {
         Op::Load { width, address, .. } => format!("Load/{}/{:?}", width.get(), address.mode),
@@ -82,6 +84,8 @@ fn main() {
     let c = p.compile(&layout).unwrap();
     #[cfg(feature = "logical-analysis")]
     logical::report(&c.machine.prepared, &out);
+    #[cfg(feature = "placement-analysis")]
+    placement::report(&c.machine, &out);
     fs::write(out.with_extension("image.json"), c.image.to_json().unwrap()).unwrap();
     let mut routines = vec![];
     for m in &c.machine.routines {

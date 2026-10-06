@@ -11,13 +11,13 @@ enum SourceKind {
     FrameObject(Mir65816FrameObjectId),
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct Source {
     kind: SourceKind,
     pub(super) home: Slot,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct Binding {
     temp: TempId,
     source: Source,
@@ -25,7 +25,7 @@ struct Binding {
     consumer: usize,
 }
 
-#[derive(Default)]
+#[derive(Default, PartialEq, Eq)]
 pub(in crate::mir65816::emit) struct Plan {
     bindings: Vec<Binding>,
 }
@@ -322,6 +322,30 @@ fn terminal(
 }
 
 impl Plan {
+    pub(in crate::mir65816::emit) fn placement_bindings(
+        &self,
+    ) -> Vec<super::super::placement::BorrowedInput> {
+        self.bindings
+            .iter()
+            .map(|b| super::super::placement::BorrowedInput {
+                temp: b.temp,
+                definition: crate::mir65816::analysis::ProgramPoint {
+                    block: b.definition.0,
+                    index: b.definition.1,
+                },
+                uses: vec![crate::mir65816::analysis::ProgramPoint {
+                    block: b.definition.0,
+                    index: b.consumer,
+                }],
+                source: match b.source.kind {
+                    SourceKind::Parameter(id) => super::super::placement::InputOwner::Parameter(id),
+                    SourceKind::FrameObject(id) => super::super::placement::InputOwner::Frame(id),
+                },
+                home: b.source.home,
+            })
+            .collect()
+    }
+
     pub(in crate::mir65816::emit) fn new(
         r: &Mir65816Routine,
         frame: &AllocatedFrame,

@@ -37,6 +37,7 @@ pub(super) enum Decision {
 
 pub(super) struct Plan {
     pub decisions: BTreeMap<TempId, Decision>,
+    pub mixed: mixed::Plan,
     pub(super) pointers: select::pointer_forwarding::Plan,
     pub(super) locals: select::local_loads::Plan,
     producers: BTreeMap<(BlockId, usize), TempId>,
@@ -138,6 +139,7 @@ impl Plan {
             }
         }
         let mut plan = Self {
+            mixed: mixed::Plan::default(),
             decisions: r
                 .temps
                 .iter()
@@ -191,7 +193,7 @@ impl Plan {
                                         | Mir65816AddressBase::External(
                                             Mir65816ExternalAddress::Global(_)
                                         )
-                                )
+                                ) && !indirect_store(r, address, width.get())
                             {
                                 return Err(MemoryReason::VolatileOrAddress);
                             }
@@ -409,6 +411,7 @@ impl Plan {
             }
         }
         plan.select_pointer_stores(r, &counts, &definitions);
+        plan.mixed = mixed::Plan::new(r, &plan);
         plan
     }
 

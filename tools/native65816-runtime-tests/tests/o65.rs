@@ -282,7 +282,7 @@ ENDMODULE
 fn guard_failure_reaches_the_relocated_raw_adapter_before_frame_writes() {
     for optimize in [false, true] {
         let bytes = native::compile(
-            "CARD input,result PROC Main() result=input+1 RETURN",
+            "CARD input,result PROC Main() BYTE ARRAY frame(8) frame(0)=BYTE(input) result=input+1 RETURN",
             optimize,
             vec![],
         );

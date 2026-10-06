@@ -15,6 +15,38 @@ executions and paired compiler-cost gates. `exec_record_foundation.py` checks a
 candidate against the frozen workload; `record_probe --features logical-analysis`
 adds the checked routine census without changing the ordinary stage-0 probe.
 
+`record_probe --features placement-analysis` also observes sealed resource and
+placement contracts after final rewrites. The foundation publisher's `--stage 2`
+mode retains their per-routine census in the
+[stage-2 scorecard](../../docs/benchmarks/65816-record-placement-stage2/README.md);
+ordinary frozen image and inventory comparison still requires exact equality.
+
+`exec_record_consumer.py` qualifies stage-3 consumers against the same frozen
+inputs. Its `probe` and `score` operations check representative and whole-Exec
+code size, every routine's frame/peak, existing reservations and independent
+native costs. `exec_record_vectors.py --output CANDIDATE --binary COMPILER`
+builds separate candidate images from both LF and CRLF sources without changing
+the frozen vectors.
+
+The consumer's `references` operation creates manifests that explicitly request
+`artifact_verification: "archived"` for the original baseline images. The CPU
+runner executes those immutable images with independent result/ABI/access
+oracles; it does not claim that the current compiler reproduces their selected
+proof sites. The report authenticates their hashes and requires every original
+cost measurement to be reproduced. Candidate manifests retain the usual current
+compiler verification. `observe_external_accesses` records ordered byte accesses
+to the vector's declared external objects, including read/write values; scoring
+requires exact baseline/candidate equality. Internal stack and DP traffic is
+measured separately.
+
+For each profile run qualified `code_quality` once with its candidate manifest
+and once with its reference manifest. The `host` operation uses per-compiler
+pinned image hashes with `measure_host.py`, allowing changed code while checking
+every warm-up and measured build. `publish` requires successful backend logs,
+all seven native qualification manifests, matching source generations and
+paired compiler-cost results. Compact evidence belongs in the
+[stage-3 scorecard](../../docs/benchmarks/65816-record-placement-stage3/README.md).
+
 Native-v2 DP traffic in the `code_quality` runner now counts the actual compiler
 scratch at domain offsets `$80..$BF`. Older saved comparisons retain their
 original measurements; remeasure their DP traffic before using it as a baseline.

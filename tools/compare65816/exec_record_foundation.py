@@ -52,7 +52,7 @@ def host(base, output, binary, rounds):
     verify_inputs(base)
 
 
-def publish(base, output, destination):
+def publish(base, output, destination, stage=1):
     verify_inputs(base)
     destination.mkdir(parents=True, exist_ok=True)
     representatives = {}
@@ -60,6 +60,7 @@ def publish(base, output, destination):
         representatives.update((row['emitted_name'], row['name']) for row in csv.DictReader(f))
     result = dict(schema=1, baseline_revision=read(base / 'inputs.json')['compiler']['revision'], profiles={})
     rows, rep_rows = [], []
+    placement_rows, placement_representatives = [], []
     for profile in PROFILES:
         directory = output / profile
         analysis = read(directory / 'probe.analysis.json')
@@ -83,6 +84,23 @@ def publish(base, output, destination):
                 found.add(r['name'])
         if found != set(representatives):
             raise ValueError('Missing representatives: ' + repr(set(representatives) - found))
+        if stage == 2:
+            placement = read(directory / 'probe.placement.json')
+            found = set()
+            summary['placement'] = dict(routines=len(placement['routines']), opaque_routines=placement['opaque_routines'],
+                sha256=digest(directory / 'probe.placement.json'))
+            for r in placement['routines']:
+                row = dict(profile=profile, **r)
+                placement_rows.append(row)
+                if r['name'] in representatives:
+                    placement_representatives.append(dict(source_routine=representatives[r['name']], **row))
+                    found.add(r['name'])
+            if found != set(representatives):
+                raise ValueError('Missing placement representatives: ' + repr(set(representatives) - found))
+            for key in ('values','materialized','borrowed','register_intervals','component_intervals','redirected_locals',
+                        'deferred_assignments','windows','record_windows','scalar_windows','address_windows','barriers',
+                        'boundaries','edges','transfers','staging_bytes','x_mirror'):
+                summary['placement'][key] = sum(r[key] for r in placement['routines'])
         native_before = read(base / 'native-vectors' / (profile + '.measurements.json'))
         native_after = read(output / (profile + '.measurements.json'))
         if native_before['measurements'] != native_after['measurements'] or native_before['control'] != native_after['control']:
@@ -114,6 +132,9 @@ def publish(base, output, destination):
         native=checked_summaries([output / 'native-backend.native.log']),
         immutable_borrow=checked_summaries([output / 'borrow-check.log']),
         native_masks=['I=0', 'I=4'], qualification_manifests={})
+    if stage == 2:
+        result['stage'] = 2
+        result['validation']['placement_graphs'] = result['validation'].pop('logical_graphs')
     import gzip
     import re
     for label in ['native-backend', *PROFILES]:
@@ -134,9 +155,12 @@ def publish(base, output, destination):
     serialized = (json.dumps(source_hashes, sort_keys=True, separators=(',', ':')) + '\n').encode()
     result['compiler_inputs_sha256'] = hashlib.sha256(serialized).hexdigest()
     (destination / 'compiler-inputs.json').write_bytes(serialized)
-    for name, contents in [('routines.csv',rows),('representatives.csv',rep_rows)]:
+    publications = [('routines.csv',rows),('representatives.csv',rep_rows)]
+    if stage == 2:
+        publications += [('placement.csv', placement_rows), ('placement-representatives.csv', placement_representatives)]
+    for name, contents in publications:
         with (destination / name).open('w',newline='') as f:
-            writer=csv.DictWriter(f,fieldnames=list(contents[0]))
+            writer=csv.DictWriter(f,fieldnames=list(contents[0]),lineterminator='\n')
             writer.writeheader();writer.writerows(contents)
     save(destination / 'results.json',result)
     save(destination / 'evidence-sha256.json',{p.name:digest(p) for p in destination.iterdir()
@@ -150,8 +174,9 @@ def main():
     parser.add_argument('--base',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--binary',type=Path)
-    parser.add_argument('--destination',type=Path,default=ROOT/'docs/benchmarks/65816-record-placement-stage1')
+    parser.add_argument('--destination',type=Path)
     parser.add_argument('--rounds',type=int,default=5)
+    parser.add_argument('--stage',type=int,choices=(1,2),default=1)
     args=parser.parse_args()
     base,output=args.base.resolve(),args.output.resolve()
     output.mkdir(parents=True,exist_ok=True)
@@ -159,7 +184,9 @@ def main():
         parser.error('--binary required')
     if args.operation=='probe':probe(base,output,args.binary.resolve())
     elif args.operation=='host':host(base,output,args.binary.resolve(),args.rounds)
-    else:publish(base,output,args.destination.resolve())
+    else:
+        destination=args.destination or ROOT/f'docs/benchmarks/65816-record-placement-stage{args.stage}'
+        publish(base,output,destination.resolve(),args.stage)
 
 
 if __name__=='__main__':main()

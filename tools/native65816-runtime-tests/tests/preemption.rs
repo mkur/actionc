@@ -140,7 +140,7 @@ fn initialize(mut h: ContextHarness) -> ContextHarness {
     h
 }
 
-// Routine, stack/immediate source, frame extent, reached tail instruction PCs.
+// Routine, memory/resident or immediate source, frame, reached tail PCs.
 type ReturnWindow = (u32, bool, u16, Vec<u32>);
 
 fn return_window(h: &ContextHarness) -> Option<ReturnWindow> {
@@ -159,8 +159,9 @@ fn return_window(h: &ContextHarness) -> Option<ReturnWindow> {
         forwarding::reached(&h.cpu, &h.bus).is_some_and(|s| s.kind == forwarding::Kind::Return);
     let size = match opcode {
         0xa8 | 0x6b if resident => 0,
-        0xa3 | 0xa5 => 2,
-        0xa9 => 3,
+        0xa3 | 0xa5 | 0xa7 | 0xb7 => 2,
+        0xa9 | 0xad => 3,
+        0xaf => 4,
         _ => return None,
     };
     let tail = pc + size;
@@ -191,7 +192,7 @@ fn return_window(h: &ContextHarness) -> Option<ReturnWindow> {
     // mode-aware sequence is checked inside its owning word-result routine.
     Some((
         r.address,
-        matches!(opcode, 0xa3 | 0xa5) || resident,
+        matches!(opcode, 0xa3 | 0xa5 | 0xa7 | 0xb7 | 0xad | 0xaf) || resident,
         r.fixed_frame,
         addresses,
     ))
@@ -333,16 +334,20 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
                     return_windows.insert(window);
                 }
                 let opcode = h.bus.ram[pc as usize];
-                if matches!(opcode, 0x63 | 0xe3)
+                if matches!(opcode, 0x63 | 0x65 | 0xe3 | 0xe5)
                     && word_ranges.iter().any(|range| range.contains(&pc))
                 {
                     // Decode only at a reached instruction boundary. These
-                    // stack-relative forms are emitted by word arithmetic;
+                    // stack-relative and DP forms are emitted by word arithmetic;
                     // immediate arithmetic in stack guards is not counted.
                     assert_eq!(r.p & 0x20, 0);
                     assert_eq!(
                         h.bus.ram[pc as usize - 1],
-                        if opcode == 0x63 { 0x18 } else { 0x38 }
+                        if matches!(opcode, 0x63 | 0x65) {
+                            0x18
+                        } else {
+                            0x38
+                        }
                     );
                     // Capture stores can disappear when the result is consumed
                     // directly. Interrupt the actual successor with live A/P.
@@ -358,7 +363,14 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
         }
         check(&h);
         assert_eq!(
-            word_windows.iter().map(|w| w.0).collect::<BTreeSet<_>>(),
+            word_windows
+                .iter()
+                .map(|w| if matches!(w.0, 0x63 | 0x65) {
+                    0x63
+                } else {
+                    0xe3
+                })
+                .collect::<BTreeSet<_>>(),
             BTreeSet::from([0x63, 0xe3])
         );
         for &(_, carry, arithmetic, store) in &word_windows {
@@ -1063,12 +1075,18 @@ fn check_narrow_preemption(source: &str, names: [&str; 2], kind: &str) {
         }
         check(&h);
         if kind == "signed" {
-            for op in [0x38, 0xe3, 0x50, 0x49, 0x30] {
+            for op in [0x38, 0x50, 0x49, 0x30] {
                 assert!(
                     signed_instructions.iter().any(|&(o, _)| o == op),
                     "missing {op:02x}"
                 );
             }
+            assert!(
+                signed_instructions
+                    .iter()
+                    .any(|&(op, _)| matches!(op, 0xe3 | 0xe5)),
+                "missing signed subtraction"
+            );
             assert!(signed_instructions.contains(&(0x50, 0)));
             assert!(signed_instructions.contains(&(0x50, 0x40)));
         }

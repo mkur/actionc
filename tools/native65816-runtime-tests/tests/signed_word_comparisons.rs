@@ -109,7 +109,7 @@ fn signed_size_probes_keep_frames_and_source_newlines_stable() {
         );
         for r in &image.routines {
             if r.name.starts_with("Ret") || r.name.starts_with("Branch") {
-                assert_eq!(r.fixed_frame, 6);
+                assert_eq!(r.fixed_frame, 2);
                 assert!(
                     r.size <= if r.name.starts_with("Ret") { 130 } else { 150 },
                     "{}: {}",
@@ -443,7 +443,8 @@ fn signed_windows_read_both_private_words_and_fusion_omits_the_boolean_store() {
                             )
                             .unwrap()
                     );
-                    let s = u32::from(h.cpu.registers().s);
+                    let registers = h.cpu.registers();
+                    let s = u32::from(registers.s);
                     let reads = h.bus.reads.len();
                     let writes = h.bus.writes.len();
                     assert!(
@@ -459,7 +460,11 @@ fn signed_windows_read_both_private_words_and_fusion_omits_the_boolean_store() {
                     let expected: Vec<_> = [left, right]
                         .into_iter()
                         .flat_map(|id| {
-                            let at = s + u32::from(m.frame.temps[&id].stack().unwrap().offset);
+                            let at = homes::address(
+                                registers.s,
+                                registers.d,
+                                homes::of(m.frame.temps[&id]).unwrap(),
+                            );
                             [at, at + 1]
                         })
                         .collect();
@@ -467,7 +472,7 @@ fn signed_windows_read_both_private_words_and_fusion_omits_the_boolean_store() {
                         h.bus.reads[reads..]
                             .iter()
                             .copied()
-                            .filter(|a| (0x4000..0x6000).contains(a))
+                            .filter(|a| (0x4000..0x6000).contains(a) || (0x2080..0x20c0).contains(a))
                             .collect::<Vec<_>>(),
                         expected
                     );
@@ -480,10 +485,12 @@ fn signed_windows_read_both_private_words_and_fusion_omits_the_boolean_store() {
                         )]
                     };
                     assert_eq!(&h.bus.writes[writes..], &expected_write);
+                    // The signed selector needs no ordinary pointer/arithmetic
+                    // scratch. Any DP reads above must be the exact word homes.
                     assert!(
                         !h.bus.reads[reads..]
                             .iter()
-                            .any(|a| (0x2080..0x20c0).contains(a))
+                            .any(|a| (0x2080..0x20a0).contains(a))
                     );
                     h.run();
                     h.guards(mask);

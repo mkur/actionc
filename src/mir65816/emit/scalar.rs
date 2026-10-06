@@ -5,6 +5,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub(crate) const START: u16 = abi::generated::DP_SCRATCH_OFFSET as u16 + 32;
 pub(crate) const END: u16 = START + 32;
+/// Canonical complete mixed homes, within the existing residence reservation.
+pub(crate) fn residence_offset(offset: u16, bytes: u16) -> bool {
+    matches!(bytes, 2 | 3) && offset % 2 == 0 && offset >= START && offset.checked_add(bytes).is_some_and(|end| end <= END)
+}
 pub(crate) fn word_offset(offset: u16) -> bool {
     (START..END).contains(&offset) && offset % 2 == 0
 }

@@ -52,16 +52,15 @@ impl Builder<'_> {
         if home.slot().width != 3 {
             return Err("symbol address requires a complete three-byte home".into());
         }
-        let Location::Stack(slot) = home else {
-            return Ok(false);
-        };
-        // Check the entire destination before committing any instruction/fixup.
-        abi::stack::access_displacement(
-            ByteOffset::new(slot.offset.into()),
-            ByteSize::new(3),
-            ByteSize::new(self.code.delta()),
-        )
-        .map_err(|e| e.to_string())?;
+        if let Location::Stack(slot) = home {
+            // Check the entire destination before committing any instruction/fixup.
+            abi::stack::access_displacement(
+                ByteOffset::new(slot.offset.into()),
+                ByteSize::new(3),
+                ByteSize::new(self.code.delta()),
+            )
+            .map_err(|e| e.to_string())?;
+        }
         self.code.barrier();
         self.code.a8();
         for byte in 0..3 {

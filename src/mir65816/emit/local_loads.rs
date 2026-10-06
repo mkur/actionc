@@ -1,18 +1,40 @@
 //! Select adjacent 24-bit loads into an unexposed local's final home.
 use super::*;
 
+#[derive(PartialEq, Eq)]
 struct Load {
     temp: TempId,
     destination: Memory,
 }
 
-#[derive(Default)]
+#[derive(Default, PartialEq, Eq)]
 pub(in crate::mir65816::emit) struct Plan {
     loads: BTreeMap<(BlockId, usize), Load>,
     copies: BTreeSet<(BlockId, usize)>,
 }
 
 impl Plan {
+    pub(in crate::mir65816::emit) fn placement_captures(
+        &self,
+    ) -> Vec<(TempId, crate::mir65816::analysis::ProgramPoint, Slot)> {
+        self.loads
+            .iter()
+            .map(|(&(block, index), load)| {
+                let Memory::Stack(offset) = load.destination else {
+                    unreachable!("checked local destination")
+                };
+                (
+                    load.temp,
+                    crate::mir65816::analysis::ProgramPoint { block, index },
+                    Slot {
+                        offset: offset as u16,
+                        width: 3,
+                    },
+                )
+            })
+            .collect()
+    }
+
     pub(in crate::mir65816::emit) fn new(
         routine: &Mir65816Routine,
         demand: &home_demand::Plan,

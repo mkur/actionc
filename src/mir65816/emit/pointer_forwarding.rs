@@ -12,7 +12,7 @@ enum SourceKind {
 }
 
 /// A source home is never registered as a writable temporary allocation.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct Source {
     kind: SourceKind,
     home: Slot,
@@ -30,7 +30,7 @@ impl Source {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct Binding {
     temp: TempId,
     source: Source,
@@ -38,7 +38,7 @@ struct Binding {
     uses: BTreeSet<usize>,
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub(in crate::mir65816::emit) struct Plan {
     bindings: Vec<Binding>,
 }
@@ -417,6 +417,34 @@ pub(in crate::mir65816::emit) fn pointer_alias(
 }
 
 impl Plan {
+    pub(in crate::mir65816::emit) fn placement_bindings(
+        &self,
+    ) -> Vec<super::super::placement::BorrowedInput> {
+        self.bindings
+            .iter()
+            .map(|b| super::super::placement::BorrowedInput {
+                temp: b.temp,
+                definition: crate::mir65816::analysis::ProgramPoint {
+                    block: b.definition.0,
+                    index: b.definition.1,
+                },
+                uses: b
+                    .uses
+                    .iter()
+                    .map(|&index| crate::mir65816::analysis::ProgramPoint {
+                        block: b.definition.0,
+                        index,
+                    })
+                    .collect(),
+                source: match b.source.kind {
+                    SourceKind::Parameter(id) => super::super::placement::InputOwner::Parameter(id),
+                    SourceKind::FrameObject(id) => super::super::placement::InputOwner::Frame(id),
+                },
+                home: b.source.home,
+            })
+            .collect()
+    }
+
     pub(in crate::mir65816::emit) fn new(
         routine: &Mir65816Routine,
         frame: &AllocatedFrame,
@@ -557,7 +585,7 @@ impl Plan {
         self.bindings.iter().map(|b| b.temp)
     }
 
-    pub(super) fn resolve(
+    pub(in crate::mir65816::emit) fn resolve(
         &self,
         routine: &Mir65816Routine,
         frame: &AllocatedFrame,

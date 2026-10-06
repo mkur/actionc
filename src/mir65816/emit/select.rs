@@ -43,7 +43,7 @@ mod accumulator;
 #[path = "accumulator_homes.rs"]
 mod accumulator_homes;
 #[path = "address_consumers.rs"]
-mod address_consumers;
+pub(super) mod address_consumers;
 #[path = "addresses.rs"]
 mod addresses;
 #[path = "arithmetic.rs"]
@@ -59,11 +59,11 @@ mod call_returns;
 #[path = "constant_stores.rs"]
 mod constant_stores;
 #[path = "direct_assignments.rs"]
-mod direct_assignments;
-#[path = "integer_casts.rs"]
-mod integer_casts;
+pub(super) mod direct_assignments;
 #[path = "indexed_addresses.rs"]
 mod indexed_addresses;
+#[path = "integer_casts.rs"]
+mod integer_casts;
 #[path = "local_loads.rs"]
 pub(super) mod local_loads;
 #[path = "long_arithmetic.rs"]
@@ -74,14 +74,14 @@ mod long_order;
 mod mixed_edges;
 #[path = "parameter.rs"]
 mod parameter;
-#[path = "scalar_forwarding.rs"]
-pub(super) mod scalar_forwarding;
 #[path = "pointer_forwarding.rs"]
 pub(super) mod pointer_forwarding;
 #[path = "pointer_stores.rs"]
 pub(super) mod pointer_stores;
 #[path = "pointer_values.rs"]
 mod pointer_values;
+#[path = "scalar_forwarding.rs"]
+pub(super) mod scalar_forwarding;
 #[path = "shifts.rs"]
 mod shifts;
 #[path = "top_bits.rs"]
@@ -89,6 +89,7 @@ pub(super) mod top_bits;
 #[path = "wide_returns.rs"]
 mod wide_returns;
 use super::tracked::*;
+use crate::mir65816::analysis::ProgramPoint;
 
 #[cfg(test)]
 #[path = "accumulator_tests.rs"]
@@ -103,13 +104,7 @@ mod scalar_word_tests;
 mod call_tests;
 
 // ABI call-clobbered domain scratch. Nothing here survives a call.
-const PTR: u8 = abi::generated::DP_POINTER0_OFFSET as u8;
-const RESULT: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 8;
-const RIGHT: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 16;
-const INDEX: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 20;
-const COPY_SOURCE: u8 = abi::generated::DP_POINTER1_OFFSET as u8;
-const COPY_DEST: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 24;
-const COPY_COUNT: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 28;
+use super::resources::{COPY_COUNT, COPY_DEST, COPY_SOURCE, INDEX, PTR, RESULT, RIGHT};
 
 /// The verified ABI homes define payload; their intervening and trailing gaps
 /// still need explicit zero stores. Preflight before emitting a call guard.
@@ -152,7 +147,7 @@ fn outgoing_padding(homes: &[Mir65816AbiHome], outgoing: ByteSize) -> Result<Vec
     Ok(padding)
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Memory {
     Stack(u32),
     DirectPage(u16),
@@ -312,6 +307,7 @@ struct Builder<'a> {
     loop_x: Option<loop_x::LoopXPlan>,
     borrowed: BTreeMap<TempId, pointer_forwarding::Source>,
     scalar_borrowed: BTreeMap<TempId, scalar_forwarding::Source>,
+    resident: BTreeMap<TempId, Slot>,
 }
 
 #[cfg(test)]
@@ -348,12 +344,13 @@ pub(super) fn routine_with_data(
     if let Some(helper) = routine.helper {
         return arithmetic::emit(routine, helper, _trace, stack_checks);
     }
-    let demand = home_demand::Plan::new(routine);
-    let frame = AllocatedFrame::new(routine)?;
+    let placement = placement::Plan::new(routine, data)?;
+    let demand = &placement.demand;
+    let frame = placement.frame.clone();
     let addresses = addresses::Plan::new(routine, &frame, data)?;
-    let pointers = demand.pointers.resolve(routine, &frame)?;
-    let scalars = scalar_forwarding::Plan::new(routine, &frame)?;
-    let loop_x = loop_x::LoopXPlan::new(routine, &frame)?;
+    let pointers = &placement.pointers;
+    let scalars = &placement.scalars;
+    let loop_x = placement.loop_x.clone();
     let mut b = Builder {
         stack_checks,
         routine,
@@ -361,6 +358,7 @@ pub(super) fn routine_with_data(
         loop_x,
         borrowed: BTreeMap::new(),
         scalar_borrowed: BTreeMap::new(),
+        resident: BTreeMap::new(),
         code: TrackedEmitter65816::for_entry(routine.prologue.required_mode),
         blocks: BTreeMap::new(),
         next_block: None,
@@ -498,14 +496,13 @@ pub(super) fn routine_with_data(
         } else {
             top_bits::plan(&b, block, &input_counts)?
         };
-        let assignments =
-            direct_assignments::Plan::new(routine, &b.frame, block, &input_counts, data);
-        let component_stores =
-            address_consumers::Plan::new(routine, &b.frame, block, &demand, &pointers)?;
+        let assignments = &placement.assignments[&block.id];
+        let component_stores = &placement.components[&block.id];
         if let Some((last, prefix)) = block.ops.split_last() {
             for (op_index, op) in prefix.iter().enumerate() {
                 let start = b.code.code().bytes.len();
                 b.code.begin_source(block.id, op_index);
+                demand.mixed.enter(&mut b, block.id, op_index);
                 let scalar_omitted = scalars.enter(&mut b, block.id, op_index);
                 if !b.enter_pointer_operation(&pointers, block.id, op_index, op)?
                     && !scalar_omitted
@@ -531,10 +528,12 @@ pub(super) fn routine_with_data(
                             .map_err(|e| format!("b{}: {e}", block.id.0))?;
                     }
                 }
+                demand.mixed.capture(&mut b, block.id, op_index)?;
                 b.code.span(block.id, op_index, start);
             }
             let start = b.code.code().bytes.len();
             b.code.begin_source(block.id, prefix.len());
+            demand.mixed.enter(&mut b, block.id, prefix.len());
             let scalar_omitted = scalars.enter(&mut b, block.id, prefix.len());
             let omitted = b.enter_pointer_operation(&pointers, block.id, prefix.len(), last)?
                 || scalar_omitted
@@ -575,10 +574,12 @@ pub(super) fn routine_with_data(
                         .map_err(|e| format!("b{}: {e}", block.id.0))?;
                 }
             }
+            demand.mixed.capture(&mut b, block.id, prefix.len())?;
             b.code.span(block.id, prefix.len(), start);
         }
         let start = b.code.code().bytes.len();
         b.code.begin_source(block.id, block.ops.len());
+        demand.mixed.enter(&mut b, block.id, block.ops.len());
         pointers.enter(&mut b, block.id, block.ops.len());
         scalars.enter(&mut b, block.id, block.ops.len());
         b.code.a16(); // Every MIR control-flow boundary has the ABI width.
@@ -635,7 +636,13 @@ pub(super) fn routine_with_data(
     }
     let homes = super::analysis::homes::HomeContract::from_verified(routine, &b.frame)?;
     let candidates = b.code.take_planned_loads();
-    let direct = b.code.finish_selected(routine.id, &b.frame, Some(homes))?;
+    let contract = placement.seal(&b.blocks)?;
+    let mut direct = b.code.finish_selected(routine.id, &b.frame, Some(homes))?;
+    direct
+        .selected
+        .as_mut()
+        .ok_or("missing selected placement")?
+        .bind_placement(contract)?;
     #[cfg(feature = "native65816-state-proof")]
     if !replay {
         return Ok(MachineRoutine {
@@ -681,10 +688,11 @@ impl Builder<'_> {
         self.frame.parameter_home(self.routine, id)
     }
     fn temp(&self, id: TempId) -> Result<Location, String> {
-        self.frame
-            .temps
+        self.resident
             .get(&id)
             .copied()
+            .map(Location::DirectPage)
+            .or_else(|| self.frame.temps.get(&id).copied())
             .ok_or_else(|| format!("undefined temporary t{}", id.0))
     }
     fn displacement(&self, offset: u32, byte: u32) -> Result<u8, String> {
@@ -1011,7 +1019,9 @@ impl Builder<'_> {
             Mir65816Value::U32(value) => return Ok(Some(LongOperand::Immediate(*value))),
             Mir65816Value::Temp(id, size) => {
                 let allocated = self.temp(*id)?;
-                let location = self.scalar_borrowed.get(id)
+                let location = self
+                    .scalar_borrowed
+                    .get(id)
                     .map_or(allocated, |source| Location::Stack(source.home));
                 if location.slot().width != width(*size)? {
                     return Err("temporary width mismatch".into());
@@ -1637,7 +1647,12 @@ impl Builder<'_> {
                     return Err("indirect address requires a 24-bit pointer".into());
                 }
                 if let Mir65816Value::Temp(id, _) = value
-                    && let Some(Location::DirectPage(slot)) = self.frame.temps.get(id)
+                    && let Some(Location::DirectPage(slot)) = self
+                        .resident
+                        .get(id)
+                        .copied()
+                        .map(Location::DirectPage)
+                        .or_else(|| self.frame.temps.get(id).copied())
                 {
                     if address.index.is_some() || displacement > u32::from(u16::MAX) - 3 {
                         return Err("unmodelled resident pointer addressing".into());
@@ -2755,6 +2770,31 @@ impl Builder<'_> {
     fn return_tail(&mut self, preserve_result: bool) -> Result<(), String> {
         self.release(self.frame.extent, preserve_result);
         self.code.native_return(self.routine.result_home)?; // RTL
+        Ok(())
+    }
+}
+
+impl mixed::Plan {
+    fn enter(&self, b: &mut Builder<'_>, block: BlockId, index: usize) {
+        let point = ProgramPoint { block, index };
+        b.resident = self
+            .values
+            .keys()
+            .filter_map(|&id| self.cache(id, point).map(|s| (id, s)))
+            .collect();
+    }
+    fn capture(&self, b: &mut Builder<'_>, block: BlockId, index: usize) -> Result<(), String> {
+        for (&id, v) in &self.values {
+            if v.backed && v.block == block && v.first == index {
+                let source = b
+                    .frame
+                    .temps
+                    .get(&id)
+                    .ok_or("missing backed residence home")?
+                    .stack()?;
+                b.code.capture_resident(id, source, v.slot);
+            }
+        }
         Ok(())
     }
 }

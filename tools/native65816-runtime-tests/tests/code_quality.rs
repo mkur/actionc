@@ -44,6 +44,7 @@ fn execute(
     mask: u8,
     sites: &support::word_edge::Index,
     forwarded: &support::forwarding::Index,
+    observe_external: bool,
 ) -> Value {
     let action = artifact["compiler"] == "actionc";
     let calypsi = artifact["compiler"] == "calypsi";
@@ -132,6 +133,7 @@ fn execute(
         stack_arguments |= 1;
     }
     let preserved_stack_start = argument_base + stack_arguments;
+    let mut external_accesses = Vec::new();
     let mut logical_memory = BTreeSet::new();
     let mut padding = BTreeSet::new();
     for region in input["memory"].as_array().unwrap() {
@@ -267,6 +269,13 @@ fn execute(
         lowest_s = lowest_s.min(cpu.registers().s);
         let read = cycle.access == Access::Read;
         let write = matches!(cycle.access, Access::Write(_));
+        if observe_external && logical_memory.contains(&cycle.address) && (read || write) {
+            let value = match cycle.access {
+                Access::Write(value) => value,
+                _ => bus.ram[cycle.address as usize],
+            };
+            external_accesses.push(json!([cycle.address, write, value]));
+        }
         if write && logical_memory.contains(&cycle.address) {
             last_memory_write.insert(cycle.address, instruction_pc);
         }
@@ -380,6 +389,9 @@ fn execute(
         "metadata_reads": metadata_reads, "input_padding_reads": padding_reads,
         "result": result, "correct": errors.is_empty(), "errors": errors
     });
+    if observe_external {
+        measurement["external_accesses"] = json!(external_accesses);
+    }
     if action {
         measurement["x_increment_updates"] = json!(increment_sites.values().sum::<u64>());
         measurement["x_increment_update_sites"] = json!(increment_sites);
@@ -429,6 +441,23 @@ fn execute_parallel_corpus() {
     let manifest: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
     assert_eq!(manifest["schema"], 1);
     assert_eq!(manifest["target"], "wdc-65816-native");
+    assert!(
+        manifest["artifact_verification"].is_null()
+            || manifest["artifact_verification"] == "current"
+            || manifest["artifact_verification"] == "archived"
+    );
+    if manifest["artifact_verification"] == "archived" {
+        // Archived bytes execute under the independent CPU/oracles. Current
+        // compiler typed-site evidence cannot authenticate a different generation.
+        assert_eq!(manifest["observe_control_flow"], false);
+        assert!(
+            manifest["artifacts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|a| a["image_sha256"].as_str().is_some_and(|s| s.len() == 64))
+        );
+    }
     let mut measurements = Vec::new();
     let mut control = Vec::new();
     for artifact in manifest["artifacts"].as_array().unwrap() {
@@ -440,7 +469,9 @@ fn execute_parallel_corpus() {
             .unwrap();
         // Ground short copy decoding in typed edges from an independently
         // re-prepared artifact. CPU execution still uses only the saved image.
-        let (sites, forwarded) = if artifact["compiler"] == "actionc" {
+        let (sites, forwarded) = if artifact["compiler"] == "actionc"
+            && manifest["artifact_verification"] != "archived"
+        {
             let command = artifact["commands"][0].as_array().unwrap();
             let source = command.last().unwrap().as_str().unwrap();
             let layout_pos = command.iter().position(|v| v == "--layout").unwrap();
@@ -495,12 +526,28 @@ fn execute_parallel_corpus() {
                 "{} {} {} vector {vector}",
                 case["id"], artifact["compiler"], artifact["mode"]
             );
-            let mut result = execute(artifact, case, input, 0, &sites, &forwarded);
+            let mut result = execute(
+                artifact,
+                case,
+                input,
+                0,
+                &sites,
+                &forwarded,
+                manifest["observe_external_accesses"] == true,
+            );
             // Both interrupt-mask states must preserve the ABI and produce
             // identical measurements. No IRQ/NMI is injected in this benchmark.
             assert_eq!(
                 result,
-                execute(artifact, case, input, 4, &sites, &forwarded)
+                execute(
+                    artifact,
+                    case,
+                    input,
+                    4,
+                    &sites,
+                    &forwarded,
+                    manifest["observe_external_accesses"] == true
+                )
             );
             let object = result.as_object_mut().unwrap();
             for key in [

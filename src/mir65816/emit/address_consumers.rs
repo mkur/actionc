@@ -1,6 +1,7 @@
 //! Pure 24-bit address producers and their complete scalar store consumers.
 use super::*;
 
+#[derive(PartialEq, Eq)]
 struct ComponentStore {
     source: Slot,
     offset: u16,
@@ -9,13 +10,18 @@ struct ComponentStore {
 
 /// Reuse the admitted sole-consumer chain, but send each arithmetic component
 /// directly to memory instead of constructing an ABI return value in A/X.
-pub(super) struct Plan {
+#[derive(PartialEq, Eq)]
+pub(in crate::mir65816::emit) struct Plan {
     omitted: BTreeSet<usize>,
     stores: BTreeMap<usize, ComponentStore>,
 }
 
 impl Plan {
-    pub(super) fn new(
+    pub(in crate::mir65816::emit) fn defers(&self, index: usize) -> bool {
+        self.omitted.contains(&index)
+    }
+
+    pub(in crate::mir65816::emit) fn new(
         routine: &Mir65816Routine,
         frame: &AllocatedFrame,
         block: &Mir65816Block,

@@ -315,6 +315,14 @@ See the [implementation plan](MIR65816_STATE_TRACKER_IMPLEMENTATION_PLAN.md) and
 
 ### Selected actions and CFG
 
+Ordinary routine selection consumes the common
+[resource and placement plan](MIR65816_PLACEMENT_CONTRACT.md). Its sealed
+contract accompanies selected generations and checks complete source windows,
+scratch interference, exact external scalar extents, stack allowances and
+logical boundary requirements before emission publication and after replay or
+instruction rewrites. Existing helper and terminal-forwarding contracts remain
+opaque; resource barriers add no residence or alias permissions.
+
 Every production routine retains a private `SelectedRoutine` containing the
 allocation snapshot, verified home ownership, typed actions, source attribution
 and selected CFG.
@@ -1312,9 +1320,13 @@ require corresponding execution qualification.
 
 Image v3 and experimental o65 profile v1 retain their existing tagged temporary
 locations. In addition to the three size-three pointer slots, validators admit
-size-two scalar homes at even offsets $20..$3E, only in routines without calls.
-Invalid widths, out-of-pool/odd offsets and mixed pointer/scalar allocation
-families are rejected. Maps describe geometry; the allocator separately proves
+complete size-two and size-three homes at even offsets in $A0..$BF. The
+complete extent must fit the pool. Mixed widths and routines containing calls
+are transportable: the common placement proof requires every DP-only lifetime
+to end before a call or other resource barrier. The legacy $80/$83/$86 pointer
+pool remains a separate closed, call-free allocation family. Invalid widths,
+out-of-pool/odd offsets and mixed legacy/residence pools are rejected. Maps
+describe geometry; the allocator separately proves
 closed-operation liveness and conservative selector effects before emission.
 Older validators require an update to consume these scalar maps.
 

@@ -28,6 +28,7 @@ fn builder(routine: &Mir65816Routine) -> Builder<'_> {
         loop_x: None,
         borrowed: BTreeMap::new(),
         scalar_borrowed: BTreeMap::new(),
+        resident: BTreeMap::new(),
     }
 }
 

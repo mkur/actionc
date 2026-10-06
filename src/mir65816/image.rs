@@ -324,7 +324,7 @@ impl Image {
                 }
             }
             let mut temp_ids = std::collections::BTreeSet::new();
-            let mut dp_width = None;
+            let mut legacy_pointer_pool = None;
             for temp in &r.temporaries {
                 if !temp_ids.insert(temp.id) || !(1..=4).contains(&temp.size) {
                     return Err("invalid temporary identity or width".into());
@@ -337,14 +337,14 @@ impl Image {
                             abi::generated::DP_POINTER2_OFFSET as u16,
                         ]
                         .contains(&offset);
-                    let scalar = temp.size == 2 && emit::scalar::word_offset(offset);
+                    let scalar = emit::scalar::residence_offset(offset, u16::try_from(temp.size).unwrap_or(u16::MAX));
                     if (!pointer && !scalar)
-                        || !r.calls.is_empty()
-                        || dp_width.is_some_and(|w| w != temp.size)
+                        || pointer && !r.calls.is_empty()
+                        || legacy_pointer_pool.is_some_and(|legacy| legacy != pointer)
                     {
                         return Err("invalid direct-page temporary map".into());
                     }
-                    dp_width = Some(temp.size);
+                    legacy_pointer_pool = Some(pointer);
                 }
             }
             for (offset, size) in r.objects.iter().map(|o| (o.displacement, o.size)).chain(

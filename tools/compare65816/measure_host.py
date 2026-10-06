@@ -64,23 +64,27 @@ def main():
         for build in builds:
             command = list(build['commands'][0])
             command[command.index('-o') + 1] = str(image)
-            expected = build['hashes']['image.json']
+            expected = build.get('compiler_image_hashes', {name: build['hashes']['image.json'] for name in binaries})
+            assert set(expected) == set(binaries)
             commands.append((build, command, expected))
         # Warm binaries, shared libraries and all input files before timing.
         for build, command, expected in commands:
-            for binary in binaries.values():
+            for name, binary in binaries.items():
+                print(f"Warm-up: {build['case']}/{build['mode']}/{name}", flush=True)
                 run([str(binary), *command[1:]], log)
-                assert digest(image) == expected, (build['case'], build['mode'], str(binary))
+                assert digest(image) == expected[name], (build['case'], build['mode'], str(binary))
         for round_number in range(args.rounds):
             order = ('before', 'after') if round_number % 2 == 0 else ('after', 'before')
             sequence = commands if round_number % 2 == 0 else list(reversed(commands))
             for build, command, expected in sequence:
                 for compiler in order:
                     result = run([str(binaries[compiler]), *command[1:]], log)
-                    assert digest(image) == expected, (build['case'], build['mode'], compiler)
+                    assert digest(image) == expected[compiler], (build['case'], build['mode'], compiler)
                     samples.append(dict(round=round_number, case=build['case'],
                                         mode=build['mode'], compiler=compiler,
-                                        image_sha256=expected, **result))
+                                        image_sha256=expected[compiler], **result))
+                    print(f"Round {round_number + 1}/{args.rounds}: {build['case']}/{build['mode']}/{compiler}: "
+                          f"{result['wall_seconds']:.3f}s, {result['peak_rss_bytes'] / (1024 * 1024):.1f} MiB", flush=True)
     per_build = []
     for build in builds:
         row = dict(case=build['case'], mode=build['mode'])
@@ -100,7 +104,7 @@ def main():
                 for r in range(args.rounds)),
             median_compile_peak_rss_bytes=statistics.median(s['peak_rss_bytes'] for s in samples if s['compiler'] == compiler),
             maximum_compile_peak_rss_bytes=max(s['peak_rss_bytes'] for s in samples if s['compiler'] == compiler))
-    report = dict(schema=1, methodology='Separate release CLI process per build; one warm-up of all inputs per compiler, then alternating compiler/build order. Wall time includes process launch, parsing, compilation and JSON output. wait4 reports per-child CPU and peak RSS; outputs must match the frozen image hash on every run. No concurrent build or native qualification is intentionally run during measurement.',
+    report = dict(schema=1, methodology='Separate release CLI process per build; one warm-up of all inputs per compiler, then alternating compiler/build order. Wall time includes process launch, parsing, compilation and JSON output. wait4 reports per-child CPU and peak RSS; outputs must match the pinned image hash for that compiler on every run. No concurrent build or native qualification is intentionally run during measurement.',
                   platform=platform.platform(), machine=platform.machine(), cpu_count=os.cpu_count(),
                   python=sys.version, rounds=args.rounds, builds=len(builds),
                   binaries={name: dict(path=str(path), sha256=digest(path)) for name, path in binaries.items()},

@@ -26,9 +26,37 @@ fn replay_matches_direct_code_traces_and_repeated_finalization() {
         "record_field",
         "unlink",
         "forward_copy",
+        "pointer_store",
     ] {
         for optimize in [false, true] {
-            let p = prepare(&fixture(&format!("code_quality/{case}.act")), optimize);
+            let source = if case == "pointer_store" {
+                "BYTE POINTER p=$7100 PROC Work() p^=7 p^=9 RETURN PROC Main() Work() RETURN".into()
+            } else {
+                fixture(&format!("code_quality/{case}.act"))
+            };
+            let mut p = prepare(&source, optimize);
+            if case == "pointer_store" {
+                // Independently request observable pointer captures. They need
+                // stack homes, while the ordinary pointee stores retain their
+                // checked address-preservation request and replay coverage.
+                for op in p
+                    .mir
+                    .routines
+                    .iter_mut()
+                    .flat_map(|r| &mut r.blocks)
+                    .flat_map(|b| &mut b.ops)
+                {
+                    if let actionc::mir65816::Mir65816Op::Load {
+                        width, volatile, ..
+                    } = op
+                    {
+                        if width.get() == 3 {
+                            *volatile = true;
+                        }
+                    }
+                }
+                actionc::mir65816::verify_program(&p.mir).unwrap();
+            }
             let plain = emit::materialize(&p.mir).unwrap();
             for trace in [false, true] {
                 let (direct, old_traces) = proof::materialize_reference(&p.mir, trace).unwrap();
@@ -87,7 +115,7 @@ fn replay_matches_direct_code_traces_and_repeated_finalization() {
             }
         }
     }
-    assert_eq!(requests.len(), 23, "covered request families: {requests:?}");
+    assert_eq!(requests.len(), 24, "covered request families: {requests:?}");
     assert!(requests.contains("prepare-return-join"));
     assert!(requests.contains("stage-pointer") && requests.contains("pointer-store"));
     assert!(decisions[0] > 0 && decisions[1] > 0);

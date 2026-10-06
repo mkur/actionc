@@ -71,6 +71,7 @@ pub(super) enum Request {
     EstablishBody,
     Barrier,
     StagePointer(super::tracked::PointerOrigin, Slot, u8),
+    CaptureResident(TempId, Slot, Slot),
     AllowPointerStore(super::select::pointer_stores::Contract),
     ForgetPointer,
     PrepareReturnJoin,
@@ -199,10 +200,17 @@ pub(super) struct SelectedRoutine {
     identity: Identity,
     pub(super) allocation: AllocatedFrame,
     pub(super) home_contract: Option<super::analysis::homes::HomeContract>,
+    placement: Option<std::sync::Arc<super::placement::Contract>>,
     records: Vec<Record>,
     cfg: SelectedCfg,
 }
 impl SelectedRoutine {
+    pub(super) fn identity(&self) -> Identity {
+        self.identity
+    }
+    pub(super) fn routine_id(&self) -> RoutineId {
+        self.identity.routine()
+    }
     /// Scratch actions are never published without fresh replay/reconciliation.
     pub fn edited(&self, records: Vec<Record>) -> Result<Self, String> {
         let cfg = SelectedCfg::build(&records)?;
@@ -210,6 +218,7 @@ impl SelectedRoutine {
             identity: self.identity.checked_next_selection()?,
             allocation: self.allocation.clone(),
             home_contract: self.home_contract.clone(),
+            placement: self.placement.clone(),
             records,
             cfg,
         })
@@ -230,22 +239,32 @@ impl SelectedRoutine {
         )
     }
     pub fn replayed(&self, recording: Recording, code: &Code) -> Result<Self, String> {
-        Self::build(
+        let mut result = Self::build(
             self.identity,
             &self.allocation,
             self.home_contract.clone(),
             recording,
             code,
-        )
+        )?;
+        if let Some(contract) = &self.placement {
+            contract.verify_selected(&result)?;
+            result.placement = Some(contract.clone());
+        }
+        Ok(result)
     }
     pub fn reselected(&self, recording: Recording, code: &Code) -> Result<Self, String> {
-        Self::build(
+        let mut result = Self::build(
             self.identity.checked_next_selection()?,
             &self.allocation,
             self.home_contract.clone(),
             recording,
             code,
-        )
+        )?;
+        if let Some(contract) = &self.placement {
+            contract.verify_selected(&result)?;
+            result.placement = Some(contract.clone());
+        }
+        Ok(result)
     }
     fn build(
         identity: Identity,
@@ -270,6 +289,7 @@ impl SelectedRoutine {
             identity,
             allocation: allocation.clone(),
             home_contract,
+            placement: None,
             records: recording.records,
             cfg,
         };
@@ -297,7 +317,26 @@ impl SelectedRoutine {
         Ok(())
     }
     pub fn reconcile(&self, code: &Code) -> Result<(), String> {
-        super::analysis::cfg::reconcile(&self.records, code)
+        super::analysis::cfg::reconcile(&self.records, code)?;
+        if let Some(contract) = &self.placement {
+            contract.verify_selected(self)?;
+        }
+        Ok(())
+    }
+    pub fn bind_placement(
+        &mut self,
+        mut contract: super::placement::Contract,
+    ) -> Result<(), String> {
+        if self.placement.is_some() {
+            return Err("selected allocation already has a placement owner".into());
+        }
+        contract.verify_selected(self)?;
+        contract.bind_owner(self)?;
+        self.placement = Some(std::sync::Arc::new(contract));
+        Ok(())
+    }
+    pub(super) fn placement(&self) -> Option<&super::placement::Contract> {
+        self.placement.as_deref()
     }
 }
 

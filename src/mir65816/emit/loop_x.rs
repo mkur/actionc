@@ -4,7 +4,7 @@ use super::*;
 use crate::nir::{NirIntegerRole, NirTypeKind};
 use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct LoopXPlan {
     pub header: BlockId,
     pub body: BlockId,

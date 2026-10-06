@@ -21,6 +21,7 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
         loop_x: None,
         borrowed: BTreeMap::new(),
         scalar_borrowed: BTreeMap::new(),
+        resident: BTreeMap::new(),
         routine: r,
         frame: AllocatedFrame::stack(&super::word_tests::program().routines[0]).unwrap(),
         code: TrackedEmitter65816::for_test(

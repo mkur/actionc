@@ -418,7 +418,7 @@ fn representative_word_comparison_kernels_keep_cycle_and_stack_budgets() {
                 91,
                 if optimize { 165 } else { 200 },
                 if optimize { 1800 } else { 2250 },
-                if optimize { 6 } else { 12 },
+                if optimize { 6 } else { 10 },
             ),
         ] {
             let (image, forwarded) = forwarding::compile(source, optimize);

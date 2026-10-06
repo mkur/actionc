@@ -10,6 +10,40 @@ pub use super::effects::{
 pub use super::tracked::Event;
 pub use super::work::{Counts as WorkCounts, measure as measure_work};
 
+/// Read-only counts of the sealed common plan. Helpers and terminal forwarding
+/// retain explicit opaque contracts and return None here.
+#[derive(Clone, Debug)]
+pub struct PlacementSummary {
+    pub values: usize,
+    pub materialized: usize,
+    pub borrowed: usize,
+    pub register_intervals: usize,
+    pub component_intervals: usize,
+    pub redirected_locals: usize,
+    pub deferred_assignments: usize,
+    pub mixed_homes: usize,
+    pub backed_residences: usize,
+    pub windows: usize,
+    pub record_windows: usize,
+    pub scalar_windows: usize,
+    pub address_windows: usize,
+    pub barriers: usize,
+    pub boundaries: usize,
+    pub edges: usize,
+    pub transfers: usize,
+    pub staging_bytes: usize,
+    pub x_mirror: bool,
+}
+
+pub fn placement_summary(code: &Code) -> Result<Option<PlacementSummary>, String> {
+    let selected = code.selected.as_ref().ok_or("missing selected code")?;
+    let Some(contract) = selected.placement() else {
+        return Ok(None);
+    };
+    contract.verify_selected(selected)?;
+    Ok(Some(contract.summary()))
+}
+
 /// Checked read-only bindings; allocated writable temporary homes are unchanged.
 #[derive(Clone, Debug)]
 pub struct ScalarRead {
@@ -618,6 +652,7 @@ pub fn selected_site(code: &Code, site: SelectedSite) -> Result<SelectedObservat
                 Request::Mode(_) => "mode",
                 Request::EstablishBody => "body-anchor",
                 Request::Barrier => "barrier",
+                Request::CaptureResident(..) => "capture-resident",
                 Request::StagePointer(..) => "stage-pointer",
                 Request::AllowPointerStore(..) => "pointer-store",
                 Request::ForgetPointer => "forget-pointer",

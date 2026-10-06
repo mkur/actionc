@@ -62,6 +62,11 @@ value, CFG, liveness and byte-granular invocation-storage facts. These facts
 consume MIR ownership plans; they do not recover source meaning or replace the
 selected-instruction effect and placement checks.
 
+The [operation-resource and placement contract](MIR65816_PLACEMENT_CONTRACT.md)
+coordinates current home-demand and residence decisions, verifies complete
+producer/consumer and edge obligations, and checks selected effects and replay
+without changing the canonical artifact maps or widening alias permissions.
+
 ## Storage and initialization
 
 `Mir65816DataId` distinguishes global storage, compiler static templates and

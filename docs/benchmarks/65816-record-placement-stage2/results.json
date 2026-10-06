@@ -1,0 +1,1860 @@
+{
+  "schema": 1,
+  "baseline_revision": "d7d536c928d343932043ba3f1aea5deb107dd41d",
+  "profiles": {
+    "optimized-release": {
+      "analyzed_routines": 1147,
+      "opaque_routines": 92,
+      "analysis_seconds": 0.072665499,
+      "image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+      "inventory_sha256": "7b3712d5c915ddaa92dda91e73755e993002046e3104670ce90e5b23621d6177",
+      "analysis_sha256": "2c5b160b14a39bf257153a8737f9cc2df17e61a29d561bc23149339e1f246417",
+      "values": 29881,
+      "uses": 33738,
+      "checked_reachable_uses": 33738,
+      "captures": 16628,
+      "blocks": 10762,
+      "reachable_blocks": 10762,
+      "cyclic_blocks": 2092,
+      "edges": 12544,
+      "edge_arguments": 1248,
+      "solver_evaluations": 23817,
+      "placement": {
+        "routines": 1075,
+        "opaque_routines": [
+          {
+            "id": 7,
+            "kind": "forwarding",
+            "name": "M_EXECMEMORY_INIT_F4EA07E3"
+          },
+          {
+            "id": 9,
+            "kind": "forwarding",
+            "name": "M_EXECLISTS_NEWMINLIST_A2695943"
+          },
+          {
+            "id": 11,
+            "kind": "forwarding",
+            "name": "M_EXECLISTS_ISMINLISTEMPTY_6D517164"
+          },
+          {
+            "id": 77,
+            "kind": "forwarding",
+            "name": "M_TASKPOLICY_WRITABLE_0565D862"
+          },
+          {
+            "id": 506,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_SCREENWIDTH_02A0531A"
+          },
+          {
+            "id": 507,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_SCREENHEIGHT_21CB6DFB"
+          },
+          {
+            "id": 511,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_SHOW_21D86251"
+          },
+          {
+            "id": 512,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_HIDE_EC93B70A"
+          },
+          {
+            "id": 513,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_FOCUS_1C4A8DCE"
+          },
+          {
+            "id": 570,
+            "kind": "forwarding",
+            "name": "M_BLOCKIO_FINISHSTORE_0115A3DE"
+          },
+          {
+            "id": 782,
+            "kind": "forwarding",
+            "name": "M_FSBACKEND_CREATEWORK_8A6F92A5"
+          },
+          {
+            "id": 943,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_PIPE_54310E12"
+          },
+          {
+            "id": 966,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_BEGINFOREGROUND_8F2474EA"
+          },
+          {
+            "id": 967,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_ENDFOREGROUND_13E30672"
+          },
+          {
+            "id": 968,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_BREAKPENDING_369675D8"
+          },
+          {
+            "id": 969,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_CLEARBREAK_3FA5821C"
+          },
+          {
+            "id": 994,
+            "kind": "forwarding",
+            "name": "M_DOS_ASSIGNPATH_070E31B9"
+          },
+          {
+            "id": 995,
+            "kind": "forwarding",
+            "name": "M_DOS_GETASSIGN_06EFA68A"
+          },
+          {
+            "id": 996,
+            "kind": "forwarding",
+            "name": "M_DOS_SETCONSOLEHISTORY_1C523BD8"
+          },
+          {
+            "id": 997,
+            "kind": "forwarding",
+            "name": "M_DOS_FLUSH_47C61517"
+          },
+          {
+            "id": 998,
+            "kind": "forwarding",
+            "name": "M_DOS_CREATEDIR_239F3D94"
+          },
+          {
+            "id": 999,
+            "kind": "forwarding",
+            "name": "M_DOS_DELETEFILE_4D32A614"
+          },
+          {
+            "id": 1000,
+            "kind": "forwarding",
+            "name": "M_DOS_RENAME_F915C271"
+          },
+          {
+            "id": 1001,
+            "kind": "forwarding",
+            "name": "M_DOS_OPEN_87DAE823"
+          },
+          {
+            "id": 1002,
+            "kind": "forwarding",
+            "name": "M_DOS_READ_BCD2228F"
+          },
+          {
+            "id": 1003,
+            "kind": "forwarding",
+            "name": "M_DOS_WRITE_BE4FDE64"
+          },
+          {
+            "id": 1004,
+            "kind": "forwarding",
+            "name": "M_DOS_SEEK_DE9F46FB"
+          },
+          {
+            "id": 1005,
+            "kind": "forwarding",
+            "name": "M_DOS_CLOSE_4C224801"
+          },
+          {
+            "id": 1006,
+            "kind": "forwarding",
+            "name": "M_DOS_SETIOERR_7AEF42E2"
+          },
+          {
+            "id": 1007,
+            "kind": "forwarding",
+            "name": "M_DOS_IOERR_E649FF90"
+          },
+          {
+            "id": 1008,
+            "kind": "forwarding",
+            "name": "M_DOS_RELEASECONTEXT_9DB9F883"
+          },
+          {
+            "id": 1009,
+            "kind": "forwarding",
+            "name": "M_DOS_LOCK_4DEC517E"
+          },
+          {
+            "id": 1010,
+            "kind": "forwarding",
+            "name": "M_DOS_UNLOCK_74209499"
+          },
+          {
+            "id": 1017,
+            "kind": "forwarding",
+            "name": "M_DOS_ISINTERACTIVE_FD05AE49"
+          },
+          {
+            "id": 1018,
+            "kind": "forwarding",
+            "name": "M_DOS_CURRENTDIR_764577CB"
+          },
+          {
+            "id": 1019,
+            "kind": "forwarding",
+            "name": "M_DOS_NAMEFROMLOCK_8794AD67"
+          },
+          {
+            "id": 1020,
+            "kind": "forwarding",
+            "name": "M_DOS_BEGINFOREGROUND_987C8D99"
+          },
+          {
+            "id": 1021,
+            "kind": "forwarding",
+            "name": "M_DOS_ENDFOREGROUND_8BF477E5"
+          },
+          {
+            "id": 1022,
+            "kind": "forwarding",
+            "name": "M_DOS_BREAKPENDING_07C42681"
+          },
+          {
+            "id": 1023,
+            "kind": "forwarding",
+            "name": "M_DOS_CLEARBREAK_6F85C46D"
+          },
+          {
+            "id": 1024,
+            "kind": "forwarding",
+            "name": "M_DOS_PIPE_1D28B7D3"
+          },
+          {
+            "id": 1025,
+            "kind": "forwarding",
+            "name": "M_DOS_OPENCONSOLE_2100231A"
+          },
+          {
+            "id": 1026,
+            "kind": "forwarding",
+            "name": "M_DOS_CONSOLEINFO_BA8927CE"
+          },
+          {
+            "id": 1027,
+            "kind": "forwarding",
+            "name": "M_DOS_FAULT_8C83808D"
+          },
+          {
+            "id": 1028,
+            "kind": "forwarding",
+            "name": "M_DOS_PRINTFAULT_C841DC04"
+          },
+          {
+            "id": 1117,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_ASSIGNPATH_70177325"
+          },
+          {
+            "id": 1118,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_GETASSIGN_8DA1FFAE"
+          },
+          {
+            "id": 1119,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_OPEN_8638DB5F"
+          },
+          {
+            "id": 1120,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_READ_3155DB03"
+          },
+          {
+            "id": 1121,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_WRITE_84FB7088"
+          },
+          {
+            "id": 1122,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_SEEK_31854D3F"
+          },
+          {
+            "id": 1123,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_CLOSE_24FF6A65"
+          },
+          {
+            "id": 1124,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_FLUSH_DB8CCFBB"
+          },
+          {
+            "id": 1125,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_CREATEDIR_28E82C70"
+          },
+          {
+            "id": 1126,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_DELETEFILE_1B5DE7B0"
+          },
+          {
+            "id": 1127,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_RENAME_C087BEE5"
+          },
+          {
+            "id": 1130,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_IOERR_5170B12C"
+          },
+          {
+            "id": 1131,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_GETARGSTR_01F4859C"
+          },
+          {
+            "id": 1133,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_SETIOERR_D3F44706"
+          },
+          {
+            "id": 1134,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_BREAKPENDING_F12A3675"
+          },
+          {
+            "id": 1136,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_WRITEALL_2F9D9EC1"
+          },
+          {
+            "id": 1137,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_READERINIT_0B3A5F6A"
+          },
+          {
+            "id": 1138,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_READBYTE_268CDC31"
+          },
+          {
+            "id": 1139,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_READLINE_D25FAB11"
+          },
+          {
+            "id": 1140,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_LOCK_D0030F12"
+          },
+          {
+            "id": 1141,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_UNLOCK_3CF9C02D"
+          },
+          {
+            "id": 1144,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_ISINTERACTIVE_056AF905"
+          },
+          {
+            "id": 1145,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_OPENCONSOLE_E4ECC506"
+          },
+          {
+            "id": 1146,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_CONSOLEINFO_2608391A"
+          },
+          {
+            "id": 1147,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_FAULT_DA8736E9"
+          },
+          {
+            "id": 1148,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_PRINTFAULT_2BBE94D8"
+          },
+          {
+            "id": 1155,
+            "kind": "forwarding",
+            "name": "M_PROGRAM_UNLOAD_C8BC2432"
+          },
+          {
+            "id": 1230,
+            "kind": "helper",
+            "name": "__a816_mul_u16_v2"
+          },
+          {
+            "id": 1231,
+            "kind": "helper",
+            "name": "__a816_div_u16_v2"
+          },
+          {
+            "id": 1232,
+            "kind": "helper",
+            "name": "__a816_mod_u16_v2"
+          },
+          {
+            "id": 1233,
+            "kind": "helper",
+            "name": "__a816_mul_u24_v2"
+          },
+          {
+            "id": 1234,
+            "kind": "helper",
+            "name": "__a816_mul_u32_v2"
+          },
+          {
+            "id": 1235,
+            "kind": "helper",
+            "name": "__a816_mod_i32_v2"
+          },
+          {
+            "id": 1236,
+            "kind": "helper",
+            "name": "__a816_div_u32_v2"
+          },
+          {
+            "id": 1237,
+            "kind": "helper",
+            "name": "__a816_mod_u32_v2"
+          },
+          {
+            "id": 1238,
+            "kind": "helper",
+            "name": "__a816_div_i32_v2"
+          }
+        ],
+        "sha256": "60339ee58b02e1faa991ca5747b96894f06be515d95209ffe1b0a79ac8b68c1f",
+        "values": 29684,
+        "materialized": 19916,
+        "borrowed": 9087,
+        "register_intervals": 1344,
+        "component_intervals": 18,
+        "redirected_locals": 38,
+        "deferred_assignments": 3,
+        "windows": 46007,
+        "record_windows": 20130,
+        "scalar_windows": 8805,
+        "address_windows": 850,
+        "barriers": 5532,
+        "boundaries": 10690,
+        "edges": 12544,
+        "transfers": 1248,
+        "staging_bytes": 382,
+        "x_mirror": 0
+      },
+      "native_vectors": 147,
+      "native_executions": 294,
+      "native_measurements_sha256": "eeb1e8261b220ab2d3d9f3ca1af6bd9ab32c308fd546729b3514268eef172e4a"
+    },
+    "optimized-guarded": {
+      "analyzed_routines": 1147,
+      "opaque_routines": 92,
+      "analysis_seconds": 0.070255316,
+      "image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+      "inventory_sha256": "54e648d6f4abac9651a2b6b2455071d7b56e09839bb67223abf4e87e0646d8c2",
+      "analysis_sha256": "97edf9c0c3ab47db1ad38cc585822355de66be073bd68ca8d23e352b14122230",
+      "values": 29881,
+      "uses": 33738,
+      "checked_reachable_uses": 33738,
+      "captures": 16628,
+      "blocks": 10762,
+      "reachable_blocks": 10762,
+      "cyclic_blocks": 2092,
+      "edges": 12544,
+      "edge_arguments": 1248,
+      "solver_evaluations": 23817,
+      "placement": {
+        "routines": 1075,
+        "opaque_routines": [
+          {
+            "id": 7,
+            "kind": "forwarding",
+            "name": "M_EXECMEMORY_INIT_F4EA07E3"
+          },
+          {
+            "id": 9,
+            "kind": "forwarding",
+            "name": "M_EXECLISTS_NEWMINLIST_A2695943"
+          },
+          {
+            "id": 11,
+            "kind": "forwarding",
+            "name": "M_EXECLISTS_ISMINLISTEMPTY_6D517164"
+          },
+          {
+            "id": 77,
+            "kind": "forwarding",
+            "name": "M_TASKPOLICY_WRITABLE_0565D862"
+          },
+          {
+            "id": 506,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_SCREENWIDTH_02A0531A"
+          },
+          {
+            "id": 507,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_SCREENHEIGHT_21CB6DFB"
+          },
+          {
+            "id": 511,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_SHOW_21D86251"
+          },
+          {
+            "id": 512,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_HIDE_EC93B70A"
+          },
+          {
+            "id": 513,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_FOCUS_1C4A8DCE"
+          },
+          {
+            "id": 570,
+            "kind": "forwarding",
+            "name": "M_BLOCKIO_FINISHSTORE_0115A3DE"
+          },
+          {
+            "id": 782,
+            "kind": "forwarding",
+            "name": "M_FSBACKEND_CREATEWORK_8A6F92A5"
+          },
+          {
+            "id": 943,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_PIPE_54310E12"
+          },
+          {
+            "id": 966,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_BEGINFOREGROUND_8F2474EA"
+          },
+          {
+            "id": 967,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_ENDFOREGROUND_13E30672"
+          },
+          {
+            "id": 968,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_BREAKPENDING_369675D8"
+          },
+          {
+            "id": 969,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_CLEARBREAK_3FA5821C"
+          },
+          {
+            "id": 994,
+            "kind": "forwarding",
+            "name": "M_DOS_ASSIGNPATH_070E31B9"
+          },
+          {
+            "id": 995,
+            "kind": "forwarding",
+            "name": "M_DOS_GETASSIGN_06EFA68A"
+          },
+          {
+            "id": 996,
+            "kind": "forwarding",
+            "name": "M_DOS_SETCONSOLEHISTORY_1C523BD8"
+          },
+          {
+            "id": 997,
+            "kind": "forwarding",
+            "name": "M_DOS_FLUSH_47C61517"
+          },
+          {
+            "id": 998,
+            "kind": "forwarding",
+            "name": "M_DOS_CREATEDIR_239F3D94"
+          },
+          {
+            "id": 999,
+            "kind": "forwarding",
+            "name": "M_DOS_DELETEFILE_4D32A614"
+          },
+          {
+            "id": 1000,
+            "kind": "forwarding",
+            "name": "M_DOS_RENAME_F915C271"
+          },
+          {
+            "id": 1001,
+            "kind": "forwarding",
+            "name": "M_DOS_OPEN_87DAE823"
+          },
+          {
+            "id": 1002,
+            "kind": "forwarding",
+            "name": "M_DOS_READ_BCD2228F"
+          },
+          {
+            "id": 1003,
+            "kind": "forwarding",
+            "name": "M_DOS_WRITE_BE4FDE64"
+          },
+          {
+            "id": 1004,
+            "kind": "forwarding",
+            "name": "M_DOS_SEEK_DE9F46FB"
+          },
+          {
+            "id": 1005,
+            "kind": "forwarding",
+            "name": "M_DOS_CLOSE_4C224801"
+          },
+          {
+            "id": 1006,
+            "kind": "forwarding",
+            "name": "M_DOS_SETIOERR_7AEF42E2"
+          },
+          {
+            "id": 1007,
+            "kind": "forwarding",
+            "name": "M_DOS_IOERR_E649FF90"
+          },
+          {
+            "id": 1008,
+            "kind": "forwarding",
+            "name": "M_DOS_RELEASECONTEXT_9DB9F883"
+          },
+          {
+            "id": 1009,
+            "kind": "forwarding",
+            "name": "M_DOS_LOCK_4DEC517E"
+          },
+          {
+            "id": 1010,
+            "kind": "forwarding",
+            "name": "M_DOS_UNLOCK_74209499"
+          },
+          {
+            "id": 1017,
+            "kind": "forwarding",
+            "name": "M_DOS_ISINTERACTIVE_FD05AE49"
+          },
+          {
+            "id": 1018,
+            "kind": "forwarding",
+            "name": "M_DOS_CURRENTDIR_764577CB"
+          },
+          {
+            "id": 1019,
+            "kind": "forwarding",
+            "name": "M_DOS_NAMEFROMLOCK_8794AD67"
+          },
+          {
+            "id": 1020,
+            "kind": "forwarding",
+            "name": "M_DOS_BEGINFOREGROUND_987C8D99"
+          },
+          {
+            "id": 1021,
+            "kind": "forwarding",
+            "name": "M_DOS_ENDFOREGROUND_8BF477E5"
+          },
+          {
+            "id": 1022,
+            "kind": "forwarding",
+            "name": "M_DOS_BREAKPENDING_07C42681"
+          },
+          {
+            "id": 1023,
+            "kind": "forwarding",
+            "name": "M_DOS_CLEARBREAK_6F85C46D"
+          },
+          {
+            "id": 1024,
+            "kind": "forwarding",
+            "name": "M_DOS_PIPE_1D28B7D3"
+          },
+          {
+            "id": 1025,
+            "kind": "forwarding",
+            "name": "M_DOS_OPENCONSOLE_2100231A"
+          },
+          {
+            "id": 1026,
+            "kind": "forwarding",
+            "name": "M_DOS_CONSOLEINFO_BA8927CE"
+          },
+          {
+            "id": 1027,
+            "kind": "forwarding",
+            "name": "M_DOS_FAULT_8C83808D"
+          },
+          {
+            "id": 1028,
+            "kind": "forwarding",
+            "name": "M_DOS_PRINTFAULT_C841DC04"
+          },
+          {
+            "id": 1117,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_ASSIGNPATH_70177325"
+          },
+          {
+            "id": 1118,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_GETASSIGN_8DA1FFAE"
+          },
+          {
+            "id": 1119,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_OPEN_8638DB5F"
+          },
+          {
+            "id": 1120,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_READ_3155DB03"
+          },
+          {
+            "id": 1121,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_WRITE_84FB7088"
+          },
+          {
+            "id": 1122,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_SEEK_31854D3F"
+          },
+          {
+            "id": 1123,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_CLOSE_24FF6A65"
+          },
+          {
+            "id": 1124,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_FLUSH_DB8CCFBB"
+          },
+          {
+            "id": 1125,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_CREATEDIR_28E82C70"
+          },
+          {
+            "id": 1126,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_DELETEFILE_1B5DE7B0"
+          },
+          {
+            "id": 1127,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_RENAME_C087BEE5"
+          },
+          {
+            "id": 1130,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_IOERR_5170B12C"
+          },
+          {
+            "id": 1131,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_GETARGSTR_01F4859C"
+          },
+          {
+            "id": 1133,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_SETIOERR_D3F44706"
+          },
+          {
+            "id": 1134,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_BREAKPENDING_F12A3675"
+          },
+          {
+            "id": 1136,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_WRITEALL_2F9D9EC1"
+          },
+          {
+            "id": 1137,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_READERINIT_0B3A5F6A"
+          },
+          {
+            "id": 1138,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_READBYTE_268CDC31"
+          },
+          {
+            "id": 1139,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_READLINE_D25FAB11"
+          },
+          {
+            "id": 1140,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_LOCK_D0030F12"
+          },
+          {
+            "id": 1141,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_UNLOCK_3CF9C02D"
+          },
+          {
+            "id": 1144,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_ISINTERACTIVE_056AF905"
+          },
+          {
+            "id": 1145,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_OPENCONSOLE_E4ECC506"
+          },
+          {
+            "id": 1146,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_CONSOLEINFO_2608391A"
+          },
+          {
+            "id": 1147,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_FAULT_DA8736E9"
+          },
+          {
+            "id": 1148,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_PRINTFAULT_2BBE94D8"
+          },
+          {
+            "id": 1155,
+            "kind": "forwarding",
+            "name": "M_PROGRAM_UNLOAD_C8BC2432"
+          },
+          {
+            "id": 1230,
+            "kind": "helper",
+            "name": "__a816_mul_u16_v2"
+          },
+          {
+            "id": 1231,
+            "kind": "helper",
+            "name": "__a816_div_u16_v2"
+          },
+          {
+            "id": 1232,
+            "kind": "helper",
+            "name": "__a816_mod_u16_v2"
+          },
+          {
+            "id": 1233,
+            "kind": "helper",
+            "name": "__a816_mul_u24_v2"
+          },
+          {
+            "id": 1234,
+            "kind": "helper",
+            "name": "__a816_mul_u32_v2"
+          },
+          {
+            "id": 1235,
+            "kind": "helper",
+            "name": "__a816_mod_i32_v2"
+          },
+          {
+            "id": 1236,
+            "kind": "helper",
+            "name": "__a816_div_u32_v2"
+          },
+          {
+            "id": 1237,
+            "kind": "helper",
+            "name": "__a816_mod_u32_v2"
+          },
+          {
+            "id": 1238,
+            "kind": "helper",
+            "name": "__a816_div_i32_v2"
+          }
+        ],
+        "sha256": "60339ee58b02e1faa991ca5747b96894f06be515d95209ffe1b0a79ac8b68c1f",
+        "values": 29684,
+        "materialized": 19916,
+        "borrowed": 9087,
+        "register_intervals": 1344,
+        "component_intervals": 18,
+        "redirected_locals": 38,
+        "deferred_assignments": 3,
+        "windows": 46007,
+        "record_windows": 20130,
+        "scalar_windows": 8805,
+        "address_windows": 850,
+        "barriers": 5532,
+        "boundaries": 10690,
+        "edges": 12544,
+        "transfers": 1248,
+        "staging_bytes": 382,
+        "x_mirror": 0
+      },
+      "native_vectors": 147,
+      "native_executions": 294,
+      "native_measurements_sha256": "36d61f9c19823d92b200d76d80eb2557ffeb4cd51965d41dab15acb67baab1b8"
+    },
+    "raw-guarded": {
+      "analyzed_routines": 1147,
+      "opaque_routines": 92,
+      "analysis_seconds": 0.084317028,
+      "image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+      "inventory_sha256": "209fa1dea4170b53a943c008f0ee01b5546a65fc0d68f01f1e858322c9beeede",
+      "analysis_sha256": "46eb3b611c7d67cd7778476382f3925b9e38517d39e968921261ba3546f415e0",
+      "values": 37783,
+      "uses": 38021,
+      "checked_reachable_uses": 38018,
+      "captures": 21182,
+      "blocks": 10843,
+      "reachable_blocks": 10836,
+      "cyclic_blocks": 2097,
+      "edges": 12720,
+      "edge_arguments": 26,
+      "solver_evaluations": 24721,
+      "placement": {
+        "routines": 1075,
+        "opaque_routines": [
+          {
+            "id": 7,
+            "kind": "forwarding",
+            "name": "M_EXECMEMORY_INIT_F4EA07E3"
+          },
+          {
+            "id": 9,
+            "kind": "forwarding",
+            "name": "M_EXECLISTS_NEWMINLIST_A2695943"
+          },
+          {
+            "id": 11,
+            "kind": "forwarding",
+            "name": "M_EXECLISTS_ISMINLISTEMPTY_6D517164"
+          },
+          {
+            "id": 77,
+            "kind": "forwarding",
+            "name": "M_TASKPOLICY_WRITABLE_0565D862"
+          },
+          {
+            "id": 506,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_SCREENWIDTH_02A0531A"
+          },
+          {
+            "id": 507,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_SCREENHEIGHT_21CB6DFB"
+          },
+          {
+            "id": 511,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_SHOW_21D86251"
+          },
+          {
+            "id": 512,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_HIDE_EC93B70A"
+          },
+          {
+            "id": 513,
+            "kind": "forwarding",
+            "name": "M_CONSOLE_FOCUS_1C4A8DCE"
+          },
+          {
+            "id": 570,
+            "kind": "forwarding",
+            "name": "M_BLOCKIO_FINISHSTORE_0115A3DE"
+          },
+          {
+            "id": 782,
+            "kind": "forwarding",
+            "name": "M_FSBACKEND_CREATEWORK_8A6F92A5"
+          },
+          {
+            "id": 943,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_PIPE_54310E12"
+          },
+          {
+            "id": 966,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_BEGINFOREGROUND_8F2474EA"
+          },
+          {
+            "id": 967,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_ENDFOREGROUND_13E30672"
+          },
+          {
+            "id": 968,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_BREAKPENDING_369675D8"
+          },
+          {
+            "id": 969,
+            "kind": "forwarding",
+            "name": "M_DOSCALLS_CLEARBREAK_3FA5821C"
+          },
+          {
+            "id": 994,
+            "kind": "forwarding",
+            "name": "M_DOS_ASSIGNPATH_070E31B9"
+          },
+          {
+            "id": 995,
+            "kind": "forwarding",
+            "name": "M_DOS_GETASSIGN_06EFA68A"
+          },
+          {
+            "id": 996,
+            "kind": "forwarding",
+            "name": "M_DOS_SETCONSOLEHISTORY_1C523BD8"
+          },
+          {
+            "id": 997,
+            "kind": "forwarding",
+            "name": "M_DOS_FLUSH_47C61517"
+          },
+          {
+            "id": 998,
+            "kind": "forwarding",
+            "name": "M_DOS_CREATEDIR_239F3D94"
+          },
+          {
+            "id": 999,
+            "kind": "forwarding",
+            "name": "M_DOS_DELETEFILE_4D32A614"
+          },
+          {
+            "id": 1000,
+            "kind": "forwarding",
+            "name": "M_DOS_RENAME_F915C271"
+          },
+          {
+            "id": 1001,
+            "kind": "forwarding",
+            "name": "M_DOS_OPEN_87DAE823"
+          },
+          {
+            "id": 1002,
+            "kind": "forwarding",
+            "name": "M_DOS_READ_BCD2228F"
+          },
+          {
+            "id": 1003,
+            "kind": "forwarding",
+            "name": "M_DOS_WRITE_BE4FDE64"
+          },
+          {
+            "id": 1004,
+            "kind": "forwarding",
+            "name": "M_DOS_SEEK_DE9F46FB"
+          },
+          {
+            "id": 1005,
+            "kind": "forwarding",
+            "name": "M_DOS_CLOSE_4C224801"
+          },
+          {
+            "id": 1006,
+            "kind": "forwarding",
+            "name": "M_DOS_SETIOERR_7AEF42E2"
+          },
+          {
+            "id": 1007,
+            "kind": "forwarding",
+            "name": "M_DOS_IOERR_E649FF90"
+          },
+          {
+            "id": 1008,
+            "kind": "forwarding",
+            "name": "M_DOS_RELEASECONTEXT_9DB9F883"
+          },
+          {
+            "id": 1009,
+            "kind": "forwarding",
+            "name": "M_DOS_LOCK_4DEC517E"
+          },
+          {
+            "id": 1010,
+            "kind": "forwarding",
+            "name": "M_DOS_UNLOCK_74209499"
+          },
+          {
+            "id": 1017,
+            "kind": "forwarding",
+            "name": "M_DOS_ISINTERACTIVE_FD05AE49"
+          },
+          {
+            "id": 1018,
+            "kind": "forwarding",
+            "name": "M_DOS_CURRENTDIR_764577CB"
+          },
+          {
+            "id": 1019,
+            "kind": "forwarding",
+            "name": "M_DOS_NAMEFROMLOCK_8794AD67"
+          },
+          {
+            "id": 1020,
+            "kind": "forwarding",
+            "name": "M_DOS_BEGINFOREGROUND_987C8D99"
+          },
+          {
+            "id": 1021,
+            "kind": "forwarding",
+            "name": "M_DOS_ENDFOREGROUND_8BF477E5"
+          },
+          {
+            "id": 1022,
+            "kind": "forwarding",
+            "name": "M_DOS_BREAKPENDING_07C42681"
+          },
+          {
+            "id": 1023,
+            "kind": "forwarding",
+            "name": "M_DOS_CLEARBREAK_6F85C46D"
+          },
+          {
+            "id": 1024,
+            "kind": "forwarding",
+            "name": "M_DOS_PIPE_1D28B7D3"
+          },
+          {
+            "id": 1025,
+            "kind": "forwarding",
+            "name": "M_DOS_OPENCONSOLE_2100231A"
+          },
+          {
+            "id": 1026,
+            "kind": "forwarding",
+            "name": "M_DOS_CONSOLEINFO_BA8927CE"
+          },
+          {
+            "id": 1027,
+            "kind": "forwarding",
+            "name": "M_DOS_FAULT_8C83808D"
+          },
+          {
+            "id": 1028,
+            "kind": "forwarding",
+            "name": "M_DOS_PRINTFAULT_C841DC04"
+          },
+          {
+            "id": 1117,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_ASSIGNPATH_70177325"
+          },
+          {
+            "id": 1118,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_GETASSIGN_8DA1FFAE"
+          },
+          {
+            "id": 1119,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_OPEN_8638DB5F"
+          },
+          {
+            "id": 1120,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_READ_3155DB03"
+          },
+          {
+            "id": 1121,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_WRITE_84FB7088"
+          },
+          {
+            "id": 1122,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_SEEK_31854D3F"
+          },
+          {
+            "id": 1123,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_CLOSE_24FF6A65"
+          },
+          {
+            "id": 1124,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_FLUSH_DB8CCFBB"
+          },
+          {
+            "id": 1125,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_CREATEDIR_28E82C70"
+          },
+          {
+            "id": 1126,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_DELETEFILE_1B5DE7B0"
+          },
+          {
+            "id": 1127,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_RENAME_C087BEE5"
+          },
+          {
+            "id": 1130,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_IOERR_5170B12C"
+          },
+          {
+            "id": 1131,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_GETARGSTR_01F4859C"
+          },
+          {
+            "id": 1133,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_SETIOERR_D3F44706"
+          },
+          {
+            "id": 1134,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_BREAKPENDING_F12A3675"
+          },
+          {
+            "id": 1136,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_WRITEALL_2F9D9EC1"
+          },
+          {
+            "id": 1137,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_READERINIT_0B3A5F6A"
+          },
+          {
+            "id": 1138,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_READBYTE_268CDC31"
+          },
+          {
+            "id": 1139,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_READLINE_D25FAB11"
+          },
+          {
+            "id": 1140,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_LOCK_D0030F12"
+          },
+          {
+            "id": 1141,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_UNLOCK_3CF9C02D"
+          },
+          {
+            "id": 1144,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_ISINTERACTIVE_056AF905"
+          },
+          {
+            "id": 1145,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_OPENCONSOLE_E4ECC506"
+          },
+          {
+            "id": 1146,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_CONSOLEINFO_2608391A"
+          },
+          {
+            "id": 1147,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_FAULT_DA8736E9"
+          },
+          {
+            "id": 1148,
+            "kind": "forwarding",
+            "name": "M_PROGRAMAPI_PRINTFAULT_2BBE94D8"
+          },
+          {
+            "id": 1155,
+            "kind": "forwarding",
+            "name": "M_PROGRAM_UNLOAD_C8BC2432"
+          },
+          {
+            "id": 1230,
+            "kind": "helper",
+            "name": "__a816_mul_u16_v2"
+          },
+          {
+            "id": 1231,
+            "kind": "helper",
+            "name": "__a816_div_u16_v2"
+          },
+          {
+            "id": 1232,
+            "kind": "helper",
+            "name": "__a816_mod_u16_v2"
+          },
+          {
+            "id": 1233,
+            "kind": "helper",
+            "name": "__a816_mul_u24_v2"
+          },
+          {
+            "id": 1234,
+            "kind": "helper",
+            "name": "__a816_mul_u32_v2"
+          },
+          {
+            "id": 1235,
+            "kind": "helper",
+            "name": "__a816_mod_i32_v2"
+          },
+          {
+            "id": 1236,
+            "kind": "helper",
+            "name": "__a816_div_u32_v2"
+          },
+          {
+            "id": 1237,
+            "kind": "helper",
+            "name": "__a816_mod_u32_v2"
+          },
+          {
+            "id": 1238,
+            "kind": "helper",
+            "name": "__a816_div_i32_v2"
+          }
+        ],
+        "sha256": "aed92045460382982470e9a78104c09c209f044ef13195e876ca46cf121a3e10",
+        "values": 37586,
+        "materialized": 24485,
+        "borrowed": 11194,
+        "register_intervals": 2424,
+        "component_intervals": 13,
+        "redirected_locals": 101,
+        "deferred_assignments": 4,
+        "windows": 56065,
+        "record_windows": 26169,
+        "scalar_windows": 12608,
+        "address_windows": 852,
+        "barriers": 5665,
+        "boundaries": 10771,
+        "edges": 12720,
+        "transfers": 26,
+        "staging_bytes": 19,
+        "x_mirror": 0
+      },
+      "native_vectors": 147,
+      "native_executions": 294,
+      "native_measurements_sha256": "eb73414a7000566c1d3ea291e8f0f4b7d32f8daee8d1b935ad97eb7a9627f944"
+    }
+  },
+  "host": {
+    "schema": 1,
+    "methodology": "Separate optimized-dev CLI process per build; one warm-up of all inputs per compiler, then alternating compiler/build order. Wall time includes process launch, parsing, compilation and JSON output. wait4 reports per-child CPU and peak RSS; outputs must match the frozen image hash on every run. No concurrent build or native qualification is intentionally run during measurement.",
+    "platform": "macOS-15.7.9-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "cpu_count": 8,
+    "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]",
+    "rounds": 5,
+    "builds": 3,
+    "binaries": {
+      "before": {
+        "path": "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/target/debug/actionc-65816",
+        "sha256": "3217011b3fbc2d8e3d7a4d5142cdbb36c400f8c1bbf77cb37322e39f081e4294"
+      },
+      "after": {
+        "path": "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage2/candidate-actionc-65816",
+        "sha256": "03184ed65daf5ccc11a2acd06c40e4f2f6a5938ea0f2846bf807f8c865b2385d"
+      }
+    },
+    "manifest": {
+      "path": "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage2/host-manifest.json",
+      "sha256": "fa64cb36f95a64fe0fa5effba45f909ee1152e62031b4feeef0f54cb9ef0162d"
+    },
+    "script_sha256": "6b7c70a069525fbce1d07d6d33576e5518f91eca9a959873c5bb7509d3c1c915",
+    "summary": {
+      "before": {
+        "median_corpus_wall_seconds": 138.53400183306076,
+        "median_compile_peak_rss_bytes": 1296465920,
+        "maximum_compile_peak_rss_bytes": 1419214848
+      },
+      "after": {
+        "median_corpus_wall_seconds": 139.59264758368954,
+        "median_compile_peak_rss_bytes": 1304002560,
+        "maximum_compile_peak_rss_bytes": 1440251904
+      }
+    },
+    "per_build": [
+      {
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "before": {
+          "wall_seconds": 54.50053724995814,
+          "user_seconds": 53.034852,
+          "system_seconds": 1.031828,
+          "peak_rss_bytes": 1275002880
+        },
+        "after": {
+          "wall_seconds": 55.19410804193467,
+          "user_seconds": 53.458069,
+          "system_seconds": 1.029079,
+          "peak_rss_bytes": 1286930432
+        },
+        "wall_ratio": 1.012725944127772,
+        "rss_ratio": 1.009354921613981
+      },
+      {
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "before": {
+          "wall_seconds": 39.41524758283049,
+          "user_seconds": 38.658316,
+          "system_seconds": 0.699476,
+          "peak_rss_bytes": 1382023168
+        },
+        "after": {
+          "wall_seconds": 40.14707775018178,
+          "user_seconds": 39.212099,
+          "system_seconds": 0.8094469999999999,
+          "peak_rss_bytes": 1375158272
+        },
+        "wall_ratio": 1.0185671843317325,
+        "rss_ratio": 0.995032720030349
+      },
+      {
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "before": {
+          "wall_seconds": 44.12831341614947,
+          "user_seconds": 43.42703,
+          "system_seconds": 0.6880729999999999,
+          "peak_rss_bytes": 1293139968
+        },
+        "after": {
+          "wall_seconds": 45.53987095807679,
+          "user_seconds": 44.63048,
+          "system_seconds": 0.7605029999999999,
+          "peak_rss_bytes": 1294548992
+        },
+        "wall_ratio": 1.0319875706242319,
+        "rss_ratio": 1.0010896144538624
+      }
+    ],
+    "samples": [
+      {
+        "round": 0,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "before",
+        "image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+        "wall_seconds": 52.04069112497382,
+        "user_seconds": 51.460824,
+        "system_seconds": 0.561786,
+        "peak_rss_bytes": 1239482368
+      },
+      {
+        "round": 0,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "after",
+        "image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+        "wall_seconds": 52.28804137487896,
+        "user_seconds": 51.773987,
+        "system_seconds": 0.504069,
+        "peak_rss_bytes": 1321091072
+      },
+      {
+        "round": 0,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "before",
+        "image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+        "wall_seconds": 37.800137624843046,
+        "user_seconds": 37.35571,
+        "system_seconds": 0.42519599999999996,
+        "peak_rss_bytes": 1360232448
+      },
+      {
+        "round": 0,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "after",
+        "image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+        "wall_seconds": 40.14707775018178,
+        "user_seconds": 38.638165,
+        "system_seconds": 0.8094469999999999,
+        "peak_rss_bytes": 1367392256
+      },
+      {
+        "round": 0,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "before",
+        "image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+        "wall_seconds": 44.12831341614947,
+        "user_seconds": 43.055045,
+        "system_seconds": 0.6880729999999999,
+        "peak_rss_bytes": 1293139968
+      },
+      {
+        "round": 0,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "after",
+        "image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+        "wall_seconds": 44.11517816619016,
+        "user_seconds": 42.970181,
+        "system_seconds": 0.7903479999999999,
+        "peak_rss_bytes": 1304002560
+      },
+      {
+        "round": 1,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "after",
+        "image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+        "wall_seconds": 44.615137291839346,
+        "user_seconds": 43.544297,
+        "system_seconds": 0.737652,
+        "peak_rss_bytes": 1294548992
+      },
+      {
+        "round": 1,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "before",
+        "image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+        "wall_seconds": 44.10505675012246,
+        "user_seconds": 43.196228,
+        "system_seconds": 0.6823119999999999,
+        "peak_rss_bytes": 1296465920
+      },
+      {
+        "round": 1,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "after",
+        "image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+        "wall_seconds": 39.783402249915525,
+        "user_seconds": 38.936062,
+        "system_seconds": 0.723829,
+        "peak_rss_bytes": 1375158272
+      },
+      {
+        "round": 1,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "before",
+        "image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+        "wall_seconds": 39.23969720792957,
+        "user_seconds": 38.378098,
+        "system_seconds": 0.721783,
+        "peak_rss_bytes": 1419214848
+      },
+      {
+        "round": 1,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "after",
+        "image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+        "wall_seconds": 55.19410804193467,
+        "user_seconds": 53.458069,
+        "system_seconds": 1.165731,
+        "peak_rss_bytes": 1274413056
+      },
+      {
+        "round": 1,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "before",
+        "image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+        "wall_seconds": 54.50053724995814,
+        "user_seconds": 53.034852,
+        "system_seconds": 1.071019,
+        "peak_rss_bytes": 1275002880
+      },
+      {
+        "round": 2,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "before",
+        "image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+        "wall_seconds": 54.404464750085026,
+        "user_seconds": 52.978394,
+        "system_seconds": 1.054935,
+        "peak_rss_bytes": 1247674368
+      },
+      {
+        "round": 2,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "after",
+        "image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+        "wall_seconds": 55.1977295409888,
+        "user_seconds": 53.802839,
+        "system_seconds": 1.029079,
+        "peak_rss_bytes": 1286930432
+      },
+      {
+        "round": 2,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "before",
+        "image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+        "wall_seconds": 39.78910133289173,
+        "user_seconds": 38.778053,
+        "system_seconds": 0.8328439999999999,
+        "peak_rss_bytes": 1373913088
+      },
+      {
+        "round": 2,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "after",
+        "image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+        "wall_seconds": 40.51743008289486,
+        "user_seconds": 39.340611,
+        "system_seconds": 0.8419089999999999,
+        "peak_rss_bytes": 1440251904
+      },
+      {
+        "round": 2,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "before",
+        "image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+        "wall_seconds": 45.7713847910054,
+        "user_seconds": 44.168171,
+        "system_seconds": 0.78697,
+        "peak_rss_bytes": 1185398784
+      },
+      {
+        "round": 2,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "after",
+        "image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+        "wall_seconds": 46.07801966695115,
+        "user_seconds": 44.830052,
+        "system_seconds": 0.786569,
+        "peak_rss_bytes": 1278132224
+      },
+      {
+        "round": 3,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "after",
+        "image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+        "wall_seconds": 45.53987095807679,
+        "user_seconds": 44.63048,
+        "system_seconds": 0.609642,
+        "peak_rss_bytes": 1046872064
+      },
+      {
+        "round": 3,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "before",
+        "image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+        "wall_seconds": 44.059519292088225,
+        "user_seconds": 43.42703,
+        "system_seconds": 0.568301,
+        "peak_rss_bytes": 1304444928
+      },
+      {
+        "round": 3,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "after",
+        "image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+        "wall_seconds": 39.8674046669621,
+        "user_seconds": 39.212099,
+        "system_seconds": 0.589067,
+        "peak_rss_bytes": 1429045248
+      },
+      {
+        "round": 3,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "before",
+        "image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+        "wall_seconds": 39.41524758283049,
+        "user_seconds": 38.658316,
+        "system_seconds": 0.642782,
+        "peak_rss_bytes": 1382023168
+      },
+      {
+        "round": 3,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "after",
+        "image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+        "wall_seconds": 53.9732084160205,
+        "user_seconds": 53.048673,
+        "system_seconds": 0.6986669999999999,
+        "peak_rss_bytes": 1310031872
+      },
+      {
+        "round": 3,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "before",
+        "image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+        "wall_seconds": 55.05923495814204,
+        "user_seconds": 53.762386,
+        "system_seconds": 0.9124749999999999,
+        "peak_rss_bytes": 1315094528
+      },
+      {
+        "round": 4,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "before",
+        "image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+        "wall_seconds": 55.09660170809366,
+        "user_seconds": 53.44861,
+        "system_seconds": 1.031828,
+        "peak_rss_bytes": 1286225920
+      },
+      {
+        "round": 4,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "after",
+        "image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+        "wall_seconds": 57.02338100015186,
+        "user_seconds": 55.139744,
+        "system_seconds": 1.136587,
+        "peak_rss_bytes": 1214758912
+      },
+      {
+        "round": 4,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "before",
+        "image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+        "wall_seconds": 40.47001470788382,
+        "user_seconds": 39.690416,
+        "system_seconds": 0.699476,
+        "peak_rss_bytes": 1408892928
+      },
+      {
+        "round": 4,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "after",
+        "image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+        "wall_seconds": 41.53944554179907,
+        "user_seconds": 40.371547,
+        "system_seconds": 0.847472,
+        "peak_rss_bytes": 1045889024
+      },
+      {
+        "round": 4,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "before",
+        "image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+        "wall_seconds": 45.795687875011936,
+        "user_seconds": 44.216273,
+        "system_seconds": 0.831733,
+        "peak_rss_bytes": 1156628480
+      },
+      {
+        "round": 4,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "after",
+        "image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+        "wall_seconds": 45.66406362480484,
+        "user_seconds": 44.709884,
+        "system_seconds": 0.7605029999999999,
+        "peak_rss_bytes": 1343291392
+      }
+    ],
+    "build_profile": {
+      "opt_level": 3,
+      "debug": 0,
+      "incremental": false
+    }
+  },
+  "probe_binary_sha256": "7f80a058ce8308e70b943b9c02b4add356b807834afcf40586ee58cf9caaa467",
+  "frozen_inputs_sha256": "cc38b86c07388889e1144441f22f3052888fe37a75f474236ed435b8b8f98b0c",
+  "validation": {
+    "unit": {
+      "targets": 1,
+      "passed": 393,
+      "ignored": 1
+    },
+    "integration": {
+      "targets": 14,
+      "passed": 88,
+      "ignored": 4
+    },
+    "native": {
+      "targets": 91,
+      "passed": 364,
+      "ignored": 6
+    },
+    "immutable_borrow": {
+      "targets": 1,
+      "passed": 1,
+      "ignored": 0
+    },
+    "native_masks": [
+      "I=0",
+      "I=4"
+    ],
+    "qualification_manifests": {
+      "native-backend": {
+        "sha256": "a918782af427677d73d433f320af00d35ec88f79bde71eebf9c4baccff09640d",
+        "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+        "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+      },
+      "optimized-release": {
+        "sha256": "89b66f17b1fa64fbe748f8ef668bacfa4f6169ecc7a0d3eb83f75f7e66cff46e",
+        "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+        "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+      },
+      "optimized-guarded": {
+        "sha256": "89b66f17b1fa64fbe748f8ef668bacfa4f6169ecc7a0d3eb83f75f7e66cff46e",
+        "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+        "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+      },
+      "raw-guarded": {
+        "sha256": "89b66f17b1fa64fbe748f8ef668bacfa4f6169ecc7a0d3eb83f75f7e66cff46e",
+        "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+        "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac"
+      }
+    },
+    "placement_graphs": {
+      "targets": 1,
+      "passed": 10,
+      "ignored": 0
+    },
+    "logs": {
+      "unit-final.log": "2bda3933eacddc1550ad40bb1d30be4bc288ea9d8fbe91af8fed6d3c0e47e2b6",
+      "analysis-final.log": "16c4c93d090cdea91a0d78f31b26b65df263ae26f3dfab49dbe9c503dcf71345",
+      "unit-development.log": "74c9828e301ecff1e095e4f7cd1742ebe464a4bf0ae58865a750e40c9dbb7c46",
+      "optimized-release.native.log": "9c3c387ced4594314d442d2ef68dee160c0581b9f515b982dc7e1fa9c9f82e75",
+      "format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "probe.log": "4887528a3ee3301b69c492d66c0335b93714aefc9c7331990ceb091dfd88cb7f",
+      "borrow-check.log": "f9d9906d6fdb329a527188b646ad3e1865336ddd8f52ec69490327b6a55deb0d",
+      "optimized-guarded.native.log": "9afcf6eac071151458c6284fca0b242b7528ba88fc653ba6476fdba07d500df0",
+      "integration.log": "f88eb0f31d08d45ca9d31ee83d9c9f19662169f489c34b3c043fb645a7aa25c9",
+      "probe-build.log": "f58cc643eceb8ab7d27a035cfeee47378bc9a48465e4ccf5e20c0a860311587c",
+      "placement-development.log": "6146026dc9d75bdc7674b46721d8120815fdab72f50398f619ccb205511fb934",
+      "native-backend.native.log": "781d28c0e7dabcad33310fc950d8b0805a61c90c9c196a89de925dffc6a32717",
+      "unit-development3.log": "d7e7fe93f1680efeb9b463e6d277020648f78ecbc7bd1019ebfbb752ece54525",
+      "unit-development2.log": "3ad7d766574eca82e6ff844a9cc1c2423fa5d164bb9fcfd8f17e6037114bc73e",
+      "cli-build.log": "332fe48bf3c95b821464aa2a9c4ab515acb6be30b531d3acf4a9cece6651b10c",
+      "tooling.log": "464e0ee629edf74de09ef21e4232fbcedc26588ff7cc23c470f47fe2da88c255",
+      "raw-guarded.native.log": "3256edd8ca6c1cc245c26130575e7a7e0eb49acb714845da5289a0544862d521",
+      "host.log": "488832651d45600249c0a238eef8047de73257c41469fb54c92b1b2247572926"
+    }
+  },
+  "stage": 2,
+  "compiler_inputs_sha256": "3a65b7240d3be77d5ef02ce7b153b4d36bb28b9e0cbdf70bdefc19ad0dbdfd97"
+}

@@ -59,16 +59,19 @@ fn place(
     Some(Memory::Symbol(Target::Data(id), offset))
 }
 
+#[derive(PartialEq, Eq)]
 struct Assignment {
+    temp: TempId,
     source: Memory,
     destination: Memory,
     bytes: u8,
 }
 
-pub(super) struct Plan(BTreeMap<usize, Assignment>);
+#[derive(PartialEq, Eq)]
+pub(in crate::mir65816::emit) struct Plan(BTreeMap<usize, Assignment>);
 
 impl Plan {
-    pub(super) fn new(
+    pub(in crate::mir65816::emit) fn new(
         routine: &Mir65816Routine,
         frame: &AllocatedFrame,
         block: &Mir65816Block,
@@ -124,6 +127,7 @@ impl Plan {
             assignments.insert(
                 index + 1,
                 Assignment {
+                    temp: *dest,
                     source,
                     destination,
                     bytes: bytes as u8,
@@ -131,6 +135,13 @@ impl Plan {
             );
         }
         Self(assignments)
+    }
+
+    pub(in crate::mir65816::emit) fn placement_groups(&self) -> Vec<(TempId, usize, usize)> {
+        self.0
+            .iter()
+            .map(|(&consumer, a)| (a.temp, consumer - 1, consumer))
+            .collect()
     }
 
     pub(super) fn emit(&self, b: &mut Builder<'_>, index: usize) -> Result<bool, String> {

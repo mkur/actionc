@@ -1,9 +1,11 @@
 # Native 65816 record and value placement implementation plan
 
-Status: stages 0 and 1 complete. Immutable logical analysis is qualified against
-the frozen workload with unchanged artifacts and bounded compiler overhead.
+Status: stages 0–3 complete. The logical analysis and resource/placement
+foundations are qualified with unchanged artifacts. Mixed block-local consumers
+now meet the first-tranche size, traffic, access and resource gates on the frozen
+workload. Compiler time and memory measurements are recorded in the scorecards.
 Unchecked hosted release and standalone fixture qualification gaps remain open.
-Stages 2–7 have not started.
+Stages 4–7 have not started.
 
 The [stage-0 scorecard](benchmarks/65816-record-placement-stage0/README.md)
 contains frozen inputs, measurements, numerical gates and recorded failures.
@@ -249,6 +251,25 @@ missing homes, partial-width mistakes, scratch conflicts and inconsistent
 boundary requirements are rejected. Existing optimized leaf cases retain their
 qualified output.
 
+Stage 2 is implemented by the common
+[placement plan](../src/mir65816/emit/placement.rs) and
+[operation resources](../src/mir65816/emit/resources.rs), specified in the
+[placement contract](MIR65816_PLACEMENT_CONTRACT.md). Selection consumes its
+owned current admissions; verification reconstructs them from immutable MIR,
+logical facts and the final allocation. Complete dense window rows and shared
+resource descriptions retain every operation's obligations. Sealed contracts
+check typed effects, complete widths, scratch interference, access extents,
+stack allowances and CFG requirements after selection, replay and rewrites.
+Malformed plans and stale/foreign allocations fail validation.
+
+The [stage-2 scorecard](benchmarks/65816-record-placement-stage2/README.md)
+records exact image/inventory equality in all three profiles, common plans for
+1,075 ordinary bodies and all eleven representatives, unchanged results/costs
+for 882 native executions, and passing backend unit, integration and full VM
+qualification. Existing helper and terminal-forwarding contracts remain opaque.
+Five-round paired CLI measurements meet the 5% wall-time and 10% peak-RSS limits
+in every profile. Target strategy and public artifact maps remain unchanged.
+
 ### Stage 3 Deliver mixed record flows within blocks
 
 Use the common plan for pointer and scalar residence in ordinary mixed blocks.
@@ -265,6 +286,29 @@ commits with shared-contract validation.
 Exit gate: measurable size and private-traffic improvements in mixed routines
 outside the pointer-only leaf profile, unchanged external access traces, and
 correct fallback under pressure and alias barriers.
+
+Stage 3 is implemented by the common plan's
+[mixed residence admissions](../src/mir65816/emit/mixed.rs) and checked field
+consumers. Complete DP-only intervals omit stack homes; profitable bounded
+prefixes retain their invocation home and establish one verified private copy.
+Every source field access retains its original order and extent. Calls,
+unsupported resource windows and block boundaries end residence. Dedicated
+scalar, pointer-leaf and fused top-bit selectors retain their ownership.
+Actual demand and edge staging determine frames; choices that increase frame
+extent or local peak are refused. Pressure retains complete stack captures.
+
+The [stage-3 scorecard](benchmarks/65816-record-placement-stage3/README.md)
+records release code of 434,502 bytes (10,446 bytes saved), a 3.04% reduction
+in the fixed representatives, benefits in three Exec subsystems and independent
+probe improvements. All three profiles meet the first-tranche gates with no
+routine frame/peak or bank-zero growth. External access traces match in 882
+candidate executions; full native, backend library and integration qualification
+passes. Paired CLI timings remain close to baseline; the scorecard retains
+RSS variability and the raw-only repeat explicitly.
+
+This tranche needs no broader shared NIR promotion policy: existing typed
+captures establish the required benefit. Further private-storage admission
+requires qualified consumer benefit and a separate shared-contract change.
 
 ### Stage 4 Extend placement through branches and joins
 

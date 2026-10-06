@@ -34,6 +34,7 @@ pub(super) fn emit(
         loop_x: None,
         borrowed: BTreeMap::new(),
         scalar_borrowed: BTreeMap::new(),
+        resident: BTreeMap::new(),
     };
     #[cfg(feature = "native65816-state-proof")]
     if trace {

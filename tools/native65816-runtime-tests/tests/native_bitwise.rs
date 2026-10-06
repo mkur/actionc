@@ -150,13 +150,22 @@ fn native_bitwise_matches_ca65_and_touches_only_complete_private_words() {
                 let span = &m.code.mir_spans[&(block, i)];
                 let start = linked.address + span.start as u32;
                 let end = linked.address + span.end as u32;
+                let operand = |home: u16, lane: usize| {
+                    if home < 256 {
+                        format!("{},s", home + lane as u16)
+                    } else {
+                        assert_eq!(width, 2);
+                        assert!(homes::valid(home));
+                        format!("${:02x}", home - 256 + lane as u16)
+                    }
+                };
                 let asm = (0..width)
                     .step_by(2)
                     .map(|n| {
                         format!(
-                            "lda {},s\n{mnemonic} {},s\nsta {},s\n",
-                            left + n as u16,
-                            right + n as u16,
+                            "lda {}\n{mnemonic} {}\nsta {},s\n",
+                            operand(left, n),
+                            operand(right, n),
                             dest + n as u16
                         )
                     })
@@ -198,14 +207,21 @@ fn native_bitwise_matches_ca65_and_touches_only_complete_private_words() {
                             .unwrap()
                     );
                     let stack = u32::from(before.s);
+                    let private_address = |home| {
+                        if home < 256 {
+                            stack + u32::from(home)
+                        } else {
+                            homes::address(before.s, before.d, home)
+                        }
+                    };
                     let expected_reads: Vec<_> = (0..width as u32)
                         .step_by(2)
                         .flat_map(|half| {
                             [
-                                stack + u32::from(left) + half,
-                                stack + u32::from(left) + half + 1,
-                                stack + u32::from(right) + half,
-                                stack + u32::from(right) + half + 1,
+                                private_address(left) + half,
+                                private_address(left) + half + 1,
+                                private_address(right) + half,
+                                private_address(right) + half + 1,
                             ]
                         })
                         .collect();
@@ -213,7 +229,7 @@ fn native_bitwise_matches_ca65_and_touches_only_complete_private_words() {
                         h.bus.reads[reads..]
                             .iter()
                             .copied()
-                            .filter(|a| (0x4000..0x6000).contains(a))
+                            .filter(|a| (0x4000..0x6000).contains(a) || (0x2080..0x20c0).contains(a))
                             .collect::<Vec<_>>(),
                         expected_reads
                     );

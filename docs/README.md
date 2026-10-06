@@ -64,9 +64,18 @@ crowding the active reference set.
     numerical gates and explicit hosted qualification gaps.
 - [MIR65816_LOGICAL_ANALYSIS.md](MIR65816_LOGICAL_ANALYSIS.md)
   - Immutable logical value/storage facts and generation-checked query ownership.
+- [MIR65816_PLACEMENT_CONTRACT.md](MIR65816_PLACEMENT_CONTRACT.md)
+  - Common ownership of operation resources and current value placement, checked
+    against logical uses, allocation, selected effects and replay.
 - [Record/value placement stage-1 scorecard](benchmarks/65816-record-placement-stage1/README.md)
   - Qualified logical analysis, unchanged Exec816 artifacts/native costs and
     paired compiler time/memory gates.
+- [Record/value placement stage-2 scorecard](benchmarks/65816-record-placement-stage2/README.md)
+  - Common resource/placement verification, unchanged artifacts/native costs and
+    paired compiler time/memory gates.
+- [Record/value placement stage-3 scorecard](benchmarks/65816-record-placement-stage3/README.md)
+  - Mixed block-local record consumers, measured code/traffic savings, exact
+    external accesses, native qualification and paired compiler-cost evidence.
 - [MIR65816_STATE_TRACKER_DESIGN.md](MIR65816_STATE_TRACKER_DESIGN.md)
   - Instruction-aware native state tracking based on the 6502 emitter:
     register/flag/width facts, memory ownership, barriers and staged integration.

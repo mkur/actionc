@@ -1,0 +1,12 @@
+{
+  "placement-representatives.csv": "4e2d7609a9af40baa4039a23e7ddbbec7f1a8ad6915a0121f7c77a555b2921dc",
+  "results.json": "a8990bf808fdf541ffd631a02d3c766efbfb65415e12580271f95057ff165093",
+  "optimized-release.qualification.json.gz": "475486efb1cb1ee210eeaab707029d01ab9a4bc8d8a15dec64478822e1a6ba2a",
+  "compiler-inputs.json": "3a65b7240d3be77d5ef02ce7b153b4d36bb28b9e0cbdf70bdefc19ad0dbdfd97",
+  "native-backend.qualification.json.gz": "837c2332d77e56c21aa95088002e455fe9935dfaf40fba30b3d2a81b4e5acbfa",
+  "placement.csv": "c00aa03dc4423ac73a1a450d2f69174cdfe6f416227288d1588faf9558103ab9",
+  "representatives.csv": "a12d2eb91090dec8e9f49613738ece5328749b1810d18e6f8d963c2080c10e93",
+  "raw-guarded.qualification.json.gz": "475486efb1cb1ee210eeaab707029d01ab9a4bc8d8a15dec64478822e1a6ba2a",
+  "optimized-guarded.qualification.json.gz": "475486efb1cb1ee210eeaab707029d01ab9a4bc8d8a15dec64478822e1a6ba2a",
+  "routines.csv": "bc5d75dd1ceba16f7ad3a64566e1a55039b3b809582c6bbdccfc22de054eaff7"
+}

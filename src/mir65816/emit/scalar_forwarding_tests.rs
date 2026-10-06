@@ -147,6 +147,7 @@ fn source_bindings_expire_at_the_exact_consumer_and_never_redirect_writes() {
         loop_x: None,
         borrowed: BTreeMap::new(),
         scalar_borrowed: BTreeMap::new(),
+        resident: BTreeMap::new(),
     };
     let allocated = b.temp(binding.temp).unwrap();
     let value = Mir65816Value::Temp(binding.temp, ByteSize::new(4));

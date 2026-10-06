@@ -8,6 +8,7 @@ publish = false
 
 [features]
 logical-analysis = []
+placement-analysis = ["logical-analysis"]
 
 [dependencies]
 actionc = { path = "../../..", features = ["native65816-state-proof"] }

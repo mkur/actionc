@@ -13,6 +13,14 @@ pub(crate) struct Identity {
     generation: u64,
 }
 impl Identity {
+    pub fn routine(self) -> RoutineId {
+        self.routine
+    }
+    pub fn same_allocation(self, other: Self) -> bool {
+        self.owner == other.owner
+            && self.routine == other.routine
+            && self.allocation == other.allocation
+    }
     pub fn checked_next_selection(self) -> Result<Self, String> {
         Ok(Self {
             generation: self

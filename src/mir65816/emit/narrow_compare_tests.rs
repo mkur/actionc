@@ -18,6 +18,7 @@ fn builder(routine: &Mir65816Routine) -> Builder<'_> {
         loop_x: None,
         borrowed: BTreeMap::new(),
         scalar_borrowed: BTreeMap::new(),
+        resident: BTreeMap::new(),
     }
 }
 
@@ -523,7 +524,7 @@ fn equality_zero_tests_normalize_both_sides_and_keep_ordering_cmp() {
                 assert!(b.native_compare(dest, width, false, op, a, c).unwrap());
                 let bytes = &b.code.code().bytes;
                 assert_eq!(
-                    bytes.contains(&0xc9) || bytes.contains(&0xc3),
+                    bytes.contains(&0xc9) || bytes.contains(&0xc3) || bytes.contains(&0xc5),
                     op == NirCompareOp::Lt,
                     "{ty}/{op:?}/{reversed}: {bytes:02x?}"
                 );

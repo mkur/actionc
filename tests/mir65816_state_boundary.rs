@@ -35,6 +35,9 @@
 //! allocation frames and regenerating labels, fixups, spans and branch offsets.
 //! Checked small stack releases replace dead-C/V arithmetic with INC A and
 //! remap later positions; allocation frames and carry-consuming guards agree.
+//! Mixed block-local residence moves complete word captures to checked DP homes
+//! and omits adjacent narrow field captures. Frames, guards, argument offsets
+//! and all position-bearing emission metadata follow the remaining demand.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]

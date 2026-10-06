@@ -73,6 +73,8 @@ pub fn stack_release_asm(bytes: u16) -> String {
 /// Resolve a scalar oracle from typed source identity, checking the compiler's
 /// binding observation against independent ABI/frame metadata and an omitted
 /// producer. Exact instruction and VM traffic assertions remain at each use.
+/// Word DP homes use the independent identity namespace in `homes`; wider
+/// scalar captures and borrowed inputs retain ordinary S-relative offsets.
 pub fn scalar_read_home(
     r: &actionc::mir65816::Mir65816Routine,
     m: &actionc::mir65816::emit::MachineRoutine,
@@ -81,14 +83,18 @@ pub fn scalar_read_home(
     temp: actionc::nir::TempId,
 ) -> u16 {
     use actionc::mir65816::{Mir65816AbiHome, Mir65816AddressBase, Mir65816Op, emit::proof};
-    let allocated = m.frame.temps[&temp].stack().unwrap();
+    let home = m.frame.temps[&temp];
     let Some(read) = proof::scalar_reads(r, &m.frame)
         .unwrap()
         .into_iter()
         .find(|s| s.temp == temp && s.block == block && s.consumer == index)
     else {
-        return allocated.offset;
+        return match home {
+            actionc::mir65816::emit::Location::Stack(slot) => slot.offset,
+            actionc::mir65816::emit::Location::DirectPage(_) => homes::of(home).unwrap(),
+        };
     };
+    let allocated = home.stack().unwrap();
     assert_eq!(read.bytes, allocated.width);
     assert!(m.code.mir_spans[&(block, read.producer)].is_empty());
     let b = r.blocks.iter().find(|b| b.id == block).unwrap();

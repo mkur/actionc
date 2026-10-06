@@ -42,17 +42,21 @@ def flow_cases():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--base', type=Path, required=True)
+    parser.add_argument('--output', type=Path, help='Build a candidate without modifying frozen inputs')
+    parser.add_argument('--binary', type=Path, help='Candidate compiler CLI')
     args = parser.parse_args()
     base = args.base.resolve()
     verify_inputs(base)
-    source = base / 'native-vectors'
-    source.mkdir(exist_ok=True)
+    source = args.output.resolve() if args.output else base / 'native-vectors'
+    if args.output and source == base / 'native-vectors':
+        parser.error('candidate output must not replace frozen vectors')
+    source.mkdir(parents=True, exist_ok=True)
     (source / 'main.act').write_text('MODULE ANALYSIS\nUSE EXECLISTS\nUSE RECORDPROBE\nPROC Main() RETURN\nENDMODULE\n')
     shutil.copyfile(base / 'exec/lib/exec/execlists.act', source / 'execlists.act')
     shutil.copyfile(Path(__file__).with_name('record_probe') / 'record_flow.act', source / 'recordprobe.act')
     artifacts = []
     all_cases = cases() + [flow_cases()]
-    binary = base / 'compiler/target/debug/actionc-65816'
+    binary = args.binary.resolve() if args.binary else base / 'compiler/target/debug/actionc-65816'
     for profile, (optimize, guards) in PROFILES.items():
         output = source / profile
         output.mkdir(exist_ok=True)
@@ -88,7 +92,7 @@ def main():
     # The native runner keys modes by optimized/raw, so qualify profiles separately.
     for profile in PROFILES:
         save(source / f'{profile}.manifest.json', dict(schema=1, target='wdc-65816-native',
-            observe_control_flow=False, cases=all_cases,
+            observe_control_flow=False, observe_external_accesses=bool(args.output), cases=all_cases,
             guard_attribution='complete current native-v2 guard ranges; checked at instruction boundaries',
             artifacts=[a for a in artifacts if a['profile'] == profile]))
     save(source / 'sources.json', {p.name: digest(p) for p in source.glob('*.act')})
