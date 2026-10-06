@@ -1,11 +1,12 @@
 # Native 65816 record and value placement implementation plan
 
-Status: stages 0–3 complete. The logical analysis and resource/placement
-foundations are qualified with unchanged artifacts. Mixed block-local consumers
-now meet the first-tranche size, traffic, access and resource gates on the frozen
-workload. Compiler time and memory measurements are recorded in the scorecards.
-Unchecked hosted release and standalone fixture qualification gaps remain open.
-Stages 4–7 have not started.
+Status: stages 0–6 complete. Logical analysis and resource/placement foundations
+are qualified. Mixed consumers meet the first-tranche gates on the frozen
+workload; branch, loop and invocation-backed call placement add measured
+benefits. Indexed and aggregate operations share the checked resource and value
+plan. Native execution preserves external accesses and resource limits,
+and paired compiler costs meet the incremental gates. Unchecked hosted release
+and standalone fixture qualification gaps remain open. Stage 7 has not started.
 
 The [stage-0 scorecard](benchmarks/65816-record-placement-stage0/README.md)
 contains frozen inputs, measurements, numerical gates and recorded failures.
@@ -322,6 +323,27 @@ simultaneous transfers and truthful frame maps. Diamonds, multiple returns,
 same-target edges with different arguments and deliberately conflicting
 predecessors must execute correctly.
 
+Stage 4 is implemented by complete acyclic capture regions, explicit block-entry
+home tables and typed simultaneous edge schedules in the common placement plan.
+Every incoming edge establishes its parameter bindings or preserves the same
+inherited complete home. Closed CFG interference includes full pointer/scalar
+extents. Mixed schedules allocate only actual whole-source captures, including
+overlap and cycles; allocation, selected requests and fresh replay verify the
+same obligations. Calls, unsupported windows and the conservative cyclic core
+retain their earlier storage choices. Trial allocation refuses frame/peak growth,
+and edge-only loop preheaders retain existing stack affinities.
+
+The [stage-4 scorecard](benchmarks/65816-record-placement-stage4/README.md)
+records release code of 434,444 bytes, 58 fewer than stage 3, and a new
+branching-representative benefit: `COOKEDLINE.Recall` is 899 bytes, 18 fewer.
+All three profiles retain the first-tranche gates and avoid routine frame/peak
+growth against both stages 0 and 3. Canonical mixed transfers add a small
+measured cycle/traffic cost in the independent Flow probe, within the per-vector
+limits. Native tests independently execute diamonds, distinct parallel bindings,
+separate returns, conflicting predecessor fallback and reentrant task/IRQ/NMI
+flows. Source private-storage admission is unchanged. Serial compiler costs,
+including the initial guarded RSS variation and its focused repeat, are retained.
+
 ### Stage 5 Extend placement through loops and call boundaries
 
 Qualify loop-carried value and pointer locations with fixed-point entry,
@@ -336,6 +358,12 @@ routines containing loops and calls. Direct, indirect, recursive, helper and
 assembly calls must obey the same clobber and storage rules. Wider loop shapes
 may retain fallback until their contracts are represented and checked.
 
+The implementation uses complete call-free loop homes and bounded invocation-
+backed pointer segments. Existing Native65816 private-storage promotion supplies
+legal loop values without a shared policy change. The
+[stage-5 scorecard](benchmarks/65816-record-placement-stage5/README.md) records
+incremental loop/call benefits, independent native execution and compiler costs.
+
 ### Stage 6 Complete indexed and aggregate operation integration
 
 Integrate embedded-array indexing and aggregate operations into the same value
@@ -348,6 +376,15 @@ Exit gate: efficient representative indexed record workflows and qualified
 aggregate handling, including bank crossings, overlapping copies, self-copy,
 large offsets and pressure fallback. Any proposed change to an external access
 protocol needs its own explicit contract and validation.
+
+The integrated contract qualifies indexed record workflows on the frozen Exec
+profiles and aggregate transfers through independent native execution. Exact
+extents, overlap policy and scratch ownership remain checked through replay;
+uncertain or unsupported placement retains complete invocation storage. The
+[stage-6 scorecard](benchmarks/65816-record-placement-stage6/README.md) records
+incremental code and native-cost benefits, preserved resource bounds and paired
+compiler costs. The frozen Exec corpus has no MIR aggregate-copy operations, so
+aggregate qualification is reported separately from Exec benefits.
 
 ### Stage 7 Qualify the integrated compiler and Exec816 artifact
 

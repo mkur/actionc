@@ -47,6 +47,33 @@ all seven native qualification manifests, matching source generations and
 paired compiler-cost results. Compact evidence belongs in the
 [stage-3 scorecard](../../docs/benchmarks/65816-record-placement-stage3/README.md).
 
+The consumer's `--stage 4 --previous target/record-placement-stage3` mode also
+authenticates preceding-stage images, checks every routine's frame and peak
+against stage 3, and requires new branching representative and whole-Exec
+benefits in both optimized profiles. Raw mode retains its private-storage
+lowering policy and must not regress. Native scoring compares ordered external
+traces and per-vector CPU/stack costs against both stage 0 and stage 3. The
+host command uses the authenticated stage-3 CLI and its pinned image hashes for
+the paired compiler-cost comparison. Publication uses the corresponding stage
+directory and retains branch-home, entry and mixed-edge counts.
+
+The consumer's `--stage 5 --previous target/record-placement-stage4` mode
+requires separate measured benefits in looping routines and routines with
+invocation-backed call segments, plus whole-Exec size improvement. It authenticates
+the preceding CLI, images and native measurements and applies the same frame,
+peak, external-access and per-vector gates against stages 0 and 4. Publication
+retains the loop-home and call-segment census and paired compiler costs.
+
+The consumer's `--stage 6 --previous target/record-placement-stage5` mode
+requires new benefits in routines using resident indexed windows and a
+whole-Exec size improvement. It applies the same resource, native trace and
+compiler-cost gates against the authenticated preceding artifacts. Indexed and
+aggregate window counts are reported separately. The frozen Exec corpus contains
+no MIR aggregate copies; independent native aggregate execution qualifies that
+contract without attributing aggregate savings to Exec.
+The [stage-6 scorecard](../../docs/benchmarks/65816-record-placement-stage6/README.md)
+retains the measured indexed benefits and independent aggregate qualification.
+
 Native-v2 DP traffic in the `code_quality` runner now counts the actual compiler
 scratch at domain offsets `$80..$BF`. Older saved comparisons retain their
 original measurements; remeasure their DP traffic before using it as a baseline.

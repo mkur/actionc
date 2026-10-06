@@ -83,30 +83,30 @@ impl Builder<'_> {
                 return Ok(false);
             }
         }
-        let Location::Stack(index_home) = self.temp(id)? else {
+        let index_home = self
+            .value_memory(&index.value)?
+            .ok_or("missing BYTE index capture")?;
+        if matches!(index_home, Memory::DirectPage(at) if at < scalar::START || at >= scalar::END) {
             return Ok(false);
-        };
-        if index_home.width != 1 {
+        }
+        if self.temp(id)?.slot().width != 1 {
             return Err("indexed address requires an exact BYTE home".into());
         }
-        let index_at = abi::stack::access_displacement(
-            ByteOffset::new(u32::from(index_home.offset)),
-            ByteSize::ONE,
-            ByteSize::new(self.code.delta()),
-        )
-        .map_err(|e| e.to_string())?;
-        let Some((Memory::Stack(source), Memory::Stack(destination))) =
-            self.pointer_copy_homes(dest, base)?
-        else {
+        self.check_transfer(index_home, index_home, 1)?;
+        let Some((source, destination)) = self.pointer_copy_homes(dest, base)? else {
             return Ok(false);
         };
-        if source.abs_diff(destination) < 3 {
+        if source == destination {
             return Ok(false);
         }
-        let source_at = self.displacement(source, 0)?;
+        let source_operand = match source {
+            Memory::Stack(at) => (ByteOp::AdcStack, self.word_displacement(at)?),
+            Memory::DirectPage(at) => (ByteOp::AdcDp, at as u8),
+            _ => return Ok(false),
+        };
         self.code.barrier();
         self.code.a8();
-        self.code.byte(ByteOp::LdaStack, index_at.get() as u8);
+        self.load_memory(index_home, 0)?;
         self.code.a16();
         self.code.word(WordOp::AndImm, 255); // Clear hidden B after the exact byte read.
         if stride.is_power_of_two() {
@@ -129,13 +129,13 @@ impl Builder<'_> {
             self.code.word(WordOp::AdcImm, displacement as u16);
         }
         self.code.op(Implied::Clc);
-        self.code.byte(ByteOp::AdcStack, source_at);
-        self.store_memory(Memory::Stack(destination), 0)?;
+        self.code.byte(source_operand.0, source_operand.1);
+        self.store_memory(destination, 0)?;
         // STA, SEP and LDA preserve carry from the low-word addition.
         self.code.a8();
-        self.load_memory(Memory::Stack(source), 2)?;
+        self.load_memory(source, 2)?;
         self.code.byte(ByteOp::AdcImm, 0);
-        self.store_memory(Memory::Stack(destination), 2)?;
+        self.store_memory(destination, 2)?;
         Ok(true)
     }
 }

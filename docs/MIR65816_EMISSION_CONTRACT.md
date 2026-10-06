@@ -574,8 +574,13 @@ its pending uses there. The resulting chain consumes that capture before the
 slot is reused for another cycle. Both word pieces of a pointer move finish
 together; they are never scheduled independently. Authoritative parameter
 homes, transient S movement, the target and every accessed byte pass preflight
-before emission. Partial overlaps, constants and mixed-width edges retain
-their existing fallback.
+before emission. Partial overlaps and constants retain this selector's
+fallback. Mixed-width edges using the residence pool instead use the common
+[placement contract](MIR65816_PLACEMENT_CONTRACT.md#acyclic-branch-and-join-residence):
+complete byte extents determine direct moves and necessary whole-source
+captures, including partial overlap and cycles. Their staging pool reflects
+actual captures; typed transfer requests and fresh replay recheck every logical
+edge. A8 emission preserves hidden B and repairs the original final byte/N/Z.
 An edge with any nonidentity moves reserves one invocation-owned two-byte staging
 word to save the original full A. Cyclic edges additionally reserve one
 three-byte capture slot, shared by all cycles on that edge. Both staging slots
@@ -1328,6 +1333,8 @@ pool remains a separate closed, call-free allocation family. Invalid widths,
 out-of-pool/odd offsets and mixed legacy/residence pools are rejected. Maps
 describe geometry; the allocator separately proves
 closed-operation liveness and conservative selector effects before emission.
+Acyclic branch/join homes additionally require a complete live region and every
+incoming edge's location obligations; maps alone cannot establish those facts.
 Older validators require an update to consume these scalar maps.
 
 Native word instructions use literal D-relative operands. o65 allocates no
@@ -1501,22 +1508,24 @@ component-address consumers retain priority; unsupported forms keep their
 existing paths. See the [indexed-address plan](MIR65816_INDEXED_ADDRESS_PLAN.md).
 
 A captured unsigned BYTE index may likewise form a three-byte address when
-`255 * stride + displacement <= 65535`. The index has an exact one-byte stack
-home; base/result are complete disjoint stack homes. Preflight includes actual
+`255 * stride + displacement <= 65535`. The index has an exact one-byte private
+home; base/result are complete disjoint stack or DP homes. DP index residence
+must lie in the residence pool, outside the scaling workspace. Preflight includes actual
 borrowed base reads and transient stack reach. A8 captures the index, A16 AND
 clears hidden B, and bounded shifts/adds form the offset. Non-power-of-two
 scaling uses the existing INDEX scratch word only when a conservative cost
 bound proves a saving. Low-word addition preserves carry through STA/SEP/LDA
 into the exact bank-byte ADC, including wrap at 24 bits. No pointed-to memory,
 fourth pointer byte, X/Y register, allocation or call lifetime is involved.
-Signed/wider indices, unbounded offsets, DP index/base/result homes and unsafe
+Signed/wider indices, unbounded offsets and unsafe
 overlap retain the existing selectors. Barriers and typed selected effects
 remain authoritative through replay.
 
 A nonvolatile scalar load/store may fold an unsigned numeric index and constant
 stride into its Y displacement. Selection checks the complete three-byte private
 base home, exact payload homes, and `index * stride + displacement + width - 1
-<= 65535` using host u64 arithmetic. It retains full 24-bit base preparation and
+<= 65535` using host u64 arithmetic. It prepares the full 24-bit base or reads
+a complete resident DP base directly, and retains
 ordinary word-plus-odd-byte ascending transfers. It neither widens nor repeats
 external reads. Volatile, symbolic/unsupported, overflowing and incomplete-home
 forms retain their established selectors; direct-symbol selection takes priority.
@@ -1711,3 +1720,31 @@ effects and the physical home analysis's conservative alias rules are unchanged.
 Absolute/symbolic stores, volatile accesses, dynamic indexing and unproved source
 ownership keep their fallback. NewList's ordinary field stores now stage its
 incoming base once. See the [preservation plan](MIR65816_BASE_PRESERVATION_PLAN.md).
+
+
+Loop residence uses fixed-point closed liveness and the common placement entry
+and edge contracts. Header, backedge and exit bindings establish complete homes;
+no lexical emission-order assumption is permitted. Size admission includes
+actual transfer staging and conservatively budgets setup and repairs.
+Invocation-backed pointer segments issue typed `ReloadResident` requests before
+their first consumer. Fresh replay reconstructs the complete stack-to-DP copy;
+selected checks require its exact source, destination, point and coverage and
+reject consumers before reload. Calls still clobber the full compiler scratch
+pool, and authoritative captures remain in invocation-owned storage. See the
+[placement contract](MIR65816_PLACEMENT_CONTRACT.md) for segment invariants.
+
+Indexed memory and nonvolatile aggregate operations now use those same checked
+resource windows. Complete index inputs and payload homes may reside in the
+stack or DP pool. Generic full 24-bit address formation takes a working copy of
+resident pointers when a bounded native indexed form is unavailable; it cannot
+change their captured value. Address offsets, strides and every scalar payload
+byte remain at their original operation.
+
+Aggregate setup captures both complete addresses into ordinary selector scratch.
+A typed `AggregateCopy` request binds the exact MIR extent and overlap policy;
+fresh replay rebuilds the existing direction comparison and byte-loop protocol.
+Static payload-effect counts are checked separately from the dynamic extent.
+Self-copy has no payload access, and zero-length copies have no transfer request
+or memory effect. Aggregate internal scratch participates in the same physical
+interference checks as indexed address formation. This integration introduces
+no new external access protocol, alias proof or bank-zero reservation.

@@ -80,6 +80,7 @@ struct Edge {
     /// Simultaneous logical bindings; parallel edges retain their ordinals.
     bindings: Vec<(TempId, Mir65816Value)>,
     transfers: Vec<Transfer>,
+    mixed: Option<mixed_copies::Plan>,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Transfer {
@@ -129,6 +130,11 @@ pub(super) struct Contract {
     window_rows: Vec<Window>,
     descriptions: Vec<resources::Requirements>,
     edges: BTreeMap<EdgeId, Edge>,
+    entries: BTreeMap<BlockId, BTreeMap<TempId, Location>>,
+    regions: BTreeSet<TempId>,
+    loops: BTreeSet<TempId>,
+    segments: BTreeMap<TempId, Vec<mixed::Residence>>,
+    aggregates: BTreeMap<ProgramPoint, (u32, bool)>,
     entry: BlockId,
     reachable: BTreeSet<BlockId>,
     labels: BTreeMap<BlockId, Label>,
@@ -415,6 +421,20 @@ impl<'a> Plan<'a> {
                         target,
                         bindings,
                         transfers,
+                        mixed: if let Some(e) =
+                            crate::mir65816::analysis::operands::edges(&block.terminator)
+                                .get(ordinal)
+                        {
+                            if frame.word_copies(r, e, 0)?.is_none()
+                                && frame.pointer_copies(r, e, 0)?.is_none()
+                            {
+                                frame.mixed_copies(r, e)?
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        },
                     },
                 );
             }
@@ -478,6 +498,12 @@ impl<'a> Plan<'a> {
                     block: block.id,
                     index,
                 };
+                for (&id, list) in &demand.mixed.segments {
+                    if list.iter().any(|v| v.block == block.id && v.first == index) {
+                        outputs.insert(id);
+                        operands.insert(id);
+                    }
+                }
                 let bytes = |ids: &BTreeSet<TempId>| {
                     ids.iter()
                         .filter_map(|id| {
@@ -487,6 +513,9 @@ impl<'a> Plan<'a> {
                                 .get(id)
                                 .filter(|v| v.contains(point))
                                 .map(|v| Location::DirectPage(v.slot))
+                                .or_else(|| {
+                                    demand.mixed.cache(*id, point).map(Location::DirectPage)
+                                })
                                 .or_else(|| frame.temps.get(id).copied())
                         })
                         .filter_map(|home| match home {
@@ -596,6 +625,33 @@ impl<'a> Plan<'a> {
             window_rows,
             descriptions,
             edges,
+            entries: demand.mixed.entries.clone(),
+            regions: demand.mixed.regions.keys().copied().collect(),
+            loops: demand.mixed.loops.clone(),
+            segments: demand.mixed.segments.clone(),
+            aggregates: r
+                .blocks
+                .iter()
+                .flat_map(|b| {
+                    b.ops.iter().enumerate().filter_map(|(index, op)| {
+                        if let Mir65816Op::Copy {
+                            bytes,
+                            overlap_safe,
+                            source_volatile: false,
+                            destination_volatile: false,
+                            ..
+                        } = op
+                        {
+                            (!bytes.is_zero()).then_some((
+                                ProgramPoint { block: b.id, index },
+                                (bytes.get(), *overlap_safe),
+                            ))
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .collect(),
             entry: r.blocks[0].id,
             reachable,
             labels: BTreeMap::new(),
@@ -684,12 +740,49 @@ impl<'a> Plan<'a> {
             || self.contract.owner.is_some()
             || self.contract.windows != expected.windows
             || self.contract.edges != expected.edges
+            || self.contract.entries != expected.entries
+            || self.contract.regions != expected.regions
+            || self.contract.loops != expected.loops
+            || self.contract.segments != expected.segments
+            || self.contract.aggregates != expected.aggregates
             || self.contract.window_rows != expected.window_rows
             || self.contract.descriptions != expected.descriptions
             || self.contract.pointer_sources != expected.pointer_sources
             || self.contract.frame != self.frame
         {
             return Err("placement differs from recomputed value/resource obligations".into());
+        }
+        for (id, edge) in &self.contract.edges {
+            for (&temp, &home) in self
+                .contract
+                .entries
+                .get(&edge.target)
+                .into_iter()
+                .flatten()
+            {
+                if let Some(ordinal) = edge.bindings.iter().position(|(t, _)| *t == temp) {
+                    if edge.transfers[ordinal].destination != home
+                        || edge.transfers[ordinal].bytes != home.slot().width
+                    {
+                        return Err("incoming edge fails resident parameter obligation".into());
+                    }
+                } else if self.frame.temps.get(&temp) != Some(&home)
+                    || !demand.mixed.regions.get(&temp).is_some_and(|points| {
+                        points.contains(&ProgramPoint {
+                            block: id.source,
+                            index: r
+                                .blocks
+                                .iter()
+                                .find(|b| b.id == id.source)
+                                .unwrap()
+                                .ops
+                                .len(),
+                        })
+                    })
+                {
+                    return Err("incoming edge fails surviving residence obligation".into());
+                }
+            }
         }
         for (&id, value) in &self.contract.values {
             let facts = self
@@ -823,6 +916,24 @@ impl Contract {
                 .filter(|r| self.descriptions[r.description.0].form == f)
                 .count()
         };
+        let dp_uses: BTreeSet<_> = self
+            .values
+            .values()
+            .flat_map(|v| &v.reads)
+            .filter_map(|(usage, location)| {
+                matches!(location, ReadLocation::Home(Location::DirectPage(_)))
+                    .then_some(usage.point)
+            })
+            .collect();
+        let resident_inputs = |f| {
+            self.windows
+                .iter()
+                .filter(|(_, window)| {
+                    self.descriptions[self.window_rows[window.0].description.0].form == f
+                })
+                .filter(|(point, _)| dp_uses.contains(point))
+                .count()
+        };
         super::proof::PlacementSummary {
             values: self.values.len(),
             materialized: self.frame.temps.len(),
@@ -836,6 +947,11 @@ impl Contract {
                 .values()
                 .filter(|v| v.residence.is_some_and(|r| r.backed))
                 .count(),
+            branch_homes: self.regions.len(),
+            resident_entries: self.entries.len(),
+            mixed_edges: self.edges.values().filter(|e| e.mixed.is_some()).count(),
+            loop_homes: self.loops.len(),
+            call_segments: self.segments.values().map(Vec::len).sum(),
             borrowed: count(|c| matches!(c, Capture::Borrowed(_))),
             register_intervals: count(|c| matches!(c, Capture::Registers { .. })),
             component_intervals: count(|c| matches!(c, Capture::Components(_))),
@@ -843,6 +959,10 @@ impl Contract {
             deferred_assignments: count(|c| matches!(c, Capture::Assignment { .. })),
             windows: self.windows.len(),
             record_windows: form(resources::Form::RecordMemory),
+            indexed_windows: form(resources::Form::IndexedMemory),
+            aggregate_windows: form(resources::Form::Aggregate),
+            resident_indexed_windows: resident_inputs(resources::Form::IndexedMemory),
+            resident_aggregate_windows: resident_inputs(resources::Form::Aggregate),
             scalar_windows: form(resources::Form::Scalar),
             address_windows: form(resources::Form::Address),
             barriers: form(resources::Form::Barrier),
@@ -910,6 +1030,9 @@ impl Contract {
         let mut x_contracts = 0;
         let mut covered = BTreeSet::new();
         let mut captures = BTreeSet::new();
+        let mut reloads = BTreeSet::new();
+        let mut aggregates = BTreeSet::new();
+        let mut mixed_edges = BTreeSet::new();
         struct Active<'a> {
             point: ProgramPoint,
             window: &'a Window,
@@ -949,6 +1072,60 @@ impl Contract {
                         || !captures.insert(*id)
                     {
                         return Err("residence capture differs from placement transfer".into());
+                    }
+                }
+                Action::Request(Request::MixedEdge(plan, staging)) => {
+                    let point = active
+                        .as_ref()
+                        .ok_or("mixed edge outside source boundary")?
+                        .point;
+                    let (id, _) = self
+                        .edges
+                        .iter()
+                        .find(|(id, e)| {
+                            id.source == point.block
+                                && !mixed_edges.contains(*id)
+                                && e.mixed.as_ref() == Some(plan)
+                        })
+                        .ok_or("mixed transfer differs from simultaneous edge obligations")?;
+                    if self.frame.mixed_staging(plan)? != *staging {
+                        return Err("mixed transfer staging differs from allocation".into());
+                    }
+                    mixed_edges.insert(*id);
+                }
+                Action::Request(Request::ReloadResident(id, source, destination)) => {
+                    let point = active
+                        .as_ref()
+                        .ok_or("resident reload outside operation")?
+                        .point;
+                    if self.frame.temps.get(id) != Some(&Location::Stack(*source))
+                        || !self.segments.get(id).is_some_and(|list| {
+                            list.iter().any(|v| {
+                                v.block == point.block
+                                    && v.first == point.index
+                                    && v.slot == *destination
+                            })
+                        })
+                        || !reloads.insert((*id, point))
+                    {
+                        return Err("resident reload differs from invocation-backed segment".into());
+                    }
+                }
+                Action::Request(Request::AggregateCopy {
+                    bytes,
+                    overlap_safe,
+                }) => {
+                    let point = active
+                        .as_ref()
+                        .ok_or("aggregate transfer outside operation")?
+                        .point;
+                    if record.parent.is_some()
+                        || self.aggregates.get(&point) != Some(&(*bytes, *overlap_safe))
+                        || !aggregates.insert(point)
+                    {
+                        return Err(
+                            "aggregate transfer differs from MIR extent or overlap protocol".into(),
+                        );
                     }
                 }
                 Action::Request(Request::StagePointer(origin, source, scratch)) => {
@@ -1001,6 +1178,29 @@ impl Contract {
                     for effect in &effects.memory {
                         if let super::effects::Memory::DirectPage { offset, bytes } = effect.memory
                         {
+                            if effect.access == super::effects::Access::Read
+                                && self.segments.iter().any(|(&id, list)| {
+                                    list.iter().any(|v| {
+                                        v.block == p.block
+                                            && v.first == p.index
+                                            && resources::Scratch::range(offset, bytes).is_some_and(
+                                                |range| {
+                                                    resources::Scratch::range(
+                                                        v.slot.offset,
+                                                        v.slot.width.into(),
+                                                    )
+                                                    .unwrap()
+                                                    .overlaps(range)
+                                                },
+                                            )
+                                            && !reloads.contains(&(id, p))
+                                    })
+                                })
+                            {
+                                return Err(
+                                    "resident consumer precedes its invocation reload".into()
+                                );
+                            }
                             if effect.access != super::effects::Access::Read
                                 && resources::Scratch::range(offset, bytes)
                                     .is_some_and(|range| w.window.protected_dp.overlaps(range))
@@ -1074,6 +1274,38 @@ impl Contract {
             || covered != self.windows.keys().copied().collect()
         {
             return Err("incomplete selected placement/resource coverage".into());
+        }
+        if mixed_edges
+            != self
+                .edges
+                .iter()
+                .filter(|(_, e)| e.mixed.is_some())
+                .map(|(id, _)| *id)
+                .collect()
+        {
+            return Err("incomplete simultaneous mixed transfer coverage".into());
+        }
+        if reloads
+            != self
+                .segments
+                .iter()
+                .flat_map(|(&id, list)| {
+                    list.iter().map(move |v| {
+                        (
+                            id,
+                            ProgramPoint {
+                                block: v.block,
+                                index: v.first,
+                            },
+                        )
+                    })
+                })
+                .collect()
+        {
+            return Err("incomplete invocation-backed segment coverage".into());
+        }
+        if aggregates != self.aggregates.keys().copied().collect() {
+            return Err("incomplete aggregate transfer protocol coverage".into());
         }
         let mut expected = vec![(Some(0u32), Some(0u32)); self.window_rows.len()];
         for window in &self.window_rows {

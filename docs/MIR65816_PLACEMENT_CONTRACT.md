@@ -15,7 +15,8 @@ pointer and scalar read bindings, accumulator intervals, redirected local loads,
 deferred address components, adjacent assignments and the bounded X mirror.
 Selection consumes these admission results instead of reconstructing competing
 home-demand or residence plans. Existing selectors implement their qualified
-forms; block-local mixed residence extends their checked input/home choices.
+forms; mixed residence extends their checked input/home choices within blocks
+and through qualified acyclic control flow.
 
 The plan borrows one immutable MIR routine and data table. Verification
 reconstructs admission and value/resource obligations from these inputs and the
@@ -54,9 +55,9 @@ Register bounds are deliberately conservative whole-operation bounds, including
 the hidden accumulator byte and index high lanes; they are not smaller live
 ranges or grants to retain unrelated registers through an operation.
 
-Unindexed nonvolatile scalar/record accesses, basic scalar arithmetic,
-comparisons, casts and address formation have qualified descriptions. Indexed,
-aggregate, volatile, other arithmetic and call forms are explicit resource
+Nonvolatile scalar/record accesses, indexed accesses, aggregate copies, basic
+scalar arithmetic, comparisons, casts and address formation have qualified
+descriptions. Volatile, other arithmetic and call forms are explicit resource
 barriers. These barriers preserve their current selectors and ABI checks and
 cannot justify extending a residence interval. Helpers and terminal forwarding
 remain opaque under their dedicated independently recomputed contracts.
@@ -136,9 +137,10 @@ The common plan admits complete two-byte scalar and three-byte captured pointer
 values in ordinary mixed blocks. Definitions and every use come from the typed
 operand census. A DP-only value has one operation definition and all reads in
 one closed interval within the same reachable block. Unreachable definitions
-cannot establish residence. Block parameters, terminator operands,
-edge values, indexes, unsupported consumers and resource barriers retain stack
-homes. No residence crosses a block boundary or a call. Existing closed scalar
+cannot establish residence. The initial block-local admission leaves block
+parameters, terminator operands, edge values, unsupported consumers
+and resource barriers in stack homes. Its intervals cross neither a block
+boundary nor a call. Existing closed scalar
 and pointer-leaf allocations retain their dedicated admissions.
 The existing fused top-bit selector also retains its mask region and required
 stack captures; mixed residence must not change that region's ownership.
@@ -170,6 +172,148 @@ proved preparations to cover its private copy and mode cost. Complete DP pointer
 avoid preparation from a stack capture. Native DP words retain equal-size
 instructions; narrow scalar field captures may use the existing checked adjacent
 accumulator producer/consumer contract. BYTE widening clears hidden B explicitly.
-Unsupported wide arithmetic/casts and indexed forms retain their existing
-strategies. Shared NIR promotion legality and profitability policy are unchanged;
+Unsupported wide arithmetic/casts retain their existing strategies. Shared NIR
+promotion legality and profitability policy are unchanged;
 these consumers use already available typed values.
+
+## Acyclic branch and join residence
+
+The extension admits complete two-byte scalar and three-byte pointer captures
+through acyclic live regions. A region includes every closed operation extent,
+terminator use, intervening live point and simultaneous block-parameter
+definition. Its producer and all incoming obligations come from typed MIR and
+verified logical definition availability. Unreachable occurrences, unsupported
+uses, resource barriers, fused selector ownership and cyclic live regions
+refuse admission. An edge-only preheader capture sent to a cyclic target
+retains its stack affinity, avoiding a DP capture followed by a required stack
+transfer without a resident operation consumer. The conservative cyclic core
+also retains paths between cycles; no loop residence fixed point is claimed.
+
+Each target has an explicit entry table of complete resident homes. For each
+incoming edge, a parameter home must be established by its own simultaneous
+argument binding. An inherited capture must survive in the same complete home
+through that predecessor's terminator. Parallel edges retain their ordinals;
+different values sent to the same target do not establish an equality fact.
+Entry locations survive only when every incoming obligation is satisfied.
+No pointee content or address workspace is retained at a join.
+
+Closed CFG interference colors the new complete lifetimes against one another
+and existing local captures/caches. Full byte extents, including pointer bank
+bytes, determine conflicts. Actual trial allocation includes incoming geometry
+and all edge staging. An extension that increases the preceding block-local
+frame extent or local peak retains the block-local allocation.
+
+Existing all-word and all-pointer edge selectors retain their contracts. Mixed
+edges using DP residence receive a complete parallel-copy schedule. Identities
+need no transfer; a destination may be written only after every overlapping
+pending source has been consumed or captured. When no move is safe, one whole
+source is captured into an invocation-owned slot, replacing every pending use
+of that exact range. Partial overlap and different widths use the same byte
+extent rule. Dense staging is allocated from actual captures, not argument
+count; incomplete slots and overlap with live homes are rejected.
+
+The selected mixed-transfer request names the logical edge, complete move
+schedule and exact allocated staging. The placement verifier reconstructs the
+request and requires coverage of every such edge, including identical parallel
+edges. Fresh replay emits the same canonical typed byte operations. A8 copies
+preserve incoming hidden B; a final destination-byte load restores the original
+edge's A/N/Z, and the existing boundary restores A16. C/V, indices, stack and
+domain state are preserved. Artifact maps show actual complete DP homes and
+remaining stack/staging demand. The extensions below use the same checked
+entries, resource windows and complete transfers.
+
+
+## Fixed-point loop residence
+
+Complete word and pointer lifetimes may include a conservative cyclic core and
+paths between cycles. Closed liveness reaches a fixed point before allocation;
+header, backedge and exit entries use the same complete incoming obligations as
+other CFG edges. Lexical block order never establishes a resident value. A
+call, unsupported use, volatile access or fused ownership anywhere in the live
+region refuses its complete DP home. Every simultaneous binding and complete
+byte extent participates in interference, including a pointer's bank byte.
+
+Loop extension preserves the admitted acyclic plan as its fallback. Actual
+allocation must not grow its frame or local peak. A deterministic size budget
+includes word, pointer and mixed transfer schedules, mode changes, captures and
+final A/NZ repairs. It credits only provable removal of complete stack-pointer
+preparations. Unsupported legacy transfer costs use conservative lower bounds;
+uncertain profitability retains the preceding plan. Edge-only preheader
+captures retain stack affinity when a cyclic destination cannot reside in DP.
+Pointer comparison, wide arithmetic and other unsupported loop
+consumers may retain their existing homes.
+
+Existing verified Native65816 private-storage promotion already exposes legal
+loop-carried values. Its ownership, escape, initialization, alias and call-effect
+rules are unchanged. Residence consumes the resulting typed MIR; it does not
+promote exposed storage or infer that pointee contents remain unchanged.
+
+## Invocation-backed segments around calls
+
+A captured three-byte pointer live across a call retains an authoritative stack
+home for its complete lifetime. Independently admitted block-local segments may
+reload that capture into the residence pool before their first consumer. A
+segment crosses neither an edge nor a resource barrier. Calls of every target
+kind retain their full ABI clobbers; no cached copy survives a call, and no new
+call-save area or bank-zero reservation is introduced. Adjacent selectors owning
+A and fused regions retain their existing ownership.
+
+Each segment must cover at least three conservative address-preparation misses,
+paying for its complete private reload. Closed logical interference colors its
+whole byte range against all complete homes, prefix caches and other segments.
+Pressure leaves the authoritative stack strategy available. Prefix residence
+and later segments cannot overlap within the same block. The public artifact
+continues to report the real stack home, not the cached read location.
+
+Typed `ReloadResident` requests name the captured temp, exact invocation source,
+complete destination and first consumer point. Verification rebuilds every
+segment, requires exactly one reload for each first point, and rejects a DP
+consumer that precedes its reload. Replay emits the canonical complete transfer:
+two overlapping private words at offsets zero and one, with no fourth-byte read
+or write. Result capture and caller cleanup complete before a later operation
+reloads residence. Repeated external field accesses retain their separate source
+operations, ordering and exact extents.
+
+## Indexed and aggregate consumers
+
+Indexed loads and stores own address setup, full index evaluation and every
+payload byte in one resource window. Native Y indexing admits only unsigned
+captured BYTE/CARD indexes whose complete scaled offset, displacement and last
+payload byte fit sixteen bits. Its size qualification is shared with residence
+budgets. Complete stack and DP homes, borrowed pointer inputs and checked local
+pointer segments supply the same typed operands. Narrow indexes clear hidden B
+before scaling. A resident pointer is read directly when the native form is
+qualified; it is never stepped or overwritten as an address workspace.
+
+Larger offsets, wider indexes and unsupported native scales retain full modular
+24-bit address formation. A complete working copy in the ordinary pointer
+workspace preserves the resident capture. Deferred address formation also
+materializes its displacement in this working copy. Closed input/output extents
+and index/scaling scratch participate in the common interference checks. No
+object disjointness, bounds or memory-equivalence fact follows from residence.
+
+Existing deferred three-byte A/X and component-store producers retain complete
+stack input bindings. Their physical input consumption can occur after the
+logical address operation. Those inputs remain outside DP residence until that
+later consumption has an explicit placement contract; materialized indexed
+addresses use the ordinary checked locations.
+
+Nonvolatile aggregate copies use the same ordinary workspace through `$9E`.
+Both complete addresses are materialized before a typed `AggregateCopy` request
+names the exact MIR byte count and overlap policy. Verification requires one
+request per nonempty copy at its original source point; fresh replay rebuilds
+the complete direction comparison, byte loops and 24-bit count. Static payload
+site counts complement that dynamic protocol rather than claiming that a loop
+executes once. Zero-length copies have no transfer request or memory effects.
+
+The existing aggregate protocol is preserved: overlap-safe copies compare the
+complete addresses, use ascending or descending byte transfers as appropriate,
+and perform no payload access for self-copy. Uncertain aliasing retains that
+overlap-safe strategy. Exact extents, padding bytes and large counts are preserved;
+no widened or reordered external access protocol is introduced. Aggregate scratch
+does not overlap the residence pool. Pressure retains complete invocation homes,
+and volatile aggregates retain their explicit unsupported diagnostic.
+
+Aggregate execution qualification crosses 64 KiB bank boundaries. Modular
+24-bit wrap is qualified for scalar and indexed address formation; residence
+does not supply an alias guarantee for wrapping aggregate objects.

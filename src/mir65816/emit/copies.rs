@@ -477,6 +477,8 @@ impl AllocatedFrame {
                     vec![2; plan.captures()?.len()]
                 } else if let Some(plan) = self.pointer_copies(routine, edge, 0)? {
                     plan.staging_widths()
+                } else if let Some(plan) = self.mixed_copies(routine, edge)? {
+                    plan.widths.clone()
                 } else {
                     self.edge_widths(routine, edge)?
                 };

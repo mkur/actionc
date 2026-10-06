@@ -298,9 +298,17 @@ impl AllocatedFrame {
                 continue;
             }
             let home = *self.temps.get(id).ok_or("missing stack temporary")?;
+            if Some(ByteSize::new(home.slot().width.into())) != ty.width {
+                return Err("temporary home width mismatch".into());
+            }
             if let Some(expected) = demand.mixed.home(*id) {
                 if home != expected {
                     return Err("mixed residence home mismatch".into());
+                }
+                for other in &graph[id] {
+                    if self.temps.get(other).is_some_and(|other| home.overlaps(*other)) {
+                        return Err("overlapping live direct-page temporaries".into());
+                    }
                 }
                 continue;
             }
@@ -385,6 +393,8 @@ impl AllocatedFrame {
                     self.word_staging(&plan, 0)?;
                 } else if let Some(plan) = self.pointer_copies(routine, edge, 0)? {
                     self.pointer_staging(&plan, 0)?;
+                } else if let Some(plan) = self.mixed_copies(routine, edge)? {
+                    self.mixed_staging(&plan)?;
                 }
             }
         }

@@ -1,5 +1,8 @@
 mod support;
-use actionc::mir65816::{Mir65816Terminator, Mir65816Value, emit::Label};
+use actionc::mir65816::{
+    Mir65816Terminator, Mir65816Value,
+    emit::{Label, Location},
+};
 use actionc_vm::native65816::Inputs;
 use support::*;
 
@@ -12,9 +15,11 @@ const MULTI_SOURCE: &str = "BYTE POINTER input=$7100,output=$7200 \
         WHILE p#BYTE POINTER(2) DO p==+1 q==+1 OD RETURN(q) \
         PROC Main() output=Work(input) RETURN";
 
-const CYCLE_SOURCE: &str = "BYTE POINTER input=$7100,output=$7200 \
+// Retain the stack fallback so this independent oracle still exercises a
+// physical copy cycle when loop residence can separate the pointer homes.
+const CYCLE_SOURCE: &str = "BYTE POINTER input=$7100,output=$7200 VOLATILE BYTE audit \
         BYTE POINTER FUNC Work(BYTE POINTER seed) BYTE POINTER p,q,t p=seed q=BYTE POINTER(2) \
-        WHILE p#BYTE POINTER(2) DO t=p p=q q=t OD RETURN(q) \
+        WHILE p#BYTE POINTER(2) DO audit=BYTE(ADDRESS(q)) t=p p=q q=t OD RETURN(q) \
         PROC Main() output=Work(input) RETURN";
 
 fn check_backedges(source: &str, multiple: bool, cyclic: bool) {
@@ -52,12 +57,7 @@ fn check_backedges(source: &str, multiple: bool, cyclic: bool) {
                 let Mir65816Value::Temp(src, bytes) = arg else {
                     return None;
                 };
-                (bytes.get() == 3).then(|| {
-                    (
-                        m.frame.temps[src].stack().unwrap().offset,
-                        m.frame.temps[&dest].stack().unwrap().offset,
-                    )
-                })
+                (bytes.get() == 3).then(|| (m.frame.temps[src], m.frame.temps[&dest]))
             })
             .collect::<Option<Vec<_>>>()
         else {
@@ -101,10 +101,13 @@ fn check_backedges(source: &str, multiple: bool, cyclic: bool) {
                     && let Some((_, target, moves)) = sites.iter().find(|s| s.0 == h.cpu.pc())
                 {
                     let before = h.cpu.registers();
-                    let s = u32::from(before.s);
+                    let address = |home| match home {
+                        Location::Stack(s) => u32::from(before.s) + u32::from(s.offset),
+                        Location::DirectPage(s) => u32::from(before.d.wrapping_add(s.offset)),
+                    };
                     let values: Vec<_> = moves
                         .iter()
-                        .map(|&(src, _)| h.bus.value(s + u32::from(src), 3))
+                        .map(|&(src, _)| h.bus.value(address(src), 3))
                         .collect();
                     let value = *values.last().unwrap();
                     for _ in 0..1_000 {
@@ -127,7 +130,7 @@ fn check_backedges(source: &str, multiple: bool, cyclic: bool) {
                         (bank & 0x80) | if bank == 0 { 2 } else { 0 }
                     );
                     for (&(_, dst), value) in moves.iter().zip(values) {
-                        assert_eq!(h.bus.value(s + u32::from(dst), 3), value);
+                        assert_eq!(h.bus.value(address(dst), 3), value);
                     }
                     checked += 1;
                 } else {

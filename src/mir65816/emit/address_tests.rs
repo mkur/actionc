@@ -294,10 +294,10 @@ fn long_indexed_load_preflight_rejects_active_x_and_invalid_homes() {
                 target: Mir65816DataId::Global(SymbolId(7)),
                 addend: 0,
             }),
-            index: Slot {
+            index: Location::Stack(Slot {
                 offset: 40,
                 width: 2,
-            },
+            }),
             displacement: 0,
             stride: 1,
             bytes: 1,
@@ -318,10 +318,16 @@ fn long_indexed_load_preflight_rejects_active_x_and_invalid_homes() {
             });
         }
         if bad == 1 {
-            indexed.index.offset = 255;
+            indexed.index = Location::Stack(Slot {
+                offset: 255,
+                width: 2,
+            });
         }
         if bad == 2 {
-            indexed.index.width = 1;
+            indexed.index = Location::Stack(Slot {
+                offset: 40,
+                width: 1,
+            });
         }
         let op = Mir65816Op::Load {
             dest: TempId(999),

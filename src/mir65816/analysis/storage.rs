@@ -209,13 +209,18 @@ impl StorageAnalysis {
                         ..
                     } => {
                         check_range(source, bytes.get(), &parameters, &facts)?;
-                        write_effect(
-                            destination,
-                            bytes.get(),
-                            *destination_volatile || *source_volatile,
-                            &parameters,
-                            &facts,
-                        )?
+                        if bytes.is_zero() {
+                            check_range(destination, 0, &parameters, &facts)?;
+                            Effect::None
+                        } else {
+                            write_effect(
+                                destination,
+                                bytes.get(),
+                                *destination_volatile || *source_volatile,
+                                &parameters,
+                                &facts,
+                            )?
+                        }
                     }
                     Mir65816Op::Call { .. } => Effect::Call,
                     Mir65816Op::Unary { .. }

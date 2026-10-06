@@ -45,7 +45,7 @@ mod accumulator_homes;
 #[path = "address_consumers.rs"]
 pub(super) mod address_consumers;
 #[path = "addresses.rs"]
-mod addresses;
+pub(super) mod addresses;
 #[path = "arithmetic.rs"]
 mod arithmetic;
 #[path = "byte_arithmetic.rs"]
@@ -104,7 +104,7 @@ mod scalar_word_tests;
 mod call_tests;
 
 // ABI call-clobbered domain scratch. Nothing here survives a call.
-use super::resources::{COPY_COUNT, COPY_DEST, COPY_SOURCE, INDEX, PTR, RESULT, RIGHT};
+use super::resources::{COPY_DEST, COPY_SOURCE, INDEX, PTR, RESULT, RIGHT};
 
 /// The verified ABI homes define payload; their intervening and trailing gaps
 /// still need explicit zero stores. Preflight before emitting a call guard.
@@ -1654,13 +1654,12 @@ impl Builder<'_> {
                         .map(Location::DirectPage)
                         .or_else(|| self.frame.temps.get(id).copied())
                 {
-                    if address.index.is_some() || displacement > u32::from(u16::MAX) - 3 {
-                        return Err("unmodelled resident pointer addressing".into());
+                    if address.index.is_none() && displacement <= u32::from(u16::MAX) - 3 {
+                        return Ok(Memory::Pointer {
+                            slot: slot.offset as u8,
+                            offset: displacement as u16,
+                        });
                     }
-                    return Ok(Memory::Pointer {
-                        slot: slot.offset as u8,
-                        offset: displacement as u16,
-                    });
                 }
                 self.prepare_pointer_base(value)?;
                 Memory::Pointer {
@@ -1780,7 +1779,12 @@ impl Builder<'_> {
             Memory::DirectPage(_) => return Err("resident scratch address cannot escape".into()),
             Memory::Pointer { slot, offset } => {
                 if slot != PTR {
-                    return Err("resident pointer cannot use generic address scratch".into());
+                    // Materialize a private working address, never modify the
+                    // complete resident capture used by later operations.
+                    for byte in 0..3 {
+                        self.code.byte(ByteOp::LdaDp, slot + byte);
+                        self.code.byte(ByteOp::StaDp, PTR + byte);
+                    }
                 }
                 if offset != 0 {
                     self.pointer_step(PTR, false, offset.into());
@@ -1883,6 +1887,10 @@ impl Builder<'_> {
             .ok_or("missing branch target label")?;
         // Preflight fallback capacity as well, before any prefix or copy writes.
         let Some(copies) = copies else {
+            if let Some(mixed) = self.frame.mixed_copies(self.routine, edge)? {
+                self.frame.mixed_staging(&mixed)?;
+                return Ok(None);
+            }
             for (i, bytes) in self
                 .frame
                 .edge_widths(self.routine, edge)?
@@ -1987,7 +1995,12 @@ impl Builder<'_> {
             self.finish_edge(target, fallthrough);
             return Ok(());
         }
-        self.emit_mixed_edge(edge)?;
+        if let Some(plan) = self.frame.mixed_copies(self.routine, edge)? {
+            let staging = self.frame.mixed_staging(&plan)?;
+            self.code.mixed_edge(plan, staging);
+        } else {
+            self.emit_mixed_edge(edge)?;
+        }
         self.code.a16();
         self.finish_edge(self.blocks[&edge.target], fallthrough);
         Ok(())
@@ -2400,20 +2413,7 @@ impl Builder<'_> {
         Ok(())
     }
     fn pointer_step(&mut self, pointer: u8, subtract: bool, amount: u32) {
-        self.code
-            .op(if subtract { Implied::Sec } else { Implied::Clc });
-        for i in 0..3 {
-            self.code.byte(ByteOp::LdaDp, pointer + i);
-            self.code.byte(
-                if subtract {
-                    ByteOp::SbcImm
-                } else {
-                    ByteOp::AdcImm
-                },
-                (amount >> (i * 8)) as u8,
-            );
-            self.code.byte(ByteOp::StaDp, pointer + i);
-        }
+        self.code.step_pointer(pointer, subtract, amount);
     }
     fn copy(
         &mut self,
@@ -2442,44 +2442,8 @@ impl Builder<'_> {
             self.code.byte(ByteOp::LdaDp, COPY_DEST + i);
             self.code.byte(ByteOp::StaDp, PTR + i);
         }
-        let forward = self.code.label();
-        let backward = self.code.label();
-        let done = self.code.label();
-        if overlap_safe {
-            for i in (0..3).rev() {
-                self.code.byte(ByteOp::LdaDp, PTR + i);
-                self.code.byte(ByteOp::CmpDp, COPY_SOURCE + i);
-                self.code.branch(Branch::CarryClear, forward);
-                self.code.branch(Branch::NotEqual, backward);
-            }
-            self.code.jump(done); // identical source/destination
-            self.code.mark(backward);
-            self.pointer_step(PTR, false, bytes - 1);
-            self.pointer_step(COPY_SOURCE, false, bytes - 1);
-            self.copy_loop(bytes, true);
-            self.code.jump(done);
-        }
-        self.code.mark(forward);
-        self.copy_loop(bytes, false);
-        self.code.mark(done);
+        self.code.aggregate_copy(bytes, overlap_safe);
         Ok(())
-    }
-    fn copy_loop(&mut self, bytes: u32, backward: bool) {
-        for i in 0..3 {
-            self.code.byte(ByteOp::LdaImm, (bytes >> (i * 8)) as u8);
-            self.code.byte(ByteOp::StaDp, COPY_COUNT + 0 + i);
-        }
-        let again = self.code.label();
-        self.code.mark(again);
-        self.code.byte(ByteOp::LdaIndirect, COPY_SOURCE);
-        self.code.byte(ByteOp::StaIndirect, PTR); // long indirect, no DBR dependency
-        self.pointer_step(PTR, backward, 1);
-        self.pointer_step(COPY_SOURCE, backward, 1);
-        self.pointer_step(COPY_COUNT, true, 1);
-        self.code.byte(ByteOp::LdaDp, COPY_COUNT + 0);
-        self.code.byte(ByteOp::OraDp, COPY_COUNT + 1);
-        self.code.byte(ByteOp::OraDp, COPY_COUNT + 2);
-        self.code.branch(Branch::NotEqual, again);
     }
     fn compare(
         &mut self,
@@ -2777,9 +2741,19 @@ impl Builder<'_> {
 impl mixed::Plan {
     fn enter(&self, b: &mut Builder<'_>, block: BlockId, index: usize) {
         let point = ProgramPoint { block, index };
+        for (&id, list) in &self.segments {
+            for v in list.iter().filter(|v| v.block == block && v.first == index) {
+                b.code.reload_resident(
+                    id,
+                    b.frame.temps[&id].stack().expect("verified segment home"),
+                    v.slot,
+                );
+            }
+        }
         b.resident = self
             .values
             .keys()
+            .chain(self.segments.keys())
             .filter_map(|&id| self.cache(id, point).map(|s| (id, s)))
             .collect();
     }

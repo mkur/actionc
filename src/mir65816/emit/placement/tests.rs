@@ -19,6 +19,46 @@ fn record() -> Mir65816Program {
 }
 
 #[test]
+fn deferred_record_address_components_keep_their_complete_stack_inputs() {
+    let mut r = super::super::mixed::tests::routine();
+    let pointer_type = r.temps[0].1.clone();
+    r.temps.push((TempId(2), pointer_type));
+    let mut address = match &r.blocks[0].ops[1] {
+        Mir65816Op::Load { address, .. } => address.clone(),
+        _ => unreachable!(),
+    };
+    address.displacement = ByteOffset::new(4);
+    let mut destination = address.clone();
+    destination.base =
+        Mir65816AddressBase::Indirect(Mir65816Value::Param(r.frame.parameters[0].param));
+    r.blocks[0].ops.splice(
+        1..1,
+        [
+            Mir65816Op::AddressOf {
+                dest: TempId(2),
+                address,
+                width: ByteSize::new(3),
+            },
+            Mir65816Op::Store {
+                address: destination,
+                value: Mir65816Value::Temp(TempId(2), ByteSize::new(3)),
+                width: ByteSize::new(3),
+                volatile: false,
+            },
+        ],
+    );
+    let plan = Plan::new(&r, &[]).unwrap();
+    assert!(
+        plan.demand
+            .producer(r.blocks[0].id, 1)
+            .is_some_and(|interval| interval.bytes == 3)
+    );
+    assert!(matches!(plan.frame.temps[&TempId(0)], Location::Stack(_)));
+    plan.verify().unwrap();
+    super::super::select::routine(&r, false).unwrap();
+}
+
+#[test]
 fn current_word_plan_is_complete() {
     let p = super::super::select::word_tests::program();
     for r in &p.routines {
@@ -313,7 +353,7 @@ fn scratch_is_physical_and_a_write_cannot_clobber_a_live_value() {
 }
 
 #[test]
-fn unqualified_forms_are_explicit_resource_barriers() {
+fn indexed_forms_are_qualified_while_calls_remain_resource_barriers() {
     let p = program(
         "TYPE Cell=[BYTE ARRAY data(5)] PROC Touch() RETURN PROC Work(Cell POINTER p CARD n) p.data(n)=BYTE(n) Touch() RETURN PROC Main() RETURN",
     );
@@ -333,12 +373,179 @@ fn unqualified_forms_are_explicit_resource_barriers() {
                         .requirements(ProgramPoint { block: b.id, index })
                         .unwrap()
                         .form,
-                    resources::Form::Barrier
+                    if matches!(op, Mir65816Op::Call { .. }) {
+                        resources::Form::Barrier
+                    } else {
+                        resources::Form::IndexedMemory
+                    }
                 );
             }
         }
     }
     materialize(&p).unwrap();
+}
+
+fn aggregate_program() -> Mir65816Program {
+    let mut p = program(
+        "TYPE Cell=[CARD n Cell POINTER next] PROC Work(Cell POINTER root,other) LET p=root.next LET n=p.n other.n=n p.n=7 other.n=p.n p.n=n RETURN PROC Main() RETURN",
+    );
+    let r = &mut p.routines[0];
+    let (at, mut source) = r.blocks[0]
+        .ops
+        .iter()
+        .enumerate()
+        .find_map(|(i, op)| {
+            if let Mir65816Op::Load { width, address, .. } = op {
+                (width.get() == 2
+                    && matches!(
+                        address.base,
+                        Mir65816AddressBase::Indirect(Mir65816Value::Temp(_, _))
+                    ))
+                .then_some((i, address.clone()))
+            } else {
+                None
+            }
+        })
+        .unwrap();
+    source.displacement = ByteOffset::ZERO;
+    let mut destination = source.clone();
+    destination.base =
+        Mir65816AddressBase::Indirect(Mir65816Value::Param(r.frame.parameters[1].param));
+    r.blocks[0].ops.insert(
+        at + 1,
+        Mir65816Op::Copy {
+            source,
+            destination,
+            bytes: ByteSize::new(5),
+            overlap_safe: true,
+            source_volatile: false,
+            destination_volatile: false,
+        },
+    );
+    crate::mir65816::verify_program(&p).unwrap();
+    p
+}
+
+#[test]
+fn aggregate_windows_preserve_live_captures_and_require_exact_replayed_protocols() {
+    let p = aggregate_program();
+    let r = &p.routines[0];
+    let plan = Plan::new(r, &p.data).unwrap();
+    let point = *plan.contract.aggregates.keys().next().unwrap();
+    assert_eq!(
+        plan.contract.requirements(point).unwrap().form,
+        resources::Form::Aggregate
+    );
+    assert!(
+        plan.frame
+            .temps
+            .values()
+            .any(|h| matches!(h, Location::DirectPage(_)))
+    );
+    plan.verify().unwrap();
+    let machine = materialize(&p).unwrap();
+    let selected = machine.routines[0].code.selected.as_ref().unwrap();
+    let contract = selected.placement().unwrap();
+    contract.verify_selected(selected).unwrap();
+    for problem in 0..5 {
+        let mut forged = plan.contract.clone();
+        match problem {
+            0 => forged.aggregates.clear(),
+            1 => forged.aggregates.get_mut(&point).unwrap().0 += 1,
+            2 => forged.aggregates.get_mut(&point).unwrap().1 = false,
+            3 => forged.requirements_mut(point).scratch = resources::Scratch::default(),
+            _ => forged.requirements_mut(point).external_reads = Some(1),
+        }
+        let mut altered = Plan::new(r, &p.data).unwrap();
+        altered.contract = forged;
+        assert!(altered.verify().is_err(), "aggregate plan {problem}");
+    }
+    for problem in 0..4 {
+        let mut records = selected.records().to_vec();
+        let at = records
+            .iter()
+            .position(|r| matches!(r.action, Action::Request(Request::AggregateCopy { .. })))
+            .unwrap();
+        if let Action::Request(Request::AggregateCopy {
+            bytes,
+            overlap_safe,
+        }) = &mut records[at].action
+        {
+            match problem {
+                0 => *bytes = 0,
+                1 => *bytes += 1,
+                2 => *overlap_safe = false,
+                _ => *bytes = 1 << 24,
+            }
+        }
+        assert!(
+            selected
+                .edited(records)
+                .and_then(|s| contract.verify_selected(&s))
+                .is_err(),
+            "aggregate request {problem}"
+        );
+    }
+    // Equal static access counts cannot authorize a different runtime extent.
+    // Fresh replay reconstructs the canonical loop count from the MIR request.
+    let mut records = selected.records().to_vec();
+    let at = records
+        .iter()
+        .position(|r| matches!(r.action, Action::Request(Request::AggregateCopy { .. })))
+        .unwrap();
+    let child = records
+        .iter_mut()
+        .skip(at + 1)
+        .find(|r| {
+            matches!(
+                r.action,
+                Action::Instruction {
+                    form: Instruction::Byte(ByteOp::LdaImm, 5),
+                    ..
+                }
+            )
+        })
+        .unwrap();
+    if let Action::Instruction { form, effects, .. } = &mut child.action {
+        *form = Instruction::Byte(ByteOp::LdaImm, 6);
+        *effects = form.effects(child.before.env);
+    }
+    let edited = selected.edited(records).unwrap();
+    assert!(super::super::replay::emit(&edited, false).is_err());
+}
+
+#[test]
+fn indexed_record_windows_use_common_homes_and_reject_scratch_and_extent_forgery() {
+    let p = program(
+        "TYPE Cell=[CARD n Cell POINTER next BYTE ARRAY data(8)] PROC Work(Cell POINTER root BYTE i) LET p=root.next p.data(i)=7 p.n=9 p.data(i)=p.data(i) RETURN PROC Main() RETURN",
+    );
+    let r = &p.routines[0];
+    let plan = Plan::new(r, &p.data).unwrap();
+    let (&point, _) = plan
+        .contract
+        .windows
+        .iter()
+        .find(|(p, _)| {
+            plan.contract.requirements(**p).unwrap().form == resources::Form::IndexedMemory
+        })
+        .unwrap();
+    assert!(
+        plan.frame
+            .temps
+            .values()
+            .any(|h| matches!(h, Location::DirectPage(s) if s.width == 3))
+    );
+    materialize(&p).unwrap();
+    for problem in 0..3 {
+        let mut altered = Plan::new(r, &p.data).unwrap();
+        let requirement = altered.contract.requirements_mut(point);
+        match problem {
+            0 => requirement.scratch = resources::Scratch::default(),
+            1 => requirement.external_writes = Some(2),
+            _ => requirement.form = resources::Form::Barrier,
+        }
+        assert!(altered.verify().is_err(), "indexed resource {problem}");
+    }
 }
 
 #[test]
@@ -396,4 +603,122 @@ fn dense_resource_rows_are_complete_and_cannot_forge_indices() {
     let mut plan = Plan::new(&p.routines[0], &p.data).unwrap();
     plan.contract.window_rows[0].dp_operands = resources::Scratch::range(128, 64).unwrap();
     assert!(plan.verify().is_err());
+}
+
+#[test]
+fn branch_entry_and_simultaneous_transfer_forgery_cannot_publish() {
+    let r = mixed::tests::diamond();
+    for bad in 0..3 {
+        let mut plan = Plan::new(&r, &[]).unwrap();
+        match bad {
+            0 => {
+                plan.contract.entries.clear();
+            }
+            1 => {
+                plan.contract.regions.clear();
+            }
+            _ => {
+                plan.contract
+                    .edges
+                    .values_mut()
+                    .find(|e| e.mixed.is_some())
+                    .unwrap()
+                    .mixed
+                    .as_mut()
+                    .unwrap()
+                    .edge
+                    .args
+                    .reverse();
+            }
+        }
+        assert!(plan.verify().is_err());
+    }
+    let code = select::routine(&r, false).unwrap().code;
+    let selected = code.selected.as_ref().unwrap();
+    for bad in 0..3 {
+        let mut records = selected.records().to_vec();
+        let action = &mut records
+            .iter_mut()
+            .find(|r| matches!(r.action, Action::Request(Request::MixedEdge(..))))
+            .unwrap()
+            .action;
+        if let Action::Request(Request::MixedEdge(plan, staging)) = action {
+            match bad {
+                0 => {
+                    plan.edge.args.reverse();
+                }
+                1 => {
+                    staging.push(Slot {
+                        offset: 2,
+                        width: 3,
+                    });
+                }
+                _ => {
+                    *action = Action::Request(Request::Barrier);
+                }
+            }
+        }
+        let edited = selected.edited(records).unwrap();
+        assert!(
+            selected
+                .placement()
+                .unwrap()
+                .verify_selected(&edited)
+                .is_err()
+        );
+    }
+}
+
+#[test]
+fn invocation_segment_contract_and_reload_forgery_cannot_publish() {
+    // A forged loop census must not weaken the fixed-point entry contract.
+    let loop_routine = mixed::tests::looping();
+    let mut plan = Plan::new(&loop_routine, &[]).unwrap();
+    plan.contract.loops.clear();
+    assert!(plan.verify().is_err());
+    let r = mixed::tests::calling();
+    for bad in 0..3 {
+        let mut plan = Plan::new(&r, &[]).unwrap();
+        match bad {
+            0 => plan.contract.segments.clear(),
+            1 => plan.contract.segments.get_mut(&TempId(0)).unwrap()[0].first -= 1,
+            _ => {
+                plan.contract.segments.get_mut(&TempId(0)).unwrap()[0]
+                    .slot
+                    .width = 2
+            }
+        }
+        assert!(plan.verify().is_err());
+    }
+    let code = select::routine(&r, false).unwrap().code;
+    let selected = code.selected.as_ref().unwrap();
+    for bad in 0..4 {
+        let mut records = selected.records().to_vec();
+        let index = records
+            .iter()
+            .position(|r| matches!(r.action, Action::Request(Request::ReloadResident(..))))
+            .unwrap();
+        if bad == 3 {
+            let end = records[index + 1..]
+                .iter()
+                .position(|r| matches!(r.action, Action::SourceEnd { .. }))
+                .unwrap()
+                + index
+                + 1;
+            let reload = records.remove(index);
+            records.insert(end - 1, reload);
+        } else if let Action::Request(Request::ReloadResident(_, source, dest)) =
+            &mut records[index].action
+        {
+            match bad {
+                0 => source.offset += 2,
+                1 => dest.offset += 2,
+                _ => records[index].action = Action::Request(Request::Barrier),
+            }
+        }
+        let result = selected
+            .edited(records)
+            .and_then(|edited| selected.placement().unwrap().verify_selected(&edited));
+        assert!(result.is_err(), "reload forgery {bad}");
+    }
 }

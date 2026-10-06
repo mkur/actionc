@@ -27,16 +27,25 @@ def probe(base, output, binary):
     verify_inputs(base)
 
 
-def host(base, output, binary, rounds):
+def host(base, output, binary, rounds, previous=None, stage=4):
     verify_inputs(base)
     commands = read(base / 'host-timing/results.json')['commands']
     manifest = output / 'host-manifest.json'
+    before_binary = base / 'compiler/target/debug/actionc-65816'
+    before_profiles = base / 'profiles'
+    if previous is not None:
+        before_binary = previous / 'actionc-65816'
+        before_profiles = previous
+        published = read(ROOT/f'docs/benchmarks/65816-record-placement-stage{stage-1}/results.json')
+        if digest(before_binary) != published['host']['binaries']['after']['sha256']: raise ValueError('Changed preceding-stage compiler binary')
+        for p in PROFILES:
+            if digest(before_profiles / p / 'probe.image.json') != published['profiles'][p]['image_sha256']: raise ValueError('Changed preceding-stage compiler image')
     save(manifest, dict(artifacts=[dict(compiler='actionc', case=p, mode=p, commands=[commands[p]],
         hashes={'image.json': digest(base / 'profiles' / p / 'probe.image.json')},
-        compiler_image_hashes=dict(before=digest(base / 'profiles' / p / 'probe.image.json'),
+        compiler_image_hashes=dict(before=digest(before_profiles / p / 'probe.image.json'),
             after=digest(output / p / 'probe.image.json'))) for p in PROFILES]))
     subprocess.run([sys.executable, '-B', str(Path(__file__).with_name('measure_host.py')),
-        '--before', str(base / 'compiler/target/debug/actionc-65816'), '--after', str(binary),
+        '--before', str(before_binary), '--after', str(binary),
         '--manifest', str(manifest), '--output', str(output / 'host-results.json'), '--rounds', str(rounds),
         '--expected-builds', '3'], check=True)
     result = read(output / 'host-results.json')
@@ -88,9 +97,45 @@ def compare_vectors(before, after):
     return totals
 
 
-def score(base, output):
+def compare_stage(previous, after, placement, representatives, require_benefit=True, stage=4):
+    old, new = ({r['name']: r for r in image['routines']} for image in (previous, after))
+    if old.keys() != new.keys(): raise ValueError('Changed preceding-stage routine census')
+    for name in old:
+        for field in ('fixed_frame', 'local_stack_peak', 'spill_bytes'):
+            if new[name][field] > old[name][field]: raise ValueError('Preceding-stage resource regression: ' + name + '/' + field)
+    rows = {r['name']:r for r in placement}
+    benefits = {name: old[name]['size'] - new[name]['size'] for name in representatives
+        if rows.get(name, {}).get('branch_homes', 0) and new[name]['size'] < old[name]['size']}
+    before_bytes=sum(r['size'] for r in old.values());after_bytes=sum(r['size'] for r in new.values())
+    if stage == 6:
+        benefits = {name: old[name]['size'] - new[name]['size'] for name, row in rows.items()
+            if row.get('resident_indexed_windows', 0) and new[name]['size'] < old[name]['size']}
+        if after_bytes > before_bytes or require_benefit and (not benefits or after_bytes == before_bytes):
+            raise ValueError('No new indexed/whole-program benefit')
+        return dict(before_bytes=before_bytes, after_bytes=after_bytes, saved_bytes=before_bytes-after_bytes,
+            indexed_benefits=benefits, indexed_windows=sum(r['indexed_windows'] for r in placement),
+            resident_indexed_windows=sum(r['resident_indexed_windows'] for r in placement),
+            aggregate_windows=sum(r['aggregate_windows'] for r in placement),
+            resident_aggregate_windows=sum(r['resident_aggregate_windows'] for r in placement))
+    if stage == 5:
+        categories = {kind: {name: old[name]['size'] - new[name]['size'] for name, row in rows.items()
+            if row.get(field, 0) and new[name]['size'] < old[name]['size']}
+            for kind, field in [('loop','loop_homes'), ('call','call_segments')]}
+        if after_bytes > before_bytes or require_benefit and (not all(categories.values()) or after_bytes == before_bytes):
+            raise ValueError('No new loop/call/whole-program benefit')
+        return dict(before_bytes=before_bytes, after_bytes=after_bytes, saved_bytes=before_bytes-after_bytes,
+            loop_benefits=categories['loop'], call_benefits=categories['call'],
+            loop_homes=sum(r['loop_homes'] for r in placement), call_segments=sum(r['call_segments'] for r in placement))
+    if after_bytes > before_bytes or require_benefit and (not benefits or after_bytes == before_bytes): raise ValueError('No new branching representative/whole-program benefit')
+    return dict(before_bytes=before_bytes, after_bytes=after_bytes, saved_bytes=before_bytes-after_bytes,
+        representative_branch_benefits=benefits,
+        branch_homes=sum(r['branch_homes'] for r in placement),
+        resident_entries=sum(r['resident_entries'] for r in placement), mixed_edges=sum(r['mixed_edges'] for r in placement))
+
+
+def score(base, output, stage=3, previous=None):
     verify_inputs(base)
-    result = dict(schema=1, stage=3, baseline_revision=read(base / 'inputs.json')['compiler']['revision'],
+    result = dict(schema=1, stage=stage, baseline_revision=read(base / 'inputs.json')['compiler']['revision'],
         exec_revision=read(base / 'inputs.json')['exec']['revision'], profiles={})
     rows = []
     for profile in PROFILES:
@@ -146,13 +191,25 @@ def score(base, output):
         placement = read(output / profile / 'probe.placement.json')['routines']
         summary['mixed_homes'] = sum(r['mixed_homes'] for r in placement)
         summary['backed_residences'] = sum(r['backed_residences'] for r in placement)
+        if stage in (4, 5, 6):
+            if previous is None: raise ValueError(f'Stage {stage} requires the qualified preceding-stage artifacts')
+            preceding = read(previous / profile / 'probe.image.json')
+            published = read(ROOT/f'docs/benchmarks/65816-record-placement-stage{stage-1}/results.json')['profiles'][profile]
+            expected = published['image_sha256']
+            if digest(previous / profile / 'probe.image.json') != expected: raise ValueError('Changed preceding-stage image')
+            key = f'stage{stage-1}'
+            summary[key + '_image_sha256'] = expected
+            summary[key] = compare_stage(preceding, after, placement, [next(n for n in old if n.startswith('M_' + name.replace('.', '_') + '_')) for name in REPRESENTATIVES], require_benefit=profile != 'raw-guarded', stage=stage)
+            measurements = previous / f'{profile}.measurements.json'
+            if digest(measurements) != published['native_sha256'][measurements.name]: raise ValueError('Changed preceding-stage native measurements')
+            summary[key + '_native'] = compare_vectors(read(measurements), native_after)
         result['profiles'][profile] = summary
     save(output / 'score.json', result)
     return result, rows
 
 
-def publish(base, output, destination):
-    result, rows = score(base, output)
+def publish(base, output, destination, stage=3, previous=None):
+    result, rows = score(base, output, stage, previous)
     destination.mkdir(parents=True, exist_ok=True)
     result['validation'] = {}
     for label in ('unit-final', 'integration', 'native-backend'):
@@ -172,25 +229,28 @@ def publish(base, output, destination):
         (destination / (label + '.qualification.json.gz')).write_bytes(gzip.compress(path.read_bytes(), mtime=0))
     host = read(output / 'host-results.json')
     result['host'] = host
-    followup = output / 'host-raw-followup.json'
-    if followup.exists():
-        raw = read(followup)
-        if raw['builds'] != 1 or [r['case'] for r in raw['per_build']] != ['raw-guarded']:
-            raise ValueError('Raw follow-up has a different workload')
+    for profile, suffix in (('raw-guarded', 'raw'), ('optimized-guarded', 'guarded')):
+        followup = output / f'host-{suffix}-followup.json'
+        if not followup.exists(): continue
+        repeated = read(followup)
+        if repeated['builds'] != 1 or [r['case'] for r in repeated['per_build']] != [profile]:
+            raise ValueError('Host follow-up has a different workload')
         for name in ('before', 'after'):
-            if raw['binaries'][name]['sha256'] != host['binaries'][name]['sha256']:
-                raise ValueError('Raw follow-up has a different compiler')
-            expected = next(s['image_sha256'] for s in host['samples'] if s['case'] == 'raw-guarded' and s['compiler'] == name)
-            if any(s['image_sha256'] != expected for s in raw['samples'] if s['compiler'] == name):
-                raise ValueError('Raw follow-up has a different image')
-        result['host_raw_followup'] = raw
-        result['host_raw_followup_sha256'] = digest(followup)
+            if repeated['binaries'][name]['sha256'] != host['binaries'][name]['sha256']:
+                raise ValueError('Host follow-up has a different compiler')
+            expected = next(s['image_sha256'] for s in host['samples'] if s['case'] == profile and s['compiler'] == name)
+            if any(s['image_sha256'] != expected for s in repeated['samples'] if s['compiler'] == name):
+                raise ValueError('Host follow-up has a different image')
+        result[f'host_{suffix}_followup'] = repeated
+        result[f'host_{suffix}_followup_sha256'] = digest(followup)
     result['frozen_inputs_sha256'] = digest(base / 'inputs.json')
     paths = [*ROOT.joinpath('src').rglob('*.rs'), *ROOT.joinpath('tools/native65816-runtime-tests/tests').rglob('*.rs'),
         ROOT/'Cargo.toml', ROOT/'Cargo.lock', *Path(__file__).parent.glob('exec_record_*.py'),
+        *Path(__file__).parent.glob('test_exec_record_*.py'),
         Path(__file__).with_name('measure_host.py'), *Path(__file__).with_name('record_probe').joinpath('src').glob('*.rs'),
         Path(__file__).with_name('record_probe')/'Cargo.toml', Path(__file__).with_name('record_probe')/'record_flow.act',
         ROOT/'tests/mir65816_emission.rs', ROOT/'tests/mir65816_state_boundary.rs',
+        ROOT/'tests/mir65816_address_selection.rs',
         ROOT/'tests/fixtures/mir65816-state-boundary.txt']
     hashes = {str(p.relative_to(ROOT)):digest(p) for p in paths}
     save(destination / 'compiler-inputs.json', hashes)
@@ -206,16 +266,17 @@ def main():
     parser.add_argument('operation',choices=('probe','references','score','host','publish'))
     parser.add_argument('--base',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--rounds',type=int,default=5);parser.add_argument('--binary',type=Path);parser.add_argument('--destination',type=Path)
+    parser.add_argument('--stage',type=int,choices=(3,4,5,6),default=3);parser.add_argument('--previous',type=Path)
     args=parser.parse_args();base=args.base.resolve();output=args.output.resolve();output.mkdir(parents=True,exist_ok=True)
     if args.operation=='probe':
         if not args.binary: parser.error('--binary required')
         probe(base,output,args.binary.resolve())
     elif args.operation=='host':
         if not args.binary: parser.error('--binary required')
-        host(base,output,args.binary.resolve(),args.rounds)
+        host(base,output,args.binary.resolve(),args.rounds,args.previous if args.stage in (4,5,6) else None, args.stage)
     elif args.operation=='references': references(base,output)
-    elif args.operation=='score': score(base,output)
-    else: publish(base,output,args.destination or ROOT/'docs/benchmarks/65816-record-placement-stage3')
+    elif args.operation=='score': score(base,output,args.stage,args.previous)
+    else: publish(base,output,args.destination or ROOT/f'docs/benchmarks/65816-record-placement-stage{args.stage}',args.stage,args.previous)
 
 
 if __name__=='__main__':main()

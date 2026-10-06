@@ -72,6 +72,13 @@ pub(super) enum Request {
     Barrier,
     StagePointer(super::tracked::PointerOrigin, Slot, u8),
     CaptureResident(TempId, Slot, Slot),
+    ReloadResident(TempId, Slot, Slot),
+    /// Canonical overlap-safe byte protocol after both addresses are captured.
+    AggregateCopy {
+        bytes: u32,
+        overlap_safe: bool,
+    },
+    MixedEdge(super::mixed_copies::Plan, Vec<Slot>),
     AllowPointerStore(super::select::pointer_stores::Contract),
     ForgetPointer,
     PrepareReturnJoin,

@@ -1,8 +1,10 @@
-//! Closed, block-local residence in the existing domain scratch pool. Captured
+//! Closed residence in the existing domain scratch pool. Captured
 //! values are immutable; this never caches pointee contents or storage versions.
 use super::*;
+mod branches;
+mod segments;
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
 use crate::mir65816::analysis::{ProgramPoint, operands};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -22,17 +24,46 @@ impl Residence {
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub(super) struct Plan {
     pub values: BTreeMap<TempId, Residence>,
+    /// Complete call-free lifetimes, separate from a bounded block-local cache.
+    pub regions: BTreeMap<TempId, BTreeSet<ProgramPoint>>,
+    pub entries: BTreeMap<BlockId, BTreeMap<TempId, Location>>,
+    pub loops: BTreeSet<TempId>,
+    /// Each range is reloaded from the authoritative invocation home before
+    /// its first consumer. No cached copy crosses a resource barrier or edge.
+    pub segments: BTreeMap<TempId, Vec<Residence>>,
 }
 
-fn supported(op: &Mir65816Op, id: TempId, bytes: u32) -> bool {
+fn supported(
+    demand: &home_demand::Plan,
+    point: ProgramPoint,
+    op: &Mir65816Op,
+    id: TempId,
+    bytes: u32,
+) -> bool {
+    // The existing deferred three-byte A/X producer and component-store chain
+    // owns stack input bindings. Its later physical consume is not the ordinary
+    // logical address occurrence, so a DP capture needs a separate contract.
+    if bytes == 3
+        && demand
+            .producer(point.block, point.index)
+            .is_some_and(|interval| interval.bytes == 3)
+        && operands::operation(op)
+            .inputs
+            .iter()
+            .any(|v| matches!(v, Mir65816Value::Temp(t, _) if *t == id))
+    {
+        return false;
+    }
     match op {
         Mir65816Op::Load { address, .. }
         | Mir65816Op::Store { address, .. }
-        | Mir65816Op::AddressOf { address, .. } => {
-            address.index.is_none()
-                && (!matches!(&address.base, Mir65816AddressBase::Indirect(Mir65816Value::Temp(t, _)) if *t == id)
-                    || address.displacement.get() <= 65532)
-        }
+        | Mir65816Op::AddressOf { address, .. } => address.displacement.get() < 1 << 24,
+        Mir65816Op::Copy {
+            source_volatile: false,
+            destination_volatile: false,
+            bytes,
+            ..
+        } => bytes.get() < 1 << 24,
         Mir65816Op::Binary {
             width,
             operation,
@@ -127,9 +158,20 @@ impl Plan {
                         uses.entry(*id).or_default().push(point);
                     }
                 }
-                if let Some(Mir65816Op::Load { address, .. } | Mir65816Op::Store { address, .. }) =
-                    block.ops.get(index)
-                {
+                let addresses: Vec<_> = match block.ops.get(index) {
+                    Some(
+                        Mir65816Op::Load { address, .. }
+                        | Mir65816Op::Store { address, .. }
+                        | Mir65816Op::AddressOf { address, .. },
+                    ) => vec![address],
+                    Some(Mir65816Op::Copy {
+                        destination,
+                        source,
+                        ..
+                    }) => vec![destination, source],
+                    _ => vec![],
+                };
+                for address in addresses {
                     if let Mir65816AddressBase::Indirect(Mir65816Value::Temp(id, _)) = &address.base
                     {
                         address_uses.entry(*id).or_default().insert(point);
@@ -160,7 +202,7 @@ impl Plan {
                 continue;
             };
             if matches!(producer, Mir65816Op::Compare { .. })
-                || !supported(producer, *id, bytes)
+                || !supported(demand, *definition, producer, *id, bytes)
                 || select::top_bits::owns_mask(block, definition.index, &counts)
                 || resources.windows[definition].form == resources::Form::Barrier
                 // A widening consumer owns a stack result in the existing plan.
@@ -180,7 +222,7 @@ impl Plan {
                         // and currently requires its original stack captures.
                         || select::top_bits::owns_mask(block, i, &counts)
                         || reads.iter().any(|p| p.block == block.id && p.index == i)
-                            && !supported(&block.ops[i], *id, bytes)
+                            && !supported(demand, ProgramPoint { block: block.id, index: i }, &block.ops[i], *id, bytes)
                 })
                 .unwrap_or(block.ops.len());
             let local: Vec<_> = reads
@@ -205,10 +247,16 @@ impl Plan {
             let mut misses = 0;
             for op in &block.ops[definition.index + 1..=last] {
                 match op {
-                    Mir65816Op::Load { address, .. } | Mir65816Op::Store { address, .. } => {
+                    Mir65816Op::Load { address, width, .. }
+                    | Mir65816Op::Store { address, width, .. } => {
                         if let Mir65816AddressBase::Indirect(base) = &address.base {
                             if matches!(base, Mir65816Value::Temp(t, _) if t == id)
                                 && previous != Some(base)
+                                && select::addresses::direct_resident_base(
+                                    r,
+                                    address,
+                                    width.get() as u8,
+                                )
                             {
                                 misses += 1;
                             }
@@ -223,9 +271,9 @@ impl Plan {
                             previous = None;
                         }
                     }
-                    Mir65816Op::AddressOf { .. } | Mir65816Op::PointerOffset { .. } => {
-                        previous = None
-                    }
+                    Mir65816Op::AddressOf { .. }
+                    | Mir65816Op::PointerOffset { .. }
+                    | Mir65816Op::Copy { .. } => previous = None,
                     _ => (),
                 }
             }
@@ -287,6 +335,12 @@ impl Plan {
                 _ => (),
             }
         }
+        branches::extend(
+            r, demand, &resources, &defs, &uses, &counts, &reachable, &mut plan,
+        );
+        segments::extend(
+            r, demand, &resources, &defs, &uses, &counts, &reachable, &mut plan,
+        );
         plan
     }
     pub fn home(&self, id: TempId) -> Option<Location> {
@@ -296,6 +350,15 @@ impl Plan {
             .map(|v| Location::DirectPage(v.slot))
     }
     pub fn cache(&self, id: TempId, point: ProgramPoint) -> Option<Slot> {
+        if let Some(v) = self
+            .segments
+            .get(&id)
+            .into_iter()
+            .flatten()
+            .find(|v| v.contains(point))
+        {
+            return Some(v.slot);
+        }
         self.values
             .get(&id)
             .filter(|v| v.backed && v.contains(point) && point.index > v.first)

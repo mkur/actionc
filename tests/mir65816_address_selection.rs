@@ -161,7 +161,18 @@ fn constant_byte_accesses_are_direct_but_volatile_and_one_past_keep_fallback() {
                                     1
                                 );
                             } else {
-                                assert!(span.len() > 8);
+                                // A resident pointer can make the indirect
+                                // fallback short. Verify the actual address
+                                // strategy rather than its old encoded size.
+                                assert!(!code.fixups.iter().any(|f| span.contains(&f.offset)));
+                                let payload = match op {
+                                    Mir65816Op::Load { .. } => [0xa7, 0xb7],
+                                    Mir65816Op::Store { .. } => [0x87, 0x97],
+                                    _ => unreachable!(),
+                                };
+                                assert!(code.bytes[span.clone()].windows(2).any(|b| {
+                                    payload.contains(&b[0]) && (0x80..=0xbf).contains(&b[1])
+                                }));
                             }
                         }
                     }

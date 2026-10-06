@@ -11,6 +11,7 @@ pub(super) mod layout;
 mod liveness;
 mod loop_x;
 mod mixed;
+mod mixed_copies;
 mod placement;
 mod pointer_coalescing;
 mod pointer_copies;

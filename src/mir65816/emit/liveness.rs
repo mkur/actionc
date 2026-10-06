@@ -119,7 +119,22 @@ struct Block {
 }
 
 pub(super) fn interference(routine: &Mir65816Routine) -> Result<Interference, String> {
-    interference_inner(routine, false)
+    interference_inner(routine, false, None)
+}
+
+/// Closed operation extents and block-entry captures. Edge arguments are uses
+/// in the predecessor; block parameters are separate simultaneous definitions.
+#[derive(Default)]
+pub(super) struct ResidenceFacts {
+    pub points: BTreeMap<TempId, BTreeSet<crate::mir65816::analysis::ProgramPoint>>,
+    pub entries: BTreeMap<BlockId, Live>,
+}
+pub(super) fn residence_facts(
+    routine: &Mir65816Routine,
+) -> Result<(Interference, ResidenceFacts), String> {
+    let mut facts = ResidenceFacts::default();
+    let graph = interference_inner(routine, false, Some(&mut facts))?;
+    Ok((graph, facts))
 }
 
 /// A bit-preserving cast of a complete captured three-byte value. Parameters
@@ -140,12 +155,13 @@ pub(super) fn pointer_copy(op: &Mir65816Op) -> Option<(TempId, TempId)> {
 /// Stack-only exception: a dying identity-cast input need not coexist with its
 /// output. Every other operation and every third-party overlap stays closed.
 pub(super) fn pointer_copy_interference(routine: &Mir65816Routine) -> Result<Interference, String> {
-    interference_inner(routine, true)
+    interference_inner(routine, true, None)
 }
 
 fn interference_inner(
     routine: &Mir65816Routine,
     pointer_copies: bool,
+    mut residence: Option<&mut ResidenceFacts>,
 ) -> Result<Interference, String> {
     let indices: BTreeMap<_, _> = routine
         .blocks
@@ -226,10 +242,22 @@ fn interference_inner(
             break;
         }
     }
-    for block in &blocks {
+    for (index, block) in blocks.iter().enumerate() {
         let mut live = exit_live(block, &entries);
         add_clique(&mut graph, &live);
-        for op in block.ops.iter().rev() {
+        let mut record = |at: usize, ids: &Live| {
+            if let Some(facts) = residence.as_deref_mut() {
+                let point = crate::mir65816::analysis::ProgramPoint {
+                    block: routine.blocks[index].id,
+                    index: at,
+                };
+                for &id in ids {
+                    facts.points.entry(id).or_default().insert(point);
+                }
+            }
+        };
+        record(block.ops.len(), &live);
+        for (at, op) in block.ops.iter().enumerate().rev() {
             // Reserve even dead outputs, conservatively including fused Booleans.
             // Omit only this site's dying identity-copy pair. An interference
             // established at another site must never be removed from the graph.
@@ -238,6 +266,7 @@ fn interference_inner(
                 .filter(|(source, _)| pointer_copies && !live.contains(source));
             live.extend(&op.inputs);
             live.extend(op.output);
+            record(at, &live);
             for &id in &live {
                 graph
                     .get_mut(&id)
@@ -257,6 +286,10 @@ fn interference_inner(
         // They must be disjoint from each other and all successor live-ins.
         live.extend(&block.params);
         add_clique(&mut graph, &live);
+        record(0, &live);
+        if let Some(facts) = residence.as_deref_mut() {
+            facts.entries.insert(routine.blocks[index].id, live);
+        }
     }
     Ok(graph)
 }

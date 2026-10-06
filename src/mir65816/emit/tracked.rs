@@ -1,5 +1,10 @@
 //! The only native instruction-writing boundary: each admitted form owns bytes
 //! and effects together. Finalized Code remains patchable by the linker.
+#[path = "aggregate.rs"]
+mod aggregate;
+#[path = "mixed_transfer.rs"]
+mod mixed_transfer;
+
 use super::{BlockId, Location, Slot, TempId, copies::WordHome, state::*};
 #[path = "code.rs"]
 mod encoding;

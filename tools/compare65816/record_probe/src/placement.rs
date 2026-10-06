@@ -21,7 +21,11 @@ pub(super) fn report(machine: &MachineProgram, output: &Path) {
             "borrowed":s.borrowed,"register_intervals":s.register_intervals,"component_intervals":s.component_intervals,
             "redirected_locals":s.redirected_locals,"deferred_assignments":s.deferred_assignments,
             "mixed_homes":s.mixed_homes,"backed_residences":s.backed_residences,
+            "branch_homes":s.branch_homes,"resident_entries":s.resident_entries,"mixed_edges":s.mixed_edges,
+            "loop_homes":s.loop_homes,"call_segments":s.call_segments,
             "windows":s.windows,"record_windows":s.record_windows,"scalar_windows":s.scalar_windows,
+            "indexed_windows":s.indexed_windows,"aggregate_windows":s.aggregate_windows,
+            "resident_indexed_windows":s.resident_indexed_windows,"resident_aggregate_windows":s.resident_aggregate_windows,
             "address_windows":s.address_windows,"barriers":s.barriers,"boundaries":s.boundaries,
             "edges":s.edges,"transfers":s.transfers,"staging_bytes":s.staging_bytes,"x_mirror":s.x_mirror}));
     }

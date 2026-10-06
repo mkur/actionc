@@ -163,6 +163,14 @@ impl Request {
             Self::CaptureResident(id, source, destination) => {
                 e.capture_resident(*id, *source, *destination)
             }
+            Self::ReloadResident(id, source, destination) => {
+                e.reload_resident(*id, *source, *destination)
+            }
+            Self::AggregateCopy {
+                bytes,
+                overlap_safe,
+            } => e.aggregate_copy(*bytes, *overlap_safe),
+            Self::MixedEdge(plan, staging) => e.mixed_edge(plan.clone(), staging.clone()),
             Self::AllowPointerStore(contract) => e.allow_pointer_store(*contract),
             Self::ForgetPointer => e.forget_pointer(),
             Self::PrepareReturnJoin => e.prepare_return_join(),

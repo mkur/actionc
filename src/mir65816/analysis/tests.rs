@@ -320,6 +320,39 @@ fn partial_overlapping_writes_and_calls_preserve_only_proved_versions() {
 }
 
 #[test]
+fn zero_extent_copy_preserves_versions_without_reading_or_writing_storage() {
+    let mut r = routine(
+        vec![block(
+            0,
+            vec![
+                store(0, 0, Mir65816Value::U16(0x1234), 2),
+                Mir65816Op::Copy {
+                    destination: addr(0, 0),
+                    source: addr(1, 0),
+                    bytes: ByteSize::ZERO,
+                    overlap_safe: true,
+                    source_volatile: false,
+                    destination_volatile: false,
+                },
+            ],
+            Mir65816Terminator::Exit,
+        )],
+        &[],
+    );
+    object(&mut r, 0, 2, false);
+    object(&mut r, 1, 2, false);
+    let a = RoutineAnalysis::new(&r).unwrap();
+    let storage = a
+        .storage(StorageId::Frame(Mir65816FrameObjectId(0)))
+        .unwrap();
+    assert!(
+        a.same_storage_version(point(&a, 0, 1), point(&a, 0, 2), storage, 0, 2)
+            .unwrap()
+    );
+    assert!(!contents(&a, 0, 2, 1, 0, 1).bytes[0].definitely_initialized);
+}
+
+#[test]
 fn address_exposure_including_unreachable_code_blocks_call_preservation() {
     let mut r = routine(
         vec![

@@ -76,6 +76,15 @@ crowding the active reference set.
 - [Record/value placement stage-3 scorecard](benchmarks/65816-record-placement-stage3/README.md)
   - Mixed block-local record consumers, measured code/traffic savings, exact
     external accesses, native qualification and paired compiler-cost evidence.
+- [Record/value placement stage-4 scorecard](benchmarks/65816-record-placement-stage4/README.md)
+  - Verified acyclic entry contracts and simultaneous mixed transfers, incremental
+    Exec816 benefits, exact external accesses and compiler-cost evidence.
+- [Record/value placement stage-5 scorecard](benchmarks/65816-record-placement-stage5/README.md)
+  - Fixed-point loop residence and invocation-backed call segments, native
+    cycle/traffic savings and compiler-cost evidence.
+- [Record/value placement stage-6 scorecard](benchmarks/65816-record-placement-stage6/README.md)
+  - Integrated indexed and aggregate resource windows, incremental Exec benefits,
+    exact native transfer protocols and compiler-cost evidence.
 - [MIR65816_STATE_TRACKER_DESIGN.md](MIR65816_STATE_TRACKER_DESIGN.md)
   - Instruction-aware native state tracking based on the 6502 emitter:
     register/flag/width facts, memory ownership, barriers and staged integration.

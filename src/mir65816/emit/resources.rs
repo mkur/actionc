@@ -45,6 +45,8 @@ pub(super) const COPY_COUNT: u8 = abi::generated::DP_SCRATCH_OFFSET as u8 + 28;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Form {
     RecordMemory,
+    IndexedMemory,
+    Aggregate,
     Scalar,
     Address,
     /// No residence may be extended through an unqualified operation.
@@ -127,8 +129,20 @@ impl Requirements {
                 address,
                 volatile: false,
                 ..
-            } if (1..=4).contains(&width.get()) && address.index.is_none() => Form::RecordMemory,
-            Mir65816Op::AddressOf { address, .. } if address.index.is_none() => Form::Address,
+            } if (1..=4).contains(&width.get()) => {
+                if address.index.is_some() {
+                    Form::IndexedMemory
+                } else {
+                    Form::RecordMemory
+                }
+            }
+            Mir65816Op::AddressOf { .. } => Form::Address,
+            Mir65816Op::Copy {
+                bytes,
+                source_volatile: false,
+                destination_volatile: false,
+                ..
+            } if bytes.get() < 1 << 24 => Form::Aggregate,
             Mir65816Op::PointerOffset {
                 offset_signed: false,
                 ..
@@ -163,6 +177,22 @@ impl Requirements {
             Mir65816Op::Call { plan, .. } => {
                 this.extra_stack = plan.outgoing_bytes.get()
                     + plan.native.map_or(6, |n| n.transfer.peak_bytes().get());
+            }
+            Mir65816Op::Copy {
+                bytes,
+                overlap_safe,
+                ..
+            } if form == Form::Aggregate => {
+                // Static payload sites in the canonical byte-loop template.
+                // The typed AggregateCopy request separately binds the dynamic
+                // extent and direction protocol; this is not a dynamic count.
+                let sites = if bytes.is_zero() {
+                    0
+                } else {
+                    1 + u32::from(*overlap_safe)
+                };
+                this.external_reads = Some(sites);
+                this.external_writes = Some(sites);
             }
             _ => (),
         }

@@ -162,11 +162,19 @@ fn compact_edge_frames_check_exact_floor_before_any_write_in_both_modes() {
             include_str!("fixtures/code_quality/loop_rotation.act"),
             [14, 8],
         ),
-        (include_str!("fixtures/code_quality/byte_sum.act"), [16, 18]),
+        // Complete loop residence removes four bytes of private demand.
+        (include_str!("fixtures/code_quality/byte_sum.act"), [16, 14]),
     ] {
         for optimize in [false, true] {
             // Same compiler path for host text in either newline convention.
-            let image = compile(&source.replace("\r\n", "\n"), optimize);
+            let source = source.replace("\r\n", "\n");
+            let image = compile(&source, optimize);
+            assert_eq!(
+                image.to_json().unwrap(),
+                compile(&source.replace('\n', "\r\n"), optimize)
+                    .to_json()
+                    .unwrap()
+            );
             let work = image
                 .routines
                 .iter()

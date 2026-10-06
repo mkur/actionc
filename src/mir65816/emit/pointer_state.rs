@@ -25,28 +25,39 @@ impl TrackedEmitter65816 {
     /// disjoint compiler-owned residence. Replay emits and checks the same pieces.
     pub fn capture_resident(&mut self, id: TempId, source: Slot, destination: Slot) {
         self.request(Request::CaptureResident(id, source, destination), |this| {
-            this.live();
-            assert_eq!(source.width, destination.width);
-            assert!((2..=4).contains(&source.width));
-            assert_eq!(this.state.delta(), 0);
-            assert!(destination.offset >= super::super::scalar::START);
-            assert!(destination.offset + u16::from(destination.width) <= super::super::scalar::END);
-            let at = abi::stack::access_displacement(
-                ByteOffset::new(source.offset.into()),
-                ByteSize::new(source.width.into()),
-                ByteSize::ZERO,
-            )
-            .expect("verified resident capture")
-            .get() as u8;
-            this.a16();
-            for byte in [0, source.width - 2]
-                .into_iter()
-                .take(if source.width == 2 { 1 } else { 2 })
-            {
-                this.byte(ByteOp::LdaStack, at + byte);
-                this.byte(ByteOp::StaDp, destination.offset as u8 + byte);
-            }
+            this.copy_resident(source, destination);
         });
+    }
+
+    pub fn reload_resident(&mut self, id: TempId, source: Slot, destination: Slot) {
+        self.request(Request::ReloadResident(id, source, destination), |this| {
+            this.copy_resident(source, destination);
+        });
+    }
+
+    fn copy_resident(&mut self, source: Slot, destination: Slot) {
+        let this = self;
+        this.live();
+        assert_eq!(source.width, destination.width);
+        assert!((2..=4).contains(&source.width));
+        assert_eq!(this.state.delta(), 0);
+        assert!(destination.offset >= super::super::scalar::START);
+        assert!(destination.offset + u16::from(destination.width) <= super::super::scalar::END);
+        let at = abi::stack::access_displacement(
+            ByteOffset::new(source.offset.into()),
+            ByteSize::new(source.width.into()),
+            ByteSize::ZERO,
+        )
+        .expect("verified resident capture")
+        .get() as u8;
+        this.a16();
+        for byte in [0, source.width - 2]
+            .into_iter()
+            .take(if source.width == 2 { 1 } else { 2 })
+        {
+            this.byte(ByteOp::LdaStack, at + byte);
+            this.byte(ByteOp::StaDp, destination.offset as u8 + byte);
+        }
     }
 
     pub(super) fn invalidate_pointer(&mut self) {

@@ -86,7 +86,7 @@ enum IndexedBase {
 
 struct Indexed {
     base: IndexedBase,
-    index: Slot,
+    index: Location,
     displacement: u16,
     stride: u16,
     bytes: u8,
@@ -102,36 +102,12 @@ fn indexed_address(
     data: &[Mir65816Data],
     bytes: u8,
 ) -> Result<Option<Indexed>, String> {
-    let Some(index) = &address.index else {
+    let Some((id, width)) = native_index(routine, address, bytes) else {
         return Ok(None);
     };
-    let stride = index.stride.get();
-    if stride == 0 || !(1..=4).contains(&bytes) {
-        return Ok(None);
-    }
-    let Mir65816Value::Temp(id, width) = index.value else {
-        return Ok(None);
-    };
-    if !matches!(width.get(), 1 | 2)
-        || !routine.temps.iter().any(|(temp, ty)| {
-            *temp == id
-                && ty.width == Some(width)
-                && ty
-                    .kind
-                    .integer()
-                    .is_some_and(|i| u32::from(i.bits) == width.get() * 8 && !i.signed)
-        })
-    {
-        return Ok(None);
-    }
+    let index_shape = address.index.as_ref().unwrap();
+    let stride = index_shape.stride.get();
     let displacement = address.displacement.get();
-    let maximum = if width.get() == 1 { 255u64 } else { 65535 };
-    if maximum * u64::from(stride) + u64::from(displacement) + u64::from(bytes) - 1 > 65535 {
-        return Ok(None);
-    }
-    if !profitable_scale(stride) {
-        return Ok(None);
-    }
     let Some(index) = checked_input_home(frame, reads, site, id, width.get() as u8)? else {
         return Ok(None);
     };
@@ -162,6 +138,86 @@ fn indexed_address(
         stride: stride as u16,
         bytes,
     }))
+}
+
+/// Home-independent native index qualification used by selection and the
+/// placement budget. Full dynamic offset plus the final payload byte fits Y.
+pub(super) fn native_index(
+    routine: &Mir65816Routine,
+    address: &Mir65816Address,
+    bytes: u8,
+) -> Option<(TempId, ByteSize)> {
+    let Some(index) = &address.index else {
+        return None;
+    };
+    let stride = index.stride.get();
+    if stride == 0 || !(1..=4).contains(&bytes) {
+        return None;
+    }
+    let Mir65816Value::Temp(id, width) = index.value else {
+        return None;
+    };
+    if !matches!(width.get(), 1 | 2)
+        || !routine.temps.iter().any(|(temp, ty)| {
+            *temp == id
+                && ty.width == Some(width)
+                && ty
+                    .kind
+                    .integer()
+                    .is_some_and(|i| u32::from(i.bits) == width.get() * 8 && !i.signed)
+        })
+    {
+        return None;
+    }
+    let displacement = address.displacement.get();
+    let maximum = if width.get() == 1 { 255u64 } else { 65535 };
+    if maximum * u64::from(stride) + u64::from(displacement) + u64::from(bytes) - 1 > 65535 {
+        return None;
+    }
+    if !profitable_scale(stride) {
+        return None;
+    }
+    Some((id, width))
+}
+
+pub(in crate::mir65816::emit) fn direct_resident_base(
+    routine: &Mir65816Routine,
+    address: &Mir65816Address,
+    bytes: u8,
+) -> bool {
+    let Some(index) = &address.index else {
+        return address.displacement.get() <= 65532;
+    };
+    let value = match index.value {
+        Mir65816Value::U8(v) => Some(u64::from(v)),
+        Mir65816Value::U16(v) => Some(u64::from(v)),
+        Mir65816Value::U24(v) | Mir65816Value::U32(v) => Some(u64::from(v)),
+        _ => None,
+    };
+    value.is_some_and(|v| {
+        index.stride.get() > 0
+            && index.stride.get() < 1 << 24
+            && v * u64::from(index.stride.get())
+                + u64::from(address.displacement.get())
+                + u64::from(bytes)
+                - 1
+                <= 65535
+    }) || native_index(routine, address, bytes).is_some()
+}
+
+impl Builder<'_> {
+    /// Only a complete private captured pointer qualifies as an indirect base.
+    /// Invocation-backed segments use their checked read home at this point.
+    fn indexed_base_slot(&mut self, value: &Mir65816Value) -> Result<u8, String> {
+        if let Some(Memory::DirectPage(offset)) = self.value_memory(value)? {
+            if self.value_width(value)? != 3 || !abi::scratch_contains(offset.into(), 3) {
+                return Err("indexed base requires a complete private pointer".into());
+            }
+            return Ok(offset as u8);
+        }
+        self.prepare_pointer_base(value)?;
+        Ok(PTR)
+    }
 }
 
 // Compare a conservative upper bound for the new address overhead with only
@@ -302,7 +358,7 @@ impl Plan {
                     volatile: false,
                 } = op
                     && (1..=4).contains(&width.get())
-                    && checked_stack_home(frame, *dest, width.get() as u8)?.is_some()
+                    && checked_home(frame, *dest, width.get() as u8)?.is_some()
                     && let Some(indexed) = indexed_address(
                         routine,
                         frame,
@@ -351,7 +407,7 @@ impl Plan {
                         address,
                         width,
                         volatile: false,
-                    } if width.get() == 1 => checked_stack_home(frame, *dest, 1)?.map(|_| address),
+                    } if width.get() == 1 => checked_home(frame, *dest, 1)?.map(|_| address),
                     Mir65816Op::Store {
                         address,
                         value,
@@ -381,18 +437,13 @@ impl Plan {
                 let Some(symbol) = resolve(address, &known, data) else {
                     continue;
                 };
-                let Some(Location::Stack(slot)) = frame.temps.get(dest) else {
+                let Some(home) = frame.temps.get(dest) else {
                     continue;
                 };
-                if slot.width != 3 {
+                if home.slot().width != 3 {
                     return Err("symbol address requires a complete three-byte home".into());
                 }
-                abi::stack::access_displacement(
-                    ByteOffset::new(slot.offset.into()),
-                    ByteSize::new(3),
-                    ByteSize::ZERO,
-                )
-                .map_err(|e| e.to_string())?;
+                checked_home(frame, *dest, 3)?;
                 known.insert(*dest, symbol);
                 plan.symbols.insert((block.id, i), (*dest, symbol));
                 // resolve has replaced this exact address operand. Index
@@ -446,8 +497,8 @@ impl Plan {
                 return Err("constant index lost its captured base".into());
             };
             b.code.barrier();
-            b.prepare_pointer_base(value)?;
-            let memory = Memory::Pointer { slot: PTR, offset };
+            let slot = b.indexed_base_slot(value)?;
+            let memory = Memory::Pointer { slot, offset };
             match op {
                 Mir65816Op::Load { dest, width, .. } => {
                     if capture {
@@ -478,21 +529,24 @@ impl Plan {
                 return Ok(());
             }
             b.code.barrier();
-            match &indexed.base {
-                IndexedBase::Symbol(symbol) => b.address_to_pointer(Memory::Symbol(
-                    Target::Data(symbol.target),
-                    symbol.addend,
-                ))?,
-                IndexedBase::Captured(value) => b.prepare_pointer_base(value)?,
-            }
-            if indexed.index.width == 1 {
+            let pointer = match &indexed.base {
+                IndexedBase::Symbol(symbol) => {
+                    b.address_to_pointer(Memory::Symbol(
+                        Target::Data(symbol.target),
+                        symbol.addend,
+                    ))?;
+                    PTR
+                }
+                IndexedBase::Captured(value) => b.indexed_base_slot(value)?,
+            };
+            if indexed.index.slot().width == 1 {
                 b.code.a8();
-                b.load_memory(Memory::Stack(indexed.index.offset.into()), 0)?;
+                b.load_memory(indexed.index.into(), 0)?;
                 b.code.a16();
                 b.code.word(WordOp::AndImm, 0xff); // Hidden B is not part of the index.
             } else {
                 b.code.a16();
-                b.load_memory(Memory::Stack(indexed.index.offset.into()), 0)?;
+                b.load_memory(indexed.index.into(), 0)?;
             }
             if indexed.stride.is_power_of_two() {
                 for _ in 0..indexed.stride.trailing_zeros() {
@@ -527,7 +581,7 @@ impl Plan {
                 }
                 match op {
                     Mir65816Op::Load { dest, .. } => {
-                        b.code.byte(ByteOp::LdaIndirectY, PTR);
+                        b.code.byte(ByteOp::LdaIndirectY, pointer);
                         if capture {
                             b.save_byte(*dest, byte)?;
                         }
@@ -545,7 +599,7 @@ impl Plan {
                         } else {
                             b.value_byte(value, byte)?;
                         }
-                        b.code.byte(ByteOp::StaIndirectY, PTR);
+                        b.code.byte(ByteOp::StaIndirectY, pointer);
                     }
                     _ => return Err("indexed access lost its operation".into()),
                 }
@@ -622,7 +676,7 @@ fn constant_index(
             width,
             volatile: false,
         } if (1..=4).contains(&width.get())
-            && checked_stack_home(frame, *dest, width.get() as u8)?.is_some() =>
+            && checked_home(frame, *dest, width.get() as u8)?.is_some() =>
         {
             (address, width.get())
         }
@@ -669,21 +723,17 @@ fn checked_input_home(
     site: (BlockId, usize),
     id: TempId,
     bytes: u8,
-) -> Result<Option<Slot>, String> {
+) -> Result<Option<Location>, String> {
     if let Some(source) = reads.read_home(site, id) {
         if source.width != bytes {
             return Err("borrowed address input width mismatch".into());
         }
-        return Ok(Some(source));
+        return Ok(Some(Location::Stack(source)));
     }
-    checked_stack_home(frame, id, bytes)
+    checked_home(frame, id, bytes)
 }
 
-fn checked_stack_home(
-    frame: &AllocatedFrame,
-    id: TempId,
-    bytes: u8,
-) -> Result<Option<Slot>, String> {
+fn checked_home(frame: &AllocatedFrame, id: TempId, bytes: u8) -> Result<Option<Location>, String> {
     let home = frame
         .temps
         .get(&id)
@@ -691,16 +741,19 @@ fn checked_stack_home(
     if home.slot().width != bytes {
         return Err("address-selection home width mismatch".into());
     }
-    let Location::Stack(slot) = home else {
-        return Ok(None);
-    };
-    abi::stack::access_displacement(
-        ByteOffset::new(slot.offset.into()),
-        ByteSize::new(bytes.into()),
-        ByteSize::ZERO,
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(Some(*slot))
+    match home {
+        Location::Stack(slot) => {
+            abi::stack::access_displacement(
+                ByteOffset::new(slot.offset.into()),
+                ByteSize::new(bytes.into()),
+                ByteSize::ZERO,
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        Location::DirectPage(slot) if abi::scratch_contains(slot.offset.into(), bytes.into()) => (),
+        Location::DirectPage(_) => return Err("address input exceeds compiler scratch".into()),
+    }
+    Ok(Some(*home))
 }
 
 fn remove_base_use(
@@ -718,7 +771,7 @@ fn captured_byte(frame: &AllocatedFrame, value: &Mir65816Value) -> Result<bool, 
     match value {
         Mir65816Value::U8(_) => Ok(true),
         Mir65816Value::Temp(id, width) if width.get() == 1 => {
-            Ok(checked_stack_home(frame, *id, 1)?.is_some())
+            Ok(checked_home(frame, *id, 1)?.is_some())
         }
         _ => Ok(false),
     }
@@ -764,7 +817,7 @@ fn emit_long_indexed(
         return Ok(false);
     };
     if b.loop_x.is_some()
-        || indexed.index.width != 2
+        || indexed.index.slot().width != 2
         || indexed.bytes != 1
         || indexed.stride != 1
         || indexed.displacement != 0
@@ -800,10 +853,12 @@ fn emit_long_indexed(
         }
         _ => return Ok(false),
     }
-    b.displacement(indexed.index.offset.into(), 1)?;
+    if let Location::Stack(slot) = indexed.index {
+        b.displacement(slot.offset.into(), 1)?;
+    }
     b.code.barrier();
     b.code.a16();
-    b.load_memory(Memory::Stack(indexed.index.offset.into()), 0)?;
+    b.load_memory(indexed.index.into(), 0)?;
     b.code.op(Implied::Tax);
     b.code.a8();
     match op {

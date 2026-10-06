@@ -184,6 +184,25 @@ mod tests {
                 };
                 *value = Some(Mir65816Value::Temp(a, ByteSize::new(3)));
             }
+            // This test exercises stack affinity independently of the complete
+            // loop residence consumer. A volatile use keeps that fallback.
+            if backedge {
+                let mut load = r.blocks[0].ops[0].clone();
+                if let Mir65816Op::Load {
+                    dest,
+                    address,
+                    volatile,
+                    ..
+                } = &mut load
+                {
+                    *dest = TempId(99);
+                    address.base =
+                        Mir65816AddressBase::Indirect(Mir65816Value::Temp(a, ByteSize::new(3)));
+                    *volatile = true;
+                }
+                r.temps.push((TempId(99), r.temps[0].1.clone()));
+                r.blocks[1].ops.push(load);
+            }
             assert!(liveness::pointer_copy_interference(&r).unwrap()[&a].contains(&b));
             let mut f = separate(&r);
             f.coalesce_pointer_casts(&r).unwrap();

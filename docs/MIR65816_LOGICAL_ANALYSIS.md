@@ -100,6 +100,10 @@ Unknown writes, absolute/indirect writes, dynamic destination extents and volati
 accesses invalidate every tracked version. Such uncertainty cannot initialize
 previously unwritten bytes. Exact volatile writes initialize their destination
 but do not create reusable versions. Unknown storage is not presumed disjoint.
+An aggregate copy with a known zero byte count has no memory effects: it reads
+no source bytes and initializes or invalidates no destination bytes. Its typed
+address operands still participate in the logical value census and availability
+checks.
 
 `same_storage_version` checks nonempty exact ranges of the same logical home
 within one invocation; every byte must have a known matching version. It never
