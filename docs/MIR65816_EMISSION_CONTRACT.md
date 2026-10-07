@@ -13,6 +13,13 @@ are recorded in the [DP migration](NATIVE_DP_PARTITION.md).
 Native integer MUL/DIV/MOD support and its qualification contract are recorded
 in the [arithmetic helper plan](MIR65816_ARITHMETIC_HELPERS_PLAN.md).
 
+The [integrated record/placement scorecard](benchmarks/65816-record-placement-stage7/README.md)
+binds the measured compiler, frozen Exec source, packaged guarded artifacts,
+native execution and hosted machine evidence. Compiler support for disabling
+fixed-image stack checks does not authorize an unchecked experimental-o65
+provider. Unsupported package contracts remain explicit, and passing guarded
+execution does not qualify an unchecked release or real hardware.
+
 ## Compile an image
 
 The initial driver is `actionc-65816`. It has separate platform options from

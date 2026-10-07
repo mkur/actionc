@@ -1,6 +1,36 @@
 # Native 65816 temporary allocation and stack pressure
 
-## Baseline and reproduction
+## Current allocation contract
+
+The native-v2 allocator consumes the checked
+[routine placement plan](MIR65816_PLACEMENT_CONTRACT.md). Canonical homes,
+borrowed inputs, deferred register producers, complete DP captures and
+invocation-backed residence are distinct decisions. Scalar and pointer-leaf
+selectors retain their independent legality rules and execution oracles; they
+do not authorize an additional unverified home map.
+
+Closed operation interference includes complete inputs, outputs and internal
+scratch through their final machine uses. Simultaneous edge transfers establish
+every successor binding, including backedges and parallel branch arms. Their
+actual whole-source captures determine staging capacity. Unsupported boundaries
+retain complete invocation storage; calls never preserve compiler scratch.
+Indexed addresses and aggregate transfers use the same resource windows as
+other admitted operations. No pointee alias or object-extent fact follows from
+retaining a captured pointer.
+
+Frame extent, incoming displacements, spill extent and local peak are computed
+from final homes and transfer staging. Serialized maps describe materialized
+homes; bounded cached copies remain internal. Allocation, selected effects and
+fresh replay verify the same obligations. A trial that grows frame or local peak
+retains the earlier allocation. Domain DP reservations, public ABI and interrupt
+headroom are unchanged.
+
+The [integrated application scorecard](benchmarks/65816-record-placement-stage7/README.md)
+separates local compiler peaks, independent whole-call native measurements and
+hosted stack-guard checks. None alone establishes a hardware or complete
+application stack bound.
+
+## Historical baseline and reproduction
 
 The inspected main revision is `90bd73e`, rather than Exec816's `c2268b7` pin.
 Main already allocates eligible pointer-only leaves in three DP slots. Its

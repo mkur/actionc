@@ -1,0 +1,1564 @@
+{
+  "schema": 1,
+  "stage": 7,
+  "compiler_revision": "01cfabd5b2cb8705a60ee5c6d655ef1bf47b1344",
+  "baseline_revision": "d7d536c928d343932043ba3f1aea5deb107dd41d",
+  "exec_revision": "57df0d7850031fe7964bfef1e515e4d429e72dff",
+  "frozen_inputs_sha256": "cc38b86c07388889e1144441f22f3052888fe37a75f474236ed435b8b8f98b0c",
+  "targets": {
+    "release_compiler_code_bytes_max": 422700,
+    "representative_release_code_bytes_max": 9235,
+    "native_release_private_accesses_max": 20565,
+    "native_release_cycles_max": 78117,
+    "individual_vector_cycle_ratio_max": 1.05,
+    "optimized_native_stack_peak_max": 42,
+    "frame_or_local_peak_growth": 0,
+    "bank_zero_bytes_added": 0,
+    "requirement": "Benefits in at least three Exec subsystems, including looping and calling routines; no new hosted failures"
+  },
+  "profiles": {
+    "optimized-release": {
+      "before_bytes": 444948,
+      "after_bytes": 430091,
+      "representative_after": 9711,
+      "representatives": {
+        "EXECLISTS.INSERT": {
+          "before": 257,
+          "after": 257
+        },
+        "EXECLISTS.ENQUEUE": {
+          "before": 267,
+          "after": 231
+        },
+        "TASKPOLICY.CREATE": {
+          "before": 1472,
+          "after": 1401
+        },
+        "TASKPOLICY.PRODUCERCONTROL": {
+          "before": 1648,
+          "after": 1628
+        },
+        "PORTCORE.CREATEMSGPORT": {
+          "before": 350,
+          "after": 350
+        },
+        "DOSSTREAMS.OPENNIL": {
+          "before": 271,
+          "after": 271
+        },
+        "DOSSTREAMS.VALIDBUFFER": {
+          "before": 174,
+          "after": 174
+        },
+        "COOKEDLINE.RECALL": {
+          "before": 943,
+          "after": 873
+        },
+        "COOKEDLINE.RENDER": {
+          "before": 1655,
+          "after": 1519
+        },
+        "SDFSFILE.DRIVE": {
+          "before": 1502,
+          "after": 1404
+        },
+        "SDFSFILE.MEASURE": {
+          "before": 1723,
+          "after": 1603
+        }
+      },
+      "benefited_subsystems": [
+        "COOKEDLINE",
+        "EXECLISTS",
+        "SDFSFILE",
+        "TASKPOLICY"
+      ],
+      "benefits": {
+        "loop": [
+          "M_EXECMEMORY_ADOPT_494D3B99",
+          "M_EXECLISTS_ENQUEUE_763E1E61",
+          "M_EXECLISTS_FINDNAME_2659CDBB",
+          "M_TASKMEMORY_WRITABLE_FBC2061D",
+          "M_HEAPPOLICY_RUNS_07A33D25",
+          "M_TASKPOLICY_PREPAREDOMAIN_45DA3401",
+          "M_TASKPOLICY_PREPAREFRAME_D5FF2FA0",
+          "M_TASKPOLICY_INITRESIDENTSTORAGE_FCEF7175",
+          "M_TASKPOLICY_DOSINIT_97B41A44",
+          "M_TASKPOLICY_INPUTINIT_B07DD496",
+          "M_CONSOLECORE_CLEAN_3E747584",
+          "M_CONSOLECORE_BATCHDAMAGE_51FD9990",
+          "M_INPUT_REFERENCED_138D8154",
+          "M_INPUT_ACQUIRE_69C538CF",
+          "M_INPUT_POINTERREAD_16C85D8C",
+          "M_CONSOLECAPTURE_RELEASE_DD04AD8D",
+          "M_CONSOLEFOREGROUND_RETIREUNBOUNDBREAKS_24224B11",
+          "M_CONSOLEINPUT_READ_9E7D5EC6",
+          "M_CONSOLEDRIVER_IDLE_F6EAB10E",
+          "M_SIODRIVER_PREPARE_D10BF723",
+          "M_CONSOLETILING_SHOW_26065EE8",
+          "M_CONSOLE_CREATE_AA57C2F6",
+          "M_BLOCKCACHE_INVALIDATE_4E66AC31",
+          "M_BLOCKCACHE_FIND_1946044D",
+          "M_BLOCKIO_BEGINSTORE_D38E59E4",
+          "M_FSNAMES_PATH_CFBF830F",
+          "M_COOKEDLINE_REMEMBER_E39B9025",
+          "M_COOKEDLINE_RECALL_089A5861",
+          "M_COOKEDLINE_RENDER_D6B4258E",
+          "M_FSLOCKS_ROOT_D04E0C54",
+          "M_FSLOCKS_CREATE_34BC7CB2",
+          "M_SDFS_CACHE_55DBD7B1",
+          "M_MYDOSFILE_COPY_B45932A2",
+          "M_SDFSFILE_CONSUME_19CF3939",
+          "M_FSWRITEIO_ZERO_F685105B",
+          "M_SDFSWRITE_ROWIO_EF8D2430",
+          "M_FSRELATIVE_SEED_FD9BA1BB",
+          "M_FSHANDLER_FILE_3A9A315C",
+          "M_FSBOOT_STOP_AD5246E2",
+          "M_DOSCALLS_EXPAND_EA5329A2",
+          "M_FSINSPECT_SNAPSHOT_873CF8A6",
+          "M_PROCESS_STARTINTERNAL_08C34541",
+          "M_DOSARGS_CLEAR_67E19159",
+          "M_DOSARGS_BOUNDEDLENGTH_E004A013",
+          "M_DOSCOMMAND_HELP_D3856E13",
+          "M_PROGRAMPROVIDERS_RESOLVE_0AD38ACF",
+          "M_DEMO_SHELLARGUMENT_06FF7069",
+          "M_DEMO_SHELLALIASCOMMAND_96FDFCD5",
+          "M_DEMO_SHELLALIASREPLACE_D1C41638",
+          "M_DEMO_SHELLPATHASSIGNED_B6DA4F91",
+          "M_DEMO_SHELLLOADCOMMAND_919DB943",
+          "M_DEMO_DEMOTEXT_C012A5A2",
+          "M_DEMO_DEMONUMBER_B404F7D0",
+          "M_DEMO_DEMOCOMPUTE_108F568E"
+        ],
+        "call": [
+          "M_INPUT_ACQUIRE_69C538CF"
+        ]
+      },
+      "growth": [
+        {
+          "name": "M_TASKPOLICY_PROCESSCURRENT_78571A20",
+          "before": 183,
+          "after": 185,
+          "delta": 2
+        },
+        {
+          "name": "M_TASKPOLICY_PROCESSCANREMOVE_140447A5",
+          "before": 424,
+          "after": 426,
+          "delta": 2
+        },
+        {
+          "name": "M_TASKPOLICY_PROCESSREMOVED_46C99271",
+          "before": 220,
+          "after": 222,
+          "delta": 2
+        },
+        {
+          "name": "M_CONSOLEBATCH_DUE_DFFF17C0",
+          "before": 151,
+          "after": 155,
+          "delta": 4
+        },
+        {
+          "name": "M_CONSOLEDISPLAY_CELLS_40A0DF53",
+          "before": 1904,
+          "after": 1912,
+          "delta": 8
+        },
+        {
+          "name": "M_CONSOLEDRIVER_OPEN_434F52B0",
+          "before": 665,
+          "after": 669,
+          "delta": 4
+        },
+        {
+          "name": "M_CONSOLEDRIVER_FREEWAITER_5FC08D72",
+          "before": 108,
+          "after": 110,
+          "delta": 2
+        },
+        {
+          "name": "M_SIODRIVER_FREEWAITER_3A54C422",
+          "before": 108,
+          "after": 110,
+          "delta": 2
+        },
+        {
+          "name": "M_DOSBREAK_FREE_76D15FA8",
+          "before": 128,
+          "after": 130,
+          "delta": 2
+        },
+        {
+          "name": "M_SDFSDATE_DECODE_E4AFE2B3",
+          "before": 971,
+          "after": 975,
+          "delta": 4
+        },
+        {
+          "name": "M_FSBACKEND_CREATEVOLUME_26C12EFC",
+          "before": 126,
+          "after": 128,
+          "delta": 2
+        }
+      ],
+      "frame_or_local_peak_growth": 0,
+      "native": {
+        "before": {
+          "cycles": 86797,
+          "private": 25707,
+          "peak": 42
+        },
+        "after": {
+          "cycles": 71833,
+          "private": 20655,
+          "peak": 33
+        },
+        "vectors": 147,
+        "independent_probe": {
+          "before": {
+            "cycles": 15406,
+            "private": 4272
+          },
+          "after": {
+            "cycles": 12472,
+            "private": 3552
+          }
+        }
+      },
+      "artifact_hashes": {
+        "probe.image.json": "c0e83e8fc02d61b5167f12d9adc5a534e1c08c9a1af5b2ccf63f1e2c7bca47be",
+        "probe.inventory.json": "6fa6761ce1476d96710424fe954eaecc049bea95a3b45a4ebc9dda0c04775b5c",
+        "probe.placement.json": "9757f9a0613f705e718e5688bb64b0a0c3b244f922f6a59ef0db3273e3fd9b86",
+        "program.a816.json": "c0e83e8fc02d61b5167f12d9adc5a534e1c08c9a1af5b2ccf63f1e2c7bca47be"
+      },
+      "hosted_status": "unsupported"
+    },
+    "optimized-guarded": {
+      "before_bytes": 594828,
+      "after_bytes": 579765,
+      "representative_after": 12063,
+      "representatives": {
+        "EXECLISTS.INSERT": {
+          "before": 333,
+          "after": 333
+        },
+        "EXECLISTS.ENQUEUE": {
+          "before": 347,
+          "after": 311
+        },
+        "TASKPOLICY.CREATE": {
+          "before": 1782,
+          "after": 1712
+        },
+        "TASKPOLICY.PRODUCERCONTROL": {
+          "before": 2245,
+          "after": 2225
+        },
+        "PORTCORE.CREATEMSGPORT": {
+          "before": 515,
+          "after": 515
+        },
+        "DOSSTREAMS.OPENNIL": {
+          "before": 386,
+          "after": 386
+        },
+        "DOSSTREAMS.VALIDBUFFER": {
+          "before": 282,
+          "after": 282
+        },
+        "COOKEDLINE.RECALL": {
+          "before": 1085,
+          "after": 1015
+        },
+        "COOKEDLINE.RENDER": {
+          "before": 1677,
+          "after": 1541
+        },
+        "SDFSFILE.DRIVE": {
+          "before": 1909,
+          "after": 1811
+        },
+        "SDFSFILE.MEASURE": {
+          "before": 2052,
+          "after": 1932
+        }
+      },
+      "benefited_subsystems": [
+        "COOKEDLINE",
+        "EXECLISTS",
+        "SDFSFILE",
+        "TASKPOLICY"
+      ],
+      "benefits": {
+        "loop": [
+          "M_EXECMEMORY_ADOPT_494D3B99",
+          "M_EXECLISTS_ENQUEUE_763E1E61",
+          "M_EXECLISTS_FINDNAME_2659CDBB",
+          "M_TASKMEMORY_WRITABLE_FBC2061D",
+          "M_HEAPPOLICY_RUNS_07A33D25",
+          "M_TASKPOLICY_PREPAREDOMAIN_45DA3401",
+          "M_TASKPOLICY_PREPAREFRAME_D5FF2FA0",
+          "M_TASKPOLICY_INITRESIDENTSTORAGE_FCEF7175",
+          "M_TASKPOLICY_DOSINIT_97B41A44",
+          "M_TASKPOLICY_INPUTINIT_B07DD496",
+          "M_CONSOLECORE_CLEAN_3E747584",
+          "M_CONSOLECORE_BATCHDAMAGE_51FD9990",
+          "M_INPUT_REFERENCED_138D8154",
+          "M_INPUT_ACQUIRE_69C538CF",
+          "M_INPUT_POINTERREAD_16C85D8C",
+          "M_CONSOLECAPTURE_RELEASE_DD04AD8D",
+          "M_CONSOLEFOREGROUND_RETIREUNBOUNDBREAKS_24224B11",
+          "M_CONSOLEINPUT_READ_9E7D5EC6",
+          "M_CONSOLEDRIVER_IDLE_F6EAB10E",
+          "M_SIODRIVER_PREPARE_D10BF723",
+          "M_CONSOLETILING_SHOW_26065EE8",
+          "M_CONSOLE_CREATE_AA57C2F6",
+          "M_BLOCKCACHE_INVALIDATE_4E66AC31",
+          "M_BLOCKCACHE_FIND_1946044D",
+          "M_BLOCKIO_BEGINSTORE_D38E59E4",
+          "M_FSNAMES_PATH_CFBF830F",
+          "M_COOKEDLINE_REMEMBER_E39B9025",
+          "M_COOKEDLINE_RECALL_089A5861",
+          "M_COOKEDLINE_RENDER_D6B4258E",
+          "M_FSLOCKS_ROOT_D04E0C54",
+          "M_FSLOCKS_CREATE_34BC7CB2",
+          "M_SDFS_CACHE_55DBD7B1",
+          "M_MYDOSFILE_COPY_B45932A2",
+          "M_SDFSFILE_CONSUME_19CF3939",
+          "M_FSWRITEIO_ZERO_F685105B",
+          "M_SDFSWRITE_ROWIO_EF8D2430",
+          "M_FSRELATIVE_SEED_FD9BA1BB",
+          "M_FSHANDLER_FILE_3A9A315C",
+          "M_FSBOOT_STOP_AD5246E2",
+          "M_DOSCALLS_EXPAND_EA5329A2",
+          "M_FSINSPECT_SNAPSHOT_873CF8A6",
+          "M_PROCESS_STARTINTERNAL_08C34541",
+          "M_DOSARGS_CLEAR_67E19159",
+          "M_DOSARGS_BOUNDEDLENGTH_E004A013",
+          "M_DOSCOMMAND_HELP_D3856E13",
+          "M_PROGRAMPROVIDERS_RESOLVE_0AD38ACF",
+          "M_DEMO_SHELLARGUMENT_06FF7069",
+          "M_DEMO_SHELLALIASCOMMAND_96FDFCD5",
+          "M_DEMO_SHELLALIASREPLACE_D1C41638",
+          "M_DEMO_SHELLPATHASSIGNED_B6DA4F91",
+          "M_DEMO_SHELLLOADCOMMAND_919DB943",
+          "M_DEMO_DEMOTEXT_C012A5A2",
+          "M_DEMO_DEMONUMBER_B404F7D0",
+          "M_DEMO_DEMOCOMPUTE_108F568E"
+        ],
+        "call": [
+          "M_INPUT_ACQUIRE_69C538CF"
+        ]
+      },
+      "growth": [
+        {
+          "name": "M_CONSOLEBATCH_DUE_DFFF17C0",
+          "before": 173,
+          "after": 179,
+          "delta": 6
+        },
+        {
+          "name": "M_CONSOLEDISPLAY_CELLS_40A0DF53",
+          "before": 2147,
+          "after": 2155,
+          "delta": 8
+        },
+        {
+          "name": "M_CONSOLEDRIVER_OPEN_434F52B0",
+          "before": 893,
+          "after": 897,
+          "delta": 4
+        },
+        {
+          "name": "M_SDFSDATE_DECODE_E4AFE2B3",
+          "before": 1141,
+          "after": 1145,
+          "delta": 4
+        }
+      ],
+      "frame_or_local_peak_growth": 0,
+      "native": {
+        "before": {
+          "cycles": 91417,
+          "private": 25707,
+          "peak": 42
+        },
+        "after": {
+          "cycles": 76021,
+          "private": 20655,
+          "peak": 33
+        },
+        "vectors": 147,
+        "independent_probe": {
+          "before": {
+            "cycles": 16726,
+            "private": 4272
+          },
+          "after": {
+            "cycles": 13360,
+            "private": 3552
+          }
+        }
+      },
+      "artifact_hashes": {
+        "probe.image.json": "034d03cdf9d31ceb3df5c024024e76ca7dc8e5e7f441371aff7bd4e0f2c342b1",
+        "probe.inventory.json": "8c8e828fdea8b77076f5e141c0116b05c62cf450572240211e93d0ec062b2c97",
+        "probe.placement.json": "9757f9a0613f705e718e5688bb64b0a0c3b244f922f6a59ef0db3273e3fd9b86",
+        "program.a816.json": "1e959577a8269e95ddd18ab6302562b3f8134be81faee7e70be4ec6c778adb00",
+        "program.xex": "828a56d7ae406969d58e5d483b9533b5144a0075a9ce139fab78faa27c3842f4",
+        "exec816-demo.zip": "422920074b5e31887ba832ec725cf8255c2b307d24a051a224997ae83eae97d3",
+        "of816/Exec-of816.xex": "9796eae6b725000b2f078ee3c3356cef384f073e7f725ad07720ba6e0e481727"
+      },
+      "hosted_status": "packaged",
+      "bank_zero_bytes_added": 0,
+      "memory": {
+        "bank_zero_budget": {
+          "fixed_runtime": 10528,
+          "public": [
+            1824,
+            1312,
+            1312,
+            1312,
+            1312,
+            1312,
+            2848,
+            2848
+          ],
+          "idle": 800,
+          "runtime_excluding_os": 25408,
+          "loading_excluding_os": 21872,
+          "runtime_including_os": 56128,
+          "loading_including_os": 52592
+        },
+        "task_pools": [
+          {
+            "dp": 2816,
+            "dp_reserved_bytes": 256,
+            "stack_base": 9232,
+            "stack_bytes": 1536,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3072,
+            "dp_reserved_bytes": 256,
+            "stack_base": 12368,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3328,
+            "dp_reserved_bytes": 256,
+            "stack_base": 13424,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3584,
+            "dp_reserved_bytes": 256,
+            "stack_base": 14480,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3840,
+            "dp_reserved_bytes": 256,
+            "stack_base": 15536,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4096,
+            "dp_reserved_bytes": 256,
+            "stack_base": 16592,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4352,
+            "dp_reserved_bytes": 256,
+            "stack_base": 17648,
+            "stack_bytes": 2560,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4608,
+            "dp_reserved_bytes": 256,
+            "stack_base": 20240,
+            "stack_bytes": 2560,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4864,
+            "dp_reserved_bytes": 256,
+            "stack_base": 22832,
+            "stack_bytes": 512,
+            "interrupt_reserve": 256
+          }
+        ],
+        "runtime_reservations": [
+          {
+            "name": "os-low",
+            "address": 0,
+            "size": 2048
+          },
+          {
+            "name": "state",
+            "address": 2048,
+            "size": 256
+          },
+          {
+            "name": "boot-state",
+            "address": 2304,
+            "size": 256
+          },
+          {
+            "name": "kernel-dp",
+            "address": 2560,
+            "size": 256
+          },
+          {
+            "name": "dp0",
+            "address": 2816,
+            "size": 256
+          },
+          {
+            "name": "dp1",
+            "address": 3072,
+            "size": 256
+          },
+          {
+            "name": "dp2",
+            "address": 3328,
+            "size": 256
+          },
+          {
+            "name": "dp3",
+            "address": 3584,
+            "size": 256
+          },
+          {
+            "name": "dp4",
+            "address": 3840,
+            "size": 256
+          },
+          {
+            "name": "dp5",
+            "address": 4096,
+            "size": 256
+          },
+          {
+            "name": "dp6",
+            "address": 4352,
+            "size": 256
+          },
+          {
+            "name": "dp7",
+            "address": 4608,
+            "size": 256
+          },
+          {
+            "name": "dp8",
+            "address": 4864,
+            "size": 256
+          },
+          {
+            "name": "resident",
+            "address": 5120,
+            "size": 4096
+          },
+          {
+            "name": "stack0",
+            "address": 9216,
+            "size": 1568
+          },
+          {
+            "name": "kernel-stack",
+            "address": 10784,
+            "size": 1568
+          },
+          {
+            "name": "stack1",
+            "address": 12352,
+            "size": 1056
+          },
+          {
+            "name": "stack2",
+            "address": 13408,
+            "size": 1056
+          },
+          {
+            "name": "stack3",
+            "address": 14464,
+            "size": 1056
+          },
+          {
+            "name": "stack4",
+            "address": 15520,
+            "size": 1056
+          },
+          {
+            "name": "stack5",
+            "address": 16576,
+            "size": 1056
+          },
+          {
+            "name": "stack6",
+            "address": 17632,
+            "size": 2592
+          },
+          {
+            "name": "stack7",
+            "address": 20224,
+            "size": 2592
+          },
+          {
+            "name": "stack8",
+            "address": 22816,
+            "size": 544
+          },
+          {
+            "name": "vbxe-aperture",
+            "address": 32768,
+            "size": 4096
+          },
+          {
+            "name": "os-high",
+            "address": 36864,
+            "size": 28672
+          }
+        ]
+      },
+      "upper_image_code_plus_initialized_data": 600036
+    },
+    "raw-guarded": {
+      "before_bytes": 661861,
+      "after_bytes": 648963,
+      "representative_after": 13501,
+      "representatives": {
+        "EXECLISTS.INSERT": {
+          "before": 333,
+          "after": 333
+        },
+        "EXECLISTS.ENQUEUE": {
+          "before": 323,
+          "after": 323
+        },
+        "TASKPOLICY.CREATE": {
+          "before": 2011,
+          "after": 1943
+        },
+        "TASKPOLICY.PRODUCERCONTROL": {
+          "before": 2516,
+          "after": 2497
+        },
+        "PORTCORE.CREATEMSGPORT": {
+          "before": 580,
+          "after": 580
+        },
+        "DOSSTREAMS.OPENNIL": {
+          "before": 459,
+          "after": 459
+        },
+        "DOSSTREAMS.VALIDBUFFER": {
+          "before": 374,
+          "after": 374
+        },
+        "COOKEDLINE.RECALL": {
+          "before": 1060,
+          "after": 1022
+        },
+        "COOKEDLINE.RENDER": {
+          "before": 1819,
+          "after": 1742
+        },
+        "SDFSFILE.DRIVE": {
+          "before": 2156,
+          "after": 2062
+        },
+        "SDFSFILE.MEASURE": {
+          "before": 2277,
+          "after": 2166
+        }
+      },
+      "benefited_subsystems": [
+        "COOKEDLINE",
+        "SDFSFILE",
+        "TASKPOLICY"
+      ],
+      "benefits": {
+        "loop": [
+          "M_DOSPIPE_TRANSFER_59D539F6",
+          "M_COOKEDLINE_RENDER_D6B4258E"
+        ],
+        "call": []
+      },
+      "growth": [
+        {
+          "name": "M_CONSOLEBATCH_DUE_DFFF17C0",
+          "before": 202,
+          "after": 206,
+          "delta": 4
+        },
+        {
+          "name": "M_CONSOLEDRIVER_OPEN_434F52B0",
+          "before": 1004,
+          "after": 1012,
+          "delta": 8
+        }
+      ],
+      "frame_or_local_peak_growth": 0,
+      "native": {
+        "before": {
+          "cycles": 90155,
+          "private": 24816,
+          "peak": 48
+        },
+        "after": {
+          "cycles": 87539,
+          "private": 24288,
+          "peak": 45
+        },
+        "vectors": 147,
+        "independent_probe": {
+          "before": {
+            "cycles": 15968,
+            "private": 4056
+          },
+          "after": {
+            "cycles": 13352,
+            "private": 3528
+          }
+        }
+      },
+      "artifact_hashes": {
+        "probe.image.json": "f37fdac1b8f1080425e6cb613455746a714fa59ac5f2373691e8d9cd0fcc0d02",
+        "probe.inventory.json": "67c7fcb64392f93941e429f79bd3ccca464e4e4869425d1482490dd915cb6d51",
+        "probe.placement.json": "3b2c223c1777c18bcb9f3b30f466b0de78c0db6fbc1c8e3b177fe3273a7073ba",
+        "program.a816.json": "86ec5dc3017d67fea06d3613a36321faae23eb7652c77f71df482f1cf66a2e60",
+        "program.xex": "72d9141fff552d784ce177f1dfac08fdaa40320a1d76996c69b914ecf64639a0",
+        "exec816-demo.zip": "e7d4b9c1e215f272a8893e92d3f69a239be69175ff5e5f59ab7043ec21e0be2b",
+        "of816/Exec-of816.xex": "c0759cf7dea0ba1f378d31e82c6b2ccbfa9cc6c39539c43c45c75874b0d36721"
+      },
+      "hosted_status": "packaged",
+      "bank_zero_bytes_added": 0,
+      "memory": {
+        "bank_zero_budget": {
+          "fixed_runtime": 10528,
+          "public": [
+            1824,
+            1312,
+            1312,
+            1312,
+            1312,
+            1312,
+            2848,
+            2848
+          ],
+          "idle": 800,
+          "runtime_excluding_os": 25408,
+          "loading_excluding_os": 21872,
+          "runtime_including_os": 56128,
+          "loading_including_os": 52592
+        },
+        "task_pools": [
+          {
+            "dp": 2816,
+            "dp_reserved_bytes": 256,
+            "stack_base": 9232,
+            "stack_bytes": 1536,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3072,
+            "dp_reserved_bytes": 256,
+            "stack_base": 12368,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3328,
+            "dp_reserved_bytes": 256,
+            "stack_base": 13424,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3584,
+            "dp_reserved_bytes": 256,
+            "stack_base": 14480,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3840,
+            "dp_reserved_bytes": 256,
+            "stack_base": 15536,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4096,
+            "dp_reserved_bytes": 256,
+            "stack_base": 16592,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4352,
+            "dp_reserved_bytes": 256,
+            "stack_base": 17648,
+            "stack_bytes": 2560,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4608,
+            "dp_reserved_bytes": 256,
+            "stack_base": 20240,
+            "stack_bytes": 2560,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4864,
+            "dp_reserved_bytes": 256,
+            "stack_base": 22832,
+            "stack_bytes": 512,
+            "interrupt_reserve": 256
+          }
+        ],
+        "runtime_reservations": [
+          {
+            "name": "os-low",
+            "address": 0,
+            "size": 2048
+          },
+          {
+            "name": "state",
+            "address": 2048,
+            "size": 256
+          },
+          {
+            "name": "boot-state",
+            "address": 2304,
+            "size": 256
+          },
+          {
+            "name": "kernel-dp",
+            "address": 2560,
+            "size": 256
+          },
+          {
+            "name": "dp0",
+            "address": 2816,
+            "size": 256
+          },
+          {
+            "name": "dp1",
+            "address": 3072,
+            "size": 256
+          },
+          {
+            "name": "dp2",
+            "address": 3328,
+            "size": 256
+          },
+          {
+            "name": "dp3",
+            "address": 3584,
+            "size": 256
+          },
+          {
+            "name": "dp4",
+            "address": 3840,
+            "size": 256
+          },
+          {
+            "name": "dp5",
+            "address": 4096,
+            "size": 256
+          },
+          {
+            "name": "dp6",
+            "address": 4352,
+            "size": 256
+          },
+          {
+            "name": "dp7",
+            "address": 4608,
+            "size": 256
+          },
+          {
+            "name": "dp8",
+            "address": 4864,
+            "size": 256
+          },
+          {
+            "name": "resident",
+            "address": 5120,
+            "size": 4096
+          },
+          {
+            "name": "stack0",
+            "address": 9216,
+            "size": 1568
+          },
+          {
+            "name": "kernel-stack",
+            "address": 10784,
+            "size": 1568
+          },
+          {
+            "name": "stack1",
+            "address": 12352,
+            "size": 1056
+          },
+          {
+            "name": "stack2",
+            "address": 13408,
+            "size": 1056
+          },
+          {
+            "name": "stack3",
+            "address": 14464,
+            "size": 1056
+          },
+          {
+            "name": "stack4",
+            "address": 15520,
+            "size": 1056
+          },
+          {
+            "name": "stack5",
+            "address": 16576,
+            "size": 1056
+          },
+          {
+            "name": "stack6",
+            "address": 17632,
+            "size": 2592
+          },
+          {
+            "name": "stack7",
+            "address": 20224,
+            "size": 2592
+          },
+          {
+            "name": "stack8",
+            "address": 22816,
+            "size": 544
+          },
+          {
+            "name": "vbxe-aperture",
+            "address": 32768,
+            "size": 4096
+          },
+          {
+            "name": "os-high",
+            "address": 36864,
+            "size": 28672
+          }
+        ]
+      },
+      "upper_image_code_plus_initialized_data": 669234
+    }
+  },
+  "hosted": {
+    "lists-optimized-guarded": {
+      "status": "fail",
+      "result_sha256": "3b5a4725970e6869058057cb51c34c7a4f3915b8ee3c4a953a2cb0f56c3dbb50",
+      "error": "Resident image payload in bank zero",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec hosted fixture packaging",
+        "requirement": "Declare and initialize bank-zero diagnostic storage outside resident image payload"
+      },
+      "artifact_hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/lists-optimized-guarded/program.xex": "45ec974d5573ad59efd53e93a3b88faa7b25a84a8eb674b017e534ae2718e698",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/lists-optimized-guarded/program.a816.json": "b40f7622605cfbb6bcef4bd4f847b1fecaa98e05ad070a5333e52b0ec70a1df9",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/lists-optimized-guarded/build.json": "32fc2e0f9415e88f2ef3a4630da1e66bedebb7cdcdd80c311c2722c5a9a02ccc",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/lists-optimized-guarded/layout.json": "cf3866dbeecbacd69070cf25a60105cbbc5958954b3845facdbce433b8811193"
+      }
+    },
+    "ports-optimized-guarded": {
+      "status": "pass",
+      "result_sha256": "d6ba9bf09fae6ae930e912984aaf973961b0621995241cc8e432df7e21950205",
+      "error": null,
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "artifact_hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/ports-optimized-guarded/program.xex": "d75e7b0cf2fac77f558314a969a2f022d131b27ccbf2cae198e30d6ee3fc35f4",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/ports-optimized-guarded/program.a816.json": "8b74f2579c76f7e490a541f920dfd124167e932ff41ee1be50053da8d1a8f1e3",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/ports-optimized-guarded/build.json": "39280dca476f8f665df5e9c261f5f0a99aa521e60df8f3dd4ac7b15fe43e3f0f",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/ports-optimized-guarded/layout.json": "16dc2a2ecb74a9847efe00582e2c31960956ff87495ff9d849312c62a89942f4"
+      }
+    },
+    "dos-streams-optimized-guarded": {
+      "status": "fail",
+      "result_sha256": "a556fdaf5bfe0fb3f0c7972d546eb63a9f7bbcba0fca9fdbc949873e5e84a12a",
+      "error": "Command '['/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/actionc-65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/dos-streams-optimized-guarded/task-kernel', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/dos-streams-optimized-guarded', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/tests/programs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/runtime/65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io', '--emit-interfaces', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/dos-streams-optimized-guarded/kernel-program.act']' returned non-zero exit status 1.",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec fixture generation",
+        "requirement": "Generate the console include dependencies required by standalone DOS composition"
+      },
+      "artifact_hashes": {}
+    },
+    "dos-routing-optimized-guarded": {
+      "status": "fail",
+      "result_sha256": "452f6728f61909a1a8f87d588454d12acbb2deed9803909e8c3706627abb0178",
+      "error": "Command '['/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/actionc-65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/dos-routing-optimized-guarded/task-kernel', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/dos-routing-optimized-guarded', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/tests/programs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/runtime/65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io', '--emit-interfaces', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/dos-routing-optimized-guarded/kernel-program.act']' returned non-zero exit status 1.",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec fixture generation",
+        "requirement": "Generate the console include dependencies required by standalone DOS composition"
+      },
+      "artifact_hashes": {}
+    },
+    "cooked-optimized-guarded": {
+      "status": "pass",
+      "result_sha256": "91fc3235b20b2e0dfd77a9c6edd45eba517ed35d82032fa20563b975abad91ee",
+      "error": null,
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "artifact_hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/cooked-optimized-guarded/program.xex": "d89789f0056a288e44818b705de0ed21aaeeef33c7281fbe34b1b74a44c50c6a",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/cooked-optimized-guarded/program.a816.json": "80cd480f846ceb500ffa5ab6a4971d508635f8759551f98e906e1b27b4472ac6",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/cooked-optimized-guarded/build.json": "2e90efe04a6909b4a33fceb15727f57fdb608d79bc999801185e2007fa4db6c1",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/cooked-optimized-guarded/layout.json": "7ecbf30bfc35587744c64e3b3bff0a606ecad03cbdcfa80a49969ae76b92634f",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/cooked-optimized-guarded/observations.bin": "ef600c43fffa15e92902844228934d12722b8e877f7119697fc7a4c37baa2475"
+      }
+    },
+    "demo-optimized-guarded": {
+      "status": "pass",
+      "result_sha256": "31655540ee96c15dc72200b9647e0f934cf2dc4edd8e647de23d6a7757cb25ed",
+      "error": null,
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "artifact_hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/optimized-guarded/program.xex": "828a56d7ae406969d58e5d483b9533b5144a0075a9ce139fab78faa27c3842f4",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/optimized-guarded/program.a816.json": "1e959577a8269e95ddd18ab6302562b3f8134be81faee7e70be4ec6c778adb00",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/optimized-guarded/demo-manifest.json": "f2dc373e854251b9ae6ed6e3423dcedaf3a9e50129684cf7138f0fe58e4b26ae",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/optimized-guarded/of816/Exec-of816.xex": "9796eae6b725000b2f078ee3c3356cef384f073e7f725ad07720ba6e0e481727",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/optimized-guarded/of816/of816.json": "7d8fb61ff188eba55f1550c24ea0b8b7ec7e213bf37e7d57f2456099faad93f9",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/optimized-guarded/exec816-demo.zip": "422920074b5e31887ba832ec725cf8255c2b307d24a051a224997ae83eae97d3"
+      }
+    },
+    "of816-optimized-guarded": {
+      "status": "pass",
+      "result_sha256": "11205cf4a92e6a13163f3ff4728fee2f4aa3074e7b718a64855da87600107fb3",
+      "error": null,
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "artifact_hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/optimized-guarded/program.xex": "828a56d7ae406969d58e5d483b9533b5144a0075a9ce139fab78faa27c3842f4",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/optimized-guarded/program.a816.json": "1e959577a8269e95ddd18ab6302562b3f8134be81faee7e70be4ec6c778adb00",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/optimized-guarded/demo-manifest.json": "f2dc373e854251b9ae6ed6e3423dcedaf3a9e50129684cf7138f0fe58e4b26ae",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/optimized-guarded/of816/Exec-of816.xex": "9796eae6b725000b2f078ee3c3356cef384f073e7f725ad07720ba6e0e481727",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/optimized-guarded/of816/of816.json": "7d8fb61ff188eba55f1550c24ea0b8b7ec7e213bf37e7d57f2456099faad93f9",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/optimized-guarded/exec816-demo.zip": "422920074b5e31887ba832ec725cf8255c2b307d24a051a224997ae83eae97d3"
+      }
+    },
+    "lists-raw-guarded": {
+      "status": "fail",
+      "result_sha256": "6ba56f36f54d493b3f488a857b7061f0eb3114a44374e5185fc8a81332212245",
+      "error": "Resident image payload in bank zero",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec hosted fixture packaging",
+        "requirement": "Declare and initialize bank-zero diagnostic storage outside resident image payload"
+      },
+      "artifact_hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/lists-raw-guarded/program.xex": "dbbe75907a62c18a003aeb6fb16f58030d83ccac7ac20fb817b2296da0e6fc57",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/lists-raw-guarded/program.a816.json": "926745338395ce3960ed768628710f246875325eec4fa6821b276ff9393e9cdc",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/lists-raw-guarded/build.json": "ef57620793156eaed64effbc17b00cf963a4857ff1ca85994d66bd74e150afce",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/lists-raw-guarded/layout.json": "cf3866dbeecbacd69070cf25a60105cbbc5958954b3845facdbce433b8811193"
+      }
+    },
+    "ports-raw-guarded": {
+      "status": "pass",
+      "result_sha256": "72713b588e346fe4a4b2d9a12d19fa1de38447bb8ab25b7b2070964e40ad1a36",
+      "error": null,
+      "disposition": {
+        "status": "pass",
+        "previously_failed": true
+      },
+      "artifact_hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/ports-raw-guarded/program.xex": "45df560cfc85eac244e947a005b9c680c2a2c83b51062ef385ff166583819bd1",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/ports-raw-guarded/program.a816.json": "d0ff23f9b6a5ebae52c0289b5344529f0ee6c30774378242680d945cd84579c6",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/ports-raw-guarded/build.json": "73ec8e4b7b9a2785fc0db3a98fd1022fe65fed1878b5bc2a4d0ec39d769188c2",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/ports-raw-guarded/layout.json": "16dc2a2ecb74a9847efe00582e2c31960956ff87495ff9d849312c62a89942f4"
+      }
+    },
+    "dos-streams-raw-guarded": {
+      "status": "fail",
+      "result_sha256": "773f462a8aa04fe32fe59b3a42029ce25914fbc2cd95761bc206a63d75f43a64",
+      "error": "Command '['/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/actionc-65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/dos-streams-raw-guarded/task-kernel', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/dos-streams-raw-guarded', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/tests/programs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/runtime/65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io', '--emit-interfaces', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/dos-streams-raw-guarded/kernel-program.act']' returned non-zero exit status 1.",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec fixture generation",
+        "requirement": "Generate the console include dependencies required by standalone DOS composition"
+      },
+      "artifact_hashes": {}
+    },
+    "dos-routing-raw-guarded": {
+      "status": "fail",
+      "result_sha256": "9286c140d0983a991130430d1e5b023db10771e0f7bcc93d424897a787b25b38",
+      "error": "Command '['/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/actionc-65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/dos-routing-raw-guarded/task-kernel', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/dos-routing-raw-guarded', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/tests/programs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/runtime/65816', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados', '--module-path', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io', '--emit-interfaces', '/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/dos-routing-raw-guarded/kernel-program.act']' returned non-zero exit status 1.",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec fixture generation",
+        "requirement": "Generate the console include dependencies required by standalone DOS composition"
+      },
+      "artifact_hashes": {}
+    },
+    "cooked-raw-guarded": {
+      "status": "pass",
+      "result_sha256": "b7468642a4d4954f0207f7ca9d5f1926ee1f535113259f9b41c4229484d5be6f",
+      "error": null,
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "artifact_hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/cooked-raw-guarded/program.xex": "5ca5a73f5fc1d8f2c90bca78276b84cb8a003514fb5a30d9511cd47d23becb6a",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/cooked-raw-guarded/program.a816.json": "664a608fa25c73fd52823c738935dbe12eabc183843cc1567c89f1f4e742bce1",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/cooked-raw-guarded/build.json": "dc4410bd9322de478c3b647f254be871bafc928d91620131a8e0842b2c25fdb0",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/cooked-raw-guarded/layout.json": "7ecbf30bfc35587744c64e3b3bff0a606ecad03cbdcfa80a49969ae76b92634f",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/hosted/cooked-raw-guarded/observations.bin": "ef600c43fffa15e92902844228934d12722b8e877f7119697fc7a4c37baa2475"
+      }
+    },
+    "demo-raw-guarded": {
+      "status": "pass",
+      "result_sha256": "0d2fdb3193e96f1dc4e59d57ae8841504898c24a70b08ffb463f20f20c363b53",
+      "error": null,
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "artifact_hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/raw-guarded/program.xex": "72d9141fff552d784ce177f1dfac08fdaa40320a1d76996c69b914ecf64639a0",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/raw-guarded/program.a816.json": "86ec5dc3017d67fea06d3613a36321faae23eb7652c77f71df482f1cf66a2e60",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/raw-guarded/demo-manifest.json": "b2daaa0ad4785f996abb0f29c570c62587b0a9fce62b9dafec6476cd5cb39880",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/raw-guarded/of816/Exec-of816.xex": "c0759cf7dea0ba1f378d31e82c6b2ccbfa9cc6c39539c43c45c75874b0d36721",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/raw-guarded/of816/of816.json": "72f646b81360fd6d233c3147763836f19d7f79c1a0920c32e1b1da0a171a2aab",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/raw-guarded/exec816-demo.zip": "e7d4b9c1e215f272a8893e92d3f69a239be69175ff5e5f59ab7043ec21e0be2b"
+      }
+    },
+    "of816-raw-guarded": {
+      "status": "pass",
+      "result_sha256": "db9d97fe85311d147334913d20c79ee52504d8a0ea96df3622581a14b91a1da5",
+      "error": null,
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "artifact_hashes": {
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/raw-guarded/program.xex": "72d9141fff552d784ce177f1dfac08fdaa40320a1d76996c69b914ecf64639a0",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/raw-guarded/program.a816.json": "86ec5dc3017d67fea06d3613a36321faae23eb7652c77f71df482f1cf66a2e60",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/raw-guarded/demo-manifest.json": "b2daaa0ad4785f996abb0f29c570c62587b0a9fce62b9dafec6476cd5cb39880",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/raw-guarded/of816/Exec-of816.xex": "c0759cf7dea0ba1f378d31e82c6b2ccbfa9cc6c39539c43c45c75874b0d36721",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/raw-guarded/of816/of816.json": "72f646b81360fd6d233c3147763836f19d7f79c1a0920c32e1b1da0a171a2aab",
+        "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/raw-guarded/exec816-demo.zip": "e7d4b9c1e215f272a8893e92d3f69a239be69175ff5e5f59ab7043ec21e0be2b"
+      }
+    }
+  },
+  "scope": "Independent native VM and pinned hosted emulator; no hardware claim",
+  "acceptance": {
+    "passed": false,
+    "checks": {
+      "release_compiler_code_bytes_max": {
+        "actual": 430091,
+        "maximum": 422700,
+        "pass_": false
+      },
+      "representative_release_code_bytes_max": {
+        "actual": 9711,
+        "maximum": 9235,
+        "pass_": false
+      },
+      "native_release_private_accesses_max": {
+        "actual": 20655,
+        "maximum": 20565,
+        "pass_": false
+      },
+      "native_release_cycles_max": {
+        "actual": 71833,
+        "maximum": 78117,
+        "pass_": true
+      },
+      "subsystems": {
+        "actual": [
+          "COOKEDLINE",
+          "EXECLISTS",
+          "SDFSFILE",
+          "TASKPOLICY"
+        ],
+        "pass_": true
+      },
+      "loop_benefits": {
+        "actual": 54,
+        "pass_": true
+      },
+      "call_benefits": {
+        "actual": 1,
+        "pass_": true
+      },
+      "optimized_native_peak": {
+        "actual": 33,
+        "maximum": 42,
+        "pass_": true
+      },
+      "hosted_release": {
+        "pass_": false,
+        "requirement": "Actual unchecked package under a valid provider contract"
+      },
+      "hosted_regressions": {
+        "actual": [],
+        "pass_": true
+      }
+    },
+    "failed": [
+      "release_compiler_code_bytes_max",
+      "representative_release_code_bytes_max",
+      "native_release_private_accesses_max",
+      "hosted_release"
+    ]
+  },
+  "validation": {
+    "unit-final": {
+      "targets": 1,
+      "passed": 415,
+      "ignored": 1
+    },
+    "integration": {
+      "targets": 14,
+      "passed": 88,
+      "ignored": 4
+    },
+    "native-backend": {
+      "targets": 95,
+      "passed": 379,
+      "ignored": 6
+    },
+    "native-backend-manifest": "b3692ac2c2573cfc061116b84338e14d3b538733bce508f013613540f56fd589",
+    "optimized-release-manifest": "3c522f1f1af71bf7ac6c597334ff92e22180e311537ca31df4d9a3c20e156ac7",
+    "optimized-guarded-manifest": "3c522f1f1af71bf7ac6c597334ff92e22180e311537ca31df4d9a3c20e156ac7",
+    "raw-guarded-manifest": "3c522f1f1af71bf7ac6c597334ff92e22180e311537ca31df4d9a3c20e156ac7",
+    "optimized-release.reference-manifest": "3c522f1f1af71bf7ac6c597334ff92e22180e311537ca31df4d9a3c20e156ac7",
+    "optimized-guarded.reference-manifest": "3c522f1f1af71bf7ac6c597334ff92e22180e311537ca31df4d9a3c20e156ac7",
+    "raw-guarded.reference-manifest": "3c522f1f1af71bf7ac6c597334ff92e22180e311537ca31df4d9a3c20e156ac7"
+  },
+  "host": {
+    "schema": 1,
+    "methodology": "Separate optimized-dev CLI process per build; one warm-up of all inputs per compiler, then alternating compiler/build order. Wall time includes process launch, parsing, compilation and JSON output. wait4 reports per-child CPU and peak RSS; outputs must match the pinned image hash for that compiler on every run. No concurrent build or native qualification is intentionally run during measurement.",
+    "platform": "macOS-15.7.9-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "cpu_count": 8,
+    "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]",
+    "rounds": 3,
+    "builds": 3,
+    "binaries": {
+      "before": {
+        "path": "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/target/debug/actionc-65816",
+        "sha256": "3217011b3fbc2d8e3d7a4d5142cdbb36c400f8c1bbf77cb37322e39f081e4294"
+      },
+      "after": {
+        "path": "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/actionc-65816",
+        "sha256": "f0132aa1fb5ec371d1e583da3c7a2a0bb989dd4e015e230001c9d5cb70624ae8"
+      }
+    },
+    "manifest": {
+      "path": "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage7/host-manifest.json",
+      "sha256": "a99e3472001f66494616b62182f34786e8f788e1738e676dd7c2e1d421efa0a0"
+    },
+    "script_sha256": "d2b6ba68baf01010b0b25fec79a1815d48f7afcf2875759ce2982dc86156d60f",
+    "summary": {
+      "before": {
+        "median_corpus_wall_seconds": 137.27014333289117,
+        "median_compile_peak_rss_bytes": 1020608512,
+        "maximum_compile_peak_rss_bytes": 1152483328
+      },
+      "after": {
+        "median_corpus_wall_seconds": 142.08616629289463,
+        "median_compile_peak_rss_bytes": 1034895360,
+        "maximum_compile_peak_rss_bytes": 1272741888
+      }
+    },
+    "per_build": [
+      {
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "before": {
+          "wall_seconds": 54.00895799999125,
+          "user_seconds": 52.566179,
+          "system_seconds": 0.830363,
+          "peak_rss_bytes": 1020608512
+        },
+        "after": {
+          "wall_seconds": 56.65378395887092,
+          "user_seconds": 55.136857,
+          "system_seconds": 1.036689,
+          "peak_rss_bytes": 1068171264
+        },
+        "wall_ratio": 1.0489701348965128,
+        "rss_ratio": 1.0466023469731751
+      },
+      {
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "before": {
+          "wall_seconds": 39.39892349997535,
+          "user_seconds": 38.034081,
+          "system_seconds": 0.696869,
+          "peak_rss_bytes": 1050656768
+        },
+        "after": {
+          "wall_seconds": 40.32381350011565,
+          "user_seconds": 39.501072,
+          "system_seconds": 0.6304069999999999,
+          "peak_rss_bytes": 985432064
+        },
+        "wall_ratio": 1.0234750068778116,
+        "rss_ratio": 0.9379200648712711
+      },
+      {
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "before": {
+          "wall_seconds": 43.86226183292456,
+          "user_seconds": 42.92682,
+          "system_seconds": 0.644695,
+          "peak_rss_bytes": 966705152
+        },
+        "after": {
+          "wall_seconds": 45.108568833908066,
+          "user_seconds": 44.099706,
+          "system_seconds": 0.710417,
+          "peak_rss_bytes": 1034895360
+        },
+        "wall_ratio": 1.0284141070000177,
+        "rss_ratio": 1.0705387861634155
+      }
+    ],
+    "samples": [
+      {
+        "round": 0,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "before",
+        "image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+        "wall_seconds": 51.986947499914095,
+        "user_seconds": 51.30962,
+        "system_seconds": 0.615889,
+        "peak_rss_bytes": 1152483328
+      },
+      {
+        "round": 0,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "after",
+        "image_sha256": "c0e83e8fc02d61b5167f12d9adc5a534e1c08c9a1af5b2ccf63f1e2c7bca47be",
+        "wall_seconds": 53.87169587495737,
+        "user_seconds": 53.12713,
+        "system_seconds": 0.681738,
+        "peak_rss_bytes": 1124155392
+      },
+      {
+        "round": 0,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "before",
+        "image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+        "wall_seconds": 37.99420195794664,
+        "user_seconds": 37.462246,
+        "system_seconds": 0.477359,
+        "peak_rss_bytes": 1050656768
+      },
+      {
+        "round": 0,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "after",
+        "image_sha256": "034d03cdf9d31ceb3df5c024024e76ca7dc8e5e7f441371aff7bd4e0f2c342b1",
+        "wall_seconds": 39.64228729205206,
+        "user_seconds": 39.095562,
+        "system_seconds": 0.49633299999999997,
+        "peak_rss_bytes": 985432064
+      },
+      {
+        "round": 0,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "before",
+        "image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+        "wall_seconds": 43.02091283304617,
+        "user_seconds": 42.3872,
+        "system_seconds": 0.522806,
+        "peak_rss_bytes": 966705152
+      },
+      {
+        "round": 0,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "after",
+        "image_sha256": "f37fdac1b8f1080425e6cb613455746a714fa59ac5f2373691e8d9cd0fcc0d02",
+        "wall_seconds": 44.037157209124416,
+        "user_seconds": 43.433742,
+        "system_seconds": 0.53064,
+        "peak_rss_bytes": 995737600
+      },
+      {
+        "round": 1,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "after",
+        "image_sha256": "f37fdac1b8f1080425e6cb613455746a714fa59ac5f2373691e8d9cd0fcc0d02",
+        "wall_seconds": 45.108568833908066,
+        "user_seconds": 44.099706,
+        "system_seconds": 0.710417,
+        "peak_rss_bytes": 1034895360
+      },
+      {
+        "round": 1,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "before",
+        "image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+        "wall_seconds": 43.86226183292456,
+        "user_seconds": 42.92682,
+        "system_seconds": 0.644695,
+        "peak_rss_bytes": 1031176192
+      },
+      {
+        "round": 1,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "after",
+        "image_sha256": "034d03cdf9d31ceb3df5c024024e76ca7dc8e5e7f441371aff7bd4e0f2c342b1",
+        "wall_seconds": 40.32381350011565,
+        "user_seconds": 39.501072,
+        "system_seconds": 0.6304069999999999,
+        "peak_rss_bytes": 1272741888
+      },
+      {
+        "round": 1,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "before",
+        "image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+        "wall_seconds": 39.39892349997535,
+        "user_seconds": 38.034081,
+        "system_seconds": 0.696869,
+        "peak_rss_bytes": 1118191616
+      },
+      {
+        "round": 1,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "after",
+        "image_sha256": "c0e83e8fc02d61b5167f12d9adc5a534e1c08c9a1af5b2ccf63f1e2c7bca47be",
+        "wall_seconds": 56.65378395887092,
+        "user_seconds": 55.136857,
+        "system_seconds": 1.036689,
+        "peak_rss_bytes": 896876544
+      },
+      {
+        "round": 1,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "before",
+        "image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+        "wall_seconds": 54.00895799999125,
+        "user_seconds": 52.566179,
+        "system_seconds": 0.8320339999999999,
+        "peak_rss_bytes": 989396992
+      },
+      {
+        "round": 2,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "before",
+        "image_sha256": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+        "wall_seconds": 54.05537354107946,
+        "user_seconds": 52.7446,
+        "system_seconds": 0.830363,
+        "peak_rss_bytes": 1020608512
+      },
+      {
+        "round": 2,
+        "case": "optimized-release",
+        "mode": "optimized-release",
+        "compiler": "after",
+        "image_sha256": "c0e83e8fc02d61b5167f12d9adc5a534e1c08c9a1af5b2ccf63f1e2c7bca47be",
+        "wall_seconds": 57.89085824997164,
+        "user_seconds": 55.184242,
+        "system_seconds": 1.114468,
+        "peak_rss_bytes": 1068171264
+      },
+      {
+        "round": 2,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "before",
+        "image_sha256": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+        "wall_seconds": 40.1265867089387,
+        "user_seconds": 38.775236,
+        "system_seconds": 0.723209,
+        "peak_rss_bytes": 997933056
+      },
+      {
+        "round": 2,
+        "case": "optimized-guarded",
+        "mode": "optimized-guarded",
+        "compiler": "after",
+        "image_sha256": "034d03cdf9d31ceb3df5c024024e76ca7dc8e5e7f441371aff7bd4e0f2c342b1",
+        "wall_seconds": 41.46751454193145,
+        "user_seconds": 40.207182,
+        "system_seconds": 0.773284,
+        "peak_rss_bytes": 956284928
+      },
+      {
+        "round": 2,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "before",
+        "image_sha256": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+        "wall_seconds": 46.18524762499146,
+        "user_seconds": 43.565155,
+        "system_seconds": 0.935782,
+        "peak_rss_bytes": 932904960
+      },
+      {
+        "round": 2,
+        "case": "raw-guarded",
+        "mode": "raw-guarded",
+        "compiler": "after",
+        "image_sha256": "f37fdac1b8f1080425e6cb613455746a714fa59ac5f2373691e8d9cd0fcc0d02",
+        "wall_seconds": 46.10146462498233,
+        "user_seconds": 44.754566,
+        "system_seconds": 0.737062,
+        "peak_rss_bytes": 1196163072
+      }
+    ],
+    "build_profile": {
+      "opt_level": 3,
+      "debug": 0,
+      "incremental": false
+    },
+    "cost_review": {
+      "scope": "Per-profile medians against stage 0; individual samples are retained and may exceed these review limits",
+      "wall_ratio_max": 1.05,
+      "peak_rss_ratio_max": 1.1,
+      "passed": true
+    }
+  },
+  "compiler_inputs_sha256": "45cbdfe20c93294da4e0fd8ee38fcb51dd167377b040d9317ef5df62b0564825"
+}

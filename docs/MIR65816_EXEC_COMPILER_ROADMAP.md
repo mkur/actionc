@@ -50,6 +50,14 @@ building Exec816 from reusable routines and services. Begin within the current
 public ABI. Any future ABI evolution requires a separate design decision,
 migration plan and application qualification.
 
+The [integrated record/placement qualification](benchmarks/65816-record-placement-stage7/README.md)
+supports that next direction with measured application benefits and preserved
+native resource contracts. The joint plan's final size/traffic targets and the
+unchecked hosted provider gate remain obligations. Carry those targets into the
+next assessment rather than treating the placement foundation as complete release
+readiness. Keep hosted fixture ownership and release packaging work explicit
+alongside compiler development.
+
 Application footprint and execution performance should receive continuous
 measurement from the start. Increase investment in these directions as the
 routine-level work matures and measurements identify the remaining application

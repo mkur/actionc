@@ -18,6 +18,15 @@ private stack ranges and contents generations. Overlap, indirect/DP writes,
 calls and joins invalidate relations conservatively. A byte constant cannot
 establish the hidden high accumulator lane. There is no source-memory cache.
 
+The [common placement contract](MIR65816_PLACEMENT_CONTRACT.md) separately proves
+complete captured-value locations and simultaneous transfers at routine CFG
+boundaries. Those logical obligations do not preserve physical register/flag
+knowledge at a join, prove pointee-memory equivalence, or make scratch survive a
+call. Selected instructions remain authoritative for actual effects, and fresh
+replay reconstructs residence reloads, indexed address work and aggregate
+transfer protocols. Removing a planner requires moving its full producer,
+consumer and boundary coverage into this checked model first.
+
 Checked execution widths remain separate from permission to omit REP/SEP.
 Internal labels retain width permission from an actual incoming execution
 contract, including native indirect-call continuations. Every incoming edge,

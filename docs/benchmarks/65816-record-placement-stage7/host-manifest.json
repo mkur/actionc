@@ -1,0 +1,149 @@
+{
+  "artifacts": [
+    {
+      "compiler": "actionc",
+      "case": "optimized-release",
+      "mode": "optimized-release",
+      "commands": [
+        [
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/target/debug/actionc-65816",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-release/task-kernel",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-release",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-release",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/runtime/65816",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io",
+          "--layout",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-release/layout.json",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/host-timing/image.json",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-release/kernel-program.act"
+        ]
+      ],
+      "hashes": {
+        "image.json": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f"
+      },
+      "compiler_image_hashes": {
+        "before": "07bffac0bd0ceec1db247d275aa73e730777cce0da81ea387758571d52bdd90f",
+        "after": "c0e83e8fc02d61b5167f12d9adc5a534e1c08c9a1af5b2ccf63f1e2c7bca47be"
+      }
+    },
+    {
+      "compiler": "actionc",
+      "case": "optimized-guarded",
+      "mode": "optimized-guarded",
+      "commands": [
+        [
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/target/debug/actionc-65816",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-guarded/task-kernel",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-guarded",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-guarded",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/runtime/65816",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io",
+          "--layout",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-guarded/layout.json",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/host-timing/image.json",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-guarded/kernel-program.act"
+        ]
+      ],
+      "hashes": {
+        "image.json": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef"
+      },
+      "compiler_image_hashes": {
+        "before": "d6dfc3cfaf8a8118290cbfc109237eb45aae83cbfced29834189d0f975908cef",
+        "after": "034d03cdf9d31ceb3df5c024024e76ca7dc8e5e7f441371aff7bd4e0f2c342b1"
+      }
+    },
+    {
+      "compiler": "actionc",
+      "case": "raw-guarded",
+      "mode": "raw-guarded",
+      "commands": [
+        [
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/target/debug/actionc-65816",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/raw-guarded/task-kernel",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/raw-guarded",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/raw-guarded",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/compiler/runtime/65816",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados",
+          "--module-path",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io",
+          "--layout",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/raw-guarded/layout.json",
+          "-o",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/host-timing/image.json",
+          "--no-opt",
+          "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/raw-guarded/kernel-program.act"
+        ]
+      ],
+      "hashes": {
+        "image.json": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3"
+      },
+      "compiler_image_hashes": {
+        "before": "521d7989d17521229021243a5677727cf55da381ba08d137328d04a12cc646f3",
+        "after": "f37fdac1b8f1080425e6cb613455746a714fa59ac5f2373691e8d9cd0fcc0d02"
+      }
+    }
+  ]
+}

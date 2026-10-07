@@ -5,8 +5,10 @@ are qualified. Mixed consumers meet the first-tranche gates on the frozen
 workload; branch, loop and invocation-backed call placement add measured
 benefits. Indexed and aggregate operations share the checked resource and value
 plan. Native execution preserves external accesses and resource limits,
-and paired compiler costs meet the incremental gates. Unchecked hosted release
-and standalone fixture qualification gaps remain open. Stage 7 has not started.
+and paired compiler costs meet the incremental gates. Stage 7 adds artifact-bound
+integrated qualification and final acceptance reporting. The frozen numerical
+size/traffic targets and unchecked hosted release gate remain open; completing
+the qualification tooling does not declare those targets achieved.
 
 The [stage-0 scorecard](benchmarks/65816-record-placement-stage0/README.md)
 contains frozen inputs, measurements, numerical gates and recorded failures.
@@ -403,6 +405,22 @@ Exit gate: net code-quality benefits across the agreed subsystems, no unexplaine
 correctness or resource regressions, and artifact-bound qualification. Backend
 VM evidence, hosted Exec816 evidence and hardware evidence retain their
 respective scopes.
+
+Stage 7 uses a measured, hashed CLI for both the frozen complete package and
+standalone hosted fixtures. The versioned frame-map consumer checks the current
+native-v2 home geometry and stack accounting; interference and call-preservation
+proofs remain compiler-owned. The frozen Exec sources and historical validator
+are preserved. A measured compiler pin binds the OF816 package to the candidate
+without changing its ABI, boot storage or upstream inputs.
+
+The [stage-7 scorecard](benchmarks/65816-record-placement-stage7/README.md)
+reports final gates against stage 0, passing backend execution, actual guarded
+packages, hosted results and explicit dispositions for fixture failures. An
+unsupported unchecked provider combination is reported as an open release gate.
+No guarded result substitutes for unchecked qualification. Independent selector
+oracles remain in place; no planner ownership is removed without equivalent
+common-plan coverage. Calls/runtime interfaces are the next structural direction,
+while final size/traffic and provider-contract work remain tracked obligations.
 
 ## Validation strategy
 

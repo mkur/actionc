@@ -85,6 +85,9 @@ crowding the active reference set.
 - [Record/value placement stage-6 scorecard](benchmarks/65816-record-placement-stage6/README.md)
   - Integrated indexed and aggregate resource windows, incremental Exec benefits,
     exact native transfer protocols and compiler-cost evidence.
+- [Record/value placement stage-7 scorecard](benchmarks/65816-record-placement-stage7/README.md)
+  - Integrated backend and hosted artifact qualification, frozen final gates,
+    fixture dispositions and remaining development priorities.
 - [MIR65816_STATE_TRACKER_DESIGN.md](MIR65816_STATE_TRACKER_DESIGN.md)
   - Instruction-aware native state tracking based on the 6502 emitter:
     register/flag/width facts, memory ownership, barriers and staged integration.

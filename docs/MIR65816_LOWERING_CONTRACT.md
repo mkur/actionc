@@ -51,8 +51,17 @@ Routines retain their signature identity, entry/placement facts and typed
 temporary table. Blocks retain parameter definitions; edges retain argument
 values as well as target block IDs. The MIR verifier checks definitions against
 the temporary table, unique identities and edge arity/width agreement. Emission
-performs parallel edge copies using invocation storage. Lowering must not drop
-edge values introduced by native loop promotion or infer an entry from its name.
+performs simultaneous edge transfers through the verified placement plan, using
+complete invocation or compiler-owned DP homes as admitted by that plan.
+Lowering must not drop edge values introduced by native loop promotion or infer
+an entry from its name.
+
+The [placement contract](MIR65816_PLACEMENT_CONTRACT.md) consumes exact widths,
+byte displacements, strides, aggregate extents and conservative effects from
+this typed graph. Captured pointer identity does not establish pointee extent,
+disjointness or unchanged field contents. Calls, absolute/volatile accesses and
+machine operations retain their ordering and ownership obligations. Selection
+cannot recover a missing proof from a record name or source syntax.
 
 Native emission additionally constructs the immutable
 [logical routine analysis](MIR65816_LOGICAL_ANALYSIS.md) after arithmetic
