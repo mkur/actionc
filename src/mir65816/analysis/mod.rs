@@ -177,7 +177,7 @@ impl<'a> RoutineAnalysis<'a> {
             return Err("opaque routines have no logical body to analyze".into());
         }
         let generation = NEXT_GENERATION
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_add(1))
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_add(1))
             .map_err(|_| "logical analysis generation exhausted")?;
         let handle = |key| Handle {
             generation,

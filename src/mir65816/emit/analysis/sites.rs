@@ -33,7 +33,7 @@ impl Identity {
     pub fn fresh(routine: RoutineId) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(1);
         let owner = NEXT
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_add(1))
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_add(1))
             .expect("selected snapshot owner overflow");
         Self {
             owner,
