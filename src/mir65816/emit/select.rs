@@ -163,7 +163,7 @@ enum Memory {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum CallResultUse {
     Capture,
-    Return,
+    Native,
 }
 
 /// A complete preflight, shared by materialized and branch-only comparisons.
@@ -578,7 +578,7 @@ pub(super) fn routine_with_data(
                     else {
                         unreachable!()
                     };
-                    b.call_with_result(target, args, *result, plan, CallResultUse::Return)
+                    b.call_with_result(target, args, *result, plan, CallResultUse::Native)
                         .map_err(|e| format!("b{}: {e}", block.id.0))?;
                     true
                 } else {
@@ -2573,10 +2573,10 @@ impl Builder<'_> {
         } else {
             None
         };
-        if result_use == CallResultUse::Return && declaration.is_none() {
+        if result_use == CallResultUse::Native && declaration.is_none() {
             return Err("forwarded call return requires a native result".into());
         }
-        if result_use == CallResultUse::Return && capture.is_none() && !self.code.has_source() {
+        if result_use == CallResultUse::Native && capture.is_none() && !self.code.has_source() {
             return Err("native output requires a checked source owner".into());
         }
         let direct = match target {
@@ -2679,7 +2679,7 @@ impl Builder<'_> {
         // capture. Discarded results retain their declared callee ABI effects.
         self.release(outgoing, declaration.is_some());
         assert_eq!(self.code.delta(), 0);
-        if result_use == CallResultUse::Return && capture.is_none() {
+        if result_use == CallResultUse::Native && capture.is_none() {
             let d = declaration.ok_or("missing native output declaration")?;
             if !self.code.publish_native(d.temp, d.lanes) {
                 return Err("native output cleanup lost its declared lanes".into());

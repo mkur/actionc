@@ -43,6 +43,8 @@ pub(super) struct Plan {
     pub(super) locals: select::local_loads::Plan,
     producers: BTreeMap<(BlockId, usize), TempId>,
     consumers: BTreeMap<(BlockId, usize), TempId>,
+    pub(super) native_producers: BTreeMap<(BlockId, usize), TempId>,
+    pub(super) native_consumers: BTreeMap<(BlockId, usize), TempId>,
 }
 
 fn unsigned(r: &Mir65816Routine, id: TempId, bytes: u32) -> bool {
@@ -150,6 +152,8 @@ impl Plan {
             locals: select::local_loads::Plan::default(),
             producers: BTreeMap::new(),
             consumers: BTreeMap::new(),
+            native_producers: BTreeMap::new(),
+            native_consumers: BTreeMap::new(),
         };
         // Closed scalar-DP/X and pointer profiles keep ownership of their complete
         // home classes and loop-carried values. Do not mix allocators here.
@@ -438,6 +442,14 @@ impl Plan {
         }
     }
 
+    pub fn native_producer(&self, block: BlockId, index: usize) -> Option<(TempId, Accumulator)> {
+        let id = *self.native_producers.get(&(block, index))?;
+        Some((id, self.native_output(id)?))
+    }
+    pub fn native_consumer(&self, block: BlockId, index: usize) -> Option<(TempId, Accumulator)> {
+        let id = *self.native_consumers.get(&(block, index))?;
+        Some((id, self.native_output(id)?))
+    }
     pub fn accumulator(&self, id: TempId) -> Option<Accumulator> {
         match self.decisions.get(&id) {
             Some(Decision::Accumulator(a)) => Some(*a),
@@ -463,7 +475,10 @@ impl Plan {
         block: &Mir65816Block,
         index: usize,
     ) -> bool {
-        if index + 1 != block.ops.len() || self.consumer(block.id, index).is_none() {
+        if index + 1 != block.ops.len()
+            || (self.consumer(block.id, index).is_none()
+                && self.native_producer(block.id, index).is_none())
+        {
             return false;
         }
         matches!((&block.ops[index], &block.terminator),

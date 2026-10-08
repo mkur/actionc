@@ -9,6 +9,59 @@ impl home_demand::Plan {
         index: usize,
         op: &Mir65816Op,
     ) -> Result<bool, String> {
+        if let Some((temp, _)) = self.native_producer(block, index) {
+            let Mir65816Op::Call {
+                target,
+                args,
+                result,
+                plan,
+                ..
+            } = op
+            else {
+                return Err("missing native output producer".into());
+            };
+            if b.frame.temps.contains_key(&temp) {
+                return Err("native output unexpectedly has a home".into());
+            }
+            let accumulator = self
+                .consumer(block, index)
+                .map(|_| match args.as_slice() {
+                    [Mir65816Value::Temp(id, _)] => Ok(*id),
+                    _ => Err("invalid native call accumulator input".to_string()),
+                })
+                .transpose()?;
+            b.call_with_accumulator(
+                target,
+                args,
+                *result,
+                plan,
+                CallResultUse::Native,
+                accumulator,
+            )?;
+            return Ok(true);
+        }
+        if let Some((temp, range)) = self.native_consumer(block, index) {
+            let Some(Mir65816AbiHome::NativeResult(lanes)) =
+                home_demand::result_home(range.bytes.into())
+            else {
+                unreachable!()
+            };
+            if !b.code.consume_native(temp, lanes) {
+                return Err("native consumer lost its output ownership".into());
+            }
+            if call_flow::zero_test(temp, range.bytes, op) {
+                if range.bytes == 1 {
+                    b.code.a8();
+                    b.code.byte(ByteOp::CmpImm, 0);
+                } else {
+                    b.code.a16();
+                    b.code.word(WordOp::CmpImm, 0);
+                }
+                // Prepared conditions consume only these fresh flags.
+                return Ok(false);
+            }
+            return Err("unsupported native output consumer".into());
+        }
         if self.locals.emit(b, block, index, op)? {
             return Ok(true);
         }
@@ -170,7 +223,7 @@ impl home_demand::Plan {
                 .find(|candidate| candidate.id == block)
                 .ok_or("missing call block")?;
             let result_use = if self.call_returns(b.routine, source, index) {
-                CallResultUse::Return
+                CallResultUse::Native
             } else {
                 CallResultUse::Capture
             };
@@ -241,7 +294,12 @@ impl home_demand::Plan {
     ) -> Result<BTreeMap<usize, Condition>, String> {
         let mut conditions = BTreeMap::new();
         for (index, op) in block.ops.iter().enumerate() {
-            let Some(input) = self.consumer(block.id, index) else {
+            let native = self.native_consumer(block.id, index).is_some();
+            let Some(input) = self
+                .native_consumer(block.id, index)
+                .map(|(_, r)| r)
+                .or_else(|| self.consumer(block.id, index))
+            else {
                 continue;
             };
             let Mir65816Op::Compare {
@@ -271,9 +329,12 @@ impl home_demand::Plan {
                 Condition::Byte(ByteCondition {
                     left: ByteOperand::Immediate(0),
                     left_in_a: true,
-                    right: b
-                        .byte_operand(right)?
-                        .ok_or("invalid byte comparison operand")?,
+                    right: if native {
+                        ByteOperand::Immediate(0)
+                    } else {
+                        b.byte_operand(right)?
+                            .ok_or("invalid byte comparison operand")?
+                    },
                     destination,
                     predicate,
                 })
@@ -283,9 +344,12 @@ impl home_demand::Plan {
                     left: WordOperand::Immediate(0),
                     left_temp: None,
                     left_in_a: true,
-                    right: b
-                        .word_operand(right)?
-                        .ok_or("invalid word comparison operand")?,
+                    right: if native {
+                        WordOperand::Immediate(0)
+                    } else {
+                        b.word_operand(right)?
+                            .ok_or("invalid word comparison operand")?
+                    },
                     destination,
                     predicate,
                 })

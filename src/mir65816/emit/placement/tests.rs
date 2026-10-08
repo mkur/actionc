@@ -1,6 +1,10 @@
 use super::*;
 
 fn program(source: &str) -> Mir65816Program {
+    program_with_optimization(source, false)
+}
+
+fn program_with_optimization(source: &str, optimize: bool) -> Mir65816Program {
     let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
     let model = crate::semantic::analyze_with_options(
         &ast,
@@ -9,6 +13,11 @@ fn program(source: &str) -> Mir65816Program {
     )
     .unwrap();
     let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+    let nir = if optimize {
+        crate::nir::optimize_program(&nir).unwrap()
+    } else {
+        nir
+    };
     crate::mir65816::lower_program(&nir).unwrap()
 }
 
@@ -744,4 +753,84 @@ fn native_result_routes_are_recomputed_from_the_complete_logical_census() {
         .abi
         .outgoing_bytes = ByteSize::ZERO;
     assert!(plan.verify().unwrap_err().contains("recomputed"));
+}
+
+#[test]
+fn native_zero_consumers_own_lanes_and_refuse_hidden_or_different_uses() {
+    for ty in ["BYTE", "CARD", "INT"] {
+        let p = program_with_optimization(
+            &format!(
+                "{ty} FUNC Echo({ty} x) RETURN(x) BYTE FUNC Work({ty} value) RETURN(Echo(value)=0) PROC Main() RETURN"
+            ),
+            true,
+        );
+        let original = &p.routines[1];
+        let call_index = original.blocks[0]
+            .ops
+            .iter()
+            .position(|op| matches!(op, Mir65816Op::Call { .. }))
+            .unwrap();
+        let Mir65816Op::Call {
+            result: Some((temp, bytes)),
+            ..
+        } = original.blocks[0].ops[call_index]
+        else {
+            panic!()
+        };
+        for refusal in 0..4 {
+            let mut r = original.clone();
+            let b = &mut r.blocks[0];
+            if refusal == 3 {
+                let ty = r
+                    .temps
+                    .iter()
+                    .find(|(id, _)| *id == temp)
+                    .unwrap()
+                    .1
+                    .clone();
+                r.temps.push((TempId(999), ty));
+                b.ops.push(Mir65816Op::Cast {
+                    dest: TempId(999),
+                    kind: NirCastKind::Integer,
+                    from: bytes,
+                    to: bytes,
+                    from_signed: false,
+                    value: Mir65816Value::Temp(temp, bytes),
+                });
+            } else if let Mir65816Op::Compare {
+                operation, right, ..
+            } = &mut b.ops[call_index + 1]
+            {
+                if refusal == 1 {
+                    *operation = NirCompareOp::Lt;
+                }
+                if refusal == 2 {
+                    *right = if bytes.get() == 1 {
+                        Mir65816Value::U8(1)
+                    } else {
+                        Mir65816Value::U16(1)
+                    };
+                }
+            } else {
+                panic!("{ty}: {:?}", b.ops)
+            }
+            let plan = Plan::new(&r, &p.data).unwrap();
+            assert_eq!(
+                plan.demand.native_output(temp).is_some(),
+                refusal == 0,
+                "{ty}/{refusal}"
+            );
+            assert_eq!(plan.frame.temps.contains_key(&temp), refusal != 0);
+            let m = super::super::select::routine(&r, false).unwrap();
+            if refusal == 0 {
+                let span = &m.code.mir_spans[&(r.blocks[0].id, call_index + 1)];
+                assert!(
+                    m.code.bytes[span.clone()]
+                        .windows(2)
+                        .any(|bytes| bytes == [0xc9, 0]),
+                    "fresh comparison missing"
+                );
+            }
+        }
+    }
 }

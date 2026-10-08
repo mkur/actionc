@@ -33,10 +33,13 @@ pub(super) enum Route {
     Discard,
     Capture,
     Return(ProgramPoint),
+    ZeroTest(ProgramPoint),
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Call {
     pub target: Mir65816CallTarget,
+    pub signature: Option<SignatureId>,
+    pub convention: Mir65816CallConvention,
     pub abi: Mir65816CallPlan,
     pub result: Option<Declaration>,
     pub route: Route,
@@ -106,12 +109,18 @@ pub(super) fn returns(
         && plan.result == home_demand::result_home(bytes.get())
 }
 
-pub(super) fn plan(r: &Mir65816Routine, logical: &RoutineAnalysis<'_>) -> Result<Plan, String> {
+pub(super) fn plan(
+    r: &Mir65816Routine,
+    logical: &RoutineAnalysis<'_>,
+    demand: &home_demand::Plan,
+) -> Result<Plan, String> {
     let mut calls = Plan::new();
     for block in &r.blocks {
         for (index, op) in block.ops.iter().enumerate() {
             let Mir65816Op::Call {
                 target,
+                signature,
+                convention,
                 result,
                 plan,
                 ..
@@ -140,6 +149,16 @@ pub(super) fn plan(r: &Mir65816Routine, logical: &RoutineAnalysis<'_>) -> Result
                         block: block.id,
                         index: index + 1,
                     })
+                } else if demand.native_output(d.temp).is_some()
+                    && block
+                        .ops
+                        .get(index + 1)
+                        .is_some_and(|op| zero_test(d.temp, d.bytes, op))
+                {
+                    Route::ZeroTest(ProgramPoint {
+                        block: block.id,
+                        index: index + 1,
+                    })
                 } else {
                     Route::Capture
                 }
@@ -150,6 +169,8 @@ pub(super) fn plan(r: &Mir65816Routine, logical: &RoutineAnalysis<'_>) -> Result
                 point,
                 Call {
                     target: target.clone(),
+                    signature: *signature,
+                    convention: *convention,
                     abi: plan.clone(),
                     result: declaration,
                     route,
@@ -160,6 +181,25 @@ pub(super) fn plan(r: &Mir65816Routine, logical: &RoutineAnalysis<'_>) -> Result
     Ok(calls)
 }
 
+pub(super) fn zero_test(temp: TempId, bytes: u8, op: &Mir65816Op) -> bool {
+    let Mir65816Op::Compare {
+        operation,
+        left,
+        right,
+        width,
+        ..
+    } = op
+    else {
+        return false;
+    };
+    let input = |v: &Mir65816Value| matches!(v, Mir65816Value::Temp(id,w) if *id==temp && w.get()==u32::from(bytes));
+    let zero = |v: &Mir65816Value| matches!(v, Mir65816Value::U8(0) | Mir65816Value::U16(0));
+    matches!(bytes, 1 | 2)
+        && width.get() == u32::from(bytes)
+        && matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne)
+        && (input(left) && zero(right) || zero(left) && input(right))
+}
+
 /// A home can disappear only after the entire replacement allocation fits.
 /// Removing interference nodes can change coloring, so compare actual extents.
 pub(super) fn admit_returns(
@@ -168,32 +208,64 @@ pub(super) fn admit_returns(
     counts: &BTreeMap<TempId, usize>,
     definitions: &BTreeMap<TempId, usize>,
 ) {
-    let candidates: Vec<_> = r
-        .blocks
-        .iter()
-        .filter_map(|b| {
-            let index = b.ops.len().checked_sub(1)?;
-            let op = &b.ops[index];
-            let Mir65816Op::Call {
-                result: Some((temp, bytes)),
-                ..
-            } = op
-            else {
-                return None;
-            };
-            (definitions.get(temp) == Some(&1)
-                && returns(r, op, &b.terminator, counts.get(temp).copied().unwrap_or(0)))
-            .then_some((
-                *temp,
-                home_demand::Accumulator {
-                    block: b.id,
-                    producer: index,
-                    consumer: index + 1,
-                    bytes: bytes.get() as u8,
-                },
-            ))
-        })
-        .collect();
+    // Preserve already qualified Return demand when adding a new family.
+    // Each family compares its full allocation against the preceding plan.
+    for phase in 0..2 {
+        let candidates: Vec<_> = r
+            .blocks
+            .iter()
+            .flat_map(|b| {
+                b.ops.iter().enumerate().filter_map(move |(index, op)| {
+                    let Mir65816Op::Call {
+                        target,
+                        result: Some((temp, bytes)),
+                        plan,
+                        ..
+                    } = op
+                    else {
+                        return None;
+                    };
+                    if definitions.get(temp) != Some(&1)
+                        || counts.get(temp) != Some(&1)
+                        || !matches!(
+                            target,
+                            Mir65816CallTarget::Direct(_)
+                                | Mir65816CallTarget::Helper(_)
+                                | Mir65816CallTarget::Runtime(_)
+                        )
+                        || Declaration::checked(Some((*temp, *bytes)), plan).is_err()
+                    {
+                        return None;
+                    }
+                    let consumer = index + 1;
+                    let admissible = if phase == 0 && consumer == b.ops.len() {
+                        returns(r, op, &b.terminator, 1)
+                    } else if phase == 1 && consumer < b.ops.len() {
+                        zero_test(*temp, bytes.get() as u8, &b.ops[consumer])
+                    } else {
+                        false
+                    };
+                    admissible.then_some((
+                        *temp,
+                        home_demand::Accumulator {
+                            block: b.id,
+                            producer: index,
+                            consumer,
+                            bytes: bytes.get() as u8,
+                        },
+                    ))
+                })
+            })
+            .collect();
+        trial_outputs(r, demand, candidates);
+    }
+}
+
+fn trial_outputs(
+    r: &Mir65816Routine,
+    demand: &mut home_demand::Plan,
+    candidates: Vec<(TempId, home_demand::Accumulator)>,
+) {
     if candidates.is_empty() {
         return;
     }
@@ -216,7 +288,16 @@ pub(super) fn admit_returns(
             && after.spill_bytes <= before.spill_bytes
             && after.peak_below_entry <= before.peak_below_entry
     });
-    if !accepted {
+    if accepted {
+        for (temp, interval) in candidates {
+            demand
+                .native_producers
+                .insert((interval.block, interval.producer), temp);
+            demand
+                .native_consumers
+                .insert((interval.block, interval.consumer), temp);
+        }
+    } else {
         demand.mixed = old_mixed;
         for (temp, old) in previous {
             if let Some(old) = old {

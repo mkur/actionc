@@ -87,6 +87,34 @@ fn native_result_consumers_and_private_multi_arguments_match_independent_abi() {
                     irq_effect: Default::default(),
                 });
                 let c = p.compile(&options).unwrap();
+                if width == 1 || width == 2 && optimize {
+                    let r = c
+                        .machine
+                        .prepared
+                        .routines
+                        .iter()
+                        .find(|r| !r.entry.external && r.result_home.is_none())
+                        .unwrap();
+                    let m = c.machine.routines.iter().find(|m| m.id == r.id).unwrap();
+                    let mut admitted = 0;
+                    for block in &r.blocks {
+                        for pair in block.ops.windows(2) {
+                            if let [
+                                actionc::mir65816::Mir65816Op::Call {
+                                    result: Some((temp, _)),
+                                    ..
+                                },
+                                actionc::mir65816::Mir65816Op::Compare { .. },
+                            ] = pair
+                            {
+                                assert!(!m.frame.temps.contains_key(temp));
+                                admitted += 1;
+                            }
+                        }
+                    }
+                    assert_eq!(admitted, 2, "byte/word zero-test coverage");
+                }
+
                 // Use the actual frontend/compile path for both host newlines.
                 assert_eq!(
                     c.image.to_json().unwrap(),

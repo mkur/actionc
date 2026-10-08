@@ -41,7 +41,7 @@ impl Builder<'_> {
             args,
             Some((*dest, *bytes)),
             plan,
-            CallResultUse::Return,
+            CallResultUse::Native,
         )?;
         Ok(true)
     }

@@ -157,7 +157,7 @@ impl<'a> Plan<'a> {
         let logical = RoutineAnalysis::new(r)?;
         let demand = home_demand::Plan::new(r);
         let frame = AllocatedFrame::with_demand(r, &demand)?;
-        let calls = call_flow::plan(r, &logical)?;
+        let calls = call_flow::plan(r, &logical, &demand)?;
         let pointers = demand.pointers.resolve(r, &frame)?;
         let scalars = select::scalar_forwarding::Plan::new(r, &frame)?;
         let loop_x = loop_x::LoopXPlan::new(r, &frame)?;
@@ -644,7 +644,7 @@ impl<'a> Plan<'a> {
             routine: r.id,
             frame: frame.clone(),
             values,
-            calls: call_flow::plan(r, logical)?,
+            calls: call_flow::plan(r, logical, demand)?,
             windows,
             window_rows,
             descriptions,
@@ -689,7 +689,11 @@ impl<'a> Plan<'a> {
     pub fn verify(&self) -> Result<(), String> {
         let r = self.routine;
         let demand = home_demand::Plan::new(r);
-        if demand.decisions != self.demand.decisions || demand.mixed != self.demand.mixed {
+        if demand.decisions != self.demand.decisions
+            || demand.mixed != self.demand.mixed
+            || demand.native_producers != self.demand.native_producers
+            || demand.native_consumers != self.demand.native_consumers
+        {
             return Err("placement home demand differs from MIR admission".into());
         }
         if demand.locals != self.demand.locals || demand.pointers != self.demand.pointers {
