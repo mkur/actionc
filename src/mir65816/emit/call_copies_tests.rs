@@ -433,6 +433,10 @@ fn discarded_call_cleanup_omits_preservation_for_every_native_result_width() {
                 target.clone()
             };
             let mut used = builder(r);
+            // This isolated copy test deliberately requests the conservative
+            // capture strategy, independently of whole-routine home omission.
+            used.frame = AllocatedFrame::materialized_fixture(r).unwrap();
+            used.code = TrackedEmitter65816::for_test(&used.frame);
             used.call(&target, args, result, &plan).unwrap();
             let mut discarded = builder(r);
             discarded.call(&target, args, None, &plan).unwrap();

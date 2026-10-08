@@ -334,3 +334,13 @@ and volatile aggregates retain their explicit unsupported diagnostic.
 Aggregate execution qualification crosses 64 KiB bank boundaries. Modular
 24-bit wrap is qualified for scalar and indexed address formation; residence
 does not supply an alias guarantee for wrapping aggregate objects.
+
+Native result Store routes require the sole adjacent use to name a nonvolatile,
+unindexed range of an unexposed mutable automatic local, with matching widths
+at one through four bytes. The full object range and stack access must fit;
+parameter-backed frame aliases and address uses are excluded. Publication and
+consumption permissions bridge actual cleanup to the Store source point. The
+semantic write stays in that Store span and uses the exact final range, including
+the three-byte tail. Its real final object remains allocated and mapped; only
+the intermediate result home disappears. A missing mutable fact keeps capture
+fallback, including current record objects whose field writes do not set it.

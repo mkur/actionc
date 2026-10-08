@@ -60,6 +60,16 @@ impl home_demand::Plan {
                 // Prepared conditions consume only these fresh flags.
                 return Ok(false);
             }
+            if call_flow::private_store(b.routine, temp, range.bytes, op) {
+                let Mir65816Op::Store { address, .. } = op else {
+                    unreachable!()
+                };
+                // This unindexed object address requires no register preparation.
+                // The semantic write belongs to Store, after native ownership ends.
+                let memory = b.prepare_address(address)?;
+                b.capture_call_result(memory, range.bytes)?;
+                return Ok(true);
+            }
             return Err("unsupported native output consumer".into());
         }
         if self.locals.emit(b, block, index, op)? {

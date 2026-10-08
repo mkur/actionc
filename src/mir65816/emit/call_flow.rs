@@ -34,6 +34,7 @@ pub(super) enum Route {
     Capture,
     Return(ProgramPoint),
     ZeroTest(ProgramPoint),
+    Store(ProgramPoint),
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Call {
@@ -159,6 +160,16 @@ pub(super) fn plan(
                         block: block.id,
                         index: index + 1,
                     })
+                } else if demand.native_output(d.temp).is_some()
+                    && block
+                        .ops
+                        .get(index + 1)
+                        .is_some_and(|op| private_store(r, d.temp, d.bytes, op))
+                {
+                    Route::Store(ProgramPoint {
+                        block: block.id,
+                        index: index + 1,
+                    })
                 } else {
                     Route::Capture
                 }
@@ -200,6 +211,49 @@ pub(super) fn zero_test(temp: TempId, bytes: u8, op: &Mir65816Op) -> bool {
         && (input(left) && zero(right) || zero(left) && input(right))
 }
 
+pub(super) fn private_store(r: &Mir65816Routine, temp: TempId, bytes: u8, op: &Mir65816Op) -> bool {
+    let Mir65816Op::Store {
+        address,
+        value,
+        width,
+        volatile: false,
+    } = op
+    else {
+        return false;
+    };
+    if width.get() != u32::from(bytes)
+        || !matches!(value,Mir65816Value::Temp(id,w) if *id==temp && w.get()==u32::from(bytes))
+        || address.index.is_some()
+    {
+        return false;
+    }
+    let Mir65816AddressBase::AutomaticFrame(id) = address.base else {
+        return false;
+    };
+    let Some(object) = r.frame.objects.iter().find(|o| o.id == id) else {
+        return false;
+    };
+    if !object.mutable || object.addressable || !matches!(object.owner,Mir65816FrameObjectOwner::Local(_))
+        || r.frame.parameters.iter().any(|p|p.frame_object==Some(id))
+        || address.displacement.get().checked_add(u32::from(bytes)).is_none_or(|end| end>object.size.get())
+        || object.stack_offset.get()==0
+        || r.blocks.iter().flat_map(|b|&b.ops).any(|op| matches!(op,Mir65816Op::AddressOf {address,..} if address.base==Mir65816AddressBase::AutomaticFrame(id))) {
+        return false;
+    }
+    object
+        .stack_offset
+        .get()
+        .checked_add(address.displacement.get())
+        .is_some_and(|offset| {
+            abi::stack::access_displacement(
+                ByteOffset::new(offset),
+                ByteSize::new(bytes.into()),
+                ByteSize::ZERO,
+            )
+            .is_ok()
+        })
+}
+
 /// A home can disappear only after the entire replacement allocation fits.
 /// Removing interference nodes can change coloring, so compare actual extents.
 pub(super) fn admit_returns(
@@ -210,7 +264,7 @@ pub(super) fn admit_returns(
 ) {
     // Preserve already qualified Return demand when adding a new family.
     // Each family compares its full allocation against the preceding plan.
-    for phase in 0..2 {
+    for phase in 0..3 {
         let candidates: Vec<_> = r
             .blocks
             .iter()
@@ -242,6 +296,8 @@ pub(super) fn admit_returns(
                         returns(r, op, &b.terminator, 1)
                     } else if phase == 1 && consumer < b.ops.len() {
                         zero_test(*temp, bytes.get() as u8, &b.ops[consumer])
+                    } else if phase == 2 && consumer < b.ops.len() {
+                        private_store(r, *temp, bytes.get() as u8, &b.ops[consumer])
                     } else {
                         false
                     };

@@ -313,7 +313,12 @@ The common Call table now owns declaration and route facts independently of
 physical homes. Placement recomputes those facts from immutable MIR and the
 complete logical use census, then seals them with the selected generation.
 Selected transfers must reproduce their target and complete native ABI exactly
-once at the original source point. Sole adjacent native Returns and byte/word literal-zero Eq/Ne comparisons use a checked new output origin, publication
-after actual cleanup and a consumer read permission. Zero comparisons establish fresh flags at their declared width. Complete trial allocation
-can omit their result homes without resource growth. Captured/discarded and
-unsupported consumer forms retain their existing strategies.
+once at the original source point. Sole adjacent native Returns, byte/word
+literal-zero Eq/Ne comparisons and exact-width private local Stores use a checked
+new output origin, publication after actual cleanup and a consumer read permission.
+Zero comparisons establish fresh flags at their declared width. Stores write the
+final object in their own source span, including an exact three-byte tail, and
+retain ordinary later reads. Destinations require a mutable, unexposed local
+object and a complete unindexed range; parameter-backed frames are excluded.
+Complete trial allocation can omit these result homes without resource growth.
+Captured/discarded and unsupported consumer forms retain their existing strategies.

@@ -1,0 +1,41 @@
+{
+  "optimized-release": {
+    "code": 426455,
+    "incremental_saving": 1985,
+    "total_saving": 3636,
+    "incremental_resource_sums": {
+      "size": -1985,
+      "fixed_frame": -58,
+      "spill_bytes": -58,
+      "local_stack_peak": -58
+    },
+    "code_growing_routines": 0,
+    "new_native_outputs": 286
+  },
+  "optimized-guarded": {
+    "code": 575665,
+    "incremental_saving": 2016,
+    "total_saving": 4100,
+    "incremental_resource_sums": {
+      "size": -2016,
+      "fixed_frame": -58,
+      "spill_bytes": -58,
+      "local_stack_peak": -58
+    },
+    "code_growing_routines": 0,
+    "new_native_outputs": 286
+  },
+  "raw-guarded": {
+    "code": 640906,
+    "incremental_saving": 6351,
+    "total_saving": 8057,
+    "incremental_resource_sums": {
+      "size": -6351,
+      "fixed_frame": -178,
+      "spill_bytes": -178,
+      "local_stack_peak": -178
+    },
+    "code_growing_routines": 0,
+    "new_native_outputs": 901
+  }
+}

@@ -1763,3 +1763,11 @@ authority. Placement requires exactly one matched publish and consumer for every
 admitted output interval, with complete logical uses and generation ownership.
 Immediate native Returns may have no result temp home. The callee contract and
 argument preflight remain mandatory independently of that allocation choice.
+
+A qualified native output can feed an adjacent private-local Store at widths
+one through four without an intermediate home. The unindexed frame address
+requires no lane-clobbering preparation. Emission consumes checked output
+permission at Store, then writes A and, when needed, X into the final range.
+The final three-byte piece uses one byte, and the write remains in Store's span
+after rewriting and layout. The object and later storage reads remain ordinary
+source-visible operations.

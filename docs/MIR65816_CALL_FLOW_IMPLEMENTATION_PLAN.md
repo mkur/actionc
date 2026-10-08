@@ -1,11 +1,12 @@
 # MIR65816 argument and result flow implementation plan
 
-Status: **stages 0–3 complete; stages 4–6 pending**.
+Status: **stages 0–4 complete; stages 5–6 pending**.
 
 Qualified baseline: [stage-0 scorecard](benchmarks/65816-call-flow-stage0/README.md).
 Behavior-neutral route foundation: [stage 1](benchmarks/65816-call-flow-stage1/README.md).
 Native output ownership and atomic trial allocation: [stage 2](benchmarks/65816-call-flow-stage2/README.md).
 Zero-test consumers: [stage 3](benchmarks/65816-call-flow-stage3/README.md).
+Final private destinations: [stage 4](benchmarks/65816-call-flow-stage4/README.md).
 Serial compiler-cost acceptance remains in stage 6.
 
 Implement the [call-flow design](MIR65816_CALL_FLOW_DESIGN.md) through the common

@@ -87,6 +87,36 @@ fn native_result_consumers_and_private_multi_arguments_match_independent_abi() {
                     irq_effect: Default::default(),
                 });
                 let c = p.compile(&options).unwrap();
+                let main = c
+                    .machine
+                    .prepared
+                    .routines
+                    .iter()
+                    .find(|r| r.name.to_ascii_uppercase().contains("_MAIN_"))
+                    .unwrap();
+                let machine = c.machine.routines.iter().find(|m| m.id == main.id).unwrap();
+                let mut local_stores = 0;
+                for block in &main.blocks {
+                    for (index, pair) in block.ops.windows(2).enumerate() {
+                        if let [
+                            actionc::mir65816::Mir65816Op::Call {
+                                result: Some((temp, _)),
+                                ..
+                            },
+                            actionc::mir65816::Mir65816Op::Store { address, .. },
+                        ] = pair
+                            && matches!(
+                                address.base,
+                                actionc::mir65816::Mir65816AddressBase::AutomaticFrame(_)
+                            )
+                        {
+                            assert!(!machine.frame.temps.contains_key(temp));
+                            assert!(!machine.code.mir_spans[&(block.id, index + 1)].is_empty());
+                            local_stores += 1;
+                        }
+                    }
+                }
+                assert!(local_stores <= 1, "final private Store coverage");
                 if width == 1 || width == 2 && optimize {
                     let r = c
                         .machine
@@ -177,6 +207,155 @@ fn native_result_consumers_and_private_multi_arguments_match_independent_abi() {
                         );
                     }
                 }
+            }
+        }
+    }
+}
+
+#[test]
+fn private_record_field_results_write_exactly_the_owned_range() {
+    use actionc::mir65816::{Mir65816AddressBase, Mir65816Op};
+    use actionc_vm::native65816::{Access, Inputs};
+    for (ty, width, value_offset, tail_offset, outgoing) in [
+        ("BYTE", 1u8, 1u8, 2u8, 5u8),
+        ("CARD", 2, 2, 4, 7),
+        ("ADDRESS", 3, 2, 6, 9),
+        ("LONGCARD", 4, 2, 6, 9),
+    ] {
+        let source = format!(
+            "MODULE TEST PUBLIC EXTERNAL {ty} FUNC Observe(BYTE tag {ty} value CARD tail) TYPE Packet=[BYTE before {ty} payload BYTE after] {ty} input=$7100,stored=$7200 BYTE before=$7240,after=$7241 PROC Main() Packet local local.before=$5a local.after=$a5 local.payload=Observe(5,input,$9a7b) stored=local.payload before=local.before after=local.after RETURN ENDMODULE"
+        );
+        let leaf = observe(width, value_offset, tail_offset, outgoing);
+        for optimize in [false, true] {
+            let mut p = prepare(&source, optimize);
+            // Record lowering currently leaves the whole object's mutable fact
+            // unset despite its payload Stores. Preserve that source fallback;
+            // this verified typed fixture supplies the stronger ownership fact
+            // to qualify resolved, nonzero-offset Store destinations.
+            let r = p
+                .mir
+                .routines
+                .iter_mut()
+                .find(|r| r.name.to_ascii_uppercase().contains("_MAIN_"))
+                .unwrap();
+            for object in &mut r.frame.objects {
+                object.mutable = true;
+            }
+            actionc::mir65816::verify_program(&p.mir).unwrap();
+            let external = p.mir.routines.iter().find(|r| r.entry.external).unwrap();
+            for guards in [false, true] {
+                let mut options = layout();
+                options.stack_checks = guards;
+                options.imports.push(AssemblyImport {
+                    symbol: external.entry.external_symbol.unwrap().0,
+                    signature: external.signature.0,
+                    abi: abi::generated::ABI_NAME.into(),
+                    address: LEAF,
+                    size: leaf.len() as u32,
+                    stack_peak: 0,
+                    checks_stack: true,
+                    irq_effect: Default::default(),
+                });
+                let c = p.compile(&options).unwrap();
+                let r = c
+                    .machine
+                    .prepared
+                    .routines
+                    .iter()
+                    .find(|r| r.name.to_ascii_uppercase().contains("_MAIN_"))
+                    .unwrap();
+                let m = c.machine.routines.iter().find(|m| m.id == r.id).unwrap();
+                let (block, index, temp, address) = r
+                    .blocks
+                    .iter()
+                    .find_map(|b| {
+                        b.ops.windows(2).enumerate().find_map(|(i, ops)| {
+                            if let [
+                                Mir65816Op::Call {
+                                    result: Some((temp, _)),
+                                    ..
+                                },
+                                Mir65816Op::Store { address, .. },
+                            ] = ops
+                            {
+                                Some((b.id, i + 1, *temp, address))
+                            } else {
+                                None
+                            }
+                        })
+                    })
+                    .unwrap();
+                assert!(
+                    !m.frame.temps.contains_key(&temp),
+                    "{ty}/{optimize}/{guards} {r:#?}"
+                );
+                let Mir65816AddressBase::AutomaticFrame(id) = address.base else {
+                    panic!()
+                };
+                let object = r.frame.objects.iter().find(|o| o.id == id).unwrap();
+                assert!(address.displacement.get() > 0);
+                let span = &m.code.mir_spans[&(block, index)];
+                let entry = context::routine(&c.image, "Main");
+                let caller = caller(c.image.entry);
+                let mut h = Harness::new(&c.image, &caller, 0);
+                h.bus.map(LEAF, &leaf, false);
+                let value = 0x89abcdefu32 & (u32::MAX >> (32 - u32::from(width) * 8));
+                h.bus.ram[0x7100..0x7100 + usize::from(width)]
+                    .copy_from_slice(&value.to_le_bytes()[..usize::from(width)]);
+                assert!(
+                    h.cpu
+                        .run_until(
+                            &mut h.bus,
+                            100_000,
+                            |_| Inputs::default(),
+                            |cpu| cpu.is_instruction_boundary()
+                                && cpu.pc() == entry + span.start as u32
+                        )
+                        .unwrap()
+                );
+                let base = u32::from(h.cpu.registers().s) + object.stack_offset.get();
+                let dest = base + address.displacement.get();
+                h.bus.watched.extend(base..base + object.size.get());
+                h.bus.trace.clear();
+                assert!(
+                    h.cpu
+                        .run_until(
+                            &mut h.bus,
+                            100_000,
+                            |_| Inputs::default(),
+                            |cpu| cpu.is_instruction_boundary()
+                                && cpu.pc() == entry + span.end as u32
+                        )
+                        .unwrap()
+                );
+                let writes: Vec<_> = h
+                    .bus
+                    .trace
+                    .iter()
+                    .filter_map(|(_, a, access)| {
+                        if let Access::Write(v) = access {
+                            Some((*a, *v))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                assert_eq!(
+                    writes,
+                    (0..u32::from(width))
+                        .map(|i| (dest + i, value.to_le_bytes()[i as usize]))
+                        .collect::<Vec<_>>()
+                );
+                assert_eq!(
+                    h.bus.trace.len(),
+                    usize::from(width),
+                    "no neighboring reads or writes"
+                );
+                h.run();
+                h.guards(0);
+                assert_eq!(h.bus.value(0x7200, width.into()), value);
+                assert_eq!(h.bus.value(0x7240, 1), 0x5a);
+                assert_eq!(h.bus.value(0x7241, 1), 0xa5);
             }
         }
     }

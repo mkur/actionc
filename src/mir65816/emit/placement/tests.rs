@@ -834,3 +834,131 @@ fn native_zero_consumers_own_lanes_and_refuse_hidden_or_different_uses() {
         }
     }
 }
+
+#[test]
+fn native_local_destinations_omit_only_the_intermediate_and_keep_store_spans() {
+    for ty in ["BYTE", "CARD", "ADDRESS", "LONGCARD"] {
+        let p = program_with_optimization(
+            &format!(
+                "{ty} FUNC Echo({ty} x) RETURN(x) {ty} FUNC Work({ty} value) {ty} local local=Echo(value) Echo(value) RETURN(local) PROC Main() RETURN"
+            ),
+            true,
+        );
+        let original = p
+            .routines
+            .iter()
+            .find(|r| r.name.ends_with("Work"))
+            .unwrap();
+        let index = original.blocks[0]
+            .ops
+            .iter()
+            .position(|op| matches!(op, Mir65816Op::Call { .. }))
+            .unwrap();
+        let Mir65816Op::Call {
+            result: Some((temp, bytes)),
+            ..
+        } = original.blocks[0].ops[index]
+        else {
+            panic!()
+        };
+        let Mir65816Op::Store { address, .. } = &original.blocks[0].ops[index + 1] else {
+            panic!("{:?}", original.blocks[0].ops)
+        };
+        let Mir65816AddressBase::AutomaticFrame(object) = address.base else {
+            panic!()
+        };
+        for shape in 0..7 {
+            let mut rejected = original.blocks[0].ops[index + 1].clone();
+            let mut routine = original.clone();
+            if let Mir65816Op::Store { address, width, .. } = &mut rejected {
+                match shape {
+                    0 => {
+                        address.index = Some(Mir65816Index {
+                            value: Mir65816Value::U8(0),
+                            stride: ByteSize::new(1),
+                        })
+                    }
+                    1 => address.base = Mir65816AddressBase::Indirect(Mir65816Value::U24(0x7100)),
+                    2 => {
+                        address.base =
+                            Mir65816AddressBase::Static(NirStorageId::Global(SymbolId(0)))
+                    }
+                    3 => address.displacement = ByteOffset::new(255),
+                    4 => *width = ByteSize::new(5),
+                    5 => {
+                        routine
+                            .frame
+                            .objects
+                            .iter_mut()
+                            .find(|o| o.id == object)
+                            .unwrap()
+                            .owner = Mir65816FrameObjectOwner::Param(ParamId(0))
+                    }
+                    6 => {
+                        address.base =
+                            Mir65816AddressBase::AutomaticFrame(Mir65816FrameObjectId(u32::MAX))
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            assert!(!call_flow::private_store(
+                &routine,
+                temp,
+                bytes.get() as u8,
+                &rejected
+            ));
+        }
+        for refusal in 0..4 {
+            let mut r = original.clone();
+            match refusal {
+                1 => {
+                    r.frame
+                        .objects
+                        .iter_mut()
+                        .find(|o| o.id == object)
+                        .unwrap()
+                        .addressable = true
+                }
+                2 => {
+                    r.frame
+                        .objects
+                        .iter_mut()
+                        .find(|o| o.id == object)
+                        .unwrap()
+                        .mutable = false
+                }
+                3 => {
+                    if let Mir65816Op::Store { volatile, .. } = &mut r.blocks[0].ops[index + 1] {
+                        *volatile = true
+                    }
+                }
+                _ => (),
+            }
+            let plan = Plan::new(&r, &p.data).unwrap();
+            assert_eq!(
+                plan.demand.native_output(temp).is_some(),
+                refusal == 0,
+                "{ty}/{refusal}"
+            );
+            assert_eq!(plan.frame.temps.contains_key(&temp), refusal != 0);
+            if refusal == 0 {
+                assert!(matches!(
+                    plan.calls[&ProgramPoint {
+                        block: r.blocks[0].id,
+                        index
+                    }]
+                        .route,
+                    call_flow::Route::Store(_)
+                ));
+                let m = super::super::select::routine(&r, false).unwrap();
+                let span = &m.code.mir_spans[&(r.blocks[0].id, index + 1)];
+                let writes: u8 = m.code.bytes[span.clone()]
+                    .iter()
+                    .filter(|&&b| b == 0x83)
+                    .count() as u8;
+                assert_eq!(writes, if bytes.get() > 2 { 2 } else { 1 });
+                assert!(!m.frame.temps.contains_key(&temp));
+            }
+        }
+    }
+}

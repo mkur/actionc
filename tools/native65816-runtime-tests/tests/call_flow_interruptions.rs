@@ -1,4 +1,4 @@
-//! Native zero consumers at every reached cleanup/compare/return boundary.
+//! Native consumers at every reached cleanup/compare/store/return boundary.
 mod support;
 use actionc::mir65816::{Mir65816Op, Mir65816Value};
 use actionc_vm::native65816::{Inputs, Machine};
@@ -48,11 +48,39 @@ fn prepare_zero_shapes(source: &str, optimize: bool) -> actionc::compiler::nativ
 
 #[test]
 fn native_zero_result_consumers_survive_irq_and_nmi_at_each_instruction() {
+    result_consumers(false);
+}
+
+#[test]
+fn native_local_result_consumers_survive_irq_and_nmi_at_each_instruction() {
+    result_consumers(true);
+}
+
+fn result_consumers(store: bool) {
     // The observable store keeps this an ordinary call: this test targets
     // argument cleanup, while forwarding_wrappers covers terminal jumps.
-    for &(ty, width) in &[("BYTE", 1u8), ("CARD", 2u8)] {
+    for &(ty, width) in &[
+        ("BYTE", 1u8),
+        ("CARD", 2u8),
+        ("ADDRESS", 3u8),
+        ("LONGCARD", 4u8),
+    ] {
+        if !store && width > 2 {
+            continue;
+        }
+        let result = if store { ty } else { "BYTE" };
+        let body = if store {
+            "local=Echo(value) Echo(value) RETURN(local)"
+        } else {
+            "RETURN(Echo(value)=0)"
+        };
+        let locals = if store {
+            format!("{ty} local")
+        } else {
+            String::new()
+        };
         let source = format!(
-            "MODULE TEST\nBYTE irqAck=$7800,entered\n{ty} scratch\n{ty} FUNC Echo({ty} value) RETURN(value)\nBYTE FUNC Forward({ty} value) entered=1 RETURN(Echo(value)=0)\nCARD FUNC Dispatch(CARD saved BYTE reason) scratch=Forward({ty}(7)) irqAck=1 RETURN(saved)\nPROC Task({ty} POINTER argument) argument^=Forward(argument^) RETURN\nPROC Main() RETURN\nENDMODULE\n"
+            "MODULE TEST\nBYTE irqAck=$7800,entered\n{ty} scratch\n{ty} FUNC Echo({ty} value) RETURN(value)\n{result} FUNC Forward({ty} value) {locals} entered=1 {body}\nCARD FUNC Dispatch(CARD saved BYTE reason) scratch=Forward({ty}(7)) irqAck=1 RETURN(saved)\nPROC Task({ty} POINTER argument) argument^=Forward(argument^) RETURN\nPROC Main() RETURN\nENDMODULE\n"
         );
         for optimize in [false, true] {
             for domain in 0..2 {
@@ -84,8 +112,7 @@ fn native_zero_result_consumers_survive_irq_and_nmi_at_each_instruction() {
                     .unwrap();
                 let decoded = forwarding::instructions(&segment.bytes);
                 let end = address + segment.bytes.len() as u32;
-                let mut saw_compare = false;
-                let end = address + segment.bytes.len() as u32;
+                let mut saw_consumer = false;
                 assert!(
                     h.cpu
                         .run_until(
@@ -100,7 +127,7 @@ fn native_zero_result_consumers_survive_irq_and_nmi_at_each_instruction() {
                 while (address..end).contains(&h.cpu.pc()) {
                     let offset = (h.cpu.pc() - address) as usize;
                     assert!(decoded.contains_key(&offset));
-                    saw_compare |= segment.bytes[offset] == 0xc9;
+                    saw_consumer |= segment.bytes[offset] == if store { 0x83 } else { 0xc9 };
                     let checkpoint = h.cpu.clone();
                     let memory = h.bus.clone();
                     for mask in [0, 4] {
@@ -165,12 +192,12 @@ fn native_zero_result_consumers_survive_irq_and_nmi_at_each_instruction() {
                     }
                     sites += 1;
                 }
-                assert!(sites >= 8 && saw_compare); // every reached boundary is suspended
+                assert!(sites >= 8 && saw_consumer); // every reached boundary is suspended
                 h.run();
                 h.guards();
                 assert_eq!(
                     h.bus.value(argument as u32, width.into()),
-                    u32::from(value == 0)
+                    if store { value } else { u32::from(value == 0) }
                 );
             }
         }
