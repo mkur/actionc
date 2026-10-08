@@ -160,6 +160,74 @@ pub(super) fn plan(r: &Mir65816Routine, logical: &RoutineAnalysis<'_>) -> Result
     Ok(calls)
 }
 
+/// A home can disappear only after the entire replacement allocation fits.
+/// Removing interference nodes can change coloring, so compare actual extents.
+pub(super) fn admit_returns(
+    r: &Mir65816Routine,
+    demand: &mut home_demand::Plan,
+    counts: &BTreeMap<TempId, usize>,
+    definitions: &BTreeMap<TempId, usize>,
+) {
+    let candidates: Vec<_> = r
+        .blocks
+        .iter()
+        .filter_map(|b| {
+            let index = b.ops.len().checked_sub(1)?;
+            let op = &b.ops[index];
+            let Mir65816Op::Call {
+                result: Some((temp, bytes)),
+                ..
+            } = op
+            else {
+                return None;
+            };
+            (definitions.get(temp) == Some(&1)
+                && returns(r, op, &b.terminator, counts.get(temp).copied().unwrap_or(0)))
+            .then_some((
+                *temp,
+                home_demand::Accumulator {
+                    block: b.id,
+                    producer: index,
+                    consumer: index + 1,
+                    bytes: bytes.get() as u8,
+                },
+            ))
+        })
+        .collect();
+    if candidates.is_empty() {
+        return;
+    }
+    let Ok(before) = AllocatedFrame::with_demand(r, demand) else {
+        return;
+    };
+    let mut previous = Vec::new();
+    for (temp, interval) in &candidates {
+        previous.push((
+            *temp,
+            demand
+                .decisions
+                .insert(*temp, home_demand::Decision::NativeOutput(*interval)),
+        ));
+    }
+    let old_mixed = demand.mixed.clone();
+    demand.mixed = mixed::Plan::new(r, demand);
+    let accepted = AllocatedFrame::with_demand(r, demand).is_ok_and(|after| {
+        after.extent <= before.extent
+            && after.spill_bytes <= before.spill_bytes
+            && after.peak_below_entry <= before.peak_below_entry
+    });
+    if !accepted {
+        demand.mixed = old_mixed;
+        for (temp, old) in previous {
+            if let Some(old) = old {
+                demand.decisions.insert(temp, old);
+            } else {
+                demand.decisions.remove(&temp);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -211,6 +279,58 @@ mod tests {
                 Declaration::checked(Some((TempId(77), ByteSize::new(5 - bytes))), &plan).is_err()
             );
             assert!(Declaration::checked(None, &plan).unwrap().is_none());
+        }
+    }
+    #[test]
+    fn native_output_permissions_require_a_fresh_origin_and_preserved_lanes() {
+        for lanes in [
+            abi::ResultLocation::A8ZeroExtended,
+            abi::ResultLocation::A16,
+            abi::ResultLocation::A16X8ZeroExtended,
+            abi::ResultLocation::A16X16,
+        ] {
+            for failure in 0..6 {
+                let frame = AllocatedFrame {
+                    extent: 0,
+                    spill_bytes: 0,
+                    peak_below_entry: 3,
+                    temps: BTreeMap::new(),
+                    edge_copies: Vec::new(),
+                };
+                let mut e = tracked::TrackedEmitter65816::for_test(&frame);
+                e.begin_source(BlockId(0), 0);
+                if failure != 1 {
+                    let contract = effects::CallContract {
+                        outgoing: 0,
+                        arguments: Vec::new(),
+                        result: Some(lanes),
+                    };
+                    e.instruction(selected::Instruction::NativeCall(
+                        Target::Routine(RoutineId(99)),
+                        contract,
+                    ))
+                    .unwrap();
+                }
+                if failure == 2 {
+                    e.word(selected::WordOp::LdaImm, 7);
+                }
+                if failure == 3 {
+                    e.op(selected::Implied::Tax);
+                }
+                let accepted = e.publish_native(TempId(7), lanes);
+                let wide = matches!(
+                    lanes,
+                    abi::ResultLocation::A16X8ZeroExtended | abi::ResultLocation::A16X16
+                );
+                assert_eq!(
+                    accepted,
+                    failure != 1 && failure != 2 && !(failure == 3 && wide)
+                );
+                e.span(BlockId(0), 0, 0);
+                e.begin_source(BlockId(0), if failure == 4 { 2 } else { 1 });
+                let consumed = e.consume_native(TempId(if failure == 5 { 8 } else { 7 }), lanes);
+                assert_eq!(consumed, accepted && failure != 4 && failure != 5);
+            }
         }
     }
 }

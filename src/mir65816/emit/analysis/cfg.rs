@@ -93,6 +93,8 @@ impl SelectedCfg {
                         records[begin.0].action,
                         Action::Request(
                             Request::ConsumeWord(..)
+                                | Request::PublishNative(..)
+                                | Request::ConsumeNative(..)
                                 | Request::ConsumeFrame(..)
                                 | Request::StoreIncoming(..)
                                 | Request::LoadX(..)

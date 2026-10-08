@@ -48,11 +48,20 @@ impl RequestDecision for bool {
         Some(*self)
     }
 }
+#[derive(Clone, Copy, Debug)]
+struct NativeOutput {
+    source: Source,
+    lanes: super::super::abi::ResultLocation,
+    a: Value,
+    x: Value,
+    temp: Option<TempId>,
+}
 #[derive(Clone, Debug, Default)]
 pub(super) struct TrackedEmitter65816 {
     code: Code,
     state: State65816,
     recording: Recording,
+    native_output: Option<NativeOutput>,
     planned_loads: Vec<super::rewrite::pilot::Candidate>,
     #[cfg(feature = "native65816-state-proof")]
     reference_planning: bool,
@@ -165,6 +174,65 @@ impl TrackedEmitter65816 {
         self.recording.records[end.0].decision = result.decision();
         assert_eq!(self.recording.parents.pop(), Some(begin));
         result
+    }
+    fn native_output_matches(&self, output: NativeOutput) -> bool {
+        self.state.env.native
+            && self.state.env.decimal == Some(false)
+            && self.state.env.dbr == Some(0)
+            && self.state.env.current_domain
+            && self.state.env.pushes == 0
+            && self.state.delta() == 0
+            && self.state.env.m == Width::Word
+            && self.state.env.index == Width::Word
+            && self.state.a.matches(output.a)
+            && (matches!(
+                output.lanes,
+                super::super::abi::ResultLocation::A8ZeroExtended
+                    | super::super::abi::ResultLocation::A16
+            ) || self.state.x.matches(output.x))
+    }
+    pub(super) fn has_source(&self) -> bool {
+        self.recording.source.is_some()
+    }
+    pub(super) fn publish_native(
+        &mut self,
+        temp: TempId,
+        lanes: super::super::abi::ResultLocation,
+    ) -> bool {
+        self.request(Request::PublishNative(temp, lanes), |this| {
+            let Some(mut output) = this.native_output else {
+                return false;
+            };
+            if this.recording.source != Some(output.source)
+                || output.lanes != lanes
+                || output.temp.is_some()
+                || !this.native_output_matches(output)
+            {
+                return false;
+            }
+            output.temp = Some(temp);
+            this.native_output = Some(output);
+            true
+        })
+    }
+    pub(super) fn consume_native(
+        &mut self,
+        temp: TempId,
+        lanes: super::super::abi::ResultLocation,
+    ) -> bool {
+        self.request(Request::ConsumeNative(temp, lanes), |this| {
+            let Some(output) = this.native_output.take() else {
+                return false;
+            };
+            output.temp == Some(temp)
+                && output.lanes == lanes
+                && this.recording.source
+                    == Some(Source {
+                        block: output.source.block,
+                        index: output.source.index + 1,
+                    })
+                && this.native_output_matches(output)
+        })
     }
     pub fn begin_source(&mut self, block: BlockId, index: usize) {
         assert!(self.recording.source.is_none());
@@ -773,7 +841,20 @@ impl TrackedEmitter65816 {
                 {
                     return Err("direct call requires its complete outgoing area".into());
                 }
-                self.emit_reference(ReferenceOp::Jsl, target, 0, None)
+                self.emit_reference(ReferenceOp::Jsl, target, 0, None);
+                // The incoming barrier has already erased registers, flags and
+                // homes. This is a new definition from the verified native ABI.
+                self.native_output =
+                    contract
+                        .result
+                        .zip(self.recording.source)
+                        .map(|(lanes, source)| NativeOutput {
+                            source,
+                            lanes,
+                            a: self.state.a,
+                            x: self.state.x,
+                            temp: None,
+                        });
             }
             Instruction::NativeReturn(_) => self.emit_implied(Implied::Rtl),
             Instruction::NativeForward(ref plan) => {

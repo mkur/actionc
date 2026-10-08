@@ -624,6 +624,18 @@ pub(super) fn routine_with_data(
                 b.edge_last(then_edge)?;
             }
             Mir65816Terminator::Return { value, .. } => {
+                if let Some(Mir65816Value::Temp(temp, bytes)) = value
+                    && demand.native_output(*temp).is_some()
+                {
+                    let Some(Mir65816AbiHome::NativeResult(lanes)) =
+                        home_demand::result_home(bytes.get())
+                    else {
+                        unreachable!()
+                    };
+                    if !b.code.consume_native(*temp, lanes) {
+                        return Err("native Return lost its output ownership".into());
+                    }
+                }
                 if !forwarded_return && !demand.prepare_return(&mut b, block) {
                     b.prepare_return_value(value.as_ref())?;
                 }
@@ -2553,9 +2565,19 @@ impl Builder<'_> {
             (!padding.is_empty()).then_some(false),
             accumulator,
         )?;
-        let capture = self.call_result(result, plan)?;
-        if result_use == CallResultUse::Return && capture.is_none() {
+        let declaration = call_flow::Declaration::checked(result, plan)?;
+        let capture = if result_use == CallResultUse::Capture
+            || declaration.is_some_and(|d| self.frame.temps.contains_key(&d.temp))
+        {
+            self.call_result(result, plan)?
+        } else {
+            None
+        };
+        if result_use == CallResultUse::Return && declaration.is_none() {
             return Err("forwarded call return requires a native result".into());
+        }
+        if result_use == CallResultUse::Return && capture.is_none() && !self.code.has_source() {
+            return Err("native output requires a checked source owner".into());
         }
         let direct = match target {
             Mir65816CallTarget::Direct(id) => Some(Target::Routine(RoutineId(*id))),
@@ -2655,8 +2677,14 @@ impl Builder<'_> {
         }
         // A forwarded result still needs preservation, despite omitting its
         // capture. Discarded results retain their declared callee ABI effects.
-        self.release(outgoing, capture.is_some());
+        self.release(outgoing, declaration.is_some());
         assert_eq!(self.code.delta(), 0);
+        if result_use == CallResultUse::Return && capture.is_none() {
+            let d = declaration.ok_or("missing native output declaration")?;
+            if !self.code.publish_native(d.temp, d.lanes) {
+                return Err("native output cleanup lost its declared lanes".into());
+            }
+        }
         if result_use == CallResultUse::Capture
             && let Some((home, bytes)) = capture
         {

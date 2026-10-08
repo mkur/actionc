@@ -135,8 +135,8 @@ pub struct EffectRecord {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct CallContract {
     pub(super) outgoing: u16,
-    arguments: Vec<(u16, u16)>,
-    result: Option<ResultLocation>,
+    pub(super) arguments: Vec<(u16, u16)>,
+    pub(super) result: Option<ResultLocation>,
 }
 impl CallContract {
     pub fn result(home: Option<Mir65816AbiHome>) -> Result<Option<ResultLocation>, String> {

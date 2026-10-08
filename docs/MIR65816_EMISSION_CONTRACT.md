@@ -1755,3 +1755,11 @@ Self-copy has no payload access, and zero-length copies have no transfer request
 or memory effect. Aggregate internal scratch participates in the same physical
 interference checks as indexed address formation. This integration introduces
 no new external access protocol, alias proof or bank-zero reservation.
+
+Native result ownership uses a new callee-return definition, separate from the
+incoming call barrier. Tracked publish/consume requests recompute lane identity
+and body-S permission during replay; recorded answers are observations, never
+authority. Placement requires exactly one matched publish and consumer for every
+admitted output interval, with complete logical uses and generation ownership.
+Immediate native Returns may have no result temp home. The callee contract and
+argument preflight remain mandatory independently of that allocation choice.

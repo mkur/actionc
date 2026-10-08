@@ -39,6 +39,10 @@ impl Lanes {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Capture {
     Home(Location),
+    NativeOutput {
+        interval: home_demand::Accumulator,
+        lanes: Lanes,
+    },
     Borrowed(BorrowedInput),
     Registers {
         interval: home_demand::Accumulator,
@@ -61,6 +65,7 @@ pub(super) enum ReadLocation {
     Home(Location),
     Borrowed(Slot),
     Registers(Lanes),
+    NativeOutput(Lanes),
     Components,
     Local(Slot),
     Assignment,
@@ -260,7 +265,12 @@ impl<'a> Plan<'a> {
         for (id, ty) in &r.temps {
             let bytes = allocation::width(ty.width.ok_or("unsized placement value")?)?;
             let materialized = frame.temps.get(id).copied();
-            let capture = if let Some(b) = borrowed.remove(id) {
+            let capture = if let Some(interval) = demand.native_output(*id) {
+                Capture::NativeOutput {
+                    interval,
+                    lanes: Lanes::for_width(bytes)?,
+                }
+            } else if let Some(b) = borrowed.remove(id) {
                 Capture::Borrowed(b)
             } else if let Some(&(definition, destination)) = locals.get(id) {
                 Capture::Local {
@@ -298,6 +308,15 @@ impl<'a> Plan<'a> {
                     }
                     let location = match &capture {
                         Capture::Home(home) => ReadLocation::Home(*home),
+                        Capture::NativeOutput { interval, lanes }
+                            if usage.point
+                                == (ProgramPoint {
+                                    block: interval.block,
+                                    index: interval.consumer,
+                                }) =>
+                        {
+                            ReadLocation::NativeOutput(*lanes)
+                        }
                         Capture::Borrowed(b) if b.uses.contains(&usage.point) => {
                             ReadLocation::Borrowed(b.home)
                         }
@@ -804,6 +823,26 @@ impl<'a> Plan<'a> {
             }
             match &value.capture {
                 Capture::Home(home) if Some(*home) == value.materialized => (),
+                Capture::NativeOutput { interval, lanes } => {
+                    if value.materialized.is_some()
+                        || !self.demand.omits(id)
+                        || facts.definition
+                            != Definition::Operation(ProgramPoint {
+                                block: interval.block,
+                                index: interval.producer,
+                            })
+                        || facts.uses.len() != 1
+                        || facts.uses[0].point
+                            != (ProgramPoint {
+                                block: interval.block,
+                                index: interval.consumer,
+                            })
+                        || interval.consumer != interval.producer + 1
+                        || *lanes != Lanes::for_width(value.bytes)?
+                    {
+                        return Err("invalid native output ownership".into());
+                    }
+                }
                 Capture::Borrowed(b) => {
                     if b.temp != id
                         || b.home.width != value.bytes
@@ -961,6 +1000,7 @@ impl Contract {
             call_segments: self.segments.values().map(Vec::len).sum(),
             borrowed: count(|c| matches!(c, Capture::Borrowed(_))),
             register_intervals: count(|c| matches!(c, Capture::Registers { .. })),
+            native_output_intervals: count(|c| matches!(c, Capture::NativeOutput { .. })),
             component_intervals: count(|c| matches!(c, Capture::Components(_))),
             redirected_locals: count(|c| matches!(c, Capture::Local { .. })),
             deferred_assignments: count(|c| matches!(c, Capture::Assignment { .. })),
@@ -1037,6 +1077,8 @@ impl Contract {
         let mut x_contracts = 0;
         let mut covered = BTreeSet::new();
         let mut calls = BTreeSet::new();
+        let mut outputs = BTreeSet::new();
+        let mut output_reads = BTreeSet::new();
         let mut captures = BTreeSet::new();
         let mut reloads = BTreeSet::new();
         let mut aggregates = BTreeSet::new();
@@ -1059,6 +1101,44 @@ impl Contract {
                         return Err("inconsistent placement boundary requirements".into());
                     }
                     entries += 1;
+                }
+                Action::Request(Request::PublishNative(temp, lanes))
+                | Action::Request(Request::ConsumeNative(temp, lanes)) => {
+                    let point = active
+                        .as_ref()
+                        .ok_or("native output outside source span")?
+                        .point;
+                    let value = self.values.get(temp).ok_or("unknown native output")?;
+                    let Capture::NativeOutput { interval, .. } = value.capture else {
+                        return Err("unplanned native output".into());
+                    };
+                    let call = self
+                        .calls
+                        .get(&ProgramPoint {
+                            block: interval.block,
+                            index: interval.producer,
+                        })
+                        .ok_or("missing native producer")?;
+                    let declaration = call.result.ok_or("missing native declaration")?;
+                    let publish =
+                        matches!(record.action, Action::Request(Request::PublishNative(..)));
+                    if declaration.temp != *temp
+                        || declaration.lanes != *lanes
+                        || point.block != interval.block
+                        || point.index
+                            != if publish {
+                                interval.producer
+                            } else {
+                                interval.consumer
+                            }
+                        || !(if publish {
+                            outputs.insert(*temp)
+                        } else {
+                            output_reads.insert(*temp)
+                        })
+                    {
+                        return Err("native output differs from placement owner".into());
+                    }
                 }
                 Action::Request(Request::ProveX(actual)) => {
                     if self.x.as_ref() != Some(actual) {
@@ -1278,6 +1358,14 @@ impl Contract {
                 }
                 _ => (),
             }
+        }
+        let expected_outputs: BTreeSet<_> = self
+            .values
+            .iter()
+            .filter_map(|(id, v)| matches!(v.capture, Capture::NativeOutput { .. }).then_some(*id))
+            .collect();
+        if outputs != expected_outputs || output_reads != expected_outputs {
+            return Err("incomplete native output ownership coverage".into());
         }
         if calls != self.calls.keys().copied().collect() {
             return Err("missing native call transfer".into());

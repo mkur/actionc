@@ -3,9 +3,18 @@ use super::*;
 use std::collections::BTreeSet;
 
 impl AllocatedFrame {
+    #[cfg(test)]
     pub(super) fn coalesce_pointer_casts(
         &mut self,
         routine: &Mir65816Routine,
+    ) -> Result<(), String> {
+        let demand = home_demand::Plan::new(routine);
+        self.coalesce_pointer_casts_with_demand(routine, &demand)
+    }
+    pub(super) fn coalesce_pointer_casts_with_demand(
+        &mut self,
+        routine: &Mir65816Routine,
+        demand: &home_demand::Plan,
     ) -> Result<(), String> {
         let pairs: Vec<_> = routine
             .blocks
@@ -69,7 +78,9 @@ impl AllocatedFrame {
                 trial.temps.insert(moving, Location::Stack(b));
                 // Full third-party liveness, exact whole-home overlap, retained
                 // frame accounting and staging are rechecked before adoption.
-                if identities(&trial) > identities(self) && trial.verify_stack(routine).is_ok() {
+                if identities(&trial) > identities(self)
+                    && trial.verify_stack_with_demand(routine, demand).is_ok()
+                {
                     *self = trial;
                     break;
                 }

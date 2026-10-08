@@ -82,6 +82,8 @@ pub(super) enum Request {
     AllowPointerStore(super::select::pointer_stores::Contract),
     ForgetPointer,
     PrepareReturnJoin,
+    PublishNative(TempId, super::super::abi::ResultLocation),
+    ConsumeNative(TempId, super::super::abi::ResultLocation),
     RegisterHome(Location),
     DeclareBlocks(Vec<Label>),
     ProveEntries {

@@ -33,6 +33,7 @@ pub(super) enum Decision {
     Accumulator(Accumulator),
     Borrowed,
     LocalLoad,
+    NativeOutput(Accumulator),
 }
 
 pub(super) struct Plan {
@@ -411,15 +412,30 @@ impl Plan {
             }
         }
         plan.select_pointer_stores(r, &counts, &definitions);
+        // Trial the complete demand plan atomically. Failed profitability keeps
+        // all conservative ownership; malformed admitted plans are checked later.
         plan.mixed = mixed::Plan::new(r, &plan);
+        call_flow::admit_returns(r, &mut plan, &counts, &definitions);
         plan
     }
 
     pub fn omits(&self, id: TempId) -> bool {
         matches!(
             self.decisions.get(&id),
-            Some(Decision::Accumulator(_) | Decision::Borrowed | Decision::LocalLoad)
+            Some(
+                Decision::Accumulator(_)
+                    | Decision::Borrowed
+                    | Decision::LocalLoad
+                    | Decision::NativeOutput(_)
+            )
         )
+    }
+
+    pub fn native_output(&self, id: TempId) -> Option<Accumulator> {
+        match self.decisions.get(&id) {
+            Some(Decision::NativeOutput(a)) => Some(*a),
+            _ => None,
+        }
     }
 
     pub fn accumulator(&self, id: TempId) -> Option<Accumulator> {

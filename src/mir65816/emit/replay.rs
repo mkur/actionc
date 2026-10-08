@@ -174,6 +174,12 @@ impl Request {
             Self::AllowPointerStore(contract) => e.allow_pointer_store(*contract),
             Self::ForgetPointer => e.forget_pointer(),
             Self::PrepareReturnJoin => e.prepare_return_join(),
+            Self::PublishNative(t, lanes) => {
+                e.publish_native(*t, *lanes);
+            }
+            Self::ConsumeNative(t, lanes) => {
+                e.consume_native(*t, *lanes);
+            }
             Self::RegisterHome(h) => e.register_home(*h),
             Self::DeclareBlocks(labels) => e.declare_blocks(labels.iter().copied()),
             Self::ProveEntries {

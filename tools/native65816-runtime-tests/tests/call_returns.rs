@@ -172,7 +172,7 @@ fn forwarded_results_match_ca65_without_private_spills_or_reloads() {
             else {
                 panic!("{ty}/{optimize}: {:?}", block.ops)
             };
-            assert!(m.frame.temps.contains_key(id));
+            assert!(!m.frame.temps.contains_key(id));
             let call_span = &m.code.mir_spans[&(block.id, i)];
             let tail = &m.code.mir_spans[&(block.id, i + 1)];
             let jsl = forwarding::instructions(&m.code.bytes)
@@ -189,7 +189,11 @@ fn forwarded_results_match_ca65_without_private_spills_or_reloads() {
             );
             assert_eq!(&m.code.bytes[jsl + 4..call_span.end], cleanup);
             let teardown = assemble(
-                &format!("tay\n{}tya\nrtl\n", stack_release_asm(m.frame.extent)),
+                &if m.frame.extent == 0 {
+                    "rtl\n".into()
+                } else {
+                    format!("tay\n{}tya\nrtl\n", stack_release_asm(m.frame.extent))
+                },
                 0x050000,
             );
             assert_eq!(&m.code.bytes[tail.clone()], teardown);
@@ -346,9 +350,13 @@ fn forwarded_result_cleanup_survives_irq_and_nmi_at_each_instruction() {
                     .find(|r| r.address == address)
                     .unwrap();
                 let cleanup = format!(
-                    "tay\n{}tya\ntay\n{}tya\nrtl\n",
+                    "tay\n{}tya\n{}rtl\n",
                     stack_release_asm(routine.outgoing_bytes as u16),
-                    stack_release_asm(routine.fixed_frame)
+                    if routine.fixed_frame == 0 {
+                        String::new()
+                    } else {
+                        format!("tay\n{}tya\n", stack_release_asm(routine.fixed_frame))
+                    }
                 );
                 let expected = assemble(&cleanup, 0x050000);
                 assert_eq!(&segment.bytes[jsl + 4..], expected);

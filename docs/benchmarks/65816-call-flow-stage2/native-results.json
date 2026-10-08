@@ -1,0 +1,91 @@
+{
+  "profiles": {
+    "optimized-release": {
+      "before": {
+        "cycles": 71833,
+        "private": 20655,
+        "peak": 33
+      },
+      "after": {
+        "cycles": 71833,
+        "private": 20655,
+        "peak": 33
+      },
+      "vectors": 147,
+      "independent_probe": {
+        "before": {
+          "cycles": 12472,
+          "private": 3552
+        },
+        "after": {
+          "cycles": 12472,
+          "private": 3552
+        }
+      }
+    },
+    "optimized-guarded": {
+      "before": {
+        "cycles": 76021,
+        "private": 20655,
+        "peak": 33
+      },
+      "after": {
+        "cycles": 76021,
+        "private": 20655,
+        "peak": 33
+      },
+      "vectors": 147,
+      "independent_probe": {
+        "before": {
+          "cycles": 13360,
+          "private": 3552
+        },
+        "after": {
+          "cycles": 13360,
+          "private": 3552
+        }
+      }
+    },
+    "raw-guarded": {
+      "before": {
+        "cycles": 87539,
+        "private": 24288,
+        "peak": 45
+      },
+      "after": {
+        "cycles": 87539,
+        "private": 24288,
+        "peak": 45
+      },
+      "vectors": 147,
+      "independent_probe": {
+        "before": {
+          "cycles": 13352,
+          "private": 3528
+        },
+        "after": {
+          "cycles": 13352,
+          "private": 3528
+        }
+      }
+    }
+  },
+  "qualification": {
+    "optimized-release": {
+      "manifest": "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualification/run-rtqo3x2y/manifest.json",
+      "sha256": "3c3e27b9245c1ee120203438e07332adbde4fa7fffd541028a9e48cb0349d80f"
+    },
+    "optimized-guarded": {
+      "manifest": "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualification/run-6ivs2986/manifest.json",
+      "sha256": "3c3e27b9245c1ee120203438e07332adbde4fa7fffd541028a9e48cb0349d80f"
+    },
+    "raw-guarded": {
+      "manifest": "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualification/run-q8i2mipm/manifest.json",
+      "sha256": "3c3e27b9245c1ee120203438e07332adbde4fa7fffd541028a9e48cb0349d80f"
+    },
+    "focused": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-epp4h1vz/manifest.json",
+      "sha256": "ea1f84d3ce3b37a0ab848ca997a73d659539cfc12a31c6b010285da7f1f49f96"
+    }
+  }
+}

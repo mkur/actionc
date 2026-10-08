@@ -127,8 +127,8 @@ impl AllocatedFrame {
         let mut frame = Self::layout(routine, &demand)?;
         frame.verify_stack_with_demand(routine, demand)?;
         let interference = super::liveness::interference(routine)?;
-        frame.coalesce_edges(routine, &interference)?;
-        frame.coalesce_pointer_casts(routine)?;
+        frame.coalesce_edges_with_demand(routine, &interference, demand)?;
+        frame.coalesce_pointer_casts_with_demand(routine, demand)?;
         Ok(frame)
     }
 
@@ -306,7 +306,11 @@ impl AllocatedFrame {
                     return Err("mixed residence home mismatch".into());
                 }
                 for other in &graph[id] {
-                    if self.temps.get(other).is_some_and(|other| home.overlaps(*other)) {
+                    if self
+                        .temps
+                        .get(other)
+                        .is_some_and(|other| home.overlaps(*other))
+                    {
                         return Err("overlapping live direct-page temporaries".into());
                     }
                 }

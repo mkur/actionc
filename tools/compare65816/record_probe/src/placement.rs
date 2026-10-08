@@ -18,7 +18,7 @@ pub(super) fn report(machine: &MachineProgram, output: &Path) {
             continue;
         };
         rows.push(json!({"id":r.id.0,"name":logical.name,"values":s.values,"materialized":s.materialized,
-            "borrowed":s.borrowed,"register_intervals":s.register_intervals,"component_intervals":s.component_intervals,
+            "borrowed":s.borrowed,"register_intervals":s.register_intervals,"native_output_intervals":s.native_output_intervals,"component_intervals":s.component_intervals,
             "redirected_locals":s.redirected_locals,"deferred_assignments":s.deferred_assignments,
             "mixed_homes":s.mixed_homes,"backed_residences":s.backed_residences,
             "branch_homes":s.branch_homes,"resident_entries":s.resident_entries,"mixed_edges":s.mixed_edges,

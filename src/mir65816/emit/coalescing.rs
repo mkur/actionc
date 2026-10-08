@@ -3,10 +3,20 @@ use super::{allocation::*, copies::WordStrategy, liveness::Interference, *};
 use std::collections::{BTreeMap, BTreeSet};
 
 impl AllocatedFrame {
+    #[cfg(test)]
     pub(super) fn coalesce_edges(
         &mut self,
         routine: &Mir65816Routine,
         graph: &Interference,
+    ) -> Result<(), String> {
+        let demand = home_demand::Plan::new(routine);
+        self.coalesce_edges_with_demand(routine, graph, &demand)
+    }
+    pub(super) fn coalesce_edges_with_demand(
+        &mut self,
+        routine: &Mir65816Routine,
+        graph: &Interference,
+        demand: &home_demand::Plan,
     ) -> Result<(), String> {
         let anchors: BTreeSet<_> = routine
             .blocks
@@ -68,7 +78,7 @@ impl AllocatedFrame {
             trial.temps.extend(changes);
             // Full verification includes every third-party interference, exact
             // frame accounting and all staging requirements, not just this edge.
-            if trial.verify_stack(routine).is_err() {
+            if trial.verify_stack_with_demand(routine, demand).is_err() {
                 continue;
             }
             let mut improves = false;

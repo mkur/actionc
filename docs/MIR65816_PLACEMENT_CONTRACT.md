@@ -7,10 +7,10 @@ instruction effects remain authoritative for physical reads, writes, clobbers
 and execution state. Neither resource descriptions nor placement grant new
 memory aliasing or instruction-rewrite permissions.
 
-The proposed [argument and result flow design](MIR65816_CALL_FLOW_DESIGN.md)
-defines future call-boundary ownership within the current ABI. Its new admission
-rules are pending implementation and qualification; the contracts below describe
-the implemented placement forms.
+The [argument and result flow design](MIR65816_CALL_FLOW_DESIGN.md) defines
+call-boundary ownership within the current ABI. Sole adjacent native Returns now
+use checked output ownership; other result consumers and bounded scalar input
+extensions remain pending.
 
 ## Planning and ownership
 
@@ -36,6 +36,17 @@ input, register interval, deferred computation or redirected destination.
 Accumulator intervals name their producer and consumer and the complete A8,
 A16, A16/X8 or A16/X16 payload lanes. A three-byte deferred address expression
 does not promise a live A/X value at its omitted source operation.
+
+A native output interval is distinct from accumulator residence. Its Call table
+owns the complete ABI declaration independently of memory allocation. The
+callee's return defines fresh A/X tokens after the incoming call barrier; actual
+cleanup must preserve the declared lanes and reach body S before publishing a
+read permission. A sole adjacent Return consumes that permission at its own
+logical point. Reserved result homes disappear only after complete-use admission
+and an atomic comparison of conservative/candidate frames, spills and local peaks.
+Affinity validation consumes the same demand plan rather than recursively
+reconstructing admission. A rejected trial restores conservative demand entirely.
+
 
 Borrowed pointer aliases retain separate definitions and use sets. Their exact
 authoritative input homes come from the existing complete, closed read-binding

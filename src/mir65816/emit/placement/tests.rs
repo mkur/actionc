@@ -733,7 +733,7 @@ fn native_result_routes_are_recomputed_from_the_complete_logical_census() {
     let (&point, call) = plan.calls.iter().next().unwrap();
     assert!(matches!(call.route, call_flow::Route::Return(_)));
     let temp = call.result.unwrap().temp;
-    assert!(plan.frame.temps.contains_key(&temp));
+    assert!(!plan.frame.temps.contains_key(&temp));
     plan.calls.get_mut(&point).unwrap().route = call_flow::Route::Capture;
     assert!(plan.verify().unwrap_err().contains("recomputed"));
     let mut plan = Plan::new(r, &p.data).unwrap();
