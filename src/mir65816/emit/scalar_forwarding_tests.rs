@@ -249,7 +249,9 @@ fn terminal_calls_cover_scalar_widths_and_refuse_unreachable_or_mismatched_argum
                 if local { "saved" } else { "x" }
             ));
             let frame = AllocatedFrame::new(&r).unwrap();
-            let plan = Plan::new(&r, &frame).unwrap();
+            let demand = home_demand::Plan::new(&r);
+            let pointers = demand.pointers.resolve(&r, &frame).unwrap();
+            let plan = Plan::with_inputs(&r, &frame, &demand.scalar_inputs, &pointers).unwrap();
             let binding = plan
                 .bindings
                 .iter()
@@ -377,4 +379,91 @@ fn top_bit_branch_selector_keeps_its_original_long_capture() {
             }
         }
     }
+}
+
+#[test]
+fn bounded_private_call_inputs_omit_homes_as_one_complete_schedule() {
+    let base = routine(
+        "CARD FUNC Sink(BYTE a CARD b BYTE c CARD d) RETURN(b) CARD FUNC Work(BYTE a CARD b BYTE c CARD d) RETURN(Sink(a,b,c,d)) PROC Main() RETURN",
+    );
+    let demand = home_demand::Plan::new(&base);
+    let frame = AllocatedFrame::with_demand(&base, &demand).unwrap();
+    let pointers = demand.pointers.resolve(&base, &frame).unwrap();
+    let plan = Plan::with_inputs(&base, &frame, &demand.scalar_inputs, &pointers).unwrap();
+    assert_eq!(plan.bindings.len(), 4);
+    for binding in &plan.bindings {
+        assert!(!frame.temps.contains_key(&binding.temp));
+        assert!(demand.omits(binding.temp));
+    }
+    let machine = super::super::routine(&base, false).unwrap();
+    assert!(
+        plan.bindings
+            .iter()
+            .all(|b| machine.code.mir_spans[&b.definition].is_empty())
+    );
+    // The result is a fresh independent native Return origin.
+    assert_eq!(
+        base.blocks[0]
+            .ops
+            .iter()
+            .filter_map(|op| {
+                if let Mir65816Op::Call {
+                    result: Some((id, _)),
+                    ..
+                } = op
+                {
+                    Some(id)
+                } else {
+                    None
+                }
+            })
+            .filter(|id| demand.native_output(**id).is_some())
+            .count(),
+        1
+    );
+    for refusal in 0..5 {
+        let mut r = base.clone();
+        let first = &plan.bindings[0];
+        match refusal {
+            0 => {
+                let mut barrier = r.blocks[0].ops[first.consumer].clone();
+                if let Mir65816Op::Call { result, args, .. } = &mut barrier {
+                    *result = None;
+                    for arg in args {
+                        *arg = match arg {
+                            Mir65816Value::Temp(_, w) if w.get() == 1 => Mir65816Value::U8(7),
+                            _ => Mir65816Value::U16(7),
+                        };
+                    }
+                }
+                r.blocks[0].ops.insert(first.definition.1 + 1, barrier);
+            }
+            1 => {
+                if let Mir65816Op::Load { volatile, .. } = &mut r.blocks[0].ops[first.definition.1]
+                {
+                    *volatile = true;
+                }
+            }
+            2 => r.frame.parameters[0].frame_object = Some(Mir65816FrameObjectId(999)),
+            3 => {
+                if let Mir65816Op::Load { address, .. } = &mut r.blocks[0].ops[first.definition.1] {
+                    address.displacement = ByteOffset::new(1);
+                }
+            }
+            4 => {
+                // Full outgoing reservation would exceed the stack operand.
+                r.frame.extent = ByteSize::new(244);
+                r.frame.automatic_bytes = ByteSize::new(244);
+            }
+            _ => unreachable!(),
+        }
+        let demand = home_demand::Plan::new(&r);
+        assert!(
+            !demand.scalar_inputs.temps().any(|id| id == first.temp),
+            "{refusal}"
+        );
+    }
+    let mut stale = frame.clone();
+    stale.extent = 250;
+    assert!(plan.resolve_inputs(&base, &stale, &pointers).is_err());
 }

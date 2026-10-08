@@ -70,7 +70,25 @@ pub fn scalar_reads(
     routine: &crate::mir65816::Mir65816Routine,
     frame: &super::AllocatedFrame,
 ) -> Result<Vec<ScalarRead>, String> {
-    Ok(super::select::scalar_forwarding::Plan::new(routine, frame)?.observations())
+    // Whole-routine forwarding has a separately verified zero-resource frame
+    // and no ordinary Call construction. Logical source Loads do not authorize
+    // reporting reads that its machine body never emits.
+    if frame.extent == 0
+        && frame.spill_bytes == 0
+        && frame.peak_below_entry == 0
+        && frame.temps.is_empty()
+    {
+        return Ok(Vec::new());
+    }
+    let demand = super::home_demand::Plan::new(routine);
+    let pointers = demand.pointers.resolve(routine, frame)?;
+    Ok(super::select::scalar_forwarding::Plan::with_inputs(
+        routine,
+        frame,
+        &demand.scalar_inputs,
+        &pointers,
+    )?
+    .observations())
 }
 
 /// Balanced independent probe; the restoring sequence deliberately retains a

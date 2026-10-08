@@ -83,19 +83,25 @@ pub fn scalar_read_home(
     temp: actionc::nir::TempId,
 ) -> u16 {
     use actionc::mir65816::{Mir65816AbiHome, Mir65816AddressBase, Mir65816Op, emit::proof};
-    let home = m.frame.temps[&temp];
+    let home = m.frame.temps.get(&temp).copied();
     let Some(read) = proof::scalar_reads(r, &m.frame)
         .unwrap()
         .into_iter()
         .find(|s| s.temp == temp && s.block == block && s.consumer == index)
     else {
-        return match home {
+        return match home.expect("scalar capture requires a real home") {
             actionc::mir65816::emit::Location::Stack(slot) => slot.offset,
-            actionc::mir65816::emit::Location::DirectPage(_) => homes::of(home).unwrap(),
+            location @ actionc::mir65816::emit::Location::DirectPage(_) => {
+                homes::of(location).unwrap()
+            }
         };
     };
-    let allocated = home.stack().unwrap();
-    assert_eq!(read.bytes, allocated.width);
+    let allocated = home.map(|h| h.stack().unwrap());
+    if let Some(slot) = allocated {
+        assert_eq!(read.bytes, slot.width);
+    } else {
+        assert!(matches!(read.bytes, 1 | 2));
+    }
     assert!(m.code.mir_spans[&(block, read.producer)].is_empty());
     let b = r.blocks.iter().find(|b| b.id == block).unwrap();
     let Mir65816Op::Load {
@@ -133,10 +139,12 @@ pub fn scalar_read_home(
         _ => panic!("unproved scalar source"),
     };
     assert_eq!(offset, u32::from(read.offset));
-    assert!(
-        (u32::from(allocated.offset)..u32::from(allocated.offset) + u32::from(allocated.width))
-            .all(|b| !(offset..offset + u32::from(read.bytes)).contains(&b))
-    );
+    if let Some(allocated) = allocated {
+        assert!(
+            (u32::from(allocated.offset)..u32::from(allocated.offset) + u32::from(allocated.width))
+                .all(|b| !(offset..offset + u32::from(read.bytes)).contains(&b))
+        );
+    }
     read.offset
 }
 
@@ -338,11 +346,17 @@ impl Harness {
     }
     pub fn new_compact(
         image: &actionc::mir65816::o65::compact::Image,
-        caller: &[u8], irq_mask: u8, overflow: u32,
+        caller: &[u8],
+        irq_mask: u8,
+        overflow: u32,
     ) -> Self {
         let mut bus = Bus::new();
-        for s in &image.segments { bus.map(s.address, &s.bytes, s.writable); }
-        for z in &image.zero_fill { bus.map(z.address, &vec![0; z.size as usize], z.writable); }
+        for s in &image.segments {
+            bus.map(s.address, &s.bytes, s.writable);
+        }
+        for z in &image.zero_fill {
+            bus.map(z.address, &vec![0; z.size as usize], z.writable);
+        }
         Self::with_bus(bus, caller, irq_mask, overflow)
     }
 
@@ -463,5 +477,7 @@ pub mod windows;
 
 /// Different nonzero bytes in each domain expose both clobbers and wrong D bases.
 pub fn workspace_pattern(dp: u16) -> Vec<u8> {
-    (0..128).map(|i| ((i * 37 + usize::from(dp >> 8)) % 255 + 1) as u8).collect()
+    (0..128)
+        .map(|i| ((i * 37 + usize::from(dp >> 8)) % 255 + 1) as u8)
+        .collect()
 }

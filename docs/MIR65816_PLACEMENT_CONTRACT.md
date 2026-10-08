@@ -344,3 +344,17 @@ semantic write stays in that Store span and uses the exact final range, includin
 the three-byte tail. Its real final object remains allocated and mapped; only
 the intermediate result home disappears. A missing mutable fact keeps capture
 fallback, including current record objects whose field writes do not set it.
+
+Bounded byte/word argument borrowing preserves a Load's logical definition while
+its physical span can be empty. One complete argument occurrence at a Direct
+Call reads the owned incoming parameter or unexposed local, at the final frame's
+real offset. Admission requires full canonical views, complete ownership/escape
+checks and a same-block interval of at most sixteen operations without ordering
+barriers or external reads. Several such definitions can terminate at the same
+Call. All bindings are validated together with ordinary operands, padding and
+full outgoing extent, using the actual call construction selector. Its full
+reservation bound also covers every partial push depth and exact-width tail;
+otherwise the complete conservative demand is restored. An admitted sealed plan
+that loses a source or schedule is an error. Existing four-byte scalar captures
+and pointer admissions retain their separate contracts. Calls end all borrowed
+input permission before their independently owned native outputs are defined.

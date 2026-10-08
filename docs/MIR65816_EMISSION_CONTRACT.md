@@ -1771,3 +1771,11 @@ permission at Store, then writes A and, when needed, X into the final range.
 The final three-byte piece uses one byte, and the write remains in Store's span
 after rewriting and layout. The object and later storage reads remain ordinary
 source-visible operations.
+
+Several checked private byte/word read bindings can feed one Direct call alongside
+ordinary captured, immediate and symbolic operands. All sources, destinations,
+padding and outgoing extents are checked before the guard or construction emits
+any payload write. Full reservation bounds make either the selected incremental
+push schedule or reservation/store strategy valid, including partial S movement.
+Input bindings are installed only for that Call and cleared before transfer.
+Omitted Loads do not invent register facts, and results inherit no input owner.

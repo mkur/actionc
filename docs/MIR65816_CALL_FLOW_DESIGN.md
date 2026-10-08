@@ -322,3 +322,15 @@ retain ordinary later reads. Destinations require a mutable, unexposed local
 object and a complete unindexed range; parameter-backed frames are excluded.
 Complete trial allocation can omit these result homes without resource growth.
 Captured/discarded and unsupported consumer forms retain their existing strategies.
+
+Bounded byte/word Direct-call inputs use the same common borrowed-input capture
+and read-location contract. Each full canonical Load has one terminal argument
+occurrence within sixteen same-block operations. Its authoritative parameter or
+local is unexposed, and no call, write, copy, volatile or external read intervenes.
+Complete source ownership and use counts are rederived in the final allocation.
+All admitted bindings and ordinary operands share the actual argument preflight
+and construction selector before homes disappear. Full reservation bounds every
+partial push displacement; range uncertainty retains capture fallback. Borrowed
+permission ends before the callee, independently of its fresh output origin.
+Existing wide scalar, pointer and bounded accumulator strategies retain their
+qualified contracts.

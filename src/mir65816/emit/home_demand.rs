@@ -41,6 +41,7 @@ pub(super) struct Plan {
     pub mixed: mixed::Plan,
     pub(super) pointers: select::pointer_forwarding::Plan,
     pub(super) locals: select::local_loads::Plan,
+    pub(super) scalar_inputs: select::scalar_forwarding::Plan,
     producers: BTreeMap<(BlockId, usize), TempId>,
     consumers: BTreeMap<(BlockId, usize), TempId>,
     pub(super) native_producers: BTreeMap<(BlockId, usize), TempId>,
@@ -150,6 +151,7 @@ impl Plan {
                 .collect(),
             pointers: select::pointer_forwarding::Plan::default(),
             locals: select::local_loads::Plan::default(),
+            scalar_inputs: select::scalar_forwarding::Plan::default(),
             producers: BTreeMap::new(),
             consumers: BTreeMap::new(),
             native_producers: BTreeMap::new(),
@@ -420,6 +422,7 @@ impl Plan {
         // all conservative ownership; malformed admitted plans are checked later.
         plan.mixed = mixed::Plan::new(r, &plan);
         call_flow::admit_returns(r, &mut plan, &counts, &definitions);
+        select::scalar_forwarding::admit_inputs(r, &mut plan);
         plan
     }
 

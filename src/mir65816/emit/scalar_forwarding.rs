@@ -1,4 +1,4 @@
-//! Single-use scalar reads from authoritative private homes, after allocation.
+//! Single-use scalar reads from authoritative private homes and bounded calls.
 use super::*;
 
 #[cfg(test)]
@@ -25,7 +25,7 @@ struct Binding {
     consumer: usize,
 }
 
-#[derive(Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub(in crate::mir65816::emit) struct Plan {
     bindings: Vec<Binding>,
 }
@@ -321,7 +321,233 @@ fn terminal(
         .is_ok()
 }
 
+fn owned_source(
+    r: &Mir65816Routine,
+    frame: &AllocatedFrame,
+    address: &Mir65816Address,
+    bytes: u8,
+) -> Result<Option<Source>, String> {
+    match address.base {
+        Mir65816AddressBase::Parameter(_) => incoming(r, frame, address, bytes),
+        Mir65816AddressBase::AutomaticFrame(_) => local(r, address, bytes),
+        _ => Ok(None),
+    }
+}
+
+fn private_interval(r: &Mir65816Routine, frame: &AllocatedFrame, op: &Mir65816Op) -> bool {
+    match op {
+        Mir65816Op::Load {
+            address,
+            width,
+            volatile: false,
+            ..
+        } => {
+            (1..=4).contains(&width.get())
+                && owned_source(r, frame, address, width.get() as u8)
+                    .ok()
+                    .flatten()
+                    .is_some()
+        }
+        Mir65816Op::Cast { .. }
+        | Mir65816Op::Unary { .. }
+        | Mir65816Op::Compare { .. }
+        | Mir65816Op::AddressOf { .. }
+        | Mir65816Op::PointerOffset { .. } => true,
+        Mir65816Op::Binary { operation, .. } => matches!(
+            operation,
+            NirBinaryOp::Add
+                | NirBinaryOp::Sub
+                | NirBinaryOp::And
+                | NirBinaryOp::Or
+                | NirBinaryOp::Xor
+        ),
+        _ => false,
+    }
+}
+
 impl Plan {
+    pub(in crate::mir65816::emit) fn temps(&self) -> impl Iterator<Item = TempId> + '_ {
+        self.bindings.iter().map(|b| b.temp)
+    }
+
+    /// Logical admission and final source geometry use the same canonical owner
+    /// checks. No storage read is deferred through a call, write or external read.
+    pub(in crate::mir65816::emit) fn call_inputs(
+        r: &Mir65816Routine,
+        frame: &AllocatedFrame,
+        eligible: &BTreeSet<TempId>,
+        pointers: &pointer_forwarding::Plan,
+    ) -> Result<Self, String> {
+        if eligible.is_empty() {
+            return Ok(Self::default());
+        }
+        let counts = liveness::input_counts(r);
+        let definitions = liveness::definition_counts(r);
+        let mut plan = Self::default();
+        for block in &r.blocks {
+            for (index, op) in block.ops.iter().enumerate() {
+                let Mir65816Op::Load {
+                    dest,
+                    width,
+                    address,
+                    volatile: false,
+                } = op
+                else {
+                    continue;
+                };
+                let bytes = width.get() as u8;
+                if !eligible.contains(dest)
+                    || !matches!(width.get(), 1 | 2)
+                    || counts.get(dest) != Some(&1)
+                    || definitions.get(dest) != Some(&1)
+                    || !r.temps.iter().any(|(id, ty)| {
+                        id == dest
+                            && !ty.pointer
+                            && ty
+                                .kind
+                                .integer()
+                                .is_some_and(|i| u32::from(i.bits) == width.get() * 8)
+                    })
+                {
+                    continue;
+                }
+                let Some((consumer, call)) = block
+                    .ops
+                    .iter()
+                    .enumerate()
+                    .skip(index + 1)
+                    .find(|(_, op)| liveness::operation_inputs(op).contains(dest))
+                else {
+                    continue;
+                };
+                if consumer - index > 16
+                    || !matches!(
+                        call,
+                        Mir65816Op::Call {
+                            target: Mir65816CallTarget::Direct(_),
+                            ..
+                        }
+                    )
+                    || block.ops[index + 1..consumer]
+                        .iter()
+                        .any(|op| !private_interval(r, frame, op))
+                {
+                    continue;
+                }
+                let Some(source) = owned_source(r, frame, address, bytes)? else {
+                    continue;
+                };
+                if !terminal(r, frame, call, *dest, source) {
+                    continue;
+                }
+                plan.bindings.push(Binding {
+                    temp: *dest,
+                    source,
+                    definition: (block.id, index),
+                    consumer,
+                });
+            }
+        }
+        plan.check_calls(r, frame, pointers)?;
+        Ok(plan)
+    }
+
+    fn check_calls(
+        &self,
+        r: &Mir65816Routine,
+        frame: &AllocatedFrame,
+        pointers: &pointer_forwarding::Plan,
+    ) -> Result<(), String> {
+        let calls: BTreeSet<_> = self
+            .bindings
+            .iter()
+            .map(|b| (b.definition.0, b.consumer))
+            .collect();
+        // Include existing captured wide read bindings in the same preflight.
+        let ordinary = Self::new(r, frame)?;
+        for (block, index) in calls {
+            let op = &r
+                .blocks
+                .iter()
+                .find(|b| b.id == block)
+                .ok_or("missing scalar call block")?
+                .ops[index];
+            let Mir65816Op::Call {
+                target, args, plan, ..
+            } = op
+            else {
+                return Err("missing scalar terminal call".into());
+            };
+            let mut b = Builder {
+                stack_checks: true,
+                routine: r,
+                frame: frame.clone(),
+                code: TrackedEmitter65816::for_entry(r.prologue.required_mode),
+                blocks: BTreeMap::new(),
+                next_block: None,
+                loop_x: None,
+                borrowed: BTreeMap::new(),
+                scalar_borrowed: BTreeMap::new(),
+                resident: BTreeMap::new(),
+            };
+            pointers.enter(&mut b, block, index);
+            for binding in ordinary.bindings.iter().chain(&self.bindings) {
+                if binding.definition.0 == block && binding.consumer == index {
+                    b.scalar_borrowed.insert(binding.temp, binding.source);
+                }
+            }
+            let padding = outgoing_padding(&plan.arguments, plan.outgoing_bytes)?;
+            let arguments = b.call_arguments_with_a(
+                args,
+                plan,
+                target,
+                (!padding.is_empty()).then_some(false),
+                None,
+            )?;
+            // Full reservation preflight bounds every intermediate push depth,
+            // including an exact-width tail. The same complete typed schedule
+            // selector and store fallback are used during actual emission.
+            let outgoing =
+                u16::try_from(plan.outgoing_bytes.get()).map_err(|_| "scalar outgoing extent")?;
+            let _ = call_copies::pushes::Plan::new(&arguments, args, &padding, outgoing);
+        }
+        Ok(())
+    }
+
+    pub(in crate::mir65816::emit) fn resolve_inputs(
+        &self,
+        r: &Mir65816Routine,
+        frame: &AllocatedFrame,
+        pointers: &pointer_forwarding::Plan,
+    ) -> Result<Self, String> {
+        let eligible = self.temps().collect();
+        let resolved = Self::call_inputs(r, frame, &eligible, pointers)?;
+        if self.bindings.len() != resolved.bindings.len()
+            || self.bindings.iter().any(|b| {
+                !resolved.bindings.iter().any(|a| {
+                    a.temp == b.temp
+                        && a.definition == b.definition
+                        && a.consumer == b.consumer
+                        && a.source.kind == b.source.kind
+                })
+            })
+        {
+            return Err("borrowed scalar demand no longer valid in final frame".into());
+        }
+        Ok(resolved)
+    }
+
+    pub(in crate::mir65816::emit) fn with_inputs(
+        r: &Mir65816Routine,
+        frame: &AllocatedFrame,
+        inputs: &Self,
+        pointers: &pointer_forwarding::Plan,
+    ) -> Result<Self, String> {
+        let mut plan = Self::new(r, frame)?;
+        let inputs = inputs.resolve_inputs(r, frame, pointers)?;
+        plan.bindings.extend(inputs.bindings);
+        Ok(plan)
+    }
     pub(in crate::mir65816::emit) fn placement_bindings(
         &self,
     ) -> Vec<super::super::placement::BorrowedInput> {
@@ -472,5 +698,120 @@ impl Plan {
             b.code.barrier();
         }
         omitted
+    }
+}
+
+/// Commit an entire family's demand only when final allocation and every call
+/// remain valid. A refused preview leaves all preceding owners untouched.
+pub(in crate::mir65816::emit) fn admit_inputs(r: &Mir65816Routine, demand: &mut home_demand::Plan) {
+    let terminal_temps: BTreeSet<_> = r
+        .blocks
+        .iter()
+        .flat_map(|b| &b.ops)
+        .flat_map(|op| {
+            if let Mir65816Op::Call {
+                target: Mir65816CallTarget::Direct(_),
+                args,
+                ..
+            } = op
+            {
+                args.iter()
+                    .filter_map(|v| {
+                        if let Mir65816Value::Temp(id, w) = v {
+                            matches!(w.get(), 1 | 2).then_some(*id)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                Vec::new()
+            }
+        })
+        .collect();
+    let eligible: BTreeSet<_> = r
+        .blocks
+        .iter()
+        .flat_map(|b| &b.ops)
+        .filter_map(|op| {
+            if let Mir65816Op::Load {
+                dest,
+                width,
+                volatile: false,
+                address,
+            } = op
+                && matches!(width.get(), 1 | 2)
+                && !demand.omits(*dest)
+                && terminal_temps.contains(dest)
+                && canonical(address)
+                && matches!(
+                    address.base,
+                    Mir65816AddressBase::Parameter(_) | Mir65816AddressBase::AutomaticFrame(_)
+                )
+            {
+                Some(*dest)
+            } else {
+                None
+            }
+        })
+        .collect();
+    if eligible.is_empty()
+        || !r.blocks.iter().flat_map(|b| &b.ops).any(|op| {
+            matches!(
+                op,
+                Mir65816Op::Call {
+                    target: Mir65816CallTarget::Direct(_),
+                    ..
+                }
+            )
+        })
+    {
+        return;
+    }
+    let Ok(before) = AllocatedFrame::with_demand(r, demand) else {
+        return;
+    };
+    let Ok(pointers) = demand.pointers.resolve(r, &before) else {
+        return;
+    };
+    let Ok(inputs) = Plan::call_inputs(r, &before, &eligible, &pointers) else {
+        return;
+    };
+    if inputs.bindings.is_empty() {
+        return;
+    }
+    let previous: Vec<_> = inputs
+        .temps()
+        .map(|id| {
+            (
+                id,
+                demand.decisions.insert(id, home_demand::Decision::Borrowed),
+            )
+        })
+        .collect();
+    let old_mixed = demand.mixed.clone();
+    demand.mixed = mixed::Plan::new(r, demand);
+    let accepted = AllocatedFrame::with_demand(r, demand).and_then(|after| {
+        if after.extent > before.extent
+            || after.spill_bytes > before.spill_bytes
+            || after.peak_below_entry > before.peak_below_entry
+        {
+            return Err("scalar input resource growth".into());
+        }
+        let pointers = demand.pointers.resolve(r, &after)?;
+        inputs.resolve_inputs(r, &after, &pointers)
+    });
+    match accepted {
+        Ok(inputs) => demand.scalar_inputs = inputs,
+        Err(_) => {
+            demand.mixed = old_mixed;
+            for (id, decision) in previous {
+                if let Some(decision) = decision {
+                    demand.decisions.insert(id, decision);
+                } else {
+                    demand.decisions.remove(&id);
+                }
+            }
+        }
     }
 }

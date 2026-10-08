@@ -159,7 +159,12 @@ impl<'a> Plan<'a> {
         let frame = AllocatedFrame::with_demand(r, &demand)?;
         let calls = call_flow::plan(r, &logical, &demand)?;
         let pointers = demand.pointers.resolve(r, &frame)?;
-        let scalars = select::scalar_forwarding::Plan::new(r, &frame)?;
+        let scalars = select::scalar_forwarding::Plan::with_inputs(
+            r,
+            &frame,
+            &demand.scalar_inputs,
+            &pointers,
+        )?;
         let loop_x = loop_x::LoopXPlan::new(r, &frame)?;
         let components = r
             .blocks
@@ -696,7 +701,10 @@ impl<'a> Plan<'a> {
         {
             return Err("placement home demand differs from MIR admission".into());
         }
-        if demand.locals != self.demand.locals || demand.pointers != self.demand.pointers {
+        if demand.locals != self.demand.locals
+            || demand.pointers != self.demand.pointers
+            || demand.scalar_inputs != self.demand.scalar_inputs
+        {
             return Err("placement demand consumers differ from MIR admission".into());
         }
         if !demand.mixed.values.is_empty() {
@@ -719,7 +727,12 @@ impl<'a> Plan<'a> {
             self.frame.verify_stack_with_demand(r, &demand)?;
         }
         let pointers = demand.pointers.resolve(r, &self.frame)?;
-        let scalars = select::scalar_forwarding::Plan::new(r, &self.frame)?;
+        let scalars = select::scalar_forwarding::Plan::with_inputs(
+            r,
+            &self.frame,
+            &demand.scalar_inputs,
+            &pointers,
+        )?;
         let components = r
             .blocks
             .iter()
