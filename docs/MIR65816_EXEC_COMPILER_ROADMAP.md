@@ -58,6 +58,15 @@ next assessment rather than treating the placement foundation as complete releas
 readiness. Keep hosted fixture ownership and release packaging work explicit
 alongside compiler development.
 
+The [post-stage-7 call and placement audit](benchmarks/65816-exec-call-audit/README.md)
+prioritizes common value flow at call boundaries and invocation-owned placement
+in call-heavy routines. Its three rebuilt frozen images match stage 7 exactly;
+static cost cohorts guide the next design without changing acceptance targets.
+The proposed [call-flow design](MIR65816_CALL_FLOW_DESIGN.md) defines ownership
+and validation for that work within the current native ABI. Implementation and
+qualification follow the proposed
+[staged plan](MIR65816_CALL_FLOW_IMPLEMENTATION_PLAN.md).
+
 Application footprint and execution performance should receive continuous
 measurement from the start. Increase investment in these directions as the
 routine-level work matures and measurements identify the remaining application

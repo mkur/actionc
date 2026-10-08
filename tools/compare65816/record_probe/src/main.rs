@@ -7,9 +7,13 @@ use actionc::{
 };
 use serde_json::json;
 use std::{fs, path::PathBuf};
+#[cfg(feature = "call-analysis")]
+mod calls;
+#[cfg(feature = "flow-analysis")]
+mod flow;
 #[cfg(feature = "logical-analysis")]
 mod logical;
-#[cfg(feature = "placement-analysis")]
+#[cfg(any(feature = "placement-analysis", feature = "call-analysis"))]
 mod placement;
 fn kind(op: &Op) -> String {
     match op {
@@ -84,8 +88,12 @@ fn main() {
     let c = p.compile(&layout).unwrap();
     #[cfg(feature = "logical-analysis")]
     logical::report(&c.machine.prepared, &out);
-    #[cfg(feature = "placement-analysis")]
+    #[cfg(any(feature = "placement-analysis", feature = "call-analysis"))]
     placement::report(&c.machine, &out);
+    #[cfg(feature = "call-analysis")]
+    calls::report(&c.machine, &out);
+    #[cfg(feature = "flow-analysis")]
+    flow::report(&c.machine, &out);
     fs::write(out.with_extension("image.json"), c.image.to_json().unwrap()).unwrap();
     let mut routines = vec![];
     for m in &c.machine.routines {

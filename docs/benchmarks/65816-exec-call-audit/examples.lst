@@ -1,0 +1,140 @@
+; Exact optimized-release excerpts from the audited frozen compiler image.
+; Store footprints exclude loads and mode changes. Homes may be unused reservations.
+
+; Result followed by comparison
+; M_SDFSFILE_OPEN_2046DF25
+; temp 66: {"crossings": [], "home": {"kind": "stack", "offset": 1, "width": 1}, "id": 66, "pointer": false, "producer": {"block": 14, "index": 3, "kind": "Call"}, "uses": [{"block": 14, "index": 4, "kind": "Compare", "ordinal": 0}], "width": 1}
+; actual capture store instructions: 2 code bytes
+; block 14, index 3, Call/Direct, 42 bytes
+047F6B  E2 20        SEP #$20
+047F6D  A9 01        LDA #$01
+047F6F  48           PHA
+047F70  C2 20        REP #$20
+047F72  A3 03        LDA $03,S
+047F74  48           PHA
+047F75  A3 11        LDA $11,S
+047F77  48           PHA
+047F78  E2 20        SEP #$20
+047F7A  A3 12        LDA $12,S
+047F7C  48           PHA
+047F7D  A3 12        LDA $12,S
+047F7F  48           PHA
+047F80  C2 20        REP #$20
+047F82  A3 11        LDA $11,S
+047F84  48           PHA
+047F85  22 66 42 04  JSL $044266
+047F89  A8           TAY
+047F8A  3B           TSC
+047F8B  18           CLC
+047F8C  69 09 00     ADC #$0009
+047F8F  1B           TCS
+047F90  98           TYA
+047F91  E2 20        SEP #$20
+047F93  83 01        STA $01,S
+; block 14, index 4, Compare/1/false/Eq, 8 bytes
+047F95  A3 01        LDA $01,S
+047F97  C2 20        REP #$20
+047F99  F0 02        BEQ $047F9D
+047F9B  80 1D        BRA $047FBA
+
+; Captured argument before a call
+; M_COOKEDLINE_RECALL_089A5861
+; temp 21: {"crossings": [], "home": {"kind": "stack", "offset": 6, "width": 3}, "id": 21, "pointer": true, "producer": {"block": 10, "index": 1, "kind": "AddressOf"}, "uses": [{"block": 10, "index": 7, "kind": "Call", "ordinal": 0}], "width": 3}
+; actual capture store instructions: 4 code bytes
+; block 10, index 1, AddressOf/3, 16 bytes
+03DF18  A3 02        LDA $02,S
+03DF1A  18           CLC
+03DF1B  69 08 0A     ADC #$0A08
+03DF1E  83 06        STA $06,S
+03DF20  E2 20        SEP #$20
+03DF22  A3 04        LDA $04,S
+03DF24  69 00        ADC #$00
+03DF26  83 08        STA $08,S
+; block 10, index 7, Call/Direct, 34 bytes
+03DF51  A3 10        LDA $10,S
+03DF53  48           PHA
+03DF54  C2 20        REP #$20
+03DF56  A3 0F        LDA $0F,S
+03DF58  48           PHA
+03DF59  A3 0E        LDA $0E,S
+03DF5B  48           PHA
+03DF5C  E2 20        SEP #$20
+03DF5E  A3 0F        LDA $0F,S
+03DF60  48           PHA
+03DF61  A3 0E        LDA $0E,S
+03DF63  48           PHA
+03DF64  C2 20        REP #$20
+03DF66  A3 0D        LDA $0D,S
+03DF68  48           PHA
+03DF69  22 B9 1E 3F  JSL $3F1EB9
+03DF6D  3B           TSC
+03DF6E  18           CLC
+03DF6F  69 09 00     ADC #$0009
+03DF72  1B           TCS
+
+; Pointer live across a call
+; M_SDFSFILE_MEASURE_B257955B
+; temp 47: {"crossings": [[2, 4], [2, 7], [14, 2], [19, 10], [26, 2]], "home": {"kind": "stack", "offset": 20, "width": 3}, "id": 47, "pointer": true, "producer": {"block": 2, "index": 1, "kind": "Call"}, "uses": [{"block": 19, "index": 0, "kind": "Load", "ordinal": 0}, {"block": 24, "index": 0, "kind": "Load", "ordinal": 0}, {"block": 25, "index": 0, "kind": "Load", "ordinal": 0}, {"block": 30, "index": 1, "kind": "Load", "ordinal": 0}], "width": 3}
+; actual capture store instructions: 4 code bytes
+; block 2, index 1, Call/Direct, 30 bytes
+049193  E2 20        SEP #$20
+049195  A3 23        LDA $23,S
+049197  48           PHA
+049198  C2 20        REP #$20
+04919A  A3 22        LDA $22,S
+04919C  48           PHA
+04919D  22 E6 3E 04  JSL $043EE6
+0491A1  A8           TAY
+0491A2  3B           TSC
+0491A3  1A           INC A
+0491A4  1A           INC A
+0491A5  1A           INC A
+0491A6  1B           TCS
+0491A7  98           TYA
+0491A8  83 14        STA $14,S
+0491AA  8A           TXA
+0491AB  E2 20        SEP #$20
+0491AD  83 16        STA $16,S
+0491AF  C2 20        REP #$20
+; block 2, index 4, Call/Direct, 32 bytes
+0491C0  E2 20        SEP #$20
+0491C2  A9 00        LDA #$00
+0491C4  48           PHA
+0491C5  A3 0A        LDA $0A,S
+0491C7  48           PHA
+0491C8  A3 0A        LDA $0A,S
+0491CA  48           PHA
+0491CB  A9 00        LDA #$00
+0491CD  48           PHA
+0491CE  A3 24        LDA $24,S
+0491D0  48           PHA
+0491D1  C2 20        REP #$20
+0491D3  A3 23        LDA $23,S
+0491D5  48           PHA
+0491D6  22 D7 40 04  JSL $0440D7
+0491DA  3B           TSC
+0491DB  18           CLC
+0491DC  69 07 00     ADC #$0007
+0491DF  1B           TCS
+
+; Reserved return home with no capture
+; M_TASKPOLICY_SWITCH_98522C9E
+; temp 19: {"crossings": [], "home": {"kind": "stack", "offset": 2, "width": 2}, "id": 19, "pointer": false, "producer": {"block": 7, "index": 1, "kind": "Call"}, "uses": [{"block": 7, "index": 2, "kind": "Return", "ordinal": 0}], "width": 2}
+; actual capture store instructions: 0 code bytes
+; block 7, index 1, Call/Direct, 21 bytes
+017B11  E2 20        SEP #$20
+017B13  A3 0A        LDA $0A,S
+017B15  48           PHA
+017B16  C2 20        REP #$20
+017B18  A3 09        LDA $09,S
+017B1A  48           PHA
+017B1B  22 FA 78 01  JSL $0178FA
+017B1F  A8           TAY
+017B20  3B           TSC
+017B21  1A           INC A
+017B22  1A           INC A
+017B23  1A           INC A
+017B24  1B           TCS
+017B25  98           TYA
+; block 7, index 2, Terminator/Return, 3 bytes
+017B26  82 6C FF     BRL $017A95

@@ -7,6 +7,11 @@ instruction effects remain authoritative for physical reads, writes, clobbers
 and execution state. Neither resource descriptions nor placement grant new
 memory aliasing or instruction-rewrite permissions.
 
+The proposed [argument and result flow design](MIR65816_CALL_FLOW_DESIGN.md)
+defines future call-boundary ownership within the current ABI. Its new admission
+rules are pending implementation and qualification; the contracts below describe
+the implemented placement forms.
+
 ## Planning and ownership
 
 The routine placement plan constructs operation descriptions before allocating

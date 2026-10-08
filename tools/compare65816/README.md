@@ -78,6 +78,21 @@ Native-v2 DP traffic in the `code_quality` runner now counts the actual compiler
 scratch at domain offsets `$80..$BF`. Older saved comparisons retain their
 original measurements; remeasure their DP traffic before using it as a baseline.
 
+The [post-stage-7 call audit](../../docs/benchmarks/65816-exec-call-audit/README.md)
+uses `record_probe --features call-analysis` and `exec_call_audit.py` to separate
+call construction, transfers and cleanup, observe actual temp capture stores,
+and count values live across calls. `collect` rebuilds the three frozen profiles
+and requires stage-7 image identity; `report --check` verifies the generated
+census and examples. Its static costs guide development within the current ABI
+and do not replace native traffic/cycle or hosted qualification.
+
+`record_probe --features flow-analysis` additionally exports typed operands and
+storage facts for the [argument/result investigation](../../docs/benchmarks/65816-exec-call-audit/argument-result-flow/README.md).
+`exec_call_flow.py collect` reproduces the original release audit artifacts before
+adding those facts; its report classifies consumer shapes and private-source
+screens without changing compiler admission. `report --check` authenticates the
+generated case tables and counts.
+
 ## Equivalent Action/C comparison
 
 The [analysis and findings](../../docs/MIR65816_VBCC_COMPARISON.md) accompany
