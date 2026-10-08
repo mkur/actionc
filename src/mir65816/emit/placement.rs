@@ -112,6 +112,7 @@ pub(super) struct Plan<'a> {
     logical: RoutineAnalysis<'a>,
     pub demand: home_demand::Plan,
     pub frame: AllocatedFrame,
+    pub calls: call_flow::Plan,
     pub pointers: select::pointer_forwarding::Plan,
     pub scalars: select::scalar_forwarding::Plan,
     pub loop_x: Option<loop_x::LoopXPlan>,
@@ -126,6 +127,7 @@ pub(super) struct Contract {
     routine: RoutineId,
     frame: AllocatedFrame,
     pub values: BTreeMap<TempId, Value>,
+    calls: call_flow::Plan,
     windows: BTreeMap<ProgramPoint, WindowId>,
     window_rows: Vec<Window>,
     descriptions: Vec<resources::Requirements>,
@@ -150,6 +152,7 @@ impl<'a> Plan<'a> {
         let logical = RoutineAnalysis::new(r)?;
         let demand = home_demand::Plan::new(r);
         let frame = AllocatedFrame::with_demand(r, &demand)?;
+        let calls = call_flow::plan(r, &logical)?;
         let pointers = demand.pointers.resolve(r, &frame)?;
         let scalars = select::scalar_forwarding::Plan::new(r, &frame)?;
         let loop_x = loop_x::LoopXPlan::new(r, &frame)?;
@@ -191,6 +194,7 @@ impl<'a> Plan<'a> {
             logical,
             demand,
             frame,
+            calls,
             pointers,
             scalars,
             loop_x,
@@ -621,6 +625,7 @@ impl<'a> Plan<'a> {
             routine: r.id,
             frame: frame.clone(),
             values,
+            calls: call_flow::plan(r, logical)?,
             windows,
             window_rows,
             descriptions,
@@ -732,6 +737,8 @@ impl<'a> Plan<'a> {
             resources::Plan::new(r),
         )?;
         if self.contract.values != expected.values
+            || self.calls != expected.calls
+            || self.contract.calls != expected.calls
             || self.contract.routine != expected.routine
             || self.contract.entry != expected.entry
             || self.contract.reachable != expected.reachable
@@ -1029,6 +1036,7 @@ impl Contract {
         let mut entries = 0;
         let mut x_contracts = 0;
         let mut covered = BTreeSet::new();
+        let mut calls = BTreeSet::new();
         let mut captures = BTreeSet::new();
         let mut reloads = BTreeSet::new();
         let mut aggregates = BTreeSet::new();
@@ -1175,6 +1183,15 @@ impl Contract {
                 Action::Instruction { form, effects, .. } if active.is_some() => {
                     let w = active.as_mut().unwrap();
                     let p = w.point;
+                    if matches!(
+                        form,
+                        Instruction::NativeCall(..) | Instruction::IndirectTransfer(Some(_))
+                    ) {
+                        let call = self.calls.get(&p).ok_or("unplanned native call transfer")?;
+                        if !call.check_transfer(form)? || !calls.insert(p) {
+                            return Err("duplicate or invalid native call transfer".into());
+                        }
+                    }
                     for effect in &effects.memory {
                         if let super::effects::Memory::DirectPage { offset, bytes } = effect.memory
                         {
@@ -1261,6 +1278,9 @@ impl Contract {
                 }
                 _ => (),
             }
+        }
+        if calls != self.calls.keys().copied().collect() {
+            return Err("missing native call transfer".into());
         }
         if captures
             != self

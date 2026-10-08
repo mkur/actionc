@@ -1,8 +1,11 @@
 # MIR65816 argument and result flow implementation plan
 
-Status: **stage 0 complete; stages 1–6 pending**.
+Status: **stages 0–1 complete; stages 2–6 pending**.
 
 Qualified baseline: [stage-0 scorecard](benchmarks/65816-call-flow-stage0/README.md).
+Behavior-neutral route foundation: [stage 1](benchmarks/65816-call-flow-stage1/README.md).
+Atomic trial allocation is delivered with the first home removal in stage 2;
+serial compiler-cost acceptance remains in stage 6.
 
 Implement the [call-flow design](MIR65816_CALL_FLOW_DESIGN.md) through the common
 MIR65816 placement and emission contracts. Deliver the three investigated

@@ -559,8 +559,31 @@ pub(super) fn routine_with_data(
             forwarded_return = if omitted {
                 demand.call_returns(routine, block, prefix.len())
             } else {
-                b.call_return(last, &block.terminator, &input_counts)
-                    .map_err(|e| format!("b{}: {e}", block.id.0))?
+                let point = crate::mir65816::analysis::ProgramPoint {
+                    block: block.id,
+                    index: prefix.len(),
+                };
+                if placement
+                    .calls
+                    .get(&point)
+                    .is_some_and(|c| matches!(c.route, call_flow::Route::Return(_)))
+                {
+                    let Mir65816Op::Call {
+                        target,
+                        args,
+                        result,
+                        plan,
+                        ..
+                    } = last
+                    else {
+                        unreachable!()
+                    };
+                    b.call_with_result(target, args, *result, plan, CallResultUse::Return)
+                        .map_err(|e| format!("b{}: {e}", block.id.0))?;
+                    true
+                } else {
+                    false
+                }
             };
             if !omitted && !forwarded_return {
                 if let Some(condition) = incoming

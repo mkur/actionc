@@ -306,3 +306,12 @@ the [stage-7 acceptance gates](benchmarks/65816-record-placement-stage7/README.m
 and distinguish native evidence from hosted-provider qualification. The
 implementation plan schedules delivery and those checks; this note owns the
 boundary contracts.
+
+## Implemented boundary
+
+The common Call table now owns declaration and route facts independently of
+physical homes. Placement recomputes those facts from immutable MIR and the
+complete logical use census, then seals them with the selected generation.
+Selected transfers must reproduce their target and complete native ABI exactly
+once at the original source point. Stage 1 retains all existing result homes
+and instructions; output ownership and trial allocation follow in stage 2.

@@ -9,59 +9,29 @@ impl Builder<'_> {
     /// Called only for the final operation, before the adjacent terminator.
     /// Preflight still validates the reserved result home, but no store or home
     /// definition is published. The normal source spans and call effects remain.
+    #[cfg(test)]
     pub(super) fn call_return(
         &mut self,
         op: &Mir65816Op,
         terminator: &Mir65816Terminator,
         input_counts: &BTreeMap<TempId, usize>,
     ) -> Result<bool, String> {
-        let (
-            Mir65816Op::Call {
-                target,
-                args,
-                result: Some((dest, bytes)),
-                plan,
-                ..
-            },
-            Mir65816Terminator::Return {
-                value: Some(Mir65816Value::Temp(value, returned_bytes)),
-                ..
-            },
-        ) = (op, terminator)
+        let Mir65816Op::Call {
+            target,
+            args,
+            result: Some((dest, bytes)),
+            plan,
+            ..
+        } = op
         else {
             return Ok(false);
         };
-        if dest != value
-            || bytes != returned_bytes
-            || input_counts.get(dest) != Some(&1)
-            || !matches!(
-                target,
-                Mir65816CallTarget::Direct(_)
-                    | Mir65816CallTarget::Helper(_)
-                    | Mir65816CallTarget::Runtime(_)
-            )
-            || plan.result != self.routine.result_home
-            || !matches!(
-                (bytes.get(), plan.result),
-                (
-                    1,
-                    Some(Mir65816AbiHome::NativeResult(
-                        abi::ResultLocation::A8ZeroExtended
-                    ))
-                ) | (
-                    2,
-                    Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16))
-                ) | (
-                    3,
-                    Some(Mir65816AbiHome::NativeResult(
-                        abi::ResultLocation::A16X8ZeroExtended
-                    ))
-                ) | (
-                    4,
-                    Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16X16))
-                )
-            )
-        {
+        if !call_flow::returns(
+            self.routine,
+            op,
+            terminator,
+            input_counts.get(dest).copied().unwrap_or(0),
+        ) {
             return Ok(false);
         }
         // The ordinary call preflight checks the complete native contract,

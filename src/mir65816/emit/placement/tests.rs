@@ -722,3 +722,26 @@ fn invocation_segment_contract_and_reload_forgery_cannot_publish() {
         assert!(result.is_err(), "reload forgery {bad}");
     }
 }
+
+#[test]
+fn native_result_routes_are_recomputed_from_the_complete_logical_census() {
+    let p = program(
+        "CARD FUNC Echo(CARD x) RETURN(x) CARD FUNC Forward(CARD x) CARD y y=1 RETURN(Echo(x)) PROC Main() RETURN",
+    );
+    let r = &p.routines[1];
+    let mut plan = Plan::new(r, &p.data).unwrap();
+    let (&point, call) = plan.calls.iter().next().unwrap();
+    assert!(matches!(call.route, call_flow::Route::Return(_)));
+    let temp = call.result.unwrap().temp;
+    assert!(plan.frame.temps.contains_key(&temp));
+    plan.calls.get_mut(&point).unwrap().route = call_flow::Route::Capture;
+    assert!(plan.verify().unwrap_err().contains("recomputed"));
+    let mut plan = Plan::new(r, &p.data).unwrap();
+    plan.contract
+        .calls
+        .get_mut(&point)
+        .unwrap()
+        .abi
+        .outgoing_bytes = ByteSize::ZERO;
+    assert!(plan.verify().unwrap_err().contains("recomputed"));
+}

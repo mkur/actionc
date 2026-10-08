@@ -196,19 +196,12 @@ impl Builder<'_> {
         result: Option<(TempId, ByteSize)>,
         plan: &Mir65816CallPlan,
     ) -> Result<Option<(Memory, u8)>, String> {
-        let Some((id, size)) = result else {
+        let Some(declaration) = call_flow::Declaration::checked(result, plan)? else {
             return Ok(None);
         };
-        let bytes = width(size)?;
-        let expected = match plan.result {
-            Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A8ZeroExtended)) => 1,
-            Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16)) => 2,
-            Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16X8ZeroExtended)) => 3,
-            Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16X16)) => 4,
-            _ => return Err("call result requires its declared native lanes".into()),
-        };
-        let home = self.temp(id)?;
-        if bytes != expected || home.slot().width != bytes {
+        let bytes = declaration.bytes;
+        let home = self.temp(declaration.temp)?;
+        if home.slot().width != bytes {
             return Err("call result width mismatch".into());
         }
         Self::check_call_home(home.into(), bytes, 0)?;
