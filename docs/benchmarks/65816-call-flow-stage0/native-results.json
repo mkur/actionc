@@ -1,0 +1,91 @@
+{
+  "profiles": {
+    "optimized-release": {
+      "before": {
+        "cycles": 71833,
+        "private": 20655,
+        "peak": 33
+      },
+      "after": {
+        "cycles": 71833,
+        "private": 20655,
+        "peak": 33
+      },
+      "vectors": 147,
+      "independent_probe": {
+        "before": {
+          "cycles": 12472,
+          "private": 3552
+        },
+        "after": {
+          "cycles": 12472,
+          "private": 3552
+        }
+      }
+    },
+    "optimized-guarded": {
+      "before": {
+        "cycles": 76021,
+        "private": 20655,
+        "peak": 33
+      },
+      "after": {
+        "cycles": 76021,
+        "private": 20655,
+        "peak": 33
+      },
+      "vectors": 147,
+      "independent_probe": {
+        "before": {
+          "cycles": 13360,
+          "private": 3552
+        },
+        "after": {
+          "cycles": 13360,
+          "private": 3552
+        }
+      }
+    },
+    "raw-guarded": {
+      "before": {
+        "cycles": 87539,
+        "private": 24288,
+        "peak": 45
+      },
+      "after": {
+        "cycles": 87539,
+        "private": 24288,
+        "peak": 45
+      },
+      "vectors": 147,
+      "independent_probe": {
+        "before": {
+          "cycles": 13352,
+          "private": 3528
+        },
+        "after": {
+          "cycles": 13352,
+          "private": 3528
+        }
+      }
+    }
+  },
+  "qualification": {
+    "call-flow": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-xx_vgb64/manifest.json",
+      "sha256": "ba1bd4e2c33c942ce7d6091c21aacc65746cb2cec1e000b711f2f41809d3e2e1"
+    },
+    "optimized-release": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-iimtaesx/manifest.json",
+      "sha256": "33da523dfc14f680b752d8c632ea4b4a102a10883d1d2df5ed8a27d307eeddf4"
+    },
+    "optimized-guarded": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-apswex4l/manifest.json",
+      "sha256": "33da523dfc14f680b752d8c632ea4b4a102a10883d1d2df5ed8a27d307eeddf4"
+    },
+    "raw-guarded": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-v7so6l7w/manifest.json",
+      "sha256": "33da523dfc14f680b752d8c632ea4b4a102a10883d1d2df5ed8a27d307eeddf4"
+    }
+  }
+}

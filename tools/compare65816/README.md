@@ -560,3 +560,12 @@ prime counts, complete flags arrays, read-only tables and ABI restoration.
 `report_sieve.py` archives only complete passing results with matching
 debug/release measurements. See the
 [results, generated-code opportunities and reproduction commands](../../docs/benchmarks/65816-sieve-speed/README.md).
+
+### Call-flow candidate qualification
+
+`exec_call_candidate.py collect` creates a fresh generation for the three frozen
+Exec816 profiles; `report --reference target/call-flow-stage0` authenticates changed
+output separately from the strict original audit. `exec_call_measure.py` measures
+serial compiles against that generation's pinned image hashes. See the
+[stage-0 scorecard](../../docs/benchmarks/65816-call-flow-stage0/README.md) for
+commands, ABI fixtures, source identities and acceptance gates.

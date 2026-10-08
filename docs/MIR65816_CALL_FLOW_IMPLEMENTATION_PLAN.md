@@ -1,6 +1,8 @@
 # MIR65816 argument and result flow implementation plan
 
-Status: **proposed; stages 0–6 have not started**.
+Status: **stage 0 complete; stages 1–6 pending**.
+
+Qualified baseline: [stage-0 scorecard](benchmarks/65816-call-flow-stage0/README.md).
 
 Implement the [call-flow design](MIR65816_CALL_FLOW_DESIGN.md) through the common
 MIR65816 placement and emission contracts. Deliver the three investigated
@@ -93,7 +95,8 @@ and CRLF through any new newline-sensitive parsing or instrumentation path.
 
 Publish a stage-0 scorecard under `docs/benchmarks/65816-call-flow-stage0/` with
 commands, identities, baseline measurements and the acceptance policy above.
-These paths describe future deliverables; no new scorecard is claimed yet.
+The qualified scorecard records image identity, independent ABI checks and the
+Rust 1.99 host baseline.
 
 ## Stage 1: separate declaration and destination validation
 
