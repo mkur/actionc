@@ -43,7 +43,12 @@ does not promise a live A/X value at its omitted source operation.
 Pure three-byte data-pointer address results may also share a deferred owner
 with their sole same-block Return. Each omitted definition retains its complete
 logical use and an empty source span. Checked pointer representation identities
-may follow one unindexed constant-offset address operation. The original source
+may connect up to sixteen consecutive address/identity operations. Unsigned
+literal indices contribute checked stride-scaled byte offsets; the complete
+combined displacement must fit `0..65535`. Planning and ordinary indexed
+selection share that interpretation. Dynamic/signed indices, incompatible
+casts, hidden uses and out-of-range compositions retain complete fallback.
+The original source
 read point authorizes a qualified borrowed input; the final allocation supplies
 an exact captured or borrowed three-byte home. Observable Loads retain their
 original site and capture. The typed `ReturnAddress` request evaluates the

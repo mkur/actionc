@@ -5,9 +5,12 @@ use support::{context::routine, *};
 const SOURCE: &str = "TYPE Parcel=[BYTE ARRAY prefix(82) BYTE ARRAY storage(32)]\n\
 TYPE Cursor=[BYTE value]\n\
 TYPE Shelf=[BYTE tag CARD ARRAY words(16)]\n\
+TYPE Crate=[CARD serial Shelf content]\n\
 Cursor POINTER FUNC Field(Parcel POINTER item) RETURN(Cursor POINTER(@item.storage))\n\
 Cursor POINTER FUNC Chain(Parcel POINTER item) RETURN(Cursor POINTER(@item.storage(0)))\n\
 Cursor POINTER FUNC Element(Shelf POINTER item) RETURN(Cursor POINTER(@item.words(3)))\n\
+Cursor POINTER FUNC Nested(Crate POINTER item) RETURN(Cursor POINTER(@item.content.words(2)))\n\
+Cursor POINTER FUNC Dynamic(Parcel POINTER item BYTE index) RETURN(Cursor POINTER(@item.storage(index)))\n\
 Cursor POINTER FUNC Framed(Parcel POINTER item) BYTE ARRAY scratch(4) scratch(0)=7 RETURN(Cursor POINTER(@item.storage))\n\
 PROC Main() RETURN\n";
 
@@ -53,10 +56,11 @@ fn returned_record_addresses_preserve_native_lanes_and_never_read_the_pointee() 
                 ("Field", 82u32),
                 ("Chain", 82),
                 ("Element", 8),
+                ("Nested", 8),
                 ("Framed", 82),
             ] {
                 let record = image.routines.iter().find(|r| r.name == name).unwrap();
-                if name == "Field" {
+                if name != "Framed" {
                     assert_eq!(
                         (record.size, record.fixed_frame, record.spill_bytes),
                         (21, 0, 0)

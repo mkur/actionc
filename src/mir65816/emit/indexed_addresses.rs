@@ -5,15 +5,6 @@ use super::*;
 #[path = "indexed_address_tests.rs"]
 mod tests;
 
-fn numeric(value: &Mir65816Value) -> Option<u64> {
-    match value {
-        Mir65816Value::U8(v) => Some(u64::from(*v)),
-        Mir65816Value::U16(v) => Some(u64::from(*v)),
-        Mir65816Value::U24(v) | Mir65816Value::U32(v) => Some(u64::from(*v)),
-        _ => None,
-    }
-}
-
 impl Builder<'_> {
     pub(super) fn indexed_pointer_address(
         &mut self,
@@ -30,11 +21,10 @@ impl Builder<'_> {
         if stride == 0 || stride >= 0x1000000 {
             return Ok(false);
         }
-        if let Some(value) = numeric(&index.value) {
-            let offset = value * u64::from(stride) + u64::from(address.displacement.get());
-            if offset > u64::from(u16::MAX) {
+        if address_offsets::numeric(&index.value).is_some() {
+            let Some(offset) = address_offsets::constant(address) else {
                 return Ok(false);
-            }
+            };
             let mut folded = address.clone();
             folded.index = None;
             folded.displacement = ByteOffset::new(offset as u32);

@@ -36,3 +36,11 @@ real-local counterpart retains its frame and normal result-preserving teardown.
 External pointer Loads retain their original capture. Focused native address,
 wide-return, demand, replay and stack targets pass; typed units also check
 complete uses, representation, exact source geometry and forged owners.
+
+Slice 2 composes consecutive fields, unsigned literal element offsets and
+checked pointer casts before allocating their homes. The full 82-byte-offset
+chain, nonzero CARD elements and nested records reach the same 21-byte zero-frame
+sequence in all four configurations. Complete-use, bound, type and atomic
+fallback units pass, as do native indexed-address, pointer-value, borrowing,
+coalescing and task/IRQ/NMI targets. Planning and ordinary indexed selection now
+share checked constant-index interpretation.

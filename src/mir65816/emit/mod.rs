@@ -2,6 +2,7 @@
 //! a verified domain home or a bounded accumulator lifetime; scratch dies at calls.
 mod allocation;
 mod address_returns;
+mod address_offsets;
 mod analysis;
 mod call_flow;
 mod coalescing;

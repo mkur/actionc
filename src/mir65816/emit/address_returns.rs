@@ -47,6 +47,8 @@ fn candidate(
         return None;
     }
     let mut nodes = Vec::new();
+    let mut offset = 0u16;
+    let mut address_seen = false;
     for (index, op) in b.ops.iter().enumerate().rev().take(16) {
         if liveness::operation_output(op) != Some(wanted)
             || counts.get(&wanted) != Some(&1)
@@ -64,11 +66,7 @@ fn candidate(
                 let (_, source) = allocation::pointer_identity(r, op)?;
                 wanted = source;
             }
-            Mir65816Op::AddressOf { address, width, .. }
-                if width.get() == 3
-                    && address.index.is_none()
-                    && address.displacement.get() <= u32::from(u16::MAX) =>
-            {
+            Mir65816Op::AddressOf { address, width, .. } if width.get() == 3 => {
                 let Mir65816AddressBase::Indirect(Mir65816Value::Temp(source, bytes)) =
                     address.base
                 else {
@@ -77,20 +75,37 @@ fn candidate(
                 if bytes.get() != 3 || !pointer(r, source) {
                     return None;
                 }
-                nodes.reverse();
-                return Some(Expression {
-                    block: b.id,
-                    source,
-                    read: ProgramPoint { block: b.id, index },
-                    consumer: ProgramPoint {
-                        block: b.id,
-                        index: b.ops.len(),
-                    },
-                    offset: address.displacement.get() as u16,
-                    nodes,
-                });
+                offset = offset.checked_add(address_offsets::constant(address)?)?;
+                address_seen = true;
+                wanted = source;
             }
             _ => return None,
+        }
+        // Compose the complete consecutive family. An unsupported address or
+        // cast in this family rejects the whole trial, never a partial suffix.
+        let continues = index
+            .checked_sub(1)
+            .and_then(|i| b.ops.get(i))
+            .is_some_and(|op| {
+                liveness::operation_output(op) == Some(wanted)
+                    && matches!(op, Mir65816Op::AddressOf { .. } | Mir65816Op::Cast { .. })
+            });
+        if !continues {
+            if !address_seen {
+                return None;
+            }
+            nodes.reverse();
+            return Some(Expression {
+                block: b.id,
+                source: wanted,
+                read: ProgramPoint { block: b.id, index },
+                consumer: ProgramPoint {
+                    block: b.id,
+                    index: b.ops.len(),
+                },
+                offset,
+                nodes,
+            });
         }
     }
     None
