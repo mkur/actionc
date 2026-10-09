@@ -1,6 +1,6 @@
 # MIR65816 returned record address implementation plan
 
-Status: **proposed implementation in four slices**.
+Status: **slices 0 and 1 implemented; composition and final qualification pending**.
 
 Select a pure computed address together with its native Return consumer, before
 allocating intermediate homes. The motivating expression is

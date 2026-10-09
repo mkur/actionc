@@ -146,6 +146,7 @@ pub(super) struct Contract {
     reachable: BTreeSet<BlockId>,
     labels: BTreeMap<BlockId, Label>,
     pointer_sources: BTreeMap<(ProgramPoint, tracked::PointerOrigin), Slot>,
+    address_returns: BTreeMap<ProgramPoint, address_returns::Contract>,
     x: Option<tracked::XContract>,
 }
 
@@ -282,7 +283,10 @@ impl<'a> Plan<'a> {
                     definition,
                     destination,
                 }
-            } else if let Some(interval) = demand.accumulator(*id) {
+            } else if let Some(interval) = demand
+                .deferred_address(*id)
+                .or_else(|| demand.accumulator(*id))
+            {
                 if components[&interval.block].defers(interval.producer) {
                     Capture::Components(interval)
                 } else {
@@ -500,6 +504,11 @@ impl<'a> Plan<'a> {
                         _ => None,
                     })
                     .collect();
+                if let Some(returned) = &components[&block.id].returned
+                    && index == returned.expression.consumer.index
+                {
+                    operands.insert(returned.expression.source);
+                }
                 let mut outputs: BTreeSet<_> =
                     census.definition.map(|(id, _)| id).into_iter().collect();
                 if let Some((id, _)) = census.definition {
@@ -685,6 +694,11 @@ impl<'a> Plan<'a> {
             reachable,
             labels: BTreeMap::new(),
             pointer_sources,
+            address_returns: components
+                .values()
+                .filter_map(|p| p.returned.clone())
+                .map(|c| (c.expression.consumer, c))
+                .collect(),
             x: None,
         })
     }
@@ -698,6 +712,7 @@ impl<'a> Plan<'a> {
             || demand.mixed != self.demand.mixed
             || demand.native_producers != self.demand.native_producers
             || demand.native_consumers != self.demand.native_consumers
+            || demand.address_returns != self.demand.address_returns
         {
             return Err("placement home demand differs from MIR admission".into());
         }
@@ -791,6 +806,7 @@ impl<'a> Plan<'a> {
             || self.contract.window_rows != expected.window_rows
             || self.contract.descriptions != expected.descriptions
             || self.contract.pointer_sources != expected.pointer_sources
+            || self.contract.address_returns != expected.address_returns
             || self.contract.frame != self.frame
         {
             return Err("placement differs from recomputed value/resource obligations".into());
@@ -1096,6 +1112,7 @@ impl Contract {
         let mut calls = BTreeSet::new();
         let mut outputs = BTreeSet::new();
         let mut output_reads = BTreeSet::new();
+        let mut address_returns = BTreeSet::new();
         let mut captures = BTreeSet::new();
         let mut reloads = BTreeSet::new();
         let mut aggregates = BTreeSet::new();
@@ -1110,6 +1127,18 @@ impl Contract {
         let mut external = vec![(0u32, 0u32); self.window_rows.len()];
         for record in selected.records() {
             match &record.action {
+                Action::Request(Request::ReturnAddress(contract)) => {
+                    let point = active
+                        .as_ref()
+                        .ok_or("address Return outside source span")?
+                        .point;
+                    if record.parent.is_some()
+                        || self.address_returns.get(&point) != Some(contract)
+                        || !address_returns.insert(point)
+                    {
+                        return Err("address Return differs from deferred placement owner".into());
+                    }
+                }
                 Action::Request(Request::ProveEntries {
                     predecessors,
                     reachable: actual,
@@ -1280,6 +1309,12 @@ impl Contract {
                 Action::Instruction { form, effects, .. } if active.is_some() => {
                     let w = active.as_mut().unwrap();
                     let p = w.point;
+                    if self.address_returns.values().any(|c| {
+                        c.expression.block == p.block
+                            && c.expression.nodes.iter().any(|(_, i)| *i == p.index)
+                    }) {
+                        return Err("deferred address producer emitted an instruction".into());
+                    }
                     if matches!(
                         form,
                         Instruction::NativeCall(..) | Instruction::IndirectTransfer(Some(_))
@@ -1383,6 +1418,9 @@ impl Contract {
             .collect();
         if outputs != expected_outputs || output_reads != expected_outputs {
             return Err("incomplete native output ownership coverage".into());
+        }
+        if address_returns != self.address_returns.keys().copied().collect() {
+            return Err("incomplete deferred address Return coverage".into());
         }
         if calls != self.calls.keys().copied().collect() {
             return Err("missing native call transfer".into());

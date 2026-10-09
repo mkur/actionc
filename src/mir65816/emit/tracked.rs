@@ -194,6 +194,64 @@ impl TrackedEmitter65816 {
     pub(super) fn has_source(&self) -> bool {
         self.recording.source.is_some()
     }
+    /// Exact three-byte source read and 24-bit modular addition, with the low
+    /// word in A and a zero-extended bank in X. This is a computed result, not
+    /// a callee-origin NativeOutput. Replay regenerates every child instruction.
+    pub(super) fn return_address(&mut self, contract: super::address_returns::Contract) -> bool {
+        self.request(Request::ReturnAddress(contract.clone()), |this| {
+            let env = this.state.env;
+            let point = contract.expression.consumer;
+            let slot = contract.source.slot();
+            if this.recording.source
+                != Some(Source {
+                    block: point.block,
+                    index: point.index,
+                })
+                || !env.native
+                || !env.current_domain
+                || env.decimal != Some(false)
+                || env.dbr != Some(0)
+                || env.index != Width::Word
+                || env.pushes != 0
+                || this.state.delta() != 0
+                || slot.width != 3
+            {
+                return false;
+            }
+            let load = match contract.source {
+                Location::Stack(_)
+                    if super::super::abi::stack::access_displacement(
+                        super::super::ByteOffset::new(slot.offset.into()),
+                        super::super::ByteSize::new(3),
+                        super::super::ByteSize::ZERO,
+                    )
+                    .is_ok() =>
+                {
+                    ByteOp::LdaStack
+                }
+                Location::DirectPage(_)
+                    if super::resources::Scratch::range(slot.offset, 3).is_some() =>
+                {
+                    ByteOp::LdaDp
+                }
+                _ => return false,
+            };
+            this.barrier();
+            this.a16();
+            this.byte(load, slot.offset as u8);
+            this.op(Implied::Clc);
+            this.word(WordOp::AdcImm, contract.expression.offset);
+            this.op(Implied::Tay);
+            this.a8();
+            this.byte(load, (slot.offset + 2) as u8);
+            this.byte(ByteOp::AdcImm, 0);
+            this.a16();
+            this.word(WordOp::AndImm, 0xff);
+            this.op(Implied::Tax);
+            this.op(Implied::Tya);
+            true
+        })
+    }
     pub(super) fn publish_native(
         &mut self,
         temp: TempId,

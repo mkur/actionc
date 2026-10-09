@@ -8,6 +8,7 @@ TYPE Shelf=[BYTE tag CARD ARRAY words(16)]\n\
 Cursor POINTER FUNC Field(Parcel POINTER item) RETURN(Cursor POINTER(@item.storage))\n\
 Cursor POINTER FUNC Chain(Parcel POINTER item) RETURN(Cursor POINTER(@item.storage(0)))\n\
 Cursor POINTER FUNC Element(Shelf POINTER item) RETURN(Cursor POINTER(@item.words(3)))\n\
+Cursor POINTER FUNC Framed(Parcel POINTER item) BYTE ARRAY scratch(4) scratch(0)=7 RETURN(Cursor POINTER(@item.storage))\n\
 PROC Main() RETURN\n";
 
 fn caller(address: u32) -> String {
@@ -48,7 +49,23 @@ fn returned_record_addresses_preserve_native_lanes_and_never_read_the_pointee() 
                     .unwrap()
             );
             // CARD fields are aligned to two bytes by the record layout.
-            for (name, offset) in [("Field", 82u32), ("Chain", 82), ("Element", 8)] {
+            for (name, offset) in [
+                ("Field", 82u32),
+                ("Chain", 82),
+                ("Element", 8),
+                ("Framed", 82),
+            ] {
+                let record = image.routines.iter().find(|r| r.name == name).unwrap();
+                if name == "Field" {
+                    assert_eq!(
+                        (record.size, record.fixed_frame, record.spill_bytes),
+                        (21, 0, 0)
+                    );
+                    assert!(record.temporaries.is_empty());
+                }
+                if name == "Framed" {
+                    assert!(record.fixed_frame >= 4);
+                }
                 let entry = routine(image, name);
                 let assembled = assemble_artifact(&caller(entry), 0x040000);
                 for input in [0u32, 1, 0x12ffaf, 0xffffae, 0xffffff, 0x800000, 0x12abcd] {

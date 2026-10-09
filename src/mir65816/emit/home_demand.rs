@@ -34,6 +34,7 @@ pub(super) enum Decision {
     Borrowed,
     LocalLoad,
     NativeOutput(Accumulator),
+    DeferredAddress(Accumulator),
 }
 
 pub(super) struct Plan {
@@ -46,6 +47,7 @@ pub(super) struct Plan {
     consumers: BTreeMap<(BlockId, usize), TempId>,
     pub(super) native_producers: BTreeMap<(BlockId, usize), TempId>,
     pub(super) native_consumers: BTreeMap<(BlockId, usize), TempId>,
+    pub(super) address_returns: BTreeMap<BlockId, address_returns::Expression>,
 }
 
 fn unsigned(r: &Mir65816Routine, id: TempId, bytes: u32) -> bool {
@@ -156,6 +158,7 @@ impl Plan {
             consumers: BTreeMap::new(),
             native_producers: BTreeMap::new(),
             native_consumers: BTreeMap::new(),
+            address_returns: BTreeMap::new(),
         };
         // Closed scalar-DP/X and pointer profiles keep ownership of their complete
         // home classes and loop-carried values. Do not mix allocators here.
@@ -423,6 +426,7 @@ impl Plan {
         plan.mixed = mixed::Plan::new(r, &plan);
         call_flow::admit_returns(r, &mut plan, &counts, &definitions);
         select::scalar_forwarding::admit_inputs(r, &mut plan);
+        address_returns::admit(r, &mut plan, &counts, &definitions);
         plan
     }
 
@@ -434,8 +438,16 @@ impl Plan {
                     | Decision::Borrowed
                     | Decision::LocalLoad
                     | Decision::NativeOutput(_)
+                    | Decision::DeferredAddress(_)
             )
         )
+    }
+
+    pub(super) fn deferred_address(&self, id: TempId) -> Option<Accumulator> {
+        match self.decisions.get(&id) {
+            Some(Decision::DeferredAddress(a)) => Some(*a),
+            _ => None,
+        }
     }
 
     pub fn native_output(&self, id: TempId) -> Option<Accumulator> {

@@ -690,6 +690,7 @@ pub fn selected_site(code: &Code, site: SelectedSite) -> Result<SelectedObservat
                 Request::PrepareReturnJoin => "prepare-return-join",
                 Request::PublishNative(..) => "publish-native",
                 Request::ConsumeNative(..) => "consume-native",
+                Request::ReturnAddress(..) => "return-address",
                 Request::RegisterHome(_) => "home",
                 Request::DeclareBlocks(_) => "blocks",
                 Request::ProveEntries { .. } => "entry-obligations",

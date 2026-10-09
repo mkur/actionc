@@ -484,7 +484,7 @@ struct PointerRanges {
     ranges: BTreeMap<TempId, Interval>,
 }
 
-fn pointer_type(ty: &crate::nir::NirType) -> bool {
+pub(super) fn pointer_type(ty: &crate::nir::NirType) -> bool {
     ty.width == Some(ByteSize::new(3))
         && matches!(ty.kind, crate::nir::NirTypeKind::Pointer { address_space, .. }
             if address_space == crate::target::TargetLayout::DATA_ADDRESS_SPACE)
@@ -499,7 +499,7 @@ fn address_type(ty: &crate::nir::NirType) -> bool {
 
 /// Exact representation identities only: no arithmetic, dereference, storage
 /// escape, callable conversion or arbitrary same-width integer equivalence.
-fn pointer_identity(routine: &Mir65816Routine, op: &Mir65816Op) -> Option<(TempId, TempId)> {
+pub(super) fn pointer_identity(routine: &Mir65816Routine, op: &Mir65816Op) -> Option<(TempId, TempId)> {
     let (dest, source, kind) = match op {
         Mir65816Op::Cast {
             dest,

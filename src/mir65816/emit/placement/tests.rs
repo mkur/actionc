@@ -78,6 +78,86 @@ fn current_word_plan_is_complete() {
 }
 
 #[test]
+fn deferred_address_returns_reject_forged_sources_sites_and_missing_owners() {
+    let p = program(
+        "TYPE Cell=[BYTE tag CARD amount] CARD POINTER FUNC Field(Cell POINTER item) RETURN(@item.amount) PROC Main() RETURN",
+    );
+    let r = &p.routines[0];
+    let m = super::super::select::routine(r, false).unwrap();
+    let selected = m.code.selected.as_ref().unwrap();
+    for case in 0..4 {
+        let mut plan = Plan::new(r, &p.data).unwrap();
+        let point = *plan.contract.address_returns.keys().next().unwrap();
+        match case {
+            0 => plan.contract.address_returns.clear(),
+            1 => {
+                plan.contract
+                    .address_returns
+                    .get_mut(&point)
+                    .unwrap()
+                    .expression
+                    .offset += 1
+            }
+            2 => {
+                plan.contract
+                    .address_returns
+                    .get_mut(&point)
+                    .unwrap()
+                    .expression
+                    .read
+                    .index += 1
+            }
+            _ => {
+                plan.contract
+                    .address_returns
+                    .get_mut(&point)
+                    .unwrap()
+                    .source = Location::Stack(Slot {
+                    offset: 5,
+                    width: 3,
+                })
+            }
+        }
+        assert!(plan.verify().is_err());
+    }
+    let mut records = selected.records().to_vec();
+    let at = records
+        .iter()
+        .position(|r| matches!(r.action, Action::Request(Request::ReturnAddress(..))))
+        .unwrap();
+    let Action::Request(Request::ReturnAddress(contract)) = &mut records[at].action else {
+        unreachable!()
+    };
+    contract.expression.offset += 1;
+    assert!(
+        selected
+            .edited(records)
+            .and_then(|s| super::super::replay::emit(&s, false))
+            .is_err()
+    );
+    let mut records = selected.records().to_vec();
+    let child = records
+        .iter_mut()
+        .skip(at + 1)
+        .find(|r| {
+            matches!(
+                r.action,
+                Action::Instruction {
+                    form: Instruction::Word(WordOp::AdcImm, _),
+                    ..
+                }
+            )
+        })
+        .unwrap();
+    if let Action::Instruction { form, effects, .. } = &mut child.action {
+        *form = Instruction::Word(WordOp::AdcImm, 3);
+        *effects = form.effects(child.before.env);
+    }
+    let edited = selected.edited(records).unwrap();
+    assert!(super::super::replay::emit(&edited, false).is_err());
+}
+
+#[test]
 fn forged_missing_partial_and_out_of_domain_homes_are_rejected() {
     let p = super::super::select::word_tests::program();
     let r = &p.routines[0];

@@ -1,6 +1,7 @@
 //! Conservative native instruction selection. Values have invocation storage,
 //! a verified domain home or a bounded accumulator lifetime; scratch dies at calls.
 mod allocation;
+mod address_returns;
 mod analysis;
 mod call_flow;
 mod coalescing;

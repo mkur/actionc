@@ -636,7 +636,10 @@ pub(super) fn routine_with_data(
                         return Err("native Return lost its output ownership".into());
                     }
                 }
-                if !forwarded_return && !demand.prepare_return(&mut b, block) {
+                if !forwarded_return
+                    && !component_stores.emit_return(&mut b)?
+                    && !demand.prepare_return(&mut b, block)
+                {
                     b.prepare_return_value(value.as_ref())?;
                 }
                 if let Some((owner, label)) = shared_tail.filter(|_| returns.contains(&block.id)) {

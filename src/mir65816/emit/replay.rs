@@ -153,6 +153,9 @@ fn walk(
 impl Request {
     pub(super) fn replay(&self, e: &mut TrackedEmitter65816) {
         match self {
+            Self::ReturnAddress(contract) => {
+                e.return_address(contract.clone());
+            }
             Self::Mode(super::state::Width::Byte) => e.a8(),
             Self::Mode(super::state::Width::Word) => e.a16(),
             Self::EstablishBody => e.establish_body(),

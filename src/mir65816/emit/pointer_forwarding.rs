@@ -574,7 +574,11 @@ impl Plan {
         Ok(plan)
     }
 
-    pub(super) fn read_home(&self, site: (BlockId, usize), temp: TempId) -> Option<Slot> {
+    pub(in crate::mir65816::emit) fn read_home(
+        &self,
+        site: (BlockId, usize),
+        temp: TempId,
+    ) -> Option<Slot> {
         self.bindings
             .iter()
             .find(|b| b.temp == temp && b.definition.0 == site.0 && b.uses.contains(&site.1))

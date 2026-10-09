@@ -14,6 +14,7 @@ struct ComponentStore {
 pub(in crate::mir65816::emit) struct Plan {
     omitted: BTreeSet<usize>,
     stores: BTreeMap<usize, ComponentStore>,
+    pub(in crate::mir65816::emit) returned: Option<address_returns::Contract>,
 }
 
 impl Plan {
@@ -31,7 +32,16 @@ impl Plan {
         let mut plan = Self {
             omitted: BTreeSet::new(),
             stores: BTreeMap::new(),
+            returned: demand
+                .address_returns
+                .get(&block.id)
+                .map(|e| e.resolve(routine, demand, frame))
+                .transpose()?,
         };
+        if let Some(returned) = &plan.returned {
+            plan.omitted
+                .extend(returned.expression.nodes.iter().map(|(_, index)| *index));
+        }
         for (index, op) in block.ops.iter().enumerate() {
             let Some((base, offset, subtract)) = home_demand::pointer_expression(op) else {
                 continue;
@@ -126,6 +136,16 @@ impl Plan {
             );
         }
         Ok(plan)
+    }
+
+    pub(super) fn emit_return(&self, b: &mut Builder<'_>) -> Result<bool, String> {
+        let Some(contract) = &self.returned else {
+            return Ok(false);
+        };
+        if !b.code.return_address(contract.clone()) {
+            return Err("deferred address Return lost its source or native boundary".into());
+        }
+        Ok(true)
     }
 
     pub(super) fn emit(

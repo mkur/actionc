@@ -84,6 +84,7 @@ pub(super) enum Request {
     PrepareReturnJoin,
     PublishNative(TempId, super::super::abi::ResultLocation),
     ConsumeNative(TempId, super::super::abi::ResultLocation),
+    ReturnAddress(super::address_returns::Contract),
     RegisterHome(Location),
     DeclareBlocks(Vec<Label>),
     ProveEntries {

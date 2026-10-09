@@ -94,6 +94,7 @@ impl SelectedCfg {
                         Action::Request(
                             Request::ConsumeWord(..)
                                 | Request::PublishNative(..)
+                                | Request::ReturnAddress(..)
                                 | Request::ConsumeNative(..)
                                 | Request::ConsumeFrame(..)
                                 | Request::StoreIncoming(..)

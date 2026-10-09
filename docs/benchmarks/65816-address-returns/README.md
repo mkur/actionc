@@ -28,3 +28,11 @@ CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 \
 ```
 
 [Implementation plan](../../MIR65816_ADDRESS_RETURN_PLAN.md).
+
+Slice 1 adds checked direct address Returns and pointer-cast suffixes under
+common placement. The independent direct-field wrapper is now 21 bytes with
+zero frame/spills and no materialized temps in all four configurations. Its
+real-local counterpart retains its frame and normal result-preserving teardown.
+External pointer Loads retain their original capture. Focused native address,
+wide-return, demand, replay and stack targets pass; typed units also check
+complete uses, representation, exact source geometry and forged owners.

@@ -40,6 +40,20 @@ Accumulator intervals name their producer and consumer and the complete A8,
 A16, A16/X8 or A16/X16 payload lanes. A three-byte deferred address expression
 does not promise a live A/X value at its omitted source operation.
 
+Pure three-byte data-pointer address results may also share a deferred owner
+with their sole same-block Return. Each omitted definition retains its complete
+logical use and an empty source span. Checked pointer representation identities
+may follow one unindexed constant-offset address operation. The original source
+read point authorizes a qualified borrowed input; the final allocation supplies
+an exact captured or borrowed three-byte home. Observable Loads retain their
+original site and capture. The typed `ReturnAddress` request evaluates the
+address at Return and establishes A16/X8 with X.high zero, before normal frame
+teardown. This computed result is distinct from a callee-origin native output.
+Placement reconstruction checks expression, source, consumer and omitted spans;
+fresh replay regenerates the entire low-word/bank arithmetic schedule. Atomic
+trial allocation preserves preceding admissions and forbids frame/spill/peak
+growth. The public ABI and bank-zero reservations are unchanged.
+
 A native output interval is distinct from accumulator residence. Its Call table
 owns the complete ABI declaration independently of memory allocation. The
 callee's return defines fresh A/X tokens after the incoming call barrier; actual
