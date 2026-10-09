@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "suites": {
+    "units": {
+      "targets": 1,
+      "passed": 430,
+      "ignored": 1,
+      "log_sha256": "4e1d89a11b58bfb8d914d54c186cc678ecd20477c9c14472029f7b9d6690e9df"
+    },
+    "integration": {
+      "targets": 14,
+      "passed": 88,
+      "ignored": 4,
+      "log_sha256": "c588f34d2bd17a3adf2e0e6d12df465cb21d7316a4d1b8bab450e7619c4b6900"
+    },
+    "native": {
+      "targets": 99,
+      "passed": 389,
+      "ignored": 6,
+      "log_sha256": "abfdb4467e188afbeb21ec724dd8ff0318a3dfac499fa4e7f304e20fc82a562b"
+    }
+  },
+  "vectors": {
+    "optimized-release": {
+      "targets": 1,
+      "passed": 1,
+      "ignored": 0,
+      "log_sha256": "9163d11120a7af487210ba89565be8ae2cfa2bcd5211743286845605a3f8ffcd"
+    },
+    "optimized-guarded": {
+      "targets": 1,
+      "passed": 1,
+      "ignored": 0,
+      "log_sha256": "30cf062758483d1c173ab070fa3a3c30077d942eb2a57cb38331f76935da6524"
+    },
+    "raw-guarded": {
+      "targets": 1,
+      "passed": 1,
+      "ignored": 0,
+      "log_sha256": "7494b6591f4ed161ba9f5bf927db14ed8b0499c6e2aa435891eaa98542108b8f"
+    }
+  },
+  "observers": {
+    "passed": 46,
+    "log_sha256": "578853a452fe71ebc24d3629be3c3f690f47af475a9a9232e1e7911da418ca7f"
+  }
+}

@@ -1,6 +1,12 @@
 # MIR65816 returned record address implementation plan
 
-Status: **slices 0–2 implemented; integrated qualification pending**.
+Status: **slices 0–3 implemented and qualified**.
+
+[Final evidence](benchmarks/65816-address-returns/README.md) records the checked
+21-byte, zero-frame `Chain` sequence in every profile, complete application and
+resource deltas, native/hosted qualification and serial compiler-cost acceptance.
+The original application size, representative-size, private-traffic and
+unchecked-provider gates remain open.
 
 Select a pure computed address together with its native Return consumer, before
 allocating intermediate homes. The motivating expression is
@@ -113,9 +119,10 @@ RTL
 This proposed schedule is **21 bytes and 12 instructions**, reads exactly the
 three parameter bytes and writes no DP or stack payload. It preserves carry
 into the bank byte, wraps at 24 bits and clears X.high without changing index
-width or losing Y.high. Return finishes with A16/X16, D=0, DBR=0 and unchanged I.
+width or losing Y.high. Return finishes with A16/X16, the unchanged current-domain
+D, DBR=0 and unchanged I.
 
-The byte target is an acceptance objective, not a measured implementation.
+Final qualification verifies this byte target in all three frozen profiles.
 Removing the frame should also remove its guard through the existing
 `enter_frame` policy, which already emits no reservation guard for an actual
 zero frame. Verify complete frame/staging obligations; do not suppress a guard

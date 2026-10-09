@@ -316,10 +316,61 @@ pub(super) fn report(machine: &MachineProgram, out: &Path) {
             let request = s.request.or_else(|| s.parent.and_then(|parent| proof::selected_site(&replayed, parent).unwrap().request));
             json!({"request":request,"accepted":s.decision,"source":s.source.map(|(b,i)|[b.0 as usize,i])})
         }).collect();
+        // A broad typed screen, not compiler admission: follow a returned value
+        // through cast/address definitions, including nonadjacent chains. Every
+        // actual admission is instead witnessed by the replayed Return request.
+        let mut address_returns = vec![];
+        if let Some(a) = &a {
+            for b in &r.blocks {
+                let Mir65816Terminator::Return {
+                    value: Some(Mir65816Value::Temp(returned, bytes)),
+                    ..
+                } = &b.terminator
+                else {
+                    continue;
+                };
+                if bytes.get() != 3 {
+                    continue;
+                }
+                let mut wanted = *returned;
+                let mut seen = BTreeSet::new();
+                let mut found = false;
+                while seen.insert(wanted) {
+                    let f = a.value(a.temp(wanted).unwrap()).unwrap();
+                    let Definition::Operation(point) = f.definition else {
+                        break;
+                    };
+                    let block = r.blocks.iter().find(|b| b.id == point.block).unwrap();
+                    match &block.ops[point.index] {
+                        Mir65816Op::Cast {
+                            value: Mir65816Value::Temp(source, _),
+                            ..
+                        } => wanted = *source,
+                        Mir65816Op::AddressOf { .. } => {
+                            found = true;
+                            break;
+                        }
+                        _ => break,
+                    }
+                }
+                if found {
+                    let admitted = selected.iter().any(|s| {
+                        s.decision == Some(true)
+                            && s.source == Some((b.id, b.ops.len()))
+                            && s.parent.is_some_and(|parent| {
+                                proof::selected_site(&replayed, parent).unwrap().request
+                                    == Some("return-address")
+                            })
+                    });
+                    address_returns.push(json!({"block":b.id.0,"consumer":b.ops.len(),"temp":returned.0,
+                        "admitted":admitted,"disposition":if admitted {"checked-deferred-return"} else {"conservative-fallback"}}));
+                }
+            }
+        }
         rows.push(json!({"id":r.id.0,"name":r.name,"helper":r.helper.map(|h|json!({"operation":format!("{:?}",h.operation),"width":h.bytes,"signed":h.signed})),
             "frame":m.frame.extent,"spill":m.frame.spill_bytes,"local_peak":m.frame.peak_below_entry,
             "objects":r.frame.objects.iter().map(|o|json!({"id":o.id.0,"offset":o.stack_offset.get(),"bytes":o.size.get(),"addressable":o.addressable})).collect::<Vec<_>>(),
-            "calls":calls,"temps":temps,"instructions":instructions,"requests":requests}));
+            "calls":calls,"temps":temps,"instructions":instructions,"requests":requests,"address_returns":address_returns}));
     }
     fs::write(
         out.with_extension("calls.json"),

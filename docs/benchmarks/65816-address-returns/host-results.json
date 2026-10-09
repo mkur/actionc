@@ -1,0 +1,212 @@
+{
+  "schema": 1,
+  "rounds": 3,
+  "samples": [
+    {
+      "round": 0,
+      "profile": "optimized-release",
+      "wall_seconds": 58.12597024999559,
+      "user_seconds": 55.945951,
+      "system_seconds": 1.152893,
+      "peak_rss_bytes": 1048887296
+    },
+    {
+      "round": 0,
+      "profile": "optimized-guarded",
+      "wall_seconds": 43.824434583075345,
+      "user_seconds": 41.944611,
+      "system_seconds": 0.908319,
+      "peak_rss_bytes": 1095155712
+    },
+    {
+      "round": 0,
+      "profile": "raw-guarded",
+      "wall_seconds": 48.023441459052265,
+      "user_seconds": 46.182685,
+      "system_seconds": 0.854981,
+      "peak_rss_bytes": 1042628608
+    },
+    {
+      "round": 1,
+      "profile": "raw-guarded",
+      "wall_seconds": 47.86639266600832,
+      "user_seconds": 46.249694,
+      "system_seconds": 0.8277399999999999,
+      "peak_rss_bytes": 1208614912
+    },
+    {
+      "round": 1,
+      "profile": "optimized-guarded",
+      "wall_seconds": 43.48948816698976,
+      "user_seconds": 41.805125,
+      "system_seconds": 0.756296,
+      "peak_rss_bytes": 1114554368
+    },
+    {
+      "round": 1,
+      "profile": "optimized-release",
+      "wall_seconds": 58.98402495798655,
+      "user_seconds": 56.671229,
+      "system_seconds": 1.034915,
+      "peak_rss_bytes": 906690560
+    },
+    {
+      "round": 2,
+      "profile": "optimized-release",
+      "wall_seconds": 58.200586249819025,
+      "user_seconds": 56.567753,
+      "system_seconds": 1.017264,
+      "peak_rss_bytes": 1053638656
+    },
+    {
+      "round": 2,
+      "profile": "optimized-guarded",
+      "wall_seconds": 43.502228250028566,
+      "user_seconds": 41.998139,
+      "system_seconds": 0.77998,
+      "peak_rss_bytes": 1023279104
+    },
+    {
+      "round": 2,
+      "profile": "raw-guarded",
+      "wall_seconds": 47.57564845797606,
+      "user_seconds": 46.149616,
+      "system_seconds": 0.8297589999999999,
+      "peak_rss_bytes": 1004945408
+    }
+  ],
+  "medians": {
+    "optimized-release": {
+      "wall_seconds": 58.200586249819025,
+      "user_seconds": 56.567753,
+      "system_seconds": 1.034915,
+      "peak_rss_bytes": 1048887296
+    },
+    "optimized-guarded": {
+      "wall_seconds": 43.502228250028566,
+      "user_seconds": 41.944611,
+      "system_seconds": 0.77998,
+      "peak_rss_bytes": 1095155712
+    },
+    "raw-guarded": {
+      "wall_seconds": 47.86639266600832,
+      "user_seconds": 46.182685,
+      "system_seconds": 0.8297589999999999,
+      "peak_rss_bytes": 1042628608
+    }
+  },
+  "methodology": "One warm-up per profile, serial CLI jobs, alternating profile order; all wait4 samples retained; no concurrent builds or qualification.",
+  "rust": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "platform": "macOS-15.7.9-arm64-arm-64bit-Mach-O",
+  "binary_sha256": "3c27e123505a293111ca82de96ecbbfa7df6e1974d128f144273e8e018983e09",
+  "candidate_provenance_sha256": "8f5798a6cb51084e4c0d1c23d12338fc19b4e3cddcae3675732cd4959248e049",
+  "measurement_tools": {
+    "tools/compare65816/exec_call_measure.py": "3f4f5b0b799f3db3da70ea255daf572cae6a1f815dd240203790010e85dc3554",
+    "tools/compare65816/measure_host.py": "d2b6ba68baf01010b0b25fec79a1815d48f7afcf2875759ce2982dc86156d60f"
+  },
+  "commands": {
+    "optimized-release": [
+      "/Users/michalkurcewicz/action/actionc-public-release/target/address-return-final/actionc-65816",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-release/task-kernel",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-release",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/examples/shell",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/runtime/65816",
+      "--layout",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/address-return-final/optimized-release/probe.layout.json",
+      "-o",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/address-return-final/host-image.json",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-release/kernel-program.act"
+    ],
+    "optimized-guarded": [
+      "/Users/michalkurcewicz/action/actionc-public-release/target/address-return-final/actionc-65816",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-guarded/task-kernel",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-guarded",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/examples/shell",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/runtime/65816",
+      "--layout",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/address-return-final/optimized-guarded/probe.layout.json",
+      "-o",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/address-return-final/host-image.json",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/optimized-guarded/kernel-program.act"
+    ],
+    "raw-guarded": [
+      "/Users/michalkurcewicz/action/actionc-public-release/target/address-return-final/actionc-65816",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/raw-guarded/task-kernel",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/raw-guarded",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/examples/shell",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/exec",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/dos",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/fs",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/console",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/display",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/input",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/mydos",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/spartados",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/exec/lib/io",
+      "--module-path",
+      "/Users/michalkurcewicz/action/actionc-public-release/runtime/65816",
+      "--layout",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/address-return-final/raw-guarded/probe.layout.json",
+      "-o",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/address-return-final/host-image.json",
+      "--no-opt",
+      "/Users/michalkurcewicz/action/actionc-public-release/target/record-placement-stage0/profiles/raw-guarded/kernel-program.act"
+    ]
+  }
+}

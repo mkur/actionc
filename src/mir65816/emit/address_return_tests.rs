@@ -217,3 +217,33 @@ fn complete_census_counts_unreachable_uses_and_chain_length_is_bounded() {
     assert!(candidate(&r, &r.blocks[0], &liveness::input_counts(&r), &definitions).is_none());
     assert!(home_demand::Plan::new(&r).address_returns.is_empty());
 }
+
+#[test]
+fn deferred_return_request_checks_the_last_source_byte_and_transient_stack_state() {
+    let p = program(SOURCE);
+    let r = &p.routines[0];
+    let demand = home_demand::Plan::new(r);
+    let expression = demand.address_returns.values().next().unwrap();
+    for (offset, delta, expected) in [
+        (0, 0, false),
+        (4, 0, true),
+        (253, 0, true),
+        (254, 0, false),
+        (4, 1, false),
+    ] {
+        let frame = AllocatedFrame::with_demand(r, &demand).unwrap();
+        let mut e = tracked::TrackedEmitter65816::for_test(&frame);
+        e.begin_source(expression.consumer.block, expression.consumer.index);
+        e.test_delta(delta);
+        let contract = Contract {
+            expression: expression.clone(),
+            source: Location::Stack(Slot { offset, width: 3 }),
+        };
+        assert_eq!(e.return_address(contract), expected, "{offset}/{delta}");
+        if expected {
+            assert!(e.position() > 0);
+        } else {
+            assert_eq!(e.position(), 0);
+        }
+    }
+}

@@ -1,0 +1,734 @@
+{
+  "schema": 1,
+  "kind": "returned-address-qualification",
+  "compiler_revision": "1b2b0e6ac79fc588127a3001f45d6bfb8214d07b",
+  "exec_revision": "57df0d7",
+  "baseline_provenance_sha256": "4fce66b8de056a320fbf13d831deeeeb686b160f0d1993839944d1baafe31635",
+  "profiles": {
+    "optimized-release": {
+      "before_bytes": 425954,
+      "after_bytes": 425868,
+      "representative_after": 9650,
+      "representatives": {
+        "EXECLISTS.INSERT": {
+          "before": 257,
+          "after": 257
+        },
+        "EXECLISTS.ENQUEUE": {
+          "before": 231,
+          "after": 231
+        },
+        "TASKPOLICY.CREATE": {
+          "before": 1393,
+          "after": 1393
+        },
+        "TASKPOLICY.PRODUCERCONTROL": {
+          "before": 1622,
+          "after": 1622
+        },
+        "PORTCORE.CREATEMSGPORT": {
+          "before": 350,
+          "after": 350
+        },
+        "DOSSTREAMS.OPENNIL": {
+          "before": 263,
+          "after": 263
+        },
+        "DOSSTREAMS.VALIDBUFFER": {
+          "before": 172,
+          "after": 172
+        },
+        "COOKEDLINE.RECALL": {
+          "before": 873,
+          "after": 873
+        },
+        "COOKEDLINE.RENDER": {
+          "before": 1519,
+          "after": 1519
+        },
+        "SDFSFILE.DRIVE": {
+          "before": 1380,
+          "after": 1380
+        },
+        "SDFSFILE.MEASURE": {
+          "before": 1590,
+          "after": 1590
+        }
+      },
+      "benefited_subsystems": [
+        "DOSSTREAMS",
+        "SDFSFILE",
+        "TASKPOLICY"
+      ],
+      "benefits": {
+        "loop": [
+          "M_EXECMEMORY_ACQUIRE_EAA019EB",
+          "M_HEAPPOLICY_RUNS_07A33D25",
+          "M_HEAPPOLICY_INIT_69D6AA0D",
+          "M_CONSOLECORE_INIT_F63331F9",
+          "M_INPUT_ACQUIRE_69C538CF",
+          "M_INPUT_POINTERREAD_16C85D8C",
+          "M_CONSOLECAPTURE_RELEASE_DD04AD8D",
+          "M_CONSOLEDISPLAY_CELLS_40A0DF53",
+          "M_CONSOLETILING_SHOW_26065EE8",
+          "M_CONSOLE_CREATE_AA57C2F6",
+          "M_BLOCKIO_BEGINSTORE_D38E59E4",
+          "M_FSNAMES_PATH_CFBF830F",
+          "M_FSLOCKS_CREATE_34BC7CB2",
+          "M_MYDOSFILE_COPY_B45932A2",
+          "M_SDFSWRITE_ROWIO_EF8D2430",
+          "M_FSRELATIVE_SEED_FD9BA1BB",
+          "M_FSHANDLER_FILE_3A9A315C",
+          "M_DOSCALLS_EXPAND_EA5329A2",
+          "M_DOSCALLS_NAMEFROMLOCK_92457C4A",
+          "M_DOSCALLS_GETASSIGN_704BF595",
+          "M_FSINSPECT_SNAPSHOT_873CF8A6",
+          "M_PROCESS_STARTINTERNAL_08C34541",
+          "M_PROGRAMPROVIDERS_RESOLVE_0AD38ACF",
+          "M_DEMO_SHELLEQUAL_87D888CC",
+          "M_DEMO_SHELLALIASCOMMAND_96FDFCD5",
+          "M_DEMO_SHELLALIASREPLACE_D1C41638",
+          "M_DEMO_SHELLLOADCOMMAND_919DB943",
+          "M_DEMO_DEMOCOMPUTE_108F568E"
+        ],
+        "call": [
+          "M_INPUT_ACQUIRE_69C538CF"
+        ]
+      },
+      "growth": [],
+      "frame_or_local_peak_growth": 0,
+      "resource_sum_changes": {
+        "fixed_frame": -24,
+        "spill_bytes": -24,
+        "local_stack_peak": -24
+      },
+      "native": {
+        "before": {
+          "cycles": 71833,
+          "private": 20655,
+          "peak": 33
+        },
+        "after": {
+          "cycles": 71833,
+          "private": 20655,
+          "peak": 33
+        },
+        "vectors": 147,
+        "independent_probe": {
+          "before": {
+            "cycles": 12472,
+            "private": 3552
+          },
+          "after": {
+            "cycles": 12472,
+            "private": 3552
+          }
+        },
+        "max_per_vector_cycle_ratio": 1.0
+      },
+      "carried_benefits": {
+        "benefited_subsystems": [
+          "DOSSTREAMS",
+          "SDFSFILE",
+          "TASKPOLICY"
+        ],
+        "benefits": {
+          "loop": [
+            "M_EXECMEMORY_ACQUIRE_EAA019EB",
+            "M_HEAPPOLICY_RUNS_07A33D25",
+            "M_HEAPPOLICY_INIT_69D6AA0D",
+            "M_CONSOLECORE_INIT_F63331F9",
+            "M_INPUT_ACQUIRE_69C538CF",
+            "M_INPUT_POINTERREAD_16C85D8C",
+            "M_CONSOLECAPTURE_RELEASE_DD04AD8D",
+            "M_CONSOLEDISPLAY_CELLS_40A0DF53",
+            "M_CONSOLETILING_SHOW_26065EE8",
+            "M_CONSOLE_CREATE_AA57C2F6",
+            "M_BLOCKIO_BEGINSTORE_D38E59E4",
+            "M_FSNAMES_PATH_CFBF830F",
+            "M_FSLOCKS_CREATE_34BC7CB2",
+            "M_MYDOSFILE_COPY_B45932A2",
+            "M_SDFSWRITE_ROWIO_EF8D2430",
+            "M_FSRELATIVE_SEED_FD9BA1BB",
+            "M_FSHANDLER_FILE_3A9A315C",
+            "M_DOSCALLS_EXPAND_EA5329A2",
+            "M_DOSCALLS_NAMEFROMLOCK_92457C4A",
+            "M_DOSCALLS_GETASSIGN_704BF595",
+            "M_FSINSPECT_SNAPSHOT_873CF8A6",
+            "M_PROCESS_STARTINTERNAL_08C34541",
+            "M_PROGRAMPROVIDERS_RESOLVE_0AD38ACF",
+            "M_DEMO_SHELLEQUAL_87D888CC",
+            "M_DEMO_SHELLALIASCOMMAND_96FDFCD5",
+            "M_DEMO_SHELLALIASREPLACE_D1C41638",
+            "M_DEMO_SHELLLOADCOMMAND_919DB943",
+            "M_DEMO_DEMOCOMPUTE_108F568E"
+          ],
+          "call": [
+            "M_INPUT_ACQUIRE_69C538CF"
+          ]
+        }
+      },
+      "hosted_status": "unsupported",
+      "bank_zero_bytes_added": {
+        "fixed": 0,
+        "per_task": 0
+      }
+    },
+    "optimized-guarded": {
+      "before_bytes": 575068,
+      "after_bytes": 574916,
+      "representative_after": 12002,
+      "representatives": {
+        "EXECLISTS.INSERT": {
+          "before": 333,
+          "after": 333
+        },
+        "EXECLISTS.ENQUEUE": {
+          "before": 311,
+          "after": 311
+        },
+        "TASKPOLICY.CREATE": {
+          "before": 1704,
+          "after": 1704
+        },
+        "TASKPOLICY.PRODUCERCONTROL": {
+          "before": 2219,
+          "after": 2219
+        },
+        "PORTCORE.CREATEMSGPORT": {
+          "before": 515,
+          "after": 515
+        },
+        "DOSSTREAMS.OPENNIL": {
+          "before": 378,
+          "after": 378
+        },
+        "DOSSTREAMS.VALIDBUFFER": {
+          "before": 280,
+          "after": 280
+        },
+        "COOKEDLINE.RECALL": {
+          "before": 1015,
+          "after": 1015
+        },
+        "COOKEDLINE.RENDER": {
+          "before": 1541,
+          "after": 1541
+        },
+        "SDFSFILE.DRIVE": {
+          "before": 1787,
+          "after": 1787
+        },
+        "SDFSFILE.MEASURE": {
+          "before": 1919,
+          "after": 1919
+        }
+      },
+      "benefited_subsystems": [
+        "DOSSTREAMS",
+        "SDFSFILE",
+        "TASKPOLICY"
+      ],
+      "benefits": {
+        "loop": [
+          "M_EXECMEMORY_ACQUIRE_EAA019EB",
+          "M_HEAPPOLICY_RUNS_07A33D25",
+          "M_HEAPPOLICY_INIT_69D6AA0D",
+          "M_CONSOLECORE_INIT_F63331F9",
+          "M_INPUT_ACQUIRE_69C538CF",
+          "M_INPUT_POINTERREAD_16C85D8C",
+          "M_CONSOLECAPTURE_RELEASE_DD04AD8D",
+          "M_CONSOLEDISPLAY_CELLS_40A0DF53",
+          "M_CONSOLETILING_SHOW_26065EE8",
+          "M_CONSOLE_CREATE_AA57C2F6",
+          "M_BLOCKIO_BEGINSTORE_D38E59E4",
+          "M_FSNAMES_PATH_CFBF830F",
+          "M_FSLOCKS_CREATE_34BC7CB2",
+          "M_MYDOSFILE_COPY_B45932A2",
+          "M_SDFSWRITE_ROWIO_EF8D2430",
+          "M_FSRELATIVE_SEED_FD9BA1BB",
+          "M_FSHANDLER_FILE_3A9A315C",
+          "M_DOSCALLS_EXPAND_EA5329A2",
+          "M_DOSCALLS_NAMEFROMLOCK_92457C4A",
+          "M_DOSCALLS_GETASSIGN_704BF595",
+          "M_FSINSPECT_SNAPSHOT_873CF8A6",
+          "M_PROCESS_STARTINTERNAL_08C34541",
+          "M_PROGRAMPROVIDERS_RESOLVE_0AD38ACF",
+          "M_DEMO_SHELLEQUAL_87D888CC",
+          "M_DEMO_SHELLALIASCOMMAND_96FDFCD5",
+          "M_DEMO_SHELLALIASREPLACE_D1C41638",
+          "M_DEMO_SHELLLOADCOMMAND_919DB943",
+          "M_DEMO_DEMOCOMPUTE_108F568E"
+        ],
+        "call": [
+          "M_INPUT_ACQUIRE_69C538CF"
+        ]
+      },
+      "growth": [],
+      "frame_or_local_peak_growth": 0,
+      "resource_sum_changes": {
+        "fixed_frame": -24,
+        "spill_bytes": -24,
+        "local_stack_peak": -24
+      },
+      "native": {
+        "before": {
+          "cycles": 76021,
+          "private": 20655,
+          "peak": 33
+        },
+        "after": {
+          "cycles": 76021,
+          "private": 20655,
+          "peak": 33
+        },
+        "vectors": 147,
+        "independent_probe": {
+          "before": {
+            "cycles": 13360,
+            "private": 3552
+          },
+          "after": {
+            "cycles": 13360,
+            "private": 3552
+          }
+        },
+        "max_per_vector_cycle_ratio": 1.0
+      },
+      "carried_benefits": {
+        "benefited_subsystems": [
+          "DOSSTREAMS",
+          "SDFSFILE",
+          "TASKPOLICY"
+        ],
+        "benefits": {
+          "loop": [
+            "M_EXECMEMORY_ACQUIRE_EAA019EB",
+            "M_HEAPPOLICY_RUNS_07A33D25",
+            "M_HEAPPOLICY_INIT_69D6AA0D",
+            "M_CONSOLECORE_INIT_F63331F9",
+            "M_INPUT_ACQUIRE_69C538CF",
+            "M_INPUT_POINTERREAD_16C85D8C",
+            "M_CONSOLECAPTURE_RELEASE_DD04AD8D",
+            "M_CONSOLEDISPLAY_CELLS_40A0DF53",
+            "M_CONSOLETILING_SHOW_26065EE8",
+            "M_CONSOLE_CREATE_AA57C2F6",
+            "M_BLOCKIO_BEGINSTORE_D38E59E4",
+            "M_FSNAMES_PATH_CFBF830F",
+            "M_FSLOCKS_CREATE_34BC7CB2",
+            "M_MYDOSFILE_COPY_B45932A2",
+            "M_SDFSWRITE_ROWIO_EF8D2430",
+            "M_FSRELATIVE_SEED_FD9BA1BB",
+            "M_FSHANDLER_FILE_3A9A315C",
+            "M_DOSCALLS_EXPAND_EA5329A2",
+            "M_DOSCALLS_NAMEFROMLOCK_92457C4A",
+            "M_DOSCALLS_GETASSIGN_704BF595",
+            "M_FSINSPECT_SNAPSHOT_873CF8A6",
+            "M_PROCESS_STARTINTERNAL_08C34541",
+            "M_PROGRAMPROVIDERS_RESOLVE_0AD38ACF",
+            "M_DEMO_SHELLEQUAL_87D888CC",
+            "M_DEMO_SHELLALIASCOMMAND_96FDFCD5",
+            "M_DEMO_SHELLALIASREPLACE_D1C41638",
+            "M_DEMO_SHELLLOADCOMMAND_919DB943",
+            "M_DEMO_DEMOCOMPUTE_108F568E"
+          ],
+          "call": [
+            "M_INPUT_ACQUIRE_69C538CF"
+          ]
+        }
+      },
+      "hosted_status": "packaged",
+      "upper_image_code_plus_initialized_data": 595187,
+      "package_bytes": {
+        "program.xex": 612239,
+        "of816/Exec-of816.xex": 637142,
+        "exec816-demo.zip": 217296
+      },
+      "bank_zero_bytes_added": {
+        "fixed": 0,
+        "per_task": 0
+      }
+    },
+    "raw-guarded": {
+      "before_bytes": 639980,
+      "after_bytes": 639864,
+      "representative_after": 13353,
+      "representatives": {
+        "EXECLISTS.INSERT": {
+          "before": 333,
+          "after": 333
+        },
+        "EXECLISTS.ENQUEUE": {
+          "before": 323,
+          "after": 323
+        },
+        "TASKPOLICY.CREATE": {
+          "before": 1929,
+          "after": 1929
+        },
+        "TASKPOLICY.PRODUCERCONTROL": {
+          "before": 2453,
+          "after": 2453
+        },
+        "PORTCORE.CREATEMSGPORT": {
+          "before": 576,
+          "after": 576
+        },
+        "DOSSTREAMS.OPENNIL": {
+          "before": 451,
+          "after": 451
+        },
+        "DOSSTREAMS.VALIDBUFFER": {
+          "before": 372,
+          "after": 372
+        },
+        "COOKEDLINE.RECALL": {
+          "before": 1010,
+          "after": 1010
+        },
+        "COOKEDLINE.RENDER": {
+          "before": 1742,
+          "after": 1742
+        },
+        "SDFSFILE.DRIVE": {
+          "before": 2036,
+          "after": 2036
+        },
+        "SDFSFILE.MEASURE": {
+          "before": 2128,
+          "after": 2128
+        }
+      },
+      "benefited_subsystems": [
+        "COOKEDLINE",
+        "DOSSTREAMS",
+        "PORTCORE",
+        "SDFSFILE",
+        "TASKPOLICY"
+      ],
+      "benefits": {
+        "loop": [
+          "M_DOSPIPE_TRANSFER_59D539F6"
+        ],
+        "call": []
+      },
+      "growth": [],
+      "frame_or_local_peak_growth": 0,
+      "resource_sum_changes": {
+        "fixed_frame": -18,
+        "spill_bytes": -18,
+        "local_stack_peak": -18
+      },
+      "native": {
+        "before": {
+          "cycles": 87539,
+          "private": 24288,
+          "peak": 45
+        },
+        "after": {
+          "cycles": 87539,
+          "private": 24288,
+          "peak": 45
+        },
+        "vectors": 147,
+        "independent_probe": {
+          "before": {
+            "cycles": 13352,
+            "private": 3528
+          },
+          "after": {
+            "cycles": 13352,
+            "private": 3528
+          }
+        },
+        "max_per_vector_cycle_ratio": 1.0
+      },
+      "carried_benefits": {
+        "benefited_subsystems": [
+          "COOKEDLINE",
+          "DOSSTREAMS",
+          "PORTCORE",
+          "SDFSFILE",
+          "TASKPOLICY"
+        ],
+        "benefits": {
+          "loop": [
+            "M_DOSPIPE_TRANSFER_59D539F6"
+          ],
+          "call": []
+        }
+      },
+      "hosted_status": "packaged",
+      "upper_image_code_plus_initialized_data": 660135,
+      "package_bytes": {
+        "program.xex": 678321,
+        "of816/Exec-of816.xex": 703224,
+        "exec816-demo.zip": 229615
+      },
+      "bank_zero_bytes_added": {
+        "fixed": 0,
+        "per_task": 0
+      }
+    }
+  },
+  "compiler_cost": {
+    "baseline_sha256": "3d8b6d71e6fe48b5a38e6c2f2957e2dc38f327fa569d32c7ac69ad694adf7d80",
+    "time_ratio_max": 1.05,
+    "rss_ratio_max": 1.1,
+    "profiles": {
+      "optimized-release": {
+        "before": {
+          "wall_seconds": 56.0480626670178,
+          "user_seconds": 55.318392,
+          "system_seconds": 0.6494139999999999,
+          "peak_rss_bytes": 1275707392
+        },
+        "after": {
+          "wall_seconds": 58.200586249819025,
+          "user_seconds": 56.567753,
+          "system_seconds": 1.034915,
+          "peak_rss_bytes": 1048887296
+        },
+        "wall_ratio": 1.0384049596074245,
+        "rss_ratio": 0.8222005317031196,
+        "pass_": true
+      },
+      "optimized-guarded": {
+        "before": {
+          "wall_seconds": 41.5182390420232,
+          "user_seconds": 40.991667,
+          "system_seconds": 0.502611,
+          "peak_rss_bytes": 1390624768
+        },
+        "after": {
+          "wall_seconds": 43.502228250028566,
+          "user_seconds": 41.944611,
+          "system_seconds": 0.77998,
+          "peak_rss_bytes": 1095155712
+        },
+        "wall_ratio": 1.047785967174505,
+        "rss_ratio": 0.7875278343956549,
+        "pass_": true
+      },
+      "raw-guarded": {
+        "before": {
+          "wall_seconds": 45.73893987503834,
+          "user_seconds": 45.178625,
+          "system_seconds": 0.43038,
+          "peak_rss_bytes": 1293615104
+        },
+        "after": {
+          "wall_seconds": 47.86639266600832,
+          "user_seconds": 46.182685,
+          "system_seconds": 0.8297589999999999,
+          "peak_rss_bytes": 1042628608
+        },
+        "wall_ratio": 1.0465129449170076,
+        "rss_ratio": 0.8059805461269568,
+        "pass_": true
+      }
+    }
+  },
+  "hosted": {
+    "lists-optimized-guarded": {
+      "status": "fail",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec hosted fixture packaging",
+        "requirement": "Declare and initialize bank-zero diagnostic storage outside resident image payload"
+      },
+      "record_sha256": "f89931eb4dd41327ca67f9d690da0476ef2796d495fb14950890f93a3204729c"
+    },
+    "lists-raw-guarded": {
+      "status": "fail",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec hosted fixture packaging",
+        "requirement": "Declare and initialize bank-zero diagnostic storage outside resident image payload"
+      },
+      "record_sha256": "26c86fa24ea171f45e514f18a190bc76f8aa8a59a31d1261f180d176a9fe56fd"
+    },
+    "ports-optimized-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "record_sha256": "fc2db290b1ce71a25e26df1504f56df4d8126dfa801e3ac567f9491d42e5dc23"
+    },
+    "ports-raw-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "record_sha256": "99f11709eaf32ad030c005e4946b0f6add407665b95fb5904e1bb5dabf9957f6"
+    },
+    "dos-streams-optimized-guarded": {
+      "status": "fail",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec fixture generation",
+        "requirement": "Generate the console include dependencies required by standalone DOS composition"
+      },
+      "record_sha256": "b66618e65fcfd2f7e56ffbf372b9a2abf7ca46548339b751db8c17f8aad5a60c"
+    },
+    "dos-streams-raw-guarded": {
+      "status": "fail",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec fixture generation",
+        "requirement": "Generate the console include dependencies required by standalone DOS composition"
+      },
+      "record_sha256": "d3ef88e9ffb9cf7e5d177a9bd9a19e50806954d26c1d6974adc06a41ed01ed73"
+    },
+    "dos-routing-optimized-guarded": {
+      "status": "fail",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec fixture generation",
+        "requirement": "Generate the console include dependencies required by standalone DOS composition"
+      },
+      "record_sha256": "bfc48bd281fec9c1120e6b31fb41429a77df9998e1463db78b2cc72aefc7b907"
+    },
+    "dos-routing-raw-guarded": {
+      "status": "fail",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec fixture generation",
+        "requirement": "Generate the console include dependencies required by standalone DOS composition"
+      },
+      "record_sha256": "073dbe64f59ff10c33451b0420065164008440e117f7637611825204fd3be035"
+    },
+    "cooked-optimized-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "record_sha256": "6023985189e3c67057a49acaa9f3e6680e725ad5f0bcbc9a823d1f6d561c75dc"
+    },
+    "cooked-raw-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "record_sha256": "1157c994cebe47f267040ffbfcc320b4a3a971e497c3fbc00df42ce07f820fc7"
+    },
+    "demo-optimized-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "record_sha256": "58a57105e551edaa9ab3d60b9d474ba911bb624724d741fe3c6522bc7b66e336"
+    },
+    "demo-raw-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "record_sha256": "7a35f89575dd65a26470987b3083fdd05efb71aa6b783c94a63b1292f1daf2f1"
+    },
+    "of816-optimized-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "record_sha256": "cf17ee0f3121765b38b62cd8269bdf334a38120ddd34a97e6639b52e46ad28db"
+    },
+    "of816-raw-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "record_sha256": "d18a759e6f0211e8ad1473556a8cd51d4332d6424b961849fb3e5a66eb64da7c"
+    }
+  },
+  "scope": "Native VM and pinned hosted emulator; no hardware claim",
+  "carried_acceptance": {
+    "passed": false,
+    "checks": {
+      "release_compiler_code_bytes_max": {
+        "actual": 425868,
+        "maximum": 422700,
+        "pass_": false
+      },
+      "representative_release_code_bytes_max": {
+        "actual": 9650,
+        "maximum": 9235,
+        "pass_": false
+      },
+      "native_release_private_accesses_max": {
+        "actual": 20655,
+        "maximum": 20565,
+        "pass_": false
+      },
+      "native_release_cycles_max": {
+        "actual": 71833,
+        "maximum": 78117,
+        "pass_": true
+      },
+      "subsystems": {
+        "actual": [
+          "DOSSTREAMS",
+          "SDFSFILE",
+          "TASKPOLICY"
+        ],
+        "pass_": true
+      },
+      "loop_benefits": {
+        "actual": 28,
+        "pass_": true
+      },
+      "call_benefits": {
+        "actual": 1,
+        "pass_": true
+      },
+      "optimized_native_peak": {
+        "actual": 33,
+        "maximum": 42,
+        "pass_": true
+      },
+      "hosted_release": {
+        "pass_": false,
+        "requirement": "Actual unchecked package under a valid provider contract"
+      },
+      "hosted_regressions": {
+        "actual": [],
+        "pass_": true
+      },
+      "routine_resources": {
+        "actual": 0,
+        "maximum": 0,
+        "pass_": true
+      },
+      "added_bank_zero_reservation": {
+        "actual": 0,
+        "maximum": 0,
+        "pass_": true
+      },
+      "compiler_cost": {
+        "pass_": true,
+        "evidence": "host-comparison.json"
+      },
+      "native_per_vector_cycles": {
+        "actual": 1.0,
+        "maximum": 1.05,
+        "pass_": true
+      }
+    },
+    "failed": [
+      "release_compiler_code_bytes_max",
+      "representative_release_code_bytes_max",
+      "native_release_private_accesses_max",
+      "hosted_release"
+    ]
+  },
+  "plan_complete": true,
+  "application_256k_objective_complete": false
+}

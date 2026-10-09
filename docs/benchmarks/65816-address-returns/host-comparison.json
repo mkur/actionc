@@ -1,0 +1,58 @@
+{
+  "baseline_sha256": "3d8b6d71e6fe48b5a38e6c2f2957e2dc38f327fa569d32c7ac69ad694adf7d80",
+  "time_ratio_max": 1.05,
+  "rss_ratio_max": 1.1,
+  "profiles": {
+    "optimized-release": {
+      "before": {
+        "wall_seconds": 56.0480626670178,
+        "user_seconds": 55.318392,
+        "system_seconds": 0.6494139999999999,
+        "peak_rss_bytes": 1275707392
+      },
+      "after": {
+        "wall_seconds": 58.200586249819025,
+        "user_seconds": 56.567753,
+        "system_seconds": 1.034915,
+        "peak_rss_bytes": 1048887296
+      },
+      "wall_ratio": 1.0384049596074245,
+      "rss_ratio": 0.8222005317031196,
+      "pass_": true
+    },
+    "optimized-guarded": {
+      "before": {
+        "wall_seconds": 41.5182390420232,
+        "user_seconds": 40.991667,
+        "system_seconds": 0.502611,
+        "peak_rss_bytes": 1390624768
+      },
+      "after": {
+        "wall_seconds": 43.502228250028566,
+        "user_seconds": 41.944611,
+        "system_seconds": 0.77998,
+        "peak_rss_bytes": 1095155712
+      },
+      "wall_ratio": 1.047785967174505,
+      "rss_ratio": 0.7875278343956549,
+      "pass_": true
+    },
+    "raw-guarded": {
+      "before": {
+        "wall_seconds": 45.73893987503834,
+        "user_seconds": 45.178625,
+        "system_seconds": 0.43038,
+        "peak_rss_bytes": 1293615104
+      },
+      "after": {
+        "wall_seconds": 47.86639266600832,
+        "user_seconds": 46.182685,
+        "system_seconds": 0.8297589999999999,
+        "peak_rss_bytes": 1042628608
+      },
+      "wall_ratio": 1.0465129449170076,
+      "rss_ratio": 0.8059805461269568,
+      "pass_": true
+    }
+  }
+}

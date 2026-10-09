@@ -1,0 +1,28 @@
+MODULE TEST
+PUBLIC EXTERNAL PROC Yield()
+VOLATILE BYTE irqAck=$7800
+CARD taskA=$7000,taskB=$7002
+BYTE current
+TYPE Parcel=[BYTE ARRAY prefix(82) BYTE ARRAY storage(32)]
+TYPE Cursor=[BYTE value]
+TYPE Job=[Parcel POINTER item Cursor POINTER result BYTE done BYTE POINTER peer]
+Parcel POINTER irqItem
+Cursor POINTER irqResult
+Cursor POINTER FUNC Chain(Parcel POINTER item)
+  RETURN(Cursor POINTER(@item.storage(0)))
+Cursor POINTER FUNC Framed(Parcel POINTER item)
+  BYTE ARRAY scratch(4)
+  scratch(0)=7
+  RETURN(Cursor POINTER(@item.storage(0)))
+CARD FUNC Dispatch(CARD saved BYTE reason)
+  irqAck=1 irqResult=Chain(irqItem) irqResult=Framed(irqItem)
+  IF current=0 THEN taskA=saved current=1 RETURN(taskB) FI
+  taskB=saved current=0
+RETURN(taskA)
+PROC Task(Job POINTER work)
+  work.result=Chain(work.item) work.result=Framed(work.item)
+  work.done=1
+  WHILE work.peer^=0 DO Yield() OD
+RETURN
+PROC Main() RETURN
+ENDMODULE
