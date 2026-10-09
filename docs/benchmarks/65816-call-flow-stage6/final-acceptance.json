@@ -1,0 +1,963 @@
+{
+  "schema": 1,
+  "stage": 6,
+  "compiler_revision": "0226ebd21a9df82721b9eb0fa8d60303e5f97695",
+  "implementation_baseline": "af7c504cd2bd97994ff27ebd1392e46508f6a1af",
+  "exec_revision": "57df0d7",
+  "frozen_inputs_sha256": "cc38b86c07388889e1144441f22f3052888fe37a75f474236ed435b8b8f98b0c",
+  "candidate_provenance_sha256": "4fce66b8de056a320fbf13d831deeeeb686b160f0d1993839944d1baafe31635",
+  "targets": {
+    "release_compiler_code_bytes_max": 422700,
+    "representative_release_code_bytes_max": 9235,
+    "native_release_private_accesses_max": 20565,
+    "native_release_cycles_max": 78117,
+    "individual_vector_cycle_ratio_max": 1.05,
+    "optimized_native_stack_peak_max": 42,
+    "frame_or_local_peak_growth": 0,
+    "bank_zero_bytes_added": 0,
+    "requirement": "Benefits in at least three Exec subsystems, including looping and calling routines; no new hosted failures"
+  },
+  "profiles": {
+    "optimized-release": {
+      "before_bytes": 430091,
+      "after_bytes": 425954,
+      "representative_after": 9650,
+      "representatives": {
+        "EXECLISTS.INSERT": {
+          "before": 257,
+          "after": 257
+        },
+        "EXECLISTS.ENQUEUE": {
+          "before": 231,
+          "after": 231
+        },
+        "TASKPOLICY.CREATE": {
+          "before": 1401,
+          "after": 1393
+        },
+        "TASKPOLICY.PRODUCERCONTROL": {
+          "before": 1628,
+          "after": 1622
+        },
+        "PORTCORE.CREATEMSGPORT": {
+          "before": 350,
+          "after": 350
+        },
+        "DOSSTREAMS.OPENNIL": {
+          "before": 271,
+          "after": 263
+        },
+        "DOSSTREAMS.VALIDBUFFER": {
+          "before": 174,
+          "after": 172
+        },
+        "COOKEDLINE.RECALL": {
+          "before": 873,
+          "after": 873
+        },
+        "COOKEDLINE.RENDER": {
+          "before": 1519,
+          "after": 1519
+        },
+        "SDFSFILE.DRIVE": {
+          "before": 1404,
+          "after": 1380
+        },
+        "SDFSFILE.MEASURE": {
+          "before": 1603,
+          "after": 1590
+        }
+      },
+      "benefited_subsystems": [
+        "DOSSTREAMS",
+        "SDFSFILE",
+        "TASKPOLICY"
+      ],
+      "benefits": {
+        "loop": [
+          "M_EXECMEMORY_ACQUIRE_EAA019EB",
+          "M_HEAPPOLICY_RUNS_07A33D25",
+          "M_HEAPPOLICY_INIT_69D6AA0D",
+          "M_CONSOLECORE_INIT_F63331F9",
+          "M_INPUT_ACQUIRE_69C538CF",
+          "M_INPUT_POINTERREAD_16C85D8C",
+          "M_CONSOLECAPTURE_RELEASE_DD04AD8D",
+          "M_CONSOLEDISPLAY_CELLS_40A0DF53",
+          "M_CONSOLETILING_SHOW_26065EE8",
+          "M_CONSOLE_CREATE_AA57C2F6",
+          "M_BLOCKIO_BEGINSTORE_D38E59E4",
+          "M_FSNAMES_PATH_CFBF830F",
+          "M_FSLOCKS_CREATE_34BC7CB2",
+          "M_MYDOSFILE_COPY_B45932A2",
+          "M_SDFSWRITE_ROWIO_EF8D2430",
+          "M_FSRELATIVE_SEED_FD9BA1BB",
+          "M_FSHANDLER_FILE_3A9A315C",
+          "M_DOSCALLS_EXPAND_EA5329A2",
+          "M_DOSCALLS_NAMEFROMLOCK_92457C4A",
+          "M_DOSCALLS_GETASSIGN_704BF595",
+          "M_FSINSPECT_SNAPSHOT_873CF8A6",
+          "M_PROCESS_STARTINTERNAL_08C34541",
+          "M_PROGRAMPROVIDERS_RESOLVE_0AD38ACF",
+          "M_DEMO_SHELLEQUAL_87D888CC",
+          "M_DEMO_SHELLALIASCOMMAND_96FDFCD5",
+          "M_DEMO_SHELLALIASREPLACE_D1C41638",
+          "M_DEMO_SHELLLOADCOMMAND_919DB943",
+          "M_DEMO_DEMOCOMPUTE_108F568E"
+        ],
+        "call": [
+          "M_INPUT_ACQUIRE_69C538CF"
+        ]
+      },
+      "growth": [],
+      "frame_or_local_peak_growth": 0,
+      "resource_sum_changes": {
+        "fixed_frame": -334,
+        "spill_bytes": -334,
+        "local_stack_peak": -334
+      },
+      "native": {
+        "before": {
+          "cycles": 71833,
+          "private": 20655,
+          "peak": 33
+        },
+        "after": {
+          "cycles": 71833,
+          "private": 20655,
+          "peak": 33
+        },
+        "vectors": 147,
+        "independent_probe": {
+          "before": {
+            "cycles": 12472,
+            "private": 3552
+          },
+          "after": {
+            "cycles": 12472,
+            "private": 3552
+          }
+        },
+        "max_per_vector_cycle_ratio": 1.0
+      },
+      "stage5_artifact_identity": true,
+      "hosted_status": "unsupported"
+    },
+    "optimized-guarded": {
+      "before_bytes": 579765,
+      "after_bytes": 575068,
+      "representative_after": 12002,
+      "representatives": {
+        "EXECLISTS.INSERT": {
+          "before": 333,
+          "after": 333
+        },
+        "EXECLISTS.ENQUEUE": {
+          "before": 311,
+          "after": 311
+        },
+        "TASKPOLICY.CREATE": {
+          "before": 1712,
+          "after": 1704
+        },
+        "TASKPOLICY.PRODUCERCONTROL": {
+          "before": 2225,
+          "after": 2219
+        },
+        "PORTCORE.CREATEMSGPORT": {
+          "before": 515,
+          "after": 515
+        },
+        "DOSSTREAMS.OPENNIL": {
+          "before": 386,
+          "after": 378
+        },
+        "DOSSTREAMS.VALIDBUFFER": {
+          "before": 282,
+          "after": 280
+        },
+        "COOKEDLINE.RECALL": {
+          "before": 1015,
+          "after": 1015
+        },
+        "COOKEDLINE.RENDER": {
+          "before": 1541,
+          "after": 1541
+        },
+        "SDFSFILE.DRIVE": {
+          "before": 1811,
+          "after": 1787
+        },
+        "SDFSFILE.MEASURE": {
+          "before": 1932,
+          "after": 1919
+        }
+      },
+      "benefited_subsystems": [
+        "DOSSTREAMS",
+        "SDFSFILE",
+        "TASKPOLICY"
+      ],
+      "benefits": {
+        "loop": [
+          "M_EXECMEMORY_ACQUIRE_EAA019EB",
+          "M_HEAPPOLICY_RUNS_07A33D25",
+          "M_HEAPPOLICY_INIT_69D6AA0D",
+          "M_CONSOLECORE_INIT_F63331F9",
+          "M_INPUT_ACQUIRE_69C538CF",
+          "M_INPUT_POINTERREAD_16C85D8C",
+          "M_CONSOLECAPTURE_RELEASE_DD04AD8D",
+          "M_CONSOLEDISPLAY_CELLS_40A0DF53",
+          "M_CONSOLETILING_SHOW_26065EE8",
+          "M_CONSOLE_CREATE_AA57C2F6",
+          "M_BLOCKIO_BEGINSTORE_D38E59E4",
+          "M_FSNAMES_PATH_CFBF830F",
+          "M_FSLOCKS_CREATE_34BC7CB2",
+          "M_MYDOSFILE_COPY_B45932A2",
+          "M_SDFSWRITE_ROWIO_EF8D2430",
+          "M_FSRELATIVE_SEED_FD9BA1BB",
+          "M_FSHANDLER_FILE_3A9A315C",
+          "M_DOSCALLS_EXPAND_EA5329A2",
+          "M_DOSCALLS_NAMEFROMLOCK_92457C4A",
+          "M_DOSCALLS_GETASSIGN_704BF595",
+          "M_FSINSPECT_SNAPSHOT_873CF8A6",
+          "M_PROCESS_STARTINTERNAL_08C34541",
+          "M_PROGRAMPROVIDERS_RESOLVE_0AD38ACF",
+          "M_DEMO_SHELLEQUAL_87D888CC",
+          "M_DEMO_SHELLALIASCOMMAND_96FDFCD5",
+          "M_DEMO_SHELLALIASREPLACE_D1C41638",
+          "M_DEMO_SHELLLOADCOMMAND_919DB943",
+          "M_DEMO_DEMOCOMPUTE_108F568E"
+        ],
+        "call": [
+          "M_INPUT_ACQUIRE_69C538CF"
+        ]
+      },
+      "growth": [],
+      "frame_or_local_peak_growth": 0,
+      "resource_sum_changes": {
+        "fixed_frame": -334,
+        "spill_bytes": -334,
+        "local_stack_peak": -334
+      },
+      "native": {
+        "before": {
+          "cycles": 76021,
+          "private": 20655,
+          "peak": 33
+        },
+        "after": {
+          "cycles": 76021,
+          "private": 20655,
+          "peak": 33
+        },
+        "vectors": 147,
+        "independent_probe": {
+          "before": {
+            "cycles": 13360,
+            "private": 3552
+          },
+          "after": {
+            "cycles": 13360,
+            "private": 3552
+          }
+        },
+        "max_per_vector_cycle_ratio": 1.0
+      },
+      "stage5_artifact_identity": true,
+      "hosted_status": "packaged",
+      "bank_zero_bytes_added": 0,
+      "memory": {
+        "bank_zero_budget": {
+          "fixed_runtime": 10528,
+          "public": [
+            1824,
+            1312,
+            1312,
+            1312,
+            1312,
+            1312,
+            2848,
+            2848
+          ],
+          "idle": 800,
+          "runtime_excluding_os": 25408,
+          "loading_excluding_os": 21872,
+          "runtime_including_os": 56128,
+          "loading_including_os": 52592
+        },
+        "task_pools": [
+          {
+            "dp": 2816,
+            "dp_reserved_bytes": 256,
+            "stack_base": 9232,
+            "stack_bytes": 1536,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3072,
+            "dp_reserved_bytes": 256,
+            "stack_base": 12368,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3328,
+            "dp_reserved_bytes": 256,
+            "stack_base": 13424,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3584,
+            "dp_reserved_bytes": 256,
+            "stack_base": 14480,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3840,
+            "dp_reserved_bytes": 256,
+            "stack_base": 15536,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4096,
+            "dp_reserved_bytes": 256,
+            "stack_base": 16592,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4352,
+            "dp_reserved_bytes": 256,
+            "stack_base": 17648,
+            "stack_bytes": 2560,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4608,
+            "dp_reserved_bytes": 256,
+            "stack_base": 20240,
+            "stack_bytes": 2560,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4864,
+            "dp_reserved_bytes": 256,
+            "stack_base": 22832,
+            "stack_bytes": 512,
+            "interrupt_reserve": 256
+          }
+        ],
+        "runtime_reservations": [
+          {
+            "name": "os-low",
+            "address": 0,
+            "size": 2048
+          },
+          {
+            "name": "state",
+            "address": 2048,
+            "size": 256
+          },
+          {
+            "name": "boot-state",
+            "address": 2304,
+            "size": 256
+          },
+          {
+            "name": "kernel-dp",
+            "address": 2560,
+            "size": 256
+          },
+          {
+            "name": "dp0",
+            "address": 2816,
+            "size": 256
+          },
+          {
+            "name": "dp1",
+            "address": 3072,
+            "size": 256
+          },
+          {
+            "name": "dp2",
+            "address": 3328,
+            "size": 256
+          },
+          {
+            "name": "dp3",
+            "address": 3584,
+            "size": 256
+          },
+          {
+            "name": "dp4",
+            "address": 3840,
+            "size": 256
+          },
+          {
+            "name": "dp5",
+            "address": 4096,
+            "size": 256
+          },
+          {
+            "name": "dp6",
+            "address": 4352,
+            "size": 256
+          },
+          {
+            "name": "dp7",
+            "address": 4608,
+            "size": 256
+          },
+          {
+            "name": "dp8",
+            "address": 4864,
+            "size": 256
+          },
+          {
+            "name": "resident",
+            "address": 5120,
+            "size": 4096
+          },
+          {
+            "name": "stack0",
+            "address": 9216,
+            "size": 1568
+          },
+          {
+            "name": "kernel-stack",
+            "address": 10784,
+            "size": 1568
+          },
+          {
+            "name": "stack1",
+            "address": 12352,
+            "size": 1056
+          },
+          {
+            "name": "stack2",
+            "address": 13408,
+            "size": 1056
+          },
+          {
+            "name": "stack3",
+            "address": 14464,
+            "size": 1056
+          },
+          {
+            "name": "stack4",
+            "address": 15520,
+            "size": 1056
+          },
+          {
+            "name": "stack5",
+            "address": 16576,
+            "size": 1056
+          },
+          {
+            "name": "stack6",
+            "address": 17632,
+            "size": 2592
+          },
+          {
+            "name": "stack7",
+            "address": 20224,
+            "size": 2592
+          },
+          {
+            "name": "stack8",
+            "address": 22816,
+            "size": 544
+          },
+          {
+            "name": "vbxe-aperture",
+            "address": 32768,
+            "size": 4096
+          },
+          {
+            "name": "os-high",
+            "address": 36864,
+            "size": 28672
+          }
+        ]
+      },
+      "upper_image_code_plus_initialized_data": 595339,
+      "package_bytes": {
+        "program.xex": 612391,
+        "of816/Exec-of816.xex": 637294,
+        "exec816-demo.zip": 217296
+      }
+    },
+    "raw-guarded": {
+      "before_bytes": 648963,
+      "after_bytes": 639980,
+      "representative_after": 13353,
+      "representatives": {
+        "EXECLISTS.INSERT": {
+          "before": 333,
+          "after": 333
+        },
+        "EXECLISTS.ENQUEUE": {
+          "before": 323,
+          "after": 323
+        },
+        "TASKPOLICY.CREATE": {
+          "before": 1943,
+          "after": 1929
+        },
+        "TASKPOLICY.PRODUCERCONTROL": {
+          "before": 2497,
+          "after": 2453
+        },
+        "PORTCORE.CREATEMSGPORT": {
+          "before": 580,
+          "after": 576
+        },
+        "DOSSTREAMS.OPENNIL": {
+          "before": 459,
+          "after": 451
+        },
+        "DOSSTREAMS.VALIDBUFFER": {
+          "before": 374,
+          "after": 372
+        },
+        "COOKEDLINE.RECALL": {
+          "before": 1022,
+          "after": 1010
+        },
+        "COOKEDLINE.RENDER": {
+          "before": 1742,
+          "after": 1742
+        },
+        "SDFSFILE.DRIVE": {
+          "before": 2062,
+          "after": 2036
+        },
+        "SDFSFILE.MEASURE": {
+          "before": 2166,
+          "after": 2128
+        }
+      },
+      "benefited_subsystems": [
+        "COOKEDLINE",
+        "DOSSTREAMS",
+        "PORTCORE",
+        "SDFSFILE",
+        "TASKPOLICY"
+      ],
+      "benefits": {
+        "loop": [
+          "M_DOSPIPE_TRANSFER_59D539F6"
+        ],
+        "call": []
+      },
+      "growth": [],
+      "frame_or_local_peak_growth": 0,
+      "resource_sum_changes": {
+        "fixed_frame": -404,
+        "spill_bytes": -404,
+        "local_stack_peak": -404
+      },
+      "native": {
+        "before": {
+          "cycles": 87539,
+          "private": 24288,
+          "peak": 45
+        },
+        "after": {
+          "cycles": 87539,
+          "private": 24288,
+          "peak": 45
+        },
+        "vectors": 147,
+        "independent_probe": {
+          "before": {
+            "cycles": 13352,
+            "private": 3528
+          },
+          "after": {
+            "cycles": 13352,
+            "private": 3528
+          }
+        },
+        "max_per_vector_cycle_ratio": 1.0
+      },
+      "stage5_artifact_identity": true,
+      "hosted_status": "packaged",
+      "bank_zero_bytes_added": 0,
+      "memory": {
+        "bank_zero_budget": {
+          "fixed_runtime": 10528,
+          "public": [
+            1824,
+            1312,
+            1312,
+            1312,
+            1312,
+            1312,
+            2848,
+            2848
+          ],
+          "idle": 800,
+          "runtime_excluding_os": 25408,
+          "loading_excluding_os": 21872,
+          "runtime_including_os": 56128,
+          "loading_including_os": 52592
+        },
+        "task_pools": [
+          {
+            "dp": 2816,
+            "dp_reserved_bytes": 256,
+            "stack_base": 9232,
+            "stack_bytes": 1536,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3072,
+            "dp_reserved_bytes": 256,
+            "stack_base": 12368,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3328,
+            "dp_reserved_bytes": 256,
+            "stack_base": 13424,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3584,
+            "dp_reserved_bytes": 256,
+            "stack_base": 14480,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 3840,
+            "dp_reserved_bytes": 256,
+            "stack_base": 15536,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4096,
+            "dp_reserved_bytes": 256,
+            "stack_base": 16592,
+            "stack_bytes": 1024,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4352,
+            "dp_reserved_bytes": 256,
+            "stack_base": 17648,
+            "stack_bytes": 2560,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4608,
+            "dp_reserved_bytes": 256,
+            "stack_base": 20240,
+            "stack_bytes": 2560,
+            "interrupt_reserve": 256
+          },
+          {
+            "dp": 4864,
+            "dp_reserved_bytes": 256,
+            "stack_base": 22832,
+            "stack_bytes": 512,
+            "interrupt_reserve": 256
+          }
+        ],
+        "runtime_reservations": [
+          {
+            "name": "os-low",
+            "address": 0,
+            "size": 2048
+          },
+          {
+            "name": "state",
+            "address": 2048,
+            "size": 256
+          },
+          {
+            "name": "boot-state",
+            "address": 2304,
+            "size": 256
+          },
+          {
+            "name": "kernel-dp",
+            "address": 2560,
+            "size": 256
+          },
+          {
+            "name": "dp0",
+            "address": 2816,
+            "size": 256
+          },
+          {
+            "name": "dp1",
+            "address": 3072,
+            "size": 256
+          },
+          {
+            "name": "dp2",
+            "address": 3328,
+            "size": 256
+          },
+          {
+            "name": "dp3",
+            "address": 3584,
+            "size": 256
+          },
+          {
+            "name": "dp4",
+            "address": 3840,
+            "size": 256
+          },
+          {
+            "name": "dp5",
+            "address": 4096,
+            "size": 256
+          },
+          {
+            "name": "dp6",
+            "address": 4352,
+            "size": 256
+          },
+          {
+            "name": "dp7",
+            "address": 4608,
+            "size": 256
+          },
+          {
+            "name": "dp8",
+            "address": 4864,
+            "size": 256
+          },
+          {
+            "name": "resident",
+            "address": 5120,
+            "size": 4096
+          },
+          {
+            "name": "stack0",
+            "address": 9216,
+            "size": 1568
+          },
+          {
+            "name": "kernel-stack",
+            "address": 10784,
+            "size": 1568
+          },
+          {
+            "name": "stack1",
+            "address": 12352,
+            "size": 1056
+          },
+          {
+            "name": "stack2",
+            "address": 13408,
+            "size": 1056
+          },
+          {
+            "name": "stack3",
+            "address": 14464,
+            "size": 1056
+          },
+          {
+            "name": "stack4",
+            "address": 15520,
+            "size": 1056
+          },
+          {
+            "name": "stack5",
+            "address": 16576,
+            "size": 1056
+          },
+          {
+            "name": "stack6",
+            "address": 17632,
+            "size": 2592
+          },
+          {
+            "name": "stack7",
+            "address": 20224,
+            "size": 2592
+          },
+          {
+            "name": "stack8",
+            "address": 22816,
+            "size": 544
+          },
+          {
+            "name": "vbxe-aperture",
+            "address": 32768,
+            "size": 4096
+          },
+          {
+            "name": "os-high",
+            "address": 36864,
+            "size": 28672
+          }
+        ]
+      },
+      "upper_image_code_plus_initialized_data": 660251,
+      "package_bytes": {
+        "program.xex": 678437,
+        "of816/Exec-of816.xex": 703340,
+        "exec816-demo.zip": 229641
+      }
+    }
+  },
+  "compiler_cost": {
+    "baseline": "../65816-call-flow-stage0/host-results.json",
+    "baseline_sha256": "1265278351e7ad1c0e885ff804ae5086150c9a2e5a8a519f5544ded2a6656f2e",
+    "candidate_sha256": "3d8b6d71e6fe48b5a38e6c2f2957e2dc38f327fa569d32c7ac69ad694adf7d80",
+    "build_environment": {
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_DEV_OPT_LEVEL": "3"
+    },
+    "cli_features": [],
+    "time_ratio_max": 1.05,
+    "rss_ratio_max": 1.1,
+    "profiles": {
+      "optimized-release": {
+        "before": {
+          "wall_seconds": 55.74955241684802,
+          "user_seconds": 54.840818,
+          "system_seconds": 0.8398829999999999,
+          "peak_rss_bytes": 1265582080
+        },
+        "after": {
+          "wall_seconds": 56.0480626670178,
+          "user_seconds": 55.318392,
+          "system_seconds": 0.6494139999999999,
+          "peak_rss_bytes": 1275707392
+        },
+        "wall_ratio": 1.0053544869371824,
+        "rss_ratio": 1.0080005178328695,
+        "pass_": true
+      },
+      "optimized-guarded": {
+        "before": {
+          "wall_seconds": 41.08658754103817,
+          "user_seconds": 40.358475,
+          "system_seconds": 0.631877,
+          "peak_rss_bytes": 1352859648
+        },
+        "after": {
+          "wall_seconds": 41.5182390420232,
+          "user_seconds": 40.991667,
+          "system_seconds": 0.502611,
+          "peak_rss_bytes": 1390624768
+        },
+        "wall_ratio": 1.0105058980757136,
+        "rss_ratio": 1.0279150317298842,
+        "pass_": true
+      },
+      "raw-guarded": {
+        "before": {
+          "wall_seconds": 45.24896595790051,
+          "user_seconds": 44.430611999999996,
+          "system_seconds": 0.638209,
+          "peak_rss_bytes": 1325514752
+        },
+        "after": {
+          "wall_seconds": 45.73893987503834,
+          "user_seconds": 45.178625,
+          "system_seconds": 0.43038,
+          "peak_rss_bytes": 1293615104
+        },
+        "wall_ratio": 1.01082840031292,
+        "rss_ratio": 0.9759341433568595,
+        "pass_": true
+      }
+    }
+  },
+  "scope": "Independent native VM and pinned hosted emulator; no hardware qualification",
+  "carried_acceptance": {
+    "passed": false,
+    "checks": {
+      "release_compiler_code_bytes_max": {
+        "actual": 425954,
+        "maximum": 422700,
+        "pass_": false
+      },
+      "representative_release_code_bytes_max": {
+        "actual": 9650,
+        "maximum": 9235,
+        "pass_": false
+      },
+      "native_release_private_accesses_max": {
+        "actual": 20655,
+        "maximum": 20565,
+        "pass_": false
+      },
+      "native_release_cycles_max": {
+        "actual": 71833,
+        "maximum": 78117,
+        "pass_": true
+      },
+      "subsystems": {
+        "actual": [
+          "DOSSTREAMS",
+          "SDFSFILE",
+          "TASKPOLICY"
+        ],
+        "pass_": true
+      },
+      "loop_benefits": {
+        "actual": 28,
+        "pass_": true
+      },
+      "call_benefits": {
+        "actual": 1,
+        "pass_": true
+      },
+      "optimized_native_peak": {
+        "actual": 33,
+        "maximum": 42,
+        "pass_": true
+      },
+      "hosted_release": {
+        "pass_": false,
+        "requirement": "Actual unchecked package under a valid provider contract"
+      },
+      "hosted_regressions": {
+        "actual": [],
+        "pass_": true
+      },
+      "routine_resources": {
+        "actual": 0,
+        "maximum": 0,
+        "pass_": true
+      },
+      "added_bank_zero_reservation": {
+        "actual": 0,
+        "maximum": 0,
+        "pass_": true
+      },
+      "native_per_vector_cycles": {
+        "actual": 1.0,
+        "maximum": 1.05,
+        "pass_": true
+      },
+      "compiler_cost": {
+        "pass_": true,
+        "evidence": "host-comparison.json"
+      }
+    },
+    "failed": [
+      "release_compiler_code_bytes_max",
+      "representative_release_code_bytes_max",
+      "native_release_private_accesses_max",
+      "hosted_release"
+    ]
+  },
+  "call_flow_plan_complete": true,
+  "application_256k_objective_complete": false
+}

@@ -1,16 +1,17 @@
 # MIR65816 argument and result flow
 
-Status: **proposed design; implementation and qualification pending**.
+Status: **implemented and qualified for the initial forms below**.
 
 This note defines ownership at native call boundaries within the existing
 `action65816.native.v2` ABI. It extends the
 [placement contract](MIR65816_PLACEMENT_CONTRACT.md) and
-[emission contract](MIR65816_EMISSION_CONTRACT.md); their implemented guarantees
-remain authoritative until the new forms are implemented and qualified. The
+[emission contract](MIR65816_EMISSION_CONTRACT.md). The
 [argument/result investigation](benchmarks/65816-exec-call-audit/argument-result-flow/README.md)
 provides the workload evidence and proposed delivery slices.
 The [implementation plan](MIR65816_CALL_FLOW_IMPLEMENTATION_PLAN.md) schedules
-the foundations, consumer slices and qualification in stages 0–6.
+the foundations, consumer slices and qualification in stages 0–6; the
+[final scorecard](benchmarks/65816-call-flow-stage6/README.md) records their
+qualification and the remaining application gates.
 
 The central distinction is between incoming values, which a call clobbers, and
 its returned value, which has a new definition. A native result may have a
@@ -35,8 +36,8 @@ SemIR lookups.
 The first admitted forms are sole adjacent byte/word result zero tests, sole
 adjacent result assignments into private locals at widths 1–4, and bounded
 private byte/word reads used as arguments in calls with multiple arguments.
-Existing immediate call-result returns should use the same result ownership
-model while retaining their current eligibility rules.
+Existing immediate call-result returns use the same result ownership model
+while retaining their current eligibility rules.
 
 Initially, result routes apply to resolved Direct, Helper and Runtime targets
 with a verified native call contract. Borrowed arguments terminate at Direct
@@ -139,11 +140,11 @@ appear inside this interval. Complete resource checking includes cleanup and
 comparison mode changes; no temp-home load may be emitted for the omitted
 home. Other comparisons retain the canonical route.
 
-The existing sole adjacent native Return form can be represented as another
-explicit register consumer, including its A/X widths and result-preserving
-frame teardown. Until that form is migrated and independently qualified,
-retain its current reserved-home preflight. This note does not declare those
-reserved homes removable by itself.
+The sole adjacent native Return form is another explicit register consumer,
+including its A/X widths and result-preserving frame teardown. Its reserved
+home is omitted only after complete-use admission and successful atomic trial
+allocation. Separately qualified whole-routine terminal forwarding retains its
+own contract.
 
 ### Final private local
 

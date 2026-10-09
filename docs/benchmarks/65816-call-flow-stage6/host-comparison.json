@@ -1,0 +1,66 @@
+{
+  "baseline": "../65816-call-flow-stage0/host-results.json",
+  "baseline_sha256": "1265278351e7ad1c0e885ff804ae5086150c9a2e5a8a519f5544ded2a6656f2e",
+  "candidate_sha256": "3d8b6d71e6fe48b5a38e6c2f2957e2dc38f327fa569d32c7ac69ad694adf7d80",
+  "build_environment": {
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "3"
+  },
+  "cli_features": [],
+  "time_ratio_max": 1.05,
+  "rss_ratio_max": 1.1,
+  "profiles": {
+    "optimized-release": {
+      "before": {
+        "wall_seconds": 55.74955241684802,
+        "user_seconds": 54.840818,
+        "system_seconds": 0.8398829999999999,
+        "peak_rss_bytes": 1265582080
+      },
+      "after": {
+        "wall_seconds": 56.0480626670178,
+        "user_seconds": 55.318392,
+        "system_seconds": 0.6494139999999999,
+        "peak_rss_bytes": 1275707392
+      },
+      "wall_ratio": 1.0053544869371824,
+      "rss_ratio": 1.0080005178328695,
+      "pass_": true
+    },
+    "optimized-guarded": {
+      "before": {
+        "wall_seconds": 41.08658754103817,
+        "user_seconds": 40.358475,
+        "system_seconds": 0.631877,
+        "peak_rss_bytes": 1352859648
+      },
+      "after": {
+        "wall_seconds": 41.5182390420232,
+        "user_seconds": 40.991667,
+        "system_seconds": 0.502611,
+        "peak_rss_bytes": 1390624768
+      },
+      "wall_ratio": 1.0105058980757136,
+      "rss_ratio": 1.0279150317298842,
+      "pass_": true
+    },
+    "raw-guarded": {
+      "before": {
+        "wall_seconds": 45.24896595790051,
+        "user_seconds": 44.430611999999996,
+        "system_seconds": 0.638209,
+        "peak_rss_bytes": 1325514752
+      },
+      "after": {
+        "wall_seconds": 45.73893987503834,
+        "user_seconds": 45.178625,
+        "system_seconds": 0.43038,
+        "peak_rss_bytes": 1293615104
+      },
+      "wall_ratio": 1.01082840031292,
+      "rss_ratio": 0.9759341433568595,
+      "pass_": true
+    }
+  }
+}

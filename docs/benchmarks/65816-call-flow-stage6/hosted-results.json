@@ -1,0 +1,184 @@
+{
+  "cases": {
+    "dos-streams-raw-guarded": {
+      "status": "fail",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec fixture generation",
+        "requirement": "Generate the console include dependencies required by standalone DOS composition"
+      },
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "machine_count": 0,
+      "elapsed_seconds": 0.31943391589447856,
+      "record_sha256": "6b82e57e6b673e9dec903623b3f0fd6f250faeaf20d695fe6fc5625c3bfdf49b"
+    },
+    "dos-routing-raw-guarded": {
+      "status": "fail",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec fixture generation",
+        "requirement": "Generate the console include dependencies required by standalone DOS composition"
+      },
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "machine_count": 0,
+      "elapsed_seconds": 0.3156680839601904,
+      "record_sha256": "9fbd80f7b41021572578adc23510d5c1a2f5f099ed4acc39eee25ca4f0123770"
+    },
+    "lists-raw-guarded": {
+      "status": "fail",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec hosted fixture packaging",
+        "requirement": "Declare and initialize bank-zero diagnostic storage outside resident image payload"
+      },
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "machine_count": 1,
+      "elapsed_seconds": 0.9877033340744674,
+      "record_sha256": "1a6e62d375ceb30c62205f5f608aeb29b1d8f92b7140f14f70b15186c8baa03a"
+    },
+    "ports-optimized-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "machine_count": 1,
+      "elapsed_seconds": 94.63466416695155,
+      "record_sha256": "4b49c749406395af9246b44c648962851423f2bdc3d451ea8b3fe68106e379ad"
+    },
+    "cooked-optimized-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "machine_count": 1,
+      "elapsed_seconds": 83.14265816682018,
+      "record_sha256": "b383a34b86bcdf4c4c3d9c83886f4736ba1fad0b332a83b2149f62c1f880c9da"
+    },
+    "lists-optimized-guarded": {
+      "status": "fail",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec hosted fixture packaging",
+        "requirement": "Declare and initialize bank-zero diagnostic storage outside resident image payload"
+      },
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "machine_count": 1,
+      "elapsed_seconds": 0.8853801251389086,
+      "record_sha256": "f11c2202a55f2faa182668103c59d5d53be0db8329eb867c5c201f28c45ee5c6"
+    },
+    "of816-optimized-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "machine_count": 1,
+      "elapsed_seconds": 7.5028572080191225,
+      "record_sha256": "cd730cca7cb4daf653cc8c3319693d7eea1161689276442ce9bee2b0eea22186"
+    },
+    "demo-optimized-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "machine_count": 1,
+      "elapsed_seconds": 74.26509712496772,
+      "record_sha256": "0f23ffb21069786d5efccb670489aedb308772a8f5bd276b8a7d0d824f537170"
+    },
+    "of816-raw-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "machine_count": 1,
+      "elapsed_seconds": 7.62532770796679,
+      "record_sha256": "767d60109517682f2bbf20238132cad49b01b8810d18d08a59a20b5315d7cf74"
+    },
+    "ports-raw-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "machine_count": 1,
+      "elapsed_seconds": 106.6738019590266,
+      "record_sha256": "3c14b592b3056596dd6c4e5da242d5b7af3228b1555af8463a09ec6f3c8b47ed"
+    },
+    "dos-streams-optimized-guarded": {
+      "status": "fail",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec fixture generation",
+        "requirement": "Generate the console include dependencies required by standalone DOS composition"
+      },
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "machine_count": 0,
+      "elapsed_seconds": 0.33602641709148884,
+      "record_sha256": "6bf786a3c920e3ae7dfe12b52d711cbaab7d82fe4431493e3af48d15a55ab79c"
+    },
+    "dos-routing-optimized-guarded": {
+      "status": "fail",
+      "disposition": {
+        "status": "pre-existing-failure",
+        "owner": "Exec fixture generation",
+        "requirement": "Generate the console include dependencies required by standalone DOS composition"
+      },
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "machine_count": 0,
+      "elapsed_seconds": 0.3365015001036227,
+      "record_sha256": "cb97953c0e0fb3900c857f3332c9ffa6cb0f7d836bb7c711803876b5b1ee965e"
+    },
+    "cooked-raw-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "machine_count": 1,
+      "elapsed_seconds": 82.65521616698243,
+      "record_sha256": "398bc55aff1803c45bbed808168b79941ca3db055fdfb3fb784ce4fe90f6a85c"
+    },
+    "demo-raw-guarded": {
+      "status": "pass",
+      "disposition": {
+        "status": "pass",
+        "previously_failed": false
+      },
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "machine_count": 1,
+      "elapsed_seconds": 65.55465958407149,
+      "record_sha256": "b88267eb8cb9861e49d4826c87e62e6fa852070206c76736ab245d7c72c872d8"
+    }
+  },
+  "packages": {
+    "optimized-release": {
+      "status": "unsupported",
+      "error": "Hosted o65 requires a checked kernel",
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "compiler_revision": "0226ebd21a9df82721b9eb0fa8d60303e5f97695"
+    },
+    "raw-guarded": {
+      "status": "packaged",
+      "error": null,
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "compiler_revision": "0226ebd21a9df82721b9eb0fa8d60303e5f97695"
+    },
+    "optimized-guarded": {
+      "status": "packaged",
+      "error": null,
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "compiler_revision": "0226ebd21a9df82721b9eb0fa8d60303e5f97695"
+    }
+  }
+}

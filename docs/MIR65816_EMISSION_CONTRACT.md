@@ -1779,3 +1779,11 @@ any payload write. Full reservation bounds make either the selected incremental
 push schedule or reservation/store strategy valid, including partial S movement.
 Input bindings are installed only for that Call and cleared before transfer.
 Omitted Loads do not invent register facts, and results inherit no input owner.
+
+These call-flow permissions apply only to their checked terminal occurrences.
+Indirect calls, result cast chains, cross-block result residence, exposed or
+parameter-backed destinations and wide register arguments retain conservative
+construction and capture. A missing mutable-local fact also retains capture;
+field Stores alone do not authorize emission to infer object mutability.
+The [call-flow design](MIR65816_CALL_FLOW_DESIGN.md) defines these boundaries and
+their independent execution obligations.

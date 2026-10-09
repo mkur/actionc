@@ -8,8 +8,12 @@ and execution state. Neither resource descriptions nor placement grant new
 memory aliasing or instruction-rewrite permissions.
 
 The [argument and result flow design](MIR65816_CALL_FLOW_DESIGN.md) defines
-call-boundary ownership within the current ABI. Sole adjacent native Returns and byte/word zero tests use checked output ownership;
-private local result destinations and bounded scalar input extensions remain pending.
+call-boundary ownership within the current ABI. Sole adjacent native Returns,
+byte/word zero tests and exact-width private local Stores use checked output
+ownership. Bounded private byte/word inputs can share a complete Direct call.
+These forms retain separate input and output permissions; indirect calls,
+cross-block native outputs and wide register arguments retain their existing
+strategies.
 
 ## Planning and ownership
 
@@ -40,14 +44,16 @@ A native output interval is distinct from accumulator residence. Its Call table
 owns the complete ABI declaration independently of memory allocation. The
 callee's return defines fresh A/X tokens after the incoming call barrier; actual
 cleanup must preserve the declared lanes and reach body S before publishing a
-read permission. A sole adjacent Return or byte/word literal-zero Eq/Ne comparison consumes that
-permission at its own logical point. Comparisons establish fresh flags explicitly;
-callee or cleanup flags never authorize the test. Each consumer family is trialled
-against the preceding qualified demand so fallback retains earlier admissions. Reserved result homes disappear only after complete-use admission
-and an atomic comparison of conservative/candidate frames, spills and local peaks.
+read permission. A sole adjacent Return, byte/word literal-zero Eq/Ne comparison
+or private local Store consumes that permission at its own logical point.
+Comparisons establish fresh flags explicitly; callee or cleanup flags never
+authorize the test. Each consumer family is trialled against the preceding
+qualified demand so fallback retains earlier admissions. Reserved result homes
+disappear only after complete-use admission and an atomic comparison of
+conservative/candidate frames, spills and local peaks.
 Affinity validation consumes the same demand plan rather than recursively
-reconstructing admission. A rejected trial restores conservative demand entirely.
-
+reconstructing admission. A rejected trial restores that family's complete
+conservative demand while preserving earlier qualified families.
 
 Borrowed pointer aliases retain separate definitions and use sets. Their exact
 authoritative input homes come from the existing complete, closed read-binding

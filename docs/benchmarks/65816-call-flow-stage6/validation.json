@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "compiler_revision": "0226ebd21a9df82721b9eb0fa8d60303e5f97695",
+  "source_inputs_sha256": "4fce66b8de056a320fbf13d831deeeeb686b160f0d1993839944d1baafe31635",
+  "suites": {
+    "units": {
+      "targets": 1,
+      "passed": 422,
+      "ignored": 1,
+      "log": "target/call-flow-stage6-units.log",
+      "log_sha256": "8890f6344322ac87d9b4d889c96d5c191a7f403cb6490e36fe50a6e3b5afe277"
+    },
+    "integration": {
+      "targets": 14,
+      "passed": 88,
+      "ignored": 4,
+      "log": "target/call-flow-stage6-integration.log",
+      "log_sha256": "f5582708a212dbe50be280ed10a9dbe6abfa4c17a605a2be156b598b1a121b4a"
+    },
+    "native": {
+      "targets": 98,
+      "passed": 385,
+      "ignored": 6,
+      "log": "target/call-flow-stage6-native.log",
+      "log_sha256": "0880640803607caf46276861996fe19863ddbbfe10a624aa98a7c5d9ee76ef4b"
+    }
+  },
+  "vectors": {
+    "optimized-release": {
+      "targets": 1,
+      "passed": 1,
+      "ignored": 0,
+      "log": "target/call-flow-stage6-optimized-release-vectors.log",
+      "log_sha256": "c1c9d29ca700cf0953b9110b2b83348ac2fc2e355672e4bc3604eb9587930cf4",
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "manifest_sha256": "0adab8ef05fce5ff669a24c8c666901d64d60deb5069f8588057e5a260ba8c46",
+      "manifest_evidence": "optimized-release.vectors-manifest.json.gz",
+      "results_sha256": "b4fdaa4d825d2ff67a4a33f17f31747d146569808ce1284f79933dcf20ef96be",
+      "results_evidence": "optimized-release.vectors-results.json.gz"
+    },
+    "optimized-guarded": {
+      "targets": 1,
+      "passed": 1,
+      "ignored": 0,
+      "log": "target/call-flow-stage6-optimized-guarded-vectors.log",
+      "log_sha256": "9d8b06bdb9f54ccd056b7589f3b974aa121b6d324d8013d72c47b02821badda7",
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "manifest_sha256": "19ee6a3498cf1da0165c3c5fd43e9b1ac9f2d45b0fbf0980f06913a8cd97664a",
+      "manifest_evidence": "optimized-guarded.vectors-manifest.json.gz",
+      "results_sha256": "132c439c6f7a68d640e7f25e48b798d21870c1df9e4ce131a0fa5f6f21deb00a",
+      "results_evidence": "optimized-guarded.vectors-results.json.gz"
+    },
+    "raw-guarded": {
+      "targets": 1,
+      "passed": 1,
+      "ignored": 0,
+      "log": "target/call-flow-stage6-raw-guarded-vectors.log",
+      "log_sha256": "ed0882396466c577aa63e60bc2e831ef584547562e5644b894c3edf7fa9dadc7",
+      "compiler_sha256": "6fc8e9c2dc0306db6ee17878f6c5848629803f2db1e3f3835bd1a35451a5aca6",
+      "manifest_sha256": "e27c5daeafd10bc5b372e83031db4843a8a203532dff6e76968c5fc639b44b9f",
+      "manifest_evidence": "raw-guarded.vectors-manifest.json.gz",
+      "results_sha256": "05ee90163a353443e02bef22b24476b7b1867cd9845091a0b71773935e65109a",
+      "results_evidence": "raw-guarded.vectors-results.json.gz"
+    }
+  },
+  "observers": {
+    "passed": 46,
+    "groups": [
+      27,
+      19
+    ],
+    "log": "target/call-flow-stage6-observers.log",
+    "log_sha256": "cdd52dc56cbf730ed74043e2c67bf2fb1c56f75a7b5208f7c08ea2dbd30e6217"
+  },
+  "report_check": {
+    "passed": true,
+    "log": "target/call-flow-stage6-report-check.log",
+    "log_sha256": "8e33324e63ac2b03601266df117492100b506c8c8406f7f93e563ef9ca26f059"
+  },
+  "scope": "MIR65816 backend; shared frontend/NIR contracts unchanged"
+}
