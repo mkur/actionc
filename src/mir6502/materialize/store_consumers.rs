@@ -3604,14 +3604,16 @@ fn binary_flags_may_be_live_after(ops: &[MirOp], start: usize, terminator: &MirT
 }
 
 fn byte_binary_store_addr_is_supported(store_dst: &MirAddr) -> bool {
-    matches!(
-        store_dst,
-        MirAddr::Direct(_)
-            | MirAddr::Deref { .. }
-            | MirAddr::PointerCell { .. }
-            | MirAddr::ComputedIndex { .. }
-            | MirAddr::PointerIndex { .. }
-    )
+    match store_dst {
+        MirAddr::Direct(_) => true,
+        // These fused consumers have no wide-offset preparation. Leave wider
+        // fields to the general consumer, which proves a complete Y window.
+        MirAddr::Deref { offset, .. }
+        | MirAddr::PointerCell { offset, .. }
+        | MirAddr::ComputedIndex { offset, .. }
+        | MirAddr::PointerIndex { offset, .. } => *offset <= u16::from(u8::MAX),
+        _ => false,
+    }
 }
 
 fn value_survives_address_setup(value: &MirValue) -> bool {

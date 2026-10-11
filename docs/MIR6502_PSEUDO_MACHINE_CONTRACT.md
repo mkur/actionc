@@ -201,6 +201,9 @@ Removing a private word producer requires both byte lanes to share one
 dominating definition and exactly one complete consumer, including all later
 lane and CFG-edge uses. The pre-home rewrite context owns this proof.
 
+Fused copy and arithmetic consumers must prove their complete indirect window.
+Consumers without wide-offset preparation defer to general materialization.
+
 An indirect Y window must contain every byte of an access. A word beginning at
 offset 255 requires rebasing, and offset arithmetic preserves 16-bit wrap.
 Dynamic folding needs a proven index bound, not an array's declared capacity;

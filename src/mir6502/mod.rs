@@ -7221,11 +7221,13 @@ mod tests {
         emit_program(&mir, &mut emitter).expect("emit indexed address materialization");
         let bytes = emitter.finish().expect("finish emitter");
 
-        assert!(bytes.windows(18).any(|window| window
-            == [
-                0xA9, 0x10, 0x0A, 0x08, 0x18, 0x69, 0xF0, 0x85, 0xAC, 0xA9, 0x00, 0x2A, 0x28, 0x69,
-                0x40, 0x85, 0xAD, 0x60
-            ]));
+        let mut memory = [0u8; 65536];
+        memory[0x3000..0x3000 + bytes.len()].copy_from_slice(&bytes);
+        memory[0xAE] = 0xA5;
+        memory[0xAF] = 0x5A;
+        materialize::leaf_test_cpu::run_memory(&mut memory, 0x3000);
+        assert_eq!(u16::from_le_bytes([memory[0xAC], memory[0xAD]]), 0x4110);
+        assert_eq!(&memory[0xAE..0xB0], &[0xA5, 0x5A]);
     }
 
     #[test]

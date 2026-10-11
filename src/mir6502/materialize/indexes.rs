@@ -1190,6 +1190,9 @@ pub(super) fn try_fuse_indexed_byte_copy(
     let Some(mut dst_parts) = indexed_addr_parts(dst) else {
         return 0;
     };
+    if src_parts.offset > u16::from(u8::MAX) || dst_parts.offset > u16::from(u8::MAX) {
+        return 0;
+    }
 
     // Address materialization uses A as its arithmetic accumulator. When
     // copy propagation has placed a shared source/destination index in A,
@@ -1497,6 +1500,11 @@ pub(super) fn try_fuse_indexed_word_copy(
     else {
         return 0;
     };
+
+    // Both lanes must fit before selecting a paired indirect copy.
+    if src_offset >= u16::from(u8::MAX) || dst_offset >= u16::from(u8::MAX) {
+        return 0;
+    }
 
     // This fusion keeps the destination in $AE/$AF while constructing the
     // source in $AC/$AD. General constant-stride address expansion uses
@@ -3275,6 +3283,7 @@ fn materialize_dynamic_word_index_read(
     out: &mut Vec<MirOp>,
 ) {
     materialize_dynamic_word_index_address(base, index, DEFAULT_POINTER_PAIR, out);
+    let offset = materialize_wide_indirect_offset(DEFAULT_POINTER_PAIR, offset, MirWidth::Word, out);
     out.push(MirOp::LoadIndirect {
         consumer: DEFAULT_POINTER_PAIR,
         dst: MirDef::Reg(MirReg::A),
@@ -3306,6 +3315,7 @@ fn materialize_dynamic_word_index_write(
     out: &mut Vec<MirOp>,
 ) {
     materialize_dynamic_word_index_address(base, index, DEFAULT_POINTER_PAIR, out);
+    let offset = materialize_wide_indirect_offset(DEFAULT_POINTER_PAIR, offset, MirWidth::Word, out);
     let (lo, hi) = split_value_as_word(src, layout);
     out.push(MirOp::StoreIndirect {
         consumer: DEFAULT_POINTER_PAIR,
@@ -3351,6 +3361,7 @@ pub(super) fn materialize_dynamic_byte_index_read(
         return;
     }
     materialize_dynamic_index_address(base, index, 1, DEFAULT_POINTER_PAIR, out);
+    let offset = materialize_wide_indirect_offset(DEFAULT_POINTER_PAIR, offset, MirWidth::Byte, out);
     out.push(MirOp::LoadIndirect {
         consumer: DEFAULT_POINTER_PAIR,
         dst: MirDef::Reg(MirReg::A),
@@ -3379,6 +3390,7 @@ pub(super) fn materialize_dynamic_byte_index_write(
         return;
     }
     materialize_dynamic_index_address(base, index, 1, DEFAULT_POINTER_PAIR, out);
+    let offset = materialize_wide_indirect_offset(DEFAULT_POINTER_PAIR, offset, MirWidth::Byte, out);
     let src = materialize_byte_value_to_a(src, out);
     out.push(MirOp::StoreIndirect {
         consumer: DEFAULT_POINTER_PAIR,

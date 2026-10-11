@@ -38,7 +38,7 @@ pub(super) mod inlining;
 mod inlining_cost;
 mod inlining_helpers;
 #[cfg(test)]
-mod leaf_test_cpu;
+pub(in crate::mir6502) mod leaf_test_cpu;
 mod layout;
 mod lea;
 mod machine_value_census;

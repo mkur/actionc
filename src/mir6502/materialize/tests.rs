@@ -12559,7 +12559,7 @@ fn word_shift_from_unproven_word_keeps_full_width_path() {
 }
 
 #[test]
-fn delayed_byte_indexed_store_with_offset_advances_address() {
+fn delayed_byte_indexed_store_with_offset_rebases_before_full_byte_index() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
     let mut helpers = Vec::new();
@@ -12607,31 +12607,33 @@ fn delayed_byte_indexed_store_with_offset_advances_address() {
     );
     assert!(ops.iter().any(|op| matches!(
         op,
-        MirOp::AdvanceAddress {
+        MirOp::MaterializeIndexedAddress {
             consumer: DEFAULT_POINTER_PAIR,
-            index: MirValue::Def(MirDef::Reg(MirReg::A)),
+            index: MirValue::ConstU16(3),
             scale: 1,
+            ..
         }
     )));
     assert!(ops.iter().any(|op| matches!(
         op,
-        MirOp::StoreIndirect {
-            consumer: DEFAULT_POINTER_PAIR,
-            offset: 3,
+        MirOp::Store {
+            dst: MirAddr::FixedIndirectIndexedY {
+                zp: MirFixedZpSlot(POINTER_SCRATCH_LO)
+            },
             ..
         }
     )));
     assert!(!ops.iter().any(|op| matches!(
         op,
-        MirOp::Store {
-            dst: MirAddr::FixedIndirectIndexedY { .. },
+        MirOp::AdvanceAddress {
+            index: MirValue::Def(MirDef::Reg(MirReg::A)),
             ..
         }
     )));
 }
 
 #[test]
-fn delayed_byte_indexed_read_with_offset_advances_address() {
+fn delayed_byte_indexed_read_with_offset_rebases_before_full_byte_index() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
     let mut helpers = Vec::new();
@@ -12689,24 +12691,26 @@ fn delayed_byte_indexed_read_with_offset_advances_address() {
     );
     assert!(ops.iter().any(|op| matches!(
         op,
-        MirOp::AdvanceAddress {
+        MirOp::MaterializeIndexedAddress {
             consumer: DEFAULT_POINTER_PAIR,
-            index: MirValue::Def(MirDef::Reg(MirReg::A)),
+            index: MirValue::ConstU16(3),
             scale: 1,
+            ..
         }
     )));
     assert!(ops.iter().any(|op| matches!(
         op,
-        MirOp::LoadIndirect {
-            consumer: DEFAULT_POINTER_PAIR,
-            offset: 3,
+        MirOp::Load {
+            src: MirAddr::FixedIndirectIndexedY {
+                zp: MirFixedZpSlot(POINTER_SCRATCH_LO)
+            },
             ..
         }
     )));
     assert!(!ops.iter().any(|op| matches!(
         op,
-        MirOp::Load {
-            src: MirAddr::FixedIndirectIndexedY { .. },
+        MirOp::AdvanceAddress {
+            index: MirValue::Def(MirDef::Reg(MirReg::A)),
             ..
         }
     )));
@@ -12745,17 +12749,19 @@ fn delayed_byte_indexed_read_helper_matches_computed_and_pointer_index() {
     assert_eq!(computed_ops, pointer_ops);
     assert!(computed_ops.iter().any(|op| matches!(
         op,
-        MirOp::AdvanceAddress {
+        MirOp::MaterializeIndexedAddress {
             consumer: DEFAULT_POINTER_PAIR,
-            index: MirValue::Def(MirDef::Reg(MirReg::A)),
+            index: MirValue::ConstU16(3),
             scale: 1,
+            ..
         }
     )));
     assert!(computed_ops.iter().any(|op| matches!(
         op,
-        MirOp::LoadIndirect {
-            consumer: DEFAULT_POINTER_PAIR,
-            offset: 3,
+        MirOp::Load {
+            src: MirAddr::FixedIndirectIndexedY {
+                zp: MirFixedZpSlot(POINTER_SCRATCH_LO)
+            },
             ..
         }
     )));
@@ -12794,18 +12800,21 @@ fn delayed_byte_indexed_store_helper_matches_computed_and_pointer_index() {
     assert_eq!(computed_ops, pointer_ops);
     assert!(computed_ops.iter().any(|op| matches!(
         op,
-        MirOp::AdvanceAddress {
+        MirOp::MaterializeIndexedAddress {
             consumer: DEFAULT_POINTER_PAIR,
-            index: MirValue::Def(MirDef::Reg(MirReg::A)),
+            index: MirValue::ConstU16(3),
             scale: 1,
+            ..
         }
     )));
     assert!(computed_ops.iter().any(|op| matches!(
         op,
-        MirOp::StoreIndirect {
-            consumer: DEFAULT_POINTER_PAIR,
-            offset: 3,
+        MirOp::Store {
+            dst: MirAddr::FixedIndirectIndexedY {
+                zp: MirFixedZpSlot(POINTER_SCRATCH_LO)
+            },
             src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
         }
     )));
 }
