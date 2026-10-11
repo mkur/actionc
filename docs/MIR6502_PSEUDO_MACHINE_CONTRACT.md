@@ -165,6 +165,24 @@ normal emission, growth limits and path costs must all pass. Helper instructions
 ABI, effects and typed routine references are unchanged. This is MIR6502 layout
 strategy; emission supplies final addresses and interprets no source modifier.
 
+## Address-use proofs
+
+The target analysis distinguishes an already captured pointer value from a
+mutable pointer cell read at an access. Folding pure address arithmetic may
+retain a captured value; it does not authorize repeating or moving the load
+that produced it. Address uses name typed byte displacements, indexes/strides
+and access widths, without source field names or SemIR lookups.
+
+Removing a private word producer requires both byte lanes to share one
+dominating definition and exactly one complete consumer, including all later
+lane and CFG-edge uses. The pre-home rewrite context owns this proof.
+
+An indirect Y window must contain every byte of an access. A word beginning at
+offset 255 requires rebasing, and offset arithmetic preserves 16-bit wrap.
+Dynamic folding needs a proven index bound, not an array's declared capacity;
+an unrestricted byte index is bounded only by 255. Unknown aliases and effects
+remain barriers to reloading mutable bases or reusing machine state.
+
 ## Purpose
 
 MIR6502 exists to bridge the gap between normalized Action!-aware NIR and final

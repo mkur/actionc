@@ -1,3 +1,4 @@
+pub(super) mod address_uses;
 pub(super) mod cfg;
 pub(super) mod counted_loops;
 pub(super) mod dominance;

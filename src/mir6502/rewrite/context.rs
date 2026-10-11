@@ -294,6 +294,60 @@ impl<'snapshot, 'routine> PreHomeRewriteContext<'snapshot, 'routine> {
         self.unique_reaching_definition(*usage, lane)
     }
 
+    /// A captured word has exactly one complete definition and one full-word
+    /// consumer. Both lanes must reach that consumer and dominate it. This
+    /// proves value flow, not permission to repeat the originating memory read.
+    pub(in crate::mir6502) fn exclusive_word_temp_definition(
+        &self,
+        temp: MirTempId,
+        use_site: MirSite,
+    ) -> MirProof<[MirDefSite; 2]> {
+        let definitions: Vec<_> = self
+            .snapshot
+            .use_def()
+            .definitions_of_temp(temp)
+            .copied()
+            .collect();
+        let [low, high] = definitions.as_slice() else {
+            return MirProof::Blocked(MirProofBlocker::NonUniqueTempDefinition(temp));
+        };
+        if low.lane != (MirTempLane { temp, byte: 0 })
+            || high.lane != (MirTempLane { temp, byte: 1 })
+            || low.site != high.site
+        {
+            return MirProof::Blocked(MirProofBlocker::NonUniqueTempDefinition(temp));
+        }
+        let uses = self.snapshot.use_def().uses_of_temp(temp);
+        let [usage] = uses else {
+            return MirProof::Blocked(match uses.first() {
+                Some(usage) => MirProofBlocker::UnexpectedTempUse(*usage),
+                None => MirProofBlocker::DefinitionUnavailable {
+                    definition: *low,
+                    point: use_site,
+                },
+            });
+        };
+        if usage.site != use_site
+            || usage.requirement
+                != crate::mir6502::analysis::use_def::MirTempRequirement::Full(temp)
+        {
+            return MirProof::Blocked(MirProofBlocker::UnexpectedTempUse(*usage));
+        }
+        for definition in [*low, *high] {
+            match self.unique_reaching_definition(*usage, definition.lane) {
+                MirProof::Proven(reaching) if reaching == definition => {}
+                MirProof::Proven(_) => {
+                    return MirProof::Blocked(MirProofBlocker::DefinitionUnavailable {
+                        definition,
+                        point: use_site,
+                    });
+                }
+                MirProof::Blocked(reason) => return MirProof::Blocked(reason),
+            }
+        }
+        MirProof::Proven([*low, *high])
+    }
+
     /// A branch selector may replace a numeric Boolean's A/flags with the
     /// comparison's machine state. Require that state dead on all successors.
     pub(in crate::mir6502) fn branch_machine_state_dead(&self, block: MirBlockId) -> MirProof<()> {
@@ -1152,5 +1206,81 @@ mod tests {
             context.register_value_at(MirReg::Y, terminator),
             MirProof::Blocked(MirProofBlocker::RegisterValueUnavailable { reg: MirReg::Y, .. })
         ));
+    }
+
+    #[test]
+    fn exclusive_word_flow_checks_both_lanes_and_all_routine_users() {
+        let make = || {
+            let mut r = routine();
+            r.blocks[0].ops = vec![
+                MirOp::LoadImm {
+                    dst: MirDef::VTemp(MirTempId(1)),
+                    value: 0x1234,
+                    width: MirWidth::Word,
+                },
+                MirOp::Move {
+                    dst: MirDef::VTemp(MirTempId(2)),
+                    src: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    width: MirWidth::Word,
+                },
+            ];
+            r
+        };
+        let proven = |r: &MirRoutine| {
+            let snapshot =
+                PreHomeAnalysisSnapshot::new(r, MirRoutineGeneration::initial()).unwrap();
+            PreHomeRewriteContext::new(&snapshot)
+                .exclusive_word_temp_definition(
+                    MirTempId(1),
+                    MirSite::Op {
+                        block: MirBlockId(0),
+                        op_index: 1,
+                    },
+                )
+                .is_proven()
+        };
+        let mut r = make();
+        assert!(proven(&r));
+        r.blocks[0].ops.push(MirOp::Move {
+            dst: MirDef::VTemp(MirTempId(3)),
+            src: MirValue::Def(MirDef::VTempByte {
+                id: MirTempId(1),
+                byte: 1,
+            }),
+            width: MirWidth::Byte,
+        });
+        assert!(
+            !proven(&r),
+            "a later high-lane use prevents removing the word"
+        );
+        r = make();
+        let duplicate = r.blocks[0].ops[0].clone();
+        r.blocks[0].ops.push(duplicate);
+        assert!(
+            !proven(&r),
+            "a reused temp identity is not a private single definition"
+        );
+        r = make();
+        if let MirOp::LoadImm { width, .. } = &mut r.blocks[0].ops[0] {
+            *width = MirWidth::Byte;
+        }
+        assert!(!proven(&r), "a missing high lane is not a word definition");
+        r = make();
+        r.blocks.push(MirBlock {
+            id: MirBlockId(1),
+            label: "later".into(),
+            params: vec![],
+            ops: vec![MirOp::Move {
+                dst: MirDef::VTemp(MirTempId(3)),
+                src: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                width: MirWidth::Word,
+            }],
+            terminator: MirTerminator::Return,
+        });
+        r.blocks[0].terminator = MirTerminator::Jump(crate::mir6502::ir::MirEdge {
+            target: MirBlockId(1),
+            args: vec![],
+        });
+        assert!(!proven(&r), "a successor use also prevents removal");
     }
 }

@@ -80,3 +80,16 @@ unchanged table data, cartridge/standalone and actual LF/CRLF compilation.
 The three TN behavioral targets and 836 classic codegen checks passed. The
 final slot-query version also passed the five indexed-table arithmetic checks
 and the full mask execution matrix. No application workaround was removed.
+
+## Stage 3: typed address proof foundation
+
+MIR address uses explicitly distinguish captured pointer values from mutable
+pointer-cell reads. The byte-window proof covers complete accesses, all 65,536
+constant displacements for both widths, dynamic-index bounds and 16-bit wrap.
+The existing rewrite context now proves exclusive word flow using both lanes,
+reaching definitions, dominance and all routine users. Later high-byte uses,
+redefinitions, incomplete words and successor uses prevent removal.
+
+The three address-analysis tests and four rewrite-context tests passed. No
+selector uses the new queries in this slice, so target strategy is unchanged.
+There is no NIR, SemIR or public ABI contract change.
