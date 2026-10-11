@@ -706,6 +706,11 @@ Rules:
   leaves use the existing zero initializer. NIR receives concrete pointer
   types and ordinary zero values, never an unresolved `NULL` name or an
   untyped universal pointer. Backends do not infer its source-language meaning.
+- SemIR retains an indexed array place's declared element type, including
+  data, record and callable pointers. A decayed address type alone cannot
+  reconstruct that type. Pointer-array reads and writes lower to typed scalar
+  accesses; assigning `NULL` to a record-pointer element never selects
+  whole-record `CopyBytes`. Ordinary pointer indexing uses the pointee type.
 - `Temp` values get their type from the routine temp table.
 - `Param` values get their type from the routine parameter table.
 - `StaticAddr`, `RoutineAddr`, and `GlobalAddr` are address-valued and carry or

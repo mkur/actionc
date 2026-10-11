@@ -5287,14 +5287,11 @@ impl<'a> IrBuilder<'a> {
                 .fallback_expr_type(scope, expr)
                 .and_then(|ty| ty.as_pointer())
                 .map(|ty| *ty.pointee),
-            ExprKind::Index { base, .. } => {
-                self.fallback_expr_type(scope, base).map(indexed_value_type)
-            }
+            ExprKind::Index { base, .. } => self.indexed_place_element_type(scope, base),
             ExprKind::Call { callee, .. }
                 if self.is_indexable_lvalue(scope, callee) =>
             {
-                self.fallback_expr_type(scope, callee)
-                    .map(indexed_value_type)
+                self.indexed_place_element_type(scope, callee)
             }
             ExprKind::Field { .. } if self.direct_symbol_ref_for_expr(scope, expr).is_some() => {
                 self.direct_symbol_ref_for_expr(scope, expr)
@@ -5312,6 +5309,12 @@ impl<'a> IrBuilder<'a> {
         let id = SemEvalOrderId(self.next_eval_order);
         self.next_eval_order += 1;
         id
+    }
+
+    fn indexed_place_element_type(&self, scope: ScopeId, base: &Expr) -> Option<ValueType> {
+        self.model.array_place_type(scope, base.span)
+            .map(|array| (*array.element).clone())
+            .or_else(|| self.fallback_expr_type(scope, base).map(indexed_value_type))
     }
 
     fn resolved_type_ref(&self, scope: ScopeId, ty: &TypeRef) -> ValueType {
@@ -5553,7 +5556,12 @@ fn parse_numeric_define_value(value: &str) -> Option<NumberLiteral> {
 }
 
 fn indexed_expr_type(expr: &SemExpr) -> ValueType {
-    indexed_value_type(expr.ty.clone())
+    match &expr.kind {
+        // Decay's address type does not encode another pointer level when the
+        // declared array element is itself a pointer. Keep its canonical type.
+        SemExprKind::ArrayDecay(decay) => decay.element_type.clone(),
+        _ => indexed_value_type(expr.ty.clone()),
+    }
 }
 
 fn indexed_value_type(ty: ValueType) -> ValueType {

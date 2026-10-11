@@ -40,18 +40,18 @@ bb2:
   copy_bytes *%t5 = __actionc_value_2 size=2
   %t6:Card* = addr data.+0
   store %t6[2;2] = $3E8
-  %t7:Byte = load current.+0
-  %t8:condition = cmp %t7 Eq 1 operand_ty=Byte
-  branch %t8 ? bb7 : bb8
+  %t8:Byte = load current.+0
+  %t9:condition = cmp %t8 Eq 1 operand_ty=Byte
+  branch %t9 ? bb7 : bb8
 bb7:
   store output = 0
   goto bb6
 bb8:
-  %t9:condition = cmp %t7 Eq 2 operand_ty=Byte
-  branch %t9 ? bb9 : bb10
+  %t10:condition = cmp %t8 Eq 2 operand_ty=Byte
+  branch %t10 ? bb9 : bb10
 bb9:
-  %t10:Byte = load current.+1
-  store output = %t10
+  %t11:Byte = load current.+1
+  store output = %t11
   goto bb6
 bb10:
   call fault::InvalidVariantTag() effects=reads:unknown writes:unknown external opaque
