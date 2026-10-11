@@ -1,0 +1,19 @@
+; Classic optimized regression: X holds the index, not the loaded mask.
+BYTE ARRAY masks(8)=[1 2 4 8 16 32 64 128]
+
+PROC Apply(BYTE POINTER bits CARD ordinal BYTE value)
+  BYTE POINTER p
+  BYTE mask,old
+  p=bits+(ordinal RSH 3)
+  mask=masks(BYTE(ordinal&7))
+  old=p^&mask
+  IF value THEN
+    IF old=0 THEN p^==%mask FI
+  ELSE
+    IF old THEN mask==!$FF p^==&mask FI
+  FI
+RETURN
+
+PROC Main()
+  Apply(BYTE POINTER($6000),CARD(0),1)
+RETURN

@@ -15,6 +15,9 @@ replaces the proposed row overlays with 64-entry batches, independent tagging
 and a MyDOS-first migration toward FujiNet. The implementation and VM checks
 are complete; see the [sample notes](../../samples/tn/README.md) for measured
 memory and the outstanding disk-level emulator check.
+The proposed [size reduction implementation plan](size-reduction-implementation-plan.md)
+preserves the FujiNet paging contract while addressing shared entry addressing,
+classic correctness, MIR6502 record/pointer generation and validation ownership.
 The fresh final-output audit after carry and dual-pointer selection is in
 [`mir6502-final-listing-audit-2026-07-24.md`](mir6502-final-listing-audit-2026-07-24.md).
 The latest clean-head listing reanalysis and ranked MIR6502 backlog are in
