@@ -20,13 +20,28 @@ caller-owned: eight bytes for MyDOS, 512 for the large-source fixture. Large
 backings are uninitialized byte arrays with typed pointers; no whole-directory
 copy is required to switch panels.
 
-The VM behavioral checks are temporarily ignored pending fixture updates for
-the DirBatch field reorder. Re-enabling them must validate header publication,
-entry addresses, ordering, rendering and backing-store guards.
+DirBatch keeps its frequently accessed metadata and lookup tables before the
+entry array. This places them within an eight-bit indexed offset of the record
+base, avoiding repeated additions of `$0500` when accessing the header on 6502.
+The packed layout is shared by TN, TNDBG and the simulated directory provider:
+
+| Field | Byte offset | Bytes |
+| --- | ---: | ---: |
+| first | 0 | 2 |
+| count, valid, ended | 2, 3, 4 | 3 |
+| order | 5 | 64 |
+| summary | 69 | 18 |
+| items | 87 | 1,280 |
+
+Entry layout, batch capacity and total storage remain unchanged.
+
+The VM behavioral checks run in normal CI with an independent host-side
+layout oracle. They validate header publication, entry addresses, ordering,
+rendering and backing-store guards for the reordered DirBatch.
 
 The source-shape probe compiled in modern classic and MIR6502 with the existing
-zero-page allocation SETs and ORG $2C00. Aggregate fields precede BYTE field
-lists to avoid a parser ambiguity; backing addresses use explicit CARD casts.
+zero-page allocation SETs and ORG $2C00. Field groups declare their types
+explicitly; backing addresses use explicit CARD casts.
 Runtime fixtures must validate these addresses and extents, not rely on the
 successful compile alone.
 
@@ -131,21 +146,22 @@ zero-page bindings and the final copy-buffer boundary.
 
 The final per-panel budget is 1,443 bytes, versus the old 1,357. Shared buffer
 and adapter homes/spills, counted conservatively from the emitted listings,
-are 408/425 bytes for TN classic/MIR and 413/428 for TNDBG, below 512. This
+are 416/440 bytes for TN classic/MIR and 421/443 for TNDBG, below 512. This
 includes root adapter routines and small panel descriptors as well as all
-shared routines' emitted homes and spills. These are static reservations;
+shared routines' emitted homes and spills. The measurement tool matches
+listing symbols without regard to case. These are static reservations;
 stack and the unchanged screen/window allocation scheme are separate.
 
 | Program/backend | Old copy start | New copy start | Reduction in copy RAM |
 | --- | --- | --- | ---: |
-| TN classic | `$5F7D` | `$7E95` | 7,960 |
-| TN MIR6502 | `$5DB5` | `$7BB7` | 7,682 |
-| TNDBG classic | `$6C2A` | `$8C34` | 8,202 |
-| TNDBG MIR6502 | `$69D6` | `$8A67` | 8,337 |
+| TN classic | `$5F7D` | `$7E92` | 7,957 |
+| TN MIR6502 | `$5DB5` | `$7A8B` | 7,382 |
+| TNDBG classic | `$6C2A` | `$8C33` | 8,201 |
+| TNDBG MIR6502 | `$69D6` | `$893B` | 8,037 |
 
 These measurements include emitted code, static storage, compiler spills and
 deferred arrays, not only the compact directory records. All four builds leave
-at least 5,068 bytes below a `$A000` comparison MEMTOP; actual Copy uses the OS
+at least 5,069 bytes below a `$A000` comparison MEMTOP; actual Copy uses the OS
 MEMTOP value. Source modularity and wider indexing have a substantial code cost;
 no copy-space saving is claimed. The existing transfer-continuation checks use
 a much smaller 256-byte arena and still reproduce complete output bytes.

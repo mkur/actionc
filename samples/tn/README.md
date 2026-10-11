@@ -51,14 +51,24 @@ code, static homes and deferred arrays. Small state copies use
 
 ## Memory
 
-Measured after the directory migration, using the cartridge runtime:
+Measured with directory metadata before the entry array, using the cartridge
+runtime:
 
 | Program/backend | Load file | Deferred arrays | Code + static/deferred workspace | Copy start | Bytes to `$A000` |
 | --- | ---: | ---: | ---: | --- | ---: |
-| TN classic | 18,355 | 2,798 | 21,141 | `$7E95` | 8,555 |
-| TN MIR6502 | 17,565 | 2,854 | 20,407 | `$7BB7` | 9,289 |
-| TNDBG classic | 21,842 | 2,798 | 24,628 | `$8C34` | 5,068 |
-| TNDBG MIR6502 | 21,325 | 2,854 | 24,167 | `$8A67` | 5,529 |
+| TN classic | 18,352 | 2,798 | 21,138 | `$7E92` | 8,558 |
+| TN MIR6502 | 17,265 | 2,854 | 20,107 | `$7A8B` | 9,589 |
+| TNDBG classic | 21,841 | 2,798 | 24,627 | `$8C33` | 5,069 |
+| TNDBG MIR6502 | 21,025 | 2,854 | 23,867 | `$893B` | 5,829 |
+
+The metadata, order table and summary occupy the first 87 bytes of DirBatch;
+the 64 entries follow. This layout saves 300 load-file bytes and restores 300
+bytes of copy space in both MIR6502 programs. Classic saves three bytes in TN
+and one in TNDBG. Capacity and record sizes are unchanged.
+
+Standalone MIR6502 TN similarly shrinks from 17,864 to **17,564 bytes**. Its
+copy buffer starts at `$7BB6`, leaving 9,290 bytes below the same `$A000`
+comparison ceiling.
 
 Load-file counts include headers and the execution vector. Workspace is the
 entire reservation from `$2C00` to the copy buffer, including compiler homes
@@ -69,7 +79,7 @@ that reservation and retain their existing allocation scheme.
 The per-panel model uses **1,443 bytes**: cache 1,367, bitmap 8, selection 14,
 location 49 and view state 5. This is 86 bytes more than the old layout, below
 the planned 1,721-byte ceiling. The conservative measured shared buffers and
-adapter homes/spills occupy 408–428 bytes, below the 512-byte budget. Most of
+adapter homes/spills occupy 416–443 bytes, below the 512-byte budget. Most of
 the overall growth is code for the new boundaries, validation and wide indexes.
 
 Reproduce the measurements and create ignored build artifacts with:
@@ -85,10 +95,10 @@ The script writes listings, executables and `memory.json` beneath
 
 ## Verification
 
-The three VM behavioral tests below are temporarily ignored while their
-hard-coded offsets are updated for the reordered DirBatch layout. Normal CI
-still runs the case-insensitive symbol lookup regression with LF and CRLF
-listings. Use `-- --ignored` to run the behavioral tests explicitly.
+The three VM behavioral tests below run in normal CI with the reordered
+DirBatch layout. Their independent host-side layout constants check the header
+at byte 0 and entries at byte 87. Case-insensitive symbol lookup is also checked
+with LF and CRLF listings.
 
 The focused checks compile both complete programs and reuse each build for
 command dispatch, panel transitions, 0/1/63/64-file listings, exact rows/names,
@@ -103,11 +113,11 @@ cargo test --locked --test nir_storage_analysis tn_exposes_high_value_scalar_pro
 cargo test --locked --lib tn_deferred_storage_starts_after_final_mir_bytes
 ```
 
-The behavioral checks passed with the previous DirBatch layout; they do not
-currently qualify the reordered layout. Screen and disk services are
-substituted in the VM: an interactive MyDOS disk-level smoke check remains
-outstanding. Atari800MacX is installed locally, but this session has no
-interactive emulator control tool.
+The behavioral checks pass with the reordered DirBatch layout, including
+header publication, entry addresses, ordering, rendering and backing-store
+guards. Screen and disk services are substituted in the VM: an interactive
+MyDOS disk-level smoke check remains outstanding. Atari800MacX is installed
+locally, but this session has no interactive emulator control tool.
 Use disposable disks to check both roots with 64 files, four subdirectory
 levels, tags, copy, rename/delete and panel switches before a release.
 

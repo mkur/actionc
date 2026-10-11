@@ -1,6 +1,6 @@
 //! The external provider is simulated; cache publication, display, navigation,
 //! selection, end discovery and panel activation execute TN's real routines.
-use super::{directory, global_address, machine, routine_address};
+use super::{directory, global_address, layout, machine, routine_address};
 use actionc::compiler::CompiledProgram;
 use actionc_vm::{CompilerVm, VmRunHooks};
 use std::collections::{BTreeMap, VecDeque};
@@ -51,26 +51,29 @@ impl VmRunHooks for Paging {
             }
             if status == 1 {
                 assert!(ordinal <= self.total);
-                let count = (self.total - ordinal).min(64);
+                let count = (self.total - ordinal).min(layout::CAPACITY);
                 let batch = vm.bus().ram().read_word(self.batch);
                 let ram = vm.bus_mut().ram_mut();
                 assert_eq!(
-                    ram.read(batch + 1283),
+                    ram.read(batch + layout::VALID),
                     0,
                     "invalidate before provider writes"
                 );
-                ram.write(batch + 1282, count as u8);
-                ram.write(batch + 1284, u8::from(ordinal + count == self.total));
-                ram.map(batch + 1349, &[32; 18])?;
+                ram.write(batch + layout::COUNT, count as u8);
+                ram.write(
+                    batch + layout::ENDED,
+                    u8::from(ordinal + count == self.total),
+                );
+                ram.map(batch + layout::SUMMARY, &[32; 18])?;
                 for slot in 0..count {
-                    let entry = batch + slot * 20;
+                    let entry = batch + layout::ITEMS + slot * layout::ENTRY_SIZE;
                     ram.write_word(entry, ordinal + slot);
                     ram.write_word(entry + 2, ordinal + slot);
                     ram.write(entry + 4, 4); // Truncated preview: never an operation name.
                     ram.write(entry + 5, 32);
                     ram.map(entry + 6, b"SAMEPREVIEW")?;
                     ram.map(entry + 17, b"   ")?; // Unknown size, not zero sectors.
-                    ram.write(batch + 1285 + slot, slot as u8);
+                    ram.write(batch + layout::ORDER + slot, slot as u8);
                 }
             }
         } else {
@@ -173,8 +176,8 @@ pub fn check(compiled: &CompiledProgram) {
         assert_eq!(vm.bus().ram().read_word(active + 2), ordinal);
         let top = ordinal.saturating_sub(15);
         let batch = vm.bus().ram().read_word(global("currentbatch"));
-        let first = vm.bus().ram().read_word(batch + 1280);
-        let count = u16::from(vm.bus().ram().read(batch + 1282));
+        let first = vm.bus().ram().read_word(batch + layout::FIRST);
+        let count = u16::from(vm.bus().ram().read(batch + layout::COUNT));
         assert!(first <= top && first + count >= top + 16);
         assert_eq!(hooks.directory.images.len(), 17);
         for (offset, row) in hooks.directory.images[1..].iter().enumerate() {
@@ -313,7 +316,7 @@ pub fn check(compiled: &CompiledProgram) {
     vm = machine::call(vm, &mut hooks, routine("FetchWindow"), &words(&[0]));
     assert_eq!(vm.cpu().registers().a, 6);
     let batch = vm.bus().ram().read_word(global("currentbatch"));
-    assert_eq!(vm.bus().ram().read(batch + 1283), 0);
+    assert_eq!(vm.bus().ram().read(batch + layout::VALID), 0);
     hooks.status = 1;
     hooks.lost_cursor = true;
     hooks.owner = Some(left);

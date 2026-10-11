@@ -13,6 +13,9 @@ use actionc_vm::{
 mod copy;
 #[path = "support/tn_directory.rs"]
 mod directory;
+#[allow(dead_code)]
+#[path = "support/tn_layout.rs"]
+mod layout;
 #[path = "support/tn_locations.rs"]
 mod locations;
 #[path = "support/tn_machine.rs"]
@@ -171,7 +174,6 @@ fn expected_trace(commands: &[Option<&'static str>]) -> Vec<&'static str> {
 }
 
 #[test]
-#[ignore = "temporarily disabled: TN behavioral fixtures need the reordered DirBatch layout"]
 fn tn_dispatch_and_panel_state_preserve_behavior() {
     // The maintained programs advertise cartridge builds in these two modes.
     // Compile each full program once, then exercise every command and repeated

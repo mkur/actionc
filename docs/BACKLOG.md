@@ -207,9 +207,9 @@ The optional `surveys/tn/check-stability.sh` currently stops on unchanged
 `RETURN(-1)` is rejected as returning INT. Reproduced with `--profile compat`
 during the directory migration. Investigate the compatibility typing rule with
 a focused original-language regression; do not edit the archived sample to
-make the diagnostic disappear. The maintained modern builds passed their
-separate behavioral tests before the DirBatch field reorder; those tests are
-temporarily ignored pending fixture offset updates.
+make the diagnostic disappear. The maintained modern builds pass their
+separate behavioral tests with the reordered DirBatch layout in classic and
+MIR6502; those tests run in normal CI.
 
 ## Classic Indirect Expressions in TN Directory Code
 

@@ -1,6 +1,9 @@
 use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
 use std::path::{Path, PathBuf};
 
+#[allow(dead_code)]
+#[path = "support/tn_layout.rs"]
+mod layout;
 #[path = "support/tn_machine.rs"]
 mod machine;
 #[path = "support/tn_symbols.rs"]
@@ -28,7 +31,6 @@ fn args(words: &[u16], tail: &[u8]) -> Vec<u8> {
 }
 
 #[test]
-#[ignore = "temporarily disabled: TN behavioral fixtures need the reordered DirBatch layout"]
 fn mydos_reader_renders_and_resolves_a_complete_bounded_batch() {
     let mut source_text = "ORG $2C00\n".to_owned();
     for name in ["LIB.ACT", "DIR.ACT", "MYDOS.ACT"] {
@@ -88,10 +90,14 @@ fn mydos_reader_renders_and_resolves_a_complete_bounded_batch() {
                 let cache = vm.bus().ram().read_word(global("cache"));
                 let name = vm.bus().ram().read_word(global("nameaddress"));
                 let row = vm.bus().ram().read_word(global("rowaddress"));
-                for (start, length) in [(cache - 1, 1369), (name - 1, 17), (row - 1, 20)] {
+                for (start, length) in [
+                    (cache - 1, layout::BATCH_SIZE + 2),
+                    (name - 1, 17),
+                    (row - 1, 20),
+                ] {
                     vm.bus_mut()
                         .ram_mut()
-                        .map(start, &vec![0xA5; length])
+                        .map(start, &vec![0xA5; usize::from(length)])
                         .unwrap();
                 }
                 vm = machine::call(
@@ -105,19 +111,22 @@ fn mydos_reader_renders_and_resolves_a_complete_bounded_batch() {
                     if count == 65 { 2 } else { 1 },
                     "{mode:?}/{crlf}/{count}"
                 );
-                assert_eq!(vm.bus().ram().read(cache + 1283), u8::from(count <= 64));
+                assert_eq!(
+                    vm.bus().ram().read(cache + layout::VALID),
+                    u8::from(count <= 64)
+                );
                 if count <= 64 {
-                    assert_eq!(vm.bus().ram().read(cache + 1282), count as u8);
+                    assert_eq!(vm.bus().ram().read(cache + layout::COUNT), count as u8);
                     assert_eq!(vm.bus().ram().read_word(global("tags") + 4), count as u16);
                     for (ordinal, file) in expected.iter().enumerate() {
-                        let slot = vm.bus().ram().read(cache + 1285 + ordinal as u16);
-                        let entry = cache + slot as u16 * 20;
+                        let slot = vm.bus().ram().read(cache + layout::ORDER + ordinal as u16);
+                        let entry = cache + layout::ITEMS + u16::from(slot) * layout::ENTRY_SIZE;
                         assert_eq!(
                             machine::bytes(&vm, entry + 6, 11),
                             format!("{:<8}{:<3}", file.name, file.extension).into_bytes(),
                             "native entry before rendering: {mode:?}/{count}/{ordinal}, flags {}, order {:?}",
                             vm.bus().ram().read(entry + 4),
-                            machine::bytes(&vm, cache + 1285, count)
+                            machine::bytes(&vm, cache + layout::ORDER, count)
                         );
                         assert_eq!(vm.bus().ram().read_word(entry), ordinal as u16);
                         vm = machine::call(
@@ -162,7 +171,11 @@ fn mydos_reader_renders_and_resolves_a_complete_bounded_batch() {
                     expected_summary.resize(18, 0);
                     assert_eq!(machine::bytes(&vm, row, 18), expected_summary);
                 }
-                for (start, length) in [(cache - 1, 1369), (name - 1, 17), (row - 1, 20)] {
+                for (start, length) in [
+                    (cache - 1, layout::BATCH_SIZE + 2),
+                    (name - 1, 17),
+                    (row - 1, 20),
+                ] {
                     assert_eq!(vm.bus().ram().read(start), 0xA5);
                     assert_eq!(vm.bus().ram().read(start + length - 1), 0xA5);
                 }
@@ -180,7 +193,7 @@ fn mydos_reader_renders_and_resolves_a_complete_bounded_batch() {
                     );
                     assert_eq!(vm.cpu().registers().a, 3);
                     assert_eq!(
-                        vm.bus().ram().read(cache + 1283),
+                        vm.bus().ram().read(cache + layout::VALID),
                         0,
                         "failed reads invalidate old entries"
                     );
@@ -213,7 +226,7 @@ impl actionc_vm::VmRunHooks for ReadFailure {
         if failing {
             self.hit = true;
             assert_eq!(
-                vm.bus().ram().read(self.cache + 1283),
+                vm.bus().ram().read(self.cache + layout::VALID),
                 0,
                 "cache must already be invalid when CIO transfers to its error handler"
             );
@@ -262,7 +275,7 @@ fn check_io_failures(compiled: &actionc::compiler::CompiledProgram) {
         vm = machine::call(vm, &mut hooks, routine("ReaderInit"), &[]);
         let cache = vm.bus().ram().read_word(global("cache"));
         hooks.cache = cache;
-        vm.bus_mut().ram_mut().write(cache + 1283, 1); // Previously published listing.
+        vm.bus_mut().ram_mut().write(cache + layout::VALID, 1); // Previously published listing.
         let tags = global("tags");
         vm.bus_mut().ram_mut().write_word(tags + 6, 1);
         if nonlocal {
@@ -313,7 +326,7 @@ fn check_io_failures(compiled: &actionc::compiler::CompiledProgram) {
             144,
             "preserve original I/O status"
         );
-        assert_eq!(vm.bus().ram().read(cache + 1283), 0);
+        assert_eq!(vm.bus().ram().read(cache + layout::VALID), 0);
         assert_eq!(vm.bus().ram().read_word(tags + 6), 0);
     }
 }

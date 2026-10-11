@@ -45,7 +45,7 @@ profile exceeds its size budget.
 
 The directory migration intentionally increases the maintained program's size.
 The modern budget is now +/- 6,400 bytes against the original 12,127-byte file;
-the maintained classic load file is 18,355 bytes (delta +6,228). Compare memory
+the maintained classic load file is 18,352 bytes (delta +6,225). Compare memory
 and behavior using the sample's focused checks and `measure-directory.py` too.
 The compatibility budget remains 512 bytes. At this checkpoint the script stops
 on an existing diagnostic in the unchanged archived source: BYTE Fnamecmp rejects

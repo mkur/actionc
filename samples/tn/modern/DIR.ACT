@@ -15,11 +15,13 @@ TYPE DirEntry=[
   BYTE flags,marker
   BYTE ARRAY name(11),detail(3)
 ]
+; Keep metadata and lookup tables within the first 256 bytes, so the 6502
+; can use indexed indirect access without adding a large field offset.
 TYPE DirBatch=[
-  DirEntry ARRAY items(BATCH_CAPACITY)
   CARD first
   BYTE count,valid,ended
   BYTE ARRAY order(BATCH_CAPACITY),summary(18)
+  DirEntry ARRAY items(BATCH_CAPACITY)
 ]
 TYPE Selection=[
   BYTE POINTER bits

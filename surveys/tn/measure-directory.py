@@ -66,7 +66,9 @@ def measure(source, mode, compiler, out, reuse=False):
         if line.startswith("; ====="):
             owner = False
         if match := re.fullmatch(r"(\w+):", line):
-            owner = match[1] in scratch_globals or match[1].startswith(prefixes)
+            # Listings preserve Action! spelling; symbol identity is case-insensitive.
+            label = match[1].lower()
+            owner = label in scratch_globals or label.startswith(prefixes)
         if owner and (match := re.search(r"; \$([0-9A-F]+):((?: [0-9A-F]{2})+)", line)):
             base = int(match[1], 16)
             scratch.update(range(base, base + len(match[2].split())))

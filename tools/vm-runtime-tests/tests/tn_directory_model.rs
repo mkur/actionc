@@ -2,6 +2,9 @@ use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
 use actionc_vm::{CompilerVm, VmRunHooks};
 use std::path::{Path, PathBuf};
 
+#[allow(dead_code)]
+#[path = "support/tn_layout.rs"]
+mod layout;
 #[path = "support/tn_machine.rs"]
 mod machine;
 #[path = "support/tn_symbols.rs"]
@@ -33,7 +36,6 @@ fn args(words: &[u16], tail: &[u8]) -> Vec<u8> {
 }
 
 #[test]
-#[ignore = "temporarily disabled: TN behavioral fixtures need the reordered DirBatch layout"]
 fn directory_cache_and_selection_are_independent_and_bounded() {
     let prefix = "ORG $2C00\nSET $E=$E6\nSET $F=0\nBYTE POINTER screen\nCARD POINTER allocp\nSET $E=$2C00\nSET $491=$2C00\n";
     let production = std::fs::read_to_string(root().join("samples/tn/modern/DIR.ACT"))
@@ -143,7 +145,7 @@ fn directory_cache_and_selection_are_independent_and_bounded() {
                 );
                 assert_eq!(vm.bus().ram().read(global("result")), 1);
                 assert_eq!(
-                    machine::bytes(&vm, cache + 1280, 5),
+                    machine::bytes(&vm, cache + layout::FIRST, 5),
                     [first as u8, (first >> 8) as u8, 64, 1, 0]
                 );
                 vm = machine::call(
@@ -153,7 +155,7 @@ fn directory_cache_and_selection_are_independent_and_bounded() {
                     &args(&[cache, first + 63], &[]),
                 );
                 let p = vm.bus().ram().read_word(0xA0);
-                assert_eq!(p, cache + 63 * 20);
+                assert_eq!(p, cache + layout::ITEMS + 63 * layout::ENTRY_SIZE);
                 assert_eq!(vm.bus().ram().read_word(p), first + 63);
                 assert_eq!(
                     machine::bytes(&vm, left_bits + 1, 512),
@@ -224,9 +226,8 @@ fn directory_cache_and_selection_are_independent_and_bounded() {
             assert_eq!(machine::bytes(&vm, left_bits + 1, 512), vec![0; 512]);
             vm = machine::call(vm, &mut hooks, routine("FakeRead"), &args(&[0], &[65, 0]));
             assert_eq!(vm.bus().ram().read(global("result")), 2);
-            // Cache's entries occupy 1280 bytes; its validity byte follows
-            // first (CARD) and count (BYTE). This checks the public data layout.
-            assert_eq!(vm.bus().ram().read(cache + 1283), 0);
+            // An over-capacity result must not publish the cache header.
+            assert_eq!(vm.bus().ram().read(cache + layout::VALID), 0);
             for (address, count) in [(left_bits, 514), (right_bits, 10)] {
                 assert_eq!(vm.bus().ram().read(address), 0xA5);
                 assert_eq!(vm.bus().ram().read(address + count - 1), 0xA5);
