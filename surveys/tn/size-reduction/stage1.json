@@ -1,0 +1,187 @@
+{
+  "compiler_source_revision": "81dd7dc5",
+  "compiler_sha256": "630487948f4faa460fccc15ddb4e25ac330279319e902bfdb2768ce5505d3931",
+  "runtime": "cart",
+  "origin": "$2C00",
+  "comparison_memtop": "$A000",
+  "memory": [
+    {
+      "program": "TN.ACT",
+      "mode": "optimized",
+      "load_file": 18041,
+      "emitted": 18029,
+      "deferred": 2798,
+      "reserved": 20827,
+      "buffer": "$7D5B",
+      "copy_to_A000": 8869,
+      "shared_homes_and_buffers": 419
+    },
+    {
+      "program": "TN.ACT",
+      "mode": "mir6502",
+      "load_file": 17015,
+      "emitted": 17003,
+      "deferred": 2854,
+      "reserved": 19857,
+      "buffer": "$7991",
+      "copy_to_A000": 9839,
+      "shared_homes_and_buffers": 433
+    },
+    {
+      "program": "TNDBG.ACT",
+      "mode": "optimized",
+      "load_file": 21526,
+      "emitted": 21514,
+      "deferred": 2798,
+      "reserved": 24312,
+      "buffer": "$8AF8",
+      "copy_to_A000": 5384,
+      "shared_homes_and_buffers": 424
+    },
+    {
+      "program": "TNDBG.ACT",
+      "mode": "mir6502",
+      "load_file": 20775,
+      "emitted": 20763,
+      "deferred": 2854,
+      "reserved": 23617,
+      "buffer": "$8841",
+      "copy_to_A000": 6079,
+      "shared_homes_and_buffers": 436
+    }
+  ],
+  "cycles": [
+    {
+      "backend": "Optimized",
+      "workload": "sort_reversed",
+      "count": 0,
+      "cpu_cycles": 84
+    },
+    {
+      "backend": "Optimized",
+      "workload": "draw",
+      "count": 0,
+      "cpu_cycles": 3104
+    },
+    {
+      "backend": "Optimized",
+      "workload": "tag_all",
+      "count": 0,
+      "cpu_cycles": 3314
+    },
+    {
+      "backend": "Optimized",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 462828
+    },
+    {
+      "backend": "Optimized",
+      "workload": "sort_reversed",
+      "count": 1,
+      "cpu_cycles": 393
+    },
+    {
+      "backend": "Optimized",
+      "workload": "draw",
+      "count": 1,
+      "cpu_cycles": 7762
+    },
+    {
+      "backend": "Optimized",
+      "workload": "tag_all",
+      "count": 1,
+      "cpu_cycles": 3816
+    },
+    {
+      "backend": "Optimized",
+      "workload": "sort_reversed",
+      "count": 64,
+      "cpu_cycles": 894094
+    },
+    {
+      "backend": "Optimized",
+      "workload": "draw",
+      "count": 64,
+      "cpu_cycles": 64080
+    },
+    {
+      "backend": "Optimized",
+      "workload": "tag_all",
+      "count": 64,
+      "cpu_cycles": 37662
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "sort_reversed",
+      "count": 0,
+      "cpu_cycles": 72
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "draw",
+      "count": 0,
+      "cpu_cycles": 2711
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "tag_all",
+      "count": 0,
+      "cpu_cycles": 2805
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 410697
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "sort_reversed",
+      "count": 1,
+      "cpu_cycles": 451
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "draw",
+      "count": 1,
+      "cpu_cycles": 7028
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "tag_all",
+      "count": 1,
+      "cpu_cycles": 3174
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "sort_reversed",
+      "count": 64,
+      "cpu_cycles": 877794
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "draw",
+      "count": 64,
+      "cpu_cycles": 58952
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "tag_all",
+      "count": 64,
+      "cpu_cycles": 29558
+    }
+  ],
+  "cycle_scope": "TN.ACT; real routines, including call wrapper and substituted-service RTS instructions; excludes actual disk/screen service work and device wait time.",
+  "source_base_revision": "d91a7581",
+  "source_stage": "Stage 1 shared BatchItem helper",
+  "source_sha256": {
+    "DIR.ACT": "d5a028d3156b7b10624455d3c07bc67805d4d6f839e92eea4b69770e1fb46fca",
+    "LIB.ACT": "481c673e4c730715c31a191abfb2bce98f2ec3064544965a75321c5cad2d3ab5",
+    "LOCATION.ACT": "7d88e8d10d732b417cd1d58d576c55020088c4d4509b15c1686aeae29d7d4173",
+    "MYDOS.ACT": "fd2ac21964ce4d8e65008da50add16e624d9781a8c8f5f96e29421ef80a683ff",
+    "PANELDIR.ACT": "f081a78db1dc207a75d056a1140dd2c7f6449afdab4bfdf933ea2f689a092d2c",
+    "TN.ACT": "b495dd8fb0ff869b22ba1e49f818f5a5a1a1249a189c1a979bc2d58259dd1be0",
+    "TNDBG.ACT": "5e5c34a9909d7cb5857c53e3039df3212c1f9877dfe9dc87f377b9853394c910"
+  }
+}

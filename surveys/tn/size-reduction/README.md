@@ -52,3 +52,16 @@ Stage 2 activates this case as a passing execution regression with its fix.
 Stage 0 does not add a known failing test to normal CI or disable TN coverage.
 The original experiment remains under ignored target storage, but this source
 and the pinned expected behavior survive disk cleanup.
+
+## Stage 1: shared entry addressing
+
+[stage1.json](stage1.json) records the accepted helper slice. Both MIR roots
+save 250 load bytes and gain 250 bytes of copy RAM. Classic TN/TNDBG save
+311/315 bytes. The reversed 64-entry MIR sort rises from 855,767 to 877,794
+cycles (2.6%); the 16-row draw rises from 58,664 to 58,952 (0.5%). This is a
+code-space tradeoff, not a speed improvement. Reassess helper expansion after
+the compiler slices.
+
+All three behavioral targets, the CPU audit and both storage checks passed.
+All four full-root LF/CRLF XEX images match byte for byte. The batch/entry
+layout, checked public lookup and provider paging contracts are unchanged.

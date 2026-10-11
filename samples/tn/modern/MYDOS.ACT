@@ -64,7 +64,7 @@ PROC SortBatch(DirBatch POINTER batch)
       pos=slot
       WHILE pos>=gap DO
         left=batch.order(pos-gap) right=batch.order(pos)
-        leftEntry=@batch.items(left) rightEntry=@batch.items(right)
+        leftEntry=BatchItem(batch,left) rightEntry=BatchItem(batch,right)
         IF MyDosAfter(leftEntry,rightEntry)=0 THEN EXIT FI
         batch.order(pos-gap)=right batch.order(pos)=left
         pos==-gap
@@ -75,7 +75,7 @@ PROC SortBatch(DirBatch POINTER batch)
   OD
   slot=0
   WHILE slot<count DO
-    entry=@batch.items(batch.order(slot))
+    entry=BatchItem(batch,batch.order(slot))
     entry.ordinal=slot
     slot==+1
   OD
@@ -109,7 +109,7 @@ BYTE FUNC MyDosRead(DirBatch POINTER batch Selection POINTER tags)
       summary=1
     ELSE
       IF count=BATCH_CAPACITY THEN RETURN(DIR_RANGE) FI
-      entry=@batch.items(count)
+      entry=BatchItem(batch,count)
       result=MyDosParse(entry,directoryInput,length)
       IF result#DIR_OK THEN RETURN(result) FI
       entry.position=count

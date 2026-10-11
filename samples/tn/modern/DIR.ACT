@@ -187,6 +187,10 @@ BYTE FUNC BatchPublish(DirBatch POINTER batch Selection POINTER tags BYTE count,
   batch.valid=1
 RETURN(DIR_OK)
 
+; Internal storage-slot address; caller proves slot<BATCH_CAPACITY.
+CARD FUNC BatchItem(DirBatch POINTER batch BYTE slot)
+RETURN(@batch.items(slot))
+
 ; Return an address for a cached absolute ordinal; zero means cache miss.
 CARD FUNC CachedEntry(DirBatch POINTER batch CARD ordinal)
   CARD offset
@@ -195,7 +199,7 @@ CARD FUNC CachedEntry(DirBatch POINTER batch CARD ordinal)
   IF batch.valid=0 OR ordinal<first THEN RETURN(0) FI
   offset=ordinal-first
   IF offset>=count THEN RETURN(0) FI
-RETURN(@batch.items(batch.order(BYTE(offset))))
+RETURN(BatchItem(batch,batch.order(BYTE(offset))))
 
 ; Choose a window containing the viewport, without an all-directory index.
 CARD FUNC BatchStart(CARD top)
