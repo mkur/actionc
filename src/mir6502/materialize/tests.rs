@@ -24875,3 +24875,151 @@ fn word_runtime_helper_store_rejects_absolute_destinations() {
     assert!(helpers.is_empty());
     assert!(out.is_empty());
 }
+#[test]
+fn analyzed_plain_base_reuse_preserves_alias_and_machine_barriers() {
+    fn candidate(middle: Vec<MirOp>, trailing: Vec<MirOp>) -> MirRoutine {
+        let mut r = indexed_address_reuse_test_routine(middle, trailing);
+        for op in &mut r.blocks[0].ops {
+            if matches!(op, MirOp::MaterializeIndexedAddress { .. }) {
+                *op = MirOp::MaterializeAddress {
+                    consumer: fixed_pointer_consumer(POINTER_SCRATCH_LO),
+                    value: pointer_value_from_mem(&MirMem::FixedZeroPage(MirFixedZpSlot(0xF0))),
+                };
+            }
+        }
+        r
+    }
+    let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+    let read = MirOp::LoadIndirect {
+        consumer: fixed_pointer_consumer(POINTER_SCRATCH_LO),
+        dst: MirDef::Reg(MirReg::A),
+        offset: 1,
+    };
+    let run = |r: &mut MirRoutine| {
+        MirPostHomeRewriteDriver::default()
+            .run_fixed_point(r, |r, c| {
+                ssa_lite::discover_redundant_indexed_address_materializations(r, c, &layout)
+            })
+            .unwrap()
+            .applied
+    };
+    assert_eq!(run(&mut candidate(vec![], vec![read.clone()])), 1);
+    for barrier in [
+        MirOp::StoreIndirect {
+            consumer: fixed_pointer_consumer(POINTER_SCRATCH_LO),
+            src: MirValue::ConstU8(9),
+            offset: 0,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xF1))),
+            src: MirValue::ConstU8(9),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(u16::from(POINTER_SCRATCH_LO))),
+            src: MirValue::ConstU8(9),
+            width: MirWidth::Byte,
+        },
+        MirOp::Barrier {
+            effects: MirEffects::default(),
+        },
+        MirOp::MachineBlock {
+            id: crate::mir6502::ir::MirMachineBlockId(0),
+            effects: MirEffects::default(),
+        },
+    ] {
+        assert_eq!(run(&mut candidate(vec![barrier], vec![read.clone()])), 0);
+    }
+    assert_eq!(
+        run(&mut candidate(
+            vec![],
+            vec![MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Absolute(0x4000)),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte
+            }]
+        )),
+        0
+    );
+    assert_eq!(
+        run(&mut candidate(
+            vec![],
+            vec![MirOp::Binary {
+                op: MirBinaryOp::Add,
+                dst: MirDef::Reg(MirReg::A),
+                left: MirValue::ConstU8(1),
+                right: MirValue::ConstU8(2),
+                width: MirWidth::Byte,
+                carry_in: Some(MirCarryIn::FromPrevious),
+                carry_out: MirCarryOut::Ignore
+            }]
+        )),
+        0
+    );
+}
+
+#[test]
+fn plain_base_reuse_resolves_carriers_but_rejects_overwritten_source_cells() {
+    let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+    let consumer = fixed_pointer_consumer(POINTER_SCRATCH_LO);
+    let word = |lo, hi| MirValue::Word {
+        lo: Box::new(lo),
+        hi: Box::new(hi),
+    };
+    let first = MirOp::MaterializeAddress {
+        consumer,
+        value: word(
+            MirValue::Def(MirDef::Reg(MirReg::A)),
+            MirValue::Def(MirDef::Reg(MirReg::X)),
+        ),
+    };
+    let second = MirOp::MaterializeAddress {
+        consumer,
+        value: word(MirValue::ConstU8(0), MirValue::ConstU8(0x50)),
+    };
+    let load = MirOp::LoadIndirect {
+        consumer,
+        dst: MirDef::Reg(MirReg::A),
+        offset: 0,
+    };
+    let mut r = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".into(),
+        params: vec![],
+        terminator: MirTerminator::Return,
+        ops: vec![
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: 0,
+                width: MirWidth::Byte,
+            },
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::X),
+                value: 0x50,
+                width: MirWidth::Byte,
+            },
+            first,
+            load.clone(),
+            second,
+            load.clone(),
+        ],
+    }]);
+    let run = |r: &mut MirRoutine| {
+        MirPostHomeRewriteDriver::default()
+            .run_fixed_point(r, |r, c| {
+                ssa_lite::discover_redundant_indexed_address_materializations(r, c, &layout)
+            })
+            .unwrap()
+            .applied
+    };
+    assert_eq!(run(&mut r), 1);
+    let alias = MirOp::MaterializeAddress {
+        consumer,
+        value: word(
+            MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(0xF0))),
+            MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO))),
+        ),
+    };
+    r.blocks[0].ops = vec![alias.clone(), load.clone(), alias, load];
+    assert_eq!(run(&mut r), 0);
+}

@@ -1,3 +1,4 @@
+use crate::mir6502::ir::MirFixedZpSlot;
 use super::dead_spills::block_successor_indices;
 use super::defs::{op_def, split_def_as_temp};
 #[cfg(test)]
@@ -2549,7 +2550,77 @@ pub(super) fn scan_ssa_lite_v2_observability(
     env.stats
 }
 
-/// Removes a repeated unscaled indexed-address preparation when the SSA-lite
+// Resolve a carrier through the shared exact machine-value facts. Never infer
+// an address identity from a register name or repeat the read that supplied it.
+fn normalized_plain_address(
+    value: &MirValue,
+    context: &PostHomeRewriteContext<'_, '_>,
+    point: crate::mir6502::analysis::sites::MirProgramPoint,
+) -> Option<MirValue> {
+    match value {
+        MirValue::Def(MirDef::Reg(reg)) => match context.register_value_at(*reg, point) {
+            MirProof::Proven(MirMachineValue::ConstU8(value)) => Some(MirValue::ConstU8(value)),
+            MirProof::Proven(MirMachineValue::DirectMem(mem)) => Some(MirValue::PointerCell(mem)),
+            _ => None,
+        },
+        MirValue::Word { lo, hi } => {
+            // Plain emission loads the low byte into A before the high byte.
+            if matches!(hi.as_ref(), MirValue::Def(MirDef::Reg(MirReg::A))) {
+                return None;
+            }
+            Some(MirValue::Word {
+                lo: Box::new(normalized_plain_address(lo, context, point)?),
+                hi: Box::new(normalized_plain_address(hi, context, point)?),
+            })
+        }
+        other => Some(other.clone()),
+    }
+}
+
+fn learn_normalized_plain_address(
+    env: &mut SsaLiteV2ObserveEnv,
+    fact: SsaLiteV2AddressFact,
+    routine: RoutineId,
+    layout: &MaterializeLayout,
+) {
+    if !matches!(&fact.key, SsaLiteV2AddressKey::Address(_)) {
+        return;
+    }
+    let MirPointerPair::Fixed { lo } = fact.consumer.pointer_pair() else {
+        return;
+    };
+    // A captured register value no longer equals its originating cell if the
+    // preparation overwrites that cell. Require final placement for every read.
+    let safe = match &fact.key {
+        SsaLiteV2AddressKey::Address(value) => {
+            plain_address_sources_disjoint(value, lo, routine, layout)
+        }
+        _ => false,
+    };
+    if safe {
+        env.learn_address(fact, false, layout);
+    }
+}
+
+fn plain_address_sources_disjoint(
+    value: &MirValue,
+    lo: MirFixedZpSlot,
+    routine: RoutineId,
+    layout: &MaterializeLayout,
+) -> bool {
+    match value {
+        MirValue::PointerCell(mem) => ssa_lite_mem_resolved_address(layout, routine, mem)
+            .is_some_and(|address| address != u16::from(lo.0) && address != u16::from(lo.0) + 1),
+        MirValue::Word { lo: low, hi } => {
+            plain_address_sources_disjoint(low, lo, routine, layout)
+                && plain_address_sources_disjoint(hi, lo, routine, layout)
+        }
+        MirValue::Def(_) => false,
+        _ => true,
+    }
+}
+
+/// Removes a repeated plain or unscaled indexed-address preparation when the SSA-lite
 /// environment proves that the same stable base/index value is still resident
 /// in the same pointer pair. Pointer-pair writes, writes to either source
 /// value, calls, indirect writes, and opaque barriers invalidate that proof.
@@ -2567,6 +2638,22 @@ pub(in crate::mir6502) fn discover_redundant_indexed_address_materializations(
         let mut env = SsaLiteV2ObserveEnv::default();
         for (index, op) in block.ops.iter().enumerate() {
             let fact = match op {
+                MirOp::MaterializeAddress { consumer, value }
+                    if !consumer.preserves_index_in_y() =>
+                {
+                    normalized_plain_address(
+                        value,
+                        context,
+                        context.point(MirSite::Op {
+                            block: block.id,
+                            op_index: index,
+                        }),
+                    )
+                    .map(|value| SsaLiteV2AddressFact {
+                        consumer: *consumer,
+                        key: SsaLiteV2AddressKey::Address(value),
+                    })
+                }
                 MirOp::MaterializeIndexedAddress {
                     consumer,
                     base,
@@ -2587,10 +2674,30 @@ pub(in crate::mir6502) fn discover_redundant_indexed_address_materializations(
                 env.observe_op(op, routine.id, layout);
                 continue;
             };
-            if !env.address_is_reusable(&fact, layout)
-                || !indexed_address_uses_direct_emission_shape(&fact, layout)
-            {
+            let direct_shape = match &fact.key {
+                SsaLiteV2AddressKey::Address(MirValue::Word { lo, hi }) => {
+                    direct_load_byte_shape(lo, layout) && direct_load_byte_shape(hi, layout)
+                }
+                SsaLiteV2AddressKey::Address(MirValue::ConstU16(_)) => true,
+                SsaLiteV2AddressKey::Address(_) => false,
+                SsaLiteV2AddressKey::Indexed { .. } => {
+                    indexed_address_uses_direct_emission_shape(&fact, layout)
+                }
+            };
+            let direct_shape = direct_shape && match (&fact.key, fact.consumer.pointer_pair()) {
+                (SsaLiteV2AddressKey::Address(value), MirPointerPair::Fixed { lo }) =>
+                    plain_address_sources_disjoint(value, lo, routine.id, layout),
+                (SsaLiteV2AddressKey::Address(_), _) => false,
+                _ => true,
+            };
+            let stat = if matches!(&fact.key, SsaLiteV2AddressKey::Address(_)) {
+                "ssa-lite-redundant-base-address"
+            } else {
+                STAT
+            };
+            if !env.address_is_reusable(&fact, layout) || !direct_shape {
                 env.observe_op(op, routine.id, layout);
+                learn_normalized_plain_address(&mut env, fact, routine.id, layout);
                 continue;
             }
 
@@ -2610,8 +2717,9 @@ pub(in crate::mir6502) fn discover_redundant_indexed_address_materializations(
             if let MirProof::Blocked(blocker) =
                 context.exit_state_change_is_unobservable(&exit_state_change, point)
             {
-                context.record_blocker(STAT, block.id, index, &blocker);
+                context.record_blocker(stat, block.id, index, &blocker);
                 env.observe_op(op, routine.id, layout);
+                learn_normalized_plain_address(&mut env, fact, routine.id, layout);
                 continue;
             }
 
@@ -2628,7 +2736,7 @@ pub(in crate::mir6502) fn discover_redundant_indexed_address_materializations(
                 removed_homes: Vec::new(),
                 exit_state_change,
                 change_set: MirChangeSet::posthome_operation_change(),
-                stat: STAT,
+                stat,
                 observations: vec![("ssa-lite-exact-address-provenance", 1)],
                 family_priority: 0,
                 estimated_byte_saving,

@@ -145,3 +145,25 @@ materialization/inventory integration checks and the real record-boundary,
 embedded-record and TN CPU VM targets passed. The new record VM matrix checks
 strides 2/20/255/256, word indexes through 65,535, field offset 255, guards,
 single effectful index evaluation, cartridge/standalone and actual LF/CRLF.
+
+## Stage 5A: proven block-local base availability
+
+The existing address-availability analysis now recognizes repeated plain
+pointer preparation, including registers with exact captured values. It removes
+preparation only while the same pointer pair retains that value and the removed
+A/flag effects are dead. Final physical placement excludes source cells that
+preparation would overwrite. Calls, pointer-cell changes, aliasing writes and
+machine barriers invalidate availability. No cross-block reuse was introduced.
+
+Two focused proof matrices, the existing SSA-lite cases, all three TN behavioral
+targets and the CPU profile passed. TN's emitted images and shared-home counts
+are unchanged from Stage 4C. This foundation has no demonstrated TN size win.
+The profile now reports executed operand accesses to emitted spill storage,
+including a checked read/write counter. It excludes canonical parameters,
+locals, stack traffic, pointer-fetch bytes and resident services; it is not a
+census of every private bus access.
+
+The final Stage 4C CLI image matches Stage 5A byte for byte. A fresh profile of
+that integrated image measures the 64-entry MIR draw at 54,586 cycles; the earlier
+55,120 timing came from an intermediate Stage 4C build. The difference is not
+attributed to base reuse. Sorting remains 805,176 cycles.
