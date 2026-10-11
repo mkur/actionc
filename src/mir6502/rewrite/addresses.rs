@@ -80,7 +80,13 @@ pub(in crate::mir6502) fn discover_address_displacements(
                         || effects.machine.register_reads.x
                         || effects.machine.register_reads.y
                         || effects.machine.flag_reads.any()
-                        || matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. })
+                        || matches!(
+                            op,
+                            MirOp::Call { .. }
+                                | MirOp::RuntimeHelper { .. }
+                                | MirOp::Barrier { .. }
+                                | MirOp::MachineBlock { .. }
+                        )
                 }) {
                     break;
                 }
@@ -153,6 +159,184 @@ pub(in crate::mir6502) fn discover_address_displacements(
                 stat: "captured-address-displacement",
                 observations: vec![],
                 family_priority: 15,
+                estimated_byte_saving: 0,
+                estimated_cycle_saving: 0,
+            });
+        }
+    }
+    plans
+}
+
+/// A scaled record address with one load/store consumer can use the existing
+/// indexed-address materializer directly. Escaping and multiply-used addresses
+/// retain their explicit arithmetic and homes.
+pub(in crate::mir6502) fn discover_record_element_consumers(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for (end, consumer) in block.ops.iter().enumerate() {
+            let Some(MirAddressUse {
+                base: MirAddressBase::Captured(MirValue::Def(MirDef::VTemp(address))),
+                index: None,
+                displacement,
+                ..
+            }) = MirAddressUse::from_op(consumer)
+            else {
+                continue;
+            };
+            let use_site = MirSite::Op {
+                block: block.id,
+                op_index: end,
+            };
+            let MirProof::Proven(address_defs) =
+                context.exclusive_word_temp_definition(address, use_site)
+            else {
+                continue;
+            };
+            let MirSite::Op {
+                block: id,
+                op_index: add,
+            } = address_defs[0].site
+            else {
+                continue;
+            };
+            if id != block.id || add >= end {
+                continue;
+            }
+            let MirOp::Binary {
+                op: MirBinaryOp::Add,
+                left: MirValue::Def(MirDef::VTemp(base)),
+                right: MirValue::Def(MirDef::VTemp(scaled)),
+                width: MirWidth::Word,
+                carry_in: None | Some(MirCarryIn::Clear),
+                carry_out: MirCarryOut::Ignore,
+                ..
+            } = block.ops[add]
+            else {
+                continue;
+            };
+            let add_site = MirSite::Op {
+                block: block.id,
+                op_index: add,
+            };
+            let MirProof::Proven(scale_defs) =
+                context.exclusive_word_temp_definition(scaled, add_site)
+            else {
+                continue;
+            };
+            let MirSite::Op {
+                block: id,
+                op_index: multiply,
+            } = scale_defs[0].site
+            else {
+                continue;
+            };
+            if id != block.id || multiply >= add {
+                continue;
+            }
+            let MirOp::Binary {
+                op: MirBinaryOp::Mul,
+                left: MirValue::Def(MirDef::VTemp(index)),
+                right: MirValue::ConstU16(stride),
+                width: MirWidth::Word,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+                ..
+            } = block.ops[multiply]
+            else {
+                continue;
+            };
+            // AdvanceAddress's existing scale contract is a byte. Wider record
+            // strides keep full word multiplication rather than truncating it.
+            if !(1..=255).contains(&stride) {
+                continue;
+            }
+            if [multiply, add].into_iter().any(|i| {
+                !context.flags_dead_after(
+                    classify_op(&block.ops[i]).machine.flag_writes,
+                    MirSite::Op {
+                        block: block.id,
+                        op_index: i,
+                    },
+                )
+            }) {
+                continue;
+            }
+            if block.ops[multiply + 1..end].iter().any(|op| {
+                let e = classify_op(op);
+                e.memory.may_write_any
+                    || e.memory.has_unknown_effects
+                    || !e.memory.direct_writes.is_empty()
+                    || !matches!(e.memory.structured_writes, MirMemoryEffect::None)
+                    || e.machine.register_reads.a
+                    || e.machine.register_reads.x
+                    || e.machine.register_reads.y
+                    || e.machine.flag_reads.any()
+                    || matches!(
+                        op,
+                        MirOp::Call { .. }
+                            | MirOp::RuntimeHelper { .. }
+                            | MirOp::Barrier { .. }
+                            | MirOp::MachineBlock { .. }
+                    )
+            }) {
+                continue;
+            }
+            let available = [(base, add), (index, multiply)].into_iter().all(|(temp, original)| {
+                context.uses_at(temp, MirSite::Op { block: block.id, op_index: original }).into_iter().all(|usage| {
+                    [0, 1].into_iter().all(|byte| {
+                        let lane = crate::mir6502::analysis::use_def::MirTempLane { temp, byte };
+                        matches!(context.unique_reaching_definition(usage, lane), MirProof::Proven(definition)
+                            if context.value_available_at(definition, context.point(use_site)).is_proven())
+                    })
+                })
+            });
+            if !available {
+                continue;
+            }
+            let mut selected = consumer.clone();
+            let address = match &mut selected {
+                MirOp::Load { src, .. } => src,
+                MirOp::Store { dst, .. } => dst,
+                _ => unreachable!(),
+            };
+            *address = MirAddr::ComputedIndex {
+                base: MirValue::Def(MirDef::VTemp(base)),
+                index: MirValue::Def(MirDef::VTemp(index)),
+                elem_size: stride,
+                offset: displacement,
+            };
+            let mut replacement: Vec<_> = (multiply..end)
+                .filter(|i| *i != multiply && *i != add)
+                .map(|i| block.ops[i].clone())
+                .collect();
+            replacement.push(selected);
+            let Some(definitions) = super::pilots::prove_removed_window_definitions(
+                block.id,
+                &block.ops,
+                multiply,
+                end + 1,
+                &replacement,
+                context,
+            ) else {
+                continue;
+            };
+            plans.push(MirRewritePlan {
+                generation: context.generation(),
+                block: block.id,
+                range: multiply..end + 1,
+                replacement,
+                removed_defs: definitions
+                    .into_iter()
+                    .map(|definition| MirRemovedDefinition { definition })
+                    .collect(),
+                exit_effect_delta: MirEffectDelta::MaterializedIndexConsumer,
+                change_set: MirChangeSet::prehome_operation_change(),
+                stat: "record-element-consumer",
+                observations: vec![],
+                family_priority: 16,
                 estimated_byte_saving: 0,
                 estimated_cycle_saving: 0,
             });
@@ -312,5 +496,87 @@ mod tests {
                 .iter()
                 .any(|op| matches!(op, MirOp::Binary { .. }))
         );
+    }
+    #[test]
+    fn record_consumers_keep_captures_and_reject_escapes_barriers_and_wide_strides() {
+        fn candidate(stride: u16) -> MirRoutine {
+            let mut r = routine();
+            r.blocks[0].ops.truncate(1);
+            r.blocks[0].ops.extend([
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(4)),
+                    src: MirAddr::Direct(MirMem::Absolute(0x602)),
+                    width: MirWidth::Word,
+                },
+                MirOp::Binary {
+                    op: MirBinaryOp::Mul,
+                    dst: MirDef::VTemp(MirTempId(5)),
+                    left: value(4),
+                    right: MirValue::ConstU16(stride),
+                    width: MirWidth::Word,
+                    carry_in: None,
+                    carry_out: MirCarryOut::Ignore,
+                },
+                MirOp::Binary {
+                    op: MirBinaryOp::Add,
+                    dst: MirDef::VTemp(MirTempId(1)),
+                    left: value(0),
+                    right: value(5),
+                    width: MirWidth::Word,
+                    carry_in: None,
+                    carry_out: MirCarryOut::Ignore,
+                },
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(3)),
+                    src: MirAddr::Deref {
+                        ptr: value(1),
+                        offset: 255,
+                    },
+                    width: MirWidth::Word,
+                },
+            ]);
+            r
+        }
+        let run = |r: &mut MirRoutine| {
+            MirPreHomeRewriteDriver::default()
+                .run_fixed_point_by_key(
+                    r,
+                    discover_record_element_consumers,
+                    super::super::pilots::pointer_rewrite_rank,
+                )
+                .unwrap()
+                .applied
+        };
+        for stride in [2, 20, 255] {
+            let mut r = candidate(stride);
+            assert_eq!(run(&mut r), 1);
+            assert_eq!(r.blocks[0].ops.len(), 3);
+            assert!(
+                matches!(&r.blocks[0].ops[2], MirOp::Load { src: MirAddr::ComputedIndex { elem_size, offset: 255, .. }, .. } if *elem_size == stride)
+            );
+        }
+        assert_eq!(run(&mut candidate(256)), 0);
+        for barrier in [
+            MirOp::Barrier {
+                effects: MirEffects::default(),
+            },
+            MirOp::Store {
+                dst: MirAddr::Deref {
+                    ptr: value(0),
+                    offset: 0,
+                },
+                src: MirValue::ConstU8(0),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Absolute(0x604)),
+                src: value(1),
+                width: MirWidth::Word,
+            },
+        ] {
+            let mut r = candidate(20);
+            r.blocks[0].ops.insert(4, barrier);
+            assert_eq!(run(&mut r), 0);
+        }
     }
 }

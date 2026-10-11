@@ -122,3 +122,26 @@ measured code-space/carrier tradeoffs; neither slice is claimed as a universal
 speed win. Three proof tests, two address execution matrices, the rewrite
 inventory and all five selected VM targets passed. Effectful indexes execute
 once; boundary indexes, page/address wrap and neighbor guards remain covered.
+
+## Stage 4C: record consumers and construction cost
+
+Exclusive captured multiply/add chains can feed a typed record-element load
+or store directly. Strides 1–255 use the existing indexed materializer;
+wider strides, escaping addresses, extra users, barriers and live flags retain
+explicit arithmetic. No new multiplication expansion policy or ABI is added.
+Constant field rebasing now uses one combined address construction, whose
+constant emission adds the complete scaled displacement to the captured base.
+
+[stage4c.json](stage4c.json) records another 189 bytes saved in each MIR root.
+The 64-entry reversed MIR sort is 805,176 cycles and drawing is 55,120, compared
+with baseline 855,767 and 58,664. Classic is unchanged. The generic
+[consumer fixture](../reproducers/record-consumers.act) makes a remaining
+tradeoff visible: `ReadByte` grows from 27 to 29 bytes; `ReadElement` stays at
+104 because its address escapes into a source local. Stage 5 reviews parameter
+carriers rather than promising that every removed virtual definition saves code.
+
+Four address proof tests, both complete field-window execution matrices, the
+materialization/inventory integration checks and the real record-boundary,
+embedded-record and TN CPU VM targets passed. The new record VM matrix checks
+strides 2/20/255/256, word indexes through 65,535, field offset 255, guards,
+single effectful index evaluation, cartridge/standalone and actual LF/CRLF.

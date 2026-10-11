@@ -1,0 +1,183 @@
+{
+  "compiler_source": "01f1f7b6 plus Stage 4C committed with this report",
+  "compiler_sha256": "19591d2534b250dcae9ff6f18fd96fc088629dbbd5f9fb7ff65dcab1f9c5809a",
+  "runtime": "cart",
+  "memory": [
+    {
+      "program": "TN.ACT",
+      "mode": "optimized",
+      "load_file": 18041,
+      "emitted": 18029,
+      "deferred": 2798,
+      "reserved": 20827,
+      "buffer": "$7D5B",
+      "copy_to_A000": 8869,
+      "shared_homes_and_buffers": 419
+    },
+    {
+      "program": "TN.ACT",
+      "mode": "mir6502",
+      "load_file": 16739,
+      "emitted": 16727,
+      "deferred": 2854,
+      "reserved": 19581,
+      "buffer": "$787D",
+      "copy_to_A000": 10115,
+      "shared_homes_and_buffers": 429
+    },
+    {
+      "program": "TNDBG.ACT",
+      "mode": "optimized",
+      "load_file": 21526,
+      "emitted": 21514,
+      "deferred": 2798,
+      "reserved": 24312,
+      "buffer": "$8AF8",
+      "copy_to_A000": 5384,
+      "shared_homes_and_buffers": 424
+    },
+    {
+      "program": "TNDBG.ACT",
+      "mode": "mir6502",
+      "load_file": 20476,
+      "emitted": 20464,
+      "deferred": 2854,
+      "reserved": 23318,
+      "buffer": "$8716",
+      "copy_to_A000": 6378,
+      "shared_homes_and_buffers": 432
+    }
+  ],
+  "cpu": [
+    {
+      "backend": "Optimized",
+      "workload": "sort_reversed",
+      "count": 0,
+      "cpu_cycles": 84
+    },
+    {
+      "backend": "Optimized",
+      "workload": "draw",
+      "count": 0,
+      "cpu_cycles": 3104
+    },
+    {
+      "backend": "Optimized",
+      "workload": "tag_all",
+      "count": 0,
+      "cpu_cycles": 3314
+    },
+    {
+      "backend": "Optimized",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 462828
+    },
+    {
+      "backend": "Optimized",
+      "workload": "sort_reversed",
+      "count": 1,
+      "cpu_cycles": 393
+    },
+    {
+      "backend": "Optimized",
+      "workload": "draw",
+      "count": 1,
+      "cpu_cycles": 7762
+    },
+    {
+      "backend": "Optimized",
+      "workload": "tag_all",
+      "count": 1,
+      "cpu_cycles": 3816
+    },
+    {
+      "backend": "Optimized",
+      "workload": "sort_reversed",
+      "count": 64,
+      "cpu_cycles": 894094
+    },
+    {
+      "backend": "Optimized",
+      "workload": "draw",
+      "count": 64,
+      "cpu_cycles": 64080
+    },
+    {
+      "backend": "Optimized",
+      "workload": "tag_all",
+      "count": 64,
+      "cpu_cycles": 37662
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "sort_reversed",
+      "count": 0,
+      "cpu_cycles": 72
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "draw",
+      "count": 0,
+      "cpu_cycles": 2477
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "tag_all",
+      "count": 0,
+      "cpu_cycles": 2805
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 410697
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "sort_reversed",
+      "count": 1,
+      "cpu_cycles": 433
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "draw",
+      "count": 1,
+      "cpu_cycles": 6526
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "tag_all",
+      "count": 1,
+      "cpu_cycles": 3174
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "sort_reversed",
+      "count": 64,
+      "cpu_cycles": 805176
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "draw",
+      "count": 64,
+      "cpu_cycles": 55120
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "tag_all",
+      "count": 64,
+      "cpu_cycles": 29558
+    }
+  ],
+  "generic_routine_bytes": {
+    "ReadByte": {
+      "baseline": 27,
+      "stage4c": 29
+    },
+    "ReadElement": {
+      "baseline": 104,
+      "stage4c": 104
+    }
+  }
+}

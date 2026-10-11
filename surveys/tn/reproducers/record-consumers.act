@@ -1,0 +1,19 @@
+; Generic consumer workloads; no TN routine or field identity is involved.
+TYPE Element=[CARD value BYTE ARRAY payload(18)]
+TYPE Packet=[BYTE ARRAY prefix(6),bytes(32) Element ARRAY rows(8)]
+Packet POINTER view=$0600
+BYTE byteIndex=$0602,byteResult=$0603
+CARD wordIndex=$0604,wordResult=$0606
+
+BYTE FUNC ReadByte(Packet POINTER p BYTE index)
+RETURN(p.bytes(index))
+
+CARD FUNC ReadElement(Packet POINTER p CARD index)
+  Element POINTER entry
+  entry=@p.rows(index)
+RETURN(entry.value)
+
+PROC Main()
+  byteResult=ReadByte(view,byteIndex)
+  wordResult=ReadElement(view,wordIndex)
+RETURN

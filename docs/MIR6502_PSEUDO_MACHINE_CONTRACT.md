@@ -174,6 +174,12 @@ machine inputs and live arithmetic flags. Field offsets wrap as 16-bit address
 arithmetic. Mutable pointer-cell reads are never substituted for captured temps.
 For embedded byte fields with unrestricted byte indexes, the constant field
 displacement is added to the scratch base and the full index is carried in Y.
+Exclusive captured word multiply/add chains can instead select a record-element
+consumer with an explicit stride. The existing byte scale contract limits this
+selection to strides at most 255; wider strides and escaping addresses retain
+word arithmetic. Constant indexed construction adds its complete scaled offset
+with 16-bit wrap. Its high base byte must survive the low-byte computation and
+pointer store; emission retains the general path when that condition is absent.
 
 The target analysis distinguishes an already captured pointer value from a
 mutable pointer cell read at an access. Folding pure address arithmetic may

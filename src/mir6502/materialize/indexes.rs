@@ -511,13 +511,17 @@ fn materialize_byte_field_base(
         255,
     )
     .unwrap();
-    materialize_base_address(base, DEFAULT_POINTER_PAIR, layout, out);
-    if window.base_adjustment != 0 {
-        out.push(MirOp::AdvanceAddress {
-            consumer: DEFAULT_POINTER_PAIR,
-            index: MirValue::ConstU16(window.base_adjustment),
-            scale: 1,
-        });
+    if window.base_adjustment == 0 {
+        materialize_base_address(base, DEFAULT_POINTER_PAIR, layout, out);
+    } else {
+    materialize_indexed_address_to_consumer(
+        base,
+        MirValue::ConstU16(window.base_adjustment),
+        1,
+        DEFAULT_POINTER_PAIR,
+        layout,
+        out,
+    );
     }
 }
 

@@ -965,6 +965,7 @@ pub(in crate::mir6502) fn discover_pointer_rewrites(
     let mut plans = discover_direct_pointer_temp_rematerializations(routine, context);
     plans.extend(discover_pointer_temp_derefs(routine, context, layout));
     plans.extend(super::addresses::discover_address_displacements(routine, context));
+    plans.extend(super::addresses::discover_record_element_consumers(routine, context));
     plans
 }
 

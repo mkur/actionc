@@ -4132,6 +4132,40 @@ fn emit_scaled_index_plus_base_to_pointer(
     pointer_slot: u8,
     emitter: &mut TrackedEmitter,
 ) -> bool {
+    let constant_index = match index {
+        MirValue::ConstU8(value) => Some(u16::from(*value)),
+        MirValue::ConstU16(value) => Some(*value),
+        _ => None,
+    };
+    // Constants have no evaluation effects. Add their complete scaled value
+    // to the captured base directly, keeping an already available low byte in
+    // A. The high byte must survive the low-byte computation and pointer store.
+    let high_survives = match base_hi {
+        MirValue::Def(MirDef::Reg(MirReg::A)) => false,
+        MirValue::PointerCell(mem) => ctx
+            .layout
+            .direct_mem(routine, mem)
+            .is_some_and(|mem| resolved_mem_absolute(mem).address() != u16::from(pointer_slot)),
+        _ => true,
+    };
+    if let Some(index) = constant_index
+        && high_survives
+        && can_emit_value_to_a(ctx, routine, base_lo)
+        && can_emit_value_to_a(ctx, routine, base_hi)
+    {
+        let displacement = index.wrapping_mul(u16::from(scale));
+        emit_value_to_a(ctx, routine, block, base_lo, emitter);
+        emitter.emit_clc();
+        emitter.emit_adc_imm(displacement as u8);
+        emit_sta_mem(ResolvedMem::ZeroPage(pointer_slot), emitter);
+        emit_value_to_a(ctx, routine, block, base_hi, emitter);
+        emitter.emit_adc_imm((displacement >> 8) as u8);
+        emit_sta_mem(
+            ResolvedMem::ZeroPage(pointer_slot.saturating_add(1)),
+            emitter,
+        );
+        return true;
+    }
     let Some((index_lo, index_hi)) = split_index_value_as_word(ctx, index) else {
         return false;
     };
