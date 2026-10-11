@@ -685,7 +685,7 @@ impl Generator {
                 return false;
             }
             self.emit_ldx_zero_page(runtime_zp::ELEMENT_ADDR);
-            self.emitter.emit_lda_absolute_x(array.absolute_x_operand());
+            self.emit_lda_absolute_x(array.absolute_x_operand());
         }
         self.emit_sta_slot_byte(slot, 0);
         for byte_index in 1..slot.size {

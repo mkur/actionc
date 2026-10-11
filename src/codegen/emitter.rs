@@ -1322,10 +1322,14 @@ impl Generator {
 
     pub(super) fn emit_lda_absolute_x(&mut self, absolute_x: AbsoluteX) {
         self.emitter.emit_lda_absolute_x(absolute_x);
-        self.processor.set_a_fact(ValueFact::SlotByte {
-            slot: StorageSlot::absolute_x(absolute_x.absolute().address(), 1),
-            byte_index: 0,
-        });
+        // An indexed template is not a stable byte identity: X can change
+        // while the template remains equal. The loaded value also differs
+        // from the index that may have occupied A immediately before TAX.
+        let value = self.slot_byte_value_fact(
+            StorageSlot::absolute_x(absolute_x.absolute().address(), 1),
+            0,
+        );
+        self.processor.set_a_fact(value);
     }
 
     pub(super) fn emit_lda_absolute_y(&mut self, absolute: Absolute) {

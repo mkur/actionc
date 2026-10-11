@@ -65,3 +65,18 @@ the compiler slices.
 All three behavioral targets, the CPU audit and both storage checks passed.
 All four full-root LF/CRLF XEX images match byte for byte. The batch/entry
 layout, checked public lookup and provider paging contracts are unchanged.
+
+## Stage 2: classic indexed capture
+
+The inline-array scalar-index fast path now uses the tracked indexed-load
+wrapper. That wrapper obtains its fact through the existing conservative slot
+query: an indexed addressing template does not identify a stable byte. A table
+load can no longer leave the previous index recorded as A's value.
+
+`classic_indexed_mask` fails before the fix on ordinal zero and passes after
+it. It checks all eight bit positions and wide ordinals through 4,095, four
+initial bitmap patterns, both set/clear branches, complete bitmap/guard bytes,
+unchanged table data, cartridge/standalone and actual LF/CRLF compilation.
+The three TN behavioral targets and 836 classic codegen checks passed. The
+final slot-query version also passed the five indexed-table arithmetic checks
+and the full mask execution matrix. No application workaround was removed.
