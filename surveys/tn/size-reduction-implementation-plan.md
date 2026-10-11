@@ -1,6 +1,6 @@
 # TN size reduction and record code generation implementation plan
 
-Status: Stages 0–3 complete, 2026-10-12. Stages 4–7 pending. The maintained
+Status: Stages 0–3 and 4A complete, 2026-10-12. Stages 4B–7 pending. The maintained
 [qualification report](size-reduction/README.md) pins the baseline and preserved
 provider acceptance.
 

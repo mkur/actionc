@@ -1,4 +1,5 @@
 use super::*;
+use crate::mir6502::analysis::address_uses::MirIndirectWindow;
 
 pub(super) fn select_pointer_temp_deref(
     ops: &[MirOp],
@@ -300,9 +301,15 @@ pub(super) fn materialize_pointer_deref_read(
     temp_widths: &BTreeMap<MirTempId, MirWidth>,
     out: &mut Vec<MirOp>,
 ) {
-    let consumer = pointer_consumer_for_value(&ptr, routine_id, layout);
-    let (ptr_lo, ptr_hi) = split_value_with_temp_widths(ptr, layout, temp_widths);
-    materialize_pointer_value_for_consumer(consumer, ptr_lo, ptr_hi, out);
+    let (consumer, offset) = materialize_pointer_access(
+        ptr,
+        offset,
+        MirWidth::Word,
+        routine_id,
+        layout,
+        temp_widths,
+        out,
+    );
     out.push(MirOp::LoadIndirect {
         consumer,
         dst: lo_dst,
@@ -324,9 +331,15 @@ pub(super) fn materialize_pointer_deref_read_byte(
     temp_widths: &BTreeMap<MirTempId, MirWidth>,
     out: &mut Vec<MirOp>,
 ) {
-    let consumer = pointer_consumer_for_value(&ptr, routine_id, layout);
-    let (ptr_lo, ptr_hi) = split_value_with_temp_widths(ptr, layout, temp_widths);
-    materialize_pointer_value_for_consumer(consumer, ptr_lo, ptr_hi, out);
+    let (consumer, offset) = materialize_pointer_access(
+        ptr,
+        offset,
+        MirWidth::Byte,
+        routine_id,
+        layout,
+        temp_widths,
+        out,
+    );
     out.push(MirOp::LoadIndirect {
         consumer,
         dst,
@@ -343,10 +356,16 @@ pub(super) fn materialize_pointer_deref_write(
     temp_widths: &BTreeMap<MirTempId, MirWidth>,
     out: &mut Vec<MirOp>,
 ) {
-    let consumer = pointer_consumer_for_value(&ptr, routine_id, layout);
-    let (ptr_lo, ptr_hi) = split_value_with_temp_widths(ptr, layout, temp_widths);
     let (src_lo, src_hi) = split_value_with_temp_widths(src, layout, temp_widths);
-    materialize_pointer_value_for_consumer(consumer, ptr_lo, ptr_hi, out);
+    let (consumer, offset) = materialize_pointer_access(
+        ptr,
+        offset,
+        MirWidth::Word,
+        routine_id,
+        layout,
+        temp_widths,
+        out,
+    );
     out.push(MirOp::StoreIndirect {
         consumer,
         src: src_lo,
@@ -368,7 +387,15 @@ pub(super) fn materialize_pointer_deref_write_byte(
     temp_widths: &BTreeMap<MirTempId, MirWidth>,
     out: &mut Vec<MirOp>,
 ) {
-    let consumer = materialize_pointer_deref_address(ptr, routine_id, layout, temp_widths, out);
+    let (consumer, offset) = materialize_pointer_access(
+        ptr,
+        offset,
+        MirWidth::Byte,
+        routine_id,
+        layout,
+        temp_widths,
+        out,
+    );
     out.push(MirOp::StoreIndirect {
         consumer,
         src,
@@ -387,6 +414,34 @@ pub(super) fn materialize_pointer_deref_address(
     let (ptr_lo, ptr_hi) = split_value_with_temp_widths(ptr, layout, temp_widths);
     materialize_pointer_value_for_consumer(consumer, ptr_lo, ptr_hi, out);
     consumer
+}
+
+fn materialize_pointer_access(
+    ptr: MirValue,
+    offset: u16,
+    width: MirWidth,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    out: &mut Vec<MirOp>,
+) -> (MirAddressConsumer, u16) {
+    let window = MirIndirectWindow::constant(offset, width);
+    // Never advance a source-visible fixed pointer cell in place.
+    let consumer = if window.base_adjustment == 0 {
+        pointer_consumer_for_value(&ptr, routine_id, layout)
+    } else {
+        DEFAULT_POINTER_PAIR
+    };
+    let (lo, hi) = split_value_with_temp_widths(ptr, layout, temp_widths);
+    materialize_pointer_value_for_consumer(consumer, lo, hi, out);
+    if window.base_adjustment != 0 {
+        out.push(MirOp::AdvanceAddress {
+            consumer,
+            index: MirValue::ConstU16(window.base_adjustment),
+            scale: 1,
+        });
+    }
+    (consumer, u16::from(window.y_displacement))
 }
 
 fn materialize_pointer_value_for_consumer(

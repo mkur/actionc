@@ -93,3 +93,16 @@ redefinitions, incomplete words and successor uses prevent removal.
 The three address-analysis tests and four rewrite-context tests passed. No
 selector uses the new queries in this slice, so target strategy is unchanged.
 There is no NIR, SemIR or public ABI contract change.
+
+## Stage 4A: complete constant field windows
+
+Pointer field consumers now select a complete byte/word window. Fields beyond
+Y's range, and words beginning at displacement 255, rebase the scratch pointer
+before accessing the field. A fixed source pointer cell is never advanced in
+place. Small fields retain their existing direct displacement strategy.
+
+The execution matrix covers offsets 0/254/255/256, page crossings, 16-bit wrap,
+RAM and fixed zero-page pointer cells, both runtimes, default/optimized MIR and
+actual LF/CRLF source. The four affected integration targets also passed. This
+slice establishes correct consumer selection at the boundary; it does not
+claim smaller TN output before the address-chain slices are integrated.

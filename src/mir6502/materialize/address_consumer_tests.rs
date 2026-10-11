@@ -1,0 +1,121 @@
+use super::*;
+use crate::runtime::Runtime;
+
+fn output(source: &str, runtime: Runtime, optimized: bool) -> crate::codegen::CodegenOutput {
+    let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
+    let model =
+        crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
+            .unwrap();
+    let nir = crate::nir::optimize_program(&crate::nir::lower_program(
+        &crate::semantic::ir::lower_program(&ast, &model),
+    ))
+    .unwrap();
+    crate::mir6502::generate_output_with_config_and_runtime(
+        &nir,
+        0x3000,
+        &if optimized {
+            Mir6502Config::optimized()
+        } else {
+            Mir6502Config::default()
+        },
+        runtime,
+    )
+    .unwrap()
+}
+
+fn memory(output: &crate::codegen::CodegenOutput, runtime: Runtime) -> [u8; 65536] {
+    let mut memory = [0u8; 65536];
+    if runtime == Runtime::ActionCart {
+        let cart = include_bytes!("../../../roms/action.rom");
+        memory[0xA000..0xB000].copy_from_slice(&cart[0x1010..0x2010]);
+        memory[0xB000..0xC000].copy_from_slice(&cart[0x10..0x1010]);
+    }
+    let origin = usize::from(output.origin);
+    memory[origin..origin + output.bytes.len()].copy_from_slice(&output.bytes);
+    memory
+}
+
+#[test]
+fn constant_record_accesses_preserve_complete_words_and_fixed_pointer_cells() {
+    for offset in [0u16, 254, 255, 256] {
+        for width in [MirWidth::Byte, MirWidth::Word] {
+            let ty = if width == MirWidth::Byte {
+                "BYTE"
+            } else {
+                "CARD"
+            };
+            let prefix = if offset == 0 {
+                String::new()
+            } else {
+                format!("BYTE ARRAY pad({offset}) ")
+            };
+            // A source-visible fixed zero-page pointer exercises rebasing
+            // without mutating that cell. A RAM pointer exercises the general path.
+            for pointer_cell in [0x600u16, 0xF0] {
+                let source = format!(
+                    "TYPE Rec=[{prefix}{ty} field]\nRec POINTER p=${pointer_cell:04X}\n{ty} input=$0602,observed=$0604\nPROC Main()\nobserved=p.field\np.field=input\nRETURN\n"
+                );
+                for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                    for optimized in [false, true] {
+                        for crlf in [false, true] {
+                            let text = if crlf {
+                                source.replace('\n', "\r\n")
+                            } else {
+                                source.clone()
+                            };
+                            let compiled = output(&text, runtime, optimized);
+                            for base in [0x5000u16, 0x50F1, 0xFF00] {
+                                let mut ram = memory(&compiled, runtime);
+                                ram[0x4F00..0x5300].fill(0xA5);
+                                ram[usize::from(pointer_cell)..usize::from(pointer_cell) + 2]
+                                    .copy_from_slice(&base.to_le_bytes());
+                                ram[0x602..0x604].copy_from_slice(&0xB327u16.to_le_bytes());
+                                let field = base.wrapping_add(offset);
+                                let bytes = if width == MirWidth::Byte { 1usize } else { 2 };
+                                for lane in 0..bytes {
+                                    ram[usize::from(field.wrapping_add(lane as u16))] =
+                                        [0xD9, 0x73][lane];
+                                }
+                                let before = ram;
+                                super::leaf_test_cpu::run_memory(
+                                    &mut ram,
+                                    usize::from(compiled.run_address),
+                                );
+                                let label = format!(
+                                    "offset={offset}/{width:?}/cell={pointer_cell:04X}/base={base:04X}/{runtime:?}/opt={optimized}/crlf={crlf}"
+                                );
+                                assert_eq!(
+                                    &ram[0x604..0x604 + bytes],
+                                    &[0xD9, 0x73][..bytes],
+                                    "{label}"
+                                );
+                                let mut expected = before;
+                                for lane in 0..bytes {
+                                    expected[usize::from(field.wrapping_add(lane as u16))] =
+                                        [0x27, 0xB3][lane];
+                                }
+                                assert_eq!(
+                                    &ram[0x4F00..0x5300],
+                                    &expected[0x4F00..0x5300],
+                                    "{label}: guards"
+                                );
+                                for lane in 0..bytes {
+                                    assert_eq!(
+                                        ram[usize::from(field.wrapping_add(lane as u16))],
+                                        [0x27, 0xB3][lane],
+                                        "{label}"
+                                    );
+                                }
+                                assert_eq!(
+                                    &ram[usize::from(pointer_cell)..usize::from(pointer_cell) + 2],
+                                    &base.to_le_bytes(),
+                                    "{label}: pointer cell"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

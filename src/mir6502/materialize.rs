@@ -17,6 +17,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use super::ir::MirZpSlot;
 
 mod abi;
+#[cfg(test)]
+mod address_consumer_tests;
 mod block_args;
 mod call_result;
 mod calls;
