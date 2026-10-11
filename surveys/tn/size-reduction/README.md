@@ -199,3 +199,20 @@ spill operand accesses from 14 to 4; classic falls from 1,213 to 822 cycles.
 The full behavioral and profile targets pass, including added nonzero public
 values, repeated toggles and guarded invalid-ordinal no-write cases under
 actual LF/CRLF compilation. The extra code buys measured command work savings.
+
+## Stage 6B: bit reads within a clamped iteration limit
+
+[stage6b.json](stage6b.json) records the internal `TagBitInRange` consumer.
+`TagsRecount` and `NextTagged` establish `ordinal < min(extent, capacity)` and
+perform no capacity mutation, provider call or panel switch in the loop. Public
+`TagBit` retains its capacity check. Selection counting and bitmap layout are
+unchanged; provider publication and navigation checks remain checked.
+
+This slice adds 32 bytes and four shared-home bytes to each root. The 64-entry
+MIR tag-all workload falls from 29,558 to 26,294 cycles; publishing a 1,088-entry
+prefix falls from 410,697 to 355,209. The MIR draw rises from 54,586 to 55,178
+because it uses the checked wrapper. All three behavioral targets and the CPU
+profile pass; additional checked-read boundaries and extent-only invalid-toggle
+no-write checks pass through LF/CRLF model compilation. Cache access in `Draw`
+and post-I/O `MyDosPush` remain unchanged: this work does not establish a stable
+provider lifetime proof that would justify their trusted alternatives.

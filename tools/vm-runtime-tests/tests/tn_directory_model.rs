@@ -173,6 +173,15 @@ fn directory_cache_and_selection_are_independent_and_bounded() {
                 );
                 assert_eq!(vm.cpu().registers().a, 2);
             }
+            for (ordinal, bit) in [(0, 1), (1, 0), (4095, 1), (4096, 0), (65535, 0)] {
+                vm = machine::call(
+                    vm,
+                    &mut hooks,
+                    routine("TagBit"),
+                    &args(&[left, ordinal], &[]),
+                );
+                assert_eq!(vm.cpu().registers().a, bit, "checked bit {ordinal}");
+            }
             let cache = vm.bus().ram().read_word(global("cache"));
             for first in [0, 64, 256, 1024, 4032, 0] {
                 vm = machine::call(
@@ -245,6 +254,19 @@ fn directory_cache_and_selection_are_independent_and_bounded() {
                 &args(&[left, 1088], &[1]),
             );
             assert_eq!(vm.bus().ram().read_word(left + 6), 1087);
+            let state = machine::bytes(&vm, left, 14);
+            let bitmap = machine::bytes(&vm, left_bits + 1, 512);
+            // Within capacity but outside the complete extent: no mutation.
+            vm = machine::call(
+                vm,
+                &mut hooks,
+                routine("ToggleTag"),
+                &args(&[left, 1088], &[]),
+            );
+            assert_eq!(vm.cpu().registers().a, 2);
+            assert_eq!(machine::bytes(&vm, left, 14), state);
+            assert_eq!(machine::bytes(&vm, left_bits + 1, 512), bitmap);
+
             assert_eq!(machine::bytes(&vm, left_bits + 137, 376), vec![0; 376]);
             vm = machine::call(vm, &mut hooks, routine("TagsReady"), &left.to_le_bytes());
             assert_eq!(vm.cpu().registers().a, 1);

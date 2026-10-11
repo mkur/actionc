@@ -32,7 +32,7 @@ RETURN
 
 ; The harness calls these compiled routines by address. Keep their public
 ; entries even when the fixture's startup would not otherwise reach them.
-CARD ARRAY routines=[@TagsExtent @SetTagged @ToggleTag @NextTagged @FakeRead @CachedEntry
+CARD ARRAY routines=[@TagsExtent @SetTagged @ToggleTag @TagBit @NextTagged @FakeRead @CachedEntry
                     @BatchStart @TagsReset @ToggleAllTags @TagsReady @found]
 PROC Main()
   Start()

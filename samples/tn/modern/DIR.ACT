@@ -60,14 +60,19 @@ PROC TagsReset(Selection POINTER tags)
   tags.generation==+1
 RETURN
 
-BYTE FUNC TagBit(Selection POINTER tags CARD ordinal)
+; Internal: ordinal<tags.capacity. Callers clamp a stable loop limit; this
+; body performs no provider call, panel switch or capacity mutation.
+BYTE FUNC TagBitInRange(Selection POINTER tags CARD ordinal)
   BYTE POINTER p
   BYTE mask
-  LET CARD capacity=tags.capacity
-  IF ordinal>=capacity THEN RETURN(0) FI
   p=tags.bits+(ordinal RSH 3)
   mask=1 LSH BYTE(ordinal&7)
 RETURN((p^&mask)#0)
+
+BYTE FUNC TagBit(Selection POINTER tags CARD ordinal)
+  LET CARD capacity=tags.capacity
+  IF ordinal>=capacity THEN RETURN(0) FI
+RETURN(TagBitInRange(tags,ordinal))
 
 ; Internal mode: 0 clears, 1 sets, 2 toggles. Bounds are checked once here.
 BYTE FUNC ChangeTagged(Selection POINTER tags CARD ordinal BYTE value)
@@ -111,7 +116,7 @@ PROC TagsRecount(Selection POINTER tags)
   IF limit>capacity THEN limit=capacity FI
   tags.tagged=0 ordinal=0
   WHILE ordinal<limit DO
-    IF TagBit(tags,ordinal) THEN tags.tagged==+1 FI
+    IF TagBitInRange(tags,ordinal) THEN tags.tagged==+1 FI
     ordinal==+1
   OD
 RETURN
@@ -170,7 +175,7 @@ BYTE FUNC NextTagged(Selection POINTER tags CARD fromIndex CARD POINTER found)
   IF limit>capacity THEN limit=capacity FI
   ordinal=fromIndex
   WHILE ordinal<limit DO
-    IF TagBit(tags,ordinal) THEN
+    IF TagBitInRange(tags,ordinal) THEN
       found^=ordinal RETURN(DIR_OK)
     FI
     ordinal==+1
