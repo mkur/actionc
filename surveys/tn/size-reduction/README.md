@@ -106,3 +106,19 @@ RAM and fixed zero-page pointer cells, both runtimes, default/optimized MIR and
 actual LF/CRLF source. The four affected integration targets also passed. This
 slice establishes correct consumer selection at the boundary; it does not
 claim smaller TN output before the address-chain slices are integrated.
+
+## Stage 4B: captured field displacement and byte indexes
+
+Exclusive word copies and constant additions now fold into typed address
+consumers. The original base load remains captured; aliases, redefinitions,
+multiple users and live arithmetic flags block producer removal. Embedded
+byte fields rebase their constant displacement and use Y for the unrestricted
+byte index. No array capacity is treated as an index bound.
+
+[stage4b.json](stage4b.json) records an additional 87/110 load bytes saved in
+TN/TNDBG MIR, with classic unchanged. The 64-entry MIR draw falls from 58,952
+to 57,822 cycles; reversed sorting rises from 877,794 to 893,196. These are
+measured code-space/carrier tradeoffs; neither slice is claimed as a universal
+speed win. Three proof tests, two address execution matrices, the rewrite
+inventory and all five selected VM targets passed. Effectful indexes execute
+once; boundary indexes, page/address wrap and neighbor guards remain covered.

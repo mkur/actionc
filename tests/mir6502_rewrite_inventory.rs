@@ -8,6 +8,7 @@ const INVENTORY: &str = "surveys/tn/mir6502-rewrite-migration-inventory.tsv";
 /// list explicit makes adding a new production family a reviewable audit
 /// decision rather than silently accepting a raw block-local helper.
 const ANALYZED_PRODUCER_REMOVERS: &[(&str, &str)] = &[
+    ("src/mir6502/rewrite/addresses.rs", "discover_address_displacements"),
     (
         "src/mir6502/rewrite/pilots.rs",
         "discover_compare_producers",

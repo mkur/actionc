@@ -368,6 +368,13 @@ impl<'snapshot, 'routine> PreHomeRewriteContext<'snapshot, 'routine> {
         MirProof::Proven(())
     }
 
+    pub(in crate::mir6502) fn flags_dead_after(&self, flags: MirFlagSet, site: MirSite) -> bool {
+        self.snapshot
+            .machine_liveness()
+            .flags_dead_after(flags, site)
+            .unwrap_or(false)
+    }
+
     pub(in crate::mir6502) fn value_available_at(
         &self,
         definition: MirDefSite,

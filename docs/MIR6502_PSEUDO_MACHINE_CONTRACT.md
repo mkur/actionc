@@ -167,6 +167,14 @@ strategy; emission supplies final addresses and interprets no source modifier.
 
 ## Address-use proofs
 
+Pre-home constant address folding consumes only exclusive word definitions
+with a surviving captured base. It retains all memory loads and their order,
+proves the base available at the consumer, and rejects writes, calls, implicit
+machine inputs and live arithmetic flags. Field offsets wrap as 16-bit address
+arithmetic. Mutable pointer-cell reads are never substituted for captured temps.
+For embedded byte fields with unrestricted byte indexes, the constant field
+displacement is added to the scratch base and the full index is carried in Y.
+
 The target analysis distinguishes an already captured pointer value from a
 mutable pointer cell read at an access. Folding pure address arithmetic may
 retain a captured value; it does not authorize repeating or moving the load

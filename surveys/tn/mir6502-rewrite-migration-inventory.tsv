@@ -1,4 +1,5 @@
 id	phase	batch	domain	source	entry_point	baseline_proof
+ADDR-001	pre-home-selection	migrated	temp	src/mir6502/rewrite/addresses.rs	discover_address_displacements	exclusive-word-reaching-def-dominance-deadness-and-flags
 PRE-001	pre-branch	migrated	temp	src/mir6502/rewrite/pilots.rs	discover_compare_producers	analyzed-reaching-def-and-routine-deadness
 PRE-002	pre-branch	migrated	temp	src/mir6502/rewrite/pilots.rs	discover_compare_narrowing	analyzed-reaching-def-and-routine-deadness
 PRE-003	pre-home-selection	migrated	temp	src/mir6502/rewrite/pilots.rs	discover_byte_binary_compare_consumers	analyzed-reaching-def-and-routine-deadness

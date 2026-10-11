@@ -119,3 +119,71 @@ fn constant_record_accesses_preserve_complete_words_and_fixed_pointer_cells() {
         }
     }
 }
+
+#[test]
+fn embedded_byte_fields_preserve_indexes_effects_and_neighbor_bytes() {
+    for offset in [0u16, 254, 255, 256] {
+        let prefix = if offset == 0 {
+            String::new()
+        } else {
+            format!("BYTE ARRAY pad({offset}) ")
+        };
+        for effectful in [false, true] {
+            let index = if effectful { "Index()" } else { "indexValue" };
+            let source = format!(
+                "TYPE Rec=[{prefix}BYTE ARRAY bytes(300)]\nRec POINTER p=$0600\nBYTE indexValue=$0602,input=$0603,observed=$0604,calls=$0605\nBYTE FUNC Index()\ncalls==+1\nRETURN(indexValue)\nPROC Main()\nobserved=p.bytes({index})\np.bytes(indexValue)=input\nRETURN\n"
+            );
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                for optimized in [false, true] {
+                    for crlf in [false, true] {
+                        let text = if crlf {
+                            source.replace('\n', "\r\n")
+                        } else {
+                            source.clone()
+                        };
+                        let compiled = output(&text, runtime, optimized);
+                        for base in [0x5000u16, 0x50F1, 0xFF00] {
+                            for index in [0u8, 1, 127, 254, 255] {
+                                let mut ram = memory(&compiled, runtime);
+                                ram[0x4F00..0x5400].fill(0xA5);
+                                ram[0x600..0x602].copy_from_slice(&base.to_le_bytes());
+                                ram[0x602] = index;
+                                ram[0x603] = 0x37;
+                                ram[0x605] = 0;
+                                let field =
+                                    base.wrapping_add(offset).wrapping_add(u16::from(index));
+                                ram[usize::from(field)] = 0xD9;
+                                let mut expected = ram;
+                                expected[usize::from(field)] = 0x37;
+                                super::leaf_test_cpu::run_memory(
+                                    &mut ram,
+                                    usize::from(compiled.run_address),
+                                );
+                                let label = format!(
+                                    "offset={offset}/base={base:04X}/index={index}/{runtime:?}/opt={optimized}/crlf={crlf}/effect={effectful}"
+                                );
+                                assert_eq!(ram[0x604], 0xD9, "{label}");
+                                assert_eq!(
+                                    ram[0x605],
+                                    u8::from(effectful),
+                                    "{label}: single evaluation"
+                                );
+                                assert_eq!(ram[usize::from(field)], 0x37, "{label}");
+                                assert_eq!(
+                                    &ram[0x4F00..0x5400],
+                                    &expected[0x4F00..0x5400],
+                                    "{label}: guards"
+                                );
+                                assert_eq!(
+                                    &ram[0x600..0x602],
+                                    &base.to_le_bytes(),
+                                    "{label}: pointer"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
