@@ -2900,7 +2900,7 @@ fn run_posthome_structural_group(
         );
         verify_cfg_after_transform(routine, "high-bit shift/XOR carry selection")?;
     }
-    run_analyzed_param_home_reloads(routine, peephole_stats)?;
+    run_analyzed_param_home_reloads(routine, layout, peephole_stats)?;
     run_analyzed_spill_forwards(routine, peephole_stats)?;
     run_analyzed_direct_inc_dec_updates(routine, layout, peephole_stats)?;
     run_analyzed_staged_word_forwards(
@@ -3129,6 +3129,7 @@ fn run_analyzed_spill_forwards(
 
 fn run_analyzed_param_home_reloads(
     routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     let mut driver = MirPostHomeRewriteDriver::default();
@@ -3138,6 +3139,17 @@ fn run_analyzed_param_home_reloads(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("post-home parameter reload forwarding failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    let result = driver
+        .run_fixed_point(routine, |r, c| {
+            calls::discover_param_address_consumers(r, c, layout)
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home parameter address forwarding failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

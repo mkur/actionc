@@ -181,6 +181,16 @@ word arithmetic. Constant indexed construction adds its complete scaled offset
 with 16-bit wrap. Its high base byte must survive the low-byte computation and
 pointer store; emission retains the general path when that condition is absent.
 
+Post-home block-local base reuse requires exact resident pointer provenance,
+unchanged source cells and pair bytes, and dead removed register/flag effects.
+Unknown writes, calls and machine barriers invalidate the fact. Final placement
+must exclude source cells overwritten by preparing the pointer pair.
+Canonical parameter carriers may feed plain or constant-index preparation only
+when block-local capture, register availability and intervening physical write
+ranges prove the bytes still equal their parameter homes. The high byte must
+survive low-byte computation. Canonical stores and public result homes remain
+part of the ABI; this proof never licenses repeating an indirect field read.
+
 The target analysis distinguishes an already captured pointer value from a
 mutable pointer cell read at an access. Folding pure address arithmetic may
 retain a captured value; it does not authorize repeating or moving the load

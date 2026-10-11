@@ -3672,6 +3672,150 @@ pub(in crate::mir6502) fn discover_param_home_reloads(
     plans
 }
 
+/// Use still-available canonical parameter bytes directly in a bounded
+/// pointer preparation. The public stores remain; no field read is repeated.
+pub(in crate::mir6502) fn discover_param_address_consumers(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for (index, op) in block.ops.iter().enumerate() {
+            if block.ops[..index].iter().any(|op| {
+                matches!(
+                    op,
+                    MirOp::Call { .. }
+                        | MirOp::RuntimeHelper { .. }
+                        | MirOp::MachineBlock { .. }
+                        | MirOp::Barrier { .. }
+                )
+            }) {
+                continue;
+            }
+            let (consumer, base) = match op {
+                MirOp::MaterializeAddress { consumer, value } => (*consumer, value),
+                MirOp::MaterializeIndexedAddress {
+                    consumer,
+                    base,
+                    index: MirValue::ConstU8(_) | MirValue::ConstU16(_),
+                    scale: 1 | 2,
+                } => (*consumer, base),
+                _ => continue,
+            };
+            let MirPointerPair::Fixed { lo: pair } = consumer.pointer_pair() else {
+                continue;
+            };
+            if consumer.preserves_index_in_y() {
+                continue;
+            }
+            let MirValue::Word { lo, hi } = base else {
+                continue;
+            };
+            let point = context.point(MirSite::Op {
+                block: block.id,
+                op_index: index,
+            });
+            let rewrite = |value: &MirValue| {
+                let MirValue::PointerCell(mem @ MirMem::Param { .. }) = value else {
+                    return value.clone();
+                };
+                // Reusing a pre-operation carrier is invalid if preparing the
+                // low byte changes the memory that the original high byte read.
+                let disjoint = layout.mem_address(routine.id, mem).is_some_and(|address| {
+                    address != u16::from(pair.0) && address != u16::from(pair.0) + 1
+                });
+                if !disjoint {
+                    return value.clone();
+                }
+                match context.parameter_register_at(MirParamHomeByte::from_mem(mem).unwrap(), point)
+                {
+                    MirProof::Proven(reg) => {
+                        // Limit the proof to this block's canonical capture.
+                        // Parameter availability supplies register liveness;
+                        // final placement supplies alias checks for intervening writes.
+                        let captured = block.ops[..index].iter().rposition(|op| matches!(op,
+                            MirOp::Store { dst: MirAddr::Direct(dst), src: MirValue::Def(MirDef::Reg(source)), width: MirWidth::Byte }
+                            if dst == mem && *source == reg));
+                        let safe = captured.is_some_and(|captured| {
+                            block.ops[captured + 1..index].iter().all(|op| {
+                                let effects = crate::mir6502::analysis::effects::classify_op(op);
+                                if effects.memory.indirect_writes
+                                    || effects.memory.opaque
+                                    || effects.memory.may_write_any
+                                    || effects.memory.has_unknown_effects
+                                    || !matches!(
+                                        effects.memory.structured_writes,
+                                        crate::mir6502::ir::MirMemoryEffect::None
+                                    )
+                                {
+                                    return false;
+                                }
+                                effects.memory.direct_writes.iter().all(|range| {
+                                    let source = layout.mem_address(routine.id, mem).unwrap();
+                                    let address = match range.base {
+                                        MirMem::FixedZeroPage(slot) => Some(u16::from(slot.0)),
+                                        _ => layout.mem_address(routine.id, &range.base),
+                                    };
+                                    address.is_some_and(|address| {
+                                        source.wrapping_sub(address) >= range.bytes
+                                    })
+                                })
+                            })
+                        });
+                        if safe {
+                            MirValue::Def(MirDef::Reg(reg))
+                        } else {
+                            value.clone()
+                        }
+                    }
+                    _ => value.clone(),
+                }
+            };
+            let low = rewrite(lo);
+            let high = rewrite(hi);
+            if matches!(high, MirValue::Def(MirDef::Reg(MirReg::A))) {
+                continue;
+            }
+            let rewritten = MirValue::Word {
+                lo: Box::new(low),
+                hi: Box::new(high),
+            };
+            if rewritten == *base {
+                continue;
+            }
+            let replacement = match op {
+                MirOp::MaterializeAddress { .. } => MirOp::MaterializeAddress {
+                    consumer,
+                    value: rewritten,
+                },
+                MirOp::MaterializeIndexedAddress { index, scale, .. } => {
+                    MirOp::MaterializeIndexedAddress {
+                        consumer,
+                        base: rewritten,
+                        index: index.clone(),
+                        scale: *scale,
+                    }
+                }
+                _ => unreachable!(),
+            };
+            if let Some(plan) = structural_plan(
+                routine,
+                context,
+                block.id,
+                index..index + 1,
+                vec![replacement],
+                MirExitStateChange::default(),
+                "param-address-consumer",
+                0,
+            ) {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
 pub(super) fn materialize_call(
     target: MirCallTarget,
     abi: MirCallAbi,

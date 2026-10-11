@@ -1,0 +1,274 @@
+{
+  "compiler_source": "1a425e51 plus Stage 5B committed with this report",
+  "compiler_sha256": "44ebb331ec5b1a6b4f1c4ec971dc2fc3a1056318b11ca18634b0b98f27e5ba74",
+  "runtime": "cart",
+  "memory": [
+    {
+      "program": "TN.ACT",
+      "mode": "optimized",
+      "load_file": 18041,
+      "emitted": 18029,
+      "deferred": 2798,
+      "reserved": 20827,
+      "buffer": "$7D5B",
+      "copy_to_A000": 8869,
+      "shared_homes_and_buffers": 419
+    },
+    {
+      "program": "TN.ACT",
+      "mode": "mir6502",
+      "load_file": 16739,
+      "emitted": 16727,
+      "deferred": 2854,
+      "reserved": 19581,
+      "buffer": "$787D",
+      "copy_to_A000": 10115,
+      "shared_homes_and_buffers": 429
+    },
+    {
+      "program": "TNDBG.ACT",
+      "mode": "optimized",
+      "load_file": 21526,
+      "emitted": 21514,
+      "deferred": 2798,
+      "reserved": 24312,
+      "buffer": "$8AF8",
+      "copy_to_A000": 5384,
+      "shared_homes_and_buffers": 424
+    },
+    {
+      "program": "TNDBG.ACT",
+      "mode": "mir6502",
+      "load_file": 20476,
+      "emitted": 20464,
+      "deferred": 2854,
+      "reserved": 23318,
+      "buffer": "$8716",
+      "copy_to_A000": 6378,
+      "shared_homes_and_buffers": 432
+    }
+  ],
+  "cpu": [
+    {
+      "backend": "Optimized",
+      "workload": "sort_reversed",
+      "count": 0,
+      "cpu_cycles": 84,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "draw",
+      "count": 0,
+      "cpu_cycles": 3104,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "tag_all",
+      "count": 0,
+      "cpu_cycles": 3314,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "toggle_tag",
+      "count": 0,
+      "cpu_cycles": 734,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 462828,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "sort_reversed",
+      "count": 1,
+      "cpu_cycles": 393,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "draw",
+      "count": 1,
+      "cpu_cycles": 7762,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "tag_all",
+      "count": 1,
+      "cpu_cycles": 3816,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "toggle_tag",
+      "count": 1,
+      "cpu_cycles": 1236,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 462828,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "sort_reversed",
+      "count": 64,
+      "cpu_cycles": 894094,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "draw",
+      "count": 64,
+      "cpu_cycles": 64080,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "tag_all",
+      "count": 64,
+      "cpu_cycles": 37662,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "toggle_tag",
+      "count": 64,
+      "cpu_cycles": 1213,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 462828,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "sort_reversed",
+      "count": 0,
+      "cpu_cycles": 72,
+      "emitted_spill_operand_accesses": 1
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "draw",
+      "count": 0,
+      "cpu_cycles": 2423,
+      "emitted_spill_operand_accesses": 6
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "tag_all",
+      "count": 0,
+      "cpu_cycles": 2805,
+      "emitted_spill_operand_accesses": 86
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "toggle_tag",
+      "count": 0,
+      "cpu_cycles": 652,
+      "emitted_spill_operand_accesses": 10
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 410697,
+      "emitted_spill_operand_accesses": 18
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "sort_reversed",
+      "count": 1,
+      "cpu_cycles": 433,
+      "emitted_spill_operand_accesses": 19
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "draw",
+      "count": 1,
+      "cpu_cycles": 6442,
+      "emitted_spill_operand_accesses": 88
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "tag_all",
+      "count": 1,
+      "cpu_cycles": 3174,
+      "emitted_spill_operand_accesses": 78
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "toggle_tag",
+      "count": 1,
+      "cpu_cycles": 1097,
+      "emitted_spill_operand_accesses": 14
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 410697,
+      "emitted_spill_operand_accesses": 18
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "sort_reversed",
+      "count": 64,
+      "cpu_cycles": 805176,
+      "emitted_spill_operand_accesses": 15112
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "draw",
+      "count": 64,
+      "cpu_cycles": 54586,
+      "emitted_spill_operand_accesses": 568
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "tag_all",
+      "count": 64,
+      "cpu_cycles": 29558,
+      "emitted_spill_operand_accesses": 14
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "toggle_tag",
+      "count": 64,
+      "cpu_cycles": 1074,
+      "emitted_spill_operand_accesses": 14
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 410697,
+      "emitted_spill_operand_accesses": 18
+    }
+  ],
+  "generic_routine_bytes": {
+    "ReadByte": {
+      "baseline": 27,
+      "stage4c": 29,
+      "stage5b": 24
+    },
+    "ReadElement": {
+      "baseline": 104,
+      "stage5b": 104
+    }
+  }
+}

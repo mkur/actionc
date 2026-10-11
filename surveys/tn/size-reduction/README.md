@@ -167,3 +167,21 @@ The final Stage 4C CLI image matches Stage 5A byte for byte. A fresh profile of
 that integrated image measures the 64-entry MIR draw at 54,586 cycles; the earlier
 55,120 timing came from an intermediate Stage 4C build. The difference is not
 attributed to base reuse. Sorting remains 805,176 cycles.
+
+## Stage 5B: parameter carriers at field consumers
+
+[stage5b.json](stage5b.json) records the accepted consumer slice. Canonical
+parameter captures can feed plain or constant-index pointer preparation from
+still-available registers. A block-local capture and final physical write ranges
+prove each substituted byte; calls, opaque operations, overlapping homes and a
+high byte carried in A block selection. Public parameter/result stores remain.
+Existing captured-value, call-plan and spill forwarding continue to own other
+argument/result flow; no parallel alias-sensitive forwarding pass was added.
+
+The generic embedded-byte reader shrinks from Stage 4C's 29 bytes to 24,
+compared with the original 27. Its escaping record-element reader remains 104.
+TN/TNDBG size, shared homes and executed spill accesses are unchanged. This
+bounded rule has a demonstrated generic consumer, but no additional TN saving.
+The focused positive/negative matrix and aggregate call execution checks pass;
+mutable arguments and indirect callee snapshots remain independent. The final
+MIR draw/sort timings remain 54,586/805,176 cycles for 64 entries.

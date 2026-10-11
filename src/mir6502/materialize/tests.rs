@@ -25023,3 +25023,112 @@ fn plain_base_reuse_resolves_carriers_but_rejects_overwritten_source_cells() {
     r.blocks[0].ops = vec![alias.clone(), load.clone(), alias, load];
     assert_eq!(run(&mut r), 0);
 }
+
+#[test]
+fn param_address_consumer_preserves_public_homes_and_barriers() {
+    let param = |offset| MirMem::Param {
+        id: ParamId(0),
+        offset,
+    };
+    let word = MirValue::Word {
+        lo: Box::new(MirValue::PointerCell(param(0))),
+        hi: Box::new(MirValue::PointerCell(param(1))),
+    };
+    let prepare = MirOp::MaterializeIndexedAddress {
+        consumer: fixed_pointer_consumer(POINTER_SCRATCH_LO),
+        base: word,
+        index: MirValue::ConstU16(256),
+        scale: 1,
+    };
+    let home = |offset, reg| MirOp::Store {
+        dst: MirAddr::Direct(param(offset)),
+        src: MirValue::Def(MirDef::Reg(reg)),
+        width: MirWidth::Byte,
+    };
+    let mut r = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".into(),
+        params: vec![],
+        terminator: MirTerminator::Return,
+        ops: vec![home(0, MirReg::A), home(1, MirReg::X), prepare.clone()],
+    }]);
+    r.frame.params.push(MirStorageSlot {
+        id: MirStorageId(0),
+        name: Some("pointer".into()),
+        storage: MirStorageClass::Scalar,
+        storage_size: 2,
+        scalar_width: Some(MirWidth::Word),
+        base: MirStorageBase::Param(ParamId(0)),
+        offset: 0,
+        mutable: true,
+        init: None,
+    });
+    let mut p = empty_test_program();
+    p.routines[0] = r.clone();
+    let layout = MaterializeLayout::new(&p, 0x3000);
+    let run = |r: &mut MirRoutine| {
+        MirPostHomeRewriteDriver::default()
+            .run_fixed_point(r, |r, c| {
+                calls::discover_param_address_consumers(r, c, &layout)
+            })
+            .unwrap()
+            .applied
+    };
+    assert_eq!(run(&mut r), 1);
+    assert!(matches!(r.blocks[0].ops[0], MirOp::Store { .. }));
+    assert!(matches!(r.blocks[0].ops[1], MirOp::Store { .. }));
+    assert!(
+        matches!(&r.blocks[0].ops[2],MirOp::MaterializeIndexedAddress { base: MirValue::Word { lo, hi }, .. }
+        if matches!(lo.as_ref(),MirValue::Def(MirDef::Reg(MirReg::A))) && matches!(hi.as_ref(),MirValue::Def(MirDef::Reg(MirReg::X))))
+    );
+    for barrier in [
+        MirOp::Barrier {
+            effects: MirEffects::default(),
+        },
+        MirOp::MachineBlock {
+            id: crate::mir6502::ir::MirMachineBlockId(0),
+            effects: MirEffects::default(),
+        },
+        MirOp::StoreIndirect {
+            consumer: fixed_pointer_consumer(POINTER_SCRATCH_LO),
+            src: MirValue::ConstU8(7),
+            offset: 0,
+        },
+    ] {
+        r.blocks[0].ops = vec![
+            home(0, MirReg::A),
+            home(1, MirReg::X),
+            barrier,
+            prepare.clone(),
+        ];
+        assert_eq!(run(&mut r), 0);
+    }
+    r.blocks[0].ops = vec![
+        home(0, MirReg::A),
+        home(1, MirReg::X),
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x3000)),
+            src: MirValue::ConstU16(0x1234),
+            width: MirWidth::Word,
+        },
+        prepare.clone(),
+    ];
+    assert_eq!(run(&mut r), 0);
+    // A cannot supply the high byte after low-byte arithmetic overwrites it.
+    r.blocks[0].ops = vec![home(0, MirReg::X), home(1, MirReg::A), prepare.clone()];
+    assert_eq!(run(&mut r), 0);
+    // Final placement must also exclude aliases with the scratch pointer.
+    let overlapping = MaterializeLayout::new(&p, u16::from(POINTER_SCRATCH_LO));
+    r.blocks[0].ops = vec![home(0, MirReg::A), home(1, MirReg::X), prepare];
+    assert_eq!(
+        MirPostHomeRewriteDriver::default()
+            .run_fixed_point(&mut r, |r, c| calls::discover_param_address_consumers(
+                r,
+                c,
+                &overlapping
+            ))
+            .unwrap()
+            .applied,
+        0
+    );
+}

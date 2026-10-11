@@ -59,7 +59,7 @@ fn emitted_spill_addresses(listing: &str) -> BTreeSet<u16> {
             spill = false;
         }
         if let Some(label) = line.strip_suffix(':') {
-            spill |= label.starts_with("spill_");
+            spill = label.starts_with("spill_");
         }
         if let Some((label, address)) = line.split_once(" = $") {
             if label.starts_with("spill_") {
@@ -74,7 +74,7 @@ fn emitted_spill_addresses(listing: &str) -> BTreeSet<u16> {
                 .and_then(|(_, rest)| rest.split_once(':'))
             {
                 if let Ok(address) = u16::from_str_radix(address, 16) {
-                    for lane in 0..bytes.split_whitespace().count() {
+                    for lane in 0..bytes.split_whitespace().take_while(|byte| byte.len() == 2 && byte.bytes().all(|c| c.is_ascii_hexdigit())).count() {
                         result.insert(address.wrapping_add(lane as u16));
                     }
                 }
