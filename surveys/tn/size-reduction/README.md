@@ -185,3 +185,17 @@ bounded rule has a demonstrated generic consumer, but no additional TN saving.
 The focused positive/negative matrix and aggregate call execution checks pass;
 mutable arguments and indirect callee snapshots remain independent. The final
 MIR draw/sort timings remain 54,586/805,176 cycles for 64 entries.
+
+## Stage 6A: checked tag mutation ownership
+
+[stage6a.json](stage6a.json) records the shared checked mutation path. Toggle
+computes its pointer, mask and old bit once. Public `SetTagged` normalizes every
+nonzero input to set, so internal toggle mode never changes its contract.
+Both entry points reject capacity/extent violations before bitmap mutation.
+
+The slice costs 36 MIR bytes and five shared-home bytes per root (classic
+22/28 bytes). The 64-entry MIR toggle falls from 1,074 to 755 cycles and emitted
+spill operand accesses from 14 to 4; classic falls from 1,213 to 822 cycles.
+The full behavioral and profile targets pass, including added nonzero public
+values, repeated toggles and guarded invalid-ordinal no-write cases under
+actual LF/CRLF compilation. The extra code buys measured command work savings.

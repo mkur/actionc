@@ -69,7 +69,8 @@ BYTE FUNC TagBit(Selection POINTER tags CARD ordinal)
   mask=1 LSH BYTE(ordinal&7)
 RETURN((p^&mask)#0)
 
-BYTE FUNC SetTagged(Selection POINTER tags CARD ordinal BYTE value)
+; Internal mode: 0 clears, 1 sets, 2 toggles. Bounds are checked once here.
+BYTE FUNC ChangeTagged(Selection POINTER tags CARD ordinal BYTE value)
   BYTE POINTER p
   BYTE mask,old
   LET CARD capacity=tags.capacity
@@ -78,6 +79,7 @@ BYTE FUNC SetTagged(Selection POINTER tags CARD ordinal BYTE value)
   p=tags.bits+(ordinal RSH 3)
   mask=1 LSH BYTE(ordinal&7)
   old=p^&mask
+  IF value=2 THEN value=old=0 FI
   IF value THEN
     IF old=0 THEN p^==%mask tags.tagged==+1 FI
   ELSE
@@ -95,8 +97,12 @@ BYTE FUNC SetTagged(Selection POINTER tags CARD ordinal BYTE value)
   FI
 RETURN(DIR_OK)
 
+; Public nonzero values always mean set, including 2 and 255.
+BYTE FUNC SetTagged(Selection POINTER tags CARD ordinal BYTE value)
+RETURN(ChangeTagged(tags,ordinal,value#0))
+
 BYTE FUNC ToggleTag(Selection POINTER tags CARD ordinal)
-RETURN(SetTagged(tags,ordinal,TagBit(tags,ordinal)=0))
+RETURN(ChangeTagged(tags,ordinal,2))
 
 PROC TagsRecount(Selection POINTER tags)
   CARD ordinal,limit

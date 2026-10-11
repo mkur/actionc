@@ -103,6 +103,44 @@ fn directory_cache_and_selection_are_independent_and_bounded() {
             assert_eq!(machine::bytes(&vm, left_bits + 1, 512), expected);
             assert_eq!(vm.bus().ram().read_word(left + 6), selected.len() as u16);
             assert_eq!(machine::bytes(&vm, right_bits + 1, 8), [0; 8]);
+            // Public nonzero SetTagged values retain set semantics; internal
+            // toggle mode must not escape through that API.
+            for value in [2, 255] {
+                vm = machine::call(
+                    vm,
+                    &mut hooks,
+                    routine("SetTagged"),
+                    &args(&[left, 0], &[value]),
+                );
+                assert_eq!(vm.cpu().registers().a, 1);
+                assert_eq!(machine::bytes(&vm, left_bits + 1, 512), expected);
+                assert_eq!(vm.bus().ram().read_word(left + 6), selected.len() as u16);
+            }
+            for tagged in [false, true] {
+                vm = machine::call(vm, &mut hooks, routine("ToggleTag"), &args(&[left, 0], &[]));
+                assert_eq!(vm.cpu().registers().a, 1);
+                let mut toggled = expected.clone();
+                if !tagged {
+                    toggled[0] &= !1;
+                }
+                assert_eq!(machine::bytes(&vm, left_bits + 1, 512), toggled);
+                assert_eq!(
+                    vm.bus().ram().read_word(left + 6),
+                    selected.len() as u16 - u16::from(!tagged)
+                );
+            }
+            for ordinal in [4096, 65535] {
+                let state = machine::bytes(&vm, left, 14);
+                vm = machine::call(
+                    vm,
+                    &mut hooks,
+                    routine("ToggleTag"),
+                    &args(&[left, ordinal], &[]),
+                );
+                assert_eq!(vm.cpu().registers().a, 2);
+                assert_eq!(machine::bytes(&vm, left, 14), state);
+                assert_eq!(machine::bytes(&vm, left_bits + 1, 512), expected);
+            }
             for ordinal in selected {
                 vm = machine::call(
                     vm,
