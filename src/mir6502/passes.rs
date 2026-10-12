@@ -24,6 +24,8 @@ pub struct Mir6502Config {
     pub enable_call_predicate_abi: bool,
     /// Retain two proven loop bases, guarded by final code/home/placement cost.
     pub enable_comparison_loop_pointers: bool,
+    /// Share one unsigned comparison across continuation and mismatch ordering.
+    pub enable_comparison_loop_fusion: bool,
     pub peephole_report: MirPeepholeReportMode,
 }
 
@@ -50,6 +52,7 @@ impl Default for Mir6502Config {
             enable_call_predicate_arguments: false,
             enable_call_predicate_abi: false,
             enable_comparison_loop_pointers: false,
+            enable_comparison_loop_fusion: false,
             peephole_report: MirPeepholeReportMode::Off,
         }
     }

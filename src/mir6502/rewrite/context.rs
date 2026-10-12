@@ -210,6 +210,13 @@ impl<'snapshot, 'routine> PreHomeRewriteContext<'snapshot, 'routine> {
         self.snapshot.cfg()
     }
 
+    pub(in crate::mir6502) fn private_cell_reads_confined(
+        &self, routine: &crate::mir6502::ir::MirRoutine, cell: &crate::mir6502::ir::MirMem,
+        start: MirSite, allowed: &std::collections::BTreeSet<MirSite>,
+    ) -> bool {
+        crate::mir6502::analysis::private_cells::reads_confined(routine,self,cell,start,allowed)
+    }
+
     pub(in crate::mir6502) fn comparison_loop(
         &self, routine: &crate::mir6502::ir::MirRoutine, header: MirBlockId,
     ) -> Result<crate::mir6502::analysis::comparison_loops::ComparisonLoop,

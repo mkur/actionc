@@ -811,7 +811,7 @@ pub enum MirAddr {
 pub enum MirAddressConsumer {
     IndirectIndexedY(MirPointerPair),
     /// Complete prepared base plus the explicit current Y register, modulo
-    /// 65536. Byte loads only, offset zero; this consumer never reloads Y.
+    /// 65536. Byte loads and unsigned flag compares, offset zero; never reloads Y.
     LiveIndirectIndexedY(MirPointerPair),
     /// The pointer pair contains the effective address rounded down to its
     /// 256-byte page and Y contains the effective low byte. This form is used

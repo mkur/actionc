@@ -53,6 +53,7 @@ struct Reads {
     records: Vec<(u16, u16)>,
     sequence: Vec<u16>,
     pair_writes: usize,
+    indirect_compares: usize,
     steps: usize,
 }
 impl VmRunHooks for Reads {
@@ -75,6 +76,9 @@ impl VmRunHooks for Reads {
                 .any(|&(base, len)| address.wrapping_sub(base) < len)
             {
                 self.sequence.push(address);
+                if op == 0xD1 {
+                    self.indirect_compares += 1;
+                }
             }
         }
         if matches!(op, 0x85 | 0x84 | 0x86) && (0xAA..=0xAD).contains(&arg) {
@@ -167,6 +171,14 @@ fn run(text: &str, config: &Mir6502Config, runtime: Runtime, crlf: bool) {
                         reads.sequence, expected_reads,
                         "{name}: read order and multiplicity"
                     );
+                    if config.enable_comparison_loop_fusion
+                        && matches!(name, "After" | "Equal" | "WideAfter")
+                    {
+                        assert_eq!(
+                            reads.indirect_compares, visited,
+                            "fused comparison selected for {name}"
+                        );
+                    }
                     if config.enable_comparison_loop_pointers && name == "Equal" {
                         assert!(
                             reads.pair_writes <= 4,
@@ -247,10 +259,11 @@ fn record_comparison_loops_preserve_values_read_order_and_guards() {
         .replace("\r\n", "\n");
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         for crlf in [false, true] {
-            for pointers in [false, true] {
+            for (pointers, fusion) in [(false, false), (true, false), (true, true)] {
                 let mut config = Mir6502Config::optimized();
                 config.enable_comparison_loop_pointers = pointers;
-                println!("variant pointers={pointers}");
+                config.enable_comparison_loop_fusion = fusion;
+                println!("variant pointers={pointers},fusion={fusion}");
                 run(
                     &if crlf {
                         text.replace('\n', "\r\n")

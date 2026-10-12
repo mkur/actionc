@@ -2909,7 +2909,8 @@ fn emit_op(
             signed: false,
             ..
         } => {
-            if left.preserves_index_in_y() || right.preserves_index_in_y() {
+            let live=left.uses_live_y() && right.uses_live_y() && *offset==0;
+            if !live && (left.preserves_index_in_y() || right.preserves_index_in_y()) {
                 unsupported(
                     ctx,
                     routine,
@@ -2936,7 +2937,12 @@ fn emit_op(
                 );
                 return;
             };
-            emit_indirect_byte_compare(left_slot, right_slot, *offset, emitter);
+            if live {
+                emitter.emit_lda_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(left_slot)));
+                emitter.emit_cmp_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(right_slot)));
+            } else {
+                emit_indirect_byte_compare(left_slot, right_slot, *offset, emitter);
+            }
         }
         MirOp::CompareIndirectWords {
             dst: MirCondDest::Flags,

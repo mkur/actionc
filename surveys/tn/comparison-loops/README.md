@@ -60,3 +60,18 @@ checked separately; a bounded partial-batch repair lets smaller routines pass.
 Both pairs use the existing `$AA–$AF` compiler window. The selected schedule
 adds no virtual zero-page allocation outside that window. The live-Y verifier
 checks complete first-entry initialization through the CFG.
+
+## Stage 3 shared comparisons (opt-in)
+
+The generic VM matrix passes with features off, retained pointers and fused
+comparisons. Selected fixtures execute one ordered indirect LDA/CMP per
+visited byte pair; their mismatch ordering reuses C without rereading memory.
+`After` now passes the final size budget, including both original loops. Equal
+14-byte inputs take 627 cycles versus 1,275; first-byte mismatch takes 117
+versus 136. `Observed` retains its captures and benefits from pointer retention.
+
+Capture removal requires path-sensitive private-cell use facts, no address
+exposure and a repeated final check for separately named absolute aliases.
+Complete temp uses and exact ordering operands are checked independently.
+Unit coverage includes stale transactions, first-entry base initialization,
+partial pair clobbers, observable captures and address exposure.

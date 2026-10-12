@@ -951,14 +951,18 @@ Rules:
 
 ### Index-preserving indirect-Y consumers
 
-MIR6502 owns two target-specific address consumers that retain an index in Y
+MIR6502 owns three target-specific address consumers that retain an index in Y
 between address materialization and the indirect access:
 
 - `LiveIndirectIndexedY` consumes a complete prepared pair and the explicit
   current Y register. Its byte effective address is `(base + Y) mod 65536`;
   only offset zero is valid and emission never reloads or adjusts Y. It reads
   both pair lanes and Y, reads memory, writes A and N/Z, and preserves Y.
-  Address construction, word access and stores cannot use this consumer.
+  An unsigned `CompareIndirectBytes` may use two live consumers with offset
+  zero and a flags destination: it emits the left LDA before the right CMP,
+  reads both pair lanes and Y, writes A/C/N/Z and preserves Y. Mixed consumer
+  kinds and Boolean destinations are rejected. Address construction, word
+  access and stores cannot use this consumer.
   CFG must-initialization verifies both complete bases and Y on every entry
   path; a backedge alone cannot initialize a first iteration. Pair-lane writes,
   opaque effects and Y clobbers invalidate the corresponding state. Allocation
@@ -975,7 +979,7 @@ between address materialization and the indirect access:
   contains the scaled low-byte index. It supports only byte offsets zero and
   one under the verifier's ordered-access protocol.
 
-Both forms are MIR6502 addressing decisions. NIR continues to describe the
+These consumers are MIR6502 addressing decisions. NIR continues to describe the
 typed base, index, element size, and byte offset without encoding A/X/Y or a
 6502 pointer-pair strategy. Pointer-backed and otherwise dynamic bases do not
 qualify for the paged form and retain ordinary full-address materialization.

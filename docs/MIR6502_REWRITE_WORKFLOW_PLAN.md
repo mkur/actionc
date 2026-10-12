@@ -61,6 +61,19 @@ allocation occupancy outside it cannot increase. Unknown
 cost, verification failure or overlap restores the complete original program
 and reservations. Discovery uses typed storage/CFG facts without SemIR queries.
 
+Character capture removal additionally requires a shared path-sensitive memory
+proof: every read reached by each stored byte must be enumerated until a
+definite covering overwrite, and the cell must have no address exposure.
+Calls, opaque effects and indirect writes reject that proof. Final physical
+layout rejects separately named absolute aliases of private cells. Exclusive
+temp use by itself does not justify deleting a potentially observable store.
+
+For an exact mismatch return, one ordered unsigned CMP supplies both the Z
+continuation decision and C ordering decision. The mismatch edge proves Z
+clear, so `>`/`>=` use C set and `<`/`<=` use C clear. No character reread or
+flag-clobbering operation is inserted between these decisions. Extra readers
+retain their capture stores and the pointer-only schedule.
+
 ## Goal
 
 Replace independently wired peephole safety checks with a workflow in which:

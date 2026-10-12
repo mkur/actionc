@@ -1637,18 +1637,15 @@ impl MirVerifier {
                 self.verify_cond_dest(routine, block, dst);
                 self.verify_address_consumer(routine, block, left);
                 self.verify_address_consumer(routine, block, right);
-                self.reject_scaled_y_consumer(
-                    routine,
-                    block,
-                    left,
-                    "left indirect compare operand",
-                );
-                self.reject_scaled_y_consumer(
-                    routine,
-                    block,
-                    right,
-                    "right indirect compare operand",
-                );
+                if left.uses_live_y() || right.uses_live_y() {
+                    if !left.uses_live_y() || !right.uses_live_y() || *offset!=0 || !matches!(dst,MirCondDest::Flags) {
+                        self.diagnostics.push(MirDiagnostic::block(&routine.name,block,
+                            "live-Y compare requires two live consumers, offset zero and flags destination"));
+                    }
+                } else {
+                    self.reject_scaled_y_consumer(routine,block,left,"left indirect compare operand");
+                    self.reject_scaled_y_consumer(routine,block,right,"right indirect compare operand");
+                }
                 if left.pointer_pair() == right.pointer_pair() {
                     self.diagnostics.push(MirDiagnostic::block(
                         &routine.name,
