@@ -210,6 +210,13 @@ impl<'snapshot, 'routine> PreHomeRewriteContext<'snapshot, 'routine> {
         self.snapshot.cfg()
     }
 
+    pub(in crate::mir6502) fn comparison_loop(
+        &self, routine: &crate::mir6502::ir::MirRoutine, header: MirBlockId,
+    ) -> Result<crate::mir6502::analysis::comparison_loops::ComparisonLoop,
+        crate::mir6502::analysis::comparison_loops::ComparisonLoopBlocker> {
+        crate::mir6502::analysis::comparison_loops::prove(routine, self, header)
+    }
+
     pub(in crate::mir6502) fn block_dominates(
         &self,
         dominator: MirBlockId,

@@ -1,6 +1,6 @@
 # MIR6502 comparison loop pointer reuse implementation plan
 
-Status: Stage 0 qualified, 2026-10-12. Starting source revision: `ce662d54`.
+Status: Stages 0–1 qualified, 2026-10-12. Starting source revision: `ce662d54`.
 See the [maintained measurements](comparison-loops/README.md).
 
 Keep two invariant record addresses available throughout a byte comparison

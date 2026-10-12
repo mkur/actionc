@@ -35,3 +35,13 @@ This group already has provisional physical layout and reserved pointer pairs.
 Final ownership checks must be repeated after allocation/coloring and emission
 layout. A companion comparison-loop fact will preserve the existing loop
 selectors' narrower contracts.
+
+## Stage 1 facts
+
+The companion analysis records the unique preheader, header, body, latch and
+both exits with a snapshot generation. Complete pointer lanes must have one
+exclusive defining chain from ordinary parameter/local storage. Captures,
+index and base cells are distinct; only the original ordered reads, captures
+and exact unsigned inequality are admitted. Foreign entries, zero-trip or
+wrapping bounds, source writes, effects, incomplete lanes and extra temp uses
+retain the generic path. This stage changes no emitted operations.
