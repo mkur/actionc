@@ -1,0 +1,301 @@
+{
+  "starting_source": "ce662d542a67764981b7fba999594bdad687cc19",
+  "compiler_sha256": "67a7947e2dfcfd6bd56ca5417cbb1cb1f8c06cb8f8b76ec253c378b8b2683349",
+  "roots": {
+    "TN-optimized": {
+      "load_file_bytes": 18090,
+      "sha256": "d11ffe143a4575561bca8971449f6f8503ed86da5da1dcd4b4030fe28dffe365",
+      "MyDosAfter": {
+        "start": 17786,
+        "end": 18154,
+        "entry": 17793,
+        "instruction_form_bytes": 361,
+        "directive_form_bytes": 7,
+        "instructions": 166,
+        "direct_calls": 0,
+        "calls": {},
+        "pointer_scratch_writes": 30,
+        "indirect_y_operations": 6,
+        "abi_cell_accesses": 5,
+        "home_bytes": {
+          "spill": 0,
+          "param": 7,
+          "local": 3,
+          "static_string": 0
+        },
+        "fixed_home_bytes": {
+          "spill": 0,
+          "param": 0,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 44,
+          "local": 34,
+          "static_string": 0
+        },
+        "mnemonics": {
+          "STA": 49,
+          "STX": 2,
+          "STY": 3,
+          "LDA": 49,
+          "LDY": 5,
+          "AND": 2,
+          "CMP": 7,
+          "BEQ": 3,
+          "BNE": 1,
+          "JMP": 5,
+          "RTS": 4,
+          "BCC": 4,
+          "CLC": 8,
+          "ADC": 16,
+          "TYA": 6,
+          "INC": 2
+        }
+      }
+    },
+    "TN-mir6502": {
+      "load_file_bytes": 16764,
+      "sha256": "710ab83e26d7a8d857f746d938a0319822c5a7a78eb694e1c0137531d1905726",
+      "MyDosAfter": {
+        "start": 18378,
+        "end": 18624,
+        "entry": 18378,
+        "instruction_form_bytes": 246,
+        "directive_form_bytes": 0,
+        "instructions": 106,
+        "direct_calls": 0,
+        "calls": {},
+        "pointer_scratch_writes": 12,
+        "indirect_y_operations": 6,
+        "abi_cell_accesses": 5,
+        "home_bytes": {
+          "spill": 0,
+          "param": 4,
+          "local": 3,
+          "static_string": 0
+        },
+        "fixed_home_bytes": {
+          "spill": 0,
+          "param": 0,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 15,
+          "local": 25,
+          "static_string": 0
+        },
+        "mnemonics": {
+          "STA": 25,
+          "STX": 2,
+          "STY": 1,
+          "LDA": 33,
+          "LDY": 4,
+          "AND": 2,
+          "CMP": 7,
+          "BEQ": 1,
+          "JMP": 4,
+          "CLC": 4,
+          "ADC": 8,
+          "BNE": 5,
+          "INC": 2,
+          "BCC": 4,
+          "RTS": 4
+        }
+      }
+    },
+    "TNDBG-optimized": {
+      "load_file_bytes": 21579,
+      "sha256": "f10c26790d3eeac7e9536d827bd8cbf5c5d66b44d24f8b77fb0db3e085d0be82",
+      "MyDosAfter": {
+        "start": 17786,
+        "end": 18154,
+        "entry": 17793,
+        "instruction_form_bytes": 361,
+        "directive_form_bytes": 7,
+        "instructions": 166,
+        "direct_calls": 0,
+        "calls": {},
+        "pointer_scratch_writes": 30,
+        "indirect_y_operations": 6,
+        "abi_cell_accesses": 5,
+        "home_bytes": {
+          "spill": 0,
+          "param": 7,
+          "local": 3,
+          "static_string": 0
+        },
+        "fixed_home_bytes": {
+          "spill": 0,
+          "param": 0,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 44,
+          "local": 34,
+          "static_string": 0
+        },
+        "mnemonics": {
+          "STA": 49,
+          "STX": 2,
+          "STY": 3,
+          "LDA": 49,
+          "LDY": 5,
+          "AND": 2,
+          "CMP": 7,
+          "BEQ": 3,
+          "BNE": 1,
+          "JMP": 5,
+          "RTS": 4,
+          "BCC": 4,
+          "CLC": 8,
+          "ADC": 16,
+          "TYA": 6,
+          "INC": 2
+        }
+      }
+    },
+    "TNDBG-mir6502": {
+      "load_file_bytes": 20501,
+      "sha256": "c69962ee2c6489babbfb86574201d686f38205050b3097f86cb66834a644bf36",
+      "MyDosAfter": {
+        "start": 18942,
+        "end": 19188,
+        "entry": 18942,
+        "instruction_form_bytes": 246,
+        "directive_form_bytes": 0,
+        "instructions": 106,
+        "direct_calls": 0,
+        "calls": {},
+        "pointer_scratch_writes": 12,
+        "indirect_y_operations": 6,
+        "abi_cell_accesses": 5,
+        "home_bytes": {
+          "spill": 0,
+          "param": 4,
+          "local": 3,
+          "static_string": 0
+        },
+        "fixed_home_bytes": {
+          "spill": 0,
+          "param": 0,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 15,
+          "local": 25,
+          "static_string": 0
+        },
+        "mnemonics": {
+          "STA": 25,
+          "STX": 2,
+          "STY": 1,
+          "LDA": 33,
+          "LDY": 4,
+          "AND": 2,
+          "CMP": 7,
+          "BEQ": 1,
+          "JMP": 4,
+          "CLC": 4,
+          "ADC": 8,
+          "BNE": 5,
+          "INC": 2,
+          "BCC": 4,
+          "RTS": 4
+        }
+      }
+    }
+  },
+  "fixture_sha256_lf": "470c63faf8cd251886bf35b483e289ac8cdc596457be50ebc539e9ea2e39485e",
+  "direct_vectors": [
+    "comparison,ActionCart,After,0,136,4,41",
+    "comparison,ActionCart,After,7,745,32,223",
+    "comparison,ActionCart,After,13,1272,56,381",
+    "comparison,ActionCart,After,14,1275,56,382",
+    "comparison,ActionCart,Equal,0,125,4,38",
+    "comparison,ActionCart,Equal,5,565,24,168",
+    "comparison,ActionCart,Equal,10,1005,44,298",
+    "comparison,ActionCart,Equal,11,1020,44,302",
+    "comparison,ActionCart,Observed,0,160,4,47",
+    "comparison,ActionCart,Observed,5,595,24,177",
+    "comparison,ActionCart,Observed,10,1030,44,307",
+    "comparison,ActionCart,Observed,11,1033,44,308",
+    "comparison,ActionCart,WideAfter,0,136,4,41",
+    "comparison,ActionCart,WideAfter,8,832,36,249",
+    "comparison,ActionCart,WideAfter,15,1441,64,431",
+    "comparison,ActionCart,WideAfter,16,1444,64,432",
+    "comparison,Standalone,After,0,136,4,41",
+    "comparison,Standalone,After,7,745,32,223",
+    "comparison,Standalone,After,13,1272,56,381",
+    "comparison,Standalone,After,14,1275,56,382",
+    "comparison,Standalone,Equal,0,125,4,38",
+    "comparison,Standalone,Equal,5,565,24,168",
+    "comparison,Standalone,Equal,10,1005,44,298",
+    "comparison,Standalone,Equal,11,1020,44,302",
+    "comparison,Standalone,Observed,0,160,4,47",
+    "comparison,Standalone,Observed,5,595,24,177",
+    "comparison,Standalone,Observed,10,1030,44,307",
+    "comparison,Standalone,Observed,11,1033,44,308",
+    "comparison,Standalone,WideAfter,0,136,4,41",
+    "comparison,Standalone,WideAfter,8,832,36,249",
+    "comparison,Standalone,WideAfter,15,1441,64,431",
+    "comparison,Standalone,WideAfter,16,1444,64,432"
+  ],
+  "workloads": {
+    "TN": [
+      "Mir6502,sort_reversed,0,72,1",
+      "Mir6502,draw,0,2423,6",
+      "Mir6502,tag_all,0,2801,86",
+      "Mir6502,toggle_tag,0,316,0",
+      "Mir6502,publish_prefix,1088,289381,18",
+      "Mir6502,publish_complete,1089,407371,2276",
+      "Mir6502,sort_reversed,1,338,5",
+      "Mir6502,draw,1,6179,46",
+      "Mir6502,tag_all,1,3071,78",
+      "Mir6502,toggle_tag,1,765,4",
+      "Mir6502,publish_prefix,1088,289381,18",
+      "Mir6502,publish_complete,1089,407371,2276",
+      "Mir6502,sort_reversed,64,534512,1616",
+      "Mir6502,draw,64,49193,316",
+      "Mir6502,tag_all,64,22418,14",
+      "Mir6502,toggle_tag,64,740,4",
+      "Mir6502,publish_prefix,1088,289381,18",
+      "Mir6502,publish_complete,1089,407371,2276"
+    ],
+    "TNDBG": [
+      "Mir6502,sort_reversed,0,72,1",
+      "Mir6502,draw,0,2423,6",
+      "Mir6502,tag_all,0,2801,86",
+      "Mir6502,toggle_tag,0,316,0",
+      "Mir6502,publish_prefix,1088,289381,18",
+      "Mir6502,publish_complete,1089,407371,2276",
+      "Mir6502,sort_reversed,1,338,5",
+      "Mir6502,draw,1,6179,46",
+      "Mir6502,tag_all,1,3071,78",
+      "Mir6502,toggle_tag,1,765,4",
+      "Mir6502,publish_prefix,1088,289381,18",
+      "Mir6502,publish_complete,1089,407371,2276",
+      "Mir6502,sort_reversed,64,534512,1616",
+      "Mir6502,draw,64,49193,316",
+      "Mir6502,tag_all,64,22418,14",
+      "Mir6502,toggle_tag,64,740,4",
+      "Mir6502,publish_prefix,1088,289381,18",
+      "Mir6502,publish_complete,1089,407371,2276"
+    ]
+  },
+  "exclusive_comparison": {
+    "TN": [
+      "tn-routine,TN,Mir6502,sort_reversed,64,MyDosAfter,305325,90942,0,13908,6954,0,15258,25642"
+    ],
+    "TNDBG": [
+      "tn-routine,TNDBG,Mir6502,sort_reversed,64,MyDosAfter,305325,90942,0,13908,6954,0,15258,25642"
+    ]
+  }
+}

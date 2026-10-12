@@ -1,0 +1,52 @@
+; Generic bounded record comparisons. No TN names or provider dependencies.
+TYPE CompareRecord=[
+  BYTE ARRAY header(6),name(11),detail(3)
+]
+TYPE WideRecord=[BYTE ARRAY padding(239),tail(16)]
+BYTE savedLeft,savedRight,savedIndex
+
+BYTE FUNC After(CompareRecord POINTER left,right)
+  BYTE n,a,b
+  FOR n=0 TO 10 DO
+    a=left.name(n) b=right.name(n)
+    IF a#b THEN RETURN(a>b) FI
+  OD
+  FOR n=0 TO 2 DO
+    a=left.detail(n) b=right.detail(n)
+    IF a#b THEN RETURN(a>b) FI
+  OD
+RETURN(0)
+
+BYTE FUNC Equal(CompareRecord POINTER left,right)
+  BYTE n,a,b
+  FOR n=0 TO 10 DO
+    a=left.name(n) b=right.name(n)
+    IF a#b THEN RETURN(0) FI
+  OD
+RETURN(1)
+
+BYTE FUNC Observed(CompareRecord POINTER left,right)
+  BYTE n,a,b
+  FOR n=0 TO 10 DO
+    a=left.name(n) b=right.name(n)
+    IF a#b THEN
+      savedLeft=a savedRight=b savedIndex=n RETURN(a>b)
+    FI
+  OD
+  savedLeft=a savedRight=b savedIndex=n
+RETURN(0)
+
+BYTE FUNC WideAfter(WideRecord POINTER left,right)
+  BYTE n,a,b
+  FOR n=0 TO 15 DO
+    a=left.tail(n) b=right.tail(n)
+    IF a#b THEN RETURN(a>b) FI
+  OD
+RETURN(0)
+
+PROC Start()
+  IF savedIndex=255 THEN
+    savedIndex=After(0,0) savedIndex=Equal(0,0)
+    savedIndex=Observed(0,0) savedIndex=WideAfter(0,0)
+  FI
+RETURN
