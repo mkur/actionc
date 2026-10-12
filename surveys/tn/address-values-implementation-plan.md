@@ -1,6 +1,6 @@
 # MIR6502 address values through locals and returns
 
-Status: Stages 0–1 complete, 2026-10-12; Stages 2–5 pending. The
+Status: Stages 0–2 complete, 2026-10-12; Stages 3–5 pending. The
 [qualification notes](address-values/README.md) retain measurements and checks.
 
 This plan implements priority 1 from the

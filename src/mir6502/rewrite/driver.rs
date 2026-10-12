@@ -647,6 +647,9 @@ fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], 
     widths: &BTreeMap<crate::mir6502::ir::MirTempId, MirWidth>) -> bool {
     let original_ops = original;
     let replacement_ops = replacement;
+    if matches!(delta, MirEffectDelta::ForwardedKnownPointerLocal) {
+        return known_pointer_local_forward_is_justified(original, replacement);
+    }
     if matches!(
         delta,
         MirEffectDelta::MaterializedCallArguments | MirEffectDelta::ForwardedCallResultStore { .. }
@@ -660,6 +663,7 @@ fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], 
     let mut original = observable_effects(original);
     let mut replacement = observable_effects(replacement);
     match delta {
+        MirEffectDelta::ForwardedKnownPointerLocal => unreachable!("checked before projection"),
         MirEffectDelta::Unchanged => original == replacement,
         MirEffectDelta::SelectedResultRegister(register) => {
             if !register_is_set(replacement.register_writes, register) {
@@ -785,6 +789,31 @@ fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], 
             original == replacement
         }
     }
+}
+
+/// Preserve all operations and the complete source-pointer write. The only
+/// changed operation accesses the identical known field without reloading that
+/// nonvolatile local. Calls and even one-lane writes invalidate the proof.
+fn known_pointer_local_forward_is_justified(original: &[MirOp], replacement: &[MirOp]) -> bool {
+    if original.len() != replacement.len() || original.is_empty()
+        || original[..original.len()-1] != replacement[..replacement.len()-1] { return false; }
+    let (cell,offset)=match original.last().unwrap() {
+        MirOp::Load {src:MirAddr::PointerCell {ptr,offset},..}
+        | MirOp::Store {dst:MirAddr::PointerCell {ptr,offset},..}=>(ptr,*offset),
+        _=>return false,
+    };
+    let block=crate::mir6502::ir::MirBlock {id:MirBlockId(0),label:String::new(),params:vec![],ops:original.to_vec(),terminator:MirTerminator::Return};
+    let end=original.len()-1;
+    let Ok((store,src))=crate::mir6502::analysis::address_values::local_pointer_store(&block,end,cell) else {return false;};
+    let Some((base,_))=super::address_values::known_storage(&block,&src,store) else {return false;};
+    let Some(target)=super::address_values::offset_known_storage(&base,offset) else {return false;};
+    let mut expected=original[end].clone();
+    match &mut expected {
+        MirOp::Load {src,..}=>*src=MirAddr::Direct(target),
+        MirOp::Store {dst,..}=>*dst=MirAddr::Direct(target),
+        _=>unreachable!(),
+    }
+    &expected==replacement.last().unwrap()
 }
 
 /// Check address-input reads BEFORE projecting away address setup. In particular,

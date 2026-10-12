@@ -103,6 +103,9 @@ pub(in crate::mir6502) enum MirEffectDelta {
     /// equivalent. Address-setup reads must be justified before projecting
     /// away carrier effects: a storage address does not authorize a dereference.
     MaterializedIndexConsumer,
+    /// An exact retained local store proves a known address for its next field
+    /// access. The driver checks the store, typed address and unchanged prefix.
+    ForwardedKnownPointerLocal,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

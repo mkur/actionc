@@ -1,0 +1,474 @@
+{
+  "compiler_sha256": "827eb87ec7df8c1c0bc993de1e1395a807f27bf3d12b184780401a0edecc5361",
+  "fixtures": {
+    "known-record-address-cart": {
+      "load_file_bytes": 176,
+      "routines": {
+        "ReadFixed": {
+          "instruction_form_bytes": 6,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "ReadFixedWord": {
+          "instruction_form_bytes": 11,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "ReadLocal": {
+          "instruction_form_bytes": 21,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 2,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 2,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "WriteLocal": {
+          "instruction_form_bytes": 26,
+          "home_bytes": {
+            "spill": 0,
+            "param": 2,
+            "local": 2,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 3,
+            "local": 2,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "ReadOrdinary": {
+          "instruction_form_bytes": 21,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 2,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 2,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "FieldAddress": {
+          "instruction_form_bytes": 9,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        }
+      },
+      "lf_crlf_identical": true
+    },
+    "known-record-address-standalone": {
+      "load_file_bytes": 176,
+      "routines": {
+        "ReadFixed": {
+          "instruction_form_bytes": 6,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "ReadFixedWord": {
+          "instruction_form_bytes": 11,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "ReadLocal": {
+          "instruction_form_bytes": 21,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 2,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 2,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "WriteLocal": {
+          "instruction_form_bytes": 26,
+          "home_bytes": {
+            "spill": 0,
+            "param": 2,
+            "local": 2,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 3,
+            "local": 2,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "ReadOrdinary": {
+          "instruction_form_bytes": 21,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 2,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 2,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "FieldAddress": {
+          "instruction_form_bytes": 9,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        }
+      },
+      "lf_crlf_identical": true
+    },
+    "escaping-record-address-cart": {
+      "load_file_bytes": 685,
+      "routines": {
+        "Address": {
+          "instruction_form_bytes": 76,
+          "home_bytes": {
+            "spill": 4,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 14,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "calls": {
+            "$A000": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "AddressExpanded": {
+          "instruction_form_bytes": 222,
+          "home_bytes": {
+            "spill": 4,
+            "param": 3,
+            "local": 2,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 50,
+            "param": 4,
+            "local": 9,
+            "static_string": 0
+          },
+          "calls": {
+            "$A000": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "ReadViaLocal": {
+          "instruction_form_bytes": 104,
+          "home_bytes": {
+            "spill": 2,
+            "param": 4,
+            "local": 2,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 10,
+            "param": 6,
+            "local": 4,
+            "static_string": 0
+          },
+          "calls": {
+            "$A000": 1
+          },
+          "pointer_scratch_writes": 2,
+          "indirect_y_operations": 2
+        },
+        "ReadDirect": {
+          "instruction_form_bytes": 85,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 7,
+            "local": 0,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 2
+        },
+        "AddressZero": {
+          "instruction_form_bytes": 15,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "AddressField": {
+          "instruction_form_bytes": 18,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        }
+      },
+      "lf_crlf_identical": true
+    },
+    "escaping-record-address-standalone": {
+      "load_file_bytes": 829,
+      "routines": {
+        "Address": {
+          "instruction_form_bytes": 76,
+          "home_bytes": {
+            "spill": 4,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 14,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "calls": {
+            "ACTION.RUNTIME.SYSLIB::MultI": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "AddressExpanded": {
+          "instruction_form_bytes": 222,
+          "home_bytes": {
+            "spill": 4,
+            "param": 3,
+            "local": 2,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 50,
+            "param": 4,
+            "local": 9,
+            "static_string": 0
+          },
+          "calls": {
+            "ACTION.RUNTIME.SYSLIB::MultI": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "ReadViaLocal": {
+          "instruction_form_bytes": 104,
+          "home_bytes": {
+            "spill": 2,
+            "param": 4,
+            "local": 2,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 10,
+            "param": 6,
+            "local": 4,
+            "static_string": 0
+          },
+          "calls": {
+            "ACTION.RUNTIME.SYSLIB::MultI": 1
+          },
+          "pointer_scratch_writes": 2,
+          "indirect_y_operations": 2
+        },
+        "ReadDirect": {
+          "instruction_form_bytes": 85,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 7,
+            "local": 0,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 2
+        },
+        "AddressZero": {
+          "instruction_form_bytes": 15,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        },
+        "AddressField": {
+          "instruction_form_bytes": 18,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        }
+      },
+      "lf_crlf_identical": true
+    }
+  },
+  "roots": {}
+}

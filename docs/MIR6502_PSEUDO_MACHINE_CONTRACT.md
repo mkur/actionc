@@ -69,6 +69,12 @@ whole-routine use proofs. A reaching local-pointer store is a memory fact, not
 SSA identity: writes, calls and unknown effects invalidate it. Physical home and
 scratch interference are checked by selection at the layout boundary.
 
+Optimized materialization admits known-address local-pointer forwarding and
+proven zero-index address values. Conservative materialization retains the
+original path. Forwarding preserves the complete local store and checks typed
+field identity, descriptor exclusion, fixed backing and mutation/call barriers.
+Constant address offsets remain storage operands until final emission.
+
 ### Costed scalar leaf inlining
 
 MIR routines preserve verified NIR's typed `Auto` / `Prefer` inline metadata.

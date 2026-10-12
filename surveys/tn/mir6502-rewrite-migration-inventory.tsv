@@ -1,4 +1,6 @@
 id	phase	batch	domain	source	entry_point	baseline_proof
+ADDR-003	pre-home-selection	migrated	temp	src/mir6502/rewrite/address_values.rs	discover_zero_index_address_values	complete-word-constant-exclusive-producers-captured-inputs-and-flags
+ADDR-004	pre-home-selection	migrated	temp	src/mir6502/rewrite/address_values.rs	discover_known_pointer_locals	exact-retained-local-store-known-storage-descriptor-and-mutation-barriers
 ADDR-001	pre-home-selection	migrated	temp	src/mir6502/rewrite/addresses.rs	discover_address_displacements	exclusive-word-reaching-def-dominance-deadness-and-flags
 ADDR-002	pre-home-selection	migrated	temp	src/mir6502/rewrite/addresses.rs	discover_record_element_consumers	exclusive-word-captures-deadness-effects-and-stride-contract
 PRE-001	pre-branch	migrated	temp	src/mir6502/rewrite/pilots.rs	discover_compare_producers	analyzed-reaching-def-and-routine-deadness

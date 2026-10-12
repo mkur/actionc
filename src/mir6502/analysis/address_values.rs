@@ -74,6 +74,11 @@ fn constant_word(
     depth: usize,
 ) -> Option<(u16, BTreeSet<usize>)> {
     match value {
+        MirValue::Word { lo, hi } => {
+            if let (MirValue::ConstU8(lo), MirValue::ConstU8(hi)) = (lo.as_ref(), hi.as_ref()) {
+                return Some((u16::from_le_bytes([*lo, *hi]), BTreeSet::new()));
+            }
+        }
         MirValue::ConstU8(v) => return Some((u16::from(*v), BTreeSet::new())),
         MirValue::ConstU16(v) => return Some((*v, BTreeSet::new())),
         _ => {}

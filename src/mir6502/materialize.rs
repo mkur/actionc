@@ -2777,6 +2777,17 @@ fn run_prehome_selection_group(
     helpers: &mut Vec<MirRuntimeHelper>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
+    if config.enable_peepholes && config.enable_address_values {
+        let mut driver = MirPreHomeRewriteDriver::default();
+        let result = driver.run_fixed_point_by_key(routine, |routine, context| {
+            let mut plans = super::rewrite::address_values::discover_known_pointer_locals(routine, context, layout);
+            plans.extend(super::rewrite::address_values::discover_zero_index_address_values(routine, context));
+            plans
+        }, super::rewrite::address_values::address_value_rank)
+            .map_err(|error| vec![MirDiagnostic::routine(&routine.name, format!("address value selection failed: {error:?}"))])?;
+        record_prehome_rewrite_result(routine.id, result, peephole_stats);
+        expand_compute_address_values(routine)?;
+    }
     run_analyzed_word_carry_chain_store_consumers(routine, config, layout, peephole_stats)?;
     run_analyzed_private_indirect_word_copies(routine, layout, peephole_stats)?;
     run_analyzed_indexed_to_indirect_word_copies(routine, layout, peephole_stats)?;

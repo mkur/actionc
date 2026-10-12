@@ -53,3 +53,34 @@ check covers both materialization profiles/runtimes, strides 1/2/20/255/256/6553
 offsets 0/38/255/256, unaligned bases and full CARD wrap.
 [stage1.json](stage1.json) confirms all four full-root images are byte-identical
 to Stage 0. SemIR/NIR contracts and snapshots are unchanged.
+
+## Stage 2
+
+Optimized MIR forwards a known storage address from an exact complete local
+pointer store to its same-block field consumer. The store and source evaluation
+remain. Typed direct operands resolve at final layout; descriptor addresses and
+fixed pointer cells are excluded. The transaction driver independently checks
+the unchanged prefix, retained word store and exact resulting field identity.
+Calls, any intervening write and one-lane mutation invalidate the fact.
+
+| Generic cartridge routine | Stage 0 instruction bytes | Stage 2 | Local bytes |
+| --- | ---: | ---: | ---: |
+| ReadLocal / ReadOrdinary | 32 | 21 | 2 |
+| WriteLocal | 45 | 26 | 2 |
+| AddressZero | 63 | 15 | 0 |
+| AddressField | 18 | 18 | 0 |
+
+Both known local reads now have direct field operands and no indirect-Y access;
+the source local still receives both pointer bytes. Direct fixed field reads
+remain 6/11 bytes. `AddressZero` no longer calls multiply and has no spills.
+The algebraic `AddressExpanded` comparison remains 222 bytes; the selector
+currently requires an exclusive address flow to a complete word store.
+
+[stage2.json](stage2.json) retains cartridge/standalone measurements and actual
+LF/CRLF image equality. Three selector proof tests, the five generic VM tests,
+and the four affected integrations pass (call ABI, MIR fixtures, materialization
+gaps and rewrite inventory). No NIR or MIR-lowering snapshots changed.
+
+Reproduce generic measurements with
+`python3 surveys/tn/measure-address-values.py --compiler <actionc> --out-dir <target-directory> --crlf`.
+The collector checks both runtimes and can add full TN/TNDBG roots with `--roots`.

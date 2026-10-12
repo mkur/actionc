@@ -254,7 +254,7 @@ impl MaterializeLayout {
             .unwrap_or(false)
     }
 
-    pub(super) fn is_descriptor_storage(&self, routine_id: RoutineId, mem: &MirMem) -> bool {
+    pub(in crate::mir6502) fn is_descriptor_storage(&self, routine_id: RoutineId, mem: &MirMem) -> bool {
         match mem {
             MirMem::Global { id, offset } if *offset == 0 => self
                 .globals
