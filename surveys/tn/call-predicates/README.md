@@ -15,6 +15,11 @@ is temporarily ignored: MIR6502 reloads an earlier argument after a later call
 mutates its parameter through a passed address. Classic preserves the snapshot.
 This correctness defect must be repaired before enabling capture removal.
 
+The repair freezes typed address exposure before temp cleanup. An internal
+callee summary cannot authorize moving a home load across a call once that
+home's address can escape. All four `call_predicates` tests now pass, including
+the unignored alias regression, in both runtimes with actual LF/CRLF inputs.
+
 Direct TN/TNDBG MIR `SetTagged` at ordinal zero costs 842 cycles for setting 0
 and 930 for settings 1/2/255. Out-of-range ordinal 20 costs 516/518 cycles.
 These vectors execute the wrapper; other directory benchmark cycles cannot be

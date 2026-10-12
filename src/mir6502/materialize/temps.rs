@@ -23,6 +23,17 @@ fn cleanup_pre_materialization_temp_artifacts_inner(
     layout: &MaterializeLayout,
     liveness: Option<&super::temp_liveness::MirTempLiveness>,
 ) {
+    // A callee's summary cannot prove that an escaped caller home survives:
+    // its pointer write need not name that home. Freeze address exposure before
+    // cleanup turns LEA producers into typed address operands.
+    let exposed = routine.blocks.iter().flat_map(|b| &b.ops).flat_map(|op| {
+        let effects = crate::mir6502::analysis::effects::classify_op(op);
+        effects.memory.direct_references.into_iter().filter(move |mem| {
+            matches!(op, MirOp::LeaAddr { .. })
+                || (!effects.memory.direct_reads.iter().any(|r| r.base == *mem)
+                    && !effects.memory.direct_writes.iter().any(|r| r.base == *mem))
+        })
+    }).collect::<Vec<_>>();
     for (block_index, block) in routine.blocks.iter_mut().enumerate() {
         if matches!(
             block.terminator,
@@ -46,6 +57,7 @@ fn cleanup_pre_materialization_temp_artifacts_inner(
                 live_out,
                 routine.id,
                 layout,
+                &exposed,
             );
             ops = cleaned;
             if !changed {
@@ -62,6 +74,7 @@ fn cleanup_pre_materialization_block_temps(
     live_out: Option<&MirTempLiveSet>,
     routine_id: RoutineId,
     layout: &MaterializeLayout,
+    exposed: &[MirMem],
 ) -> (Vec<MirOp>, bool) {
     let mut out = Vec::with_capacity(ops.len());
     let mut changed = false;
@@ -86,7 +99,7 @@ fn cleanup_pre_materialization_block_temps(
                 continue;
             }
         }
-        if let Some(consumer_index) = single_use_temp_sink_index(&ops, index, terminator, live_out)
+        if let Some(consumer_index) = single_use_temp_sink_index(&ops, index, terminator, live_out, exposed)
         {
             out.extend(ops[index + 1..consumer_index].iter().cloned());
             out.push(ops[index].clone());
@@ -158,6 +171,7 @@ fn single_use_temp_sink_index(
     index: usize,
     terminator: &MirTerminator,
     live_out: Option<&MirTempLiveSet>,
+    exposed: &[MirMem],
 ) -> Option<usize> {
     let producer = ops.get(index)?;
     let def = op_def(producer)?;
@@ -180,6 +194,17 @@ fn single_use_temp_sink_index(
         return None;
     }
     let intervening = &ops[index + 1..consumer_index];
+    if let Some(source) = private_direct_load_source(producer)
+        && exposed.iter().any(|mem| match (source, mem) {
+            (MirMem::Param { id: a, .. }, MirMem::Param { id: b, .. }) => a == b,
+            (MirMem::Local { id: a, .. }, MirMem::Local { id: b, .. }) => a == b,
+            (MirMem::Spill { id: a, .. }, MirMem::Spill { id: b, .. }) => a == b,
+            _ => source == mem,
+        })
+        && intervening.iter().any(|op| matches!(op, MirOp::Call { .. }))
+    {
+        return None;
+    }
     if let Some(source) = private_direct_load_source(producer)
         && !intervening
             .iter()

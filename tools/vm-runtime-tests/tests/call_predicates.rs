@@ -52,7 +52,6 @@ fn argument_snapshots_and_effect_order_survive_later_predicates() {
 }
 
 #[test]
-#[ignore = "Stage 0: MIR6502 loses the word snapshot across a call that aliases its parameter"]
 fn aliased_parameter_snapshot_survives_later_argument_call() {
     snapshot_cases(true);
 }
