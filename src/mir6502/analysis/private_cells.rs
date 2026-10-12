@@ -22,12 +22,26 @@ pub(in crate::mir6502) fn reads_confined(
     let Some(cell_offset) = offset(cell) else {
         return false;
     };
+    // A separately declared local alias can expose the same cell without
+    // spelling its identity in an address reference or a content read.
+    if let MirMem::Local { id, .. } = cell {
+        if r.frame
+            .locals
+            .iter()
+            .any(|slot| matches!(slot.base,MirStorageBase::LocalAlias{target,..} if target==*id))
+        {
+            return false;
+        }
+    }
+    // Address arithmetic from an exposed frame cell can reach neighboring
+    // homes. Require the whole frame to remain unexposed until a bounded
+    // provenance proof can establish a narrower range.
     if r.blocks.iter().flat_map(|b| &b.ops).any(|op| {
         classify_op(op)
             .memory
             .address_references
             .iter()
-            .any(|m| same_object(m, cell))
+            .any(|m| matches!(m, MirMem::Local { .. } | MirMem::Param { .. }))
     }) {
         return false;
     }

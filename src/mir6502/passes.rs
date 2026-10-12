@@ -72,6 +72,9 @@ impl Mir6502Config {
             enable_indexed_address_values: true,
             enable_call_predicate_arguments: true,
             enable_call_predicate_abi: true,
+            enable_comparison_loop_pointers: true,
+            enable_comparison_loop_fusion: true,
+            enable_comparison_loop_y: true,
             ..Self::default()
         }
     }

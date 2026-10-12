@@ -89,3 +89,76 @@ Equal 14-byte `After` takes 391 cycles versus 1,275; first-byte mismatch takes
 the expected Y advances as well as read order, guards and returned values.
 All three transaction/fusion/carrier unit tests pass, including extra header
 temp users and a first entry missing Y initialization.
+
+## Stage 5 qualification and enablement
+
+`Mir6502Config::optimized()` enables retained pointers, shared comparisons and
+bounded Y induction. Default and explicit feature-off configurations retain
+fallback. The [final report](stage5.json) pins the qualified compiler binary,
+source hashes, images, four-way direct vectors and exclusive application
+measurements. Production TN source is unchanged.
+
+| Measurement | Baseline | Qualified |
+| --- | ---: | ---: |
+| TN MIR load-file bytes | 16,764 | 16,705 |
+| TNDBG MIR load-file bytes | 20,501 | 20,442 |
+| `MyDosAfter` instruction bytes, both roots | 246 | 187 |
+| Reversed 64-entry sort cycles, both roots | 534,512 | 343,356 |
+| Exclusive `MyDosAfter` cycles in that sort | 305,325 | 114,169 |
+| Executed pointer-scratch writes in that routine | 13,908 | 2,624 |
+| Executed parameter operand accesses | 15,258 | 4,798 |
+| Executed local operand accesses | 25,642 | 1,838 |
+| Executed indirect character reads | 6,954 | 6,954 |
+
+The sort takes 35.8% fewer cycles. Exclusive comparison cycles fall 62.6%,
+and pointer-scratch writes fall 81.1%. These are workload measurements, not
+universal speedup claims. Static homes remain zero spill, four parameter and
+three local bytes. Both roots use the same existing `$AA–$AF` compiler window;
+the final gate permits no added allocation outside it. Classic images are
+byte-identical to Stage 0 at 18,090 and 21,579 bytes. Full LF and CRLF source
+trees produce identical images in both modes.
+
+The generic equal 14-byte `After` takes 391 cycles versus 1,275, and its
+first-byte mismatch takes 100 versus 136. Observable captures/index retain
+their stores: `Observed` improves from 1,033 to 671 cycles for equal inputs,
+but first-byte mismatch rises from 160 to 165. Pointer-only `Equal` also costs
+four extra cycles on first-byte mismatch. Final size budgets can reject an
+entire two-loop pointer-only candidate; comparison fusion enables that fixture
+to pass without code growth.
+
+Qualification passes the full MIR6502 unit suite (1,057 tests, two existing
+ignores), eleven integration targets (96 tests), the 169-fixture emission
+sweep and the full VM/runtime suite. The focused comparison matrix runs four
+feature variants in cartridge and standalone runtimes with LF and CRLF.
+Additional VM cases cover all unsigned ordering directions, partially
+overlapping records, a 255-byte window, zero trips, guarded 16-bit wrap,
+exposed capture aliases and source ownership of `$AA`. Exposed frames and
+local alias metadata block capture/index removal; malformed live-Y consumers
+and initialization arriving only from a backedge fail verification.
+
+Reproduce the image and listing census with:
+
+```sh
+python3 surveys/tn/comparison-loops/measure.py \
+  --compiler target/tn-comparison-loops/final/actionc-qualified \
+  --out-dir target/tn-comparison-loops/recheck
+```
+
+Use `cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test
+comparison_loops -- --nocapture` for the four-way vectors. For each root, set
+`ACTIONC_TN_PROFILE_SOURCE=TN` or `TNDBG` and
+`ACTIONC_TN_PROFILE_ROUTINES=1`, then run the `tn_size_profile` target with
+`--nocapture`. The CSV columns are retained in the report. Build with the
+task environment documented below if recreating the qualified binary:
+
+```sh
+export CARGO_TARGET_DIR=target/tn-comparison-loops/build
+export CARGO_INCREMENTAL=0
+export CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
+export CARGO_PROFILE_DEV_OPT_LEVEL=1 CARGO_PROFILE_TEST_OPT_LEVEL=1
+cargo build --bin actionc --bin actionc-mir6502-sweep
+```
+
+The disposable Rust build directory is removed after qualification. Frozen
+Stage 0/final compilers, images, listings and check logs remain in `target`;
+the source fixture and compact measurement reports are tracked here.

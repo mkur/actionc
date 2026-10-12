@@ -345,3 +345,226 @@ fn classic_record_comparisons_remain_an_independent_source_control() {
         }
     }
 }
+
+#[test]
+fn comparison_boundaries_preserve_wrap_overlap_zero_trips_and_exposed_captures() {
+    let source = r#"
+TYPE Probe=[BYTE ARRAY prefix(6),name(255)]
+CARD exposed
+BYTE FUNC Order(Probe POINTER left,right)
+  BYTE n,a,b
+  FOR n=0 TO 10 DO
+    a=left.name(n) b=right.name(n)
+    IF a#b THEN RETURN(a>b) FI
+  OD
+RETURN(0)
+BYTE FUNC Broad(Probe POINTER left,right)
+  BYTE n,a,b
+  FOR n=0 TO 254 DO
+    a=left.name(n) b=right.name(n)
+    IF a#b THEN RETURN(a>b) FI
+  OD
+RETURN(0)
+BYTE FUNC Empty(Probe POINTER left,right)
+  BYTE n,a,b
+  FOR n=1 TO 0 DO
+    a=left.name(n) b=right.name(n)
+    IF a#b THEN RETURN(a>b) FI
+  OD
+RETURN(0)
+BYTE FUNC Escaped(Probe POINTER left,right)
+  BYTE n,a,b
+  exposed=@a
+  FOR n=0 TO 0 DO
+    a=left.name(n) b=right.name(n)
+    IF a#b THEN RETURN(a>b) FI
+  OD
+RETURN(0)
+PROC Start()
+RETURN
+"#;
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for crlf in [false, true] {
+            for op in [">", "<", ">=", "<="] {
+                let source = source.replace("a>b", &format!("a{op}b"));
+                let source = if crlf {
+                    source.replace('\n', "\r\n")
+                } else {
+                    source
+                };
+                for enabled in [false, true] {
+                    let mut config = Mir6502Config::optimized();
+                    config.enable_comparison_loop_pointers = enabled;
+                    config.enable_comparison_loop_fusion = enabled;
+                    config.enable_comparison_loop_y = enabled;
+                    let output = compile(&source, &config, runtime);
+                    let (mut vm, profile) = support::vm_for(runtime);
+                    vm.load_atari_object_for_execution(
+                        profile,
+                        &actionc::codegen::format_load_file(&output),
+                    )
+                    .unwrap();
+                    let entry = |name: &str| {
+                        output
+                            .routine_addresses
+                            .iter()
+                            .find(|r| r.name.eq_ignore_ascii_case(name))
+                            .unwrap()
+                            .address
+                    };
+                    for (name, len, left, right) in [
+                        ("Order", 11usize, 0x5000u16, 0x5200u16),
+                        ("Order", 11, 0x5000, 0x5003),
+                        ("Broad", 255, 0x5000, 0x5200),
+                    ] {
+                        for mismatch in [0, len - 1, len] {
+                            for (a, b) in [(0u8, 255u8), (127, 128), (128, 127), (255, 0)] {
+                                vm.bus_mut().ram_mut().map(0x4FFF, &[0x80; 1024]).unwrap();
+                                if mismatch < len {
+                                    vm.bus_mut().ram_mut().write(left + 6 + mismatch as u16, a);
+                                    vm.bus_mut().ram_mut().write(right + 6 + mismatch as u16, b);
+                                }
+                                let lhs = machine::bytes(&vm, left + 6, len);
+                                let rhs = machine::bytes(&vm, right + 6, len);
+                                let snapshot = machine::bytes(&vm, 0x4FFF, 1024);
+                                let first = lhs.iter().zip(&rhs).position(|(a, b)| a != b);
+                                let visited = first.map_or(len, |n| n + 1);
+                                let expected = first.is_some_and(|n| {
+                                    if matches!(op, ">" | ">=") {
+                                        lhs[n] > rhs[n]
+                                    } else {
+                                        lhs[n] < rhs[n]
+                                    }
+                                });
+                                let args = [left, right]
+                                    .into_iter()
+                                    .flat_map(u16::to_le_bytes)
+                                    .collect::<Vec<_>>();
+                                let mut reads = Reads {
+                                    records: vec![(left, 261), (right, 261)],
+                                    ..Reads::default()
+                                };
+                                vm = machine::call(vm, &mut reads, entry(name), &args);
+                                assert_eq!(
+                                    vm.bus().ram().read(0xA0),
+                                    u8::from(expected),
+                                    "{name}/{op}/{enabled}/{crlf}"
+                                );
+                                assert_eq!(machine::bytes(&vm, 0x4FFF, 1024), snapshot);
+                                assert_eq!(
+                                    reads.sequence,
+                                    (0..visited)
+                                        .flat_map(|n| [left + 6 + n as u16, right + 6 + n as u16])
+                                        .collect::<Vec<_>>()
+                                );
+                                if enabled {
+                                    assert_eq!(
+                                        reads.indirect_compares, visited,
+                                        "selected {name}/{op}"
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    let args = [0x5000u16, 0x5200]
+                        .into_iter()
+                        .flat_map(u16::to_le_bytes)
+                        .collect::<Vec<_>>();
+                    let mut reads = Reads {
+                        records: vec![(0x5000, 261), (0x5200, 261)],
+                        ..Reads::default()
+                    };
+                    vm = machine::call(vm, &mut reads, entry("Empty"), &args);
+                    assert_eq!(vm.bus().ram().read(0xA0), 0);
+                    assert!(reads.sequence.is_empty());
+                    vm.bus_mut().ram_mut().write(0x5006, 0x80);
+                    vm.bus_mut().ram_mut().write(0x5206, 0x80);
+                    vm = machine::call(vm, &mut Reads::default(), entry("Escaped"), &args);
+                    let public = output
+                        .map
+                        .storage_symbols
+                        .iter()
+                        .find(|s| s.name.eq_ignore_ascii_case("exposed"))
+                        .unwrap()
+                        .address;
+                    let home = u16::from_le_bytes([
+                        vm.bus().ram().read(public),
+                        vm.bus().ram().read(public + 1),
+                    ]);
+                    let left = if matches!(op, ">" | ">=") { 255 } else { 0 };
+                    vm.bus_mut().ram_mut().write(0x5006, left);
+                    vm.bus_mut().ram_mut().write(home, 255 - left);
+                    let alias = [0x5000u16, home.wrapping_sub(6)]
+                        .into_iter()
+                        .flat_map(u16::to_le_bytes)
+                        .collect::<Vec<_>>();
+                    vm = machine::call(vm, &mut Reads::default(), entry("Escaped"), &alias);
+                    assert_eq!(
+                        vm.bus().ram().read(0xA0),
+                        0,
+                        "capture must precede aliased right read"
+                    );
+                    assert_eq!(vm.bus().ram().read(home), left);
+                    if runtime == Runtime::Standalone {
+                        // Only the eleven observed bytes and their guards are
+                        // mapped; the wrapped window avoids ABI/pointer scratch.
+                        let left = 0xFFF8u16;
+                        let right = 0x5000u16;
+                        for n in 0..13u16 {
+                            vm.bus_mut().ram_mut().write(left.wrapping_add(5 + n), 0x80);
+                            vm.bus_mut().ram_mut().write(right + 5 + n, 0x80);
+                        }
+                        let mut reads = Reads {
+                            records: vec![(left, 261), (right, 261)],
+                            ..Reads::default()
+                        };
+                        let args = [left, right]
+                            .into_iter()
+                            .flat_map(u16::to_le_bytes)
+                            .collect::<Vec<_>>();
+                        vm = machine::call(vm, &mut reads, entry("Order"), &args);
+                        assert_eq!(vm.bus().ram().read(0xA0), 0);
+                        assert_eq!(
+                            reads.sequence,
+                            (0..11u16)
+                                .flat_map(|n| [left.wrapping_add(6 + n), right + 6 + n])
+                                .collect::<Vec<_>>()
+                        );
+                        assert_eq!(vm.bus().ram().read(left.wrapping_add(5)), 0x80);
+                        assert_eq!(vm.bus().ram().read(left.wrapping_add(17)), 0x80);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn comparison_pointer_ownership_conflict_keeps_valid_fallback() {
+    let text = std::fs::read_to_string(root().join("surveys/tn/reproducers/comparison-loops.act"))
+        .unwrap()
+        .replace("\r\n", "\n");
+    let text = format!("BYTE owned=$AA\n{text}");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = compile(&text, &Mir6502Config::optimized(), runtime);
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output))
+            .unwrap();
+        vm.bus_mut().ram_mut().map(0x5000, &[0x7F; 512]).unwrap();
+        vm.bus_mut().ram_mut().map(0x5200, &[0x7F; 512]).unwrap();
+        vm.bus_mut().ram_mut().write(0xAA, 0xD5);
+        let entry = output
+            .routine_addresses
+            .iter()
+            .find(|r| r.name.eq_ignore_ascii_case("After"))
+            .unwrap()
+            .address;
+        let args = [0x5000u16, 0x5200]
+            .into_iter()
+            .flat_map(u16::to_le_bytes)
+            .collect::<Vec<_>>();
+        vm = machine::call(vm, &mut Reads::default(), entry, &args);
+        assert_eq!(vm.bus().ram().read(0xA0), 0);
+        assert_eq!(vm.bus().ram().read(0xAA), 0xD5);
+    }
+}

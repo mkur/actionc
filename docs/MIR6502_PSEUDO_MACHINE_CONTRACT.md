@@ -956,7 +956,8 @@ between address materialization and the indirect access:
 
 - `LiveIndirectIndexedY` consumes a complete prepared pair and the explicit
   current Y register. Its byte effective address is `(base + Y) mod 65536`;
-  only offset zero is valid and emission never reloads or adjusts Y. It reads
+  only offset zero and contiguous nonwrapping pair lanes are valid. Emission
+  never reloads or adjusts Y. It reads
   both pair lanes and Y, reads memory, writes A and N/Z, and preserves Y.
   An unsigned `CompareIndirectBytes` may use two live consumers with offset
   zero and a flags destination: it emits the left LDA before the right CMP,

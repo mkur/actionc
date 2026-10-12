@@ -188,6 +188,61 @@ fn operand(
     })
 }
 
+/// Cheap discovery filter only. This is a superset of `prove`: no rewrite is
+/// authorized until the immutable shared snapshot establishes every invariant.
+pub(in crate::mir6502) fn might_match(r: &MirRoutine) -> bool {
+    r.blocks.iter().any(|h| {
+        if !matches!(
+            h.ops.as_slice(),
+            [
+                MirOp::Load {
+                    src: MirAddr::Direct(_),
+                    width: MirWidth::Byte,
+                    ..
+                },
+                MirOp::Compare {
+                    op: MirCompareOp::Le | MirCompareOp::Lt,
+                    right: MirValue::ConstU8(_),
+                    width: MirWidth::Byte,
+                    signed: false,
+                    ..
+                }
+            ]
+        ) {
+            return false;
+        }
+        let MirTerminator::Branch { then_edge, .. } = &h.terminator else {
+            return false;
+        };
+        let Some(body) = block(r, then_edge.target) else {
+            return false;
+        };
+        matches!(
+            body.ops.last(),
+            Some(MirOp::Compare {
+                op: MirCompareOp::Ne,
+                width: MirWidth::Byte,
+                signed: false,
+                ..
+            })
+        ) && body
+            .ops
+            .iter()
+            .filter(|op| {
+                matches!(
+                    op,
+                    MirOp::Load {
+                        src: MirAddr::ComputedIndex { .. },
+                        width: MirWidth::Byte,
+                        ..
+                    }
+                )
+            })
+            .count()
+            == 2
+    })
+}
+
 /// Admit one exact natural-loop profile with a normal completion and mismatch
 /// exit. All edges are checked through the shared CFG/dominance snapshot.
 pub(in crate::mir6502) fn prove(
@@ -437,6 +492,9 @@ pub(in crate::mir6502) mod tests {
         assert_eq!(facts(&p.routines[0]).len(), 2);
         for (r, count) in p.routines.iter().zip([2, 1, 1, 1, 0]) {
             assert_eq!(facts(r).len(), count, "{}", r.name)
+        }
+        for (r, expected) in p.routines.iter().zip([true, true, true, true, false]) {
+            assert_eq!(might_match(r), expected, "{}", r.name);
         }
         let f = facts(&p.routines[0]);
         assert_eq!((f[0].left.displacement, f[1].left.displacement), (6, 17));

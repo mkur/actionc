@@ -61,7 +61,7 @@ fn transfer(op: &MirOp, pairs: &[MirPointerPair], ready: &mut BTreeSet<usize>) {
             }
         );
         let advance = matches!(op, MirOp::UpdateReg { reg: MirReg::Y, .. });
-        if known {
+        if known && (!effects.machine.register_reads.y || ready.contains(&y)) {
             ready.insert(y);
         } else if !advance {
             ready.remove(&y);

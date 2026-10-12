@@ -63,7 +63,10 @@ and reservations. Discovery uses typed storage/CFG facts without SemIR queries.
 
 Character capture removal additionally requires a shared path-sensitive memory
 proof: every read reached by each stored byte must be enumerated until a
-definite covering overwrite, and the cell must have no address exposure.
+definite covering overwrite, and the frame must have no address exposure.
+Address arithmetic from any exposed frame cell can reach neighboring homes;
+local alias metadata also blocks removal until a narrower range proof is
+available.
 Calls, opaque effects and indirect writes reject that proof. Final physical
 layout rejects separately named absolute aliases of private cells. Exclusive
 temp use by itself does not justify deleting a potentially observable store.

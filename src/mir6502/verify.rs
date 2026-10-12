@@ -2184,6 +2184,10 @@ impl MirVerifier {
         block: &str,
         consumer: &MirAddressConsumer,
     ) {
+        if consumer.uses_live_y() && matches!(consumer.pointer_pair(),MirPointerPair::Fixed{lo:super::ir::MirFixedZpSlot(255)}) {
+            self.diagnostics.push(MirDiagnostic::block(&routine.name,block,
+                "live-Y base requires a contiguous zero-page pair without lane wrap"));
+        }
         match consumer.pointer_pair() {
             MirPointerPair::Fixed { .. } => {}
             MirPointerPair::Virtual(slot) => {
