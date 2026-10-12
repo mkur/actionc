@@ -10,7 +10,7 @@ for the fixtures and in cartridge mode for both roots.
 
 The new `call_predicates` VM target checks original snapshots, effect order,
 normalization and intact-root `SetTagged` status, bitmap guards and counts.
-Together with `tn_codegen_reproducers`, seven tests pass and one new regression
+Together with `tn_codegen_reproducers`, six tests pass and one new regression
 is temporarily ignored: MIR6502 reloads an earlier argument after a later call
 mutates its parameter through a passed address. Classic preserves the snapshot.
 This correctness defect must be repaired before enabling capture removal.
@@ -52,3 +52,54 @@ Classic hashes are unchanged. Seven focused units, 79 integrations and seven
 VM tests pass, covering both runtimes and actual LF/CRLF compilation. Direct
 valid `SetTagged` vectors save 40 cycles (802/890 versus 842/930).
 [Stage 3 measurements](stage3.json) pin the qualified executable and images.
+
+Stage 4 completes qualification. Explicit address-reference facts distinguish
+address exposure from content ranges, including word high lanes and combined
+address/content operands. Snapshot admission excludes loops and ambiguous
+incoming joins. A later call that mutates only the earlier word's high byte also
+preserves the original snapshot. The expanded snapshot fixture includes this
+new routine, so its whole-image size is not comparable with Stage 0.
+
+The integrated result is recorded in [stage4.json](stage4.json):
+
+| Cartridge measure | Baseline | Final |
+| --- | ---: | ---: |
+| `Forward` code, including ABI payload | 70 | 39 |
+| `Forward` spill / parameter bytes | 5 / 5 | 0 / 5 |
+| TN load-file bytes | 16,802 | 16,766 |
+| TNDBG load-file bytes | 20,539 | 20,503 |
+| Valid `SetTagged`, setting 0, cycles including call wrapper | 842 | 802 |
+| Valid `SetTagged`, settings 1/2/255, cycles including call wrapper | 930 | 890 |
+
+Enabled/disabled library configurations execute the generic wrapper, ordinary
+local sources, a non-tail WORD result and other ABI placements in both runtimes
+with actual LF/CRLF files. The exclusive `Forward` cycles are 80/82 with both
+selectors disabled, 48/50 with capture removal, and 40/42 with both enabled.
+Executed direct spill operands fall from 10 to 2 to zero. Parameter operands
+remain five. The independent local wrapper also saves 40 cycles and removes
+all ten spill operands; its ordinary local accesses remain eight.
+
+These traffic/cycle counts include only instructions whose PC is inside the
+named wrapper. They exclude callee/resident-helper execution, stack, indirect
+pointer fetches and fixed ABI/runtime scratch. Canonical parameter captures
+performed by SArgs remain in place and are outside this exclusive traffic
+census. Whole-call cycles are recorded separately. Cycle values are observations,
+not correctness assertions.
+
+Qualification passed 1,048 MIR6502 library tests (two existing ignored), all 96
+MIR6502 integration tests across eleven targets, and the full VM crate's 392
+tests. This includes nested calls, both runtimes, TN dispatch, directory/MyDOS
+models, sort/tag/publication vectors and the completed address-value consumers.
+Final roots match Stage 3 byte for byte, classic hashes are unchanged, and
+full-root LF/CRLF images match. No SemIR/NIR contracts or snapshots changed.
+
+Calls, hardware/absolute/indirect sources, incomplete or extra uses, loops,
+ambiguous joins, physical conflicts and unknown/non-profitable cost keep their
+captures. Boolean register homes retain their existing carrier; `OtherHome`
+demonstrates that fallback. `PredicateFirst` retains its one-byte source local.
+The two optimized selectors have independent configuration flags, with ABI
+carrier selection requiring capture selection and its final cost gate.
+
+The final compiler, listings, images, raw measurements and logs are retained in
+ignored `target/tn-call-predicates/final`. The temporary build cache is removed
+after qualification; historical frozen compilers and user work are preserved.

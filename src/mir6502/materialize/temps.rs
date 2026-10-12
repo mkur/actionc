@@ -26,14 +26,16 @@ fn cleanup_pre_materialization_temp_artifacts_inner(
     // A callee's summary cannot prove that an escaped caller home survives:
     // its pointer write need not name that home. Freeze address exposure before
     // cleanup turns LEA producers into typed address operands.
-    let exposed = routine.blocks.iter().flat_map(|b| &b.ops).flat_map(|op| {
-        let effects = crate::mir6502::analysis::effects::classify_op(op);
-        effects.memory.direct_references.into_iter().filter(move |mem| {
-            matches!(op, MirOp::LeaAddr { .. })
-                || (!effects.memory.direct_reads.iter().any(|r| r.base == *mem)
-                    && !effects.memory.direct_writes.iter().any(|r| r.base == *mem))
+    let exposed = routine
+        .blocks
+        .iter()
+        .flat_map(|b| &b.ops)
+        .flat_map(|op| {
+            crate::mir6502::analysis::effects::classify_op(op)
+                .memory
+                .address_references
         })
-    }).collect::<Vec<_>>();
+        .collect::<Vec<_>>();
     for (block_index, block) in routine.blocks.iter_mut().enumerate() {
         if matches!(
             block.terminator,
@@ -99,7 +101,8 @@ fn cleanup_pre_materialization_block_temps(
                 continue;
             }
         }
-        if let Some(consumer_index) = single_use_temp_sink_index(&ops, index, terminator, live_out, exposed)
+        if let Some(consumer_index) =
+            single_use_temp_sink_index(&ops, index, terminator, live_out, exposed)
         {
             out.extend(ops[index + 1..consumer_index].iter().cloned());
             out.push(ops[index].clone());
@@ -201,7 +204,9 @@ fn single_use_temp_sink_index(
             (MirMem::Spill { id: a, .. }, MirMem::Spill { id: b, .. }) => a == b,
             _ => source == mem,
         })
-        && intervening.iter().any(|op| matches!(op, MirOp::Call { .. }))
+        && intervening
+            .iter()
+            .any(|op| matches!(op, MirOp::Call { .. }))
     {
         return None;
     }
@@ -229,7 +234,13 @@ fn temp_is_live_out(live_out: &MirTempLiveSet, temp: MirTempId) -> bool {
 }
 
 fn op_is_side_effect_free_temp_def(op: &MirOp) -> bool {
-    if matches!(op, MirOp::Binary { op: MirBinaryOp::Div | MirBinaryOp::Mod | MirBinaryOp::UDiv | MirBinaryOp::UMod, .. }) {
+    if matches!(
+        op,
+        MirOp::Binary {
+            op: MirBinaryOp::Div | MirBinaryOp::Mod | MirBinaryOp::UDiv | MirBinaryOp::UMod,
+            ..
+        }
+    ) {
         return false;
     }
     matches!(
@@ -480,7 +491,12 @@ pub(in crate::mir6502) fn replace_op_temp_values(
 ) -> bool {
     let before = op.clone();
     match op {
-        MirOp::ComputeAddress { base,index,.. } => { *base=replace_temp_value(base.clone(),temp,replacement);if let Some(index)=index { *index=replace_temp_value(index.clone(),temp,replacement); } },
+        MirOp::ComputeAddress { base, index, .. } => {
+            *base = replace_temp_value(base.clone(), temp, replacement);
+            if let Some(index) = index {
+                *index = replace_temp_value(index.clone(), temp, replacement);
+            }
+        }
 
         MirOp::Load { src, .. } => {
             *src = replace_temp_addr(src.clone(), temp, replacement);
@@ -1194,31 +1210,63 @@ fn materialize_rhs_temp(value: MirValue, spills: &mut Vec<MirSpillId>) -> MirVal
 /// Expose branch reads before spill coloring and dead-store analysis. Keeping
 /// a VTemp here hides its spill use from post-home consumers and prevents them
 /// from remapping it together with the definition.
-pub(super) fn materialize_boolean_home(terminator: &mut MirTerminator, ops: &mut Vec<MirOp>, spills: &mut Vec<MirSpillId>) {
-    let MirTerminator::Branch { cond: MirCond::BoolValue(value), then_edge, else_edge } = terminator else { return; };
+pub(super) fn materialize_boolean_home(
+    terminator: &mut MirTerminator,
+    ops: &mut Vec<MirOp>,
+    spills: &mut Vec<MirSpillId>,
+) {
+    let MirTerminator::Branch {
+        cond: MirCond::BoolValue(value),
+        then_edge,
+        else_edge,
+    } = terminator
+    else {
+        return;
+    };
     // Direct compare predicates still belong to the existing late comparison
     // selector (including indirect/indexed comparisons and disabled fusion).
     if let MirValue::Def(MirDef::VTemp(id)) = value
-        && ops.iter().any(|op| matches!(op,
+        && ops.iter().any(|op| {
+            matches!(op,
             MirOp::Compare { dst: MirCondDest::Temp(actual), .. }
             | MirOp::CompareIndirectBytes { dst: MirCondDest::Temp(actual), .. }
             | MirOp::CompareDirectIndexedBytes { dst: MirCondDest::Temp(actual), .. }
-            | MirOp::CompareIndirectWords { dst: MirCondDest::Temp(actual), .. } if actual == id))
-    { return; }
+            | MirOp::CompareIndirectWords { dst: MirCondDest::Temp(actual), .. } if actual == id)
+        })
+    {
+        return;
+    }
     if let MirValue::ConstU8(bits) = value {
-        *terminator = MirTerminator::Jump(if *bits == 0 { else_edge.clone() } else { then_edge.clone() });
+        *terminator = MirTerminator::Jump(if *bits == 0 {
+            else_edge.clone()
+        } else {
+            then_edge.clone()
+        });
         return;
     }
     if let MirValue::ConstU16(bits) = value {
-        *terminator = MirTerminator::Jump(if *bits == 0 { else_edge.clone() } else { then_edge.clone() });
+        *terminator = MirTerminator::Jump(if *bits == 0 {
+            else_edge.clone()
+        } else {
+            then_edge.clone()
+        });
         return;
     }
     let value = materialize_rhs_temp(value.clone(), spills);
     let source = materialize_value_to_a(ops, value, spills);
-    ops.push(MirOp::Compare { dst: MirCondDest::Flags, op: MirCompareOp::Ne,
-        left: source, right: MirValue::ConstU8(0), width: MirWidth::Byte, signed: false });
-    *terminator = MirTerminator::Branch { cond: MirCond::FlagTest(MirFlagTest::ZClear),
-        then_edge: then_edge.clone(), else_edge: else_edge.clone() };
+    ops.push(MirOp::Compare {
+        dst: MirCondDest::Flags,
+        op: MirCompareOp::Ne,
+        left: source,
+        right: MirValue::ConstU8(0),
+        width: MirWidth::Byte,
+        signed: false,
+    });
+    *terminator = MirTerminator::Branch {
+        cond: MirCond::FlagTest(MirFlagTest::ZClear),
+        then_edge: then_edge.clone(),
+        else_edge: else_edge.clone(),
+    };
 }
 
 fn materialize_value_to_reg(

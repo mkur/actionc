@@ -33,11 +33,13 @@ def main():
     compiler, output = args.compiler.resolve(), args.out_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
     report = {"compiler_sha256": hashlib.sha256(compiler.read_bytes()).hexdigest(), "fixtures": {}, "roots": {}}
-    for fixture in ["captured-call-arguments", "call-predicate-snapshots"]:
+    for fixture in ["captured-call-arguments", "call-predicate-snapshots", "call-predicate-layouts"]:
         source = ROOT / "surveys/tn/reproducers" / f"{fixture}.act"
         for runtime in ["cart", "standalone"]:
             stem = f"{fixture}-{runtime}"
             metrics = measure(compiler, source, stem, output, runtime=runtime)
+            metrics["source_sha256_lf"] = hashlib.sha256(source.read_text().replace("\r\n", "\n").encode()).hexdigest()
+            metrics["image_sha256"] = hashlib.sha256((output / f"{stem}.xex").read_bytes()).hexdigest()
             if args.crlf:
                 crlf = output / f"{fixture}-crlf.act"
                 crlf.write_bytes(source.read_text().replace("\r\n", "\n").replace("\n", "\r\n").encode())
@@ -63,6 +65,10 @@ def main():
                 report["roots"][stem] = {key: metrics[key] for key in ["load_file_bytes", "instruction_form_bytes", "directive_form_bytes"]}
                 report["roots"][stem].update(sha256=hashlib.sha256(blob).hexdigest(), lf_crlf_identical=args.crlf,
                                              SetTagged=metrics["routines"]["SetTagged"], BatchItem=metrics["routines"]["BatchItem"])
+                source_hash = hashlib.sha256()
+                for dependency in sorted(sources.glob("*.ACT")):
+                    source_hash.update(dependency.name.encode() + b"\0" + dependency.read_text().replace("\r\n", "\n").encode() + b"\0")
+                report["roots"][stem]["source_tree_sha256_lf"] = source_hash.hexdigest()
                 print(stem, len(blob), flush=True)
     (output / "measurements.json").write_text(json.dumps(report, indent=2) + "\n")
 

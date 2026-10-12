@@ -360,4 +360,56 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn call_predicate_abi_rejects_live_machine_state_and_other_argument_homes() {
+        for live_machine in [true, false] {
+            let mut p = selected();
+            let r = &mut p.routines[1];
+            let call = r.blocks[0]
+                .ops
+                .iter_mut()
+                .find(|op| matches!(op, MirOp::Call { .. }))
+                .unwrap();
+            let MirOp::Call {
+                args, abi, effects, ..
+            } = call
+            else {
+                unreachable!()
+            };
+            if live_machine {
+                abi.clobbers.a = false;
+                abi.preserves.a = true;
+                effects.clobbers.a = false;
+                effects.preserves.a = true;
+                r.blocks[0].ops.push(MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::Absolute(0x800)),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                });
+            } else {
+                args[2].home = MirArgHome::Reg(MirReg::Y);
+            }
+            let r = &p.routines[1];
+            let s = PreHomeAnalysisSnapshot::new(r, MirRoutineGeneration::initial()).unwrap();
+            let c = PreHomeRewriteContext::new(&s);
+            let i = r.blocks[0]
+                .ops
+                .iter()
+                .position(|op| matches!(op, MirOp::Call { .. }))
+                .unwrap();
+            assert!(
+                discover_predicate_abi(
+                    r,
+                    &c,
+                    c.point(MirSite::Op {
+                        block: r.blocks[0].id,
+                        op_index: i
+                    }),
+                    &MaterializeLayout::new(&p, 0x3000)
+                )
+                .is_none()
+            );
+        }
+    }
 }

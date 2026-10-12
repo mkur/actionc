@@ -1,0 +1,1176 @@
+{
+  "compiler_sha256": "67a7947e2dfcfd6bd56ca5417cbb1cb1f8c06cb8f8b76ec253c378b8b2683349",
+  "fixtures": {
+    "captured-call-arguments-cart": {
+      "load_file_bytes": 227,
+      "loaded_bytes": 217,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 190,
+      "directive_form_bytes": 25,
+      "routine_count": 4,
+      "routines": {
+        "Forward": {
+          "instruction_form_bytes": 36,
+          "directive_form_bytes": 3,
+          "instructions": 14,
+          "direct_calls": 1,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 3,
+          "home_bytes": {
+            "spill": 0,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "code_bytes_including_payload": 39
+        },
+        "PredicateFirst": {
+          "instruction_form_bytes": 40,
+          "directive_form_bytes": 3,
+          "instructions": 15,
+          "direct_calls": 1,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 5,
+            "local": 1,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 5,
+            "local": 2,
+            "static_string": 0
+          },
+          "code_bytes_including_payload": 43
+        }
+      },
+      "image_sha256": "bb09a93eb417c9518c0ac47b3c9d931ac1ca321f7643cb0489045779721baf37",
+      "source_sha256_lf": "c228fe34612cd0ebade108da2a219990343d4f33d59fea7623ab87ef5b57e775",
+      "lf_crlf_identical": true
+    },
+    "captured-call-arguments-standalone": {
+      "load_file_bytes": 309,
+      "loaded_bytes": 299,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 259,
+      "directive_form_bytes": 38,
+      "routine_count": 7,
+      "routines": {
+        "Forward": {
+          "instruction_form_bytes": 36,
+          "directive_form_bytes": 3,
+          "instructions": 14,
+          "direct_calls": 1,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 3,
+          "home_bytes": {
+            "spill": 0,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "code_bytes_including_payload": 39
+        },
+        "PredicateFirst": {
+          "instruction_form_bytes": 40,
+          "directive_form_bytes": 3,
+          "instructions": 15,
+          "direct_calls": 1,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 5,
+            "local": 1,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 5,
+            "local": 2,
+            "static_string": 0
+          },
+          "code_bytes_including_payload": 43
+        }
+      },
+      "image_sha256": "082eb7ecb4296b6001d3b1644b9e48d193a76950c437f624c5beca17cf0b6812",
+      "source_sha256_lf": "c228fe34612cd0ebade108da2a219990343d4f33d59fea7623ab87ef5b57e775",
+      "lf_crlf_identical": true
+    },
+    "call-predicate-snapshots-cart": {
+      "load_file_bytes": 640,
+      "loaded_bytes": 630,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 572,
+      "directive_form_bytes": 56,
+      "routine_count": 11,
+      "routines": {
+        "AliasWord": {
+          "instruction_form_bytes": 64,
+          "directive_form_bytes": 3,
+          "instructions": 24,
+          "direct_calls": 2,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 3,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 7,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "code_bytes_including_payload": 67
+        },
+        "AliasLaterHigh": {
+          "instruction_form_bytes": 89,
+          "directive_form_bytes": 3,
+          "instructions": 35,
+          "direct_calls": 2,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 3,
+            "param": 5,
+            "local": 2,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 7,
+            "param": 5,
+            "local": 4,
+            "static_string": 0
+          },
+          "code_bytes_including_payload": 92
+        },
+        "Ordered": {
+          "instruction_form_bytes": 67,
+          "directive_form_bytes": 0,
+          "instructions": 25,
+          "direct_calls": 2,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 4,
+          "home_bytes": {
+            "spill": 3,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 7,
+            "param": 6,
+            "local": 0,
+            "static_string": 0
+          },
+          "code_bytes_including_payload": 67
+        }
+      },
+      "image_sha256": "e9fb996573a279d99e4c68d0d0b0f0ac7674073dbf064e76e836d3c88509cbd2",
+      "source_sha256_lf": "6fae2711578c9eae0455400c01bfab185e50a9b84cf7c00629ad445ba8427778",
+      "lf_crlf_identical": true
+    },
+    "call-predicate-snapshots-standalone": {
+      "load_file_bytes": 741,
+      "loaded_bytes": 731,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 660,
+      "directive_form_bytes": 69,
+      "routine_count": 15,
+      "routines": {
+        "AliasWord": {
+          "instruction_form_bytes": 64,
+          "directive_form_bytes": 3,
+          "instructions": 24,
+          "direct_calls": 2,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 3,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 7,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "code_bytes_including_payload": 67
+        },
+        "AliasLaterHigh": {
+          "instruction_form_bytes": 89,
+          "directive_form_bytes": 3,
+          "instructions": 35,
+          "direct_calls": 2,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 3,
+            "param": 5,
+            "local": 2,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 7,
+            "param": 5,
+            "local": 4,
+            "static_string": 0
+          },
+          "code_bytes_including_payload": 92
+        },
+        "Ordered": {
+          "instruction_form_bytes": 67,
+          "directive_form_bytes": 0,
+          "instructions": 25,
+          "direct_calls": 2,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 4,
+          "home_bytes": {
+            "spill": 3,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 7,
+            "param": 6,
+            "local": 0,
+            "static_string": 0
+          },
+          "code_bytes_including_payload": 67
+        }
+      },
+      "image_sha256": "ed7aa34b22a5504dd444b5d4d34eab371c8109f373c8fc7c046bdc9838408ea8",
+      "source_sha256_lf": "6fae2711578c9eae0455400c01bfab185e50a9b84cf7c00629ad445ba8427778",
+      "lf_crlf_identical": true
+    },
+    "call-predicate-layouts-cart": {
+      "load_file_bytes": 293,
+      "loaded_bytes": 283,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 254,
+      "directive_form_bytes": 27,
+      "routine_count": 5,
+      "routines": {
+        "LocalForward": {
+          "instruction_form_bytes": 82,
+          "directive_form_bytes": 3,
+          "instructions": 34,
+          "direct_calls": 2,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 7,
+          "home_bytes": {
+            "spill": 0,
+            "param": 5,
+            "local": 4,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 5,
+            "local": 8,
+            "static_string": 0
+          },
+          "code_bytes_including_payload": 85
+        },
+        "OtherHome": {
+          "instruction_form_bytes": 34,
+          "directive_form_bytes": 0,
+          "instructions": 13,
+          "direct_calls": 0,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 1,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 3,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          },
+          "code_bytes_including_payload": 34
+        }
+      },
+      "image_sha256": "b694b850b0201fc5ae2d491393d042a3e9908e923f9e0534704236ae57555c46",
+      "source_sha256_lf": "4d6ca1efda90fd28cc8708bdf57e22fa6924fb3ba56c774263f62bf70ec3b11c",
+      "lf_crlf_identical": true
+    },
+    "call-predicate-layouts-standalone": {
+      "load_file_bytes": 375,
+      "loaded_bytes": 365,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 323,
+      "directive_form_bytes": 40,
+      "routine_count": 8,
+      "routines": {
+        "LocalForward": {
+          "instruction_form_bytes": 82,
+          "directive_form_bytes": 3,
+          "instructions": 34,
+          "direct_calls": 2,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 7,
+          "home_bytes": {
+            "spill": 0,
+            "param": 5,
+            "local": 4,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 5,
+            "local": 8,
+            "static_string": 0
+          },
+          "code_bytes_including_payload": 85
+        },
+        "OtherHome": {
+          "instruction_form_bytes": 34,
+          "directive_form_bytes": 0,
+          "instructions": 13,
+          "direct_calls": 0,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 1,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 3,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          },
+          "code_bytes_including_payload": 34
+        }
+      },
+      "image_sha256": "e1b565a594a794fb2c77a9249a4bc7395cc749674ae4668996ce3f7d864cf8b9",
+      "source_sha256_lf": "4d6ca1efda90fd28cc8708bdf57e22fa6924fb3ba56c774263f62bf70ec3b11c",
+      "lf_crlf_identical": true
+    }
+  },
+  "roots": {
+    "TN-optimized": {
+      "load_file_bytes": 18095,
+      "instruction_form_bytes": 16659,
+      "directive_form_bytes": 1424,
+      "sha256": "f63a719d3c22e5dd942dbaa81b9f3c7017ffb6cfec5b65de67d53bc102c2474a",
+      "lf_crlf_identical": true,
+      "SetTagged": {
+        "instruction_form_bytes": 34,
+        "directive_form_bytes": 8,
+        "instructions": 13,
+        "direct_calls": 1,
+        "pointer_scratch_writes": 0,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 5,
+          "local": 1,
+          "static_string": 0
+        },
+        "code_bytes_including_payload": 42
+      },
+      "BatchItem": {
+        "instruction_form_bytes": 102,
+        "directive_form_bytes": 3,
+        "instructions": 57,
+        "direct_calls": 0,
+        "pointer_scratch_writes": 6,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 4,
+          "local": 2,
+          "static_string": 0
+        },
+        "code_bytes_including_payload": 105
+      },
+      "source_tree_sha256_lf": "4cccdf561a85f725edc56ad2979a44500cec8e22b3c8d6e52d58af22f4787e45"
+    },
+    "TN-mir6502": {
+      "load_file_bytes": 16766,
+      "instruction_form_bytes": 15361,
+      "directive_form_bytes": 1393,
+      "sha256": "e4ce593b8505453ecb6a100a0c45bec8aff3f542ddfa0db1b0c89170a1ad2247",
+      "lf_crlf_identical": true,
+      "SetTagged": {
+        "instruction_form_bytes": 36,
+        "directive_form_bytes": 3,
+        "instructions": 14,
+        "direct_calls": 1,
+        "pointer_scratch_writes": 0,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 3,
+        "home_bytes": {
+          "spill": 0,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "code_bytes_including_payload": 39
+      },
+      "BatchItem": {
+        "instruction_form_bytes": 77,
+        "directive_form_bytes": 0,
+        "instructions": 40,
+        "direct_calls": 0,
+        "pointer_scratch_writes": 8,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "code_bytes_including_payload": 77
+      },
+      "source_tree_sha256_lf": "4cccdf561a85f725edc56ad2979a44500cec8e22b3c8d6e52d58af22f4787e45"
+    },
+    "TNDBG-optimized": {
+      "load_file_bytes": 21586,
+      "instruction_form_bytes": 19589,
+      "directive_form_bytes": 1985,
+      "sha256": "8d29fb4df2c73f52d849e7e32eb90b6d3548a964e356571634ed67d78f31a92b",
+      "lf_crlf_identical": true,
+      "SetTagged": {
+        "instruction_form_bytes": 34,
+        "directive_form_bytes": 8,
+        "instructions": 13,
+        "direct_calls": 1,
+        "pointer_scratch_writes": 0,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 5,
+          "local": 1,
+          "static_string": 0
+        },
+        "code_bytes_including_payload": 42
+      },
+      "BatchItem": {
+        "instruction_form_bytes": 102,
+        "directive_form_bytes": 3,
+        "instructions": 57,
+        "direct_calls": 0,
+        "pointer_scratch_writes": 6,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 4,
+          "local": 2,
+          "static_string": 0
+        },
+        "code_bytes_including_payload": 105
+      },
+      "source_tree_sha256_lf": "4cccdf561a85f725edc56ad2979a44500cec8e22b3c8d6e52d58af22f4787e45"
+    },
+    "TNDBG-mir6502": {
+      "load_file_bytes": 20503,
+      "instruction_form_bytes": 18523,
+      "directive_form_bytes": 1968,
+      "sha256": "f6cd5b637c3771630e7a05a9a9fd0641629c733e8a3d57ee79e6af0b33116c24",
+      "lf_crlf_identical": true,
+      "SetTagged": {
+        "instruction_form_bytes": 36,
+        "directive_form_bytes": 3,
+        "instructions": 14,
+        "direct_calls": 1,
+        "pointer_scratch_writes": 0,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 3,
+        "home_bytes": {
+          "spill": 0,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "code_bytes_including_payload": 39
+      },
+      "BatchItem": {
+        "instruction_form_bytes": 77,
+        "directive_form_bytes": 0,
+        "instructions": 40,
+        "direct_calls": 0,
+        "pointer_scratch_writes": 8,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "code_bytes_including_payload": 77
+      },
+      "source_tree_sha256_lf": "4cccdf561a85f725edc56ad2979a44500cec8e22b3c8d6e52d58af22f4787e45"
+    }
+  },
+  "source_base_commit": "b66dde12",
+  "source_slice": "Stage 4 explicit address-reference facts, bounded CFG admission and qualification coverage; no SemIR/NIR changes.",
+  "execution_scope": "Direct home operands and exclusive cycles while PC is in the named wrapper; excludes callees, resident helpers, stack, indirect pointer fetches and fixed ABI/runtime scratch.",
+  "generic_vectors": [
+    {
+      "runtime": "ActionCart",
+      "config": "off",
+      "routine": "Forward",
+      "setting": 0,
+      "exclusive_cycles": 80,
+      "cycles_including_call_wrapper": 463,
+      "spill_operands": 10,
+      "param_operands": 5,
+      "local_operands": 0
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "off",
+      "routine": "Forward",
+      "setting": 1,
+      "exclusive_cycles": 82,
+      "cycles_including_call_wrapper": 484,
+      "spill_operands": 10,
+      "param_operands": 5,
+      "local_operands": 0
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "off",
+      "routine": "PredicateFirst",
+      "setting": 0,
+      "exclusive_cycles": 48,
+      "cycles_including_call_wrapper": 431,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 2
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "off",
+      "routine": "PredicateFirst",
+      "setting": 1,
+      "exclusive_cycles": 50,
+      "cycles_including_call_wrapper": 452,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 2
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "captures",
+      "routine": "Forward",
+      "setting": 0,
+      "exclusive_cycles": 48,
+      "cycles_including_call_wrapper": 431,
+      "spill_operands": 2,
+      "param_operands": 5,
+      "local_operands": 0
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "captures",
+      "routine": "Forward",
+      "setting": 1,
+      "exclusive_cycles": 50,
+      "cycles_including_call_wrapper": 452,
+      "spill_operands": 2,
+      "param_operands": 5,
+      "local_operands": 0
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "captures",
+      "routine": "PredicateFirst",
+      "setting": 0,
+      "exclusive_cycles": 48,
+      "cycles_including_call_wrapper": 431,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 2
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "captures",
+      "routine": "PredicateFirst",
+      "setting": 1,
+      "exclusive_cycles": 50,
+      "cycles_including_call_wrapper": 452,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 2
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "on",
+      "routine": "Forward",
+      "setting": 0,
+      "exclusive_cycles": 40,
+      "cycles_including_call_wrapper": 423,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 0
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "on",
+      "routine": "Forward",
+      "setting": 1,
+      "exclusive_cycles": 42,
+      "cycles_including_call_wrapper": 444,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 0
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "on",
+      "routine": "PredicateFirst",
+      "setting": 0,
+      "exclusive_cycles": 48,
+      "cycles_including_call_wrapper": 431,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 2
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "on",
+      "routine": "PredicateFirst",
+      "setting": 1,
+      "exclusive_cycles": 50,
+      "cycles_including_call_wrapper": 452,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 2
+    },
+    {
+      "runtime": "Standalone",
+      "config": "off",
+      "routine": "Forward",
+      "setting": 0,
+      "exclusive_cycles": 80,
+      "cycles_including_call_wrapper": 463,
+      "spill_operands": 10,
+      "param_operands": 5,
+      "local_operands": 0
+    },
+    {
+      "runtime": "Standalone",
+      "config": "off",
+      "routine": "Forward",
+      "setting": 1,
+      "exclusive_cycles": 82,
+      "cycles_including_call_wrapper": 484,
+      "spill_operands": 10,
+      "param_operands": 5,
+      "local_operands": 0
+    },
+    {
+      "runtime": "Standalone",
+      "config": "off",
+      "routine": "PredicateFirst",
+      "setting": 0,
+      "exclusive_cycles": 48,
+      "cycles_including_call_wrapper": 431,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 2
+    },
+    {
+      "runtime": "Standalone",
+      "config": "off",
+      "routine": "PredicateFirst",
+      "setting": 1,
+      "exclusive_cycles": 50,
+      "cycles_including_call_wrapper": 452,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 2
+    },
+    {
+      "runtime": "Standalone",
+      "config": "captures",
+      "routine": "Forward",
+      "setting": 0,
+      "exclusive_cycles": 48,
+      "cycles_including_call_wrapper": 431,
+      "spill_operands": 2,
+      "param_operands": 5,
+      "local_operands": 0
+    },
+    {
+      "runtime": "Standalone",
+      "config": "captures",
+      "routine": "Forward",
+      "setting": 1,
+      "exclusive_cycles": 50,
+      "cycles_including_call_wrapper": 452,
+      "spill_operands": 2,
+      "param_operands": 5,
+      "local_operands": 0
+    },
+    {
+      "runtime": "Standalone",
+      "config": "captures",
+      "routine": "PredicateFirst",
+      "setting": 0,
+      "exclusive_cycles": 48,
+      "cycles_including_call_wrapper": 431,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 2
+    },
+    {
+      "runtime": "Standalone",
+      "config": "captures",
+      "routine": "PredicateFirst",
+      "setting": 1,
+      "exclusive_cycles": 50,
+      "cycles_including_call_wrapper": 452,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 2
+    },
+    {
+      "runtime": "Standalone",
+      "config": "on",
+      "routine": "Forward",
+      "setting": 0,
+      "exclusive_cycles": 40,
+      "cycles_including_call_wrapper": 423,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 0
+    },
+    {
+      "runtime": "Standalone",
+      "config": "on",
+      "routine": "Forward",
+      "setting": 1,
+      "exclusive_cycles": 42,
+      "cycles_including_call_wrapper": 444,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 0
+    },
+    {
+      "runtime": "Standalone",
+      "config": "on",
+      "routine": "PredicateFirst",
+      "setting": 0,
+      "exclusive_cycles": 48,
+      "cycles_including_call_wrapper": 431,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 2
+    },
+    {
+      "runtime": "Standalone",
+      "config": "on",
+      "routine": "PredicateFirst",
+      "setting": 1,
+      "exclusive_cycles": 50,
+      "cycles_including_call_wrapper": 452,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 2
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "off",
+      "routine": "LocalForward",
+      "setting": 0,
+      "exclusive_cycles": 151,
+      "cycles_including_call_wrapper": 569,
+      "spill_operands": 10,
+      "param_operands": 5,
+      "local_operands": 8
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "off",
+      "routine": "LocalForward",
+      "setting": 1,
+      "exclusive_cycles": 153,
+      "cycles_including_call_wrapper": 590,
+      "spill_operands": 10,
+      "param_operands": 5,
+      "local_operands": 8
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "off",
+      "routine": "OtherHome",
+      "setting": 0,
+      "exclusive_cycles": 38,
+      "cycles_including_call_wrapper": 92,
+      "spill_operands": 4,
+      "param_operands": 3,
+      "local_operands": 0
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "off",
+      "routine": "OtherHome",
+      "setting": 1,
+      "exclusive_cycles": 40,
+      "cycles_including_call_wrapper": 94,
+      "spill_operands": 4,
+      "param_operands": 3,
+      "local_operands": 0
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "captures",
+      "routine": "LocalForward",
+      "setting": 0,
+      "exclusive_cycles": 119,
+      "cycles_including_call_wrapper": 537,
+      "spill_operands": 2,
+      "param_operands": 5,
+      "local_operands": 8
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "captures",
+      "routine": "LocalForward",
+      "setting": 1,
+      "exclusive_cycles": 121,
+      "cycles_including_call_wrapper": 558,
+      "spill_operands": 2,
+      "param_operands": 5,
+      "local_operands": 8
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "captures",
+      "routine": "OtherHome",
+      "setting": 0,
+      "exclusive_cycles": 34,
+      "cycles_including_call_wrapper": 88,
+      "spill_operands": 2,
+      "param_operands": 4,
+      "local_operands": 0
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "captures",
+      "routine": "OtherHome",
+      "setting": 1,
+      "exclusive_cycles": 36,
+      "cycles_including_call_wrapper": 90,
+      "spill_operands": 2,
+      "param_operands": 4,
+      "local_operands": 0
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "on",
+      "routine": "LocalForward",
+      "setting": 0,
+      "exclusive_cycles": 111,
+      "cycles_including_call_wrapper": 529,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 8
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "on",
+      "routine": "LocalForward",
+      "setting": 1,
+      "exclusive_cycles": 113,
+      "cycles_including_call_wrapper": 550,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 8
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "on",
+      "routine": "OtherHome",
+      "setting": 0,
+      "exclusive_cycles": 34,
+      "cycles_including_call_wrapper": 88,
+      "spill_operands": 2,
+      "param_operands": 4,
+      "local_operands": 0
+    },
+    {
+      "runtime": "ActionCart",
+      "config": "on",
+      "routine": "OtherHome",
+      "setting": 1,
+      "exclusive_cycles": 36,
+      "cycles_including_call_wrapper": 90,
+      "spill_operands": 2,
+      "param_operands": 4,
+      "local_operands": 0
+    },
+    {
+      "runtime": "Standalone",
+      "config": "off",
+      "routine": "LocalForward",
+      "setting": 0,
+      "exclusive_cycles": 151,
+      "cycles_including_call_wrapper": 569,
+      "spill_operands": 10,
+      "param_operands": 5,
+      "local_operands": 8
+    },
+    {
+      "runtime": "Standalone",
+      "config": "off",
+      "routine": "LocalForward",
+      "setting": 1,
+      "exclusive_cycles": 153,
+      "cycles_including_call_wrapper": 590,
+      "spill_operands": 10,
+      "param_operands": 5,
+      "local_operands": 8
+    },
+    {
+      "runtime": "Standalone",
+      "config": "off",
+      "routine": "OtherHome",
+      "setting": 0,
+      "exclusive_cycles": 38,
+      "cycles_including_call_wrapper": 92,
+      "spill_operands": 4,
+      "param_operands": 3,
+      "local_operands": 0
+    },
+    {
+      "runtime": "Standalone",
+      "config": "off",
+      "routine": "OtherHome",
+      "setting": 1,
+      "exclusive_cycles": 40,
+      "cycles_including_call_wrapper": 94,
+      "spill_operands": 4,
+      "param_operands": 3,
+      "local_operands": 0
+    },
+    {
+      "runtime": "Standalone",
+      "config": "captures",
+      "routine": "LocalForward",
+      "setting": 0,
+      "exclusive_cycles": 119,
+      "cycles_including_call_wrapper": 537,
+      "spill_operands": 2,
+      "param_operands": 5,
+      "local_operands": 8
+    },
+    {
+      "runtime": "Standalone",
+      "config": "captures",
+      "routine": "LocalForward",
+      "setting": 1,
+      "exclusive_cycles": 121,
+      "cycles_including_call_wrapper": 558,
+      "spill_operands": 2,
+      "param_operands": 5,
+      "local_operands": 8
+    },
+    {
+      "runtime": "Standalone",
+      "config": "captures",
+      "routine": "OtherHome",
+      "setting": 0,
+      "exclusive_cycles": 34,
+      "cycles_including_call_wrapper": 88,
+      "spill_operands": 2,
+      "param_operands": 4,
+      "local_operands": 0
+    },
+    {
+      "runtime": "Standalone",
+      "config": "captures",
+      "routine": "OtherHome",
+      "setting": 1,
+      "exclusive_cycles": 36,
+      "cycles_including_call_wrapper": 90,
+      "spill_operands": 2,
+      "param_operands": 4,
+      "local_operands": 0
+    },
+    {
+      "runtime": "Standalone",
+      "config": "on",
+      "routine": "LocalForward",
+      "setting": 0,
+      "exclusive_cycles": 111,
+      "cycles_including_call_wrapper": 529,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 8
+    },
+    {
+      "runtime": "Standalone",
+      "config": "on",
+      "routine": "LocalForward",
+      "setting": 1,
+      "exclusive_cycles": 113,
+      "cycles_including_call_wrapper": 550,
+      "spill_operands": 0,
+      "param_operands": 5,
+      "local_operands": 8
+    },
+    {
+      "runtime": "Standalone",
+      "config": "on",
+      "routine": "OtherHome",
+      "setting": 0,
+      "exclusive_cycles": 34,
+      "cycles_including_call_wrapper": 88,
+      "spill_operands": 2,
+      "param_operands": 4,
+      "local_operands": 0
+    },
+    {
+      "runtime": "Standalone",
+      "config": "on",
+      "routine": "OtherHome",
+      "setting": 1,
+      "exclusive_cycles": 36,
+      "cycles_including_call_wrapper": 90,
+      "spill_operands": 2,
+      "param_operands": 4,
+      "local_operands": 0
+    }
+  ],
+  "SetTagged_vectors": {
+    "runtime": "ActionCart",
+    "programs": [
+      "TN",
+      "TNDBG"
+    ],
+    "ordinal_0_cycles_including_call_wrapper": {
+      "setting_0": 802,
+      "settings_1_2_255": 890
+    },
+    "ordinal_20_out_of_range": {
+      "setting_0": 476,
+      "settings_1_2_255": 478
+    },
+    "evidence": "Stage 3 execution log; final root image hashes are identical."
+  },
+  "checks": {
+    "MIR6502_library": {
+      "passed": 1048,
+      "existing_ignored": 2
+    },
+    "MIR6502_integration": {
+      "passed": 96,
+      "targets": 11
+    },
+    "VM_runtime": {
+      "passed": 392,
+      "targets": 85,
+      "doc_tests": 0
+    },
+    "configuration_comparison": {
+      "passed": 2,
+      "executed_lf_crlf": true,
+      "runtimes": [
+        "ActionCart",
+        "Standalone"
+      ]
+    },
+    "full_root_lf_crlf_images_identical": true,
+    "classic_image_hashes_unchanged": true,
+    "final_root_hashes_match_stage3": true
+  }
+}

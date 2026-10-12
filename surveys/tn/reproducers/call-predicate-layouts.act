@@ -1,0 +1,31 @@
+; Independent locals, non-tail WORD result, and other Boolean ABI placement.
+TYPE Cell=[CARD value]
+CARD observedWord=$0802
+BYTE observedEnabled=$0804
+
+CARD FUNC ApplyWord(Cell POINTER cell CARD value BYTE enabled)
+  observedWord=value
+  observedEnabled=enabled
+  IF enabled THEN cell.value=value ELSE cell.value=0 FI
+RETURN(value+enabled)
+
+CARD FUNC LocalForward(Cell POINTER original CARD value BYTE setting)
+  Cell POINTER cell
+  CARD copy,result
+  cell=original
+  copy=value
+  result=ApplyWord(cell,copy,setting#0)
+RETURN(result+1)
+
+BYTE FUNC ApplySmall(CARD value BYTE enabled)
+  observedWord=value
+  observedEnabled=enabled
+RETURN(enabled)
+
+BYTE FUNC OtherHome(CARD value BYTE setting)
+RETURN(ApplySmall(value,setting#0))
+
+PROC Main()
+  LocalForward(Cell POINTER($6001),$FEDC,2)
+  OtherHome($FEDC,255)
+RETURN

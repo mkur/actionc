@@ -1,5 +1,4 @@
 //! Snapshot proofs for an exclusive numeric predicate's direct call.
-#![allow(dead_code)] // Selection is enabled in the next slice.
 use super::effects::classify_op;
 use super::sites::{MirProgramPoint, MirSite};
 use super::use_def::MirDefSite;
@@ -89,6 +88,11 @@ pub(in crate::mir6502) fn predicate_call(
     let MirSite::Op { block, op_index } = site else {
         return None;
     };
+    // Initial bounded region ends in an exit block. No loop propagation or
+    // ambiguous incoming join is admitted by this local snapshot proof.
+    if !context.cfg().exits().contains(&block) || context.cfg().predecessors(block).len() > 1 {
+        return None;
+    }
     let b = r.blocks.iter().find(|b| b.id == block)?;
     let MirOp::Call {
         target: MirCallTarget::Routine(_),
@@ -373,6 +377,40 @@ pub(in crate::mir6502) mod tests {
                     .is_err(),
                 "{blocker:?}"
             );
+        }
+    }
+
+    #[test]
+    fn call_predicate_snapshot_rejects_loops_foreign_predecessors_and_absolute_backing() {
+        let g = MirRoutineGeneration::initial();
+        for kind in 0..3 {
+            let mut p = program();
+            let r = &mut p.routines[1];
+            let entry = r.blocks[0].id;
+            match kind {
+                0 => {
+                    r.blocks[0].terminator = MirTerminator::Jump(MirEdge {
+                        target: entry,
+                        args: vec![],
+                    })
+                }
+                1 => {
+                    for id in [99, 100] {
+                        r.blocks.push(MirBlock {
+                            id: MirBlockId(id),
+                            label: format!("foreign_{id}"),
+                            params: vec![],
+                            ops: vec![],
+                            terminator: MirTerminator::Jump(MirEdge {
+                                target: entry,
+                                args: vec![],
+                            }),
+                        });
+                    }
+                }
+                _ => r.frame.params[1].base = MirStorageBase::Absolute(0xA3),
+            }
+            assert!(prove(&p, g, g, 0x3000).is_err());
         }
     }
 }

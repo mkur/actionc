@@ -20,6 +20,17 @@ BYTE FUNC AliasHigh(Cell POINTER cell CARD value BYTE setting)
   high=BYTE POINTER(@value) high==+1 high^=$12
 RETURN(Capture(cell,value,setting#0))
 
+BYTE FUNC MutateHigh(BYTE POINTER source BYTE setting)
+  source^=$12
+  effectCalls==+1
+RETURN(setting)
+
+BYTE FUNC AliasLaterHigh(Cell POINTER cell CARD value BYTE setting)
+  BYTE POINTER high
+  high=BYTE POINTER(@value)
+  high==+1
+RETURN(Capture(cell,value,MutateHigh(high,setting)#0))
+
 CARD FUNC First()
   trace=trace*10+1
 RETURN(input)
@@ -37,6 +48,7 @@ RETURN(Capture(Cell POINTER($6001),input,observedEnabled#0))
 PROC Main()
   AliasWord(Cell POINTER($6001),$FEDC,1)
   AliasHigh(Cell POINTER($6001),$FEDC,1)
+  AliasLaterHigh(Cell POINTER($6001),$FEDC,1)
   Ordered(Cell POINTER($6001),1)
   Absolute()
 RETURN

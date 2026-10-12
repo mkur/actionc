@@ -56,7 +56,7 @@ fn aliased_parameter_snapshot_survives_later_argument_call() {
     snapshot_cases(true);
 }
 
-fn snapshot_cases(known_failure_only: bool) {
+fn snapshot_cases(alias_regression_only: bool) {
     let text =
         std::fs::read_to_string(root().join("surveys/tn/reproducers/call-predicate-snapshots.act"))
             .unwrap()
@@ -85,9 +85,15 @@ fn snapshot_cases(known_failure_only: bool) {
                 let listing = compiled.source_listing();
                 let mut vm = load(&compiled, runtime);
                 for setting in [0u8, 1, 2, 255] {
-                    for name in ["AliasWord", "AliasHigh", "Ordered", "Absolute"] {
-                        let known_failure = mode == CompileMode::Mir6502 && name == "AliasWord";
-                        if known_failure != known_failure_only {
+                    for name in [
+                        "AliasWord",
+                        "AliasHigh",
+                        "AliasLaterHigh",
+                        "Ordered",
+                        "Absolute",
+                    ] {
+                        let alias_regression = mode == CompileMode::Mir6502 && name == "AliasWord";
+                        if alias_regression != alias_regression_only {
                             continue;
                         }
                         vm.bus_mut().ram_mut().map(0x0800, &[0; 10]).unwrap();
@@ -127,7 +133,7 @@ fn snapshot_cases(known_failure_only: bool) {
                         );
                         assert_eq!(
                             vm.bus().ram().read(0x0805),
-                            u8::from(matches!(name, "AliasWord" | "Ordered")),
+                            u8::from(matches!(name, "AliasWord" | "AliasLaterHigh" | "Ordered")),
                             "{label}: effect multiplicity"
                         );
                         assert_eq!(

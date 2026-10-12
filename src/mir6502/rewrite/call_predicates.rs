@@ -65,6 +65,7 @@ pub(in crate::mir6502) fn discover_argument_snapshots(
                 unreachable!()
             };
             for fact in &facts {
+                debug_assert_eq!(fact.call, context.point(site));
                 args[fact.argument].value = source_value(&fact.source, fact.width).unwrap();
             }
             let removed = facts

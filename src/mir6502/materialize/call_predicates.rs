@@ -1,12 +1,12 @@
 //! Final code/home/image and physical-placement gate for predicate arguments.
 use super::address_values::Cost;
 use super::*;
-use crate::mir6502::ir::MirRoutine;
 use crate::mir6502::analysis::call_predicates::{
     ArgumentSnapshot, physical_source, predicate_call,
 };
 use crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
+use crate::mir6502::ir::MirRoutine;
 use crate::mir6502::rewrite::context::PreHomeRewriteContext;
 use std::collections::{BTreeMap, BTreeSet};
 

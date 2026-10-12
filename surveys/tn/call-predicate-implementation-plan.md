@@ -1,6 +1,7 @@
 # MIR6502 call argument captures across predicates
 
-Status: Stages 0–3 complete, 2026-10-12; argument captures and Boolean ABI carrier selected; final qualification pending.
+Status: Stages 0–4 implemented and qualified, 2026-10-12. See the
+[maintained result](call-predicates/README.md) and [final measurements](call-predicates/stage4.json).
 
 Implement priority 2 from the next compiler steps: reduce private argument
 captures that survive a pure predicate's control flow. This is direction 3 in
@@ -281,5 +282,5 @@ NIR sweep and full `cargo test` under AGENTS.md.
 Keep small fixtures/reports under this survey and binaries/listings/logs in one
 ignored target directory. Use one debug-info-free, non-incremental build cache.
 Preserve the frozen audit, address-value final compiler and historical baselines
-during cleanup. Preparation of this documentation requires content/link checks;
-it does not start implementation or require rebuilding compiler suites.
+during cleanup. Documentation checks cover edited content and links; executable changes use
+the backend qualification above.

@@ -153,6 +153,9 @@ pub(in crate::mir6502) struct MirMemoryEffects {
     /// address. Unlike `direct_reads`, taking a storage address is represented
     /// here without pretending that memory was read.
     pub direct_references: Vec<MirMem>,
+    /// Storage whose address is explicitly taken, independently of content
+    /// reads/writes in the same operation and independently of transfer width.
+    pub address_references: Vec<MirMem>,
     pub direct_reads: Vec<MirMemoryRange>,
     pub direct_writes: Vec<MirMemoryRange>,
     pub structured_reads: MirMemoryEffect,
@@ -416,6 +419,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         }
         MirOp::LeaAddr { dst, target, width } => {
             record_home_reference(target, &mut summary);
+            push_unique_mem(&mut summary.memory.address_references, target);
             record_def(dst, *width, &mut summary);
             summary.removable_when_results_dead = true;
         }
@@ -1133,7 +1137,10 @@ fn record_value_as(value: &MirValue, kind: MirTempUseKind, summary: &mut MirOpEf
             record_value_as(hi, kind, summary);
         }
         MirValue::PointerCell(mem) => record_memory_read(mem, summary),
-        MirValue::StorageAddrByte { mem, .. } => record_home_reference(mem, summary),
+        MirValue::StorageAddrByte { mem, .. } => {
+            record_home_reference(mem, summary);
+            push_unique_mem(&mut summary.memory.address_references, mem);
+        }
         MirValue::ConstU8(_)
         | MirValue::ConstU16(_)
         | MirValue::StaticAddr(_)
@@ -2780,6 +2787,7 @@ mod tests {
             width: MirWidth::Word,
         });
         assert_eq!(lea.memory.direct_references, vec![param.clone()]);
+        assert_eq!(lea.memory.address_references, vec![param.clone()]);
         assert!(lea.memory.direct_reads.is_empty());
 
         let address_byte = classify_op(&MirOp::Move {
@@ -2790,7 +2798,19 @@ mod tests {
             },
             width: MirWidth::Byte,
         });
-        assert_eq!(address_byte.memory.direct_references, vec![param]);
+        assert_eq!(address_byte.memory.direct_references, vec![param.clone()]);
+        assert_eq!(address_byte.memory.address_references, vec![param.clone()]);
         assert!(address_byte.memory.direct_reads.is_empty());
+        let read = classify_op(&MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(0)), src: MirAddr::Direct(param.clone()), width: MirWidth::Word,
+        });
+        assert!(read.memory.address_references.is_empty());
+        let combined = classify_op(&MirOp::Binary {
+            op: MirBinaryOp::Add, dst: MirDef::VTemp(MirTempId(0)),
+            left: MirValue::PointerCell(param.clone()), right: MirValue::StorageAddrByte { mem: param.clone(), byte: 1 },
+            width: MirWidth::Byte, carry_in: None, carry_out: crate::mir6502::ir::MirCarryOut::Ignore,
+        });
+        assert_eq!(combined.memory.address_references, vec![param]);
+        assert!(!combined.memory.direct_reads.is_empty());
     }
 }
