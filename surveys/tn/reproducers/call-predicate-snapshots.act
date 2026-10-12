@@ -1,0 +1,42 @@
+; Later arguments must retain the earlier value even when its source changes.
+TYPE Cell=[CARD value]
+CARD observedCell=$0800,observedWord=$0802
+BYTE observedEnabled=$0804,effectCalls=$0805,trace=$0806
+CARD input=$0808
+
+BYTE FUNC Capture(Cell POINTER cell CARD value BYTE enabled)
+  observedCell=CARD(cell) observedWord=value observedEnabled=enabled
+RETURN(enabled)
+
+BYTE FUNC Mutate(CARD POINTER source BYTE setting)
+  source^=$EF01 effectCalls==+1
+RETURN(setting)
+
+BYTE FUNC AliasWord(Cell POINTER cell CARD value BYTE setting)
+RETURN(Capture(cell,value,Mutate(@value,setting)#0))
+
+BYTE FUNC AliasHigh(Cell POINTER cell CARD value BYTE setting)
+  BYTE POINTER high
+  high=BYTE POINTER(@value) high==+1 high^=$12
+RETURN(Capture(cell,value,setting#0))
+
+CARD FUNC First()
+  trace=trace*10+1
+RETURN(input)
+
+BYTE FUNC Last(BYTE setting)
+  trace=trace*10+2 input=$EF01 effectCalls==+1
+RETURN(setting)
+
+BYTE FUNC Ordered(Cell POINTER cell BYTE setting)
+RETURN(Capture(cell,First(),Last(setting)#0))
+
+BYTE FUNC Absolute()
+RETURN(Capture(Cell POINTER($6001),input,observedEnabled#0))
+
+PROC Main()
+  AliasWord(Cell POINTER($6001),$FEDC,1)
+  AliasHigh(Cell POINTER($6001),$FEDC,1)
+  Ordered(Cell POINTER($6001),1)
+  Absolute()
+RETURN

@@ -1,0 +1,781 @@
+{
+  "compiler_sha256": "0d3fccff8034f253a35af86cfa1f70736dffd677e997a520afd67f903df0e097",
+  "fixtures": {
+    "captured-call-arguments-cart": {
+      "load_file_bytes": 263,
+      "loaded_bytes": 253,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 221,
+      "directive_form_bytes": 30,
+      "routine_count": 4,
+      "routines": {
+        "Forward": {
+          "start": 12375,
+          "end": 12445,
+          "entry": 12375,
+          "instruction_form_bytes": 67,
+          "directive_form_bytes": 3,
+          "instructions": 24,
+          "direct_calls": 1,
+          "calls": {
+            "$A0F5": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 5,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 11,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 1,
+            "LDA": 10,
+            "STA": 8,
+            "BEQ": 1,
+            "JMP": 2,
+            "LDX": 1,
+            "LDY": 1
+          }
+        },
+        "PredicateFirst": {
+          "start": 12445,
+          "end": 12488,
+          "entry": 12445,
+          "instruction_form_bytes": 40,
+          "directive_form_bytes": 3,
+          "instructions": 15,
+          "direct_calls": 1,
+          "calls": {
+            "$A0F5": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 5,
+            "local": 1,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 5,
+            "local": 2,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 1,
+            "LDA": 6,
+            "BEQ": 1,
+            "JMP": 2,
+            "STA": 3,
+            "LDX": 1,
+            "LDY": 1
+          }
+        }
+      },
+      "image_sha256": "2bd29f278d8735ed1fe0d54917ac16e1821193ce03a3c88ebb9c3b5394ad23d1",
+      "lf_crlf_identical": true
+    },
+    "captured-call-arguments-standalone": {
+      "load_file_bytes": 345,
+      "loaded_bytes": 335,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 290,
+      "directive_form_bytes": 43,
+      "routine_count": 7,
+      "routines": {
+        "Forward": {
+          "start": 12376,
+          "end": 12446,
+          "entry": 12376,
+          "instruction_form_bytes": 67,
+          "directive_form_bytes": 3,
+          "instructions": 24,
+          "direct_calls": 1,
+          "calls": {
+            "ACTION.RUNTIME.SYSLIB::SArgs": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 5,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 11,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 1,
+            "LDA": 10,
+            "STA": 8,
+            "BEQ": 1,
+            "JMP": 2,
+            "LDX": 1,
+            "LDY": 1
+          }
+        },
+        "PredicateFirst": {
+          "start": 12446,
+          "end": 12489,
+          "entry": 12446,
+          "instruction_form_bytes": 40,
+          "directive_form_bytes": 3,
+          "instructions": 15,
+          "direct_calls": 1,
+          "calls": {
+            "ACTION.RUNTIME.SYSLIB::SArgs": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 5,
+            "local": 1,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 5,
+            "local": 2,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 1,
+            "LDA": 6,
+            "BEQ": 1,
+            "JMP": 2,
+            "STA": 3,
+            "LDX": 1,
+            "LDY": 1
+          }
+        }
+      },
+      "image_sha256": "06f52ec62a8aa849ba46f32b1a47daf14718c45658cf60ec15d9e4cfe356be9d",
+      "lf_crlf_identical": true
+    },
+    "call-predicate-snapshots-cart": {
+      "load_file_bytes": 514,
+      "loaded_bytes": 504,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 459,
+      "directive_form_bytes": 43,
+      "routine_count": 9,
+      "routines": {
+        "AliasWord": {
+          "start": 12394,
+          "end": 12449,
+          "entry": 12394,
+          "instruction_form_bytes": 52,
+          "directive_form_bytes": 3,
+          "instructions": 20,
+          "direct_calls": 2,
+          "calls": {
+            "$A0F5": 1,
+            "Mutate": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 1,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 3,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 2,
+            "LDA": 6,
+            "LDX": 2,
+            "LDY": 2,
+            "CMP": 1,
+            "BEQ": 1,
+            "STA": 4,
+            "JMP": 2
+          }
+        },
+        "Ordered": {
+          "start": 12631,
+          "end": 12698,
+          "entry": 12631,
+          "instruction_form_bytes": 67,
+          "directive_form_bytes": 0,
+          "instructions": 25,
+          "direct_calls": 2,
+          "calls": {
+            "First": 1,
+            "Last": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 4,
+          "home_bytes": {
+            "spill": 3,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 7,
+            "param": 6,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 7,
+            "STX": 1,
+            "STY": 1,
+            "JSR": 2,
+            "LDA": 8,
+            "CMP": 1,
+            "BEQ": 1,
+            "JMP": 2,
+            "LDX": 1,
+            "LDY": 1
+          }
+        }
+      },
+      "image_sha256": "2fbc2544bcc0f492cef5f50c531aca31c93fd9e4918260118c32c9be1ff848a5",
+      "lf_crlf_identical": true
+    },
+    "call-predicate-snapshots-standalone": {
+      "load_file_bytes": 615,
+      "loaded_bytes": 605,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 547,
+      "directive_form_bytes": 56,
+      "routine_count": 13,
+      "routines": {
+        "AliasWord": {
+          "start": 12395,
+          "end": 12450,
+          "entry": 12395,
+          "instruction_form_bytes": 52,
+          "directive_form_bytes": 3,
+          "instructions": 20,
+          "direct_calls": 2,
+          "calls": {
+            "ACTION.RUNTIME.SYSLIB::SArgs": 1,
+            "Mutate": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 1,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 3,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 2,
+            "LDA": 6,
+            "LDX": 2,
+            "LDY": 2,
+            "CMP": 1,
+            "BEQ": 1,
+            "STA": 4,
+            "JMP": 2
+          }
+        },
+        "Ordered": {
+          "start": 12608,
+          "end": 12675,
+          "entry": 12608,
+          "instruction_form_bytes": 67,
+          "directive_form_bytes": 0,
+          "instructions": 25,
+          "direct_calls": 2,
+          "calls": {
+            "First": 1,
+            "Last": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 4,
+          "home_bytes": {
+            "spill": 3,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 7,
+            "param": 6,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 7,
+            "STX": 1,
+            "STY": 1,
+            "JSR": 2,
+            "LDA": 8,
+            "CMP": 1,
+            "BEQ": 1,
+            "JMP": 2,
+            "LDX": 1,
+            "LDY": 1
+          }
+        }
+      },
+      "image_sha256": "596873b33c8764e0c0dc0a027b4b1c695a31b73c5085c08ce0f1aa620330e416",
+      "lf_crlf_identical": true
+    }
+  },
+  "roots": {
+    "TN-optimized": {
+      "load_file_bytes": 18095,
+      "instruction_form_bytes": 16659,
+      "directive_form_bytes": 1424,
+      "sha256": "f63a719d3c22e5dd942dbaa81b9f3c7017ffb6cfec5b65de67d53bc102c2474a",
+      "lf_crlf_identical": true,
+      "SetTagged": {
+        "start": 15326,
+        "end": 15368,
+        "entry": 15331,
+        "instruction_form_bytes": 34,
+        "directive_form_bytes": 8,
+        "instructions": 13,
+        "direct_calls": 1,
+        "calls": {
+          "$A0F5": 1
+        },
+        "pointer_scratch_writes": 0,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "fixed_home_bytes": {
+          "spill": 0,
+          "param": 0,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 5,
+          "local": 1,
+          "static_string": 0
+        },
+        "mnemonics": {
+          "JSR": 1,
+          "LDA": 5,
+          "STA": 2,
+          "BNE": 1,
+          "JMP": 2,
+          "LDY": 1,
+          "LDX": 1
+        }
+      },
+      "BatchItem": {
+        "start": 16680,
+        "end": 16785,
+        "entry": 16683,
+        "instruction_form_bytes": 102,
+        "directive_form_bytes": 3,
+        "instructions": 57,
+        "direct_calls": 0,
+        "calls": {},
+        "pointer_scratch_writes": 6,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "fixed_home_bytes": {
+          "spill": 0,
+          "param": 0,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 4,
+          "local": 2,
+          "static_string": 0
+        },
+        "mnemonics": {
+          "STA": 19,
+          "STX": 1,
+          "STY": 1,
+          "CLC": 3,
+          "LDA": 14,
+          "ADC": 6,
+          "TXA": 1,
+          "TYA": 1,
+          "ASL": 4,
+          "ROL": 4,
+          "PHA": 1,
+          "PLA": 1,
+          "RTS": 1
+        }
+      }
+    },
+    "TN-mir6502": {
+      "load_file_bytes": 16802,
+      "instruction_form_bytes": 15393,
+      "directive_form_bytes": 1397,
+      "sha256": "351828777704bc9e46d18048cf321957fc4dac59cf8bf77fd9ed6425f0482edb",
+      "lf_crlf_identical": true,
+      "SetTagged": {
+        "start": 16167,
+        "end": 16237,
+        "entry": 16167,
+        "instruction_form_bytes": 67,
+        "directive_form_bytes": 3,
+        "instructions": 24,
+        "direct_calls": 1,
+        "calls": {
+          "$A0F5": 1
+        },
+        "pointer_scratch_writes": 0,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 5,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "fixed_home_bytes": {
+          "spill": 0,
+          "param": 0,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 11,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "mnemonics": {
+          "JSR": 1,
+          "LDA": 10,
+          "STA": 8,
+          "BEQ": 1,
+          "JMP": 2,
+          "LDX": 1,
+          "LDY": 1
+        }
+      },
+      "BatchItem": {
+        "start": 17559,
+        "end": 17636,
+        "entry": 17559,
+        "instruction_form_bytes": 77,
+        "directive_form_bytes": 0,
+        "instructions": 40,
+        "direct_calls": 0,
+        "calls": {},
+        "pointer_scratch_writes": 8,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "fixed_home_bytes": {
+          "spill": 0,
+          "param": 0,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "mnemonics": {
+          "STA": 11,
+          "STX": 1,
+          "STY": 1,
+          "CLC": 3,
+          "ADC": 6,
+          "TXA": 1,
+          "TYA": 1,
+          "LDA": 7,
+          "ASL": 4,
+          "ROL": 4,
+          "RTS": 1
+        }
+      }
+    },
+    "TNDBG-optimized": {
+      "load_file_bytes": 21586,
+      "instruction_form_bytes": 19589,
+      "directive_form_bytes": 1985,
+      "sha256": "8d29fb4df2c73f52d849e7e32eb90b6d3548a964e356571634ed67d78f31a92b",
+      "lf_crlf_identical": true,
+      "SetTagged": {
+        "start": 15326,
+        "end": 15368,
+        "entry": 15331,
+        "instruction_form_bytes": 34,
+        "directive_form_bytes": 8,
+        "instructions": 13,
+        "direct_calls": 1,
+        "calls": {
+          "$A0F5": 1
+        },
+        "pointer_scratch_writes": 0,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "fixed_home_bytes": {
+          "spill": 0,
+          "param": 0,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 5,
+          "local": 1,
+          "static_string": 0
+        },
+        "mnemonics": {
+          "JSR": 1,
+          "LDA": 5,
+          "STA": 2,
+          "BNE": 1,
+          "JMP": 2,
+          "LDY": 1,
+          "LDX": 1
+        }
+      },
+      "BatchItem": {
+        "start": 16680,
+        "end": 16785,
+        "entry": 16683,
+        "instruction_form_bytes": 102,
+        "directive_form_bytes": 3,
+        "instructions": 57,
+        "direct_calls": 0,
+        "calls": {},
+        "pointer_scratch_writes": 6,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "fixed_home_bytes": {
+          "spill": 0,
+          "param": 0,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 4,
+          "local": 2,
+          "static_string": 0
+        },
+        "mnemonics": {
+          "STA": 19,
+          "STX": 1,
+          "STY": 1,
+          "CLC": 3,
+          "LDA": 14,
+          "ADC": 6,
+          "TXA": 1,
+          "TYA": 1,
+          "ASL": 4,
+          "ROL": 4,
+          "PHA": 1,
+          "PLA": 1,
+          "RTS": 1
+        }
+      }
+    },
+    "TNDBG-mir6502": {
+      "load_file_bytes": 20539,
+      "instruction_form_bytes": 18556,
+      "directive_form_bytes": 1971,
+      "sha256": "372ff2ee335635bda41d2cf3580f2f1843873f141fbf6c0893615897d018fb47",
+      "lf_crlf_identical": true,
+      "SetTagged": {
+        "start": 16731,
+        "end": 16801,
+        "entry": 16731,
+        "instruction_form_bytes": 67,
+        "directive_form_bytes": 3,
+        "instructions": 24,
+        "direct_calls": 1,
+        "calls": {
+          "$A0F5": 1
+        },
+        "pointer_scratch_writes": 0,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 5,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "fixed_home_bytes": {
+          "spill": 0,
+          "param": 0,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 11,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "mnemonics": {
+          "JSR": 1,
+          "LDA": 10,
+          "STA": 8,
+          "BEQ": 1,
+          "JMP": 2,
+          "LDX": 1,
+          "LDY": 1
+        }
+      },
+      "BatchItem": {
+        "start": 18123,
+        "end": 18200,
+        "entry": 18123,
+        "instruction_form_bytes": 77,
+        "directive_form_bytes": 0,
+        "instructions": 40,
+        "direct_calls": 0,
+        "calls": {},
+        "pointer_scratch_writes": 8,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "fixed_home_bytes": {
+          "spill": 0,
+          "param": 0,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "mnemonics": {
+          "STA": 11,
+          "STX": 1,
+          "STY": 1,
+          "CLC": 3,
+          "ADC": 6,
+          "TXA": 1,
+          "TYA": 1,
+          "LDA": 7,
+          "ASL": 4,
+          "ROL": 4,
+          "RTS": 1
+        }
+      }
+    }
+  },
+  "source_commit": "a15f9f36",
+  "known_failure": "MIR6502 AliasWord sinks an earlier parameter load across a call passed its address; expected FEDC, observed EF01."
+}
