@@ -631,6 +631,10 @@ impl Cost {
             homes,
         })
     }
+    pub(super) fn does_not_grow(&self, old: &Self, id: RoutineId) -> bool {
+        self.routine_bytes.get(&id).zip(old.routine_bytes.get(&id)).is_some_and(|(a,b)|a<=b)
+            && self.homes.get(&id).zip(old.homes.get(&id)).is_some_and(|(a,b)|a<=b)
+    }
     pub(super) fn routine(&self, id: RoutineId) -> Option<usize> {
         Some(*self.routine_bytes.get(&id)? + *self.homes.get(&id)?)
     }

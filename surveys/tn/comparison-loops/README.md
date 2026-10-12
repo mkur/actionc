@@ -45,3 +45,18 @@ index and base cells are distinct; only the original ordered reads, captures
 and exact unsigned inequality are admitted. Foreign entries, zero-trip or
 wrapping bounds, source writes, effects, incomplete lanes and extra temp uses
 retain the generic path. This stage changes no emitted operations.
+
+## Stage 2 retained pointers (opt-in)
+
+Both runtime/newline paths pass with the feature disabled and enabled. The
+single-loop fixtures retain two bases and execute four pointer-pair writes per
+call, independent of equal-prefix length. `Equal` takes 648 cycles for equal
+11-byte inputs versus 1,020 before selection; first-byte mismatch takes 129
+versus 125. Necessary captures and observable index values remain intact.
+
+The two-loop `After` candidate grows by two instruction bytes in this slice
+and retains its complete fallback. Final routine, home and image budgets are
+checked separately; a bounded partial-batch repair lets smaller routines pass.
+Both pairs use the existing `$AA–$AF` compiler window. The selected schedule
+adds no virtual zero-page allocation outside that window. The live-Y verifier
+checks complete first-entry initialization through the CFG.

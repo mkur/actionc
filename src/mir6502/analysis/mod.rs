@@ -4,6 +4,7 @@ pub(super) mod call_predicates;
 pub(super) mod cfg;
 pub(super) mod counted_loops;
 pub(super) mod comparison_loops;
+pub(super) mod live_y;
 pub(super) mod dominance;
 pub(super) mod effects;
 pub(super) mod home_definitions;

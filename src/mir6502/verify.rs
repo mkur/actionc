@@ -390,6 +390,12 @@ impl MirVerifier {
             }
         }
 
+        for id in super::analysis::live_y::invalid_uses(routine) {
+            let block = routine.blocks.iter().find(|b| b.id == id).unwrap();
+            self.diagnostics.push(MirDiagnostic::block(&routine.name,&block.label,
+                "live-Y access requires complete bases and Y initialized on every entry path"));
+        }
+
         let mut predecessor_counts = routine
             .blocks
             .iter()
@@ -1951,6 +1957,9 @@ impl MirVerifier {
                 scale,
             } => {
                 self.verify_address_consumer(routine, block, consumer);
+                if consumer.uses_live_y() {
+                    self.reject_scaled_y_consumer(routine,block,consumer,"indexed address construction");
+                }
                 if consumer.uses_paged_y() && *scale != 1 {
                     self.diagnostics.push(MirDiagnostic::block(
                         &routine.name,
@@ -1998,6 +2007,9 @@ impl MirVerifier {
             } => {
                 self.verify_address_consumer(routine, block, consumer);
                 self.verify_scaled_y_offset(routine, block, consumer, *offset);
+                if consumer.uses_live_y() {
+                    self.reject_scaled_y_consumer(routine,block,consumer,"indirect store");
+                }
                 self.verify_value(routine, block, src, static_ids, global_ids, routine_ids);
             }
             MirOp::IndirectByteCompound {
@@ -2375,7 +2387,9 @@ impl MirVerifier {
         consumer: &MirAddressConsumer,
         operation: &str,
     ) {
-        let consumer_kind = if consumer.uses_paged_y() {
+        let consumer_kind = if consumer.uses_live_y() {
+            Some("live-Y")
+        } else if consumer.uses_paged_y() {
             Some("paged-Y")
         } else if consumer.uses_scaled_y() {
             Some("scaled-Y")
@@ -2398,7 +2412,10 @@ impl MirVerifier {
         consumer: &MirAddressConsumer,
         offset: u16,
     ) {
-        if consumer.uses_paged_y() && offset != 0 {
+        if consumer.uses_live_y() && offset != 0 {
+            self.diagnostics.push(MirDiagnostic::block(&routine.name,block,
+                "live-Y indirect access only supports offset zero"));
+        } else if consumer.uses_paged_y() && offset != 0 {
             self.diagnostics.push(MirDiagnostic::block(
                 &routine.name,
                 block,

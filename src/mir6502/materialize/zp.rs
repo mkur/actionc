@@ -540,6 +540,9 @@ fn resolve_consumer(
         return;
     };
     *consumer = match *consumer {
+        MirAddressConsumer::LiveIndirectIndexedY(_) => {
+            MirAddressConsumer::LiveIndirectIndexedY(MirPointerPair::Fixed { lo })
+        }
         MirAddressConsumer::IndirectIndexedY(_) => {
             MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo })
         }

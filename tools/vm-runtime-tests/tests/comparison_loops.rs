@@ -167,6 +167,13 @@ fn run(text: &str, config: &Mir6502Config, runtime: Runtime, crlf: bool) {
                         reads.sequence, expected_reads,
                         "{name}: read order and multiplicity"
                     );
+                    if config.enable_comparison_loop_pointers && name == "Equal" {
+                        assert!(
+                            reads.pair_writes <= 4,
+                            "retained bases: {} writes",
+                            reads.pair_writes
+                        );
+                    }
                     if name == "Observed" {
                         let n = if mismatch < len && left != right {
                             mismatch
@@ -240,16 +247,21 @@ fn record_comparison_loops_preserve_values_read_order_and_guards() {
         .replace("\r\n", "\n");
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         for crlf in [false, true] {
-            run(
-                &if crlf {
-                    text.replace('\n', "\r\n")
-                } else {
-                    text.clone()
-                },
-                &Mir6502Config::optimized(),
-                runtime,
-                crlf,
-            );
+            for pointers in [false, true] {
+                let mut config = Mir6502Config::optimized();
+                config.enable_comparison_loop_pointers = pointers;
+                println!("variant pointers={pointers}");
+                run(
+                    &if crlf {
+                        text.replace('\n', "\r\n")
+                    } else {
+                        text.clone()
+                    },
+                    &config,
+                    runtime,
+                    crlf,
+                );
+            }
         }
     }
 }

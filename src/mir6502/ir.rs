@@ -810,6 +810,9 @@ pub enum MirAddr {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MirAddressConsumer {
     IndirectIndexedY(MirPointerPair),
+    /// Complete prepared base plus the explicit current Y register, modulo
+    /// 65536. Byte loads only, offset zero; this consumer never reloads Y.
+    LiveIndirectIndexedY(MirPointerPair),
     /// The pointer pair contains the effective address rounded down to its
     /// 256-byte page and Y contains the effective low byte. This form is used
     /// for an unscaled word index into statically addressable byte storage.
@@ -833,8 +836,13 @@ impl MirAddressConsumer {
         match self {
             Self::IndirectIndexedY(pair)
             | Self::PagedIndirectIndexedY(pair)
-            | Self::ScaledIndirectIndexedY(pair) => pair,
+            | Self::ScaledIndirectIndexedY(pair)
+            | Self::LiveIndirectIndexedY(pair) => pair,
         }
+    }
+
+    pub(crate) fn uses_live_y(self) -> bool {
+        matches!(self, Self::LiveIndirectIndexedY(_))
     }
 
     pub(crate) fn uses_paged_y(self) -> bool {
@@ -848,7 +856,7 @@ impl MirAddressConsumer {
     pub(crate) fn preserves_index_in_y(self) -> bool {
         matches!(
             self,
-            Self::PagedIndirectIndexedY(_) | Self::ScaledIndirectIndexedY(_)
+            Self::PagedIndirectIndexedY(_) | Self::ScaledIndirectIndexedY(_) | Self::LiveIndirectIndexedY(_)
         )
     }
 }

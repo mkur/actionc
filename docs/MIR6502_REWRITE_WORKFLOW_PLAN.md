@@ -38,6 +38,29 @@ It should be read together with:
 - the
   [MIR6502 peephole liveness audit](../surveys/tn/mir6502-peephole-liveness-audit.md).
 
+## Bounded comparison regions
+
+A companion comparison-loop fact covers one preheader, header, ordered-read
+body, latch and explicit mismatch/completion exits. It does not broaden the
+existing counted-loop contract. Facts carry the immutable snapshot generation;
+application independently reconstructs them before replacing a routine clone,
+then rebuilds analyses before another region can be selected.
+
+Comparison selection runs on resolved typed MIR before generic address and
+condition expansion. Edge arguments must already be absent in the admitted
+region. This retains the complete virtual base and capture chains that later
+CFG/condition canonicalization would destroy. The selected live-Y consumer has
+an explicit machine input and a CFG must-initialization verifier.
+
+One feature-disabled and one selected batch, with at most one partial-batch
+repair, are materialized through the
+existing argument/address cost gates. Final acceptance requires no increase in
+routine instruction bytes, ordinary homes, complete image bytes or the global
+zero-page allocation window, plus private physical ownership of both pairs. The existing fixed pointer window remains `$AA–$AF`; virtual
+allocation occupancy outside it cannot increase. Unknown
+cost, verification failure or overlap restores the complete original program
+and reservations. Discovery uses typed storage/CFG facts without SemIR queries.
+
 ## Goal
 
 Replace independently wired peephole safety checks with a workflow in which:

@@ -954,6 +954,16 @@ Rules:
 MIR6502 owns two target-specific address consumers that retain an index in Y
 between address materialization and the indirect access:
 
+- `LiveIndirectIndexedY` consumes a complete prepared pair and the explicit
+  current Y register. Its byte effective address is `(base + Y) mod 65536`;
+  only offset zero is valid and emission never reloads or adjusts Y. It reads
+  both pair lanes and Y, reads memory, writes A and N/Z, and preserves Y.
+  Address construction, word access and stores cannot use this consumer.
+  CFG must-initialization verifies both complete bases and Y on every entry
+  path; a backedge alone cannot initialize a first iteration. Pair-lane writes,
+  opaque effects and Y clobbers invalidate the corresponding state. Allocation
+  and source-owned physical overlap remain separate final selection checks.
+
 - `PagedIndirectIndexedY` is valid only for a scale-one word-sized index (the
   CARD-indexed case) into a statically addressable byte array. The pointer pair
   contains the effective address page, with a zero low byte, and Y contains the

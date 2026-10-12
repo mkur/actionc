@@ -5074,6 +5074,9 @@ fn prepare_indirect_y(
     offset: u16,
     emitter: &mut TrackedEmitter,
 ) -> bool {
+    if consumer.uses_live_y() {
+        return offset == 0;
+    }
     if consumer.uses_scaled_y() {
         let Some(current) = ctx.scaled_y_offset else {
             return false;
