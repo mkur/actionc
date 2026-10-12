@@ -1,0 +1,488 @@
+{
+  "date": "2026-10-12",
+  "compiler_source_revision": "1d67c984",
+  "tn_source_revision": "0af5bf87",
+  "compiler_sha256": "0aaffc680887ba74b07da3c999f4cc3f4cc86fb5fe1cbc10d6b18020febd54fd",
+  "rust": "1.99.0",
+  "runtime": "cart",
+  "origin": "$2C00",
+  "comparison_memtop": "$A000",
+  "memory": [
+    {
+      "program": "TN.ACT",
+      "mode": "optimized",
+      "load_file": 18095,
+      "emitted": 18083,
+      "deferred": 2798,
+      "reserved": 20881,
+      "buffer": "$7D91",
+      "copy_to_A000": 8815,
+      "shared_homes_and_buffers": 428
+    },
+    {
+      "program": "TN.ACT",
+      "mode": "mir6502",
+      "load_file": 16807,
+      "emitted": 16795,
+      "deferred": 2854,
+      "reserved": 19649,
+      "buffer": "$78C1",
+      "copy_to_A000": 10047,
+      "shared_homes_and_buffers": 438
+    },
+    {
+      "program": "TNDBG.ACT",
+      "mode": "optimized",
+      "load_file": 21586,
+      "emitted": 21574,
+      "deferred": 2798,
+      "reserved": 24372,
+      "buffer": "$8B34",
+      "copy_to_A000": 5324,
+      "shared_homes_and_buffers": 433
+    },
+    {
+      "program": "TNDBG.ACT",
+      "mode": "mir6502",
+      "load_file": 20544,
+      "emitted": 20532,
+      "deferred": 2854,
+      "reserved": 23386,
+      "buffer": "$875A",
+      "copy_to_A000": 6310,
+      "shared_homes_and_buffers": 441
+    }
+  ],
+  "comparisons": [
+    {
+      "program": "TN.ACT",
+      "mode": "optimized",
+      "load_bytes_saved": 257,
+      "copy_bytes_gained": 257,
+      "shared_helper_load_bytes_saved": 418,
+      "shared_helper_home_bytes_saved": 0,
+      "load_file_ceiling": 18300
+    },
+    {
+      "program": "TN.ACT",
+      "mode": "mir6502",
+      "load_bytes_saved": 458,
+      "copy_bytes_gained": 458,
+      "shared_helper_load_bytes_saved": 337,
+      "shared_helper_home_bytes_saved": 15,
+      "load_file_ceiling": 17000
+    },
+    {
+      "program": "TNDBG.ACT",
+      "mode": "optimized",
+      "load_bytes_saved": 255,
+      "copy_bytes_gained": 255,
+      "shared_helper_load_bytes_saved": 416,
+      "shared_helper_home_bytes_saved": 0,
+      "load_file_ceiling": 21750
+    },
+    {
+      "program": "TNDBG.ACT",
+      "mode": "mir6502",
+      "load_bytes_saved": 481,
+      "copy_bytes_gained": 481,
+      "shared_helper_load_bytes_saved": 337,
+      "shared_helper_home_bytes_saved": 15,
+      "load_file_ceiling": 20750
+    }
+  ],
+  "images": [
+    {
+      "program": "TN.ACT",
+      "mode": "optimized",
+      "sha256": "f63a719d3c22e5dd942dbaa81b9f3c7017ffb6cfec5b65de67d53bc102c2474a",
+      "lf_crlf_identical": true,
+      "identical_to_stage6b": true
+    },
+    {
+      "program": "TN.ACT",
+      "mode": "mir6502",
+      "sha256": "0bea35b4783adb61e1deb9197b719da5bfa1183c6a54e8e0f782f47ef83b5ed2",
+      "lf_crlf_identical": true,
+      "identical_to_stage6b": true
+    },
+    {
+      "program": "TNDBG.ACT",
+      "mode": "optimized",
+      "sha256": "8d29fb4df2c73f52d849e7e32eb90b6d3548a964e356571634ed67d78f31a92b",
+      "lf_crlf_identical": true,
+      "identical_to_stage6b": true
+    },
+    {
+      "program": "TNDBG.ACT",
+      "mode": "mir6502",
+      "sha256": "4a814f661dbeb4e67aba7e56cd2d195934be11f865bda8d5f8efa938c7f89e68",
+      "lf_crlf_identical": true,
+      "identical_to_stage6b": true
+    }
+  ],
+  "standalone": {
+    "program": "TN.ACT",
+    "mode": "mir6502",
+    "runtime": "standalone",
+    "load_file": 17106,
+    "buffer": "$79EC",
+    "copy_to_A000": 9748
+  },
+  "panel_model": {
+    "bytes": 1443,
+    "ceiling": 1721,
+    "cache_entries": 64,
+    "layout_changed": false
+  },
+  "shared_homes_and_buffers_ceiling": 512,
+  "routine_census": {
+    "baseline": {
+      "CachedEntry": {
+        "instruction_bytes": 240,
+        "emitted_home_bytes": 15
+      },
+      "MyDosParse": {
+        "instruction_bytes": 392,
+        "emitted_home_bytes": 7
+      },
+      "MyDosRender": {
+        "instruction_bytes": 337,
+        "emitted_home_bytes": 10
+      },
+      "MyDosRoot": {
+        "instruction_bytes": 73,
+        "emitted_home_bytes": 3
+      }
+    },
+    "final": {
+      "CachedEntry": {
+        "instruction_bytes": 159,
+        "emitted_home_bytes": 11
+      },
+      "MyDosParse": {
+        "instruction_bytes": 363,
+        "emitted_home_bytes": 7
+      },
+      "MyDosRender": {
+        "instruction_bytes": 298,
+        "emitted_home_bytes": 8
+      },
+      "MyDosRoot": {
+        "instruction_bytes": 73,
+        "emitted_home_bytes": 3
+      }
+    }
+  },
+  "generic_consumers": {
+    "ReadByte": {
+      "baseline_instruction_bytes": 27,
+      "final_instruction_bytes": 24
+    },
+    "ReadElement": {
+      "baseline_instruction_bytes": 104,
+      "final_instruction_bytes": 104
+    }
+  },
+  "expanded_helper_memory": [
+    {
+      "program": "TN.ACT",
+      "mode": "optimized",
+      "load_file": 18513,
+      "emitted": 18501,
+      "deferred": 2798,
+      "reserved": 21299,
+      "buffer": "$7F33",
+      "copy_to_A000": 8397,
+      "shared_homes_and_buffers": 428
+    },
+    {
+      "program": "TN.ACT",
+      "mode": "mir6502",
+      "load_file": 17144,
+      "emitted": 17132,
+      "deferred": 2854,
+      "reserved": 19986,
+      "buffer": "$7A12",
+      "copy_to_A000": 9710,
+      "shared_homes_and_buffers": 453
+    },
+    {
+      "program": "TNDBG.ACT",
+      "mode": "optimized",
+      "load_file": 22002,
+      "emitted": 21990,
+      "deferred": 2798,
+      "reserved": 24788,
+      "buffer": "$8CD4",
+      "copy_to_A000": 4908,
+      "shared_homes_and_buffers": 433
+    },
+    {
+      "program": "TNDBG.ACT",
+      "mode": "mir6502",
+      "load_file": 20881,
+      "emitted": 20869,
+      "deferred": 2854,
+      "reserved": 23723,
+      "buffer": "$88AB",
+      "copy_to_A000": 5973,
+      "shared_homes_and_buffers": 456
+    }
+  ],
+  "cpu": [
+    {
+      "backend": "Optimized",
+      "workload": "sort_reversed",
+      "count": 0,
+      "cpu_cycles": 84,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "draw",
+      "count": 0,
+      "cpu_cycles": 3104,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "tag_all",
+      "count": 0,
+      "cpu_cycles": 3314,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "toggle_tag",
+      "count": 0,
+      "cpu_cycles": 316,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 402988,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "sort_reversed",
+      "count": 1,
+      "cpu_cycles": 393,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "draw",
+      "count": 1,
+      "cpu_cycles": 7799,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "tag_all",
+      "count": 1,
+      "cpu_cycles": 3761,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "toggle_tag",
+      "count": 1,
+      "cpu_cycles": 845,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 402988,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "sort_reversed",
+      "count": 64,
+      "cpu_cycles": 894094,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "draw",
+      "count": 64,
+      "cpu_cycles": 64672,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "tag_all",
+      "count": 64,
+      "cpu_cycles": 34142,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "toggle_tag",
+      "count": 64,
+      "cpu_cycles": 822,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Optimized",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 402988,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "sort_reversed",
+      "count": 0,
+      "cpu_cycles": 72,
+      "emitted_spill_operand_accesses": 1
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "draw",
+      "count": 0,
+      "cpu_cycles": 2423,
+      "emitted_spill_operand_accesses": 6
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "tag_all",
+      "count": 0,
+      "cpu_cycles": 2805,
+      "emitted_spill_operand_accesses": 86
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "toggle_tag",
+      "count": 0,
+      "cpu_cycles": 316,
+      "emitted_spill_operand_accesses": 0
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 355209,
+      "emitted_spill_operand_accesses": 18
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "sort_reversed",
+      "count": 1,
+      "cpu_cycles": 433,
+      "emitted_spill_operand_accesses": 19
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "draw",
+      "count": 1,
+      "cpu_cycles": 6479,
+      "emitted_spill_operand_accesses": 88
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "tag_all",
+      "count": 1,
+      "cpu_cycles": 3123,
+      "emitted_spill_operand_accesses": 78
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "toggle_tag",
+      "count": 1,
+      "cpu_cycles": 780,
+      "emitted_spill_operand_accesses": 4
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 355209,
+      "emitted_spill_operand_accesses": 18
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "sort_reversed",
+      "count": 64,
+      "cpu_cycles": 805176,
+      "emitted_spill_operand_accesses": 15112
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "draw",
+      "count": 64,
+      "cpu_cycles": 55178,
+      "emitted_spill_operand_accesses": 568
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "tag_all",
+      "count": 64,
+      "cpu_cycles": 26294,
+      "emitted_spill_operand_accesses": 14
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "toggle_tag",
+      "count": 64,
+      "cpu_cycles": 755,
+      "emitted_spill_operand_accesses": 4
+    },
+    {
+      "backend": "Mir6502",
+      "workload": "publish_prefix",
+      "count": 1088,
+      "cpu_cycles": 355209,
+      "emitted_spill_operand_accesses": 18
+    }
+  ],
+  "cycle_scope": "TN.ACT; includes the fixed call wrapper and substituted-service RTS instructions; excludes device latency, real CIO/screen service work and ANTIC DMA. No exact cycle assertions.",
+  "spill_counter_scope": "Executed operands referring to emitted spill storage; RMW counts a semantic read and write. Excludes canonical params/locals, runtime scratch, stack, pointer-fetch bytes, resident services and NMOS dummy writes. Not every private bus access.",
+  "cpu_baseline": "baseline.json; toggle compares stage5b.json because Stage 0 has no pinned toggle vector.",
+  "qualification": {
+    "mir6502_library": {
+      "result_groups": 1,
+      "passed": 1022,
+      "ignored": 2
+    },
+    "classic_library": {
+      "result_groups": 1,
+      "passed": 836,
+      "ignored": 0
+    },
+    "consumer_integration": {
+      "result_groups": 5,
+      "passed": 82,
+      "ignored": 0
+    },
+    "other_backend_integration": {
+      "result_groups": 7,
+      "passed": 16,
+      "ignored": 0
+    },
+    "vm_backend": {
+      "result_groups": 82,
+      "passed": 379,
+      "ignored": 0
+    },
+    "profile": {
+      "result_groups": 1,
+      "passed": 3,
+      "ignored": 0
+    },
+    "storage_integration": {
+      "result_groups": 1,
+      "passed": 1,
+      "ignored": 0
+    },
+    "full_root_lf_crlf_images": 4,
+    "mydos_smoke": "mydos-smoke.json"
+  },
+  "deferred": "No live FujiNet adapter/firmware qualification; retain position and byte order table. Draw cache and post-I/O MyDosPush trusted alternatives need provider lifetime proofs. MyDOS smoke does not qualify file modifications or TNDBG disk behavior."
+}

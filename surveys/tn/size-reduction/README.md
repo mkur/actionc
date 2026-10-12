@@ -4,6 +4,21 @@ The [implementation plan](../size-reduction-implementation-plan.md) defines
 the stages. [baseline.json](baseline.json) pins the Stage 0 four-build memory
 measurements and CPU workloads, reproduced on 2026-10-12.
 
+Stages 0–7 are complete. [final.json](final.json) pins the integrated compiler,
+image hashes, memory, CPU observations, routine census and qualification results.
+The four cartridge builds now use:
+
+| Program/backend | Load bytes | Saved from baseline | Deferred bytes | Shared homes/buffers | Copy bytes below `$A000` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| TN classic | 18,095 | 257 | 2,798 | 428 | 8,815 |
+| TN MIR6502 | 16,807 | 458 | 2,854 | 438 | 10,047 |
+| TNDBG classic | 21,586 | 255 | 2,798 | 433 | 5,324 |
+| TNDBG MIR6502 | 20,544 | 481 | 2,854 | 441 | 6,310 |
+
+MIR6502 load size falls 2.7%/2.3% for TN/TNDBG. Every saved load byte also
+recovers one byte of copy-buffer space. The 1,443-byte per-panel model, 64-entry
+cache, byte order table and provider `position` field remain unchanged.
+
 Memory includes code, emitted homes and deferred arrays. Copy RAM uses `$A000`
 as a comparison ceiling, not a replacement for OS MEMTOP. CPU measurements
 execute the maintained TN root with substituted screen/disk services. They
@@ -216,3 +231,87 @@ profile pass; additional checked-read boundaries and extent-only invalid-toggle
 no-write checks pass through LF/CRLF model compilation. Cache access in `Draw`
 and post-I/O `MyDosPush` remain unchanged: this work does not establish a stable
 provider lifetime proof that would justify their trusted alternatives.
+
+## Stage 7: integrated qualification and budgets
+
+The final compiler is `1d67c984`. Qualification found that existing fused copies
+could receive wide field displacements after folding. Their eligibility now
+requires the complete byte/word Y window; wider accesses use the general
+rebasing path. The verifier remains strict. Existing boundary execution checks
+pass with RAM guards, and all four TN images remain byte-identical to Stage 6B.
+Target strategy assertions were updated for constant base rebasing plus Y and
+combined constant construction; these are MIR materialization changes, not NIR
+contract or printer changes.
+
+The cumulative MIR measurements separate the source and compiler slices:
+
+| Slice | TN load-byte change | TNDBG load-byte change | Resulting TN/TNDBG load bytes |
+| --- | ---: | ---: | --- |
+| Baseline | — | — | 17,265 / 21,025 |
+| 1: shared entry addressing | -250 | -250 | 17,015 / 20,775 |
+| 2, 3, 4A: correctness and proof foundations | 0 | 0 | 17,015 / 20,775 |
+| 4B: captured field displacement | -87 | -110 | 16,928 / 20,665 |
+| 4C: record consumers and construction | -189 | -189 | 16,739 / 20,476 |
+| 5A, 5B: base and parameter availability | 0 | 0 | 16,739 / 20,476 |
+| 6A: single checked tag mutation | +36 | +36 | 16,775 / 20,512 |
+| 6B: clamped bit-read loops | +32 | +32 | 16,807 / 20,544 |
+| 7: qualification hardening | 0 | 0 | 16,807 / 20,544 |
+
+Final MIR CPU observations are 805,176 cycles for reversed 64-entry sorting
+(baseline 855,767), 55,178 for drawing (58,664), 26,294 for tag-all (29,558),
+and 355,209 for publishing a 1,088-entry prefix (410,697). These reductions are
+5.9%, 5.9%, 11.0% and 13.5%. The 64-entry toggle uses 755 cycles and four emitted
+spill operand accesses, compared with Stage 5B's 1,074 cycles and 14 accesses.
+There is no pinned Stage 0 toggle observation. Final classic sorting is 894,094
+cycles versus baseline 856,364 (4.4% more); code sharing remains a size tradeoff.
+The complete 0/1/64 vectors and counter scope are retained in the JSON.
+
+Re-expanding the five entry-address sites with the final compiler costs 337
+additional load bytes and 15 shared-home bytes in each MIR root. Classic costs
+418/416 bytes in TN/TNDBG. Retain the helper. Retain the byte order table and
+`position`: the experiment's pointer-table RAM cost and the unqualified FujiNet
+metadata contract do not justify a layout change.
+
+| MIR routine | Baseline/final instruction bytes | Baseline/final emitted home bytes |
+| --- | ---: | ---: |
+| `CachedEntry` | 240 / 159 | 15 / 11 |
+| `MyDosParse` | 392 / 363 | 7 / 7 |
+| `MyDosRender` | 337 / 298 | 10 / 8 |
+| `MyDosRoot` | 73 / 73 | 3 / 3 |
+
+The generic `ReadByte` consumer uses 24 bytes versus baseline 27; `ReadElement`
+remains 104 because its address escapes. These fixtures and the boundary matrix
+exercise general typed consumers independently of TN names and layout.
+
+CI enforces load-file ceilings of 18,300/21,750 for classic TN/TNDBG and
+17,000/20,750 for MIR6502 in the existing behavioral build loop. They allow
+roughly 200 bytes of headroom while detecting a return to Stage 0 size. The
+documented per-panel ceiling remains 1,721 bytes and shared homes/buffers 512;
+their current measured maxima are 1,443 and 441. Timing has no exact CI budget.
+
+Final checks cover all MIR6502 and classic library tests, all eleven MIR6502
+integration targets, the full 6502 VM crate, call/runtime modes, guarded record
+and index boundaries, and actual LF/CRLF fixture parsing. The full-root isolated
+CRLF builds produce byte-identical XEX images for both programs and backends.
+Storage-boundary and TN promotion checks also pass. Shared NIR/frontend contracts
+and native backends were not changed. Reproduce final backend qualification with:
+
+```sh
+cargo test --locked --lib mir6502::
+cargo test --locked --lib codegen::
+cargo test --locked --test mir6502_call_abi --test mir6502_fixtures \
+  --test mir6502_materialization_gap --test mir6502_rewrite_inventory \
+  --test mir6502_store_consumer --test mir6502_circle_quality \
+  --test mir6502_kalscope_quality --test mir6502_leaf_inline_cli \
+  --test mir6502_loop_consumer --test mir6502_turtle_quality \
+  --test mir6502_warpdem_quality
+cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml
+```
+
+The [MyDOS smoke record](mydos-smoke.json) covers real OS/CIO enumeration and
+rendering of a disposable ATR's root, matching raw directory names, tagging and
+panel switch/restoration in Atari800. The ATR remains byte-identical and the
+tested TN image matches the final qualified image. This is narrower than release
+acceptance: file modifications, TNDBG disk behavior and live FujiNet remain
+separate checks. Provider lifetime-sensitive shortcuts in `Draw` and the
+post-I/O `MyDosPush` path remain deferred.

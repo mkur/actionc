@@ -186,6 +186,19 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
                 &CompileOptions::for_mode(mode).with_runtime(Runtime::ActionCart),
             )
             .unwrap_or_else(|error| panic!("{source}/{mode:?}: {error}"));
+            // Leave measured headroom while catching a return to the Stage 0
+            // footprint. Timing observations do not participate in this budget.
+            let load_budget = match (mode, debug) {
+                (CompileMode::Optimized, false) => 18_300,
+                (CompileMode::Optimized, true) => 21_750,
+                (CompileMode::Mir6502, false) => 17_000,
+                (CompileMode::Mir6502, true) => 20_750,
+                _ => unreachable!(),
+            };
+            assert!(
+                compiled.object_bytes().len() <= load_budget,
+                "{source}/{mode:?}: load file exceeds {load_budget}-byte budget"
+            );
             let listing = compiled.source_listing();
             let handle = routine_address(&listing, "Handle");
             let files_address = global_address(&listing, "active");

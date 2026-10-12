@@ -1,0 +1,76 @@
+{
+  "emulator": "Atari800 7.1.2, XL/XE, bundled Altirra OS, Action cartridge",
+  "program": "TN.ACT MIR6502 cartridge",
+  "disk_sha256": "88c0c6cf080fce8d356d1108c0c78747fff7a4eb6520455e835fe8a17697bbc9",
+  "disk_unchanged": true,
+  "raw_directory_names": [
+    "DOS     SYS",
+    "DUP     SYS"
+  ],
+  "initial": {
+    "active_files": 2,
+    "cache": "$731A",
+    "cache_count": 2,
+    "cache_valid": 1,
+    "ended": 1,
+    "tags": "$2C87",
+    "tagged": 0,
+    "bitmap_first_byte": 0,
+    "directory_error": 0,
+    "io_status": 136,
+    "names": [
+      "DOS     SYS",
+      "DUP     SYS"
+    ]
+  },
+  "tagged": {
+    "active_files": 2,
+    "cache": "$731A",
+    "cache_count": 2,
+    "cache_valid": 1,
+    "ended": 1,
+    "tags": "$2C87",
+    "tagged": 1,
+    "bitmap_first_byte": 1,
+    "directory_error": 0,
+    "io_status": 136,
+    "names": [
+      "DOS     SYS",
+      "DUP     SYS"
+    ]
+  },
+  "swapped": {
+    "active_files": 0,
+    "cache": "$6DC3",
+    "cache_count": 0,
+    "cache_valid": 1,
+    "ended": 1,
+    "tags": "$2C79",
+    "tagged": 0,
+    "bitmap_first_byte": 0,
+    "directory_error": 0,
+    "io_status": 136,
+    "names": []
+  },
+  "returned": {
+    "active_files": 2,
+    "cache": "$731A",
+    "cache_count": 2,
+    "cache_valid": 1,
+    "ended": 1,
+    "tags": "$2C87",
+    "tagged": 1,
+    "bitmap_first_byte": 1,
+    "directory_error": 0,
+    "io_status": 136,
+    "names": [
+      "DOS     SYS",
+      "DUP     SYS"
+    ]
+  },
+  "scope": "Real OS/CIO/MyDOS root enumeration and render path, tag mutation, panel switch and restoration. Monitor calls use a balanced JSR wrapper. File modification commands and live FujiNet are not qualified.",
+  "date": "2026-10-12",
+  "compiler_source_revision": "1d67c984",
+  "image_sha256": "0bea35b4783adb61e1deb9197b719da5bfa1183c6a54e8e0f782f47ef83b5ed2",
+  "final_image_identical": true
+}
