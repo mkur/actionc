@@ -7,6 +7,9 @@ CONST BYTE ENTRY_DIRECTORY=1, ENTRY_PROTECTED=2, ENTRY_TRUNCATED=4
 CONST BYTE DIR_OK=1, DIR_END=0, DIR_RANGE=2, DIR_INVALID=3, DIR_CHANGED=4,
            DIR_PENDING=5
 
+; Shared bitmap masks; every index below is bounded to 0..7.
+BYTE ARRAY tagMasks(8)=[1 2 4 8 16 32 64 128]
+
 ; Native short names, never screen codes. MyDOS uses eight name bytes and
 ; three extension bytes, space padded. A remote source may use a clipped
 ; preview and must resolve its full operation name from position instead.
@@ -66,7 +69,7 @@ BYTE FUNC TagBitInRange(Selection POINTER tags CARD ordinal)
   BYTE POINTER p
   BYTE mask
   p=tags.bits+(ordinal RSH 3)
-  mask=1 LSH BYTE(ordinal&7)
+  mask=tagMasks(BYTE(ordinal&7))
 RETURN((p^&mask)#0)
 
 BYTE FUNC TagBit(Selection POINTER tags CARD ordinal)
@@ -82,7 +85,7 @@ BYTE FUNC ChangeTagged(Selection POINTER tags CARD ordinal BYTE value)
   LET CARD extent=tags.extent
   IF ordinal>=capacity OR ordinal>=extent THEN RETURN(DIR_RANGE) FI
   p=tags.bits+(ordinal RSH 3)
-  mask=1 LSH BYTE(ordinal&7)
+  mask=tagMasks(BYTE(ordinal&7))
   old=p^&mask
   IF value=2 THEN value=old=0 FI
   IF value THEN
@@ -138,7 +141,7 @@ PROC TagsExtent(Selection POINTER tags CARD extent BYTE complete)
     p=tags.bits+ordinal
     mask=BYTE(currentExtent&7)
     IF mask THEN
-      mask=(1 LSH mask)-1
+      mask=tagMasks(mask)-1
       p^==&mask
       p==+1 ordinal==+1
     FI
