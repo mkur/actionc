@@ -3583,7 +3583,7 @@ fn materialize_short_circuit_compare_branch(
     }
 }
 
-fn materialize_byte_compare_branch(
+pub(in crate::mir6502) fn materialize_byte_compare_branch(
     ops: &mut Vec<MirOp>,
     mut op: MirCompareOp,
     left: MirValue,

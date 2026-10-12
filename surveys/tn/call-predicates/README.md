@@ -44,3 +44,11 @@ Four focused proof/transaction/cost tests, 79 targeted integration tests and
 seven VM tests pass. Both runtimes and actual LF/CRLF sources are covered;
 full-root LF/CRLF images match. Direct valid `SetTagged` vectors save 32 cycles.
 [Stage 2 measurements](stage2.json) separate code, homes and complete images.
+
+Stage 3 removes the Boolean carrier through one atomic verified diamond.
+`Forward` now uses 39 code bytes, zero spill bytes and five parameter bytes.
+Both MIR roots shrink by 36 bytes relative to Stage 0: TN 16,766, TNDBG 20,503.
+Classic hashes are unchanged. Seven focused units, 79 integrations and seven
+VM tests pass, covering both runtimes and actual LF/CRLF compilation. Direct
+valid `SetTagged` vectors save 40 cycles (802/890 versus 842/930).
+[Stage 3 measurements](stage3.json) pin the qualified executable and images.

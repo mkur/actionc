@@ -1,6 +1,6 @@
 # MIR6502 call argument captures across predicates
 
-Status: Stages 0–2 complete, 2026-10-12; bounded capture selection enabled.
+Status: Stages 0–3 complete, 2026-10-12; argument captures and Boolean ABI carrier selected; final qualification pending.
 
 Implement priority 2 from the next compiler steps: reduce private argument
 captures that survive a pure predicate's control flow. This is direction 3 in

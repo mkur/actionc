@@ -1892,7 +1892,7 @@ comparison or Boolean temporary transports carry between words. Captures must
 precede the chain, and optimizers must preserve lower-lane carry contributions
 even when only upper result lanes are used. NIR still expresses typed integer
 arithmetic; signed and unsigned operations share this modulo-2^32 strategy.
-# Argument snapshots across numeric predicates
+## Argument snapshots across numeric predicates
 
 A typed `PointerCell` call operand reads its home during ABI staging; it is not
 an earlier captured value. Replacing an argument load with that operand requires
@@ -1912,3 +1912,12 @@ Final code plus all ordinary homes and complete image cost must not grow.
 Taking a caller home's address invalidates the older cleanup pass's permission
 to sink its load across an internal call based solely on a callee summary. A
 pointer write in that callee need not name the caller's home in that summary.
+
+The initial Boolean schedule is WORD in A/X, WORD in Y/`$A3`, normalized BYTE
+in `$A4`. Both complete word sources must survive staging. An exclusive
+BYTE equality/inequality against zero may define `$A4` directly on both paths,
+then reach one unchanged call. The comparison, true/false stores and continuation
+are one generation-checked routine transaction; exact diamond reconstruction
+and CFG verification precede its commit. The continuation has no Boolean block
+argument. A/flags must be dead at the original comparison exit. Other ABI homes,
+extra uses and incomplete or aliased sources retain the ordinary carrier.

@@ -1,0 +1,419 @@
+{
+  "compiler_sha256": "f911767c56728c70922da51087265e13e299343e8c9d591d256cee60ff232ea9",
+  "fixtures": {
+    "captured-call-arguments-cart": {
+      "load_file_bytes": 227,
+      "loaded_bytes": 217,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 190,
+      "directive_form_bytes": 25,
+      "routine_count": 4,
+      "routines": {
+        "Forward": {
+          "instruction_form_bytes": 36,
+          "directive_form_bytes": 3,
+          "instructions": 14,
+          "direct_calls": 1,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 3,
+          "home_bytes": {
+            "spill": 0,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          }
+        },
+        "PredicateFirst": {
+          "instruction_form_bytes": 40,
+          "directive_form_bytes": 3,
+          "instructions": 15,
+          "direct_calls": 1,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 5,
+            "local": 1,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 5,
+            "local": 2,
+            "static_string": 0
+          }
+        }
+      },
+      "image_sha256": "bb09a93eb417c9518c0ac47b3c9d931ac1ca321f7643cb0489045779721baf37",
+      "lf_crlf_identical": true
+    },
+    "captured-call-arguments-standalone": {
+      "load_file_bytes": 309,
+      "loaded_bytes": 299,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 259,
+      "directive_form_bytes": 38,
+      "routine_count": 7,
+      "routines": {
+        "Forward": {
+          "instruction_form_bytes": 36,
+          "directive_form_bytes": 3,
+          "instructions": 14,
+          "direct_calls": 1,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 3,
+          "home_bytes": {
+            "spill": 0,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          }
+        },
+        "PredicateFirst": {
+          "instruction_form_bytes": 40,
+          "directive_form_bytes": 3,
+          "instructions": 15,
+          "direct_calls": 1,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 5,
+            "local": 1,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 5,
+            "local": 2,
+            "static_string": 0
+          }
+        }
+      },
+      "image_sha256": "082eb7ecb4296b6001d3b1644b9e48d193a76950c437f624c5beca17cf0b6812",
+      "lf_crlf_identical": true
+    },
+    "call-predicate-snapshots-cart": {
+      "load_file_bytes": 514,
+      "loaded_bytes": 504,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 458,
+      "directive_form_bytes": 44,
+      "routine_count": 9,
+      "routines": {
+        "AliasWord": {
+          "instruction_form_bytes": 76,
+          "directive_form_bytes": 3,
+          "instructions": 28,
+          "direct_calls": 2,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 5,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 11,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          }
+        },
+        "Ordered": {
+          "instruction_form_bytes": 73,
+          "directive_form_bytes": 0,
+          "instructions": 27,
+          "direct_calls": 2,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 4,
+          "home_bytes": {
+            "spill": 5,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 11,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          }
+        }
+      },
+      "image_sha256": "59083562f810e11c25a8058bee2728cf11b8ed7b1b1117a8a4d70be75d86b296",
+      "lf_crlf_identical": true
+    },
+    "call-predicate-snapshots-standalone": {
+      "load_file_bytes": 615,
+      "loaded_bytes": 605,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 546,
+      "directive_form_bytes": 57,
+      "routine_count": 13,
+      "routines": {
+        "AliasWord": {
+          "instruction_form_bytes": 76,
+          "directive_form_bytes": 3,
+          "instructions": 28,
+          "direct_calls": 2,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 5,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 11,
+            "param": 5,
+            "local": 0,
+            "static_string": 0
+          }
+        },
+        "Ordered": {
+          "instruction_form_bytes": 73,
+          "directive_form_bytes": 0,
+          "instructions": 27,
+          "direct_calls": 2,
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 4,
+          "home_bytes": {
+            "spill": 5,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 11,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          }
+        }
+      },
+      "image_sha256": "13943ac7877b25ee16ca6fdfe6ebcf91377ec8bc24fdb1a92448c43b7a691345",
+      "lf_crlf_identical": true
+    }
+  },
+  "roots": {
+    "TN-optimized": {
+      "load_file_bytes": 18095,
+      "instruction_form_bytes": 16659,
+      "directive_form_bytes": 1424,
+      "sha256": "f63a719d3c22e5dd942dbaa81b9f3c7017ffb6cfec5b65de67d53bc102c2474a",
+      "lf_crlf_identical": true,
+      "SetTagged": {
+        "instruction_form_bytes": 34,
+        "directive_form_bytes": 8,
+        "instructions": 13,
+        "direct_calls": 1,
+        "pointer_scratch_writes": 0,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 5,
+          "local": 1,
+          "static_string": 0
+        }
+      },
+      "BatchItem": {
+        "instruction_form_bytes": 102,
+        "directive_form_bytes": 3,
+        "instructions": 57,
+        "direct_calls": 0,
+        "pointer_scratch_writes": 6,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 4,
+          "local": 2,
+          "static_string": 0
+        }
+      }
+    },
+    "TN-mir6502": {
+      "load_file_bytes": 16766,
+      "instruction_form_bytes": 15361,
+      "directive_form_bytes": 1393,
+      "sha256": "e4ce593b8505453ecb6a100a0c45bec8aff3f542ddfa0db1b0c89170a1ad2247",
+      "lf_crlf_identical": true,
+      "SetTagged": {
+        "instruction_form_bytes": 36,
+        "directive_form_bytes": 3,
+        "instructions": 14,
+        "direct_calls": 1,
+        "pointer_scratch_writes": 0,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 3,
+        "home_bytes": {
+          "spill": 0,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        }
+      },
+      "BatchItem": {
+        "instruction_form_bytes": 77,
+        "directive_form_bytes": 0,
+        "instructions": 40,
+        "direct_calls": 0,
+        "pointer_scratch_writes": 8,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        }
+      }
+    },
+    "TNDBG-optimized": {
+      "load_file_bytes": 21586,
+      "instruction_form_bytes": 19589,
+      "directive_form_bytes": 1985,
+      "sha256": "8d29fb4df2c73f52d849e7e32eb90b6d3548a964e356571634ed67d78f31a92b",
+      "lf_crlf_identical": true,
+      "SetTagged": {
+        "instruction_form_bytes": 34,
+        "directive_form_bytes": 8,
+        "instructions": 13,
+        "direct_calls": 1,
+        "pointer_scratch_writes": 0,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 5,
+          "local": 1,
+          "static_string": 0
+        }
+      },
+      "BatchItem": {
+        "instruction_form_bytes": 102,
+        "directive_form_bytes": 3,
+        "instructions": 57,
+        "direct_calls": 0,
+        "pointer_scratch_writes": 6,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 4,
+          "local": 2,
+          "static_string": 0
+        }
+      }
+    },
+    "TNDBG-mir6502": {
+      "load_file_bytes": 20503,
+      "instruction_form_bytes": 18523,
+      "directive_form_bytes": 1968,
+      "sha256": "f6cd5b637c3771630e7a05a9a9fd0641629c733e8a3d57ee79e6af0b33116c24",
+      "lf_crlf_identical": true,
+      "SetTagged": {
+        "instruction_form_bytes": 36,
+        "directive_form_bytes": 3,
+        "instructions": 14,
+        "direct_calls": 1,
+        "pointer_scratch_writes": 0,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 3,
+        "home_bytes": {
+          "spill": 0,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 5,
+          "local": 0,
+          "static_string": 0
+        }
+      },
+      "BatchItem": {
+        "instruction_form_bytes": 77,
+        "directive_form_bytes": 0,
+        "instructions": 40,
+        "direct_calls": 0,
+        "pointer_scratch_writes": 8,
+        "indirect_y_operations": 0,
+        "abi_cell_accesses": 2,
+        "home_bytes": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        },
+        "static_home_operand_accesses": {
+          "spill": 0,
+          "param": 3,
+          "local": 0,
+          "static_string": 0
+        }
+      }
+    }
+  }
+}

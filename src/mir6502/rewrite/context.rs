@@ -185,6 +185,19 @@ impl<'snapshot, 'routine> PreHomeRewriteContext<'snapshot, 'routine> {
         self.snapshot.routine().validate_point(point).is_ok()
     }
 
+    pub(in crate::mir6502) fn register_dead_after(
+        &self, reg: MirReg, point: MirProgramPoint,
+    ) -> MirProof<()> {
+        if let Err(error) = self.snapshot.routine().validate_point(point) {
+            return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
+        }
+        match self.snapshot.machine_liveness().register_dead_after(reg, point.site) {
+            Ok(true) => MirProof::Proven(()),
+            Ok(false) => MirProof::Blocked(MirProofBlocker::RegisterLive { reg, point: point.site }),
+            Err(error) => MirProof::Blocked(MirProofBlocker::MachineLiveness(error)),
+        }
+    }
+
     pub(in crate::mir6502) fn argument_snapshot(
         &self, routine: &crate::mir6502::ir::MirRoutine, call: MirProgramPoint,
         argument: usize, layout: &crate::mir6502::materialize::MaterializeLayout,

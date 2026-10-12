@@ -19,6 +19,9 @@ pub struct Mir6502Config {
     pub enable_indexed_address_values: bool,
     /// Defer proven argument snapshots across pure predicates, with final costing.
     pub enable_call_predicate_arguments: bool,
+    /// Carry an exclusive normalized Boolean into its proven fixed ABI home.
+    /// Requires argument snapshot selection and its final cost/placement gate.
+    pub enable_call_predicate_abi: bool,
     pub peephole_report: MirPeepholeReportMode,
 }
 
@@ -43,6 +46,7 @@ impl Default for Mir6502Config {
             enable_address_values: false,
             enable_indexed_address_values: false,
             enable_call_predicate_arguments: false,
+            enable_call_predicate_abi: false,
             peephole_report: MirPeepholeReportMode::Off,
         }
     }
@@ -58,6 +62,7 @@ impl Mir6502Config {
             enable_address_values: true,
             enable_indexed_address_values: true,
             enable_call_predicate_arguments: true,
+            enable_call_predicate_abi: true,
             ..Self::default()
         }
     }

@@ -1,6 +1,7 @@
 //! Final code/home/image and physical-placement gate for predicate arguments.
 use super::address_values::Cost;
 use super::*;
+use crate::mir6502::ir::MirRoutine;
 use crate::mir6502::analysis::call_predicates::{
     ArgumentSnapshot, physical_source, predicate_call,
 };
@@ -65,6 +66,7 @@ pub(in crate::mir6502) fn materialize_costed(
     }
     let mut off = config.clone();
     off.enable_call_predicate_arguments = false;
+    off.enable_call_predicate_abi = false;
     if proofs.is_empty() {
         return crate::mir6502::materialize_resolved_program_without_call_costing(
             original, &off, origin, runtime, report,
@@ -79,7 +81,7 @@ pub(in crate::mir6502) fn materialize_costed(
     )?;
     let mut trial = crate::mir6502::materialize_resolved_program_without_call_costing(
         selected.clone(),
-        &off,
+        config,
         origin,
         runtime,
         false,
@@ -115,7 +117,7 @@ pub(in crate::mir6502) fn materialize_costed(
         }
         trial = crate::mir6502::materialize_resolved_program_without_call_costing(
             selected.clone(),
-            &off,
+            config,
             origin,
             runtime,
             false,
@@ -162,7 +164,7 @@ pub(in crate::mir6502) fn materialize_costed(
                 } else {
                     selected
                 },
-                &off,
+                if accepted.is_empty() { &off } else { config },
                 origin,
                 runtime,
                 true,
@@ -172,14 +174,94 @@ pub(in crate::mir6502) fn materialize_costed(
     Ok(if accepted.is_empty() { baseline } else { trial })
 }
 
+/// Each diamond is committed as a whole routine candidate. Every commit gets a
+/// new generation and rebuilds the immutable CFG/use-def/liveness snapshot.
+pub(super) fn carry_predicate_into_abi(
+    routine: &mut MirRoutine,
+    layout: &MaterializeLayout,
+    stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut generation = MirRoutineGeneration::initial();
+    loop {
+        let snapshot = PreHomeAnalysisSnapshot::new(routine, generation).map_err(|e| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("predicate ABI CFG: {e:?}"),
+            )]
+        })?;
+        let context = PreHomeRewriteContext::new(&snapshot);
+        let plan = routine.blocks.iter().find_map(|b| {
+            b.ops.iter().enumerate().find_map(|(i, _)| {
+                crate::mir6502::rewrite::predicate_abi::discover_predicate_abi(
+                    routine,
+                    &context,
+                    context.point(MirSite::Op {
+                        block: b.id,
+                        op_index: i,
+                    }),
+                    layout,
+                )
+            })
+        });
+        let Some(plan) = plan else { return Ok(()) };
+        if !crate::mir6502::rewrite::predicate_abi::apply_predicate_abi(routine, generation, plan) {
+            return Err(vec![MirDiagnostic::routine(
+                &routine.name,
+                "predicate ABI transaction rejected",
+            )]);
+        }
+        generation = generation.next();
+        stats.record(routine.id, "call-predicate-abi-home");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn call_predicate_abi_selection_removes_all_argument_spills() {
+        let p = crate::mir6502::analysis::call_predicates::tests::program();
+        for runtime in [
+            crate::runtime::Runtime::ActionCart,
+            crate::runtime::Runtime::Standalone,
+        ] {
+            let mut on = Mir6502Config::optimized();
+            on.enable_small_leaf_inlining = false;
+            let trial = crate::mir6502::materialize_program_with_origin_and_runtime(
+                p.clone(),
+                &on,
+                0x3000,
+                runtime,
+            )
+            .unwrap();
+            let r = trial.routines.iter().find(|r| r.name == "Forward").unwrap();
+            assert_eq!(r.frame.spills.len(), 0);
+            assert_eq!(
+                r.frame.params.iter().map(|p| p.storage_size).sum::<u16>(),
+                5
+            );
+            let other = trial
+                .routines
+                .iter()
+                .find(|r| r.name == "PredicateFirst")
+                .unwrap();
+            assert_eq!(
+                other
+                    .frame
+                    .locals
+                    .iter()
+                    .map(|p| p.storage_size)
+                    .sum::<u16>(),
+                1
+            );
+        }
+    }
     #[test]
     fn call_predicate_selection_removes_word_spills_with_bounded_final_cost() {
         let p = crate::mir6502::analysis::call_predicates::tests::program();
         let mut on = Mir6502Config::optimized();
         on.enable_small_leaf_inlining = false;
+        on.enable_call_predicate_abi = false;
         let mut off = on.clone();
         off.enable_call_predicate_arguments = false;
         for runtime in [
