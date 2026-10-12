@@ -54,6 +54,7 @@ struct Reads {
     sequence: Vec<u16>,
     pair_writes: usize,
     indirect_compares: usize,
+    y_advances: usize,
     steps: usize,
 }
 impl VmRunHooks for Reads {
@@ -64,6 +65,9 @@ impl VmRunHooks for Reads {
         let ram = vm.bus().ram();
         let op = ram.read(r.pc);
         let arg = ram.read(r.pc.wrapping_add(1));
+        if op == 0xC8 {
+            self.y_advances += 1;
+        }
         if matches!(op, 0xB1 | 0xD1) {
             let address = u16::from_le_bytes([
                 ram.read(u16::from(arg)),
@@ -171,6 +175,19 @@ fn run(text: &str, config: &Mir6502Config, runtime: Runtime, crlf: bool) {
                         reads.sequence, expected_reads,
                         "{name}: read order and multiplicity"
                     );
+                    if config.enable_comparison_loop_y
+                        && matches!(name, "After" | "Equal" | "WideAfter")
+                    {
+                        assert_eq!(
+                            reads.y_advances,
+                            if mismatch < len && left != right {
+                                visited - 1
+                            } else {
+                                visited
+                            },
+                            "Y carrier selected for {name}"
+                        );
+                    }
                     if config.enable_comparison_loop_fusion
                         && matches!(name, "After" | "Equal" | "WideAfter")
                     {
@@ -259,11 +276,17 @@ fn record_comparison_loops_preserve_values_read_order_and_guards() {
         .replace("\r\n", "\n");
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         for crlf in [false, true] {
-            for (pointers, fusion) in [(false, false), (true, false), (true, true)] {
+            for (pointers, fusion, carry_y) in [
+                (false, false, false),
+                (true, false, false),
+                (true, true, false),
+                (true, true, true),
+            ] {
                 let mut config = Mir6502Config::optimized();
                 config.enable_comparison_loop_pointers = pointers;
                 config.enable_comparison_loop_fusion = fusion;
-                println!("variant pointers={pointers},fusion={fusion}");
+                config.enable_comparison_loop_y = carry_y;
+                println!("variant pointers={pointers},fusion={fusion},y={carry_y}");
                 run(
                     &if crlf {
                         text.replace('\n', "\r\n")

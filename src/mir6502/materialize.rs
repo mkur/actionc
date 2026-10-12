@@ -23,6 +23,7 @@ pub(super) mod address_values;
 pub(super) mod call_predicates;
 pub(super) mod comparison_loops;
 mod comparison_fusion;
+mod comparison_index;
 mod block_args;
 mod call_result;
 mod calls;

@@ -74,6 +74,15 @@ clear, so `>`/`>=` use C set and `<`/`<=` use C clear. No character reread or
 flag-clobbering operation is inserted between these decisions. Extra readers
 retain their capture stores and the pointer-only schedule.
 
+Y induction additionally requires all index reads and header/latch temp uses
+to be accounted for, no address exposure and dead incoming machine A/Y state
+on the changed paths. The admitted interval is nonempty and its exclusive end
+fits BYTE, so the first guard is proven true. Entry initializes Y once; the
+latch performs INY/CPY and decides the backedge after the mismatch decision.
+Zero trips, wrapping intervals and observed induction retain their generic
+index schedule independently of comparison fusion. Ordinary source homes and
+canonical parameter storage remain allocated under the existing ABI.
+
 ## Goal
 
 Replace independently wired peephole safety checks with a workflow in which:

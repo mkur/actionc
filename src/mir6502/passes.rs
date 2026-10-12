@@ -26,6 +26,8 @@ pub struct Mir6502Config {
     pub enable_comparison_loop_pointers: bool,
     /// Share one unsigned comparison across continuation and mismatch ordering.
     pub enable_comparison_loop_fusion: bool,
+    /// Carry bounded private comparison induction in Y.
+    pub enable_comparison_loop_y: bool,
     pub peephole_report: MirPeepholeReportMode,
 }
 
@@ -53,6 +55,7 @@ impl Default for Mir6502Config {
             enable_call_predicate_abi: false,
             enable_comparison_loop_pointers: false,
             enable_comparison_loop_fusion: false,
+            enable_comparison_loop_y: false,
             peephole_report: MirPeepholeReportMode::Off,
         }
     }

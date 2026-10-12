@@ -75,3 +75,17 @@ exposure and a repeated final check for separately named absolute aliases.
 Complete temp uses and exact ordering operands are checked independently.
 Unit coverage includes stale transactions, first-entry base initialization,
 partial pair clobbers, observable captures and address exposure.
+
+## Stage 4 bounded Y induction (opt-in)
+
+The four-way feature matrix passes in both runtimes and newline forms. The
+selected equal-prefix latch contains INY/CPY and branches directly to the
+ordered comparison. Proven nonempty entry skips the first guard; zero-trip
+and unsupported intervals retain fallback. The final Y value is bounded by
+255. Observable induction keeps its original stores, guard and increments.
+
+Equal 14-byte `After` takes 391 cycles versus 1,275; first-byte mismatch takes
+100 versus 136. Equal 11-byte `Equal` takes 304 versus 1,020. VM checks count
+the expected Y advances as well as read order, guards and returned values.
+All three transaction/fusion/carrier unit tests pass, including extra header
+temp users and a first entry missing Y initialization.

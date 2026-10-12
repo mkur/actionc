@@ -35,6 +35,7 @@ fn candidate(
     c: &PreHomeRewriteContext<'_, '_>,
     f: &ComparisonLoop,
     fuse: bool,
+    carry_y: bool,
 ) -> Option<super::super::ir::MirRoutine> {
     if f.generation != c.generation() {
         return None;
@@ -65,6 +66,8 @@ fn candidate(
     let fusion = fuse
         .then(|| super::comparison_fusion::prove(r, c, f))
         .flatten();
+    let carry_y = carry_y && super::comparison_index::prove(r, c, f);
+    let initial_store = r.blocks.iter().find(|b| b.id == f.preheader)?.ops.len() - 1;
     let mut result = r.clone();
     let pre = result.blocks.iter_mut().find(|b| b.id == f.preheader)?;
     for (operand, lo) in [(&f.left, 0xAA), (&f.right, 0xAC)] {
@@ -157,6 +160,9 @@ fn candidate(
             super::comparison_fusion::replace_ordering(&mut result, f, op);
         }
     }
+    if carry_y {
+        super::comparison_index::apply(&mut result, f, initial_store);
+    }
     reserve_used_fixed_zero_page_slots(&mut result);
     MirCfg::from_routine(&result).ok()?;
     if !crate::mir6502::analysis::live_y::invalid_uses(&result).is_empty() {
@@ -165,7 +171,7 @@ fn candidate(
     Some(result)
 }
 
-fn select(r: &mut super::super::ir::MirRoutine, fuse: bool) -> usize {
+fn select(r: &mut super::super::ir::MirRoutine, fuse: bool, carry_y: bool) -> usize {
     let mut generation = MirRoutineGeneration::initial();
     let mut count = 0;
     loop {
@@ -177,7 +183,7 @@ fn select(r: &mut super::super::ir::MirRoutine, fuse: bool) -> usize {
             .blocks
             .iter()
             .filter_map(|b| context.comparison_loop(r, b.id).ok())
-            .find_map(|f| candidate(r, &context, &f, fuse));
+            .find_map(|f| candidate(r, &context, &f, fuse, carry_y));
         let Some(candidate) = accepted else { break };
         *r = candidate;
         generation = generation.next();
@@ -335,7 +341,7 @@ pub(in crate::mir6502) fn materialize_costed(
         return fallback(original, &off, report);
     }
     let mut private_cells = BTreeMap::new();
-    if config.enable_comparison_loop_fusion {
+    if config.enable_comparison_loop_fusion || config.enable_comparison_loop_y {
         for r in &original.routines {
             if let Ok(snapshot) = PreHomeAnalysisSnapshot::new(r, MirRoutineGeneration::initial()) {
                 let c = PreHomeRewriteContext::new(&snapshot);
@@ -343,7 +349,7 @@ pub(in crate::mir6502) fn materialize_costed(
                     .blocks
                     .iter()
                     .filter_map(|b| c.comparison_loop(r, b.id).ok())
-                    .flat_map(|f| [f.left.capture, f.right.capture])
+                    .flat_map(|f| [f.left.capture, f.right.capture, f.induction])
                     .collect::<Vec<_>>();
                 if !cells.is_empty() {
                     private_cells.insert(r.id, cells);
@@ -354,7 +360,12 @@ pub(in crate::mir6502) fn materialize_costed(
     let mut selected = original.clone();
     let mut candidates = BTreeSet::new();
     for r in &mut selected.routines {
-        if select(r, config.enable_comparison_loop_fusion) > 0 {
+        if select(
+            r,
+            config.enable_comparison_loop_fusion,
+            config.enable_comparison_loop_y,
+        ) > 0
+        {
             candidates.insert(r.id);
         }
     }
@@ -460,8 +471,8 @@ mod tests {
         let c = PreHomeRewriteContext::new(&snapshot);
         let mut stale = f.clone();
         stale.generation = stale.generation.next();
-        assert!(candidate(r, &c, &stale, false).is_none());
-        let result = candidate(r, &c, &f, false).expect("proven region");
+        assert!(candidate(r, &c, &stale, false, false).is_none());
+        let result = candidate(r, &c, &f, false, false).expect("proven region");
         assert_eq!(
             result
                 .blocks
@@ -484,8 +495,8 @@ mod tests {
             .ops
             .retain(|o| !matches!(o, MirOp::MaterializeIndexedAddress { .. }));
         assert!(!crate::mir6502::analysis::live_y::invalid_uses(&broken).is_empty());
-        assert_eq!(select(r, false), 1);
-        assert_eq!(select(r, false), 0);
+        assert_eq!(select(r, false, false), 1);
+        assert_eq!(select(r, false, false), 0);
     }
     #[test]
     fn comparison_fusion_keeps_observed_values_and_reuses_only_exact_ordering() {
@@ -508,7 +519,7 @@ mod tests {
         let f = facts(r).remove(0);
         let snapshot = PreHomeAnalysisSnapshot::new(r, MirRoutineGeneration::initial()).unwrap();
         let c = PreHomeRewriteContext::new(&snapshot);
-        let result = candidate(r, &c, &f, true).unwrap();
+        let result = candidate(r, &c, &f, true, false).unwrap();
         let body = result.blocks.iter().find(|b| b.id == f.body).unwrap();
         assert_eq!(body.ops.len(), 2);
         let effect = crate::mir6502::analysis::effects::classify_op(&body.ops[1]);
@@ -550,5 +561,83 @@ mod tests {
             PreHomeAnalysisSnapshot::new(&changed, MirRoutineGeneration::initial()).unwrap();
         let c = PreHomeRewriteContext::new(&snapshot);
         assert!(super::super::comparison_fusion::prove(&changed, &c, &f).is_none());
+    }
+    #[test]
+    fn comparison_y_carrier_preserves_observed_induction_and_rejects_extra_temp_users() {
+        let p = program();
+        for (r, count) in p.routines.iter().zip([2, 1, 0, 1, 0]) {
+            let snapshot =
+                PreHomeAnalysisSnapshot::new(r, MirRoutineGeneration::initial()).unwrap();
+            let c = PreHomeRewriteContext::new(&snapshot);
+            assert_eq!(
+                facts(r)
+                    .iter()
+                    .filter(|f| super::super::comparison_index::prove(r, &c, f))
+                    .count(),
+                count,
+                "{}",
+                r.name
+            );
+        }
+        let r = &p.routines[1];
+        let f = facts(r).remove(0);
+        let snapshot = PreHomeAnalysisSnapshot::new(r, MirRoutineGeneration::initial()).unwrap();
+        let c = PreHomeRewriteContext::new(&snapshot);
+        let result = candidate(r, &c, &f, true, true).unwrap();
+        assert!(crate::mir6502::analysis::live_y::invalid_uses(&result).is_empty());
+        assert!(matches!(
+            result
+                .blocks
+                .iter()
+                .find(|b| b.id == f.latch)
+                .unwrap()
+                .ops
+                .as_slice(),
+            [
+                MirOp::UpdateReg { reg: MirReg::Y, .. },
+                MirOp::Compare { .. }
+            ]
+        ));
+        let mut broken = result.clone();
+        broken
+            .blocks
+            .iter_mut()
+            .find(|b| b.id == f.preheader)
+            .unwrap()
+            .ops
+            .retain(|o| {
+                !matches!(
+                    o,
+                    MirOp::LoadImm {
+                        dst: MirDef::Reg(MirReg::Y),
+                        ..
+                    }
+                )
+            });
+        assert!(!crate::mir6502::analysis::live_y::invalid_uses(&broken).is_empty());
+        let mut changed = r.clone();
+        let header = changed.blocks.iter().find(|b| b.id == f.header).unwrap();
+        let MirOp::Load { dst, .. } = &header.ops[0] else {
+            panic!()
+        };
+        let dst = dst.clone();
+        changed
+            .blocks
+            .iter_mut()
+            .find(|b| b.id == f.complete)
+            .unwrap()
+            .ops
+            .insert(
+                0,
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+                    src: MirValue::Def(dst),
+                    width: MirWidth::Byte,
+                },
+            );
+        let snapshot =
+            PreHomeAnalysisSnapshot::new(&changed, MirRoutineGeneration::initial()).unwrap();
+        let c = PreHomeRewriteContext::new(&snapshot);
+        assert!(!super::super::comparison_index::prove(&changed, &c, &f));
     }
 }
