@@ -15,6 +15,8 @@ pub struct Mir6502Config {
     pub enable_small_leaf_inlining: bool,
     /// Complete address values and proven same-block source-pointer forwarding.
     pub enable_address_values: bool,
+    /// Select indexed address values only after final code/home and image costing.
+    pub enable_indexed_address_values: bool,
     pub peephole_report: MirPeepholeReportMode,
 }
 
@@ -37,6 +39,7 @@ impl Default for Mir6502Config {
             enable_small_loop_unrolling: false,
             enable_small_leaf_inlining: false,
             enable_address_values: false,
+            enable_indexed_address_values: false,
             peephole_report: MirPeepholeReportMode::Off,
         }
     }
@@ -50,6 +53,7 @@ impl Mir6502Config {
             enable_small_loop_unrolling: true,
             enable_small_leaf_inlining: true,
             enable_address_values: true,
+            enable_indexed_address_values: true,
             ..Self::default()
         }
     }

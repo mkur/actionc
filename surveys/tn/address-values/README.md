@@ -84,3 +84,25 @@ gaps and rewrite inventory). No NIR or MIR-lowering snapshots changed.
 Reproduce generic measurements with
 `python3 surveys/tn/measure-address-values.py --compiler <actionc> --out-dir <target-directory> --crlf`.
 The collector checks both runtimes and can add full TN/TNDBG roots with `--roots`.
+
+## Stage 3
+
+Indexed complete addresses use the existing private full-pair constructor when
+final code plus homes and the whole image meet the fallback's size budget.
+BYTE indexes can remain in Y across a preserving constructor; saved-home
+deadness and physical input/alias checks protect that reuse. CARD indexes retain
+both lanes. Strides above 255 use full-width arithmetic.
+
+The generic stride-20 `Address` changes from 76 code + 4 spill + 3 parameter
+bytes to 77 code + 0 spill + 3 parameter bytes. Its multiply call disappears;
+measured cartridge execution, including the wrapper, is 151 cycles at every
+tested BYTE index, previously 246–459. `ReadViaLocal` still uses its fallback
+at this stage: constructing and then reloading its source pointer is too large.
+
+[stage3.json](stage3.json) records TN/TNDBG MIR load sizes of 16,802/20,539,
+five bytes below their frozen baselines. Both classic images are unchanged;
+all four roots and both generic runtime fixtures match their actual CRLF builds.
+The full MIR unit set passes (1,035 tests; two existing ignored tests), as do
+the address, record-boundary, generic reproducer and TN CPU-profile VM targets.
+Forced trial execution also checks rejected size candidates, full CARD indexes,
+page crossings and wrap in both runtimes.

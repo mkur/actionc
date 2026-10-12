@@ -75,6 +75,15 @@ original path. Forwarding preserves the complete local store and checks typed
 field identity, descriptor exclusion, fixed backing and mutation/call barriers.
 Constant address offsets remain storage operands until final emission.
 
+Indexed value selection uses a complete private address pair for strides 1–255;
+the full CARD index and modulo-65536 carry are preserved. Result and source
+stores remain explicit, including `$A0/$A1`. A captured BYTE index can remain
+in Y across a constructor that preserves Y, after whole-routine private-home
+deadness and final physical alias checks. Wider strides retain word arithmetic.
+The optimized policy costs final routine code plus ordinary homes and the
+complete emitted image against the fallback. Unknown cost, source-owned
+scratch overlap or growth rejects the transaction.
+
 ### Costed scalar leaf inlining
 
 MIR routines preserve verified NIR's typed `Auto` / `Prefer` inline metadata.

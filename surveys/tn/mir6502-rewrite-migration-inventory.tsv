@@ -1,4 +1,7 @@
 id	phase	batch	domain	source	entry_point	baseline_proof
+ADDR-007	post-home-structural	migrated	home-register	src/mir6502/materialize/address_values.rs	discover_saved_byte_indexes	whole-routine-private-home-deadness-preserved-y-and-final-physical-alias-check
+ADDR-005	pre-home-selection	migrated	temp	src/mir6502/rewrite/address_values.rs	discover_indexed_address_values	exclusive-complete-word-captured-inputs-barriers-and-final-cost
+ADDR-006	pre-home-selection	migrated	temp	src/mir6502/materialize/address_values.rs	discover_address_stores	exclusive-compute-store-dead-carriers-flags-and-physical-scratch
 ADDR-003	pre-home-selection	migrated	temp	src/mir6502/rewrite/address_values.rs	discover_zero_index_address_values	complete-word-constant-exclusive-producers-captured-inputs-and-flags
 ADDR-004	pre-home-selection	migrated	temp	src/mir6502/rewrite/address_values.rs	discover_known_pointer_locals	exact-retained-local-store-known-storage-descriptor-and-mutation-barriers
 ADDR-001	pre-home-selection	migrated	temp	src/mir6502/rewrite/addresses.rs	discover_address_displacements	exclusive-word-reaching-def-dominance-deadness-and-flags

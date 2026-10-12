@@ -95,6 +95,10 @@ pub(super) fn maybe_report_peepholes(
     eprint!("{}", format_peephole_report(program, stats, mode));
 }
 
+pub(super) fn reporting_enabled(config: &Mir6502Config) -> bool {
+    env_peephole_report_mode().unwrap_or(config.peephole_report) != MirPeepholeReportMode::Off
+}
+
 fn env_peephole_report_mode() -> Option<MirPeepholeReportMode> {
     let value = std::env::var("ACTIONC_MIR6502_PEEPHOLES").ok()?;
     match value.trim().to_ascii_lowercase().as_str() {

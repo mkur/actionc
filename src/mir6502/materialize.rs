@@ -19,6 +19,7 @@ use super::ir::MirZpSlot;
 mod abi;
 #[cfg(test)]
 mod address_consumer_tests;
+pub(super) mod address_values;
 mod block_args;
 mod call_result;
 mod calls;
@@ -2786,6 +2787,9 @@ fn run_prehome_selection_group(
         }, super::rewrite::address_values::address_value_rank)
             .map_err(|error| vec![MirDiagnostic::routine(&routine.name, format!("address value selection failed: {error:?}"))])?;
         record_prehome_rewrite_result(routine.id, result, peephole_stats);
+        if config.enable_indexed_address_values {
+            address_values::materialize_address_stores(routine, layout, peephole_stats)?;
+        }
         expand_compute_address_values(routine)?;
     }
     run_analyzed_word_carry_chain_store_consumers(routine, config, layout, peephole_stats)?;
@@ -2903,6 +2907,11 @@ fn run_posthome_structural_group(
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     run_posthome_signed_word_relations(routine, layout, known_callees, peephole_stats)?;
+    if config.enable_peepholes && config.enable_indexed_address_values {
+        if let Some(known_callees) = known_callees {
+            address_values::forward_saved_byte_indexes(routine, layout, known_callees, peephole_stats)?;
+        }
+    }
     if config.enable_peepholes {
         let selected = small_loops::select_high_bit_shift_xor_diamonds(routine, layout);
         peephole_stats.record_many(

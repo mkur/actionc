@@ -181,7 +181,17 @@ fn captured_value_available(
     context: &PreHomeRewriteContext<'_, '_>,
 ) -> bool {
     match value {
-        MirValue::Def(MirDef::VTemp(temp) | MirDef::VTempByte { id: temp, .. }) => {
+        MirValue::Def(MirDef::VTempByte { id: temp, byte }) => {
+            let lane = crate::mir6502::analysis::use_def::MirTempLane {
+                temp: *temp,
+                byte: *byte,
+            };
+            context.uses_at(*temp, original).into_iter().any(|usage| {
+                matches!(context.unique_reaching_definition(usage,lane),MirProof::Proven(definition)
+                    if context.value_available_at(definition,context.point(end)).is_proven())
+            })
+        }
+        MirValue::Def(MirDef::VTemp(temp)) => {
             let uses = context.uses_at(*temp, original);
             !uses.is_empty() && uses.into_iter().all(|usage| {
                 [0, 1].into_iter().filter(|byte| usage.requirement.requires(crate::mir6502::analysis::use_def::MirTempLane {temp:*temp,byte:*byte})).all(|byte| {
@@ -353,6 +363,144 @@ pub(in crate::mir6502) fn address_value_rank(routine: &MirRoutine) -> usize {
         .sum()
 }
 
+/// Pure multiply/add chains feeding a complete word value, before ABI lowering.
+pub(in crate::mir6502) fn discover_indexed_address_values(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for (end, op) in block.ops.iter().enumerate() {
+            let MirOp::Store {
+                dst: MirAddr::Direct(_),
+                src,
+                width: MirWidth::Word,
+            } = op
+            else {
+                continue;
+            };
+            let site = MirSite::Op {
+                block: block.id,
+                op_index: end,
+            };
+            let Some(mut fact) = address_value(block, src, site, context) else {
+                continue;
+            };
+            let Some(index) = fact.index.clone() else {
+                continue;
+            };
+            if !(1..=255).contains(&fact.elem_size)
+                || !fact.producers.iter().any(|i| {
+                    matches!(
+                        block.ops[*i],
+                        MirOp::Binary {
+                            op: MirBinaryOp::Mul,
+                            ..
+                        }
+                    )
+                })
+            {
+                continue;
+            }
+            // A proven unsigned byte extension is a full word whose high lane
+            // is zero. Capture its original byte, retaining the originating load.
+            if let MirValue::Def(MirDef::VTemp(temp)) = &index {
+                let Some((_, mul_site)) = fact.inputs.iter().find(|(v, _)| v == &index) else {
+                    continue;
+                };
+                if let MirProof::Proven(defs) =
+                    context.exclusive_word_temp_definition(*temp, *mul_site)
+                    && let MirSite::Op {
+                        block: id,
+                        op_index: extension,
+                    } = defs[0].site
+                    && id == block.id
+                    && let MirOp::Extend {
+                        src,
+                        from_width: MirWidth::Byte,
+                        to_width: MirWidth::Word,
+                        signed: false,
+                        ..
+                    } = &block.ops[extension]
+                {
+                    let byte = match src {
+                        MirValue::Def(MirDef::VTemp(id)) => {
+                            MirValue::Def(MirDef::VTempByte { id: *id, byte: 0 })
+                        }
+                        MirValue::Def(MirDef::VTempByte { .. }) | MirValue::ConstU8(_) => {
+                            src.clone()
+                        }
+                        MirValue::ConstU16(v) => MirValue::ConstU8(*v as u8),
+                        _ => continue,
+                    };
+                    fact.index = Some(MirValue::Word {
+                        lo: Box::new(byte.clone()),
+                        hi: Box::new(MirValue::ConstU8(0)),
+                    });
+                    fact.inputs.retain(|(v, _)| v != &index);
+                    fact.inputs.push((
+                        byte,
+                        MirSite::Op {
+                            block: block.id,
+                            op_index: extension,
+                        },
+                    ));
+                    fact.producers.insert(extension);
+                }
+            }
+            let Some(&start) = fact.producers.first() else {
+                continue;
+            };
+            if !safe_to_move_address(block, start, end, &fact.inputs, context) {
+                continue;
+            }
+            let MirValue::Def(dst @ MirDef::VTemp(_)) = src else {
+                continue;
+            };
+            let mut replacement: Vec<_> = (start..end)
+                .filter(|i| !fact.producers.contains(i))
+                .map(|i| block.ops[i].clone())
+                .collect();
+            replacement.push(MirOp::ComputeAddress {
+                dst: dst.clone(),
+                base: fact.base,
+                index: fact.index,
+                elem_size: fact.elem_size,
+                offset: fact.offset,
+            });
+            replacement.push(op.clone());
+            let Some(definitions) = super::pilots::prove_removed_window_definitions(
+                block.id,
+                &block.ops,
+                start,
+                end + 1,
+                &replacement,
+                context,
+            ) else {
+                continue;
+            };
+            plans.push(MirRewritePlan {
+                generation: context.generation(),
+                block: block.id,
+                range: start..end + 1,
+                replacement,
+                removed_defs: definitions
+                    .into_iter()
+                    .map(|definition| MirRemovedDefinition { definition })
+                    .collect(),
+                exit_effect_delta: MirEffectDelta::Unchanged,
+                change_set: MirChangeSet::prehome_operation_change(),
+                stat: "indexed-address-value",
+                observations: vec![],
+                family_priority: 10,
+                estimated_byte_saving: 0,
+                estimated_cycle_saving: 0,
+            });
+        }
+    }
+    plans
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -368,6 +516,42 @@ mod tests {
         ))
         .unwrap();
         crate::mir6502::lower_program(&nir).unwrap()
+    }
+    #[test]
+    fn indexed_address_values_preserve_byte_extension_and_full_card_indexes() {
+        for ty in ["BYTE", "CARD"] {
+            let p = lower(&format!(
+                "TYPE E=[CARD value BYTE ARRAY pad(18)] TYPE T=[BYTE ARRAY pad(38) E ARRAY rows(2)] CARD FUNC Address(T POINTER p {ty} index) RETURN(@p.rows(index)) PROC Main() RETURN"
+            ));
+            let r = &p.routines[0];
+            let snapshot =
+                PreHomeAnalysisSnapshot::new(r, MirRoutineGeneration::initial()).unwrap();
+            let plans = discover_indexed_address_values(r, &PreHomeRewriteContext::new(&snapshot));
+            assert_eq!(plans.len(), 1, "{ty}");
+            let compute = plans[0]
+                .replacement
+                .iter()
+                .find(|op| matches!(op, MirOp::ComputeAddress { .. }))
+                .unwrap();
+            let MirOp::ComputeAddress {
+                index: Some(index),
+                elem_size,
+                offset,
+                ..
+            } = compute
+            else {
+                unreachable!()
+            };
+            assert_eq!((*elem_size, *offset), (20, 38));
+            assert_eq!(
+                matches!(index,MirValue::Word {hi,..} if **hi==MirValue::ConstU8(0)),
+                ty == "BYTE"
+            );
+            let mut trial = r.clone();
+            super::super::driver::MirPreHomeRewriteDriver::default()
+                .apply_batch(&mut trial, plans)
+                .unwrap();
+        }
     }
     #[test]
     fn known_pointer_local_rewrite_keeps_the_source_store_and_typed_field() {
