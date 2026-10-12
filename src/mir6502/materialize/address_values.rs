@@ -589,13 +589,13 @@ pub(super) fn materialize_address_stores(
     Ok(())
 }
 
-struct Cost {
-    bytes: usize,
+pub(super) struct Cost {
+    pub(super) bytes: usize,
     routine_bytes: BTreeMap<RoutineId, usize>,
     homes: BTreeMap<RoutineId, usize>,
 }
 impl Cost {
-    fn measure(program: &MirProgram, origin: u16) -> Option<Self> {
+    pub(super) fn measure(program: &MirProgram, origin: u16) -> Option<Self> {
         let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
         let summary = crate::mir6502::emit::emit_program(program, origin, &mut emitter).ok()?;
         let image = emitter.finish_with_relocations().ok()?;
@@ -631,7 +631,7 @@ impl Cost {
             homes,
         })
     }
-    fn routine(&self, id: RoutineId) -> Option<usize> {
+    pub(super) fn routine(&self, id: RoutineId) -> Option<usize> {
         Some(*self.routine_bytes.get(&id)? + *self.homes.get(&id)?)
     }
 }

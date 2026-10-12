@@ -35,3 +35,12 @@ requirements. Two focused proof tests pass. Production selection is disabled;
 all four root images remain byte-identical to Stage 0 with actual LF/CRLF
 compilation. The snapshot fixture grows by 36 bytes to preserve the escaped
 parameter correctly; this is a correctness repair, not an optimization result.
+
+Stage 2 removes the four earlier word spill bytes while retaining the Boolean
+carrier. `Forward` uses 46 code bytes (including inline ABI payload), one spill
+byte and five parameter bytes, versus 70/5/5 at Stage 0. Both MIR roots shrink
+by 28 load-file bytes to 16,774 and 20,511; classic hashes are unchanged.
+Four focused proof/transaction/cost tests, 79 targeted integration tests and
+seven VM tests pass. Both runtimes and actual LF/CRLF sources are covered;
+full-root LF/CRLF images match. Direct valid `SetTagged` vectors save 32 cycles.
+[Stage 2 measurements](stage2.json) separate code, homes and complete images.

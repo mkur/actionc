@@ -647,6 +647,9 @@ fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], 
     widths: &BTreeMap<crate::mir6502::ir::MirTempId, MirWidth>) -> bool {
     let original_ops = original;
     let replacement_ops = replacement;
+    if matches!(delta, MirEffectDelta::DeferredPredicateArguments) {
+        return crate::mir6502::rewrite::call_predicates::snapshot_delta_is_justified(original, replacement);
+    }
     if matches!(delta, MirEffectDelta::ForwardedKnownPointerLocal) {
         return known_pointer_local_forward_is_justified(original, replacement);
     }
@@ -669,6 +672,7 @@ fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], 
         MirEffectDelta::ForwardedKnownPointerLocal => unreachable!("checked before projection"),
         MirEffectDelta::MaterializedRetainedPointerField => unreachable!("checked before projection"),
         MirEffectDelta::Unchanged => original == replacement,
+        MirEffectDelta::DeferredPredicateArguments => unreachable!("checked before projection"),
         MirEffectDelta::SelectedResultRegister(register) => {
             if !register_is_set(replacement.register_writes, register) {
                 return false;

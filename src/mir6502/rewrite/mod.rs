@@ -3,6 +3,7 @@
 pub(super) mod context;
 pub(super) mod addresses;
 pub(super) mod address_values;
+pub(super) mod call_predicates;
 pub(super) mod driver;
 pub(super) mod pilots;
 pub(super) mod plan;

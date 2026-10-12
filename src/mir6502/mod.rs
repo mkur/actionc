@@ -161,6 +161,16 @@ fn materialize_resolved_program(
     runtime: crate::runtime::Runtime,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    if config.enable_peepholes && config.enable_call_predicate_arguments {
+        return materialize::call_predicates::materialize_costed(program, config, origin, runtime, report);
+    }
+    materialize_resolved_program_without_call_costing(program, config, origin, runtime, report)
+}
+
+fn materialize_resolved_program_without_call_costing(
+    program: MirProgram, config: &Mir6502Config, origin: u16,
+    runtime: crate::runtime::Runtime, report: bool,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
     if config.enable_peepholes && config.enable_address_values && config.enable_indexed_address_values {
         return materialize::address_values::materialize_costed(program, config, origin, runtime, report);
     }

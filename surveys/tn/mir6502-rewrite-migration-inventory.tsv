@@ -65,3 +65,4 @@ MACH-002	post-home-structural	migrated	register-flags	src/mir6502/materialize/pe
 MACH-003	post-home-structural	migrated	flags	src/mir6502/materialize/store_consumers.rs	discover_direct_inc_dec_updates	analyzed-home-and-machine-liveness
 MACH-004	post-home-cleanup	migrated	register-flags	src/mir6502/materialize/ssa_lite.rs	discover_ssa_lite_byte_rewrites	analyzed-value-availability-and-machine-liveness
 param-address-consumer	post-home	migrated	parameter-carriers	src/mir6502/materialize/calls.rs	discover_param_address_consumers	exact parameter availability and final placement; preserve canonical stores and result state
+call-predicate-snapshots	pre-home	migrated	argument-snapshots	src/mir6502/rewrite/call_predicates.rs	discover_argument_snapshots	generation-scoped complete exclusive loads; pure predicate region; final physical and code-home-image gates

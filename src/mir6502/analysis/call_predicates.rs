@@ -258,7 +258,7 @@ pub(in crate::mir6502) fn argument_snapshot(
 }
 
 #[cfg(test)]
-mod tests {
+pub(in crate::mir6502) mod tests {
     use super::*;
     use crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot;
     use crate::mir6502::analysis::sites::MirRoutineGeneration;
