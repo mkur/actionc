@@ -1446,12 +1446,13 @@ pub(super) fn materialize_program_with_reporting(
         run_analyzed_widened_byte_shift_store_consumers(routine, &layout, &mut peephole_stats)?;
         lower_constant_word_shift_projections(routine, &layout, &mut peephole_stats);
         lower_small_constant_word_shifts(routine, &layout, &mut peephole_stats);
-        let routine_temp_widths = collect_routine_temp_widths(routine);
         run_prehome_canonicalization_group(routine, config, &layout, &mut peephole_stats)?;
         runtime::expose_zero_extended_binary_inputs(routine);
         let divmod_pairs = runtime::fuse_adjacent_divmod(routine, config, &layout, &mut helpers);
         peephole_stats.record_many(routine.id, "shared-divmod-selected", divmod_pairs);
         run_prehome_selection_group(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
+        expand_compute_address_values(routine)?;
+        let routine_temp_widths = collect_routine_temp_widths(routine);
         for block in &mut routine.blocks {
             block.ops = materialize_ops_impl(
                 routine.id,
@@ -4205,6 +4206,116 @@ fn materialize_word_compare_temp_ops(
 
 struct FreshTemps {
     next: u32,
+}
+
+/// General full-width fallback. No stride is narrowed to a byte scale here.
+fn expand_compute_address_values(
+    routine: &mut super::ir::MirRoutine,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let count = routine
+        .blocks
+        .iter()
+        .flat_map(|b| &b.ops)
+        .filter(|op| matches!(op, MirOp::ComputeAddress { .. }))
+        .count();
+    if count == 0 {
+        return Ok(());
+    }
+    let max = routine
+        .temps
+        .iter()
+        .map(|t| t.id.0)
+        .chain(routine.blocks.iter().flat_map(|b| &b.ops).flat_map(|op| {
+            let e = crate::mir6502::analysis::effects::classify_op(op);
+            e.logical
+                .temp_defs
+                .into_iter()
+                .chain(e.logical.temp_uses)
+                .map(|a| a.temp().0)
+        }))
+        .max()
+        .unwrap_or(0);
+    let Some(next) = max.checked_add(1).filter(|n| {
+        u32::try_from(count)
+            .ok()
+            .and_then(|c| c.checked_mul(2))
+            .and_then(|c| n.checked_add(c))
+            .is_some()
+    }) else {
+        return Err(vec![MirDiagnostic::routine(
+            &routine.name,
+            "computed address temporary identity exhausted",
+        )]);
+    };
+    let mut fresh = FreshTemps { next };
+    for block in &mut routine.blocks {
+        let mut out = Vec::new();
+        for op in std::mem::take(&mut block.ops) {
+            let MirOp::ComputeAddress {
+                dst,
+                mut base,
+                index,
+                elem_size,
+                offset,
+            } = op
+            else {
+                out.push(op);
+                continue;
+            };
+            if let Some(index) = index {
+                if offset != 0 {
+                    let temp = fresh.fresh(&mut routine.temps);
+                    out.push(MirOp::Binary {
+                        op: MirBinaryOp::Add,
+                        dst: MirDef::VTemp(temp),
+                        left: base,
+                        right: MirValue::ConstU16(offset),
+                        width: MirWidth::Word,
+                        carry_in: None,
+                        carry_out: MirCarryOut::Ignore,
+                    });
+                    base = MirValue::Def(MirDef::VTemp(temp));
+                }
+                let temp = fresh.fresh(&mut routine.temps);
+                out.push(MirOp::Binary {
+                    op: MirBinaryOp::Mul,
+                    dst: MirDef::VTemp(temp),
+                    left: index,
+                    right: MirValue::ConstU16(elem_size),
+                    width: MirWidth::Word,
+                    carry_in: None,
+                    carry_out: MirCarryOut::Ignore,
+                });
+                out.push(MirOp::Binary {
+                    op: MirBinaryOp::Add,
+                    dst,
+                    left: base,
+                    right: MirValue::Def(MirDef::VTemp(temp)),
+                    width: MirWidth::Word,
+                    carry_in: None,
+                    carry_out: MirCarryOut::Ignore,
+                });
+            } else if offset != 0 {
+                out.push(MirOp::Binary {
+                    op: MirBinaryOp::Add,
+                    dst,
+                    left: base,
+                    right: MirValue::ConstU16(offset),
+                    width: MirWidth::Word,
+                    carry_in: None,
+                    carry_out: MirCarryOut::Ignore,
+                });
+            } else {
+                out.push(MirOp::Move {
+                    dst,
+                    src: base,
+                    width: MirWidth::Word,
+                });
+            }
+        }
+        block.ops = out;
+    }
+    Ok(())
 }
 
 impl FreshTemps {

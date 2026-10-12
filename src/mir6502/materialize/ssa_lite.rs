@@ -310,6 +310,7 @@ impl SsaLiteValueEnv {
             | MirOp::LoadImm { dst, .. }
             | MirOp::Move { dst, .. }
             | MirOp::LeaAddr { dst, .. }
+            | MirOp::ComputeAddress { dst, .. }
             | MirOp::Extend { dst, .. }
             | MirOp::Truncate { dst, .. }
             | MirOp::Unary { dst, .. }
@@ -595,6 +596,7 @@ impl SsaLiteV2ObserveEnv {
             | MirOp::LoadImm { dst, .. }
             | MirOp::Move { dst, .. }
             | MirOp::LeaAddr { dst, .. }
+            | MirOp::ComputeAddress { dst, .. }
             | MirOp::Extend { dst, .. }
             | MirOp::Truncate { dst, .. }
             | MirOp::Unary { dst, .. }
@@ -1267,6 +1269,8 @@ fn address_consumer_pair_contains_resolved_address(
 
 fn op_values(op: &MirOp) -> Vec<&MirValue> {
     match op {
+        MirOp::ComputeAddress { base,index,.. } => std::iter::once(base).chain(index.iter()).collect(),
+
         MirOp::PackedRealCopy {
             source,
             destination,
@@ -1950,6 +1954,8 @@ impl LiveTempByteLanes {
 
     fn observe_op_uses(&mut self, op: &MirOp) {
         match op {
+        MirOp::ComputeAddress { base,index,.. } => {self.observe_typed_value(base,MirWidth::Word);if let Some(index)=index {self.observe_typed_value(index,MirWidth::Word);} },
+
             MirOp::Load { src, .. } => self.observe_addr(src),
             MirOp::CopyBytes {
                 source,

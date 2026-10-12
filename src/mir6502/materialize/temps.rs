@@ -252,6 +252,7 @@ fn op_is_sinkable_temp_producer(op: &MirOp) -> bool {
         }
         MirOp::Load { .. }
         | MirOp::LeaAddr { .. }
+        | MirOp::ComputeAddress { .. }
         | MirOp::Call { .. }
         | MirOp::Store { .. }
         | MirOp::CopyBytes { .. }
@@ -454,6 +455,8 @@ pub(in crate::mir6502) fn replace_op_temp_values(
 ) -> bool {
     let before = op.clone();
     match op {
+        MirOp::ComputeAddress { base,index,.. } => { *base=replace_temp_value(base.clone(),temp,replacement);if let Some(index)=index { *index=replace_temp_value(index.clone(),temp,replacement); } },
+
         MirOp::Load { src, .. } => {
             *src = replace_temp_addr(src.clone(), temp, replacement);
         }
@@ -1026,6 +1029,7 @@ fn invalidate_staged_address_for_op(
         | MirOp::CompareIndirectWords { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::LeaAddr { .. }
+        | MirOp::ComputeAddress { .. }
         | MirOp::PackedRealCompare { .. } => false,
         MirOp::StoreIndirect { .. } | MirOp::IndirectByteCompound { .. } => true,
         MirOp::PackedRealCopy { .. } | MirOp::CopyBytes { .. } => true,

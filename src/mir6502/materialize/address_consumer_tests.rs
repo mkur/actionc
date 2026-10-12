@@ -187,3 +187,45 @@ fn embedded_byte_fields_preserve_indexes_effects_and_neighbor_bytes() {
         }
     }
 }
+
+
+#[test]
+fn computed_address_fallback_executes_full_word_scales_and_wrap() {
+    let source = "CARD base=$0600,index=$0602,result=$0604 PROC Main() result=base+index RETURN";
+    let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
+    let model = crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern()).unwrap();
+    let nir = crate::nir::optimize_program(&crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model))).unwrap();
+    for stride in [1u16, 2, 20, 255, 256, 65535] {
+        for offset in [0u16, 38, 255, 256] {
+            let mut mir = crate::mir6502::lower_program(&nir).unwrap();
+            let mut found = false;
+            for op in mir.routines.iter_mut().flat_map(|r| &mut r.blocks).flat_map(|b| &mut b.ops) {
+                if let MirOp::Binary { op: MirBinaryOp::Add, dst, left, right, width: MirWidth::Word, .. } = op {
+                    *op = MirOp::ComputeAddress { dst: dst.clone(), base: left.clone(), index: Some(right.clone()), elem_size: stride, offset };
+                    found = true;
+                }
+            }
+            assert!(found);
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                for optimized in [false, true] {
+                    let config = if optimized { Mir6502Config::optimized() } else { Mir6502Config::default() };
+                    let mir = crate::mir6502::materialize_program_with_origin_and_runtime(mir.clone(), &config, 0x3000, runtime).unwrap();
+                    crate::mir6502::verify_program(&mir, MirPhase::PreEmission).unwrap();
+                    let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
+                    let summary = crate::mir6502::emit::emit_program(&mir, 0x3000, &mut emitter).unwrap();
+                    let emission = emitter.finish_with_relocations().unwrap();
+                    let compiled = crate::mir6502::codegen_output(emission, 0x3000, summary, runtime, &mir);
+                    for base in [0x5000u16, 0x50F1, 0xFFF0] {
+                        for index in [0u16, 1, 255, 256, 257, 65535] {
+                            let mut ram = memory(&compiled, runtime);
+                            ram[0x600..0x602].copy_from_slice(&base.to_le_bytes());
+                            ram[0x602..0x604].copy_from_slice(&index.to_le_bytes());
+                            super::leaf_test_cpu::run_memory(&mut ram, usize::from(compiled.run_address));
+                            assert_eq!(u16::from_le_bytes([ram[0x604], ram[0x605]]), base.wrapping_add(offset).wrapping_add(index.wrapping_mul(stride)), "stride={stride}/offset={offset}/base={base:04X}/index={index}/{runtime:?}/opt={optimized}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

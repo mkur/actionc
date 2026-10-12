@@ -566,6 +566,8 @@ fn block_references_param_storage(block: &MirBlock) -> bool {
 
 fn op_references_param_storage(op: &MirOp) -> bool {
     match op {
+        MirOp::ComputeAddress { base,index,.. } => value_references_param_storage(base) || index.as_ref().is_some_and(value_references_param_storage),
+
         MirOp::LoadImm { .. }
         | MirOp::UpdateReg { .. }
         | MirOp::Barrier { .. }

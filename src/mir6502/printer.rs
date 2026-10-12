@@ -457,6 +457,9 @@ fn op_summary(op: &MirOp) -> String {
                 value_summary(src)
             )
         }
+        MirOp::ComputeAddress { dst, base, index, elem_size, offset } => format!(
+            "{} =.w address {}[{};{}]+{}",def_summary(dst),value_summary(base),
+            index.as_ref().map(value_summary).unwrap_or_else(|| "-".into()),elem_size,offset),
         MirOp::LeaAddr { dst, target, width } => {
             format!(
                 "{} ={} lea {}",

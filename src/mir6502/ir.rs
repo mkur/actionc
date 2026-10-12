@@ -657,6 +657,15 @@ pub enum MirOp {
         consumer: MirAddressConsumer,
         value: MirValue,
     },
+    /// Pure complete 16-bit address value, before physical carrier selection.
+    /// Inputs are captured values, never implicit mutable pointer-cell reads.
+    ComputeAddress {
+        dst: MirDef,
+        base: MirValue,
+        index: Option<MirValue>,
+        elem_size: u16,
+        offset: u16,
+    },
     MaterializeIndexedAddress {
         consumer: MirAddressConsumer,
         base: MirValue,

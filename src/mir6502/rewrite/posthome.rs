@@ -100,6 +100,8 @@ pub(in crate::mir6502) fn estimated_6502_cost(ops: &[MirOp]) -> (u16, u16) {
 
 fn estimated_op_cost(op: &MirOp) -> (u16, u16) {
     match op {
+        MirOp::ComputeAddress { .. } => (u16::MAX,u16::MAX),
+
         MirOp::LoadImm { width, .. } => width_cost(*width, (2, 2), (4, 4)),
         MirOp::Load { src, width, .. } => address_cost(src, *width, false),
         MirOp::Store { dst, width, .. } => address_cost(dst, *width, true),

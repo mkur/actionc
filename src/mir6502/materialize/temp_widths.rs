@@ -33,6 +33,7 @@ pub(super) fn collect_temp_widths(ops: &[MirOp]) -> BTreeMap<MirTempId, MirWidth
                 width: MirWidth::Word,
                 ..
             } => note_temp_width(&mut widths, dst, MirWidth::Word),
+            MirOp::ComputeAddress { dst, .. } => note_temp_width(&mut widths,dst,MirWidth::Word),
             MirOp::Extend { dst, to_width, .. } => note_temp_width(&mut widths, dst, *to_width),
             MirOp::Truncate { dst, to_width, .. } => note_temp_width(&mut widths, dst, *to_width),
             MirOp::Call {

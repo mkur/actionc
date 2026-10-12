@@ -13,6 +13,7 @@ pub(super) fn op_def(op: &MirOp) -> Option<&MirDef> {
         | MirOp::Load { dst, .. }
         | MirOp::Move { dst, .. }
         | MirOp::LeaAddr { dst, .. }
+        | MirOp::ComputeAddress { dst, .. }
         | MirOp::Extend { dst, .. }
         | MirOp::Truncate { dst, .. }
         | MirOp::Unary { dst, .. }

@@ -1392,6 +1392,26 @@ impl MirVerifier {
                 self.verify_def(routine, block, dst);
                 self.verify_value(routine, block, src, static_ids, global_ids, routine_ids);
             }
+            MirOp::ComputeAddress { dst, base, index, .. } => {
+                fn captured(value: &MirValue) -> bool {
+                    match value {
+                        MirValue::PointerCell(_) | MirValue::Def(MirDef::Reg(_)) => false,
+                        MirValue::Word { lo, hi } => captured(lo) && captured(hi),
+                        _ => true,
+                    }
+                }
+                if self.phase != MirPhase::PreMaterialization || !matches!(dst, MirDef::VTemp(_)) {
+                    self.diagnostics.push(MirDiagnostic::block(&routine.name,block,
+                        "computed address requires a complete virtual word before emission"));
+                }
+                if !captured(base) || index.as_ref().is_some_and(|value| !captured(value)) {
+                    self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                        "computed address inputs must be captured values, not mutable pointer cells or registers"));
+                }
+                self.verify_def(routine,block,dst);
+                self.verify_value(routine,block,base,static_ids,global_ids,routine_ids);
+                if let Some(index)=index {self.verify_value(routine,block,index,static_ids,global_ids,routine_ids);}
+            }
             MirOp::LeaAddr { dst, target, width } => {
                 self.verify_def(routine, block, dst);
                 self.verify_mem(
@@ -4553,6 +4573,32 @@ mod tests {
                 .message
                 .contains("storage `l1` size 1 is smaller than its 2-byte scalar width")
         }));
+    }
+
+    #[test]
+    fn computed_addresses_require_captured_inputs_and_a_complete_prehome_word() {
+        let op = MirOp::ComputeAddress {
+            dst: MirDef::VTemp(MirTempId(0)), base: MirValue::ConstU16(0xFFF0),
+            index: Some(MirValue::ConstU16(257)), elem_size: 256, offset: 38,
+        };
+        let mut r = routine(RoutineId(0), "Main", vec![block_with_ops(
+            MirBlockId(0), "bb0", vec![op], MirTerminator::Return)]);
+        r.temps.push(MirTemp { id: MirTempId(0) });
+        let p = program_with_routines(vec![r]);
+        assert!(verify_program(&p, MirPhase::PreMaterialization).is_ok());
+        for phase in [MirPhase::PostMaterialization, MirPhase::PreEmission] {
+            assert!(verify_program(&p, phase).unwrap_err().iter().any(|d|
+                d.message.contains("complete virtual word")));
+        }
+        let mut bad = p.clone();
+        let MirOp::ComputeAddress { base, .. } = &mut bad.routines[0].blocks[0].ops[0] else { unreachable!() };
+        *base = MirValue::Word { lo: Box::new(MirValue::PointerCell(MirMem::Absolute(0x600))), hi: Box::new(MirValue::ConstU8(0)) };
+        assert!(verify_program(&bad, MirPhase::PreMaterialization).unwrap_err().iter().any(|d|
+            d.message.contains("captured values")));
+        let MirOp::ComputeAddress { dst, .. } = &mut bad.routines[0].blocks[0].ops[0] else { unreachable!() };
+        *dst = MirDef::VTempByte { id: MirTempId(0), byte: 0 };
+        assert!(verify_program(&bad, MirPhase::PreMaterialization).unwrap_err().iter().any(|d|
+            d.message.contains("complete virtual word")));
     }
 
     fn program_with_routines(routines: Vec<MirRoutine>) -> MirProgram {

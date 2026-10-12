@@ -3806,6 +3806,8 @@ fn format_temp_operand(temp: MirTempId, byte: Option<u8>) -> String {
 
 fn word_operand_temp_producer_kind(op: &MirOp) -> (&'static str, &'static str) {
     match op {
+        MirOp::ComputeAddress { .. } => ("address-value","binary-store-forward-word-temp-producer-other"),
+
         MirOp::Load {
             src: MirAddr::Direct(_),
             width,

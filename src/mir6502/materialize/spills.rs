@@ -817,6 +817,7 @@ pub(super) fn can_remove_spill_reload_at(
         | Some(MirOp::CopyBytes { .. })
         | Some(MirOp::LoadImm { .. })
         | Some(MirOp::Move { .. })
+        | Some(MirOp::ComputeAddress { .. })
         | Some(MirOp::LeaAddr { .. })
         | Some(MirOp::Extend { .. })
         | Some(MirOp::Truncate { .. })
@@ -978,6 +979,7 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
         | MirOp::LoadImm { .. }
         | MirOp::Move { .. }
         | MirOp::LeaAddr { .. }
+        | MirOp::ComputeAddress { .. }
         | MirOp::Extend { .. }
         | MirOp::Truncate { .. }
         | MirOp::Unary { .. }
@@ -2265,6 +2267,8 @@ fn terminator_spills(terminator: &MirTerminator) -> Vec<MirSpillId> {
 
 fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
     match op {
+        MirOp::ComputeAddress { base,index,.. } => { remap_value_spills(base,remap);if let Some(index)=index {remap_value_spills(index,remap);} },
+
         MirOp::Load { src, .. } => remap_addr_spills(src, remap),
         MirOp::Store { dst, src, .. } => {
             remap_addr_spills(dst, remap);
@@ -2416,6 +2420,8 @@ fn remap_mem_spills(mem: &mut MirMem, remap: &BTreeMap<MirSpillId, MirSpillId>) 
 
 fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirZpSlot>) {
     match op {
+        MirOp::ComputeAddress { base,index,.. } => { remap_value_spills_to_zero_page(base,remap);if let Some(index)=index {remap_value_spills_to_zero_page(index,remap);} },
+
         MirOp::Load { src, .. } => remap_addr_spills_to_zero_page(src, remap),
         MirOp::Store { dst, src, .. } => {
             remap_addr_spills_to_zero_page(dst, remap);
@@ -2575,6 +2581,8 @@ where
     F: FnMut(&MirMem),
 {
     match op {
+        MirOp::ComputeAddress { base,index,.. } => {visit_value_mems(base,visitor);if let Some(index)=index {visit_value_mems(index,visitor);} },
+
         MirOp::Load { src, .. } => visit_addr_mems(src, visitor),
         MirOp::Store { dst, src, .. } => {
             visit_addr_mems(dst, visitor);
@@ -2705,6 +2713,8 @@ where
 
 fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
     match op {
+        MirOp::ComputeAddress { dst,base,index,.. } => {collect_def_spills(dst,spills);collect_value_spills(base,spills);if let Some(index)=index {collect_value_spills(index,spills);} },
+
         MirOp::Load { dst, src, .. } => {
             collect_def_spills(dst, spills);
             collect_addr_spills(src, spills);

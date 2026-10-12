@@ -48,6 +48,27 @@ calls, and concrete-enough address forms.
 has no unsupported pseudo ops, unresolved storage, unresolved labels, or
 unassigned virtual temps. It is ready to feed tracked emission helpers.
 
+### Complete address values
+
+`ComputeAddress` is a MIR6502 target strategy for a pure complete word:
+`base + displacement + index * stride`, modulo 65536. The optional index,
+stride and displacement retain their full word range. Bases and indexes are
+captured values; implicit mutable pointer-cell reads and real register inputs
+are rejected. Storage address bytes retain typed storage identity until layout.
+SemIR and NIR continue to own source meaning and typed arithmetic.
+
+The operation defines one full virtual word before materialization. It does
+not write a source pointer, select a scratch pair or replace the public return
+ABI. Those stores remain explicit. It must disappear before post-materialization
+and pre-emission verification; partial destinations are rejected. Conservative
+expansion uses existing full-width word arithmetic, including strides above 255.
+
+Same-block provenance may follow exclusive complete-word arithmetic and copies.
+Removing a producer additionally requires availability, dead flags and all-lane
+whole-routine use proofs. A reaching local-pointer store is a memory fact, not
+SSA identity: writes, calls and unknown effects invalidate it. Physical home and
+scratch interference are checked by selection at the layout boundary.
+
 ### Costed scalar leaf inlining
 
 MIR routines preserve verified NIR's typed `Auto` / `Prefer` inline metadata.

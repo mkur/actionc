@@ -671,6 +671,8 @@ fn replace_value_lane(value: &mut MirValue, lane: TempLane, replacement: &MirVal
 
 fn op_kind(op: &MirOp) -> &'static str {
     match op {
+        MirOp::ComputeAddress { .. } => "compute-address",
+
         MirOp::LoadImm { .. } => "load-imm",
         MirOp::Load { .. } => "load",
         MirOp::Move { .. } => "move",
@@ -1431,6 +1433,8 @@ fn record_op_uses(
     facts: &mut BTreeMap<TempLane, LaneFacts>,
 ) {
     match op {
+        MirOp::ComputeAddress { base,index,.. } => { record_op_value_use(base,MirWidth::Word,false,block,op_index,facts); if let Some(index)=index {record_op_value_use(index,MirWidth::Word,false,block,op_index,facts);} },
+
         MirOp::Load { src, .. } => record_addr_uses(src, block, op_index, widths, facts),
         MirOp::CopyBytes {
             source,

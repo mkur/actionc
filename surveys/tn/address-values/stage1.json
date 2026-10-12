@@ -1,0 +1,22 @@
+{
+  "TN-optimized": {
+    "load_file_bytes": 18095,
+    "sha256": "f63a719d3c22e5dd942dbaa81b9f3c7017ffb6cfec5b65de67d53bc102c2474a",
+    "byte_identical_to_stage0": true
+  },
+  "TN-mir6502": {
+    "load_file_bytes": 16807,
+    "sha256": "0bea35b4783adb61e1deb9197b719da5bfa1183c6a54e8e0f782f47ef83b5ed2",
+    "byte_identical_to_stage0": true
+  },
+  "TNDBG-optimized": {
+    "load_file_bytes": 21586,
+    "sha256": "8d29fb4df2c73f52d849e7e32eb90b6d3548a964e356571634ed67d78f31a92b",
+    "byte_identical_to_stage0": true
+  },
+  "TNDBG-mir6502": {
+    "load_file_bytes": 20544,
+    "sha256": "4a814f661dbeb4e67aba7e56cd2d195934be11f865bda8d5f8efa938c7f89e68",
+    "byte_identical_to_stage0": true
+  }
+}

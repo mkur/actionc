@@ -962,6 +962,8 @@ pub(super) fn remap_block_temps(block: &mut MirBlock, replacements: &BTreeMap<Mi
 
 fn remap_op_temp(op: &mut MirOp, old: MirTempId, new: MirTempId) {
     match op {
+        MirOp::ComputeAddress { dst,base,index,.. } => { remap_def_temp(dst,old,new);remap_value_temp(base,old,new);if let Some(index)=index {remap_value_temp(index,old,new);} },
+
         MirOp::Load { dst, src, .. } => {
             remap_def_temp(dst, old, new);
             remap_addr_temp(src, old, new);

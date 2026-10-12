@@ -95,6 +95,7 @@ pub(in crate::mir6502) enum MirOpKind {
     CopyBytes,
     Move,
     LeaAddr,
+    ComputeAddress,
     Extend,
     Truncate,
     Unary,
@@ -326,6 +327,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::CopyBytes { .. } => MirOpKind::CopyBytes,
         MirOp::Move { .. } => MirOpKind::Move,
         MirOp::LeaAddr { .. } => MirOpKind::LeaAddr,
+        MirOp::ComputeAddress { .. } => MirOpKind::ComputeAddress,
         MirOp::Extend { .. } => MirOpKind::Extend,
         MirOp::Truncate { .. } => MirOpKind::Truncate,
         MirOp::Unary { .. } => MirOpKind::Unary,
@@ -403,6 +405,13 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             record_value(src, &mut summary);
             record_def(dst, *width, &mut summary);
             mark_register_result_flags(dst, &mut summary);
+            summary.removable_when_results_dead = true;
+        }
+        MirOp::ComputeAddress { dst, base, index, .. } => {
+            record_value_as(base, MirTempUseKind::Address, &mut summary);
+            if let Some(index) = index { record_value_as(index, MirTempUseKind::Address, &mut summary); }
+            record_def(dst, MirWidth::Word, &mut summary);
+            summary.machine.flag_writes = MirFlagSet::all();
             summary.removable_when_results_dead = true;
         }
         MirOp::LeaAddr { dst, target, width } => {
@@ -1876,6 +1885,13 @@ mod tests {
     fn every_operation_family_has_an_explicit_effect_classification() {
         let operations = vec![
             (
+                MirOpKind::ComputeAddress,
+                MirOp::ComputeAddress {
+                    dst: temp(1), base: temp_value(2), index: Some(temp_value(3)),
+                    elem_size: 256, offset: 38,
+                },
+            ),
+            (
                 MirOpKind::LoadImm,
                 MirOp::LoadImm {
                     dst: temp(1),
@@ -2156,7 +2172,7 @@ mod tests {
             ),
         ];
 
-        assert_eq!(operations.len(), 31);
+        assert_eq!(operations.len(), 32);
         for (expected, operation) in operations {
             assert_eq!(classify_op(&operation).kind, expected, "{operation:?}");
         }

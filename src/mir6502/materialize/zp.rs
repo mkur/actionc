@@ -59,6 +59,7 @@ pub(super) fn reserve_pointer_scratch_slots(program: &mut MirProgram) {
 fn routine_uses_deref(routine: &MirRoutine) -> bool {
     routine.blocks.iter().any(|block| {
         block.ops.iter().any(|op| match op {
+            MirOp::ComputeAddress { .. } => true,
             MirOp::Load { src, .. } | MirOp::Store { dst: src, .. } => addr_contains_deref(src),
             MirOp::CopyBytes {
                 source,
@@ -506,6 +507,7 @@ fn resolve_op_consumers(
         | MirOp::CopyBytes { .. }
         | MirOp::Move { .. }
         | MirOp::LeaAddr { .. }
+        | MirOp::ComputeAddress { .. }
         | MirOp::Extend { .. }
         | MirOp::Truncate { .. }
         | MirOp::Unary { .. }

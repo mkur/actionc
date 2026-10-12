@@ -37,3 +37,19 @@ CARGO_TARGET_DIR="$PWD/target/tn-address-values/build" CARGO_INCREMENTAL=0 \
 Listings and logs are retained under `target/tn-address-values/stage0`. The
 historical audit collector remains pinned to the pre-implementation compiler;
 later stages write separate reports rather than replacing its measurements.
+
+## Stage 1
+
+The complete word `ComputeAddress` operation and its conservative full-width
+fallback are implemented. Same-block provenance follows exclusive word copies,
+constant displacements and constant-stride scaling; it retains originating
+loads/calls and records input evaluation sites. Reaching-pointer-store queries
+reject nonlocal cells, mutations and call/unknown-write barriers. Selection is
+still disabled.
+
+Six focused MIR tests pass: complete-word/phase verification, operation-family
+effects, three provenance checks and actual fallback execution. The execution
+check covers both materialization profiles/runtimes, strides 1/2/20/255/256/65535,
+offsets 0/38/255/256, unaligned bases and full CARD wrap.
+[stage1.json](stage1.json) confirms all four full-root images are byte-identical
+to Stage 0. SemIR/NIR contracts and snapshots are unchanged.

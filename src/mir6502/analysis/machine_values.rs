@@ -689,6 +689,8 @@ fn update_fixed_zero_page_values(
     known_callees: &MirKnownCalleeSummaries,
 ) {
     match op {
+        MirOp::ComputeAddress { .. } => {},
+
         MirOp::Store {
             dst: MirAddr::Direct(mem),
             src,

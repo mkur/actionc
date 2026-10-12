@@ -1433,6 +1433,8 @@ fn operation_takes_induction_address(
     let value = |value| value_takes_induction_address(routine, layout, value, induction);
     let addr = |addr| addr_takes_induction_address(routine, layout, addr, induction);
     match op {
+        MirOp::ComputeAddress { base,index,.. } => value(base) || index.as_ref().is_some_and(value),
+
         MirOp::Load { src, .. } => addr(src),
         MirOp::Store { dst, src, .. } => addr(dst) || value(src),
         MirOp::CopyBytes {

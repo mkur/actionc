@@ -394,6 +394,8 @@ fn visit_op_storage(
     statics: &mut BTreeSet<SymbolId>,
 ) {
     match op {
+        MirOp::ComputeAddress { base,index,.. } => {visit_value_storage(base,globals,statics);if let Some(index)=index {visit_value_storage(index,globals,statics);} },
+
         MirOp::Load { src, .. } => visit_addr_storage(src, globals, statics),
         MirOp::Store { dst, src, .. } => {
             visit_addr_storage(dst, globals, statics);
@@ -650,6 +652,8 @@ fn rebase_op(
     statics: &BTreeMap<SymbolId, SymbolId>,
 ) -> Result<(), Vec<MirDiagnostic>> {
     match op {
+        MirOp::ComputeAddress { base,index,.. } => {rebase_value(base,routines,globals,statics)?;if let Some(index)=index {rebase_value(index,routines,globals,statics)?;} },
+
         MirOp::Load { src, .. } => rebase_addr(src, routines, globals, statics)?,
         MirOp::Store { dst, src, .. } => {
             rebase_addr(dst, routines, globals, statics)?;
@@ -1617,6 +1621,8 @@ fn runtime_graph_discoveries() -> usize {
 
 pub(in crate::mir6502) fn visit_op_routines(op: &MirOp, routines: &mut BTreeSet<RoutineId>) {
     match op {
+        MirOp::ComputeAddress { base,index,.. } => {visit_value_routines(base,routines);if let Some(index)=index {visit_value_routines(index,routines);} },
+
         MirOp::Load { src, .. } => visit_addr_routines(src, routines),
         MirOp::Store { dst, src, .. } => {
             visit_addr_routines(dst, routines);

@@ -210,6 +210,7 @@ fn op_blocks_deferred_direct_read(op: &MirOp) -> bool {
         | MirOp::Move { .. }
         | MirOp::UpdateReg { .. }
         | MirOp::LeaAddr { .. }
+        | MirOp::ComputeAddress { .. }
         | MirOp::Extend { .. }
         | MirOp::Truncate { .. }
         | MirOp::Unary { .. }
