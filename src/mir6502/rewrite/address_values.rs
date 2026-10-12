@@ -82,7 +82,7 @@ pub(in crate::mir6502) fn offset_known_storage(mem: &MirMem, offset: u16) -> Opt
     })
 }
 
-fn ordinary_pointer_local(routine: &MirRoutine, cell: &MirMem) -> bool {
+pub(in crate::mir6502) fn ordinary_pointer_local(routine: &MirRoutine, cell: &MirMem) -> bool {
     let MirMem::Local { id, offset: 0 } = cell else {
         return false;
     };

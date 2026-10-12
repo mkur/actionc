@@ -650,6 +650,9 @@ fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], 
     if matches!(delta, MirEffectDelta::ForwardedKnownPointerLocal) {
         return known_pointer_local_forward_is_justified(original, replacement);
     }
+    if matches!(delta, MirEffectDelta::MaterializedRetainedPointerField) {
+        return crate::mir6502::materialize::address_values::retained_pointer_field_is_justified(original, replacement, widths);
+    }
     if matches!(
         delta,
         MirEffectDelta::MaterializedCallArguments | MirEffectDelta::ForwardedCallResultStore { .. }
@@ -664,6 +667,7 @@ fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], 
     let mut replacement = observable_effects(replacement);
     match delta {
         MirEffectDelta::ForwardedKnownPointerLocal => unreachable!("checked before projection"),
+        MirEffectDelta::MaterializedRetainedPointerField => unreachable!("checked before projection"),
         MirEffectDelta::Unchanged => original == replacement,
         MirEffectDelta::SelectedResultRegister(register) => {
             if !register_is_set(replacement.register_writes, register) {

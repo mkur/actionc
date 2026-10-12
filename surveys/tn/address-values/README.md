@@ -106,3 +106,26 @@ The full MIR unit set passes (1,035 tests; two existing ignored tests), as do
 the address, record-boundary, generic reproducer and TN CPU-profile VM targets.
 Forced trial execution also checks rejected size candidates, full CARD indexes,
 page crossings and wrap in both runtimes.
+
+## Stage 4
+
+An indexed address stored to an ordinary source pointer can supply its next
+field consumer through the complete prepared pair. The transaction retains
+both source pointer bytes, all intervening direct reads and exact field lanes.
+Y-window rebasing happens after the pointer assignment. Writes/calls and
+pointer mutation stop reuse. Exclusive CARD index loads can feed the constructor
+from ordinary parameter/local storage without a private capture; absolute
+backing and source/scratch collisions reject that deferral.
+
+The stride-20 `ReadViaLocal` now has 101 code + 0 spill + 4 parameter + 2 local
+bytes, previously 104 + 2 + 4 + 2. It has no multiply call and never reloads
+the source pointer for its field. Measured cartridge execution is 188 cycles
+for all tested CARD indexes, previously 291–604. Direct consumption remains
+85 bytes/166 cycles; retaining the source assignment still has a cost.
+
+[stage4.json](stage4.json) retains both runtime measurements and four-root
+LF/CRLF equality. Root sizes match Stage 3. The MIR unit set passes (1,037;
+two existing ignored tests), and ten tests across the four affected VM targets
+pass. New execution cases check retained pointer bytes, byte/word fields at
+offsets 0/38/254/255/256, independent layouts, effectful indexes, aliasing writes,
+one-lane mutation, intervening calls and a pointer referring to its own cell.

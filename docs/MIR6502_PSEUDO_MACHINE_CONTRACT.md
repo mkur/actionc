@@ -84,6 +84,17 @@ The optimized policy costs final routine code plus ordinary homes and the
 complete emitted image against the fallback. Unknown cost, source-owned
 scratch overlap or growth rejects the transaction.
 
+A complete indexed value stored to an ordinary pointer local can feed one
+following same-block field consumer through the already prepared pair. The
+complete local store stays before the field operation and any rebasing. The
+transaction validates the construction, unchanged direct-read gap, retained
+store and exact byte/word field lanes through the standard Y-window contract.
+Writes, calls, pointer mutation and additional address preparations stop this
+flow. A field write ends reuse; a later pointer read must observe any mutation,
+including when the pointee is the pointer cell itself. Deferred index reads
+require ordinary compiler storage, whole-routine exclusive use, no intervening
+write/call and final disjointness from zero-page preparation.
+
 ### Costed scalar leaf inlining
 
 MIR routines preserve verified NIR's typed `Auto` / `Prefer` inline metadata.

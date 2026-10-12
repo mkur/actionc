@@ -3,9 +3,45 @@ use super::*;
 pub(super) fn forward_unique_word_load_address_consumers(
     routine: &mut super::super::ir::MirRoutine,
     layout: &MaterializeLayout,
+    include_indexes: bool,
 ) -> usize {
     let liveness = analyze_temp_liveness(routine);
     let mut forwarded = 0usize;
+    // Newly admitted index reads must be ordinary compiler-owned storage, not
+    // absolute-backed source cells, and must be disjoint from zero-page setup.
+    let ordinary = |mem: &MirMem| match mem {
+        MirMem::Param { id, .. } => routine
+            .frame
+            .params
+            .iter()
+            .any(|s| s.base == MirStorageBase::Param(*id)),
+        MirMem::Local { id, .. } => routine
+            .frame
+            .locals
+            .iter()
+            .any(|s| s.base == MirStorageBase::Local(*id)),
+        _ => layout.mem_allows_deferred_direct_read(mem),
+    };
+    let index_sources = routine
+        .blocks
+        .iter()
+        .flat_map(|b| &b.ops)
+        .filter_map(|op| {
+            let MirOp::Load {
+                src: MirAddr::Direct(mem),
+                width: MirWidth::Word,
+                ..
+            } = op
+            else {
+                return None;
+            };
+            (ordinary(mem)
+                && layout
+                    .mem_address(routine.id, mem)
+                    .is_some_and(|a| a >= 0x100 && a < 0xFFFF))
+            .then_some(mem.clone())
+        })
+        .collect::<Vec<_>>();
     for (block_index, block) in routine.blocks.iter_mut().enumerate() {
         let live_out = liveness
             .live_out(block_index)
@@ -15,6 +51,8 @@ pub(super) fn forward_unique_word_load_address_consumers(
             &block.terminator,
             live_out,
             layout,
+            include_indexes,
+            &index_sources,
         );
         block.ops = ops;
         forwarded += count;
@@ -27,6 +65,8 @@ fn forward_unique_word_load_address_consumers_in_block(
     terminator: &MirTerminator,
     live_out: &MirTempLiveSet,
     layout: &MaterializeLayout,
+    include_indexes: bool,
+    index_sources: &[MirMem],
 ) -> (Vec<MirOp>, usize) {
     let mut removals = BTreeSet::new();
     let mut replacements = BTreeMap::<usize, Vec<(MirTempId, MirValue)>>::new();
@@ -58,7 +98,11 @@ fn forward_unique_word_load_address_consumers_in_block(
             && op_is_static_byte_word_index_consumer(consumer, *temp);
         if (!layout.mem_allows_deferred_direct_read(source) && !direct_static_index_use)
             || op_uses_temp_more_than_once(consumer, *temp)
-            || !op_address_uses_temp(consumer, *temp)
+            || !op_address_uses_temp(
+                consumer,
+                *temp,
+                include_indexes && index_sources.contains(source),
+            )
             || ops[producer_index + 1..consumer_index]
                 .iter()
                 .any(op_blocks_deferred_direct_read)
@@ -127,12 +171,18 @@ fn temp_live_out(live_out: &MirTempLiveSet, temp: MirTempId) -> bool {
         || live_out.exact_lane_live(temp, 1)
 }
 
-fn op_address_uses_temp(op: &MirOp, temp: MirTempId) -> bool {
+fn op_address_uses_temp(op: &MirOp, temp: MirTempId, include_indexes: bool) -> bool {
     match op {
         MirOp::Load { src, .. } => addr_uses_temp(src, temp),
         MirOp::Store { dst, .. } => addr_uses_temp(dst, temp),
         MirOp::MaterializeAddress { value, .. } => value_uses_specific_temp(value, temp),
-        MirOp::MaterializeIndexedAddress { base, .. } => value_uses_specific_temp(base, temp),
+        MirOp::MaterializeIndexedAddress { base, index, .. } => {
+            value_uses_specific_temp(base, temp)
+                || (include_indexes && value_uses_specific_temp(index, temp))
+        }
+        MirOp::AdvanceAddress { index, .. } => {
+            include_indexes && value_uses_specific_temp(index, temp)
+        }
         _ => false,
     }
 }
@@ -172,8 +222,12 @@ fn replace_op_address_temp(op: &mut MirOp, temp: MirTempId, replacement: &MirVal
         MirOp::MaterializeAddress { value, .. } => {
             *value = replace_temp_value(value.clone(), temp, replacement);
         }
-        MirOp::MaterializeIndexedAddress { base, .. } => {
+        MirOp::MaterializeIndexedAddress { base, index, .. } => {
             *base = replace_temp_value(base.clone(), temp, replacement);
+            *index = replace_temp_value(index.clone(), temp, replacement);
+        }
+        MirOp::AdvanceAddress { index, .. } => {
+            *index = replace_temp_value(index.clone(), temp, replacement)
         }
         _ => {}
     }

@@ -106,6 +106,9 @@ pub(in crate::mir6502) enum MirEffectDelta {
     /// An exact retained local store proves a known address for its next field
     /// access. The driver checks the store, typed address and unchanged prefix.
     ForwardedKnownPointerLocal,
+    /// Complete construction, retained local assignment and one field access.
+    /// The driver checks exact construction, store, gap and field lanes.
+    MaterializedRetainedPointerField,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -199,14 +199,24 @@ pub(in crate::mir6502) fn discover_address_stores(
             }
             let mut replacement = Vec::new();
             if *offset == 0 {
-                indexes::materialize_indexed_address_to_consumer(
-                    base.clone(),
-                    index.clone(),
-                    *elem_size,
-                    DEFAULT_POINTER_PAIR,
-                    layout,
-                    &mut replacement,
-                );
+                if matches!(elem_size, 1 | 2) {
+                    replacement.push(MirOp::MaterializeIndexedAddress {
+                        consumer: DEFAULT_POINTER_PAIR,
+                        base: base.clone(),
+                        index: index.clone(),
+                        scale: *elem_size as u8,
+                    });
+                } else {
+                    replacement.push(MirOp::MaterializeAddress {
+                        consumer: DEFAULT_POINTER_PAIR,
+                        value: base.clone(),
+                    });
+                    replacement.push(MirOp::AdvanceAddress {
+                        consumer: DEFAULT_POINTER_PAIR,
+                        index: index.clone(),
+                        scale: *elem_size as u8,
+                    });
+                }
             } else {
                 // Construct the full displaced base in one operation. A
                 // constant index avoids a separate base copy and increment.
@@ -236,12 +246,62 @@ pub(in crate::mir6502) fn discover_address_stores(
                 },
                 width: MirWidth::Word,
             });
+            let mut end = start + 2;
+            let mut delta = MirEffectDelta::MaterializedIndexConsumer;
+            if crate::mir6502::rewrite::address_values::ordinary_pointer_local(routine, dst)
+                && layout
+                    .mem_address(routine.id, dst)
+                    .is_some_and(|a| a >= 0x100 && a < 0xFFFF)
+            {
+                for field in start + 2..block.ops.len().min(start + 10) {
+                    if let Some(field_ops) = prepared_local_field(
+                        &block.ops[field],
+                        dst,
+                        &collect_routine_temp_widths(routine),
+                    ) {
+                        let field_site = MirSite::Op {
+                            block: block.id,
+                            op_index: field,
+                        };
+                        if crate::mir6502::analysis::address_values::local_pointer_store(
+                            block, field, dst,
+                        )
+                        .is_ok_and(|(store, _)| store == start + 1)
+                            && context.flags_dead_after(
+                                classify_op(&block.ops[field]).machine.flag_writes,
+                                field_site,
+                            )
+                            && context
+                                .pointer_pair_dead_after(
+                                    DEFAULT_POINTER_PAIR,
+                                    context.point(field_site),
+                                )
+                                .is_proven()
+                            && context
+                                .pointer_pair_dead_after(
+                                    INDEX_POINTER_PAIR,
+                                    context.point(field_site),
+                                )
+                                .is_proven()
+                        {
+                            replacement.extend_from_slice(&block.ops[start + 2..field]);
+                            replacement.extend(field_ops);
+                            end = field + 1;
+                            delta = MirEffectDelta::MaterializedRetainedPointerField;
+                        }
+                        break;
+                    }
+                    if !retained_field_gap(&block.ops[field]) {
+                        break;
+                    }
+                }
+            }
             let Some(definitions) =
                 crate::mir6502::rewrite::pilots::prove_removed_window_definitions(
                     block.id,
                     &block.ops,
                     start,
-                    start + 2,
+                    end,
                     &replacement,
                     context,
                 )
@@ -251,15 +311,19 @@ pub(in crate::mir6502) fn discover_address_stores(
             plans.push(MirRewritePlan {
                 generation: context.generation(),
                 block: block.id,
-                range: start..start + 2,
+                range: start..end,
                 replacement,
                 removed_defs: definitions
                     .into_iter()
                     .map(|definition| MirRemovedDefinition { definition })
                     .collect(),
-                exit_effect_delta: MirEffectDelta::MaterializedIndexConsumer,
+                exit_effect_delta: delta,
                 change_set: MirChangeSet::prehome_operation_change(),
-                stat: "address-value-store",
+                stat: if end > start + 2 {
+                    "address-value-retained-field"
+                } else {
+                    "address-value-store"
+                },
                 observations: vec![],
                 family_priority: 10,
                 estimated_byte_saving: 0,
@@ -268,6 +332,221 @@ pub(in crate::mir6502) fn discover_address_stores(
         }
     }
     plans
+}
+
+fn complete_pair_value() -> MirValue {
+    MirValue::Word {
+        lo: Box::new(MirValue::PointerCell(MirMem::FixedZeroPage(
+            MirFixedZpSlot(POINTER_SCRATCH_LO),
+        ))),
+        hi: Box::new(MirValue::PointerCell(MirMem::FixedZeroPage(
+            MirFixedZpSlot(POINTER_SCRATCH_HI),
+        ))),
+    }
+}
+
+/// These operations cannot prepare another pointer or introduce a call/helper.
+/// In particular, arithmetic and indirect reads are outside the initial slice.
+fn retained_field_gap(op: &MirOp) -> bool {
+    matches!(
+        op,
+        MirOp::Load {
+            dst: MirDef::VTemp(_) | MirDef::VTempByte { .. },
+            src: MirAddr::Direct(_),
+            ..
+        } | MirOp::LoadImm {
+            dst: MirDef::VTemp(_) | MirDef::VTempByte { .. },
+            ..
+        }
+    )
+}
+
+fn prepared_local_field(
+    op: &MirOp,
+    cell: &MirMem,
+    widths: &BTreeMap<MirTempId, MirWidth>,
+) -> Option<Vec<MirOp>> {
+    let (ptr, displacement, width) = match op {
+        MirOp::Load {
+            src: MirAddr::PointerCell { ptr, offset },
+            width,
+            ..
+        }
+        | MirOp::Store {
+            dst: MirAddr::PointerCell { ptr, offset },
+            width,
+            ..
+        } => (ptr, *offset, *width),
+        _ => return None,
+    };
+    if ptr != cell {
+        return None;
+    }
+    let window =
+        crate::mir6502::analysis::address_uses::MirIndirectWindow::constant(displacement, width);
+    let offset = u16::from(window.y_displacement);
+    let mut out = Vec::new();
+    if window.base_adjustment != 0 {
+        out.push(MirOp::AdvanceAddress {
+            consumer: DEFAULT_POINTER_PAIR,
+            index: MirValue::ConstU16(window.base_adjustment),
+            scale: 1,
+        });
+    }
+    match op {
+        MirOp::Load {
+            dst: MirDef::Reg(_),
+            ..
+        } => return None,
+        MirOp::Load {
+            dst,
+            width: MirWidth::Byte,
+            ..
+        } => out.push(MirOp::LoadIndirect {
+            consumer: DEFAULT_POINTER_PAIR,
+            dst: dst.clone(),
+            offset,
+        }),
+        MirOp::Load {
+            dst,
+            width: MirWidth::Word,
+            ..
+        } => {
+            let (lo, hi) = split_def(dst.clone())?;
+            out.push(MirOp::LoadIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                dst: lo,
+                offset,
+            });
+            out.push(MirOp::LoadIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                dst: hi,
+                offset: offset + 1,
+            });
+        }
+        MirOp::Store { src, width, .. } => {
+            fn captured_byte(value: &MirValue) -> bool {
+                matches!(
+                    value,
+                    MirValue::ConstU8(_)
+                        | MirValue::Def(MirDef::VTemp(_))
+                        | MirValue::Def(MirDef::VTempByte { .. })
+                )
+            }
+            let values = match (width, src) {
+                (MirWidth::Byte, src) if captured_byte(src) => vec![src.clone()],
+                (MirWidth::Word, MirValue::ConstU16(v)) => {
+                    v.to_le_bytes().into_iter().map(MirValue::ConstU8).collect()
+                }
+                (MirWidth::Word, MirValue::Def(MirDef::VTemp(id)))
+                    if widths.get(id) == Some(&MirWidth::Word) =>
+                {
+                    [0, 1]
+                        .into_iter()
+                        .map(|byte| MirValue::Def(MirDef::VTempByte { id: *id, byte }))
+                        .collect()
+                }
+                (MirWidth::Word, MirValue::Word { lo, hi })
+                    if captured_byte(lo) && captured_byte(hi) =>
+                {
+                    vec![*lo.clone(), *hi.clone()]
+                }
+                _ => return None,
+            };
+            out.extend(
+                values
+                    .into_iter()
+                    .enumerate()
+                    .map(|(lane, src)| MirOp::StoreIndirect {
+                        consumer: DEFAULT_POINTER_PAIR,
+                        src,
+                        offset: offset + lane as u16,
+                    }),
+            );
+        }
+        _ => return None,
+    }
+    Some(out)
+}
+
+/// Validate this narrow delta without discarding observable memory effects.
+/// The complete local store and every intervening read are retained exactly;
+/// the field is expanded through the identical complete pair and Y window.
+pub(in crate::mir6502) fn retained_pointer_field_is_justified(
+    original: &[MirOp],
+    replacement: &[MirOp],
+    widths: &BTreeMap<MirTempId, MirWidth>,
+) -> bool {
+    let [
+        MirOp::ComputeAddress {
+            dst: MirDef::VTemp(temp),
+            base,
+            index: Some(index),
+            elem_size,
+            offset,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(cell @ MirMem::Local { offset: 0, .. }),
+            src: MirValue::Def(MirDef::VTemp(source)),
+            width: MirWidth::Word,
+        },
+        rest @ ..,
+    ] = original
+    else {
+        return false;
+    };
+    if temp != source || !(1..=255).contains(elem_size) || rest.is_empty() {
+        return false;
+    }
+    let (field, gap) = rest.split_last().unwrap();
+    if !gap.iter().all(retained_field_gap) {
+        return false;
+    }
+    let mut expected = if *offset != 0 {
+        vec![
+            MirOp::MaterializeIndexedAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                base: base.clone(),
+                index: MirValue::ConstU16(*offset),
+                scale: 1,
+            },
+            MirOp::AdvanceAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                index: index.clone(),
+                scale: *elem_size as u8,
+            },
+        ]
+    } else if matches!(elem_size, 1 | 2) {
+        vec![MirOp::MaterializeIndexedAddress {
+            consumer: DEFAULT_POINTER_PAIR,
+            base: base.clone(),
+            index: index.clone(),
+            scale: *elem_size as u8,
+        }]
+    } else {
+        vec![
+            MirOp::MaterializeAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                value: base.clone(),
+            },
+            MirOp::AdvanceAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                index: index.clone(),
+                scale: *elem_size as u8,
+            },
+        ]
+    };
+    expected.push(MirOp::Store {
+        dst: MirAddr::Direct(cell.clone()),
+        src: complete_pair_value(),
+        width: MirWidth::Word,
+    });
+    expected.extend_from_slice(gap);
+    let Some(field_ops) = prepared_local_field(field, cell, widths) else {
+        return false;
+    };
+    expected.extend(field_ops);
+    expected == replacement
 }
 
 pub(super) fn materialize_address_stores(
@@ -540,6 +819,166 @@ mod tests {
         ))
         .unwrap();
         crate::mir6502::lower_program(&nir).unwrap()
+    }
+    #[test]
+    fn complete_index_loads_defer_only_from_ordinary_disjoint_storage() {
+        let mut p =
+            lower("CARD FUNC F(CARD index) RETURN(index) PROC Main() CARD value value=F(1) RETURN");
+        let mem = MirMem::Param {
+            id: crate::nir::ParamId(0),
+            offset: 0,
+        };
+        let temp = MirTempId(0);
+        let ops = vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(temp),
+                src: MirAddr::Direct(mem.clone()),
+                width: MirWidth::Word,
+            },
+            MirOp::MaterializeAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                value: MirValue::ConstU16(0x5000),
+            },
+            MirOp::AdvanceAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                index: MirValue::Def(MirDef::VTemp(temp)),
+                scale: 20,
+            },
+        ];
+        p.routines[0].temps = vec![MirTemp { id: temp }];
+        p.routines[0].blocks[0].ops = ops.clone();
+        let layout = MaterializeLayout::new(&p, 0x3000);
+        assert_eq!(
+            word_values::forward_unique_word_load_address_consumers(
+                &mut p.routines[0],
+                &layout,
+                false
+            ),
+            0
+        );
+        assert_eq!(
+            word_values::forward_unique_word_load_address_consumers(
+                &mut p.routines[0],
+                &layout,
+                true
+            ),
+            1
+        );
+        for address in [0xAC, 0xAD, 0xAF, 0xD000] {
+            p.routines[0].blocks[0].ops = ops.clone();
+            p.routines[0].frame.params[0].base = MirStorageBase::Absolute(address);
+            let layout = MaterializeLayout::new(&p, 0x3000);
+            assert_eq!(
+                word_values::forward_unique_word_load_address_consumers(
+                    &mut p.routines[0],
+                    &layout,
+                    true
+                ),
+                0
+            );
+        }
+    }
+    #[test]
+    fn retained_pointer_fields_preserve_the_store_and_reject_forged_deltas() {
+        let mut p = lower(
+            "TYPE E=[CARD value BYTE ARRAY pad(18)] TYPE T=[BYTE ARRAY pad(38) E ARRAY rows(2)] CARD FUNC ReadViaLocal(T POINTER table CARD index) E POINTER item item=@table.rows(index) RETURN(item.value) PROC Main() RETURN",
+        );
+        let layout = MaterializeLayout::new(&p, 0x3000);
+        let r = &mut p.routines[0];
+        MirPreHomeRewriteDriver::default()
+            .run_fixed_point_by_key(
+                r,
+                crate::mir6502::rewrite::address_values::discover_indexed_address_values,
+                crate::mir6502::rewrite::address_values::address_value_rank,
+            )
+            .unwrap();
+        let original = r.clone();
+        let snapshot = crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot::new(
+            r,
+            crate::mir6502::analysis::sites::MirRoutineGeneration::initial(),
+        )
+        .unwrap();
+        let context = PreHomeRewriteContext::new(&snapshot);
+        let plan = discover_address_stores(r, &context, &layout)
+            .into_iter()
+            .find(|p| p.exit_effect_delta == MirEffectDelta::MaterializedRetainedPointerField)
+            .unwrap();
+        let ops = &r.blocks[0].ops[plan.range.clone()];
+        let widths = collect_routine_temp_widths(r);
+        assert!(retained_pointer_field_is_justified(
+            ops,
+            &plan.replacement,
+            &widths
+        ));
+        let mut forged = plan.replacement.clone();
+        forged.retain(|op| {
+            !matches!(
+                op,
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::Local { .. }),
+                    ..
+                }
+            )
+        });
+        assert!(!retained_pointer_field_is_justified(ops, &forged, &widths));
+        let mut forged = plan.replacement.clone();
+        if let MirOp::LoadIndirect { offset, .. } = forged.last_mut().unwrap() {
+            *offset += 1;
+        }
+        assert!(!retained_pointer_field_is_justified(ops, &forged, &widths));
+        drop(snapshot);
+        assert_eq!(
+            MirPreHomeRewriteDriver::default()
+                .run_fixed_point_by_key(
+                    r,
+                    |r, c| discover_address_stores(r, c, &layout),
+                    crate::mir6502::rewrite::address_values::address_value_rank
+                )
+                .unwrap()
+                .applied,
+            1
+        );
+        assert!(r.blocks[0].ops.iter().any(|op| matches!(
+            op,
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Local { .. }),
+                width: MirWidth::Word,
+                ..
+            }
+        )));
+        for barrier in [
+            MirOp::Barrier {
+                effects: MirEffects::default(),
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Absolute(0x5000)),
+                src: MirValue::ConstU8(9),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Local {
+                    id: crate::nir::LocalId(0),
+                    offset: 1,
+                }),
+                src: MirValue::ConstU8(9),
+                width: MirWidth::Byte,
+            },
+        ] {
+            *r = original.clone();
+            r.blocks[0].ops.insert(plan.range.start + 2, barrier);
+            let snapshot = crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot::new(
+                r,
+                crate::mir6502::analysis::sites::MirRoutineGeneration::initial(),
+            )
+            .unwrap();
+            assert!(
+                !discover_address_stores(r, &PreHomeRewriteContext::new(&snapshot), &layout)
+                    .iter()
+                    .any(
+                        |p| p.exit_effect_delta == MirEffectDelta::MaterializedRetainedPointerField
+                    )
+            );
+        }
     }
     #[test]
     fn saved_byte_index_requires_dead_home_and_disjoint_physical_inputs() {

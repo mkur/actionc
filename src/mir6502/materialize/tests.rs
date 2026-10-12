@@ -21256,7 +21256,7 @@ fn unique_word_load_forwards_as_whole_indexed_address() {
     }]);
     routine.temps = vec![MirTemp { id: address_temp }, MirTemp { id: result_temp }];
 
-    let count = forward_unique_word_load_address_consumers(&mut routine, &layout);
+    let count = forward_unique_word_load_address_consumers(&mut routine, &layout, false);
 
     assert_eq!(count, 1);
     assert_eq!(routine.blocks[0].ops.len(), 1);
@@ -21301,7 +21301,7 @@ fn adjacent_absolute_word_load_forwards_into_static_byte_index() {
     }]);
     routine.temps = vec![MirTemp { id: index_temp }, MirTemp { id: result_temp }];
 
-    let count = forward_unique_word_load_address_consumers(&mut routine, &layout);
+    let count = forward_unique_word_load_address_consumers(&mut routine, &layout, false);
 
     assert_eq!(count, 1);
     assert!(matches!(
@@ -21361,7 +21361,7 @@ fn unique_word_load_address_forward_stops_at_intervening_store() {
     routine.temps = vec![MirTemp { id: address_temp }, MirTemp { id: result_temp }];
     let original = routine.blocks[0].ops.clone();
 
-    let count = forward_unique_word_load_address_consumers(&mut routine, &layout);
+    let count = forward_unique_word_load_address_consumers(&mut routine, &layout, false);
 
     assert_eq!(count, 0);
     assert_eq!(routine.blocks[0].ops, original);
@@ -21413,7 +21413,7 @@ fn unique_word_load_address_forward_stops_at_call_barrier() {
     }]);
     routine.temps = vec![MirTemp { id: address_temp }, MirTemp { id: result_temp }];
 
-    let count = forward_unique_word_load_address_consumers(&mut routine, &layout);
+    let count = forward_unique_word_load_address_consumers(&mut routine, &layout, false);
 
     assert_eq!(count, 0);
     assert_eq!(routine.blocks[0].ops.len(), 3);
@@ -21448,7 +21448,7 @@ fn unique_word_load_address_forward_rejects_absolute_source() {
     }]);
     routine.temps = vec![MirTemp { id: address_temp }, MirTemp { id: result_temp }];
 
-    let count = forward_unique_word_load_address_consumers(&mut routine, &layout);
+    let count = forward_unique_word_load_address_consumers(&mut routine, &layout, false);
 
     assert_eq!(count, 0);
     assert_eq!(routine.blocks[0].ops.len(), 2);

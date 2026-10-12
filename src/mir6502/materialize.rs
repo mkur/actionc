@@ -2812,7 +2812,8 @@ fn run_prehome_selection_group(
     run_analyzed_call_result_store_consumers(routine, peephole_stats)?;
     run_analyzed_store_consumers(routine, config, layout, helpers, peephole_stats)?;
     run_analyzed_unused_lea_addrs(routine, peephole_stats)?;
-    let word_load_address_forwards = forward_unique_word_load_address_consumers(routine, layout);
+    let word_load_address_forwards = forward_unique_word_load_address_consumers(routine, layout,
+        config.enable_peepholes && config.enable_indexed_address_values);
     peephole_stats.record_many(
         routine.id,
         "word-load-address-consumer-forwards",
