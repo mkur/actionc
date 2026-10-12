@@ -1,0 +1,40 @@
+; Complete pointer assignments remain observable even when fields become direct.
+TYPE Pair=[BYTE tag CARD value]
+Pair fixed=$6000
+Pair ordinary
+BYTE result
+CARD wordResult
+
+BYTE FUNC ReadFixed()
+RETURN(fixed.tag)
+
+CARD FUNC ReadFixedWord()
+RETURN(fixed.value)
+
+CARD FUNC ReadLocal()
+  Pair POINTER p
+  p=@fixed
+RETURN(p.value)
+
+PROC WriteLocal(CARD value)
+  Pair POINTER p
+  p=@fixed
+  p.value=value
+RETURN
+
+CARD FUNC ReadOrdinary()
+  Pair POINTER p
+  p=@ordinary
+RETURN(p.value)
+
+CARD FUNC FieldAddress()
+RETURN(@fixed.value)
+
+PROC Main()
+  result=ReadFixed()
+  wordResult=ReadFixedWord()
+  wordResult=ReadLocal()
+  WriteLocal(wordResult)
+  wordResult=ReadOrdinary()
+  wordResult=FieldAddress()
+RETURN

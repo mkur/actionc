@@ -6,6 +6,8 @@ measurements and CPU workloads, reproduced on 2026-10-12.
 
 Stages 0–7 are complete. [final.json](final.json) pins the integrated compiler,
 image hashes, memory, CPU observations, routine census and qualification results.
+The [current output audit](../output-audit-2026-10-12/README.md) ranks the
+remaining compiler opportunities using per-routine traffic and generic fixtures.
 The four cartridge builds now use:
 
 | Program/backend | Load bytes | Saved from baseline | Deferred bytes | Shared homes/buffers | Copy bytes below `$A000` |
@@ -272,7 +274,7 @@ additional load bytes and 15 shared-home bytes in each MIR root. Classic costs
 `position`: the experiment's pointer-table RAM cost and the unqualified FujiNet
 metadata contract do not justify a layout change.
 
-| MIR routine | Baseline/final instruction bytes | Baseline/final emitted home bytes |
+| MIR routine | Baseline/final routine bytes (including inline descriptors) | Baseline/final emitted home bytes |
 | --- | ---: | ---: |
 | `CachedEntry` | 240 / 159 | 15 / 11 |
 | `MyDosParse` | 392 / 363 | 7 / 7 |

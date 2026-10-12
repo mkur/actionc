@@ -1,0 +1,42 @@
+; Audit fixture: same record address consumed directly, through a local, or returned.
+TYPE Element=[CARD value BYTE ARRAY payload(18)]
+TYPE Table=[BYTE ARRAY prefix(6),bytes(32) Element ARRAY rows(8)]
+Table POINTER view=$0600
+BYTE byteIndex=$0602
+CARD wordIndex=$0604
+CARD ARRAY results(6)
+
+CARD FUNC Address(Table POINTER table BYTE index)
+RETURN(@table.rows(index))
+
+; Algebraic comparison, not a requested source workaround. CARD arithmetic
+; wraps at 16 bits; widening index precedes every shift.
+CARD FUNC AddressExpanded(Table POINTER table BYTE index)
+  CARD offset,base
+  offset=index
+  offset=(offset LSH 2)+offset
+  base=@table.rows(0)
+RETURN(base+(offset LSH 2))
+
+CARD FUNC ReadViaLocal(Table POINTER table CARD index)
+  Element POINTER item
+  item=@table.rows(index)
+RETURN(item.value)
+
+CARD FUNC ReadDirect(Table POINTER table CARD index)
+RETURN(table.rows(index).value)
+
+CARD FUNC AddressZero(Table POINTER table)
+RETURN(@table.rows(0))
+
+CARD FUNC AddressField(Table POINTER table)
+RETURN(@table.rows)
+
+PROC Main()
+  results(0)=Address(view,byteIndex)
+  results(1)=AddressExpanded(view,byteIndex)
+  results(2)=ReadViaLocal(view,wordIndex)
+  results(3)=ReadDirect(view,wordIndex)
+  results(4)=AddressZero(view)
+  results(5)=AddressField(view)
+RETURN

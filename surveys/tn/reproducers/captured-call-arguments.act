@@ -1,0 +1,24 @@
+; Audit fixture: pure boolean evaluation after earlier word arguments.
+TYPE Cell=[CARD value]
+Cell POINTER target=$0800
+CARD input=$0802
+BYTE setting=$0804,result=$0805
+
+BYTE FUNC Apply(Cell POINTER cell CARD value BYTE enabled)
+  IF enabled THEN cell.value=value ELSE cell.value=0 FI
+RETURN(enabled)
+
+BYTE FUNC Forward(Cell POINTER cell CARD value BYTE setting)
+RETURN(Apply(cell,value,setting#0))
+
+; Equivalent for this pure predicate; the compiler must retain evaluation
+; order and snapshots when a later argument has effects or can alias inputs.
+BYTE FUNC PredicateFirst(Cell POINTER cell CARD value BYTE setting)
+  BYTE enabled
+  enabled=setting#0
+RETURN(Apply(cell,value,enabled))
+
+PROC Main()
+  result=Forward(target,input,setting)
+  result=PredicateFirst(target,input,setting)
+RETURN

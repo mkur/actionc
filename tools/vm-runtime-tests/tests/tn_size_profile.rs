@@ -1,6 +1,6 @@
 //! CPU measurements of real TN routines; disk/screen services are substituted.
 //! No cycle counts are correctness assertions. Run with --nocapture for CSV.
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
@@ -31,6 +31,8 @@ fn timed<H: VmRunHooks<Error = String>>(
     workload: &str,
     count: usize,
     private: &BTreeSet<u16>,
+    listing: &str,
+    program: &str,
 ) -> CompilerVm {
     let start = vm.cpu().cycles();
     let mut tally = SpillTally {
@@ -38,6 +40,8 @@ fn timed<H: VmRunHooks<Error = String>>(
         private,
         pending: None,
         accesses: 0,
+        profile: std::env::var_os("ACTIONC_TN_PROFILE_ROUTINES")
+            .map(|_| RoutineProfile::new(listing)),
     };
     let vm = machine::call(vm, &mut tally, address, args);
     println!(
@@ -45,7 +49,195 @@ fn timed<H: VmRunHooks<Error = String>>(
         vm.cpu().cycles() - start,
         tally.accesses
     );
+    if let Some(profile) = &tally.profile {
+        assert_eq!(profile.cycles(), vm.cpu().cycles() - start);
+        profile.print(program, mode, workload, count);
+    }
     vm
+}
+
+#[derive(Default)]
+struct RoutineTraffic {
+    cycles: u64,
+    instructions: usize,
+    calls: usize,
+    pointer_scratch_writes: usize,
+    indirect_y: usize,
+    spill_accesses: usize,
+    param_accesses: usize,
+    local_accesses: usize,
+}
+
+// Exclusive PC attribution, not inclusive call-tree cost. The three named
+// storage categories can overlap physically and must not be added together.
+struct RoutineProfile {
+    owners: Vec<usize>,
+    names: Vec<String>,
+    homes: Vec<u8>,
+    traffic: BTreeMap<usize, RoutineTraffic>,
+    pending: Option<(usize, u64, Option<(u16, usize)>)>,
+}
+
+impl RoutineProfile {
+    fn new(listing: &str) -> Self {
+        let mut result = Self {
+            owners: vec![0; 65536],
+            names: vec![
+                "<wrapper-or-substituted-service>".into(),
+                "<resident-ROM>".into(),
+            ],
+            homes: vec![0; 65536],
+            traffic: BTreeMap::new(),
+            pending: None,
+        };
+        result.owners[0xA000..].fill(1);
+        let mut homes = 0;
+        for line in listing.lines() {
+            if let Some(header) = line.strip_prefix("; ===== PROC ") {
+                let (name, range) = header
+                    .strip_suffix(" =====")
+                    .unwrap()
+                    .split_once(" $")
+                    .unwrap();
+                let (start, end) = range
+                    .split_whitespace()
+                    .next()
+                    .unwrap()
+                    .split_once("..$")
+                    .unwrap();
+                let start = usize::from_str_radix(start, 16).unwrap();
+                let end = usize::from_str_radix(end, 16).unwrap();
+                let id = result.names.len();
+                result.names.push(name.into());
+                assert!(
+                    result.owners[start..end]
+                        .iter()
+                        .all(|owner| *owner == 0 || result.names[*owner] == "<embedded-runtime>")
+                );
+                result.owners[start..end].fill(id);
+            }
+            if let Some(header) = line.strip_prefix("; Embedded runtime: $") {
+                let (start, rest) = header.split_once(" -> $").unwrap();
+                let end = rest.split_whitespace().next().unwrap();
+                let start = usize::from_str_radix(start, 16).unwrap();
+                let end = usize::from_str_radix(end, 16).unwrap() + 1;
+                let id = result.names.len();
+                result.names.push("<embedded-runtime>".into());
+                result.owners[start..end].fill(id);
+            }
+            if line.starts_with("; =====") {
+                homes = 0;
+            }
+            let home_kind = |label: &str| {
+                if label.starts_with("spill_") {
+                    1
+                } else if label.starts_with("param_") {
+                    2
+                } else if label.starts_with("local_") {
+                    4
+                } else {
+                    0
+                }
+            };
+            if let Some(label) = line.strip_suffix(':') {
+                homes |= home_kind(label);
+            }
+            if let Some((label, address)) = line.split_once(" = $") {
+                let kind = home_kind(label);
+                if kind != 0 {
+                    let address = usize::from_str_radix(address, 16).unwrap();
+                    result.homes[address] |= kind;
+                }
+            }
+            if let Some((form, rest)) = line.split_once("; $") {
+                if let Some((address, bytes)) = rest.split_once(':') {
+                    if ![".BYTE", ".WORD", "DTA "]
+                        .iter()
+                        .any(|prefix| form.trim_start().starts_with(prefix))
+                    {
+                        homes = 0;
+                        continue;
+                    }
+                    let address = usize::from_str_radix(address, 16).unwrap();
+                    let width = bytes
+                        .split_whitespace()
+                        .take_while(|byte| {
+                            byte.len() == 2 && byte.bytes().all(|c| c.is_ascii_hexdigit())
+                        })
+                        .count();
+                    for cell in &mut result.homes[address..address + width] {
+                        *cell |= homes;
+                    }
+                }
+            }
+        }
+        result
+    }
+
+    fn before(&mut self, vm: &CompilerVm) {
+        let pc = vm.cpu().registers().pc;
+        self.pending = Some((
+            self.owners[usize::from(pc)],
+            vm.cpu().cycles(),
+            spill_operand(vm),
+        ));
+        // Operand traffic covers generated RAM code. ROM contributes cycles
+        // and actual step opcodes, but no named-home operand attribution.
+    }
+
+    fn after(&mut self, vm: &CompilerVm, step: &actionc_vm::CpuStep) {
+        let (owner, cycles, operand) = self.pending.take().unwrap();
+        let traffic = self.traffic.entry(owner).or_default();
+        traffic.cycles += vm.cpu().cycles() - cycles;
+        traffic.instructions += 1;
+        traffic.calls += usize::from(step.opcode == 0x20);
+        traffic.indirect_y += usize::from(step.opcode & 0x1F == 0x11);
+        if let Some((address, accesses)) = operand {
+            let kind = self.homes[usize::from(address)];
+            traffic.spill_accesses += usize::from(kind & 1 != 0) * accesses;
+            traffic.param_accesses += usize::from(kind & 2 != 0) * accesses;
+            traffic.local_accesses += usize::from(kind & 4 != 0) * accesses;
+            traffic.pointer_scratch_writes += usize::from(
+                matches!(
+                    step.opcode,
+                    0x81 | 0x85
+                        | 0x8D
+                        | 0x91
+                        | 0x95
+                        | 0x99
+                        | 0x9D
+                        | 0x84
+                        | 0x86
+                        | 0x8C
+                        | 0x8E
+                        | 0x94
+                        | 0x96
+                ) && (0xAC..=0xAF).contains(&address),
+            );
+        }
+    }
+
+    fn cycles(&self) -> u64 {
+        self.traffic.values().map(|r| r.cycles).sum()
+    }
+
+    fn print(&self, program: &str, mode: CompileMode, workload: &str, count: usize) {
+        for (owner, r) in &self.traffic {
+            let name = &self.names[*owner];
+            assert!(!name.contains([',', '\n', '\r']));
+            println!(
+                "tn-routine,{program},{mode:?},{workload},{count},{name},{},{},{},{},{},{},{},{}",
+                r.cycles,
+                r.instructions,
+                r.calls,
+                r.pointer_scratch_writes,
+                r.indirect_y,
+                r.spill_accesses,
+                r.param_accesses,
+                r.local_accesses
+            );
+        }
+    }
 }
 
 // Count data operand accesses to emitted compiler spill cells. This excludes
@@ -74,7 +266,13 @@ fn emitted_spill_addresses(listing: &str) -> BTreeSet<u16> {
                 .and_then(|(_, rest)| rest.split_once(':'))
             {
                 if let Ok(address) = u16::from_str_radix(address, 16) {
-                    for lane in 0..bytes.split_whitespace().take_while(|byte| byte.len() == 2 && byte.bytes().all(|c| c.is_ascii_hexdigit())).count() {
+                    for lane in 0..bytes
+                        .split_whitespace()
+                        .take_while(|byte| {
+                            byte.len() == 2 && byte.bytes().all(|c| c.is_ascii_hexdigit())
+                        })
+                        .count()
+                    {
                         result.insert(address.wrapping_add(lane as u16));
                     }
                 }
@@ -89,12 +287,16 @@ struct SpillTally<'a, H> {
     private: &'a BTreeSet<u16>,
     pending: Option<(u16, usize)>,
     accesses: usize,
+    profile: Option<RoutineProfile>,
 }
 impl<H: VmRunHooks<Error = String>> VmRunHooks for SpillTally<'_, H> {
     type Error = String;
     fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {
         self.inner.before_step(vm)?;
         self.pending = spill_operand(vm);
+        if let Some(profile) = &mut self.profile {
+            profile.before(vm);
+        }
         Ok(())
     }
     fn after_step(&mut self, vm: &CompilerVm, step: &actionc_vm::CpuStep) -> Result<(), String> {
@@ -102,6 +304,9 @@ impl<H: VmRunHooks<Error = String>> VmRunHooks for SpillTally<'_, H> {
             if self.private.contains(&address) {
                 self.accesses += accesses;
             }
+        }
+        if let Some(profile) = &mut self.profile {
+            profile.after(vm, step);
         }
         self.inner.after_step(vm, step)
     }
@@ -185,10 +390,27 @@ fn spill_counter_measures_executed_operand_reads_and_writes() {
         private: &private,
         pending: None,
         accesses: 0,
+        profile: Some(RoutineProfile::new(
+            "; ===== PROC Sample $3000..$3011 =====\n; ===== END PROC Sample =====\n; ===== DATA spill0 $5400 =====\nspill_Sample_0:\n .BYTE $00 ; $5400: 00\n",
+        )),
     };
     let vm = machine::call(vm, &mut tally, 0x3000, &[]);
     assert_eq!(tally.accesses, 5);
     assert_eq!(vm.bus().ram().read(0x5400), 2);
+    let profile = tally.profile.as_ref().unwrap();
+    assert_eq!(profile.cycles(), vm.cpu().cycles());
+    let sample = &profile.traffic[&2];
+    assert_eq!(sample.spill_accesses, 5);
+    assert_eq!(sample.instructions, 7);
+    assert_eq!(sample.calls, 0);
+    assert_eq!(sample.pointer_scratch_writes, 0);
+    let fixture = "; ===== PROC Sample $3000..$3011 =====\n; ===== END PROC Sample =====\n; ===== DATA spill0 $5400 =====\nspill_Sample_0:\n .BYTE $00 ; $5400: 00\n";
+    let crlf = RoutineProfile::new(&fixture.replace('\n', "\r\n"));
+    assert_eq!(profile.owners, crlf.owners);
+    assert_eq!(profile.homes, crlf.homes);
+    let runtime_fixture = format!("; Embedded runtime: $3000 -> $3010 ($0011 bytes)\n{fixture}");
+    let runtime = RoutineProfile::new(&runtime_fixture);
+    assert_eq!(runtime.names[runtime.owners[0x3000]], "Sample");
     assert_eq!(
         emitted_spill_addresses(
             "; ===== DATA spill0 $5400 =====\nspill_demo_0:\n .BYTE $00 ; $5400: 00\n"
@@ -212,9 +434,22 @@ fn tn_cpu_workloads_preserve_rows_order_and_selection() {
     println!(
         "backend,workload,count,cpu_cycles_including_call_wrapper,emitted_spill_operand_accesses"
     );
+    let program = match std::env::var("ACTIONC_TN_PROFILE_SOURCE").as_deref() {
+        Ok("TNDBG") => "TNDBG",
+        Ok("TN") | Err(_) => "TN",
+        _ => panic!("ACTIONC_TN_PROFILE_SOURCE must be TN or TNDBG"),
+    };
+    if std::env::var_os("ACTIONC_TN_PROFILE_ROUTINES").is_some() {
+        println!(
+            "tn-routine,program,backend,workload,count,routine,exclusive_cycles,instructions,jsr,pointer_scratch_writes,indirect_y,spill_operand_accesses,param_operand_accesses,local_operand_accesses"
+        );
+    }
     for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let source_dir = std::env::var_os("ACTIONC_TN_PROFILE_DIRECTORY")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| root().join("samples/tn/modern"));
         let compiled = compile_file(
-            &root().join("samples/tn/modern/TN.ACT"),
+            &source_dir.join(format!("{program}.ACT")),
             &CompileOptions::for_mode(mode).with_runtime(Runtime::ActionCart),
         )
         .unwrap();
@@ -276,6 +511,8 @@ fn tn_cpu_workloads_preserve_rows_order_and_selection() {
                 "sort_reversed",
                 count,
                 &private,
+                &listing,
+                program,
             );
             assert_eq!(machine::bytes(&vm, batch + layout::ORDER, count), order);
             hooks.images.clear();
@@ -288,6 +525,8 @@ fn tn_cpu_workloads_preserve_rows_order_and_selection() {
                 "draw",
                 count,
                 &private,
+                &listing,
+                program,
             );
             assert_eq!(
                 &hooks.images[1..],
@@ -306,6 +545,8 @@ fn tn_cpu_workloads_preserve_rows_order_and_selection() {
                 "tag_all",
                 count,
                 &private,
+                &listing,
+                program,
             );
             assert_eq!(vm.bus().ram().read_word(tags + 6), count as u16);
             vm = timed(
@@ -317,6 +558,8 @@ fn tn_cpu_workloads_preserve_rows_order_and_selection() {
                 "toggle_tag",
                 count,
                 &private,
+                &listing,
+                program,
             );
             assert_eq!(vm.bus().ram().read(0xA0), if count == 0 { 2 } else { 1 });
             assert_eq!(
@@ -351,12 +594,50 @@ fn tn_cpu_workloads_preserve_rows_order_and_selection() {
                 "publish_prefix",
                 1088,
                 &private,
+                &listing,
+                program,
             );
             assert_eq!(vm.bus().ram().read(batch + layout::VALID), 1);
             assert_eq!(vm.bus().ram().read_word(tags + 4), 1088);
             assert_eq!(vm.bus().ram().read_word(tags + 6), 0);
             assert_eq!(vm.bus().ram().read(0x800), 0xA5);
             assert_eq!(vm.bus().ram().read(0xA01), 0xA5);
+            // The audit also measures the end-of-list trim path, including a
+            // partial final bitmap byte. Default qualification CSV is unchanged.
+            if std::env::var_os("ACTIONC_TN_PROFILE_ROUTINES").is_some() {
+                let mut fill = words(&[tags]);
+                fill.push(0xFF);
+                vm = machine::call(vm, &mut hooks, routine("TagsFill"), &fill);
+                vm = machine::call(
+                    vm,
+                    &mut hooks,
+                    routine("BatchBegin"),
+                    &words(&[batch, 1025]),
+                );
+                let mut args = words(&[batch, tags]);
+                args.extend([64, 1]);
+                vm = timed(
+                    vm,
+                    &mut hooks,
+                    routine("BatchPublish"),
+                    &args,
+                    mode,
+                    "publish_complete",
+                    1089,
+                    &private,
+                    &listing,
+                    program,
+                );
+                assert_eq!(vm.bus().ram().read_word(tags + 4), 1089);
+                assert_eq!(vm.bus().ram().read_word(tags + 6), 1089);
+                assert_eq!(vm.bus().ram().read(tags + 10), 1);
+                let mut bitmap = vec![0; 512];
+                bitmap[..136].fill(0xFF);
+                bitmap[136] = 1;
+                assert_eq!(machine::bytes(&vm, 0x801, 512), bitmap);
+                assert_eq!(vm.bus().ram().read(0x800), 0xA5);
+                assert_eq!(vm.bus().ram().read(0xA01), 0xA5);
+            }
         }
     }
 }

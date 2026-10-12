@@ -1,0 +1,15 @@
+; Audit fixture: every index is in 0..7 by the explicit mask.
+BYTE ARRAY powers(8)=[1,2,4,8,16,32,64,128]
+CARD ordinal=$0800
+BYTE result=$0802
+
+BYTE FUNC ShiftMask(CARD ordinal)
+RETURN(1 LSH BYTE(ordinal&7))
+
+BYTE FUNC TableMask(CARD ordinal)
+RETURN(powers(BYTE(ordinal&7)))
+
+PROC Main()
+  result=ShiftMask(ordinal)
+  result=TableMask(ordinal)
+RETURN

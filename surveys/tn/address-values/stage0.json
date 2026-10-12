@@ -1,0 +1,1264 @@
+{
+  "compiler_sha256": "0aaffc680887ba74b07da3c999f4cc3f4cc86fb5fe1cbc10d6b18020febd54fd",
+  "generic": {
+    "known-record-address-optimized": {
+      "load_file_bytes": 206,
+      "loaded_bytes": 196,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 180,
+      "directive_form_bytes": 14,
+      "routine_count": 7,
+      "routines": {
+        "ReadFixed": {
+          "start": 12294,
+          "end": 12300,
+          "entry": 12294,
+          "instruction_form_bytes": 6,
+          "directive_form_bytes": 0,
+          "instructions": 3,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 1,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 1,
+            "STA": 1,
+            "RTS": 1
+          }
+        },
+        "ReadFixedWord": {
+          "start": 12300,
+          "end": 12311,
+          "entry": 12300,
+          "instruction_form_bytes": 11,
+          "directive_form_bytes": 0,
+          "instructions": 5,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 2,
+            "STA": 2,
+            "RTS": 1
+          }
+        },
+        "ReadLocal": {
+          "start": 12311,
+          "end": 12342,
+          "entry": 12313,
+          "instruction_form_bytes": 29,
+          "directive_form_bytes": 2,
+          "instructions": 14,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 2,
+          "indirect_y_operations": 2,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 2,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 3,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 5,
+            "STA": 6,
+            "LDY": 1,
+            "DEY": 1,
+            "RTS": 1
+          }
+        },
+        "WriteLocal": {
+          "start": 12342,
+          "end": 12381,
+          "entry": 12346,
+          "instruction_form_bytes": 35,
+          "directive_form_bytes": 4,
+          "instructions": 16,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 2,
+          "indirect_y_operations": 2,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 2,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 6,
+            "local": 3,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 1,
+            "STA": 7,
+            "LDA": 4,
+            "TXA": 1,
+            "LDY": 1,
+            "DEY": 1,
+            "RTS": 1
+          }
+        },
+        "ReadOrdinary": {
+          "start": 12381,
+          "end": 12412,
+          "entry": 12383,
+          "instruction_form_bytes": 29,
+          "directive_form_bytes": 2,
+          "instructions": 14,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 2,
+          "indirect_y_operations": 2,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 2,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 3,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 5,
+            "STA": 6,
+            "LDY": 1,
+            "DEY": 1,
+            "RTS": 1
+          }
+        },
+        "FieldAddress": {
+          "start": 12412,
+          "end": 12421,
+          "entry": 12412,
+          "instruction_form_bytes": 9,
+          "directive_form_bytes": 0,
+          "instructions": 5,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 2,
+            "STA": 2,
+            "RTS": 1
+          }
+        },
+        "Main": {
+          "start": 12421,
+          "end": 12482,
+          "entry": 12421,
+          "instruction_form_bytes": 61,
+          "directive_form_bytes": 0,
+          "instructions": 23,
+          "direct_calls": 6,
+          "calls": {
+            "ReadFixed": 1,
+            "ReadFixedWord": 1,
+            "ReadLocal": 1,
+            "WriteLocal": 1,
+            "ReadOrdinary": 1,
+            "FieldAddress": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 6,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 6,
+            "STA": 9,
+            "LDA": 6,
+            "LDX": 1,
+            "RTS": 1
+          }
+        }
+      },
+      "image_sha256": "2ad6279ee06d486c7b2047d4cdd0aeb0d80f52042a6463e6ffd3860b2657f828"
+    },
+    "known-record-address-mir6502": {
+      "load_file_bytes": 217,
+      "loaded_bytes": 207,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 191,
+      "directive_form_bytes": 14,
+      "routine_count": 7,
+      "routines": {
+        "ReadFixed": {
+          "start": 12302,
+          "end": 12308,
+          "entry": 12302,
+          "instruction_form_bytes": 6,
+          "directive_form_bytes": 0,
+          "instructions": 3,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 1,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 1,
+            "STA": 1,
+            "RTS": 1
+          }
+        },
+        "ReadFixedWord": {
+          "start": 12308,
+          "end": 12319,
+          "entry": 12308,
+          "instruction_form_bytes": 11,
+          "directive_form_bytes": 0,
+          "instructions": 5,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 2,
+            "STA": 2,
+            "RTS": 1
+          }
+        },
+        "ReadLocal": {
+          "start": 12319,
+          "end": 12351,
+          "entry": 12319,
+          "instruction_form_bytes": 32,
+          "directive_form_bytes": 0,
+          "instructions": 15,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 2,
+          "indirect_y_operations": 2,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 2,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 4,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 6,
+            "STA": 6,
+            "LDY": 1,
+            "INY": 1,
+            "RTS": 1
+          }
+        },
+        "WriteLocal": {
+          "start": 12351,
+          "end": 12396,
+          "entry": 12351,
+          "instruction_form_bytes": 45,
+          "directive_form_bytes": 0,
+          "instructions": 20,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 2,
+          "indirect_y_operations": 2,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 0,
+            "param": 2,
+            "local": 2,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 3,
+            "local": 4,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 8,
+            "LDA": 7,
+            "LDY": 1,
+            "INY": 1,
+            "RTS": 1
+          }
+        },
+        "ReadOrdinary": {
+          "start": 12396,
+          "end": 12428,
+          "entry": 12396,
+          "instruction_form_bytes": 32,
+          "directive_form_bytes": 0,
+          "instructions": 15,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 2,
+          "indirect_y_operations": 2,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 2,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 4,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 6,
+            "STA": 6,
+            "LDY": 1,
+            "INY": 1,
+            "RTS": 1
+          }
+        },
+        "FieldAddress": {
+          "start": 12428,
+          "end": 12437,
+          "entry": 12428,
+          "instruction_form_bytes": 9,
+          "directive_form_bytes": 0,
+          "instructions": 5,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 2,
+            "STA": 2,
+            "RTS": 1
+          }
+        },
+        "Main": {
+          "start": 12437,
+          "end": 12493,
+          "entry": 12437,
+          "instruction_form_bytes": 56,
+          "directive_form_bytes": 0,
+          "instructions": 21,
+          "direct_calls": 6,
+          "calls": {
+            "ReadFixed": 1,
+            "ReadFixedWord": 1,
+            "ReadLocal": 1,
+            "WriteLocal": 1,
+            "ReadOrdinary": 1,
+            "FieldAddress": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 5,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 6,
+            "STA": 9,
+            "LDA": 4,
+            "LDX": 1,
+            "RTS": 1
+          }
+        }
+      },
+      "image_sha256": "51e63c471200e51527238f03d77fc2d6bde9c6ea6d423c7ce52ff32a36e21a9c"
+    },
+    "escaping-record-address-optimized": {
+      "load_file_bytes": 895,
+      "loaded_bytes": 885,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 853,
+      "directive_form_bytes": 30,
+      "routine_count": 7,
+      "routines": {
+        "Address": {
+          "start": 12294,
+          "end": 12405,
+          "entry": 12297,
+          "instruction_form_bytes": 108,
+          "directive_form_bytes": 3,
+          "instructions": 60,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 20,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 15,
+            "CLC": 3,
+            "ADC": 6,
+            "TXA": 1,
+            "TYA": 1,
+            "ASL": 4,
+            "ROL": 4,
+            "PHA": 1,
+            "PLA": 1,
+            "RTS": 1
+          }
+        },
+        "AddressExpanded": {
+          "start": 12405,
+          "end": 12544,
+          "entry": 12412,
+          "instruction_form_bytes": 132,
+          "directive_form_bytes": 7,
+          "instructions": 66,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 16,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 7,
+            "local": 4,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 17,
+            "local": 13,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 24,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 16,
+            "TYA": 2,
+            "ASL": 4,
+            "ROL": 4,
+            "CLC": 3,
+            "ADC": 6,
+            "TXA": 1,
+            "PHA": 1,
+            "PLA": 1,
+            "RTS": 1
+          }
+        },
+        "ReadViaLocal": {
+          "start": 12544,
+          "end": 12685,
+          "entry": 12550,
+          "instruction_form_bytes": 135,
+          "directive_form_bytes": 6,
+          "instructions": 71,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 2,
+          "abi_cell_accesses": 3,
+          "home_bytes": {
+            "spill": 0,
+            "param": 6,
+            "local": 2,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 10,
+            "local": 4,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 25,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 19,
+            "CLC": 3,
+            "ADC": 6,
+            "TXA": 1,
+            "TYA": 1,
+            "ASL": 4,
+            "ROL": 4,
+            "PHA": 1,
+            "PLA": 1,
+            "LDY": 1,
+            "DEY": 1,
+            "RTS": 1
+          }
+        },
+        "ReadDirect": {
+          "start": 12685,
+          "end": 12804,
+          "entry": 12689,
+          "instruction_form_bytes": 115,
+          "directive_form_bytes": 4,
+          "instructions": 62,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 2,
+          "abi_cell_accesses": 3,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 6,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 21,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 16,
+            "CLC": 3,
+            "ADC": 6,
+            "TXA": 1,
+            "TYA": 1,
+            "ASL": 4,
+            "ROL": 4,
+            "LDY": 1,
+            "DEY": 1,
+            "RTS": 1
+          }
+        },
+        "AddressZero": {
+          "start": 12804,
+          "end": 12837,
+          "entry": 12806,
+          "instruction_form_bytes": 31,
+          "directive_form_bytes": 2,
+          "instructions": 17,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 4,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 2,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 2,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 6,
+            "CLC": 1,
+            "LDA": 2,
+            "ADC": 2,
+            "TXA": 1,
+            "PHA": 1,
+            "PLA": 1,
+            "RTS": 1
+          }
+        },
+        "AddressField": {
+          "start": 12837,
+          "end": 12870,
+          "entry": 12839,
+          "instruction_form_bytes": 31,
+          "directive_form_bytes": 2,
+          "instructions": 17,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 4,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 2,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 2,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 6,
+            "CLC": 1,
+            "LDA": 2,
+            "ADC": 2,
+            "TXA": 1,
+            "PHA": 1,
+            "PLA": 1,
+            "RTS": 1
+          }
+        },
+        "Main": {
+          "start": 12870,
+          "end": 13171,
+          "entry": 12870,
+          "instruction_form_bytes": 301,
+          "directive_form_bytes": 0,
+          "instructions": 169,
+          "direct_calls": 6,
+          "calls": {
+            "Address": 1,
+            "AddressExpanded": 1,
+            "ReadViaLocal": 1,
+            "ReadDirect": 1,
+            "AddressZero": 1,
+            "AddressField": 1
+          },
+          "pointer_scratch_writes": 24,
+          "indirect_y_operations": 12,
+          "abi_cell_accesses": 14,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 38,
+            "STA": 38,
+            "PHA": 12,
+            "LDY": 10,
+            "LDX": 6,
+            "JSR": 6,
+            "PLA": 12,
+            "DEY": 6,
+            "ASL": 5,
+            "PHP": 5,
+            "CLC": 5,
+            "ADC": 10,
+            "TYA": 5,
+            "ROL": 5,
+            "PLP": 5,
+            "RTS": 1
+          }
+        }
+      },
+      "image_sha256": "242d57ccff7eeadd6f773723d08d440e35432130d6eefd2fe347c423e37b92b9"
+    },
+    "escaping-record-address-mir6502": {
+      "load_file_bytes": 737,
+      "loaded_bytes": 727,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 693,
+      "directive_form_bytes": 32,
+      "routine_count": 7,
+      "routines": {
+        "Address": {
+          "start": 12320,
+          "end": 12396,
+          "entry": 12320,
+          "instruction_form_bytes": 76,
+          "directive_form_bytes": 0,
+          "instructions": 31,
+          "direct_calls": 1,
+          "calls": {
+            "$A000": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 4,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 14,
+            "param": 3,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 10,
+            "STX": 3,
+            "STY": 1,
+            "CLC": 2,
+            "ADC": 4,
+            "LDA": 7,
+            "TYA": 1,
+            "LDX": 1,
+            "JSR": 1,
+            "RTS": 1
+          }
+        },
+        "AddressExpanded": {
+          "start": 12396,
+          "end": 12618,
+          "entry": 12396,
+          "instruction_form_bytes": 222,
+          "directive_form_bytes": 0,
+          "instructions": 84,
+          "direct_calls": 1,
+          "calls": {
+            "$A000": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 4,
+            "param": 3,
+            "local": 2,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 50,
+            "param": 4,
+            "local": 9,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 30,
+            "STX": 3,
+            "STY": 1,
+            "TYA": 1,
+            "LDA": 26,
+            "ASL": 4,
+            "ADC": 12,
+            "CLC": 4,
+            "LDX": 1,
+            "JSR": 1,
+            "RTS": 1
+          }
+        },
+        "ReadViaLocal": {
+          "start": 12618,
+          "end": 12722,
+          "entry": 12618,
+          "instruction_form_bytes": 104,
+          "directive_form_bytes": 0,
+          "instructions": 44,
+          "direct_calls": 1,
+          "calls": {
+            "$A000": 1
+          },
+          "pointer_scratch_writes": 2,
+          "indirect_y_operations": 2,
+          "abi_cell_accesses": 3,
+          "home_bytes": {
+            "spill": 2,
+            "param": 4,
+            "local": 2,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 10,
+            "param": 6,
+            "local": 4,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 15,
+            "STX": 3,
+            "STY": 1,
+            "LDA": 13,
+            "CLC": 2,
+            "ADC": 4,
+            "TYA": 1,
+            "LDX": 1,
+            "JSR": 1,
+            "LDY": 1,
+            "INY": 1,
+            "RTS": 1
+          }
+        },
+        "ReadDirect": {
+          "start": 12722,
+          "end": 12807,
+          "entry": 12722,
+          "instruction_form_bytes": 85,
+          "directive_form_bytes": 0,
+          "instructions": 41,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 2,
+          "abi_cell_accesses": 3,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 7,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 11,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 10,
+            "ASL": 4,
+            "ROL": 4,
+            "CLC": 2,
+            "ADC": 4,
+            "LDY": 1,
+            "INY": 1,
+            "RTS": 1
+          }
+        },
+        "AddressZero": {
+          "start": 12807,
+          "end": 12870,
+          "entry": 12807,
+          "instruction_form_bytes": 63,
+          "directive_form_bytes": 0,
+          "instructions": 26,
+          "direct_calls": 1,
+          "calls": {
+            "$A000": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 4,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 13,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "CLC": 2,
+            "ADC": 4,
+            "STA": 9,
+            "LDA": 6,
+            "LDX": 1,
+            "JSR": 1,
+            "RTS": 1
+          }
+        },
+        "AddressField": {
+          "start": 12870,
+          "end": 12888,
+          "entry": 12870,
+          "instruction_form_bytes": 18,
+          "directive_form_bytes": 0,
+          "instructions": 10,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 4,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 3,
+            "CLC": 1,
+            "ADC": 2,
+            "LDA": 1,
+            "RTS": 1
+          }
+        },
+        "Main": {
+          "start": 12888,
+          "end": 13013,
+          "entry": 12888,
+          "instruction_form_bytes": 125,
+          "directive_form_bytes": 0,
+          "instructions": 45,
+          "direct_calls": 6,
+          "calls": {
+            "Address": 1,
+            "AddressExpanded": 1,
+            "ReadViaLocal": 1,
+            "ReadDirect": 1,
+            "AddressZero": 1,
+            "AddressField": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 8,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 14,
+            "LDX": 6,
+            "LDY": 4,
+            "JSR": 6,
+            "STA": 14,
+            "RTS": 1
+          }
+        }
+      },
+      "image_sha256": "78960be654fabd815af89370199676782480355665a3caa41b1838303c6c682f"
+    }
+  },
+  "images": {
+    "TN-optimized": {
+      "load_file_bytes": 18095,
+      "loaded_bytes": 18085,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 16659,
+      "directive_form_bytes": 1424,
+      "routine_count": 143,
+      "image_sha256": "f63a719d3c22e5dd942dbaa81b9f3c7017ffb6cfec5b65de67d53bc102c2474a",
+      "load_bytes_saved": 0
+    },
+    "TN-mir6502": {
+      "load_file_bytes": 16807,
+      "loaded_bytes": 16797,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 15389,
+      "directive_form_bytes": 1406,
+      "routine_count": 144,
+      "image_sha256": "0bea35b4783adb61e1deb9197b719da5bfa1183c6a54e8e0f782f47ef83b5ed2",
+      "load_bytes_saved": 0
+    },
+    "TNDBG-optimized": {
+      "load_file_bytes": 21586,
+      "loaded_bytes": 21576,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 19589,
+      "directive_form_bytes": 1985,
+      "routine_count": 152,
+      "image_sha256": "8d29fb4df2c73f52d849e7e32eb90b6d3548a964e356571634ed67d78f31a92b",
+      "load_bytes_saved": 0
+    },
+    "TNDBG-mir6502": {
+      "load_file_bytes": 20544,
+      "loaded_bytes": 20534,
+      "unannotated_run_vector_bytes": 2,
+      "instruction_form_bytes": 18550,
+      "directive_form_bytes": 1982,
+      "routine_count": 153,
+      "image_sha256": "4a814f661dbeb4e67aba7e56cd2d195934be11f865bda8d5f8efa938c7f89e68",
+      "load_bytes_saved": 0
+    }
+  }
+}
