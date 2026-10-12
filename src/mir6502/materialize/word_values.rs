@@ -53,6 +53,7 @@ pub(super) fn forward_unique_word_load_address_consumers(
             layout,
             include_indexes,
             &index_sources,
+            &ordinary,
         );
         block.ops = ops;
         forwarded += count;
@@ -67,6 +68,7 @@ fn forward_unique_word_load_address_consumers_in_block(
     layout: &MaterializeLayout,
     include_indexes: bool,
     index_sources: &[MirMem],
+    ordinary: &dyn Fn(&MirMem) -> bool,
 ) -> (Vec<MirOp>, usize) {
     let mut removals = BTreeSet::new();
     let mut replacements = BTreeMap::<usize, Vec<(MirTempId, MirValue)>>::new();
@@ -94,6 +96,17 @@ fn forward_unique_word_load_address_consumers_in_block(
             continue;
         };
         let consumer = &ops[consumer_index];
+        let new_index_use = match consumer {
+            MirOp::AdvanceAddress { index, .. }
+            | MirOp::MaterializeIndexedAddress { index, .. } => {
+                value_uses_specific_temp(index, *temp)
+            }
+            _ => false,
+        };
+        let new_value_use = crate::mir6502::materialize::address_values::complete_value_constructor(
+            &ops,
+            consumer_index,
+        );
         let direct_static_index_use = consumer_index == producer_index + 1
             && op_is_static_byte_word_index_consumer(consumer, *temp);
         if (!layout.mem_allows_deferred_direct_read(source) && !direct_static_index_use)
@@ -103,9 +116,24 @@ fn forward_unique_word_load_address_consumers_in_block(
                 *temp,
                 include_indexes && index_sources.contains(source),
             )
-            || ops[producer_index + 1..consumer_index]
-                .iter()
-                .any(op_blocks_deferred_direct_read)
+            || ops[producer_index + 1..consumer_index].iter().any(|op| {
+                if op_blocks_deferred_direct_read(op) {
+                    return true;
+                }
+                if !include_indexes || !(new_index_use || new_value_use) {
+                    return false;
+                }
+                let memory = crate::mir6502::analysis::effects::classify_op(op).memory;
+                memory.indirect_reads
+                    || !matches!(memory.structured_reads, MirMemoryEffect::None)
+                    || memory.direct_reads.iter().any(|range| {
+                        !ordinary(&range.base)
+                            && !matches!(
+                                range.base,
+                                MirMem::FixedZeroPage(MirFixedZpSlot(0xAC..=0xAF))
+                            )
+                    })
+            })
         {
             continue;
         }

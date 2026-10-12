@@ -345,6 +345,24 @@ fn complete_pair_value() -> MirValue {
     }
 }
 
+/// Recognize a full constructor feeding an explicit value store, rather than
+/// changing the read-deferral policy of existing indirect field consumers.
+pub(super) fn complete_value_constructor(ops: &[MirOp], index: usize) -> bool {
+    if !matches!(ops.get(index),Some(MirOp::MaterializeAddress { consumer, .. }
+        | MirOp::MaterializeIndexedAddress { consumer, .. }) if *consumer == DEFAULT_POINTER_PAIR)
+    {
+        return false;
+    }
+    let next = if matches!(ops.get(index + 1),Some(MirOp::AdvanceAddress { consumer, .. }) if *consumer == DEFAULT_POINTER_PAIR)
+    {
+        index + 2
+    } else {
+        index + 1
+    };
+    matches!(ops.get(next),Some(MirOp::Store { dst: MirAddr::Direct(_),src,width:MirWidth::Word })
+        if *src == complete_pair_value())
+}
+
 /// These operations cannot prepare another pointer or introduce a call/helper.
 /// In particular, arithmetic and indirect reads are outside the initial slice.
 fn retained_field_gap(op: &MirOp) -> bool {
@@ -821,6 +839,72 @@ mod tests {
         crate::mir6502::lower_program(&nir).unwrap()
     }
     #[test]
+    fn production_stride_twenty_values_and_locals_admit_helper_free_code() {
+        let source = include_str!("../../../surveys/tn/reproducers/escaping-record-address.act")
+            .replace("\r\n", "\n");
+        for runtime in [
+            crate::runtime::Runtime::ActionCart,
+            crate::runtime::Runtime::Standalone,
+        ] {
+            let config = Mir6502Config::optimized();
+            let mut off = config.clone();
+            off.enable_indexed_address_values = false;
+            let baseline = crate::mir6502::materialize_program_with_origin_and_runtime(
+                lower(&source),
+                &off,
+                0x3000,
+                runtime,
+            )
+            .unwrap();
+            let selected = crate::mir6502::materialize_program_with_origin_and_runtime(
+                lower(&source),
+                &config,
+                0x3000,
+                runtime,
+            )
+            .unwrap();
+            let old = Cost::measure(&baseline, 0x3000).unwrap();
+            let new = Cost::measure(&selected, 0x3000).unwrap();
+            assert!(new.bytes <= old.bytes);
+            for name in ["Address", "ReadViaLocal"] {
+                let r = selected.routines.iter().find(|r| r.name == name).unwrap();
+                assert!(
+                    new.routine(r.id).unwrap() < old.routine(r.id).unwrap(),
+                    "{runtime:?}/{name}"
+                );
+                assert!(
+                    !r.blocks
+                        .iter()
+                        .flat_map(|b| &b.ops)
+                        .any(|op| matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. })),
+                    "{runtime:?}/{name}: no multiply call"
+                );
+                assert!(
+                    r.frame.spills.is_empty(),
+                    "{runtime:?}/{name}: no spill bytes"
+                );
+                if name == "ReadViaLocal" {
+                    let stores = r
+                        .blocks
+                        .iter()
+                        .flat_map(|b| &b.ops)
+                        .filter(|op| {
+                            matches!(
+                                op,
+                                MirOp::Store {
+                                    dst: MirAddr::Direct(MirMem::Local { .. }),
+                                    width: MirWidth::Byte,
+                                    ..
+                                }
+                            )
+                        })
+                        .count();
+                    assert_eq!(stores, 2, "{runtime:?}: retain both source pointer bytes");
+                }
+            }
+        }
+    }
+    #[test]
     fn complete_index_loads_defer_only_from_ordinary_disjoint_storage() {
         let mut p =
             lower("CARD FUNC F(CARD index) RETURN(index) PROC Main() CARD value value=F(1) RETURN");
@@ -877,6 +961,83 @@ mod tests {
                 0
             );
         }
+        // A hardware or unknown-pointer read can have ordering effects even
+        // without an explicit store. Preserve the original index snapshot.
+        p.routines[0].frame.params[0].base = MirStorageBase::Param(crate::nir::ParamId(0));
+        for read in [
+            MirOp::Load {
+                dst: MirDef::VTempByte {
+                    id: MirTempId(1),
+                    byte: 0,
+                },
+                src: MirAddr::Direct(MirMem::Absolute(0xD000)),
+                width: MirWidth::Byte,
+            },
+            MirOp::LoadIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                dst: MirDef::VTempByte {
+                    id: MirTempId(1),
+                    byte: 0,
+                },
+                offset: 0,
+            },
+        ] {
+            p.routines[0].temps = vec![MirTemp { id: temp }, MirTemp { id: MirTempId(1) }];
+            p.routines[0].blocks[0].ops = ops.clone();
+            p.routines[0].blocks[0].ops.insert(1, read);
+            let layout = MaterializeLayout::new(&p, 0x3000);
+            assert_eq!(
+                word_values::forward_unique_word_load_address_consumers(
+                    &mut p.routines[0],
+                    &layout,
+                    true
+                ),
+                0
+            );
+        }
+        p.routines[0].blocks[0].ops = vec![
+            ops[0].clone(),
+            MirOp::Load {
+                dst: MirDef::VTempByte {
+                    id: MirTempId(1),
+                    byte: 0,
+                },
+                src: MirAddr::Direct(MirMem::Absolute(0xD000)),
+                width: MirWidth::Byte,
+            },
+            MirOp::MaterializeIndexedAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                base: MirValue::Def(MirDef::VTemp(temp)),
+                index: MirValue::ConstU16(38),
+                scale: 1,
+            },
+            MirOp::AdvanceAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                index: MirValue::Word {
+                    lo: Box::new(MirValue::Def(MirDef::VTempByte {
+                        id: MirTempId(1),
+                        byte: 0,
+                    })),
+                    hi: Box::new(MirValue::ConstU8(0)),
+                },
+                scale: 20,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+                src: complete_pair_value(),
+                width: MirWidth::Word,
+            },
+        ];
+        let layout = MaterializeLayout::new(&p, 0x3000);
+        assert_eq!(
+            word_values::forward_unique_word_load_address_consumers(
+                &mut p.routines[0],
+                &layout,
+                true
+            ),
+            0,
+            "complete value construction preserves a base snapshot across a hardware index read"
+        );
     }
     #[test]
     fn retained_pointer_fields_preserve_the_store_and_reject_forged_deltas() {
@@ -1133,9 +1294,97 @@ mod execution_tests {
     use super::tests::lower;
     use super::*;
     #[test]
+    fn retained_record_fields_execute_both_profiles_with_full_word_wrap() {
+        let source = "TYPE E=[CARD value BYTE ARRAY pad(18)] TYPE T=[BYTE ARRAY prefix(38) E ARRAY rows(2)] T POINTER base=$6000 CARD indexValue=$6002,input=$6004,observed=$6006,pointerValue=$6008 PROC Main() E POINTER item item=@base.rows(indexValue) observed=item.value pointerValue=CARD(item) item.value=input RETURN";
+        for config in [Mir6502Config::default(), Mir6502Config::optimized()] {
+            for runtime in [
+                crate::runtime::Runtime::ActionCart,
+                crate::runtime::Runtime::Standalone,
+            ] {
+                let mut selected = lower(source);
+                for r in &mut selected.routines {
+                    MirPreHomeRewriteDriver::default().run_fixed_point_by_key(r,
+                        crate::mir6502::rewrite::address_values::discover_indexed_address_values,
+                        crate::mir6502::rewrite::address_values::address_value_rank).unwrap();
+                }
+                // Exercise construction even when the image cost gate would
+                // decline this particular absolute-input test program.
+                let mir = crate::mir6502::materialize_resolved_program_without_address_costing(
+                    selected, &config, 0x3000, runtime, false,
+                )
+                .unwrap();
+                let mut emitter =
+                    crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
+                let summary =
+                    crate::mir6502::emit::emit_program(&mir, 0x3000, &mut emitter).unwrap();
+                let output = crate::mir6502::codegen_output(
+                    emitter.finish_with_relocations().unwrap(),
+                    0x3000,
+                    summary,
+                    runtime,
+                    &mir,
+                );
+                for base in [0x5000u16, 0x50F1, 0xFFD9] {
+                    for index in [0u16, 1, 255, 256, 257, 65535] {
+                        let pointer = base.wrapping_add(38).wrapping_add(index.wrapping_mul(20));
+                        if pointer < 0x4000 {
+                            continue;
+                        }
+                        let mut ram = [0u8; 65536];
+                        if runtime == crate::runtime::Runtime::ActionCart {
+                            let cart = include_bytes!("../../../roms/action.rom");
+                            ram[0xA000..0xB000].copy_from_slice(&cart[0x1010..0x2010]);
+                            ram[0xB000..0xC000].copy_from_slice(&cart[0x10..0x1010]);
+                        }
+                        ram[0x3000..0x3000 + output.bytes.len()].copy_from_slice(&output.bytes);
+                        ram[0x6000..0x6002].copy_from_slice(&base.to_le_bytes());
+                        ram[0x6002..0x6004].copy_from_slice(&index.to_le_bytes());
+                        ram[0x6004..0x6006].copy_from_slice(&0xB327u16.to_le_bytes());
+                        ram[usize::from(pointer)] = 0xD9;
+                        ram[usize::from(pointer.wrapping_add(1))] = 0x73;
+                        super::super::leaf_test_cpu::run_memory(
+                            &mut ram,
+                            usize::from(output.run_address),
+                        );
+                        let label = format!(
+                            "{runtime:?}/{}/{base:04X}/{index}",
+                            config.enable_indexed_address_values
+                        );
+                        assert_eq!(
+                            &ram[0x6006..0x6008],
+                            &0x73D9u16.to_le_bytes(),
+                            "{label}: full field read"
+                        );
+                        assert_eq!(
+                            &ram[0x6008..0x600A],
+                            &pointer.to_le_bytes(),
+                            "{label}: retained pointer"
+                        );
+                        assert_eq!(
+                            [
+                                ram[usize::from(pointer)],
+                                ram[usize::from(pointer.wrapping_add(1))]
+                            ],
+                            0xB327u16.to_le_bytes(),
+                            "{label}: full field write"
+                        );
+                    }
+                }
+            }
+        }
+    }
+    #[test]
     fn indexed_address_store_trials_preserve_complete_values_and_return_lanes() {
         for ty in ["BYTE", "CARD"] {
-            for (stride, offset) in [(1u16, 38u16), (2, 256), (20, 38), (255, 255), (256, 254)] {
+            for (stride, offset) in [
+                (1u16, 38u16),
+                (2, 256),
+                (20, 0),
+                (20, 38),
+                (255, 0),
+                (255, 255),
+                (256, 254),
+            ] {
                 let element = if stride == 1 {
                     "BYTE value".to_string()
                 } else {
@@ -1149,7 +1398,12 @@ mod execution_tests {
                     )
                 };
                 let source = format!(
-                    "TYPE E=[{element}] TYPE T=[BYTE ARRAY prefix({offset}) E ARRAY rows(2)] T POINTER base=$6000 {ty} indexValue=$6002 CARD result=$6004 CARD FUNC Address(T POINTER p {ty} index) RETURN(@p.rows(index)) PROC Main() result=Address(base,indexValue) RETURN"
+                    "TYPE E=[{element}] TYPE T=[{} E ARRAY rows(2)] T POINTER base=$6000 {ty} indexValue=$6002 CARD result=$6004 CARD FUNC Address(T POINTER p {ty} index) RETURN(@p.rows(index)) PROC Main() result=Address(base,indexValue) RETURN",
+                    if offset == 0 {
+                        String::new()
+                    } else {
+                        format!("BYTE ARRAY prefix({offset})")
+                    }
                 );
                 for runtime in [
                     crate::runtime::Runtime::ActionCart,

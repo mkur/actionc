@@ -24,102 +24,114 @@ impl VmRunHooks for Hooks {
 
 #[test]
 fn escaped_and_direct_record_addresses_preserve_words_and_guards() {
-    let source =
-        std::fs::read_to_string(root().join("surveys/tn/reproducers/escaping-record-address.act"))
-            .unwrap()
-            .replace("\r\n", "\n");
-    println!("audit-reproducer,backend,runtime,crlf,routine,index,cycles_including_wrapper");
-    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-            for crlf in [false, true] {
-                let path = Source(std::env::temp_dir().join(format!(
-                    "actionc-address-audit-{}-{mode:?}-{runtime:?}-{crlf}.act",
-                    std::process::id()
-                )));
-                std::fs::write(
-                    &path.0,
-                    if crlf {
-                        source.replace('\n', "\r\n")
-                    } else {
-                        source.clone()
-                    },
-                )
-                .unwrap();
-                let compiled = compile_file(
-                    &path.0,
-                    &CompileOptions::for_mode(mode).with_runtime(runtime),
-                )
-                .unwrap();
-                let listing = compiled.source_listing();
-                let mut vm = if runtime == Runtime::ActionCart {
-                    machine::load(&compiled)
-                } else {
-                    let mut vm = CompilerVm::default();
-                    let loaded = vm
-                        .load_atari_object_for_execution(
-                            ExecutionProfile::StandaloneObject,
-                            compiled.object_bytes(),
-                        )
-                        .unwrap();
-                    assert!(
-                        loaded
-                            .segments
-                            .iter()
-                            .all(|s| s.end < 0x4500 || s.start >= 0x8000)
-                    );
-                    vm
-                };
-                for base in [0x5000u16, 0x50F1] {
-                    for name in [
-                        "Address",
-                        "AddressExpanded",
-                        "ReadViaLocal",
-                        "ReadDirect",
-                        "AddressZero",
-                        "AddressField",
-                    ] {
-                        let entry = symbols::routine_address(&listing, name);
-                        let indices: &[u16] = if matches!(name, "AddressZero" | "AddressField") {
-                            &[0]
-                        } else if name.starts_with("Address") {
-                            &[0, 1, 63, 127, 255]
+    for (fixture, stride, offset) in [
+        ("escaping-record-address", 20u16, 38u16),
+        ("escaping-record-address-wide", 2, 256),
+    ] {
+        let source =
+            std::fs::read_to_string(root().join(format!("surveys/tn/reproducers/{fixture}.act")))
+                .unwrap()
+                .replace("\r\n", "\n");
+        println!("audit-reproducer,backend,runtime,crlf,routine,index,cycles_including_wrapper");
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                for crlf in [false, true] {
+                    let path = Source(std::env::temp_dir().join(format!(
+                        "actionc-address-audit-{}-{mode:?}-{runtime:?}-{crlf}.act",
+                        std::process::id()
+                    )));
+                    std::fs::write(
+                        &path.0,
+                        if crlf {
+                            source.replace('\n', "\r\n")
                         } else {
-                            &[0, 1, 63, 127, 255, 257, 65535]
-                        };
-                        for &index in indices {
-                            let field = base.wrapping_add(38).wrapping_add(index.wrapping_mul(20));
-                            assert!((0x4500..0x7FFF).contains(&field));
-                            let mut expected = vec![0xA5; 0x3B00];
-                            expected[usize::from(field - 0x4500)..usize::from(field - 0x4500) + 2]
-                                .copy_from_slice(&0x73D9u16.to_le_bytes());
-                            vm.bus_mut().ram_mut().map(0x4500, &expected).unwrap();
-                            let mut args = base.to_le_bytes().to_vec();
-                            args.push(index as u8);
-                            if !name.starts_with("Address") {
-                                args.push((index >> 8) as u8);
+                            source.clone()
+                        },
+                    )
+                    .unwrap();
+                    let compiled = compile_file(
+                        &path.0,
+                        &CompileOptions::for_mode(mode).with_runtime(runtime),
+                    )
+                    .unwrap();
+                    let listing = compiled.source_listing();
+                    let mut vm = if runtime == Runtime::ActionCart {
+                        machine::load(&compiled)
+                    } else {
+                        let mut vm = CompilerVm::default();
+                        let loaded = vm
+                            .load_atari_object_for_execution(
+                                ExecutionProfile::StandaloneObject,
+                                compiled.object_bytes(),
+                            )
+                            .unwrap();
+                        assert!(
+                            loaded
+                                .segments
+                                .iter()
+                                .all(|s| s.end < 0x4500 || s.start >= 0x8000)
+                        );
+                        vm
+                    };
+                    for base in [0x5000u16, 0x50F1] {
+                        for name in [
+                            "Address",
+                            "AddressExpanded",
+                            "ReadViaLocal",
+                            "ReadDirect",
+                            "AddressZero",
+                            "AddressField",
+                        ] {
+                            if fixture.ends_with("-wide") && name == "AddressExpanded" {
+                                continue;
                             }
-                            let start = vm.cpu().cycles();
-                            vm = machine::call(vm, &mut Hooks, entry, &args);
-                            let result = vm.bus().ram().read_word(0xA0);
-                            assert_eq!(
-                                result,
-                                if name.starts_with("Address") {
-                                    field
-                                } else {
-                                    0x73D9
-                                },
-                                "{mode:?}/{runtime:?}/crlf={crlf}/{name}/{base:04X}/{index}"
-                            );
-                            assert_eq!(
-                                machine::bytes(&vm, 0x4500, 0x3B00),
-                                expected,
-                                "{name}: full data and neighboring guards"
-                            );
-                            if base == 0x5000 {
-                                println!(
-                                    "audit-reproducer,{mode:?},{runtime:?},{crlf},{name},{index},{}",
-                                    vm.cpu().cycles() - start
+                            let entry = symbols::routine_address(&listing, name);
+                            let indices: &[u16] = if matches!(name, "AddressZero" | "AddressField")
+                            {
+                                &[0]
+                            } else if name.starts_with("Address") {
+                                &[0, 1, 63, 127, 255]
+                            } else {
+                                &[0, 1, 63, 127, 255, 257, 65535]
+                            };
+                            for &index in indices {
+                                let field = base
+                                    .wrapping_add(offset)
+                                    .wrapping_add(index.wrapping_mul(stride));
+                                assert!((0x4500..0x7FFF).contains(&field));
+                                let mut expected = vec![0xA5; 0x3B00];
+                                expected
+                                    [usize::from(field - 0x4500)..usize::from(field - 0x4500) + 2]
+                                    .copy_from_slice(&0x73D9u16.to_le_bytes());
+                                vm.bus_mut().ram_mut().map(0x4500, &expected).unwrap();
+                                let mut args = base.to_le_bytes().to_vec();
+                                args.push(index as u8);
+                                if !name.starts_with("Address") {
+                                    args.push((index >> 8) as u8);
+                                }
+                                let start = vm.cpu().cycles();
+                                vm = machine::call(vm, &mut Hooks, entry, &args);
+                                let result = vm.bus().ram().read_word(0xA0);
+                                assert_eq!(
+                                    result,
+                                    if name.starts_with("Address") {
+                                        field
+                                    } else {
+                                        0x73D9
+                                    },
+                                    "{mode:?}/{runtime:?}/crlf={crlf}/{name}/{base:04X}/{index}"
                                 );
+                                assert_eq!(
+                                    machine::bytes(&vm, 0x4500, 0x3B00),
+                                    expected,
+                                    "{name}: full data and neighboring guards"
+                                );
+                                if base == 0x5000 {
+                                    println!(
+                                        "audit-reproducer,{mode:?},{runtime:?},{crlf},{name},{index},{}",
+                                        vm.cpu().cycles() - start
+                                    );
+                                }
                             }
                         }
                     }

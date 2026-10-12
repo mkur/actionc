@@ -95,6 +95,13 @@ including when the pointee is the pointer cell itself. Deferred index reads
 require ordinary compiler storage, whole-routine exclusive use, no intervening
 write/call and final disjointness from zero-page preparation.
 
+New index and complete-address value flows also preserve the original input
+snapshot across absolute/hardware, structured and unknown-pointer reads.
+Read-only effects do not establish permission to reorder such evaluation.
+Ordinary direct storage reads and the constructor's private carrier reads may
+remain between a captured load and its exclusive consumer when the existing
+availability and physical interference proofs hold.
+
 ### Costed scalar leaf inlining
 
 MIR routines preserve verified NIR's typed `Auto` / `Prefer` inline metadata.

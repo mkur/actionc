@@ -129,3 +129,107 @@ two existing ignored tests), and ten tests across the four affected VM targets
 pass. New execution cases check retained pointer bytes, byte/word fields at
 offsets 0/38/254/255/256, independent layouts, effectful indexes, aliasing writes,
 one-lane mutation, intervening calls and a pointer referring to its own cell.
+
+## Stage 5: integrated qualification
+
+All stages are complete. New index and address-value read deferral preserves
+input snapshots across hardware, absolute and unknown-pointer reads, in
+addition to existing write/call barriers. Selection remains optimized-MIR-only;
+the conservative profile and every rejected candidate retain executable
+full-width arithmetic. No SemIR/NIR contract, application source or ABI changed.
+
+[stage5.json](stage5.json) retains the final compiler hash, both runtimes,
+four-root census, LF/CRLF comparisons and the independently measured second
+layout baseline. Instruction bytes and emitted spill bytes are separate:
+
+| Layout / routine | Frozen instruction bytes | Final instruction bytes | Frozen → final spill bytes |
+| --- | ---: | ---: | ---: |
+| Stride 20, displacement 38: `Address` | 76 | 77 | 4 → 0 |
+| Stride 20, displacement 38: `ReadViaLocal` | 104 | 101 | 2 → 0 |
+| Stride 20, displacement 38: `ReadDirect` | 85 | 85 | 0 → 0 |
+| Stride 20, displacement 38: `AddressZero` | 63 | 15 | 4 → 0 |
+| Stride 2, displacement 256: `Address` | 54 | 44 | 0 → 0 |
+| Stride 2, displacement 256: `ReadViaLocal` | 95 | 68 | 0 → 0 |
+| Stride 2, displacement 256: `ReadDirect` | 60 | 60 | 0 → 0 |
+
+The [second fixture](../reproducers/escaping-record-address-wide.act) has a
+different stride and a full-word embedded displacement. Both local forms
+retain two source pointer bytes and four parameter bytes. Returned BYTE-index
+addresses retain three parameter bytes. Thus the stride-20 return grows by one
+instruction byte but saves four spill bytes: its code-plus-home cost is 83 → 80.
+The local form costs 112 → 107. Both admitted stride-20 forms have no multiply
+call or spill home; direct field consumption stays unchanged.
+
+| Cartridge root | Frozen load-file bytes | Final load-file bytes |
+| --- | ---: | ---: |
+| TN classic | 18,095 | 18,095 |
+| TN MIR6502 | 16,807 | 16,802 |
+| TNDBG classic | 21,586 | 21,586 |
+| TNDBG MIR6502 | 20,544 | 20,539 |
+
+Both classic image hashes match Stage 0 exactly. Final images include branch
+relaxation, retained helpers and shared homes; routine savings are not added
+together to predict image sizes. The general multiply helper remains available
+to other consumers. Every measured root and generic cartridge/standalone image
+matches its actual CRLF-source build.
+
+[workloads.csv](workloads.csv) and [profiles.csv](profiles.csv) retain final
+classic/MIR vectors and independent per-routine attribution for TN and TNDBG.
+Their cycle and spill sums reconcile for every vector. Repeated identical
+publish runs are represented once. Against the frozen audit, both MIR roots'
+64-row reversed sort changes as follows:
+
+| Measurement | Frozen | Final |
+| --- | ---: | ---: |
+| Whole sort cycles, including wrapper | 805,176 | 534,512 |
+| Executed emitted spill operands | 15,112 | 1,616 |
+| `BatchItem` body plus its multiply helper, cycles | 399,840 | 129,176 |
+| `BatchItem` multiply calls | 964 | 0 |
+| `BatchItem` spill operands | 13,496 | 0 |
+
+This is **33.6% fewer sort cycles and 89.3% fewer spill operands**. The old
+`BatchItem` cost includes 104,112 body cycles and 295,728 resident-helper cycles;
+the final body needs no helper. Fixed pointer-scratch writes increase from zero
+to 7,712 over its 964 invocations, so spill removal does not mean zero private
+traffic. Cycles include the fixed wrapper, resident ROM and substituted service
+returns, excluding real I/O latency and ANTIC contention. Spill counts cover
+executed generated RAM operands to named homes; they exclude stack, resident
+ROM operands and pointer-fetch bus bytes. Read-modify-write instructions count
+their semantic read and write accesses.
+
+Qualification passed 1,039 MIR6502 library tests (two existing ignored), 96
+tests in all eleven MIR6502 integration targets, and 386 tests in the full
+`tools/vm-runtime-tests` crate. This includes runtime/ABI, TN provider/directory
+acceptance, field boundaries, both complete return lanes, effectful indexes,
+retained pointer contents, aliases and mutation. Raw-memory execution checks
+the conservative fallback and forced constructor trials in both runtimes,
+including unrestricted CARD indexes and a word field crossing `$FFFF` to zero.
+Forced trials test semantics of size-rejected forms; they do not bypass the
+production gate. MIR fixtures pass unchanged; no NIR snapshots changed.
+
+Remaining conservative cases are explicit. Cross-block propagation, multiple
+address users, uncertain effects/aliases, scratch collisions, live flags and
+unproved lane uses retain their original path. Stride 255 expansion may be
+rejected for size; strides above 255 retain full-word arithmetic without
+narrowing. Individual CARD-index returns can also lose the size comparison.
+`AddressExpanded` remains 222 bytes with its multiply helper and four spill
+bytes. In the second layout, early power-of-two lowering hides the zero-index
+arithmetic shape from this selector: `AddressZero` remains 48 bytes versus 18
+for `AddressField`. Broader arithmetic canonicalization is follow-up work.
+
+Reproduce the image census using the maintained collector:
+
+```sh
+python3 surveys/tn/measure-address-values.py \
+  --compiler target/tn-address-values/final/actionc-qualified \
+  --out-dir target/tn-address-values/recheck --roots --crlf
+```
+
+Reproduce CPU attribution with the development target/profile variables above
+and `ACTIONC_TN_PROFILE_ROUTINES=1 ACTIONC_TN_PROFILE_SOURCE=TN` (then `TNDBG`),
+running `cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml
+--test tn_size_profile -j2 -- --nocapture`. Conservative materialization is
+qualified through the library API, not a 6502 CLI optimization switch. Final
+compiler, listings, images and logs stay under `target/tn-address-values`; the
+temporary build cache can be removed without deleting those artifacts or the
+frozen historical baselines.

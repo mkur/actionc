@@ -151,6 +151,7 @@ fn dynamic_local_addresses_preserve_pointer_bytes_and_byte_word_fields() {
         (1u16, 38u16, 0u16, "BYTE"),
         (2, 0, 254, "CARD"),
         (20, 38, 255, "CARD"),
+        (20, 0, 38, "CARD"),
         (20, 256, 256, "BYTE"),
         (255, 254, 38, "CARD"),
         (256, 255, 0, "CARD"),
