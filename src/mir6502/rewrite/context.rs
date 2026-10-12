@@ -181,6 +181,18 @@ impl<'snapshot, 'routine> PreHomeRewriteContext<'snapshot, 'routine> {
         self.snapshot.routine().point(site)
     }
 
+    pub(in crate::mir6502) fn valid_point(&self, point: MirProgramPoint) -> bool {
+        self.snapshot.routine().validate_point(point).is_ok()
+    }
+
+    pub(in crate::mir6502) fn argument_snapshot(
+        &self, routine: &crate::mir6502::ir::MirRoutine, call: MirProgramPoint,
+        argument: usize, layout: &crate::mir6502::materialize::MaterializeLayout,
+    ) -> Result<crate::mir6502::analysis::call_predicates::ArgumentSnapshot,
+        crate::mir6502::analysis::call_predicates::SnapshotBlocker> {
+        crate::mir6502::analysis::call_predicates::argument_snapshot(routine, self, call, argument, layout)
+    }
+
     pub(in crate::mir6502) fn cfg(&self) -> &MirCfg {
         self.snapshot.cfg()
     }

@@ -1892,3 +1892,23 @@ comparison or Boolean temporary transports carry between words. Captures must
 precede the chain, and optimizers must preserve lower-lane carry contributions
 even when only upper result lanes are used. NIR still expresses typed integer
 arithmetic; signed and unsigned operations share this modulo-2^32 strategy.
+# Argument snapshots across numeric predicates
+
+A typed `PointerCell` call operand reads its home during ABI staging; it is not
+an earlier captured value. Replacing an argument load with that operand requires
+a generation-scoped snapshot proof from the immutable pre-home context. Each
+complete BYTE/WORD definition must dominate its exclusive call use, with every
+lane reaching that use. The initial region is one block, a pure byte equality
+or inequality against zero, and its adjacent direct call.
+
+Only ordinary compiler-owned scalar parameter/local bytes qualify. Absolute
+backing, descriptors, unresolved storage, extra lane/edge uses, calls (including
+apparently effect-free calls), writes, machine blocks and observable or indirect
+reads block deferral. The original predicate evaluation remains in place.
+Logical byte identity and physical interference are separate proofs: final
+source bytes must survive all ABI and scratch writes before their staging read.
+Final code plus all ordinary homes and complete image cost must not grow.
+
+Taking a caller home's address invalidates the older cleanup pass's permission
+to sink its load across an internal call based solely on a callee summary. A
+pointer write in that callee need not name the caller's home in that summary.

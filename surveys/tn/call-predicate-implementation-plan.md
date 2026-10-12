@@ -1,6 +1,6 @@
 # MIR6502 call argument captures across predicates
 
-Status: Stage 0 complete, 2026-10-12; snapshot correctness repair precedes selection.
+Status: Stages 0–1 complete, 2026-10-12; snapshot repair qualified; selection disabled.
 
 Implement priority 2 from the next compiler steps: reduce private argument
 captures that survive a pure predicate's control flow. This is direction 3 in

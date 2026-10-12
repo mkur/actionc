@@ -28,3 +28,10 @@ attributed to it. Cycle observations are not correctness assertions.
 Large images, listings, raw MIR and logs live in ignored
 `target/tn-call-predicates/stage0`. One debug-free, nonincremental cache is shared
 by compiler and VM checks.
+
+Stage 1 adds generation-scoped snapshot facts and context queries with complete
+word-lane, exclusive-use, dominance, pure-region and physical-disjointness
+requirements. Two focused proof tests pass. Production selection is disabled;
+all four root images remain byte-identical to Stage 0 with actual LF/CRLF
+compilation. The snapshot fixture grows by 36 bytes to preserve the escaped
+parameter correctly; this is a correctness repair, not an optimization result.
