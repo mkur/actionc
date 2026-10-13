@@ -1,4 +1,4 @@
-//! Reproducible typed MIR and physical budgets; no compiler policy overrides.
+//! Reproducible typed MIR and physical budgets with explicit reuse controls.
 use actionc::{includes, mir6502, nir, semantic};
 use std::{env, fs, path::PathBuf};
 
@@ -23,7 +23,18 @@ fn main() {
         nir::optimize_program(&raw).unwrap()
     };
     let pre = mir6502::lower_program(&normalized).unwrap();
-    let config = mir6502::Mir6502Config::optimized();
+    let mut config = mir6502::Mir6502Config::optimized();
+    if args
+        .iter()
+        .any(|a| a == "reads" || a == "writes" || a == "parameters")
+    {
+        config.enable_record_base_reuse = true;
+        config.enable_record_base_writes = args.iter().any(|a| a == "writes" || a == "parameters");
+        config.enable_record_base_parameter_origins = args.iter().any(|a| a == "parameters");
+    }
+    if args.iter().any(|a| a == "off") {
+        config.enable_record_base_reuse = false;
+    }
     let post =
         mir6502::materialize_program_with_origin_and_runtime(pre.clone(), &config, 0x2C00, runtime)
             .unwrap();

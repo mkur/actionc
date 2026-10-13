@@ -1,0 +1,652 @@
+{
+  "cart-off": {
+    "homes": [
+      {
+        "fixed_zero_page": [
+          160,
+          172,
+          173,
+          161
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 2,
+        "routine": "ReadFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173,
+          163
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 4,
+        "routine": "WriteFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173,
+          163
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 4,
+        "routine": "MixedFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          170,
+          171,
+          172,
+          173,
+          163
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 4,
+        "routine": "NestedFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173
+        ],
+        "local_bytes": 2,
+        "parameter_bytes": 0,
+        "routine": "KnownFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 2,
+        "routine": "RebindParameter",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 2,
+        "routine": "MutateSource",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          160,
+          172,
+          173,
+          161
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 0,
+        "routine": "ReadCurrent",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          163,
+          160,
+          161
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 0,
+        "routine": "Main",
+        "spill_bytes": 0
+      }
+    ],
+    "payload_bytes": 703,
+    "routines": [
+      {
+        "bytes": 40,
+        "end": 11333,
+        "name": "ReadFields",
+        "start": 11293
+      },
+      {
+        "bytes": 86,
+        "end": 11419,
+        "name": "WriteFields",
+        "start": 11333
+      },
+      {
+        "bytes": 112,
+        "end": 11531,
+        "name": "MixedFields",
+        "start": 11419
+      },
+      {
+        "bytes": 111,
+        "end": 11642,
+        "name": "NestedFields",
+        "start": 11531
+      },
+      {
+        "bytes": 69,
+        "end": 11711,
+        "name": "KnownFields",
+        "start": 11642
+      },
+      {
+        "bytes": 64,
+        "end": 11775,
+        "name": "RebindParameter",
+        "start": 11711
+      },
+      {
+        "bytes": 37,
+        "end": 11812,
+        "name": "MutateSource",
+        "start": 11775
+      },
+      {
+        "bytes": 62,
+        "end": 11874,
+        "name": "ReadCurrent",
+        "start": 11812
+      },
+      {
+        "bytes": 93,
+        "end": 11967,
+        "name": "Main",
+        "start": 11874
+      }
+    ],
+    "payload_sha256": "2f10279b54383994b5b896683f74cfc2c9cf434b8e7583566f31760fd51b24be"
+  },
+  "cart-reads": {
+    "homes": [
+      {
+        "fixed_zero_page": [
+          160,
+          172,
+          173,
+          161
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 2,
+        "routine": "ReadFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173,
+          163
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 4,
+        "routine": "WriteFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173,
+          163
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 4,
+        "routine": "MixedFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          170,
+          171,
+          172,
+          173,
+          163
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 4,
+        "routine": "NestedFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173
+        ],
+        "local_bytes": 2,
+        "parameter_bytes": 0,
+        "routine": "KnownFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 2,
+        "routine": "RebindParameter",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 2,
+        "routine": "MutateSource",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          160,
+          172,
+          173,
+          161
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 0,
+        "routine": "ReadCurrent",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          163,
+          160,
+          161
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 0,
+        "routine": "Main",
+        "spill_bytes": 0
+      }
+    ],
+    "payload_bytes": 696,
+    "routines": [
+      {
+        "bytes": 40,
+        "end": 11333,
+        "name": "ReadFields",
+        "start": 11293
+      },
+      {
+        "bytes": 86,
+        "end": 11419,
+        "name": "WriteFields",
+        "start": 11333
+      },
+      {
+        "bytes": 112,
+        "end": 11531,
+        "name": "MixedFields",
+        "start": 11419
+      },
+      {
+        "bytes": 111,
+        "end": 11642,
+        "name": "NestedFields",
+        "start": 11531
+      },
+      {
+        "bytes": 69,
+        "end": 11711,
+        "name": "KnownFields",
+        "start": 11642
+      },
+      {
+        "bytes": 64,
+        "end": 11775,
+        "name": "RebindParameter",
+        "start": 11711
+      },
+      {
+        "bytes": 37,
+        "end": 11812,
+        "name": "MutateSource",
+        "start": 11775
+      },
+      {
+        "bytes": 55,
+        "end": 11867,
+        "name": "ReadCurrent",
+        "start": 11812
+      },
+      {
+        "bytes": 93,
+        "end": 11960,
+        "name": "Main",
+        "start": 11867
+      }
+    ],
+    "payload_sha256": "61dc9f10023b815dbdd98d0431ff3dc57d545e858cfbbf1ae04a42f96ee5a94a"
+  },
+  "standalone-off": {
+    "homes": [
+      {
+        "fixed_zero_page": [
+          160,
+          172,
+          173,
+          161
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 2,
+        "routine": "ReadFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173,
+          163
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 4,
+        "routine": "WriteFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173,
+          163
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 4,
+        "routine": "MixedFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          170,
+          171,
+          172,
+          173,
+          163
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 4,
+        "routine": "NestedFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173
+        ],
+        "local_bytes": 2,
+        "parameter_bytes": 0,
+        "routine": "KnownFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 2,
+        "routine": "RebindParameter",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 2,
+        "routine": "MutateSource",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          160,
+          172,
+          173,
+          161
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 0,
+        "routine": "ReadCurrent",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          163,
+          160,
+          161
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 0,
+        "routine": "Main",
+        "spill_bytes": 0
+      }
+    ],
+    "payload_bytes": 703,
+    "routines": [
+      {
+        "bytes": 40,
+        "end": 11333,
+        "name": "ReadFields",
+        "start": 11293
+      },
+      {
+        "bytes": 86,
+        "end": 11419,
+        "name": "WriteFields",
+        "start": 11333
+      },
+      {
+        "bytes": 112,
+        "end": 11531,
+        "name": "MixedFields",
+        "start": 11419
+      },
+      {
+        "bytes": 111,
+        "end": 11642,
+        "name": "NestedFields",
+        "start": 11531
+      },
+      {
+        "bytes": 69,
+        "end": 11711,
+        "name": "KnownFields",
+        "start": 11642
+      },
+      {
+        "bytes": 64,
+        "end": 11775,
+        "name": "RebindParameter",
+        "start": 11711
+      },
+      {
+        "bytes": 37,
+        "end": 11812,
+        "name": "MutateSource",
+        "start": 11775
+      },
+      {
+        "bytes": 62,
+        "end": 11874,
+        "name": "ReadCurrent",
+        "start": 11812
+      },
+      {
+        "bytes": 93,
+        "end": 11967,
+        "name": "Main",
+        "start": 11874
+      }
+    ],
+    "payload_sha256": "2f10279b54383994b5b896683f74cfc2c9cf434b8e7583566f31760fd51b24be"
+  },
+  "standalone-reads": {
+    "homes": [
+      {
+        "fixed_zero_page": [
+          160,
+          172,
+          173,
+          161
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 2,
+        "routine": "ReadFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173,
+          163
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 4,
+        "routine": "WriteFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173,
+          163
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 4,
+        "routine": "MixedFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          170,
+          171,
+          172,
+          173,
+          163
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 4,
+        "routine": "NestedFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173
+        ],
+        "local_bytes": 2,
+        "parameter_bytes": 0,
+        "routine": "KnownFields",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 2,
+        "routine": "RebindParameter",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          172,
+          173
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 2,
+        "routine": "MutateSource",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          160,
+          172,
+          173,
+          161
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 0,
+        "routine": "ReadCurrent",
+        "spill_bytes": 0
+      },
+      {
+        "fixed_zero_page": [
+          163,
+          160,
+          161
+        ],
+        "local_bytes": 0,
+        "parameter_bytes": 0,
+        "routine": "Main",
+        "spill_bytes": 0
+      }
+    ],
+    "payload_bytes": 696,
+    "routines": [
+      {
+        "bytes": 40,
+        "end": 11333,
+        "name": "ReadFields",
+        "start": 11293
+      },
+      {
+        "bytes": 86,
+        "end": 11419,
+        "name": "WriteFields",
+        "start": 11333
+      },
+      {
+        "bytes": 112,
+        "end": 11531,
+        "name": "MixedFields",
+        "start": 11419
+      },
+      {
+        "bytes": 111,
+        "end": 11642,
+        "name": "NestedFields",
+        "start": 11531
+      },
+      {
+        "bytes": 69,
+        "end": 11711,
+        "name": "KnownFields",
+        "start": 11642
+      },
+      {
+        "bytes": 64,
+        "end": 11775,
+        "name": "RebindParameter",
+        "start": 11711
+      },
+      {
+        "bytes": 37,
+        "end": 11812,
+        "name": "MutateSource",
+        "start": 11775
+      },
+      {
+        "bytes": 55,
+        "end": 11867,
+        "name": "ReadCurrent",
+        "start": 11812
+      },
+      {
+        "bytes": 93,
+        "end": 11960,
+        "name": "Main",
+        "start": 11867
+      }
+    ],
+    "payload_sha256": "61dc9f10023b815dbdd98d0431ff3dc57d545e858cfbbf1ae04a42f96ee5a94a"
+  },
+  "compiler_reporter_sha256": "360a7732072c47563210a4509c6022dcfde0613f6a93cefd7ded11d9e45d1395",
+  "source_sha256_lf": "c505b7e9ffd041c43d7bd20525891d9ff54805a38c3a25ad4e0a2e52740a31cb"
+}

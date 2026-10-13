@@ -50,3 +50,14 @@ the converged final layout; ordinary output does not build the map. Unit cases
 cover physical aliases, partial pair clobbers, unknown indirect destinations,
 proven literal destinations, stale generations and forged proof fields.
 Production selection remains unchanged in this slice.
+
+Stage 2 supplies opt-in read-sequence selection through the shared rewrite
+driver. It keeps the original high-byte load to preserve A/Z/N and any known
+callee exit value already used by caller rewrites. The generic read sentinel
+now publishes its captured first word to a different global before reading
+the next field: the earlier fixture was already optimized by existing passes.
+[stage2.json](stage2.json) compares this revised source with the feature off/on.
+`ReadCurrent` changes from 62 to 55 code bytes in both runtimes; the complete
+reporter payload changes from 703 to 696. Source homes and zero-page occupancy
+do not grow. Raw/optimized NIR execution and LF/CRLF compilation preserve the
+self-cell mutation fallback and field/neighbor checks.

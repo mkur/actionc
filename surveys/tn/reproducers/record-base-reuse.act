@@ -42,6 +42,7 @@ RETURN
 CARD FUNC ReadCurrent()
   CARD first
   first=current.first
+  observed=first
 RETURN(first+current.value)
 
 PROC Main()

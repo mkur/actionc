@@ -274,6 +274,11 @@ destination address and footprint and cannot follow a pointer type alone.
 Proofs name the routine, generation and operation site and are independently
 replayed before selection. A changed final placement invalidates an earlier
 alias proof. These facts alone do not enable a rewrite or change memory effects.
+Opt-in selection replaces a redundant complete setup with its original high
+byte load. This retains A/Z/N, including callee exit facts already consumed by
+caller optimization, and preserves all pointee accesses. The transaction driver
+checks generation and dependencies; final emission checks code/home/image and
+zero-page budgets and replays the alias proofs against the proposed placement.
 Canonical parameter carriers may feed plain or constant-index preparation only
 when block-local capture, register availability and intervening physical write
 ranges prove the bytes still equal their parameter homes. The high byte must

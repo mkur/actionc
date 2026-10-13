@@ -1,5 +1,11 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir6502Config {
+    /// Final-layout, same-block record base reuse with exact exit state repair.
+    pub enable_record_base_reuse: bool,
+    /// Admit indirect field writes only with complete disjoint destination proofs.
+    pub enable_record_base_writes: bool,
+    /// Trace parameter bytes after complete explicit same-block assignments.
+    pub enable_record_base_parameter_origins: bool,
     pub select_runtime_helpers: bool,
     #[doc(hidden)]
     pub select_widening_byte_multiply: bool,
@@ -48,6 +54,9 @@ pub enum MirPeepholeReportMode {
 impl Default for Mir6502Config {
     fn default() -> Self {
         Self {
+            enable_record_base_reuse: false,
+            enable_record_base_writes: false,
+            enable_record_base_parameter_origins: false,
             select_runtime_helpers: true,
             select_widening_byte_multiply: false,
             enable_peepholes: true,

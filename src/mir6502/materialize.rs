@@ -20,6 +20,7 @@ mod abi;
 #[cfg(test)]
 mod address_consumer_tests;
 pub(super) mod address_values;
+pub(super) mod record_bases;
 pub(super) mod call_predicates;
 pub(super) mod comparison_loops;
 mod comparison_fusion;

@@ -39,7 +39,11 @@ impl MirPhysicalMemory {
     }
     fn ordinary(&self, routine: RoutineId, mem: &MirMem) -> bool {
         self.entries.iter().any(|(r, m, a, normal)| {
-            *r == routine && m == mem && *normal && (0x400..0xC000).contains(a)
+            *r == routine
+                && m == mem
+                && *normal
+                && ((0x400..0xC000).contains(a)
+                    || matches!(m, MirMem::ZeroPage(_) | MirMem::Spill { .. }))
         })
     }
 }
@@ -105,6 +109,9 @@ impl State {
                 .address(routine, mem)
                 .map(|a| ByteValue::Constant(a.to_le_bytes()[*byte as usize])),
             MirValue::PointerCell(mem) => {
+                if !memory.ordinary(routine, mem) {
+                    return None;
+                }
                 let address = memory.address(routine, mem)?;
                 if !matches!(mem, MirMem::Param { .. }) || options.parameter_origins {
                     if let Some(v) = self.cells.get(&address) {
@@ -253,8 +260,16 @@ impl State {
                 if !memory.ordinary(routine, &range.base)
                     && matches!(range.base, MirMem::Absolute(_) | MirMem::Global { .. })
                 {
-                    self.pairs.clear();
-                    self.cells.clear();
+                    *self = Self::default();
+                }
+            }
+        }
+        // Implicit constructors and compound operations can clobber a pair
+        // without presenting a scalar direct store in the operation stream.
+        for home in &effect.addresses.pair_writes {
+            if let super::effects::MirHomeByte::FixedZeroPage(slot) = home {
+                if stored.is_none_or(|(address, _, _)| address != u16::from(slot.0)) {
+                    self.write(u16::from(slot.0), 1);
                 }
             }
         }
