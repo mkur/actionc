@@ -48,6 +48,31 @@ calls, and concrete-enough address forms.
 has no unsupported pseudo ops, unresolved storage, unresolved labels, or
 unassigned virtual temps. It is ready to feed tracked emission helpers.
 
+### Private memory right shifts
+
+Post-home `UpdateMem` additionally supports BYTE `Lsr` and `Ror`. Each reads
+and writes one direct byte, preserves A/X/Y, writes C/N/Z and preserves V.
+`Lsr` shifts in zero; `Ror` reads incoming C and rotates it into bit 7. Neither
+is a WORD update, register update, indexed update or pre-home computation.
+The verifier rejects those unsupported forms. Printed operations are
+`lsr.b` and `ror.b`; the original INC/DEC contracts are unchanged.
+
+MIR6502 selects these operations from an exact same-byte
+load-A/shift-A/store-A chain on a private spill or virtual zero-page home.
+Shared machine liveness must prove A dead after the chain, including successor
+blocks. The final home value and C/N/Z match the original chain, so live flags
+remain legal. Globals, locals, parameters, fixed zero page, absolute/hardware
+storage and mismatched stores retain their original accesses. No source read
+is moved, duplicated or removed, and full WORD carry chains remain intact.
+
+Selection precedes physical zero-page coloring and runs only with peepholes
+and `enable_private_memory_shifts` enabled. Optimized configuration enables it;
+default and explicit feature-off configurations preserve fallback. Emission
+writes native memory LSR/ROR instructions. Their read/modify/write bus behavior
+is why the selector requires owned private storage. The emission tracker
+forgets register facts that refer to the byte's previous contents without
+changing the physical registers. SemIR and NIR contracts are unchanged.
+
 ### Complete address values
 
 `ComputeAddress` is a MIR6502 target strategy for a pure complete word:

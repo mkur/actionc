@@ -679,6 +679,7 @@ fn latch_update(
             match op {
                 MirUpdateOp::Inc => MirCountDirection::Ascending,
                 MirUpdateOp::Dec => MirCountDirection::Descending,
+                MirUpdateOp::Lsr | MirUpdateOp::Ror => return None,
             },
             1,
         )),

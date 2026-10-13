@@ -904,6 +904,8 @@ fn update_summary(op: super::ir::MirUpdateOp) -> &'static str {
     match op {
         super::ir::MirUpdateOp::Inc => "inc",
         super::ir::MirUpdateOp::Dec => "dec",
+        super::ir::MirUpdateOp::Lsr => "lsr",
+        super::ir::MirUpdateOp::Ror => "ror",
     }
 }
 

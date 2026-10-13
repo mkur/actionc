@@ -91,6 +91,45 @@ forms against complete expected metadata and guarded bitmap contents, including
 zero-trip clearing, partial bytes and wide capacities. Application qualification
 uses the existing directory, MyDOS reader, dispatch and CPU-profile targets.
 
+## Qualified compiler memory shifts
+
+Optimized MIR6502 now selects native BYTE LSR/ROR on captured private scratch
+when shared liveness proves A dead afterward. The exact home value and C/N/Z
+are preserved, including live carry through a WORD shift. Source-visible
+memory and live-A cases retain fallback. The selection adds no scratch home,
+runtime helper, source traversal change or ABI change. Default and explicit
+feature-off configurations keep the old sequence.
+
+[memory-shifts.json](memory-shifts.json) pins the new compiler executable,
+source hashes, matched roots, direct feature-on/off vectors and check logs.
+Both roots retain the qualified cached bound from the source slice above.
+
+| MIR measurement | Source slice | Compiler slice |
+| --- | ---: | ---: |
+| TN load-file bytes | 16,693 | 16,627 |
+| TNDBG load-file bytes | 20,430 | 20,364 |
+| `TagBitInRange` instruction bytes | 140 | 125 |
+| `TagsExtent` instruction bytes | 503 | 479 |
+| Prefix-publication cycles, both roots | 289,381 | 273,061 |
+| Complete-publication cycles, both roots | 382,607 | 366,248 |
+| Exclusive prefix `TagBitInRange` cycles | 221,952 | 205,632 |
+
+Prefix publication takes 5.6% fewer cycles and complete publication 4.3% fewer
+than the source slice. Character/bitmap observations and source operand counts
+are unchanged; memory RMW still has one semantic read and write. Classic images
+remain byte-identical at 18,076 and 21,563 bytes. All four full-root LF/CRLF
+images match.
+
+Qualification passes 1,060 MIR6502 unit tests (two existing ignores), the
+emission-tracker dependency test, all 96 MIR6502 integration tests, the
+169-fixture emission sweep and all 401 VM/runtime tests. The new differential
+VM target covers both runtimes, LF/CRLF, feature off/on, cross-byte carries,
+zero/overshifts and snapshots whose source is overwritten before use. Unit
+checks retain live A across successors and reject unsupported phases, widths,
+indexed/register variants and source-owned targets. The
+[pseudo-machine contract](../../../docs/MIR6502_PSEUDO_MACHINE_CONTRACT.md)
+defines the new forms; the shared rewrite inventory includes their proof.
+
 ## Remaining compiler slices
 
 1. **Discarded high lanes of masked indexes.** `BYTE(ordinal&7)` still emits

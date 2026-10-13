@@ -6,7 +6,7 @@ use crate::mir6502::ir::{
     MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirByteIndexedSource, MirCallTarget,
     MirCarryIn, MirCond, MirCondDest, MirDef, MirEffects, MirFixedZpSlot, MirFlag, MirFlagTest,
     MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirPointerPair, MirReg, MirRegisterSet,
-    MirResultHome, MirSpillId, MirTempId, MirTerminator, MirValue, MirWidth, MirZpSlot,
+    MirResultHome, MirSpillId, MirTempId, MirTerminator, MirUpdateOp, MirValue, MirWidth, MirZpSlot,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -509,10 +509,18 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             record_binary_flags(*op, &mut summary.machine.flag_writes);
             summary.machine.writes_any_flags_compat = summary.machine.flag_writes.any();
         }
-        MirOp::UpdateMem { mem, width, .. } => {
+        MirOp::UpdateMem { op, mem, width } => {
             record_memory_range_read(mem, *width, &mut summary);
             record_definite_memory_range_write(mem, *width, &mut summary);
             write_zn(&mut summary.machine.flag_writes);
+            if matches!(op, MirUpdateOp::Lsr | MirUpdateOp::Ror) {
+                summary.machine.flag_writes.c = true;
+                summary.machine.definitely_overwrites_carry = *op == MirUpdateOp::Lsr;
+                if *op == MirUpdateOp::Ror {
+                    summary.machine.flag_reads.c = true;
+                    summary.machine.uses_previous_carry = true;
+                }
+            }
             summary.machine.writes_any_flags_compat = true;
         }
         MirOp::UpdateReg { reg, .. } => {

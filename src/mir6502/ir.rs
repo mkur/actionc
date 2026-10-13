@@ -917,6 +917,10 @@ pub enum MirBinaryOp {
 pub enum MirUpdateOp {
     Inc,
     Dec,
+    /// Post-home BYTE logical right shift. Preserves A/X/Y and writes C/N/Z.
+    Lsr,
+    /// Post-home BYTE rotate right through incoming C. Writes C/N/Z.
+    Ror,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

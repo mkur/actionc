@@ -2051,18 +2051,20 @@ fn emit_op(
             (MirUpdateOp::Dec, MirReg::X) => emitter.emit_dex(),
             (MirUpdateOp::Inc, MirReg::Y) => emitter.emit_iny(),
             (MirUpdateOp::Dec, MirReg::Y) => emitter.emit_dey(),
-            (_, MirReg::A) => unsupported(ctx, routine, block, "register update requires X or Y"),
+            _ => unsupported(ctx, routine, block, "register update requires INC/DEC on X or Y"),
         },
         MirOp::UpdateIndexedMem { op, base } => match ctx.layout.direct_mem(routine, base) {
             Some(ResolvedMem::Absolute(address)) => match op {
                 MirUpdateOp::Inc => emitter.emit_inc_absolute_x(AbsoluteX::new(address)),
                 MirUpdateOp::Dec => emitter.emit_dec_absolute_x(AbsoluteX::new(address)),
+                _ => unsupported(ctx, routine, block, "indexed update requires INC/DEC"),
             },
             Some(ResolvedMem::OutputRelative(address)) => {
                 let address = AbsoluteX::from_absolute(Absolute::output_relative(address));
                 match op {
                     MirUpdateOp::Inc => emitter.emit_inc_absolute_x(address),
                     MirUpdateOp::Dec => emitter.emit_dec_absolute_x(address),
+                    _ => unsupported(ctx, routine, block, "indexed update requires INC/DEC"),
                 }
             }
             _ => unsupported(
@@ -4678,6 +4680,24 @@ fn emit_update_mem(op: MirUpdateOp, mem: ResolvedMem, emitter: &mut TrackedEmitt
         }
         (MirUpdateOp::Dec, ResolvedMem::ZeroPage(address)) => {
             emitter.emit_dec_zero_page(ZeroPage::new(address));
+        }
+        (MirUpdateOp::Lsr, ResolvedMem::Absolute(address)) => {
+            emitter.emit_lsr_absolute(Absolute::new(address))
+        }
+        (MirUpdateOp::Lsr, ResolvedMem::OutputRelative(address)) => {
+            emitter.emit_lsr_absolute(Absolute::output_relative(address))
+        }
+        (MirUpdateOp::Lsr, ResolvedMem::ZeroPage(address)) => {
+            emitter.emit_lsr_zero_page(ZeroPage::new(address))
+        }
+        (MirUpdateOp::Ror, ResolvedMem::Absolute(address)) => {
+            emitter.emit_ror_absolute(Absolute::new(address))
+        }
+        (MirUpdateOp::Ror, ResolvedMem::OutputRelative(address)) => {
+            emitter.emit_ror_absolute(Absolute::output_relative(address))
+        }
+        (MirUpdateOp::Ror, ResolvedMem::ZeroPage(address)) => {
+            emitter.emit_ror_zero_page(ZeroPage::new(address))
         }
     }
 }

@@ -1,0 +1,2312 @@
+{
+  "date": "2026-10-13",
+  "qualified_source_parent": "98fe6cb9",
+  "compiler_sha256": "f1aa68bf08ddf059b62a4aa5a02404bc338bc1b025755a808b8d73732506ccc5",
+  "source_directory_sha256_lf": "cf1a11914c27be3e5b99dcf231b554cb644fd923250b87f3fff553b97ddb2f25",
+  "roots": {
+    "TN-optimized": {
+      "load_file_bytes": 18076,
+      "sha256": "2a560641f0e9be89709549f5a33178a1a91a37dd65a5494456b252af34d74867",
+      "lf_crlf_identical": true,
+      "routines": {
+        "TagBitInRange": {
+          "start": 14560,
+          "end": 14691,
+          "entry": 14567,
+          "instruction_form_bytes": 124,
+          "directive_form_bytes": 7,
+          "instructions": 59,
+          "direct_calls": 1,
+          "calls": {
+            "$A0E6": 1
+          },
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 3,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 7,
+            "local": 3,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 14,
+            "local": 8,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 18,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 18,
+            "LDY": 2,
+            "DEY": 1,
+            "PHA": 2,
+            "TAX": 2,
+            "JSR": 1,
+            "TXA": 1,
+            "PLA": 2,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 2,
+            "BNE": 1,
+            "TYA": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "TagsRecount": {
+          "start": 15396,
+          "end": 15620,
+          "entry": 15404,
+          "instruction_form_bytes": 216,
+          "directive_form_bytes": 8,
+          "instructions": 100,
+          "direct_calls": 1,
+          "calls": {
+            "TagBitInRange": 1
+          },
+          "pointer_scratch_writes": 14,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 4,
+          "home_bytes": {
+            "spill": 0,
+            "param": 8,
+            "local": 6,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 32,
+            "local": 28,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 28,
+            "LDY": 6,
+            "LDA": 29,
+            "DEY": 4,
+            "CMP": 2,
+            "SBC": 2,
+            "BCS": 2,
+            "STY": 2,
+            "LDX": 1,
+            "JSR": 1,
+            "BEQ": 1,
+            "CLC": 2,
+            "ADC": 4,
+            "PHA": 4,
+            "PLA": 4,
+            "INY": 1,
+            "INC": 2,
+            "BNE": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "TagsExtent": {
+          "start": 15620,
+          "end": 16054,
+          "entry": 15638,
+          "instruction_form_bytes": 413,
+          "directive_form_bytes": 21,
+          "instructions": 178,
+          "direct_calls": 3,
+          "calls": {
+            "$A0F5": 1,
+            "$A0E6": 2
+          },
+          "pointer_scratch_writes": 24,
+          "indirect_y_operations": 16,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 18,
+            "local": 13,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 78,
+            "local": 58,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 3,
+            "LDA": 58,
+            "STA": 48,
+            "LDY": 10,
+            "DEY": 4,
+            "CMP": 4,
+            "SBC": 5,
+            "BCC": 3,
+            "BEQ": 4,
+            "JMP": 4,
+            "TAX": 3,
+            "TXA": 2,
+            "CLC": 1,
+            "ADC": 2,
+            "INY": 1,
+            "AND": 2,
+            "TAY": 1,
+            "SEC": 1,
+            "PHA": 4,
+            "PLA": 4,
+            "INC": 8,
+            "BNE": 4,
+            "BCS": 1,
+            "LDX": 1
+          }
+        }
+      }
+    },
+    "TN-mir6502": {
+      "load_file_bytes": 16627,
+      "sha256": "ec06cdffea0608e524d07bc6a065957c62eae71c613a15c8a103970796931aac",
+      "lf_crlf_identical": true,
+      "routines": {
+        "TagBitInRange": {
+          "start": 15445,
+          "end": 15570,
+          "entry": 15445,
+          "instruction_form_bytes": 125,
+          "directive_form_bytes": 0,
+          "instructions": 56,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 4,
+          "indirect_y_operations": 3,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 3,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 9,
+            "local": 6,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 16,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 18,
+            "LDY": 3,
+            "INY": 1,
+            "LSR": 3,
+            "ROR": 3,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 3,
+            "BEQ": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "TagsRecount": {
+          "start": 16189,
+          "end": 16365,
+          "entry": 16189,
+          "instruction_form_bytes": 176,
+          "directive_form_bytes": 0,
+          "instructions": 76,
+          "direct_calls": 1,
+          "calls": {
+            "TagBitInRange": 1
+          },
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 1,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 6,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 4,
+            "param": 7,
+            "local": 22,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 3,
+            "STA": 22,
+            "LDY": 4,
+            "LDA": 20,
+            "INY": 6,
+            "CMP": 4,
+            "BCC": 2,
+            "BNE": 2,
+            "BCS": 1,
+            "SBC": 1,
+            "RTS": 1,
+            "LDX": 1,
+            "JSR": 1,
+            "BEQ": 1,
+            "CLC": 1,
+            "ADC": 2,
+            "DEY": 1,
+            "INC": 2,
+            "JMP": 1
+          }
+        },
+        "TagsExtent": {
+          "start": 16365,
+          "end": 16847,
+          "entry": 16365,
+          "instruction_form_bytes": 479,
+          "directive_form_bytes": 3,
+          "instructions": 203,
+          "direct_calls": 1,
+          "calls": {
+            "$A0F5": 1
+          },
+          "pointer_scratch_writes": 18,
+          "indirect_y_operations": 16,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 2,
+            "param": 5,
+            "local": 13,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 12,
+            "param": 22,
+            "local": 55,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 1,
+            "LDA": 67,
+            "STA": 56,
+            "LDY": 11,
+            "INY": 6,
+            "CMP": 5,
+            "SBC": 4,
+            "BCC": 5,
+            "JMP": 6,
+            "ORA": 1,
+            "BEQ": 3,
+            "TAX": 1,
+            "PHA": 1,
+            "TXA": 1,
+            "PLA": 1,
+            "BNE": 6,
+            "AND": 3,
+            "LSR": 6,
+            "ROR": 6,
+            "CLC": 1,
+            "ADC": 2,
+            "SEC": 1,
+            "INC": 8,
+            "LDX": 1
+          }
+        }
+      }
+    },
+    "TNDBG-optimized": {
+      "load_file_bytes": 21563,
+      "sha256": "f5898964800d58b977bdb75aa772199f8453a8d84a0e2cc6cb7c289434b5807a",
+      "lf_crlf_identical": true,
+      "routines": {
+        "TagBitInRange": {
+          "start": 14560,
+          "end": 14691,
+          "entry": 14567,
+          "instruction_form_bytes": 124,
+          "directive_form_bytes": 7,
+          "instructions": 59,
+          "direct_calls": 1,
+          "calls": {
+            "$A0E6": 1
+          },
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 3,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 7,
+            "local": 3,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 14,
+            "local": 8,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 18,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 18,
+            "LDY": 2,
+            "DEY": 1,
+            "PHA": 2,
+            "TAX": 2,
+            "JSR": 1,
+            "TXA": 1,
+            "PLA": 2,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 2,
+            "BNE": 1,
+            "TYA": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "TagsRecount": {
+          "start": 15396,
+          "end": 15620,
+          "entry": 15404,
+          "instruction_form_bytes": 216,
+          "directive_form_bytes": 8,
+          "instructions": 100,
+          "direct_calls": 1,
+          "calls": {
+            "TagBitInRange": 1
+          },
+          "pointer_scratch_writes": 14,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 4,
+          "home_bytes": {
+            "spill": 0,
+            "param": 8,
+            "local": 6,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 32,
+            "local": 28,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 28,
+            "LDY": 6,
+            "LDA": 29,
+            "DEY": 4,
+            "CMP": 2,
+            "SBC": 2,
+            "BCS": 2,
+            "STY": 2,
+            "LDX": 1,
+            "JSR": 1,
+            "BEQ": 1,
+            "CLC": 2,
+            "ADC": 4,
+            "PHA": 4,
+            "PLA": 4,
+            "INY": 1,
+            "INC": 2,
+            "BNE": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "TagsExtent": {
+          "start": 15620,
+          "end": 16054,
+          "entry": 15638,
+          "instruction_form_bytes": 413,
+          "directive_form_bytes": 21,
+          "instructions": 178,
+          "direct_calls": 3,
+          "calls": {
+            "$A0F5": 1,
+            "$A0E6": 2
+          },
+          "pointer_scratch_writes": 24,
+          "indirect_y_operations": 16,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 18,
+            "local": 13,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 78,
+            "local": 58,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 3,
+            "LDA": 58,
+            "STA": 48,
+            "LDY": 10,
+            "DEY": 4,
+            "CMP": 4,
+            "SBC": 5,
+            "BCC": 3,
+            "BEQ": 4,
+            "JMP": 4,
+            "TAX": 3,
+            "TXA": 2,
+            "CLC": 1,
+            "ADC": 2,
+            "INY": 1,
+            "AND": 2,
+            "TAY": 1,
+            "SEC": 1,
+            "PHA": 4,
+            "PLA": 4,
+            "INC": 8,
+            "BNE": 4,
+            "BCS": 1,
+            "LDX": 1
+          }
+        }
+      }
+    },
+    "TNDBG-mir6502": {
+      "load_file_bytes": 20364,
+      "sha256": "e8bc6e586df7685c2a8cc5aa657b2cac5ece0f542f30c7be9f76c912f6c988cf",
+      "lf_crlf_identical": true,
+      "routines": {
+        "TagBitInRange": {
+          "start": 16009,
+          "end": 16134,
+          "entry": 16009,
+          "instruction_form_bytes": 125,
+          "directive_form_bytes": 0,
+          "instructions": 56,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 4,
+          "indirect_y_operations": 3,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 3,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 9,
+            "local": 6,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 16,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 18,
+            "LDY": 3,
+            "INY": 1,
+            "LSR": 3,
+            "ROR": 3,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 3,
+            "BEQ": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "TagsRecount": {
+          "start": 16753,
+          "end": 16929,
+          "entry": 16753,
+          "instruction_form_bytes": 176,
+          "directive_form_bytes": 0,
+          "instructions": 76,
+          "direct_calls": 1,
+          "calls": {
+            "TagBitInRange": 1
+          },
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 1,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 6,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 4,
+            "param": 7,
+            "local": 22,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 3,
+            "STA": 22,
+            "LDY": 4,
+            "LDA": 20,
+            "INY": 6,
+            "CMP": 4,
+            "BCC": 2,
+            "BNE": 2,
+            "BCS": 1,
+            "SBC": 1,
+            "RTS": 1,
+            "LDX": 1,
+            "JSR": 1,
+            "BEQ": 1,
+            "CLC": 1,
+            "ADC": 2,
+            "DEY": 1,
+            "INC": 2,
+            "JMP": 1
+          }
+        },
+        "TagsExtent": {
+          "start": 16929,
+          "end": 17411,
+          "entry": 16929,
+          "instruction_form_bytes": 479,
+          "directive_form_bytes": 3,
+          "instructions": 203,
+          "direct_calls": 1,
+          "calls": {
+            "$A0F5": 1
+          },
+          "pointer_scratch_writes": 18,
+          "indirect_y_operations": 16,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 2,
+            "param": 5,
+            "local": 13,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 12,
+            "param": 22,
+            "local": 55,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 1,
+            "LDA": 67,
+            "STA": 56,
+            "LDY": 11,
+            "INY": 6,
+            "CMP": 5,
+            "SBC": 4,
+            "BCC": 5,
+            "JMP": 6,
+            "ORA": 1,
+            "BEQ": 3,
+            "TAX": 1,
+            "PHA": 1,
+            "TXA": 1,
+            "PLA": 1,
+            "BNE": 6,
+            "AND": 3,
+            "LSR": 6,
+            "ROR": 6,
+            "CLC": 1,
+            "ADC": 2,
+            "SEC": 1,
+            "INC": 8,
+            "LDX": 1
+          }
+        }
+      }
+    }
+  },
+  "generic": {
+    "generic-optimized-cart": {
+      "load_file_bytes": 1632,
+      "sha256": "dbc9d3dcadf8d39f1419119bd15effa021cf612d74a25a11e3654bc8ddc50820",
+      "routines": {
+        "HasBit": {
+          "start": 12315,
+          "end": 12446,
+          "entry": 12322,
+          "instruction_form_bytes": 124,
+          "directive_form_bytes": 7,
+          "instructions": 59,
+          "direct_calls": 1,
+          "calls": {
+            "$A0E6": 1
+          },
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 3,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 7,
+            "local": 3,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 14,
+            "local": 6,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 18,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 18,
+            "LDY": 2,
+            "DEY": 1,
+            "PHA": 2,
+            "TAX": 2,
+            "JSR": 1,
+            "TXA": 1,
+            "PLA": 2,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 2,
+            "BNE": 1,
+            "TYA": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "BitByBit": {
+          "start": 12446,
+          "end": 12670,
+          "entry": 12454,
+          "instruction_form_bytes": 216,
+          "directive_form_bytes": 8,
+          "instructions": 100,
+          "direct_calls": 1,
+          "calls": {
+            "HasBit": 1
+          },
+          "pointer_scratch_writes": 14,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 4,
+          "home_bytes": {
+            "spill": 0,
+            "param": 8,
+            "local": 6,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 32,
+            "local": 24,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 28,
+            "LDY": 6,
+            "LDA": 29,
+            "DEY": 4,
+            "CMP": 2,
+            "SBC": 2,
+            "BCS": 2,
+            "STY": 2,
+            "LDX": 1,
+            "JSR": 1,
+            "BEQ": 1,
+            "CLC": 2,
+            "ADC": 4,
+            "PHA": 4,
+            "PLA": 4,
+            "INY": 1,
+            "INC": 2,
+            "BNE": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "CachedBits": {
+          "start": 12670,
+          "end": 12907,
+          "entry": 12685,
+          "instruction_form_bytes": 222,
+          "directive_form_bytes": 15,
+          "instructions": 92,
+          "direct_calls": 1,
+          "calls": {
+            "$A0E6": 1
+          },
+          "pointer_scratch_writes": 11,
+          "indirect_y_operations": 9,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 0,
+            "param": 15,
+            "local": 13,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 49,
+            "local": 43,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 25,
+            "LDY": 5,
+            "LDA": 27,
+            "DEY": 4,
+            "CMP": 2,
+            "SBC": 2,
+            "BCS": 2,
+            "STY": 4,
+            "TAX": 2,
+            "JSR": 1,
+            "TXA": 2,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 2,
+            "BEQ": 1,
+            "INC": 4,
+            "BNE": 2,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "ByteShift": {
+          "start": 12907,
+          "end": 13236,
+          "entry": 12921,
+          "instruction_form_bytes": 315,
+          "directive_form_bytes": 14,
+          "instructions": 132,
+          "direct_calls": 1,
+          "calls": {
+            "$A0E6": 1
+          },
+          "pointer_scratch_writes": 16,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 0,
+            "param": 14,
+            "local": 12,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 63,
+            "local": 57,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 39,
+            "LDY": 7,
+            "LDA": 41,
+            "DEY": 4,
+            "CMP": 1,
+            "SBC": 4,
+            "BCS": 1,
+            "TAX": 2,
+            "JSR": 1,
+            "TXA": 1,
+            "AND": 4,
+            "STY": 2,
+            "BNE": 2,
+            "BEQ": 4,
+            "CLC": 2,
+            "ADC": 4,
+            "LSR": 2,
+            "JMP": 3,
+            "INC": 2,
+            "SEC": 2,
+            "TAY": 1,
+            "RTS": 1
+          }
+        },
+        "ByteNibbles": {
+          "start": 13236,
+          "end": 13843,
+          "entry": 13250,
+          "instruction_form_bytes": 593,
+          "directive_form_bytes": 14,
+          "instructions": 290,
+          "direct_calls": 1,
+          "calls": {
+            "$A0E6": 1
+          },
+          "pointer_scratch_writes": 48,
+          "indirect_y_operations": 14,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 0,
+            "param": 14,
+            "local": 12,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 77,
+            "local": 71,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 83,
+            "LDY": 7,
+            "LDA": 73,
+            "DEY": 4,
+            "CMP": 1,
+            "SBC": 4,
+            "BCS": 1,
+            "TAX": 2,
+            "JSR": 1,
+            "TXA": 1,
+            "AND": 8,
+            "STY": 2,
+            "BNE": 4,
+            "JMP": 3,
+            "CLC": 16,
+            "ADC": 32,
+            "PHA": 4,
+            "TYA": 8,
+            "PLA": 4,
+            "LSR": 24,
+            "INC": 2,
+            "SEC": 2,
+            "TAY": 1,
+            "RTS": 1
+          }
+        },
+        "Main": {
+          "start": 13843,
+          "end": 13908,
+          "entry": 13843,
+          "instruction_form_bytes": 65,
+          "directive_form_bytes": 0,
+          "instructions": 24,
+          "direct_calls": 4,
+          "calls": {
+            "BitByBit": 1,
+            "CachedBits": 1,
+            "ByteShift": 1,
+            "ByteNibbles": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 7,
+            "BNE": 3,
+            "LDX": 4,
+            "JSR": 4,
+            "JMP": 3,
+            "CMP": 2,
+            "RTS": 1
+          }
+        }
+      }
+    },
+    "generic-optimized-standalone": {
+      "load_file_bytes": 1647,
+      "sha256": "53c9dcc85ce922fe884b39ad0e9e838eef7cf41d3720d5fb31039c02f539d91e",
+      "routines": {
+        "HasBit": {
+          "start": 12315,
+          "end": 12446,
+          "entry": 12322,
+          "instruction_form_bytes": 124,
+          "directive_form_bytes": 7,
+          "instructions": 59,
+          "direct_calls": 1,
+          "calls": {
+            "ACTION.RUNTIME.SYSLIB::RShift": 1
+          },
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 3,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 7,
+            "local": 3,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 14,
+            "local": 6,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 18,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 18,
+            "LDY": 2,
+            "DEY": 1,
+            "PHA": 2,
+            "TAX": 2,
+            "JSR": 1,
+            "TXA": 1,
+            "PLA": 2,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 2,
+            "BNE": 1,
+            "TYA": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "BitByBit": {
+          "start": 12446,
+          "end": 12670,
+          "entry": 12454,
+          "instruction_form_bytes": 216,
+          "directive_form_bytes": 8,
+          "instructions": 100,
+          "direct_calls": 1,
+          "calls": {
+            "HasBit": 1
+          },
+          "pointer_scratch_writes": 14,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 4,
+          "home_bytes": {
+            "spill": 0,
+            "param": 8,
+            "local": 6,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 32,
+            "local": 24,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 28,
+            "LDY": 6,
+            "LDA": 29,
+            "DEY": 4,
+            "CMP": 2,
+            "SBC": 2,
+            "BCS": 2,
+            "STY": 2,
+            "LDX": 1,
+            "JSR": 1,
+            "BEQ": 1,
+            "CLC": 2,
+            "ADC": 4,
+            "PHA": 4,
+            "PLA": 4,
+            "INY": 1,
+            "INC": 2,
+            "BNE": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "CachedBits": {
+          "start": 12670,
+          "end": 12907,
+          "entry": 12685,
+          "instruction_form_bytes": 222,
+          "directive_form_bytes": 15,
+          "instructions": 92,
+          "direct_calls": 1,
+          "calls": {
+            "ACTION.RUNTIME.SYSLIB::RShift": 1
+          },
+          "pointer_scratch_writes": 11,
+          "indirect_y_operations": 9,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 0,
+            "param": 15,
+            "local": 13,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 49,
+            "local": 43,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 25,
+            "LDY": 5,
+            "LDA": 27,
+            "DEY": 4,
+            "CMP": 2,
+            "SBC": 2,
+            "BCS": 2,
+            "STY": 4,
+            "TAX": 2,
+            "JSR": 1,
+            "TXA": 2,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 2,
+            "BEQ": 1,
+            "INC": 4,
+            "BNE": 2,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "ByteShift": {
+          "start": 12907,
+          "end": 13236,
+          "entry": 12921,
+          "instruction_form_bytes": 315,
+          "directive_form_bytes": 14,
+          "instructions": 132,
+          "direct_calls": 1,
+          "calls": {
+            "ACTION.RUNTIME.SYSLIB::RShift": 1
+          },
+          "pointer_scratch_writes": 16,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 0,
+            "param": 14,
+            "local": 12,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 63,
+            "local": 57,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 39,
+            "LDY": 7,
+            "LDA": 41,
+            "DEY": 4,
+            "CMP": 1,
+            "SBC": 4,
+            "BCS": 1,
+            "TAX": 2,
+            "JSR": 1,
+            "TXA": 1,
+            "AND": 4,
+            "STY": 2,
+            "BNE": 2,
+            "BEQ": 4,
+            "CLC": 2,
+            "ADC": 4,
+            "LSR": 2,
+            "JMP": 3,
+            "INC": 2,
+            "SEC": 2,
+            "TAY": 1,
+            "RTS": 1
+          }
+        },
+        "ByteNibbles": {
+          "start": 13236,
+          "end": 13843,
+          "entry": 13250,
+          "instruction_form_bytes": 593,
+          "directive_form_bytes": 14,
+          "instructions": 290,
+          "direct_calls": 1,
+          "calls": {
+            "ACTION.RUNTIME.SYSLIB::RShift": 1
+          },
+          "pointer_scratch_writes": 48,
+          "indirect_y_operations": 14,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 0,
+            "param": 14,
+            "local": 12,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 77,
+            "local": 71,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 83,
+            "LDY": 7,
+            "LDA": 73,
+            "DEY": 4,
+            "CMP": 1,
+            "SBC": 4,
+            "BCS": 1,
+            "TAX": 2,
+            "JSR": 1,
+            "TXA": 1,
+            "AND": 8,
+            "STY": 2,
+            "BNE": 4,
+            "JMP": 3,
+            "CLC": 16,
+            "ADC": 32,
+            "PHA": 4,
+            "TYA": 8,
+            "PLA": 4,
+            "LSR": 24,
+            "INC": 2,
+            "SEC": 2,
+            "TAY": 1,
+            "RTS": 1
+          }
+        },
+        "Main": {
+          "start": 13843,
+          "end": 13908,
+          "entry": 13843,
+          "instruction_form_bytes": 65,
+          "directive_form_bytes": 0,
+          "instructions": 24,
+          "direct_calls": 4,
+          "calls": {
+            "BitByBit": 1,
+            "CachedBits": 1,
+            "ByteShift": 1,
+            "ByteNibbles": 1
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 7,
+            "BNE": 3,
+            "LDX": 4,
+            "JSR": 4,
+            "JMP": 3,
+            "CMP": 2,
+            "RTS": 1
+          }
+        },
+        "ACTION.RUNTIME.SYSLIB::RShift": {
+          "start": 13908,
+          "end": 13923,
+          "entry": 13908,
+          "instruction_form_bytes": 15,
+          "directive_form_bytes": 0,
+          "instructions": 9,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDY": 1,
+            "BEQ": 1,
+            "STX": 1,
+            "LSR": 1,
+            "ROR": 1,
+            "DEY": 1,
+            "BNE": 1,
+            "LDX": 1,
+            "RTS": 1
+          }
+        }
+      }
+    },
+    "generic-mir6502-cart": {
+      "load_file_bytes": 1362,
+      "sha256": "6e7f5469876bd4b35f25d1958c86f51c131767c87d8d399df9d24e2c08e78c87",
+      "routines": {
+        "HasBit": {
+          "start": 12381,
+          "end": 12506,
+          "entry": 12381,
+          "instruction_form_bytes": 125,
+          "directive_form_bytes": 0,
+          "instructions": 56,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 4,
+          "indirect_y_operations": 3,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 3,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 9,
+            "local": 6,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 16,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 18,
+            "LDY": 3,
+            "INY": 1,
+            "LSR": 3,
+            "ROR": 3,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 3,
+            "BEQ": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "BitByBit": {
+          "start": 12506,
+          "end": 12682,
+          "entry": 12506,
+          "instruction_form_bytes": 176,
+          "directive_form_bytes": 0,
+          "instructions": 76,
+          "direct_calls": 1,
+          "calls": {
+            "HasBit": 1
+          },
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 1,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 6,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 4,
+            "param": 7,
+            "local": 22,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 3,
+            "STA": 22,
+            "LDY": 4,
+            "LDA": 20,
+            "INY": 6,
+            "CMP": 4,
+            "BCC": 2,
+            "BNE": 2,
+            "BCS": 1,
+            "SBC": 1,
+            "RTS": 1,
+            "LDX": 1,
+            "JSR": 1,
+            "BEQ": 1,
+            "CLC": 1,
+            "ADC": 2,
+            "DEY": 1,
+            "INC": 2,
+            "JMP": 1
+          }
+        },
+        "CachedBits": {
+          "start": 12682,
+          "end": 12938,
+          "entry": 12682,
+          "instruction_form_bytes": 256,
+          "directive_form_bytes": 0,
+          "instructions": 110,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 9,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 13,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 4,
+            "param": 4,
+            "local": 42,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 4,
+            "STA": 32,
+            "LDY": 5,
+            "LDA": 31,
+            "INY": 5,
+            "CMP": 3,
+            "BCC": 2,
+            "BNE": 3,
+            "BCS": 1,
+            "SBC": 1,
+            "TAX": 1,
+            "PHA": 1,
+            "TXA": 1,
+            "PLA": 1,
+            "RTS": 1,
+            "LSR": 3,
+            "ROR": 3,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 3,
+            "BEQ": 1,
+            "INC": 4,
+            "JMP": 1
+          }
+        },
+        "ByteShift": {
+          "start": 12938,
+          "end": 13244,
+          "entry": 12938,
+          "instruction_form_bytes": 306,
+          "directive_form_bytes": 0,
+          "instructions": 131,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 12,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 4,
+            "param": 4,
+            "local": 55,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 4,
+            "STA": 36,
+            "LDY": 6,
+            "LDA": 34,
+            "INY": 5,
+            "CMP": 2,
+            "BCC": 3,
+            "BNE": 6,
+            "BCS": 1,
+            "LSR": 5,
+            "ROR": 3,
+            "AND": 4,
+            "ORA": 1,
+            "BEQ": 1,
+            "SEC": 1,
+            "SBC": 1,
+            "TAX": 1,
+            "PHA": 1,
+            "TXA": 1,
+            "PLA": 1,
+            "RTS": 1,
+            "CLC": 2,
+            "ADC": 2,
+            "INC": 4,
+            "JMP": 3,
+            "DEC": 2
+          }
+        },
+        "ByteNibbles": {
+          "start": 13244,
+          "end": 13588,
+          "entry": 13244,
+          "instruction_form_bytes": 344,
+          "directive_form_bytes": 0,
+          "instructions": 153,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 12,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 4,
+            "param": 4,
+            "local": 61,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 4,
+            "STA": 38,
+            "LDY": 6,
+            "LDA": 40,
+            "INY": 5,
+            "CMP": 2,
+            "BCC": 5,
+            "BNE": 4,
+            "BCS": 1,
+            "LSR": 11,
+            "ROR": 3,
+            "AND": 4,
+            "ORA": 1,
+            "BEQ": 1,
+            "SEC": 1,
+            "SBC": 1,
+            "TAY": 4,
+            "CLC": 4,
+            "ADC": 4,
+            "INC": 6,
+            "TAX": 1,
+            "PHA": 1,
+            "TXA": 1,
+            "PLA": 1,
+            "RTS": 1,
+            "DEC": 2,
+            "JMP": 1
+          }
+        },
+        "Main": {
+          "start": 13588,
+          "end": 13638,
+          "entry": 13588,
+          "instruction_form_bytes": 50,
+          "directive_form_bytes": 0,
+          "instructions": 19,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 5,
+            "BNE": 3,
+            "LDX": 4,
+            "JMP": 4,
+            "CMP": 2,
+            "RTS": 1
+          }
+        }
+      }
+    },
+    "generic-mir6502-standalone": {
+      "load_file_bytes": 1362,
+      "sha256": "6e7f5469876bd4b35f25d1958c86f51c131767c87d8d399df9d24e2c08e78c87",
+      "routines": {
+        "HasBit": {
+          "start": 12381,
+          "end": 12506,
+          "entry": 12381,
+          "instruction_form_bytes": 125,
+          "directive_form_bytes": 0,
+          "instructions": 56,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 4,
+          "indirect_y_operations": 3,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 3,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 9,
+            "local": 6,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 16,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 18,
+            "LDY": 3,
+            "INY": 1,
+            "LSR": 3,
+            "ROR": 3,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 3,
+            "BEQ": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "BitByBit": {
+          "start": 12506,
+          "end": 12682,
+          "entry": 12506,
+          "instruction_form_bytes": 176,
+          "directive_form_bytes": 0,
+          "instructions": 76,
+          "direct_calls": 1,
+          "calls": {
+            "HasBit": 1
+          },
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 1,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 6,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 4,
+            "param": 7,
+            "local": 22,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 3,
+            "STA": 22,
+            "LDY": 4,
+            "LDA": 20,
+            "INY": 6,
+            "CMP": 4,
+            "BCC": 2,
+            "BNE": 2,
+            "BCS": 1,
+            "SBC": 1,
+            "RTS": 1,
+            "LDX": 1,
+            "JSR": 1,
+            "BEQ": 1,
+            "CLC": 1,
+            "ADC": 2,
+            "DEY": 1,
+            "INC": 2,
+            "JMP": 1
+          }
+        },
+        "CachedBits": {
+          "start": 12682,
+          "end": 12938,
+          "entry": 12682,
+          "instruction_form_bytes": 256,
+          "directive_form_bytes": 0,
+          "instructions": 110,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 9,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 13,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 4,
+            "param": 4,
+            "local": 42,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 4,
+            "STA": 32,
+            "LDY": 5,
+            "LDA": 31,
+            "INY": 5,
+            "CMP": 3,
+            "BCC": 2,
+            "BNE": 3,
+            "BCS": 1,
+            "SBC": 1,
+            "TAX": 1,
+            "PHA": 1,
+            "TXA": 1,
+            "PLA": 1,
+            "RTS": 1,
+            "LSR": 3,
+            "ROR": 3,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 3,
+            "BEQ": 1,
+            "INC": 4,
+            "JMP": 1
+          }
+        },
+        "ByteShift": {
+          "start": 12938,
+          "end": 13244,
+          "entry": 12938,
+          "instruction_form_bytes": 306,
+          "directive_form_bytes": 0,
+          "instructions": 131,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 12,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 4,
+            "param": 4,
+            "local": 55,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 4,
+            "STA": 36,
+            "LDY": 6,
+            "LDA": 34,
+            "INY": 5,
+            "CMP": 2,
+            "BCC": 3,
+            "BNE": 6,
+            "BCS": 1,
+            "LSR": 5,
+            "ROR": 3,
+            "AND": 4,
+            "ORA": 1,
+            "BEQ": 1,
+            "SEC": 1,
+            "SBC": 1,
+            "TAX": 1,
+            "PHA": 1,
+            "TXA": 1,
+            "PLA": 1,
+            "RTS": 1,
+            "CLC": 2,
+            "ADC": 2,
+            "INC": 4,
+            "JMP": 3,
+            "DEC": 2
+          }
+        },
+        "ByteNibbles": {
+          "start": 13244,
+          "end": 13588,
+          "entry": 13244,
+          "instruction_form_bytes": 344,
+          "directive_form_bytes": 0,
+          "instructions": 153,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 12,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 4,
+            "param": 4,
+            "local": 61,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 4,
+            "STA": 38,
+            "LDY": 6,
+            "LDA": 40,
+            "INY": 5,
+            "CMP": 2,
+            "BCC": 5,
+            "BNE": 4,
+            "BCS": 1,
+            "LSR": 11,
+            "ROR": 3,
+            "AND": 4,
+            "ORA": 1,
+            "BEQ": 1,
+            "SEC": 1,
+            "SBC": 1,
+            "TAY": 4,
+            "CLC": 4,
+            "ADC": 4,
+            "INC": 6,
+            "TAX": 1,
+            "PHA": 1,
+            "TXA": 1,
+            "PLA": 1,
+            "RTS": 1,
+            "DEC": 2,
+            "JMP": 1
+          }
+        },
+        "Main": {
+          "start": 13588,
+          "end": 13638,
+          "entry": 13588,
+          "instruction_form_bytes": 50,
+          "directive_form_bytes": 0,
+          "instructions": 19,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "LDA": 5,
+            "BNE": 3,
+            "LDX": 4,
+            "JMP": 4,
+            "CMP": 2,
+            "RTS": 1
+          }
+        }
+      }
+    }
+  },
+  "profiles": {
+    "TN": [
+      "Mir6502,sort_reversed,0,72,1",
+      "tn-routine,TN,Mir6502,sort_reversed,0,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,sort_reversed,0,SortBatch,55,16,0,2,1,1,2,4",
+      "Mir6502,draw,0,2423,6",
+      "tn-routine,TN,Mir6502,draw,0,<wrapper-or-substituted-service>,23,7,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,draw,0,Relpos,44,14,0,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,draw,0,Internal,558,216,0,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,draw,0,MyDosRenderSummary,1542,422,18,72,36,0,76,109",
+      "tn-routine,TN,Mir6502,draw,0,EnsureView,29,8,0,0,0,0,2,0",
+      "tn-routine,TN,Mir6502,draw,0,Draw,227,65,5,0,0,6,8,13",
+      "Mir6502,tag_all,0,2127,14",
+      "tn-routine,TN,Mir6502,tag_all,0,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,tag_all,0,<resident-ROM>,154,46,0,0,8,0,0,0",
+      "tn-routine,TN,Mir6502,tag_all,0,TagsFill,603,159,0,18,12,0,11,78",
+      "tn-routine,TN,Mir6502,tag_all,0,TagsRecount,149,41,0,4,6,4,3,12",
+      "tn-routine,TN,Mir6502,tag_all,0,TagsExtent,1062,292,1,30,21,10,22,112",
+      "tn-routine,TN,Mir6502,tag_all,0,ToggleAllTags,142,41,1,8,6,0,11,0",
+      "Mir6502,toggle_tag,0,316,0",
+      "tn-routine,TN,Mir6502,toggle_tag,0,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,toggle_tag,0,<resident-ROM>,154,46,0,0,8,0,0,0",
+      "tn-routine,TN,Mir6502,toggle_tag,0,ChangeTagged,111,30,1,2,4,0,6,8",
+      "tn-routine,TN,Mir6502,toggle_tag,0,ToggleTag,34,10,0,0,0,0,5,0",
+      "Mir6502,publish_prefix,1088,273061,18",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagBitInRange,205632,58752,0,4352,3264,0,9792,6528",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagsRecount,66527,17450,1088,4,6,3,2179,8723",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagsExtent,313,88,1,10,10,9,18,13",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,BatchPublish,249,69,2,8,5,6,16,10",
+      "Mir6502,publish_complete,1089,366248,18",
+      "tn-routine,TN,Mir6502,publish_complete,1089,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,publish_complete,1089,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagBitInRange,207999,59895,0,4356,3267,0,9801,6534",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagsRecount,133017,38157,1089,4360,4362,3,4359,8731",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagsExtent,24643,6555,1,766,390,9,22,3798",
+      "tn-routine,TN,Mir6502,publish_complete,1089,BatchPublish,249,69,2,8,5,6,16,10",
+      "Mir6502,sort_reversed,1,338,5",
+      "tn-routine,TN,Mir6502,sort_reversed,1,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,sort_reversed,1,BatchItem,134,40,0,8,0,0,3,0",
+      "tn-routine,TN,Mir6502,sort_reversed,1,SortBatch,187,52,1,6,4,5,6,14",
+      "Mir6502,draw,1,6164,46",
+      "tn-routine,TN,Mir6502,draw,1,<wrapper-or-substituted-service>,29,8,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,draw,1,<resident-ROM>,154,46,0,0,8,0,0,0",
+      "tn-routine,TN,Mir6502,draw,1,Relpos,44,14,0,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,draw,1,Internal,1023,396,0,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,draw,1,TagBitInRange,189,54,0,4,3,0,9,6",
+      "tn-routine,TN,Mir6502,draw,1,TagBit,88,24,0,2,2,0,10,4",
+      "tn-routine,TN,Mir6502,draw,1,BatchItem,402,120,0,24,0,0,9,0",
+      "tn-routine,TN,Mir6502,draw,1,CachedEntry,621,180,0,12,15,18,36,33",
+      "tn-routine,TN,Mir6502,draw,1,MyDosRender,1403,405,16,66,33,12,67,79",
+      "tn-routine,TN,Mir6502,draw,1,MyDosRenderSummary,1542,422,18,72,36,0,76,109",
+      "tn-routine,TN,Mir6502,draw,1,EntryAddress,67,17,1,0,0,0,3,5",
+      "tn-routine,TN,Mir6502,draw,1,EnsureView,233,66,2,0,0,10,6,11",
+      "tn-routine,TN,Mir6502,draw,1,Draw,369,103,9,0,0,6,8,30",
+      "Mir6502,tag_all,1,2460,14",
+      "tn-routine,TN,Mir6502,tag_all,1,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,tag_all,1,<resident-ROM>,154,46,0,0,8,0,0,0",
+      "tn-routine,TN,Mir6502,tag_all,1,TagsFill,603,159,0,18,12,0,11,78",
+      "tn-routine,TN,Mir6502,tag_all,1,TagBitInRange,191,55,0,4,3,0,9,6",
+      "tn-routine,TN,Mir6502,tag_all,1,TagsRecount,271,76,1,8,10,4,7,20",
+      "tn-routine,TN,Mir6502,tag_all,1,TagsExtent,1082,299,1,30,22,10,22,111",
+      "tn-routine,TN,Mir6502,tag_all,1,ToggleAllTags,142,41,1,8,6,0,11,0",
+      "Mir6502,toggle_tag,1,750,4",
+      "tn-routine,TN,Mir6502,toggle_tag,1,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,toggle_tag,1,<resident-ROM>,154,46,0,0,8,0,0,0",
+      "tn-routine,TN,Mir6502,toggle_tag,1,ChangeTagged,545,158,1,16,17,4,20,28",
+      "tn-routine,TN,Mir6502,toggle_tag,1,ToggleTag,34,10,0,0,0,0,5,0",
+      "Mir6502,sort_reversed,64,343356,1616",
+      "tn-routine,TN,Mir6502,sort_reversed,64,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,sort_reversed,64,BatchItem,129176,38560,0,7712,0,0,2892,0",
+      "tn-routine,TN,Mir6502,sort_reversed,64,MyDosAfter,114169,35308,0,2624,6954,0,4798,1838",
+      "tn-routine,TN,Mir6502,sort_reversed,64,SortBatch,99994,27544,1414,1926,1477,1616,3726,8819",
+      "Mir6502,draw,64,48953,316",
+      "tn-routine,TN,Mir6502,draw,64,<wrapper-or-substituted-service>,119,23,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,draw,64,<resident-ROM>,2464,736,0,0,128,0,0,0",
+      "tn-routine,TN,Mir6502,draw,64,Relpos,44,14,0,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,draw,64,Internal,7998,3096,0,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,draw,64,TagBitInRange,3024,864,0,64,48,0,144,96",
+      "tn-routine,TN,Mir6502,draw,64,TagBit,1408,384,0,32,32,0,160,64",
+      "tn-routine,TN,Mir6502,draw,64,BatchItem,2412,720,0,144,0,0,54,0",
+      "tn-routine,TN,Mir6502,draw,64,CachedEntry,3726,1080,0,72,90,108,216,198",
+      "tn-routine,TN,Mir6502,draw,64,MyDosRender,22448,6480,256,1056,528,192,1072,1264",
+      "tn-routine,TN,Mir6502,draw,64,MyDosRenderSummary,1542,422,18,72,36,0,76,109",
+      "tn-routine,TN,Mir6502,draw,64,EntryAddress,1072,272,16,0,0,0,48,80",
+      "tn-routine,TN,Mir6502,draw,64,EnsureView,212,59,2,0,0,10,6,9",
+      "tn-routine,TN,Mir6502,draw,64,Draw,2484,669,69,0,0,6,8,283",
+      "Mir6502,tag_all,64,21446,14",
+      "tn-routine,TN,Mir6502,tag_all,64,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,tag_all,64,<resident-ROM>,154,46,0,0,8,0,0,0",
+      "tn-routine,TN,Mir6502,tag_all,64,TagsFill,603,159,0,18,12,0,11,78",
+      "tn-routine,TN,Mir6502,tag_all,64,TagBitInRange,12224,3520,0,256,192,0,576,384",
+      "tn-routine,TN,Mir6502,tag_all,64,TagsRecount,7957,2281,64,260,262,4,259,524",
+      "tn-routine,TN,Mir6502,tag_all,64,TagsExtent,349,100,1,12,11,10,20,14",
+      "tn-routine,TN,Mir6502,tag_all,64,ToggleAllTags,142,41,1,8,6,0,11,0",
+      "Mir6502,toggle_tag,64,725,4",
+      "tn-routine,TN,Mir6502,toggle_tag,64,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,toggle_tag,64,<resident-ROM>,154,46,0,0,8,0,0,0",
+      "tn-routine,TN,Mir6502,toggle_tag,64,ChangeTagged,520,151,1,14,16,4,18,28",
+      "tn-routine,TN,Mir6502,toggle_tag,64,ToggleTag,34,10,0,0,0,0,5,0"
+    ],
+    "TNDBG": [
+      "Mir6502,sort_reversed,0,72,1",
+      "tn-routine,TNDBG,Mir6502,sort_reversed,0,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,sort_reversed,0,SortBatch,55,16,0,2,1,1,2,4",
+      "Mir6502,draw,0,2423,6",
+      "tn-routine,TNDBG,Mir6502,draw,0,<wrapper-or-substituted-service>,23,7,1,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,draw,0,Relpos,44,14,0,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,draw,0,Internal,558,216,0,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,draw,0,MyDosRenderSummary,1542,422,18,72,36,0,76,109",
+      "tn-routine,TNDBG,Mir6502,draw,0,EnsureView,29,8,0,0,0,0,2,0",
+      "tn-routine,TNDBG,Mir6502,draw,0,Draw,227,65,5,0,0,6,8,13",
+      "Mir6502,tag_all,0,2127,14",
+      "tn-routine,TNDBG,Mir6502,tag_all,0,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,tag_all,0,<resident-ROM>,154,46,0,0,8,0,0,0",
+      "tn-routine,TNDBG,Mir6502,tag_all,0,TagsFill,603,159,0,18,12,0,11,78",
+      "tn-routine,TNDBG,Mir6502,tag_all,0,TagsRecount,149,41,0,4,6,4,3,12",
+      "tn-routine,TNDBG,Mir6502,tag_all,0,TagsExtent,1062,292,1,30,21,10,22,112",
+      "tn-routine,TNDBG,Mir6502,tag_all,0,ToggleAllTags,142,41,1,8,6,0,11,0",
+      "Mir6502,toggle_tag,0,316,0",
+      "tn-routine,TNDBG,Mir6502,toggle_tag,0,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,toggle_tag,0,<resident-ROM>,154,46,0,0,8,0,0,0",
+      "tn-routine,TNDBG,Mir6502,toggle_tag,0,ChangeTagged,111,30,1,2,4,0,6,8",
+      "tn-routine,TNDBG,Mir6502,toggle_tag,0,ToggleTag,34,10,0,0,0,0,5,0",
+      "Mir6502,publish_prefix,1088,273061,18",
+      "tn-routine,TNDBG,Mir6502,publish_prefix,1088,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,publish_prefix,1088,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TNDBG,Mir6502,publish_prefix,1088,TagBitInRange,205632,58752,0,4352,3264,0,9792,6528",
+      "tn-routine,TNDBG,Mir6502,publish_prefix,1088,TagsRecount,66527,17450,1088,4,6,3,2179,8723",
+      "tn-routine,TNDBG,Mir6502,publish_prefix,1088,TagsExtent,313,88,1,10,10,9,18,13",
+      "tn-routine,TNDBG,Mir6502,publish_prefix,1088,BatchPublish,249,69,2,8,5,6,16,10",
+      "Mir6502,publish_complete,1089,366248,18",
+      "tn-routine,TNDBG,Mir6502,publish_complete,1089,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,publish_complete,1089,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TNDBG,Mir6502,publish_complete,1089,TagBitInRange,207999,59895,0,4356,3267,0,9801,6534",
+      "tn-routine,TNDBG,Mir6502,publish_complete,1089,TagsRecount,133017,38157,1089,4360,4362,3,4359,8731",
+      "tn-routine,TNDBG,Mir6502,publish_complete,1089,TagsExtent,24643,6555,1,766,390,9,22,3798",
+      "tn-routine,TNDBG,Mir6502,publish_complete,1089,BatchPublish,249,69,2,8,5,6,16,10",
+      "Mir6502,sort_reversed,1,338,5",
+      "tn-routine,TNDBG,Mir6502,sort_reversed,1,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,sort_reversed,1,BatchItem,134,40,0,8,0,0,3,0",
+      "tn-routine,TNDBG,Mir6502,sort_reversed,1,SortBatch,187,52,1,6,4,5,6,14",
+      "Mir6502,draw,1,6164,46",
+      "tn-routine,TNDBG,Mir6502,draw,1,<wrapper-or-substituted-service>,29,8,1,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,draw,1,<resident-ROM>,154,46,0,0,8,0,0,0",
+      "tn-routine,TNDBG,Mir6502,draw,1,Relpos,44,14,0,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,draw,1,Internal,1023,396,0,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,draw,1,TagBitInRange,189,54,0,4,3,0,9,6",
+      "tn-routine,TNDBG,Mir6502,draw,1,TagBit,88,24,0,2,2,0,10,4",
+      "tn-routine,TNDBG,Mir6502,draw,1,BatchItem,402,120,0,24,0,0,9,0",
+      "tn-routine,TNDBG,Mir6502,draw,1,CachedEntry,621,180,0,12,15,18,36,33",
+      "tn-routine,TNDBG,Mir6502,draw,1,MyDosRender,1403,405,16,66,33,12,67,79",
+      "tn-routine,TNDBG,Mir6502,draw,1,MyDosRenderSummary,1542,422,18,72,36,0,76,109",
+      "tn-routine,TNDBG,Mir6502,draw,1,EntryAddress,67,17,1,0,0,0,3,5",
+      "tn-routine,TNDBG,Mir6502,draw,1,EnsureView,233,66,2,0,0,10,6,11",
+      "tn-routine,TNDBG,Mir6502,draw,1,Draw,369,103,9,0,0,6,8,30",
+      "Mir6502,tag_all,1,2460,14",
+      "tn-routine,TNDBG,Mir6502,tag_all,1,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,tag_all,1,<resident-ROM>,154,46,0,0,8,0,0,0",
+      "tn-routine,TNDBG,Mir6502,tag_all,1,TagsFill,603,159,0,18,12,0,11,78",
+      "tn-routine,TNDBG,Mir6502,tag_all,1,TagBitInRange,191,55,0,4,3,0,9,6",
+      "tn-routine,TNDBG,Mir6502,tag_all,1,TagsRecount,271,76,1,8,10,4,7,20",
+      "tn-routine,TNDBG,Mir6502,tag_all,1,TagsExtent,1082,299,1,30,22,10,22,111",
+      "tn-routine,TNDBG,Mir6502,tag_all,1,ToggleAllTags,142,41,1,8,6,0,11,0",
+      "Mir6502,toggle_tag,1,750,4",
+      "tn-routine,TNDBG,Mir6502,toggle_tag,1,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,toggle_tag,1,<resident-ROM>,154,46,0,0,8,0,0,0",
+      "tn-routine,TNDBG,Mir6502,toggle_tag,1,ChangeTagged,545,158,1,16,17,4,20,28",
+      "tn-routine,TNDBG,Mir6502,toggle_tag,1,ToggleTag,34,10,0,0,0,0,5,0",
+      "Mir6502,sort_reversed,64,343356,1616",
+      "tn-routine,TNDBG,Mir6502,sort_reversed,64,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,sort_reversed,64,BatchItem,129176,38560,0,7712,0,0,2892,0",
+      "tn-routine,TNDBG,Mir6502,sort_reversed,64,MyDosAfter,114169,35308,0,2624,6954,0,4798,1838",
+      "tn-routine,TNDBG,Mir6502,sort_reversed,64,SortBatch,99994,27544,1414,1926,1477,1616,3726,8819",
+      "Mir6502,draw,64,48953,316",
+      "tn-routine,TNDBG,Mir6502,draw,64,<wrapper-or-substituted-service>,119,23,1,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,draw,64,<resident-ROM>,2464,736,0,0,128,0,0,0",
+      "tn-routine,TNDBG,Mir6502,draw,64,Relpos,44,14,0,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,draw,64,Internal,7998,3096,0,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,draw,64,TagBitInRange,3024,864,0,64,48,0,144,96",
+      "tn-routine,TNDBG,Mir6502,draw,64,TagBit,1408,384,0,32,32,0,160,64",
+      "tn-routine,TNDBG,Mir6502,draw,64,BatchItem,2412,720,0,144,0,0,54,0",
+      "tn-routine,TNDBG,Mir6502,draw,64,CachedEntry,3726,1080,0,72,90,108,216,198",
+      "tn-routine,TNDBG,Mir6502,draw,64,MyDosRender,22448,6480,256,1056,528,192,1072,1264",
+      "tn-routine,TNDBG,Mir6502,draw,64,MyDosRenderSummary,1542,422,18,72,36,0,76,109",
+      "tn-routine,TNDBG,Mir6502,draw,64,EntryAddress,1072,272,16,0,0,0,48,80",
+      "tn-routine,TNDBG,Mir6502,draw,64,EnsureView,212,59,2,0,0,10,6,9",
+      "tn-routine,TNDBG,Mir6502,draw,64,Draw,2484,669,69,0,0,6,8,283",
+      "Mir6502,tag_all,64,21446,14",
+      "tn-routine,TNDBG,Mir6502,tag_all,64,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,tag_all,64,<resident-ROM>,154,46,0,0,8,0,0,0",
+      "tn-routine,TNDBG,Mir6502,tag_all,64,TagsFill,603,159,0,18,12,0,11,78",
+      "tn-routine,TNDBG,Mir6502,tag_all,64,TagBitInRange,12224,3520,0,256,192,0,576,384",
+      "tn-routine,TNDBG,Mir6502,tag_all,64,TagsRecount,7957,2281,64,260,262,4,259,524",
+      "tn-routine,TNDBG,Mir6502,tag_all,64,TagsExtent,349,100,1,12,11,10,20,14",
+      "tn-routine,TNDBG,Mir6502,tag_all,64,ToggleAllTags,142,41,1,8,6,0,11,0",
+      "Mir6502,toggle_tag,64,725,4",
+      "tn-routine,TNDBG,Mir6502,toggle_tag,64,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TNDBG,Mir6502,toggle_tag,64,<resident-ROM>,154,46,0,0,8,0,0,0",
+      "tn-routine,TNDBG,Mir6502,toggle_tag,64,ChangeTagged,520,151,1,14,16,4,18,28",
+      "tn-routine,TNDBG,Mir6502,toggle_tag,64,ToggleTag,34,10,0,0,0,0,5,0"
+    ]
+  },
+  "direct_shift_vectors": [
+    "private-shift,ActionCart,false,0,35",
+    "private-shift,ActionCart,false,1,47",
+    "private-shift,ActionCart,false,2,63",
+    "private-shift,ActionCart,false,3,79",
+    "private-shift,ActionCart,false,4,85",
+    "private-shift,ActionCart,false,8,37",
+    "private-shift,ActionCart,false,15,53",
+    "private-shift,ActionCart,false,16,37",
+    "private-shift,ActionCart,true,0,35",
+    "private-shift,ActionCart,true,1,47",
+    "private-shift,ActionCart,true,2,54",
+    "private-shift,ActionCart,true,3,70",
+    "private-shift,ActionCart,true,4,85",
+    "private-shift,ActionCart,true,8,37",
+    "private-shift,ActionCart,true,15,53",
+    "private-shift,ActionCart,true,16,37",
+    "private-shift,Standalone,false,0,35",
+    "private-shift,Standalone,false,1,47",
+    "private-shift,Standalone,false,2,63",
+    "private-shift,Standalone,false,3,79",
+    "private-shift,Standalone,false,4,85",
+    "private-shift,Standalone,false,8,37",
+    "private-shift,Standalone,false,15,53",
+    "private-shift,Standalone,false,16,37",
+    "private-shift,Standalone,true,0,35",
+    "private-shift,Standalone,true,1,47",
+    "private-shift,Standalone,true,2,54",
+    "private-shift,Standalone,true,3,70",
+    "private-shift,Standalone,true,4,85",
+    "private-shift,Standalone,true,8,37",
+    "private-shift,Standalone,true,15,53",
+    "private-shift,Standalone,true,16,37"
+  ],
+  "checks": {
+    "memory-shift-mir-unit-final": {
+      "passed": 1060,
+      "ignored": 2,
+      "log": "target/tn-bitmap-scan/memory-shift-mir-unit-final.log"
+    },
+    "memory-shift-integrations": {
+      "passed": 96,
+      "ignored": 0,
+      "log": "target/tn-bitmap-scan/memory-shift-integrations.log"
+    },
+    "memory-shift-vm-all": {
+      "passed": 401,
+      "ignored": 0,
+      "log": "target/tn-bitmap-scan/memory-shift-vm-all.log"
+    },
+    "memory-shift-state": {
+      "passed": 1,
+      "ignored": 0,
+      "log": "target/tn-bitmap-scan/memory-shift-state.log"
+    },
+    "MIR6502_emit_sweep": {
+      "passed": 169,
+      "log": "target/tn-bitmap-scan/memory-shift-sweep.log"
+    }
+  },
+  "compiler_sources_sha256_lf": "09aa1c21a05d337e1f66bb2ba992cb76e9d19656d50c46f4b638ff97c842a3cf",
+  "feature": "enable_private_memory_shifts; optimized on, default off; requires enable_peepholes"
+}

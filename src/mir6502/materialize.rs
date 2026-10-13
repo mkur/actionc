@@ -48,6 +48,7 @@ mod layout;
 mod lea;
 mod machine_value_census;
 mod memory;
+mod memory_shifts;
 mod narrowing;
 mod peepholes;
 mod pointers;
@@ -1576,6 +1577,11 @@ pub(super) fn materialize_program_with_reporting(
     // the now write-only entry capture is removed in the same pipeline.
     for routine in &mut program.routines {
         elide_write_only_param_homes(routine, &mut peephole_stats);
+    }
+    if config.enable_peepholes && config.enable_private_memory_shifts {
+        for routine in &mut program.routines {
+            memory_shifts::run(routine, &mut peephole_stats)?;
+        }
     }
     let zero_page_remaps = lower_block_local_byte_spills_to_zero_page(&mut program);
     for (routine, remap) in zero_page_remaps {

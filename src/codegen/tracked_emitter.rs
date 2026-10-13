@@ -661,6 +661,26 @@ impl TrackedEmitter {
         self.state.arithmetic_a();
     }
 
+    pub(crate) fn emit_lsr_zero_page(&mut self, zero_page: ZeroPage) {
+        self.emitter.emit_lsr_zero_page(zero_page);
+        self.state.shift_memory(u16::from(zero_page.address()));
+    }
+
+    pub(crate) fn emit_ror_zero_page(&mut self, zero_page: ZeroPage) {
+        self.emitter.emit_ror_zero_page(zero_page);
+        self.state.shift_memory(u16::from(zero_page.address()));
+    }
+
+    pub(crate) fn emit_lsr_absolute(&mut self, absolute: Absolute) {
+        self.emitter.emit_lsr_absolute(absolute);
+        self.state.shift_memory(absolute.address());
+    }
+
+    pub(crate) fn emit_ror_absolute(&mut self, absolute: Absolute) {
+        self.emitter.emit_ror_absolute(absolute);
+        self.state.shift_memory(absolute.address());
+    }
+
     pub(crate) fn emit_iny(&mut self) {
         self.emitter.emit_iny();
         self.state.increment_y();

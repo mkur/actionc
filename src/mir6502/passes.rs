@@ -28,6 +28,8 @@ pub struct Mir6502Config {
     pub enable_comparison_loop_fusion: bool,
     /// Carry bounded private comparison induction in Y.
     pub enable_comparison_loop_y: bool,
+    /// Select native right shifts/rotates on private scratch when A is dead.
+    pub enable_private_memory_shifts: bool,
     pub peephole_report: MirPeepholeReportMode,
 }
 
@@ -56,6 +58,7 @@ impl Default for Mir6502Config {
             enable_comparison_loop_pointers: false,
             enable_comparison_loop_fusion: false,
             enable_comparison_loop_y: false,
+            enable_private_memory_shifts: false,
             peephole_report: MirPeepholeReportMode::Off,
         }
     }
@@ -75,6 +78,7 @@ impl Mir6502Config {
             enable_comparison_loop_pointers: true,
             enable_comparison_loop_fusion: true,
             enable_comparison_loop_y: true,
+            enable_private_memory_shifts: true,
             ..Self::default()
         }
     }

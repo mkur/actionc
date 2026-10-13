@@ -38,6 +38,15 @@ It should be read together with:
 - the
   [MIR6502 peephole liveness audit](../surveys/tn/mir6502-peephole-liveness-audit.md).
 
+## Private memory right shifts
+
+Private memory right-shift selection uses the shared post-home transaction
+driver before zero-page coloring. Its exact load/shift/store shape preserves
+the private home and flags; only A's changed exit value is declared and must
+be dead through every successor. Each accepted batch rebuilds liveness and
+home-definition facts. This does not broaden source-visible RMW selection or
+authorize moving pointer reads and writes.
+
 ## Bounded comparison regions
 
 A companion comparison-loop fact covers one preheader, header, ordered-read

@@ -1092,6 +1092,18 @@ impl MirVerifier {
                 }
             }
             MirOp::UpdateMem { op, mem, width } => {
+                if matches!(op, super::ir::MirUpdateOp::Lsr | super::ir::MirUpdateOp::Ror)
+                    && !matches!(
+                        self.phase,
+                        MirPhase::PostHome | MirPhase::PostMaterialization | MirPhase::PreEmission
+                    )
+                {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "memory shift/rotate is a post-home BYTE operation",
+                    ));
+                }
                 if !matches!(
                     (op, width),
                     (super::ir::MirUpdateOp::Inc, super::ir::MirWidth::Word)
@@ -1120,7 +1132,14 @@ impl MirVerifier {
                     ));
                 }
             }
-            MirOp::UpdateReg { reg, .. } => {
+            MirOp::UpdateReg { op, reg } => {
+                if !matches!(op, super::ir::MirUpdateOp::Inc | super::ir::MirUpdateOp::Dec) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "register update only supports increment or decrement",
+                    ));
+                }
                 if !matches!(reg, MirReg::X | MirReg::Y) {
                     self.diagnostics.push(MirDiagnostic::block(
                         &routine.name,
@@ -1129,7 +1148,14 @@ impl MirVerifier {
                     ));
                 }
             }
-            MirOp::UpdateIndexedMem { base, .. } => {
+            MirOp::UpdateIndexedMem { op, base } => {
+                if !matches!(op, super::ir::MirUpdateOp::Inc | super::ir::MirUpdateOp::Dec) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indexed update only supports increment or decrement",
+                    ));
+                }
                 self.verify_mem(routine, block, &routine.frame, base, static_ids, global_ids);
                 if matches!(base, MirMem::ZeroPage(_) | MirMem::FixedZeroPage(_)) {
                     self.diagnostics.push(MirDiagnostic::block(

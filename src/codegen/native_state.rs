@@ -256,6 +256,17 @@ impl NativeProcessorState {
         self.flags = NativeFlags::default();
     }
 
+    /// RMW preserves the physical registers, but a register's old contents no
+    /// longer equal the newly shifted memory byte. Forget that symbolic link.
+    pub(super) fn shift_memory(&mut self, address: u16) {
+        self.mutate_memory(address);
+        for value in [&mut self.a, &mut self.x, &mut self.y] {
+            if native_value_references_memory(*value, address) {
+                *value = NativeValue::Unknown;
+            }
+        }
+    }
+
     pub(super) fn mutate_unknown_memory(&mut self) {
         self.memory.clear();
         self.flags = NativeFlags::default();
@@ -522,6 +533,20 @@ mod tests {
             Some(NativeValue::Immediate(0x55))
         );
         assert_eq!(state.flags(), NativeFlags::default());
+    }
+
+    #[test]
+    fn native_state_memory_shift_forgets_old_register_memory_links() {
+        let mut state = NativeProcessorState::default();
+        state.load_a_memory(0x3000);
+        state.load_x_memory(0x3000);
+        state.load_y_memory(0x3010);
+        state.shift_memory(0x3000);
+        assert!(!state.can_skip_load_a_memory(0x3000));
+        assert_eq!(state.a, NativeValue::Unknown);
+        assert_eq!(state.x, NativeValue::Unknown);
+        assert_eq!(state.y, NativeValue::MemoryByte(0x3010));
+        assert_eq!(state.flags, NativeFlags::default());
     }
 
     #[test]

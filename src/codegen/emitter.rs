@@ -788,6 +788,11 @@ impl Emitter {
         self.emit_u8(opcode::LSR_A);
     }
 
+    pub fn emit_lsr_zero_page(&mut self, zero_page: ZeroPage) {
+        self.emit_u8(opcode::LSR_ZP);
+        self.emit_u8(zero_page.address());
+    }
+
     pub fn emit_lsr_absolute(&mut self, absolute: Absolute) {
         self.emit_u8(opcode::LSR_ABS);
         self.emit_absolute_operand(absolute);
@@ -809,6 +814,11 @@ impl Emitter {
 
     pub fn emit_ror_a(&mut self) {
         self.emit_u8(opcode::ROR_A);
+    }
+
+    pub fn emit_ror_zero_page(&mut self, zero_page: ZeroPage) {
+        self.emit_u8(opcode::ROR_ZP);
+        self.emit_u8(zero_page.address());
     }
 
     pub fn emit_ror_absolute(&mut self, absolute: Absolute) {
@@ -2241,8 +2251,10 @@ pub mod opcode {
     pub const PHA: u8 = 0x48;
     pub const PLA: u8 = 0x68;
     pub const LSR_A: u8 = 0x4A;
+    pub const LSR_ZP: u8 = 0x46;
     pub const LSR_ABS: u8 = 0x4E;
     pub const ROR_A: u8 = 0x6A;
+    pub const ROR_ZP: u8 = 0x66;
     pub const ROR_ABS: u8 = 0x6E;
     pub const SEC: u8 = 0x38;
     pub const TAX: u8 = 0xAA;
