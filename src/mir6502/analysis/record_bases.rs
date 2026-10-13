@@ -125,6 +125,9 @@ impl State {
                     return None;
                 }
                 let address = memory.address(routine, mem)?;
+                // Entry parameters start unknown. Only completed stores in
+                // this block establish bounded origins; ABI-private homes
+                // do not certify a closed set of callers or entries.
                 if !matches!(mem, MirMem::Param { .. }) || options.parameter_origins {
                     if let Some(v) = self.cells.get(&address) {
                         return Some(*v);
@@ -618,5 +621,36 @@ mod tests {
         );
         assert!(map.ordinary(id, &cell));
         assert!(!map.ordinary(id, &MirMem::Absolute(0x3000)));
+    }
+
+    #[test]
+    fn partial_parameter_assignment_does_not_bound_a_complete_address() {
+        let mut state = State::default();
+        let map = memory();
+        let options = RecordBaseOptions {
+            writes: true,
+            parameter_origins: true,
+        };
+        let [low, high] = sources();
+        state.observe(
+            &MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: 0,
+                width: MirWidth::Byte,
+            },
+            0,
+            RoutineId(0),
+            &map,
+            options,
+        );
+        state.observe(&store(low.clone()), 1, RoutineId(0), &map, options);
+        assert_eq!(
+            state.value(&MirValue::PointerCell(low), RoutineId(0), &map, options),
+            Some(ByteValue::Constant(0))
+        );
+        assert_eq!(
+            state.value(&MirValue::PointerCell(high), RoutineId(0), &map, options),
+            Some(ByteValue::Memory(0x3001))
+        );
     }
 }

@@ -1,0 +1,780 @@
+{
+  "source_sha256_lf": "1372c3b113103c8f6ff3c6e0b10e1d96af34b5657b700de0458026e8dfa9f6db",
+  "reporter_sha256": "d23f21882769ee78955c6ec7669ceb8a8c38b0fea278fc339bf2782e4f015b60",
+  "cases": {
+    "cart-off": {
+      "homes": [
+        {
+          "fixed_zero_page": [
+            160,
+            172,
+            173,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "ReadFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "WriteFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "MixedFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            170,
+            171,
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "NestedFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 2,
+          "parameter_bytes": 0,
+          "routine": "KnownFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "RebindParameter",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 2,
+          "parameter_bytes": 2,
+          "routine": "KnownWord",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "MutateSource",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            160,
+            172,
+            173,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 0,
+          "routine": "ReadCurrent",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            163,
+            160,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 0,
+          "routine": "Main",
+          "spill_bytes": 0
+        }
+      ],
+      "payload_bytes": 780,
+      "routines": {
+        "ReadFields": 40,
+        "WriteFields": 86,
+        "MixedFields": 112,
+        "NestedFields": 111,
+        "KnownFields": 69,
+        "RebindParameter": 64,
+        "KnownWord": 66,
+        "MutateSource": 37,
+        "ReadCurrent": 62,
+        "Main": 100
+      },
+      "payload_sha256": "868898d487b2138c2881b452794e092658ebfc16b2ec57f26f31bbca4cb7b79d",
+      "lf_crlf_identical": true
+    },
+    "cart-writes": {
+      "homes": [
+        {
+          "fixed_zero_page": [
+            160,
+            172,
+            173,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "ReadFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "WriteFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "MixedFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            170,
+            171,
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "NestedFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 2,
+          "parameter_bytes": 0,
+          "routine": "KnownFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "RebindParameter",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 2,
+          "parameter_bytes": 2,
+          "routine": "KnownWord",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "MutateSource",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            160,
+            172,
+            173,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 0,
+          "routine": "ReadCurrent",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            163,
+            160,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 0,
+          "routine": "Main",
+          "spill_bytes": 0
+        }
+      ],
+      "payload_bytes": 752,
+      "routines": {
+        "ReadFields": 40,
+        "WriteFields": 86,
+        "MixedFields": 112,
+        "NestedFields": 111,
+        "KnownFields": 55,
+        "RebindParameter": 64,
+        "KnownWord": 59,
+        "MutateSource": 37,
+        "ReadCurrent": 55,
+        "Main": 100
+      },
+      "payload_sha256": "1f325a453aa619540e4062d3faa1abc3a3cb30e22e01d6fe6ee025bdc58fd539",
+      "lf_crlf_identical": true
+    },
+    "cart-parameters": {
+      "homes": [
+        {
+          "fixed_zero_page": [
+            160,
+            172,
+            173,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "ReadFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "WriteFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "MixedFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            170,
+            171,
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "NestedFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 2,
+          "parameter_bytes": 0,
+          "routine": "KnownFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "RebindParameter",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 2,
+          "parameter_bytes": 2,
+          "routine": "KnownWord",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "MutateSource",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            160,
+            172,
+            173,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 0,
+          "routine": "ReadCurrent",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            163,
+            160,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 0,
+          "routine": "Main",
+          "spill_bytes": 0
+        }
+      ],
+      "payload_bytes": 738,
+      "routines": {
+        "ReadFields": 40,
+        "WriteFields": 86,
+        "MixedFields": 112,
+        "NestedFields": 111,
+        "KnownFields": 55,
+        "RebindParameter": 50,
+        "KnownWord": 59,
+        "MutateSource": 37,
+        "ReadCurrent": 55,
+        "Main": 100
+      },
+      "payload_sha256": "6304b9297ed438e3e7dc3f05e854556c39ad2327ae78233d25bcd2e8dfebfc09",
+      "lf_crlf_identical": true
+    },
+    "standalone-off": {
+      "homes": [
+        {
+          "fixed_zero_page": [
+            160,
+            172,
+            173,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "ReadFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "WriteFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "MixedFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            170,
+            171,
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "NestedFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 2,
+          "parameter_bytes": 0,
+          "routine": "KnownFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "RebindParameter",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 2,
+          "parameter_bytes": 2,
+          "routine": "KnownWord",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "MutateSource",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            160,
+            172,
+            173,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 0,
+          "routine": "ReadCurrent",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            163,
+            160,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 0,
+          "routine": "Main",
+          "spill_bytes": 0
+        }
+      ],
+      "payload_bytes": 780,
+      "routines": {
+        "ReadFields": 40,
+        "WriteFields": 86,
+        "MixedFields": 112,
+        "NestedFields": 111,
+        "KnownFields": 69,
+        "RebindParameter": 64,
+        "KnownWord": 66,
+        "MutateSource": 37,
+        "ReadCurrent": 62,
+        "Main": 100
+      },
+      "payload_sha256": "868898d487b2138c2881b452794e092658ebfc16b2ec57f26f31bbca4cb7b79d",
+      "lf_crlf_identical": true
+    },
+    "standalone-writes": {
+      "homes": [
+        {
+          "fixed_zero_page": [
+            160,
+            172,
+            173,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "ReadFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "WriteFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "MixedFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            170,
+            171,
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "NestedFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 2,
+          "parameter_bytes": 0,
+          "routine": "KnownFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "RebindParameter",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 2,
+          "parameter_bytes": 2,
+          "routine": "KnownWord",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "MutateSource",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            160,
+            172,
+            173,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 0,
+          "routine": "ReadCurrent",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            163,
+            160,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 0,
+          "routine": "Main",
+          "spill_bytes": 0
+        }
+      ],
+      "payload_bytes": 752,
+      "routines": {
+        "ReadFields": 40,
+        "WriteFields": 86,
+        "MixedFields": 112,
+        "NestedFields": 111,
+        "KnownFields": 55,
+        "RebindParameter": 64,
+        "KnownWord": 59,
+        "MutateSource": 37,
+        "ReadCurrent": 55,
+        "Main": 100
+      },
+      "payload_sha256": "1f325a453aa619540e4062d3faa1abc3a3cb30e22e01d6fe6ee025bdc58fd539",
+      "lf_crlf_identical": true
+    },
+    "standalone-parameters": {
+      "homes": [
+        {
+          "fixed_zero_page": [
+            160,
+            172,
+            173,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "ReadFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "WriteFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "MixedFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            170,
+            171,
+            172,
+            173,
+            163
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 4,
+          "routine": "NestedFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 2,
+          "parameter_bytes": 0,
+          "routine": "KnownFields",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "RebindParameter",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 2,
+          "parameter_bytes": 2,
+          "routine": "KnownWord",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            172,
+            173
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 2,
+          "routine": "MutateSource",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            160,
+            172,
+            173,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 0,
+          "routine": "ReadCurrent",
+          "spill_bytes": 0
+        },
+        {
+          "fixed_zero_page": [
+            163,
+            160,
+            161
+          ],
+          "local_bytes": 0,
+          "parameter_bytes": 0,
+          "routine": "Main",
+          "spill_bytes": 0
+        }
+      ],
+      "payload_bytes": 738,
+      "routines": {
+        "ReadFields": 40,
+        "WriteFields": 86,
+        "MixedFields": 112,
+        "NestedFields": 111,
+        "KnownFields": 55,
+        "RebindParameter": 50,
+        "KnownWord": 59,
+        "MutateSource": 37,
+        "ReadCurrent": 55,
+        "Main": 100
+      },
+      "payload_sha256": "6304b9297ed438e3e7dc3f05e854556c39ad2327ae78233d25bcd2e8dfebfc09",
+      "lf_crlf_identical": true
+    }
+  }
+}

@@ -54,11 +54,16 @@ fn record_sequences_keep_fields_snapshots_and_mutable_source_cells() {
                 } else {
                     actionc::nir::optimize_program(&raw).unwrap()
                 };
-                for (enabled, writes) in [(false, false), (true, false), (true, true)] {
+                for (enabled, writes, origins) in [
+                    (false, false, false),
+                    (true, false, false),
+                    (true, true, false),
+                    (true, true, true),
+                ] {
                     let mut config = actionc::mir6502::Mir6502Config::optimized();
                     config.enable_record_base_reuse = enabled;
                     config.enable_record_base_writes = writes;
-                    config.enable_record_base_parameter_origins = false;
+                    config.enable_record_base_parameter_origins = origins;
                     let output = actionc::mir6502::generate_output_with_config_and_runtime(
                         &normalized,
                         0x2C00,
@@ -161,6 +166,31 @@ fn record_sequences_keep_fields_snapshots_and_mutable_source_cells() {
                         [0xED, 0x7E, 0, 0, 1, 0x43, 0x65]
                     );
                     assert_eq!(vm.bus().ram().read(data + 7), next);
+                    vm = machine::call(
+                        vm,
+                        &mut Hooks,
+                        routine("RebindParameter"),
+                        &0x6000u16.to_le_bytes(),
+                    );
+                    assert_eq!(
+                        machine::bytes(&vm, data, 7),
+                        [0xED, 0x7E, 2, 1, 0, 0x43, 0x65]
+                    );
+                    let rebound = output
+                        .map
+                        .storage_symbols
+                        .iter()
+                        .find(|s| {
+                            s.name == "p"
+                                && s.kind == actionc::codegen::CodegenSymbolKind::Parameter
+                                && s.scope
+                                    == actionc::codegen::CodegenSymbolScope::Routine(
+                                        "RebindParameter".into(),
+                                    )
+                        })
+                        .unwrap()
+                        .address;
+                    assert_eq!(vm.bus().ram().read_word(rebound), data);
                     let cell = output
                         .map
                         .storage_symbols

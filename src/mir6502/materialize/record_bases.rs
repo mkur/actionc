@@ -261,4 +261,49 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn parameter_origins_require_complete_assignments_within_the_routine() {
+        for raw in [false, true] {
+            for runtime in [
+                crate::runtime::Runtime::ActionCart,
+                crate::runtime::Runtime::Standalone,
+            ] {
+                let input = fixture(raw);
+                let mut writes = Mir6502Config::optimized();
+                writes.enable_record_base_reuse = true;
+                writes.enable_record_base_writes = true;
+                let mut origins = writes.clone();
+                origins.enable_record_base_parameter_origins = true;
+                let old = crate::mir6502::materialize_program_with_origin_and_runtime(
+                    input.clone(),
+                    &writes,
+                    0x2C00,
+                    runtime,
+                )
+                .unwrap();
+                let new = crate::mir6502::materialize_program_with_origin_and_runtime(
+                    input.clone(),
+                    &origins,
+                    0x2C00,
+                    runtime,
+                )
+                .unwrap();
+                let a = address_values::Cost::measure(&old, 0x2C00).unwrap();
+                let b = address_values::Cost::measure(&new, 0x2C00).unwrap();
+                let id = input
+                    .routines
+                    .iter()
+                    .find(|r| r.name == "RebindParameter")
+                    .unwrap()
+                    .id;
+                assert!(b.routine(id) < a.routine(id), "{raw}/{runtime:?}");
+                for name in ["WriteFields", "MixedFields", "NestedFields", "MutateSource"] {
+                    let id = input.routines.iter().find(|r| r.name == name).unwrap().id;
+                    assert_eq!(b.routine(id), a.routine(id), "{raw}/{runtime:?}/{name}");
+                }
+                assert!(occupied(&new).is_subset(&occupied(&old)));
+            }
+        }
+    }
 }

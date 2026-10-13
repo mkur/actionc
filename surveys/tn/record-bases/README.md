@@ -69,3 +69,17 @@ generic `KnownWord` case places a variable WORD store between field operations;
 all RHS staging and low/high store order remain. VM checks execute both known
 store cases with raw/optimized NIR, both runtimes and LF/CRLF sources. Incoming
 record parameters and the self-cell mutation case remain generic.
+
+Stage 4 qualifies parameter origins established by complete assignments inside
+the current block. `RebindParameter` overwrites its incoming pointer with the
+address of owned data; its field sequence can then retain the base. Entry
+parameters still start unknown, and a partial assignment does not bound the
+other byte. MIR's Action ABI does not certify closed entry: external/machine
+entry can supply a pointer into a callee's own homes. Consequently caller-only
+origins remain unavailable, including the TN header parameters. This is the
+proved subset allowed by Stage 4; a future closed-entry contract must pass
+through verified NIR before a backend may consume it.
+[stage4.json](stage4.json) records `RebindParameter` at 64 → 50 code bytes
+and complete reporter payloads at 780 → 738 bytes, with unchanged homes and
+zero-page occupancy. Both runtimes compile actual LF/CRLF sources identically;
+emitted execution checks also cover raw and optimized NIR.

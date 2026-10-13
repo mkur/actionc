@@ -285,6 +285,10 @@ final placement. A numeric RAM address alone is insufficient: it may name
 instructions or foreign memory. Source bytes, pointer-pair bytes, implicit
 pair clobbers and both WORD destination lanes are checked independently.
 RHS capture and original store order remain executable and unchanged.
+Parameter origins start unknown at every block entry. Complete explicit stores
+inside the block may establish an address into owned data. A partial assignment
+does not bound the other lane. Private ABI storage and a direct-call census do
+not prove closed entry, so caller-only bounds are not propagated to callees.
 Canonical parameter carriers may feed plain or constant-index preparation only
 when block-local capture, register availability and intervening physical write
 ranges prove the bytes still equal their parameter homes. The high byte must

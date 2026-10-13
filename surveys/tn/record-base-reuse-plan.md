@@ -1,6 +1,6 @@
 # MIR6502 record base reuse implementation plan
 
-Status: Stage 0 complete; implementation in progress. Starting compiler revision:
+Status: Stages 0–3 committed; Stage 4 qualification in progress. Starting compiler revision:
 `2e8aaa06efefa24d24e8881450bd858970c5640e`.
 See the [maintained measurements](record-bases/README.md).
 
