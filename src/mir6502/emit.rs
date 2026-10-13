@@ -30,6 +30,7 @@ const ADDRESS_INDEX_SCRATCH_HI: u8 = 0xAF;
 
 #[derive(Debug, Default, Clone)]
 pub(super) struct MirEmissionSummary {
+    pub physical_memory: super::analysis::record_bases::MirPhysicalMemory,
     /// Final instruction ranges, after layout and branch relaxation. Internal
     /// proof consumers use IDs, never listing labels or source names.
     pub block_ranges: Vec<(RoutineId, MirBlockId, std::ops::Range<usize>)>,
@@ -47,6 +48,15 @@ pub(super) fn emit_program(
     mir: &MirProgram,
     origin: u16,
     emitter: &mut TrackedEmitter,
+) -> Result<MirEmissionSummary, Vec<MirDiagnostic>> {
+    emit_program_with_physical_memory(mir, origin, emitter, false)
+}
+
+pub(super) fn emit_program_with_physical_memory(
+    mir: &MirProgram,
+    origin: u16,
+    emitter: &mut TrackedEmitter,
+    physical_memory: bool,
 ) -> Result<MirEmissionSummary, Vec<MirDiagnostic>> {
     verify::verify_program(mir, MirPhase::PreEmission)?;
     let mut layout_diagnostics = Vec::new();
@@ -86,6 +96,47 @@ pub(super) fn emit_program(
         .plan
         .push(MirSegmentKind::Code, layout.storage_end, routine_code_size);
     let mut ctx = MirEmitContext::with_layout(mir, origin, layout, branch_plan);
+    if physical_memory {
+        for routine in &mir.routines {
+            for op in routine.blocks.iter().flat_map(|b| &b.ops) {
+                let effects = super::analysis::effects::classify_op(op);
+                for mem in effects
+                    .memory
+                    .direct_references
+                    .iter()
+                    .chain(effects.memory.direct_reads.iter().map(|r| &r.base))
+                    .chain(effects.memory.direct_writes.iter().map(|r| &r.base))
+                {
+                    if let Some(resolved) = ctx.layout.direct_mem(routine.id, mem) {
+                        let ordinary =
+                            match mem {
+                                MirMem::Global { id, .. } => {
+                                    mir.globals.iter().find(|g| g.id == *id).is_some_and(|g| {
+                                        matches!(g.backing, MirGlobalBacking::Ordinary { .. })
+                                    })
+                                }
+                                MirMem::Static { .. }
+                                | MirMem::Spill { .. }
+                                | MirMem::ZeroPage(_) => true,
+                                MirMem::Param { id, .. } => routine.frame.params.iter().any(
+                                    |s| matches!(s.base, MirStorageBase::Param(p) if p == *id),
+                                ),
+                                MirMem::Local { id, .. } => routine.frame.locals.iter().any(
+                                    |s| matches!(s.base, MirStorageBase::Local(p) if p == *id),
+                                ),
+                                MirMem::Absolute(_) | MirMem::FixedZeroPage(_) => false,
+                            };
+                        ctx.summary.physical_memory.insert(
+                            routine.id,
+                            mem.clone(),
+                            resolved_mem_address(resolved),
+                            ordinary,
+                        );
+                    }
+                }
+            }
+        }
+    }
     ctx.diagnostics.append(&mut layout_diagnostics);
     emit_storage(&mut ctx, emitter);
     for routine in &mir.routines {

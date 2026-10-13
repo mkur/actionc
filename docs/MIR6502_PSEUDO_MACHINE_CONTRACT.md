@@ -264,6 +264,16 @@ Post-home block-local base reuse requires exact resident pointer provenance,
 unchanged source cells and pair bytes, and dead removed register/flag effects.
 Unknown writes, calls and machine barriers invalidate the fact. Final placement
 must exclude source cells overwritten by preparing the pointer pair.
+The record-base proof hook obtains typed storage addresses from the converged
+emission layout, including deferred storage and final homes; provisional
+materialization addresses cannot establish its alias guarantees. Complete pair
+facts distinguish constants from current memory-byte dependencies. An ordinary
+direct write preserves only physically disjoint facts; unknown writes remain
+barriers. An optional bounded indirect-write proof requires the complete
+destination address and footprint and cannot follow a pointer type alone.
+Proofs name the routine, generation and operation site and are independently
+replayed before selection. A changed final placement invalidates an earlier
+alias proof. These facts alone do not enable a rewrite or change memory effects.
 Canonical parameter carriers may feed plain or constant-index preparation only
 when block-local capture, register availability and intervening physical write
 ranges prove the bytes still equal their parameter homes. The high byte must

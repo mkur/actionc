@@ -36,6 +36,7 @@ impl<T> MirProof<T> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::mir6502) enum MirProofBlocker {
+    RecordBaseUnavailable,
     InvalidPoint(MirProgramPointError),
     ReachingDefinitions(MirReachingDefinitionError),
     RequirementDoesNotUseLane(MirTempLane),
@@ -112,6 +113,7 @@ pub(in crate::mir6502) enum MirProofBlocker {
 impl MirProofBlocker {
     pub(in crate::mir6502) fn category(&self) -> &'static str {
         match self {
+            Self::RecordBaseUnavailable => "record-base-unavailable",
             Self::InvalidPoint(_) => "invalid-point",
             Self::ReachingDefinitions(_) => "reaching-definitions",
             Self::RequirementDoesNotUseLane(_) => "requirement-does-not-use-lane",
@@ -591,6 +593,20 @@ pub(in crate::mir6502) struct PostHomeRewriteContext<'snapshot, 'routine> {
 }
 
 impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
+    pub(in crate::mir6502) fn record_base_reuse(
+        &self, site:MirSite, memory:&crate::mir6502::analysis::record_bases::MirPhysicalMemory,
+        options:crate::mir6502::analysis::record_bases::RecordBaseOptions,
+    ) -> MirProof<crate::mir6502::analysis::record_bases::RecordBaseProof> {
+        crate::mir6502::analysis::record_bases::prove(self.snapshot.source(),self.generation(),site,memory,options)
+            .map(MirProof::Proven).unwrap_or(MirProof::Blocked(MirProofBlocker::RecordBaseUnavailable))
+    }
+
+    pub(in crate::mir6502) fn validate_record_base_reuse(
+        &self, proof:&crate::mir6502::analysis::record_bases::RecordBaseProof,
+        memory:&crate::mir6502::analysis::record_bases::MirPhysicalMemory,
+    ) -> bool {
+        crate::mir6502::analysis::record_bases::validate(proof,self.snapshot.source(),self.generation(),memory)
+    }
     pub(in crate::mir6502) fn new(snapshot: &'snapshot PostHomeAnalysisSnapshot<'routine>) -> Self {
         Self {
             snapshot,

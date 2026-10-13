@@ -43,3 +43,10 @@ python3 surveys/tn/measure-record-bases.py \
 
 The focused execution target is `record_base_reuse` in
 `tools/vm-runtime-tests`. Compiler production output is unchanged in Stage 0.
+
+Stage 1 adds complete base proofs, byte dependencies and wrapping write
+footprints. The optional emission proof map resolves stable storage IDs through
+the converged final layout; ordinary output does not build the map. Unit cases
+cover physical aliases, partial pair clobbers, unknown indirect destinations,
+proven literal destinations, stale generations and forged proof fields.
+Production selection remains unchanged in this slice.

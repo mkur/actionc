@@ -13,6 +13,7 @@ use crate::mir6502::ir::MirRoutine;
 /// Immutable, generation-scoped fact bundle for post-home rewrites.
 #[derive(Debug)]
 pub(in crate::mir6502) struct PostHomeAnalysisSnapshot<'a> {
+    source: &'a MirRoutine,
     routine: MirRoutineSnapshot<'a>,
     home_definitions: MirHomeDefinitions,
     home_liveness: MirHomeLiveness,
@@ -51,6 +52,7 @@ impl<'a> PostHomeAnalysisSnapshot<'a> {
         let routine_snapshot = MirRoutineSnapshot::new(routine, generation)?;
         let cfg = routine_snapshot.cfg();
         Ok(Self {
+            source: routine,
             home_definitions: MirHomeDefinitions::analyze(routine, cfg),
             home_liveness: MirHomeLiveness::analyze(routine, cfg),
             machine_liveness: MirMachineLiveness::analyze_with_known_callees(
@@ -72,6 +74,8 @@ impl<'a> PostHomeAnalysisSnapshot<'a> {
     pub(in crate::mir6502) fn routine(&self) -> &MirRoutineSnapshot<'a> {
         &self.routine
     }
+
+    pub(in crate::mir6502) fn source(&self) -> &MirRoutine { self.source }
 
     pub(in crate::mir6502) fn cfg(&self) -> &MirCfg {
         self.routine.cfg()
