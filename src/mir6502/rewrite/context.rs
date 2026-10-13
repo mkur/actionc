@@ -531,6 +531,16 @@ impl<'snapshot, 'routine> PreHomeRewriteContext<'snapshot, 'routine> {
             .collect()
     }
 
+    /// Complete routine-wide occurrences for motion proofs. Availability and
+    /// dominance still come from the generation-scoped proof queries.
+    pub(in crate::mir6502) fn temp_definitions(&self, temp: MirTempId) -> Vec<MirDefSite> {
+        self.snapshot.use_def().definitions_of_temp(temp).copied().collect()
+    }
+
+    pub(in crate::mir6502) fn temp_uses(&self, temp: MirTempId) -> Vec<MirUseSite> {
+        self.snapshot.use_def().uses_of_temp(temp).to_vec()
+    }
+
     pub(in crate::mir6502) fn uses_at(&self, temp: MirTempId, site: MirSite) -> Vec<MirUseSite> {
         self.snapshot
             .use_def()

@@ -1,0 +1,68 @@
+; Captured bounds and conservative memory/barrier fallbacks.
+BYTE touched,choice
+CARD input,result
+CARD POINTER cell
+
+PROC Touch()
+  touched==+1
+RETURN
+
+CARD FUNC Count(CARD bound)
+  CARD ordinal
+  LET CARD capacity=bound
+  ordinal=0
+  WHILE ordinal<(capacity RSH 3) DO ordinal==+1 OD
+RETURN(ordinal)
+
+CARD FUNC Snapshot(CARD POINTER source)
+  CARD ordinal
+  LET CARD capacity=source^
+  source^=0
+  ordinal=0
+  WHILE ordinal<(capacity RSH 3) DO ordinal==+1 OD
+RETURN(ordinal)
+
+CARD FUNC Repeated(CARD bound)
+  CARD ordinal
+  LET CARD capacity=bound
+  ordinal=0
+  WHILE ordinal<((capacity RSH 3)&$01FF) DO ordinal==+1 OD
+RETURN(ordinal)
+
+CARD FUNC Mutable(CARD bound)
+  CARD ordinal,capacity
+  capacity=bound ordinal=0
+  WHILE ordinal<(capacity RSH 3) DO
+    ordinal==+1 capacity==-1
+  OD
+RETURN(ordinal)
+
+CARD FUNC Dynamic(CARD POINTER source)
+  CARD ordinal
+  ordinal=0
+  WHILE ordinal<(source^ RSH 3) DO ordinal==+1 OD
+RETURN(ordinal)
+
+CARD FUNC WithCall(CARD bound)
+  CARD ordinal
+  LET CARD capacity=bound
+  ordinal=0
+  WHILE ordinal<(capacity RSH 3) DO Touch() ordinal==+1 OD
+RETURN(ordinal)
+
+CARD FUNC WithWrite(CARD bound BYTE POINTER p)
+  CARD ordinal
+  LET CARD capacity=bound
+  ordinal=0
+  WHILE ordinal<(capacity RSH 3) DO p^=0 ordinal==+1 OD
+RETURN(ordinal)
+
+PROC Main()
+  IF choice=0 THEN result=Count(input)
+  ELSEIF choice=1 THEN result=Snapshot(cell)
+  ELSEIF choice=2 THEN result=Repeated(input)
+  ELSEIF choice=3 THEN result=Mutable(input)
+  ELSEIF choice=4 THEN result=Dynamic(cell)
+  ELSEIF choice=5 THEN result=WithCall(input)
+  ELSE result=WithWrite(input,BYTE POINTER(cell)) FI
+RETURN

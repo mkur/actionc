@@ -33,6 +33,7 @@ mod copies;
 mod copy_loops;
 mod dead_spills;
 mod dead_arithmetic;
+pub(super) mod loop_motion;
 mod defs;
 mod dynamic_loops;
 mod flags;

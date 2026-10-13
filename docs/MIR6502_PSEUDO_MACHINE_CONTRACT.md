@@ -1967,3 +1967,20 @@ are one generation-checked routine transaction; exact diamond reconstruction
 and CFG verification precede its commit. The continuation has no Boolean block
 argument. A/flags must be dead at the original comparison exit. Other ABI homes,
 extra uses and incomplete or aliased sources retain the ordinary carrier.
+
+## Captured bounds and computation placement
+
+A pre-home BYTE/WORD arithmetic operation remains the same typed operation
+when moved from a proven natural-loop header to its unconditional preheader.
+Constants and captured temp lanes must be available there; complete use-def
+and dominance facts must preserve every use. Only total non-helper arithmetic
+qualifies. Registers and flags cannot carry an observable changed state at
+either boundary.
+
+Reloading a captured scalar local once requires a unique complete dominating
+store, unchanged ordinary storage throughout the loop and no frame exposure
+or local alias. Calls, pointer writes, unknown effects and absolute writes
+block this initial proof. Source record/pointer reads are not moved, narrowed
+or removed. Zero-trip loops still execute the original capture and arithmetic.
+The final code, home, image and occupied zero-page budgets cannot increase.
+This is MIR6502 target strategy; SemIR meaning and verified NIR stay unchanged.

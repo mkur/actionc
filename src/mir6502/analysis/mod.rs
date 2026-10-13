@@ -3,6 +3,7 @@ pub(super) mod address_values;
 pub(super) mod call_predicates;
 pub(super) mod cfg;
 pub(super) mod counted_loops;
+pub(super) mod loop_motion;
 pub(super) mod comparison_loops;
 pub(super) mod live_y;
 pub(super) mod private_cells;

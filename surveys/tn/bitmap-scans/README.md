@@ -151,17 +151,55 @@ Qualification passes 1,063 MIR6502 unit tests, 96 integrations, the 169-fixture
 emission sweep and the masked-index, bitmap, private-shift and TN profile VM
 targets. Live A, live flags, memory operands and carry arithmetic retain fallback.
 
-## Remaining compiler slice
+## Qualified captured bound motion
 
-**Loop-invariant computation from captured bounds.** Generalize the
- demonstrated bound motion through MIR CFG, dominance and complete-use facts.
- Keep arithmetic from an already captured value separate from hoisting record
- loads across pointer writes or calls. The latter needs stronger alias/effect
- proofs and cannot follow merely from an unchanged source pointer.
+Optimized MIR6502 moves total header arithmetic to a proven unconditional
+preheader, using complete temp lanes and the existing CFG, dominance, reaching
+definitions and machine liveness. Scalar capture reloads need a unique complete
+dominating store, an unchanged unexposed local and no loop barrier. Source
+record/pointer captures keep their original sites. Calls, pointer writes,
+absolute writes, unknown effects, aliases and mutable bounds retain fallback.
+Operation values and CFG stay unchanged; the generation-scoped transaction
+rechecks the whole proof before committing. Final instruction, home, image and
+occupied zero-page budgets cannot increase.
 
-These are general backend directions, with the generic fixture as the acceptance
-corpus. The much larger byte-wise traversal gain remains a source-level option
-whose RAM/code and alias contracts must be assessed independently.
+[captured-bounds.json](captured-bounds.json) pins the compiler, corpus and
+measurements. The [fixture](../reproducers/captured-bounds.act) separates stable
+captures from mutable bounds, repeated pointer reads, calls and pointer writes.
+For a 1,088-bit bound, the direct counted-loop vector changes from 13,742 to
+4,886 cycles in both runtimes, 64.4% fewer. A chained shift/mask bound changes
+from 14,701 to 4,893. The mutable-bound vector remains 13,820 cycles.
+
+The combined fixture image changes from 985 to 943 bytes. `Count` changes from
+95 to 83 instruction bytes and from four to two spill bytes; `Snapshot` and
+`Repeated` each save the same 12 instruction and two spill bytes. Their local
+and parameter budgets do not grow. Calls, mutable bounds and pointer-write
+fallbacks retain their instruction and home budgets. All fixture images match
+across actual LF/CRLF compilations.
+
+TN and TNDBG stay byte-identical to the masked-index slice in both backends
+and both newline formats. Their production tail loop still uses the explicit
+cached bound: this first compiler slice conservatively rejects pointer writes
+inside loops. The measured counted-loop gains therefore describe the generic
+captured-bound vectors, not an additional TN speedup.
+
+Final qualification passes 1,070 MIR6502 unit tests (two existing ignores),
+all 96 MIR6502 integrations, the 169-fixture emission sweep and all 403 VM/runtime
+tests. Checks stay within the affected backend; SemIR and NIR contracts do not
+change.
+
+The backend contract and rewrite workflow document the motion boundary.
+Qualification covers zero-trip loops, both WORD result lanes through 65,535,
+ordered source reads followed by source overwrite, call side effects, bitmap
+guards, multiple backedges, side entries, stale plans and live flags. The new
+selection has an independent feature-off configuration for differential runs.
+
+## Further scope
+
+Moving record loads across pointer writes or calls needs stronger storage and
+effect proofs. The much larger byte-wise bitmap traversal gain remains a
+source-level option whose RAM/code and alias contracts must be assessed
+independently.
 
 ## Reproduction
 
@@ -171,14 +209,14 @@ It can also be extracted from `98fe6cb9`. The frozen compiler is retained under
 
 ```sh
 python3 surveys/tn/measure-bitmap-scans.py \
-  --compiler target/tn-comparison-loops/final/actionc-qualified \
-  --source-dir target/tn-bitmap-scan/baseline \
-  --out-dir target/tn-bitmap-scan/recheck
+ --compiler target/tn-comparison-loops/final/actionc-qualified \
+ --source-dir target/tn-bitmap-scan/baseline \
+ --out-dir target/tn-bitmap-scan/recheck
 
 CARGO_TARGET_DIR=target/tn-bitmap-scan/build CARGO_INCREMENTAL=0 \
-  CARGO_PROFILE_TEST_DEBUG=0 CARGO_PROFILE_TEST_OPT_LEVEL=1 \
-  cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml \
-  --test bitmap_scans -- --nocapture
+ CARGO_PROFILE_TEST_DEBUG=0 CARGO_PROFILE_TEST_OPT_LEVEL=1 \
+ cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml \
+ --test bitmap_scans -- --nocapture
 ```
 
 Use `--roots TN TNDBG --variants cached_bound --crlf` for the selected full-root
@@ -187,3 +225,17 @@ image check. To profile an isolated alternative, set
 `ACTIONC_TN_PROFILE_SOURCE` to TN or TNDBG and `ACTIONC_TN_PROFILE_ROUTINES=1`,
 then run `tn_size_profile` with `--nocapture`. Images, listings and raw logs stay
 under `target/tn-bitmap-scan`; only the disposable Rust cache is removed.
+
+To rerun the two compiler slices with feature-off/on execution and real newline
+conversion:
+
+```sh
+CARGO_TARGET_DIR=target/tn-arithmetic/build CARGO_INCREMENTAL=0 \
+  CARGO_PROFILE_TEST_DEBUG=0 CARGO_PROFILE_TEST_OPT_LEVEL=1 \
+  cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml \
+  --test dead_high_indexes --test captured_bounds -- --nocapture
+```
+
+The qualified masked-index and captured-bound executables, complete root images,
+fixture images, listings and logs remain under `target/tn-arithmetic`. Their
+reports pin compiler SHA256 values and the relevant source hashes.

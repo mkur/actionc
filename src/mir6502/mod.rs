@@ -161,6 +161,16 @@ fn materialize_resolved_program(
     runtime: crate::runtime::Runtime,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    if config.enable_peepholes && config.enable_captured_bound_motion {
+        return materialize::loop_motion::materialize_costed(program, config, origin, runtime, report);
+    }
+    materialize_resolved_program_without_motion_costing(program, config, origin, runtime, report)
+}
+
+fn materialize_resolved_program_without_motion_costing(
+    program: MirProgram, config: &Mir6502Config, origin: u16,
+    runtime: crate::runtime::Runtime, report: bool,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
     if config.enable_peepholes && config.enable_comparison_loop_pointers {
         return materialize::comparison_loops::materialize_costed(program,config,origin,runtime,report);
     }

@@ -9,6 +9,10 @@ const INVENTORY: &str = "surveys/tn/mir6502-rewrite-migration-inventory.tsv";
 /// decision rather than silently accepting a raw block-local helper.
 const ANALYZED_PRODUCER_REMOVERS: &[(&str, &str)] = &[
     (
+        "src/mir6502/analysis/loop_motion.rs",
+        "discover_captured_bound_motion",
+    ),
+    (
         "src/mir6502/materialize/dead_arithmetic.rs",
         "discover_dead_register_arithmetic",
     ),

@@ -6,6 +6,7 @@ pub(super) mod address_values;
 pub(super) mod call_predicates;
 pub(super) mod predicate_abi;
 pub(super) mod driver;
+pub(super) mod motion;
 pub(super) mod pilots;
 pub(super) mod plan;
 pub(super) mod posthome;

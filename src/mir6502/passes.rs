@@ -32,6 +32,8 @@ pub struct Mir6502Config {
     pub enable_private_memory_shifts: bool,
     /// Remove pure register bitwise work only when its result and N/Z are dead.
     pub enable_dead_register_arithmetic: bool,
+    /// Move pure header arithmetic from stable captures to a proven preheader.
+    pub enable_captured_bound_motion: bool,
     pub peephole_report: MirPeepholeReportMode,
 }
 
@@ -62,6 +64,7 @@ impl Default for Mir6502Config {
             enable_comparison_loop_y: false,
             enable_private_memory_shifts: false,
             enable_dead_register_arithmetic: false,
+            enable_captured_bound_motion: false,
             peephole_report: MirPeepholeReportMode::Off,
         }
     }
@@ -83,6 +86,7 @@ impl Mir6502Config {
             enable_comparison_loop_y: true,
             enable_private_memory_shifts: true,
             enable_dead_register_arithmetic: true,
+            enable_captured_bound_motion: true,
             ..Self::default()
         }
     }

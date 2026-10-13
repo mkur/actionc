@@ -1539,3 +1539,34 @@ load classifier; absolute and hardware captures remain observable. This is
 target computation cleanup and does not narrow source WORD reads, argument
 snapshots or address arithmetic. The optimized configuration enables the
 selection; its independent feature flag supports differential qualification.
+
+## Captured bound motion
+
+Pre-home computation motion uses natural-loop facts from the shared CFG and
+dominance snapshot. A header must have one unconditional outside preheader;
+the reverse backedge closure must be dominated by the header. This guarantees
+that the original header computation executes even for a zero-trip loop.
+
+The initial family relocates unchanged total BYTE/WORD arithmetic and its
+necessary scalar capture reloads. Every temp lane has one definition, complete
+uses, and an exact reaching definition. External inputs must be available at
+the preheader. A local reload needs ordinary scalar storage, one complete
+defining store dominating the preheader, no alias or exposed frame, and no
+loop write to any lane. Slot mutability metadata alone does not prove this.
+Source record/pointer captures stay at their original sites. Calls, helpers,
+machine blocks, barriers, pointer writes, unknown effects and source absolute
+writes in the loop retain fallback. Variable shifts, division and remainder
+are outside the initial total-arithmetic policy.
+
+A generation-scoped motion plan retains the original operation values and
+indices. The motion driver rebuilds the proof before editing a clone, checks
+the unchanged CFG, and commits both header removal and preheader insertion
+together. Each operation moves to a strict dominating preheader; nested-loop
+depth bounds repeat motion. Machine state must be dead at insertion and the
+removed flag definitions dead at their original sites.
+
+Final qualification measures the materialized baseline and candidate. Accepted
+routines cannot grow instruction bytes or homes; the final image and occupied
+zero-page set cannot grow. One partial-batch repair can roll back individual
+routines, followed by a final image check. The default/feature-off configuration
+retains the baseline. No SemIR or NIR form or contract changes.
