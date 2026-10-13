@@ -37,22 +37,21 @@ fn occupied(program: &MirProgram) -> BTreeSet<u8> {
         .collect()
 }
 
-pub(in crate::mir6502) fn materialize_costed(
-    original: MirProgram,
+pub(in crate::mir6502) fn select_costed(
+    baseline: MirProgram,
     config: &Mir6502Config,
     origin: u16,
-    runtime: crate::runtime::Runtime,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    let mut off = config.clone();
-    off.enable_record_base_reuse = false;
-    let baseline = crate::mir6502::materialize_resolved_program_without_record_base_costing(
-        original.clone(),
-        &off,
-        origin,
-        runtime,
-        report,
-    )?;
+    // Avoid an extra empty report (and emission probe) for programs with no
+    // complete setup. Inliner trial/final report counts stay unchanged there.
+    if !baseline.routines.iter().flat_map(|r| &r.blocks).any(|b| {
+        b.ops
+            .windows(4)
+            .any(|w| crate::mir6502::analysis::record_bases::setup_pair(w).is_some())
+    }) {
+        return Ok(baseline);
+    }
     let Some(map) = memory(&baseline, origin) else {
         return Ok(baseline);
     };
@@ -65,18 +64,35 @@ pub(in crate::mir6502) fn materialize_costed(
     let mut accepted = BTreeSet::new();
     let mut stats = MirPeepholeStats::default();
     for routine in &mut proposed.routines {
+        if !routine.blocks.iter().any(|b| {
+            b.ops
+                .windows(4)
+                .any(|w| crate::mir6502::analysis::record_bases::setup_pair(w).is_some())
+        }) {
+            continue;
+        }
         let mut driver = MirPostHomeRewriteDriver::default();
         let result = driver.run_fixed_point(routine, |routine, context| {
             let mut plans = Vec::new();
             for block in &routine.blocks {
                 for index in 0..block.ops.len().saturating_sub(3) {
+                    if crate::mir6502::analysis::record_bases::setup_pair(
+                        &block.ops[index..index + 4],
+                    )
+                    .is_none()
+                    {
+                        continue;
+                    }
                     let site = MirSite::Op {
                         block: block.id,
                         op_index: index,
                     };
-                    let MirProof::Proven(proof) = context.record_base_reuse(site, &map, options)
-                    else {
-                        continue;
+                    let proof = match context.record_base_reuse(site, &map, options) {
+                        MirProof::Proven(proof) => proof,
+                        MirProof::Blocked(blocker) => {
+                            context.record_blocker("record-base-reuse", block.id, index, &blocker);
+                            continue;
+                        }
                     };
                     if !context.validate_record_base_reuse(&proof, &map) {
                         continue;
@@ -115,6 +131,9 @@ pub(in crate::mir6502) fn materialize_costed(
         record_prehome_rewrite_result(routine.id, result, &mut stats);
     }
     if accepted.is_empty() {
+        if report {
+            maybe_report_peepholes(&baseline, &stats, config);
+        }
         return Ok(baseline);
     };
     if crate::mir6502::verify::verify_program(&proposed, MirPhase::PreEmission).is_err() {
@@ -129,14 +148,14 @@ pub(in crate::mir6502) fn materialize_costed(
     };
     if new.bytes >= old.bytes
         || accepted.iter().any(|id| !new.does_not_grow(&old, *id))
+        || proposed
+            .routines
+            .iter()
+            .zip(&baseline.routines)
+            .any(|(a, b)| a.frame != b.frame)
         || !occupied(&proposed).is_subset(&occupied(&baseline))
         || replays.iter().any(|(routine, proof)| {
-            !crate::mir6502::analysis::record_bases::validate(
-                proof,
-                routine,
-                proof.generation,
-                &final_map,
-            )
+            !crate::mir6502::analysis::record_bases::validate_placement(proof, routine, &final_map)
         })
     {
         if report {
@@ -182,6 +201,8 @@ mod tests {
                 let input = fixture(raw);
                 let mut off = Mir6502Config::optimized();
                 off.enable_record_base_reuse = false;
+                off.enable_record_base_writes = false;
+                off.enable_record_base_parameter_origins = false;
                 let mut on = off.clone();
                 on.enable_record_base_reuse = true;
                 let old = crate::mir6502::materialize_program_with_origin_and_runtime(
@@ -232,6 +253,8 @@ mod tests {
             let input = fixture(false);
             let mut reads = Mir6502Config::optimized();
             reads.enable_record_base_reuse = true;
+            reads.enable_record_base_writes = false;
+            reads.enable_record_base_parameter_origins = false;
             let mut writes = reads.clone();
             writes.enable_record_base_writes = true;
             let old = crate::mir6502::materialize_program_with_origin_and_runtime(
@@ -273,6 +296,7 @@ mod tests {
                 let mut writes = Mir6502Config::optimized();
                 writes.enable_record_base_reuse = true;
                 writes.enable_record_base_writes = true;
+                writes.enable_record_base_parameter_origins = false;
                 let mut origins = writes.clone();
                 origins.enable_record_base_parameter_origins = true;
                 let old = crate::mir6502::materialize_program_with_origin_and_runtime(

@@ -1,0 +1,981 @@
+{
+  "baseline_compiler_revision": "2e8aaa06efefa24d24e8881450bd858970c5640e",
+  "qualified_compiler_sha256": "bb76f6de04973bcd1c66cb87ae6771e9cadd7129faa524e912a60a6e4b0b3c56",
+  "qualified_reporter_sha256": "fc17143b758f62eb4d1d6c39713fd4b6af2cb5d9d8c56336293a8b01681036f2",
+  "rust_version": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "compiler_source_sha256": {
+    "src/mir6502/analysis/mod.rs": "9caec0e49b414780541fb5fb56c3ddb38e96f0edaa6a8cc654a02c7917e27a43",
+    "src/mir6502/analysis/posthome.rs": "33858a7241ec77a42c75acde0121515ba0797c5b6b8bc31eed43dd2f0c6f6c4e",
+    "src/mir6502/analysis/record_bases.rs": "c69e38cf6d90466c0ed4678b0339beb70a8a2dd2469b74298ccb959359d63ff9",
+    "src/mir6502/emit.rs": "8cf2d228a7f9a39c6a7f139d5539d4cd3ca987d5e7bf3c925410da88598880e9",
+    "src/mir6502/materialize.rs": "4a69c4e69ae54ac33b4a52bc5a733d35de5709b9acf57346949da97557e58f69",
+    "src/mir6502/materialize/record_bases.rs": "7cd0d780ec7272ffd1f5f56faac9818033314668ed3a7cca210764e9871a982b",
+    "src/mir6502/mod.rs": "b0fae1ce36a52ffc19c7a27cf2772ddbe1bceafd32854f04e5c802861b4de386",
+    "src/mir6502/passes.rs": "f4f57c0e0ecf8962c7753b470d1ee2725692f0fd5b2d104095e103aba895f97a",
+    "src/mir6502/rewrite/context.rs": "b5788c97dc6c40afda056f99d180a51861f8fb7a44c235a492f6706bca91658c"
+  },
+  "normalized_fixture_sha256": "1372c3b113103c8f6ff3c6e0b10e1d96af34b5657b700de0458026e8dfa9f6db",
+  "root_source_sha256_lf": {
+    "DIR.ACT": "cf1a11914c27be3e5b99dcf231b554cb644fd923250b87f3fff553b97ddb2f25",
+    "LIB.ACT": "481c673e4c730715c31a191abfb2bce98f2ec3064544965a75321c5cad2d3ab5",
+    "LOCATION.ACT": "7d88e8d10d732b417cd1d58d576c55020088c4d4509b15c1686aeae29d7d4173",
+    "MYDOS.ACT": "fd2ac21964ce4d8e65008da50add16e624d9781a8c8f5f96e29421ef80a683ff",
+    "PANELDIR.ACT": "f081a78db1dc207a75d056a1140dd2c7f6449afdab4bfdf933ea2f689a092d2c",
+    "TN.ACT": "b495dd8fb0ff869b22ba1e49f818f5a5a1a1249a189c1a979bc2d58259dd1be0",
+    "TNDBG.ACT": "5e5c34a9909d7cb5857c53e3039df3212c1f9877dfe9dc87f377b9853394c910"
+  },
+  "generic": {
+    "cart": {
+      "selected_xex_bytes": 750,
+      "selected_xex_sha256": "9b82804a6f86eb381d9e18b78767d71d065696b3d7b9fa60ad9935d7a96be8d9",
+      "controls": {
+        "off": {
+          "payload_bytes": 780,
+          "payload_sha256": "868898d487b2138c2881b452794e092658ebfc16b2ec57f26f31bbca4cb7b79d",
+          "routines": {
+            "ReadFields": 40,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 69,
+            "RebindParameter": 64,
+            "KnownWord": 66,
+            "MutateSource": 37,
+            "ReadCurrent": 62,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        },
+        "off-raw": {
+          "payload_bytes": 814,
+          "payload_sha256": "cbd53c9c44507689517af800e969b788b0ffa6b87c78c93b985ce41f72265d78",
+          "routines": {
+            "ReadFields": 52,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 69,
+            "RebindParameter": 64,
+            "KnownWord": 66,
+            "MutateSource": 37,
+            "ReadCurrent": 80,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        },
+        "reads": {
+          "payload_bytes": 773,
+          "payload_sha256": "8ad3860630073026998205147e00debfe0c5b2593ace575f97382a7da915e9cd",
+          "routines": {
+            "ReadFields": 40,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 69,
+            "RebindParameter": 64,
+            "KnownWord": 66,
+            "MutateSource": 37,
+            "ReadCurrent": 55,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        },
+        "reads-raw": {
+          "payload_bytes": 807,
+          "payload_sha256": "f845e5f7b3f513be2698eb305137fa4c7a419ba85105708b62a70e82875da278",
+          "routines": {
+            "ReadFields": 52,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 69,
+            "RebindParameter": 64,
+            "KnownWord": 66,
+            "MutateSource": 37,
+            "ReadCurrent": 73,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        },
+        "writes": {
+          "payload_bytes": 752,
+          "payload_sha256": "1f325a453aa619540e4062d3faa1abc3a3cb30e22e01d6fe6ee025bdc58fd539",
+          "routines": {
+            "ReadFields": 40,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 55,
+            "RebindParameter": 64,
+            "KnownWord": 59,
+            "MutateSource": 37,
+            "ReadCurrent": 55,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        },
+        "writes-raw": {
+          "payload_bytes": 786,
+          "payload_sha256": "6e32b44805e3cfd6c1d31ff7142f201c000b8e5d2de9f2db2fa32c72dd6eb983",
+          "routines": {
+            "ReadFields": 52,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 55,
+            "RebindParameter": 64,
+            "KnownWord": 59,
+            "MutateSource": 37,
+            "ReadCurrent": 73,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        },
+        "parameters": {
+          "payload_bytes": 738,
+          "payload_sha256": "6304b9297ed438e3e7dc3f05e854556c39ad2327ae78233d25bcd2e8dfebfc09",
+          "routines": {
+            "ReadFields": 40,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 55,
+            "RebindParameter": 50,
+            "KnownWord": 59,
+            "MutateSource": 37,
+            "ReadCurrent": 55,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        },
+        "parameters-raw": {
+          "payload_bytes": 772,
+          "payload_sha256": "19e2a23da1ec0c5f569497f01818c80e56f521f4828259f92847addfffa472a7",
+          "routines": {
+            "ReadFields": 52,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 55,
+            "RebindParameter": 50,
+            "KnownWord": 59,
+            "MutateSource": 37,
+            "ReadCurrent": 73,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        }
+      },
+      "loaded_homes": {
+        "raw": [
+          {
+            "fixed_zero_page": [
+              160,
+              172,
+              173,
+              161
+            ],
+            "local_bytes": 2,
+            "parameter_bytes": 0,
+            "routine": "ReadFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173,
+              163
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 4,
+            "routine": "WriteFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173,
+              163
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 4,
+            "routine": "MixedFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              170,
+              171,
+              172,
+              173,
+              163
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 4,
+            "routine": "NestedFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 2,
+            "parameter_bytes": 0,
+            "routine": "KnownFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 2,
+            "routine": "RebindParameter",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 2,
+            "parameter_bytes": 2,
+            "routine": "KnownWord",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 2,
+            "routine": "MutateSource",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              160,
+              172,
+              173,
+              161
+            ],
+            "local_bytes": 2,
+            "parameter_bytes": 0,
+            "routine": "ReadCurrent",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              163,
+              160,
+              161
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 0,
+            "routine": "Main",
+            "spill_bytes": 0
+          }
+        ],
+        "optimized": [
+          {
+            "fixed_zero_page": [
+              160,
+              172,
+              173,
+              161
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 0,
+            "routine": "ReadFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173,
+              163
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 4,
+            "routine": "WriteFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173,
+              163
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 4,
+            "routine": "MixedFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              170,
+              171,
+              172,
+              173,
+              163
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 4,
+            "routine": "NestedFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 2,
+            "parameter_bytes": 0,
+            "routine": "KnownFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 2,
+            "routine": "RebindParameter",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 2,
+            "parameter_bytes": 2,
+            "routine": "KnownWord",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 2,
+            "routine": "MutateSource",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              160,
+              172,
+              173,
+              161
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 0,
+            "routine": "ReadCurrent",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              163,
+              160,
+              161
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 0,
+            "routine": "Main",
+            "spill_bytes": 0
+          }
+        ]
+      }
+    },
+    "standalone": {
+      "selected_xex_bytes": 750,
+      "selected_xex_sha256": "9b82804a6f86eb381d9e18b78767d71d065696b3d7b9fa60ad9935d7a96be8d9",
+      "controls": {
+        "off": {
+          "payload_bytes": 780,
+          "payload_sha256": "868898d487b2138c2881b452794e092658ebfc16b2ec57f26f31bbca4cb7b79d",
+          "routines": {
+            "ReadFields": 40,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 69,
+            "RebindParameter": 64,
+            "KnownWord": 66,
+            "MutateSource": 37,
+            "ReadCurrent": 62,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        },
+        "off-raw": {
+          "payload_bytes": 814,
+          "payload_sha256": "cbd53c9c44507689517af800e969b788b0ffa6b87c78c93b985ce41f72265d78",
+          "routines": {
+            "ReadFields": 52,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 69,
+            "RebindParameter": 64,
+            "KnownWord": 66,
+            "MutateSource": 37,
+            "ReadCurrent": 80,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        },
+        "reads": {
+          "payload_bytes": 773,
+          "payload_sha256": "8ad3860630073026998205147e00debfe0c5b2593ace575f97382a7da915e9cd",
+          "routines": {
+            "ReadFields": 40,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 69,
+            "RebindParameter": 64,
+            "KnownWord": 66,
+            "MutateSource": 37,
+            "ReadCurrent": 55,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        },
+        "reads-raw": {
+          "payload_bytes": 807,
+          "payload_sha256": "f845e5f7b3f513be2698eb305137fa4c7a419ba85105708b62a70e82875da278",
+          "routines": {
+            "ReadFields": 52,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 69,
+            "RebindParameter": 64,
+            "KnownWord": 66,
+            "MutateSource": 37,
+            "ReadCurrent": 73,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        },
+        "writes": {
+          "payload_bytes": 752,
+          "payload_sha256": "1f325a453aa619540e4062d3faa1abc3a3cb30e22e01d6fe6ee025bdc58fd539",
+          "routines": {
+            "ReadFields": 40,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 55,
+            "RebindParameter": 64,
+            "KnownWord": 59,
+            "MutateSource": 37,
+            "ReadCurrent": 55,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        },
+        "writes-raw": {
+          "payload_bytes": 786,
+          "payload_sha256": "6e32b44805e3cfd6c1d31ff7142f201c000b8e5d2de9f2db2fa32c72dd6eb983",
+          "routines": {
+            "ReadFields": 52,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 55,
+            "RebindParameter": 64,
+            "KnownWord": 59,
+            "MutateSource": 37,
+            "ReadCurrent": 73,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        },
+        "parameters": {
+          "payload_bytes": 738,
+          "payload_sha256": "6304b9297ed438e3e7dc3f05e854556c39ad2327ae78233d25bcd2e8dfebfc09",
+          "routines": {
+            "ReadFields": 40,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 55,
+            "RebindParameter": 50,
+            "KnownWord": 59,
+            "MutateSource": 37,
+            "ReadCurrent": 55,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        },
+        "parameters-raw": {
+          "payload_bytes": 772,
+          "payload_sha256": "19e2a23da1ec0c5f569497f01818c80e56f521f4828259f92847addfffa472a7",
+          "routines": {
+            "ReadFields": 52,
+            "WriteFields": 86,
+            "MixedFields": 112,
+            "NestedFields": 111,
+            "KnownFields": 55,
+            "RebindParameter": 50,
+            "KnownWord": 59,
+            "MutateSource": 37,
+            "ReadCurrent": 73,
+            "Main": 100
+          },
+          "lf_crlf_identical": true
+        }
+      },
+      "loaded_homes": {
+        "raw": [
+          {
+            "fixed_zero_page": [
+              160,
+              172,
+              173,
+              161
+            ],
+            "local_bytes": 2,
+            "parameter_bytes": 0,
+            "routine": "ReadFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173,
+              163
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 4,
+            "routine": "WriteFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173,
+              163
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 4,
+            "routine": "MixedFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              170,
+              171,
+              172,
+              173,
+              163
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 4,
+            "routine": "NestedFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 2,
+            "parameter_bytes": 0,
+            "routine": "KnownFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 2,
+            "routine": "RebindParameter",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 2,
+            "parameter_bytes": 2,
+            "routine": "KnownWord",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 2,
+            "routine": "MutateSource",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              160,
+              172,
+              173,
+              161
+            ],
+            "local_bytes": 2,
+            "parameter_bytes": 0,
+            "routine": "ReadCurrent",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              163,
+              160,
+              161
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 0,
+            "routine": "Main",
+            "spill_bytes": 0
+          }
+        ],
+        "optimized": [
+          {
+            "fixed_zero_page": [
+              160,
+              172,
+              173,
+              161
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 0,
+            "routine": "ReadFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173,
+              163
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 4,
+            "routine": "WriteFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173,
+              163
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 4,
+            "routine": "MixedFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              170,
+              171,
+              172,
+              173,
+              163
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 4,
+            "routine": "NestedFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 2,
+            "parameter_bytes": 0,
+            "routine": "KnownFields",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 2,
+            "routine": "RebindParameter",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 2,
+            "parameter_bytes": 2,
+            "routine": "KnownWord",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              172,
+              173
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 2,
+            "routine": "MutateSource",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              160,
+              172,
+              173,
+              161
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 0,
+            "routine": "ReadCurrent",
+            "spill_bytes": 0
+          },
+          {
+            "fixed_zero_page": [
+              163,
+              160,
+              161
+            ],
+            "local_bytes": 0,
+            "parameter_bytes": 0,
+            "routine": "Main",
+            "spill_bytes": 0
+          }
+        ]
+      }
+    }
+  },
+  "roots": {
+    "TN-optimized": {
+      "before_file_bytes": 18076,
+      "after_file_bytes": 18076,
+      "image_sha256": "2a560641f0e9be89709549f5a33178a1a91a37dd65a5494456b252af34d74867",
+      "lf_crlf_identical": true,
+      "changed_routines": {},
+      "remaining_full_setups": 153,
+      "code_buckets": {
+        "abi_area": 1032,
+        "index_register": 1112,
+        "indirect_memory": 648,
+        "other": 2142,
+        "branch_jump": 1275,
+        "return": 168,
+        "parameter_home": 2145,
+        "global_or_static": 1327,
+        "other_zp": 404,
+        "indexed_memory": 147,
+        "other_absolute": 117,
+        "call": 1353,
+        "local_home": 2698,
+        "pointer_area": 1748,
+        "tail_call": 117,
+        "source_alias": 27
+      },
+      "data_roles": {
+        "param": 226,
+        "local": 325,
+        "inline_or_unlabelled": 571,
+        "global": 276,
+        "raw_menu_payload": 204,
+        "local+global": 2
+      },
+      "applied_reuses": 0,
+      "listing_sha256_lf": "4fa23a79c305e82dca1b86b1b1d9fc531c9bd3c99c0111c7fe000847f7e0f79d",
+      "remaining_repeated_setup_sites": 26,
+      "remaining_raw_candidate_bytes": 260,
+      "remaining_listing_barriers": {
+        "no_detected_write_barrier": 5,
+        "indirect_write": 21
+      }
+    },
+    "TN-mir6502": {
+      "before_file_bytes": 16617,
+      "after_file_bytes": 16610,
+      "image_sha256": "13f0954138556d890386686387ef15b7ca7dd8a0676688bf44b6df0603880388",
+      "lf_crlf_identical": true,
+      "changed_routines": {
+        "ActivateLocation": {
+          "before_code": 68,
+          "after_code": 61
+        }
+      },
+      "remaining_full_setups": 131,
+      "code_buckets": {
+        "abi_area": 858,
+        "index_register": 933,
+        "indirect_memory": 640,
+        "other": 2025,
+        "branch_jump": 1234,
+        "return": 168,
+        "global_or_static": 1362,
+        "other_zp": 662,
+        "indexed_memory": 159,
+        "other_absolute": 69,
+        "call": 1281,
+        "parameter_home": 1926,
+        "local_home": 2145,
+        "pointer_area": 922,
+        "tail_call": 174,
+        "named_spill": 465
+      },
+      "data_roles": {
+        "inline_or_unlabelled": 39,
+        "global": 288,
+        "static_string": 499,
+        "param": 263,
+        "local": 234,
+        "spill": 48,
+        "raw_menu_payload": 204
+      },
+      "applied_reuses": 1,
+      "listing_sha256_lf": "598290874a910628542c68d12e815470b925d8968e7662fd77a7191a8aae8a10",
+      "remaining_repeated_setup_sites": 27,
+      "remaining_raw_candidate_bytes": 270,
+      "remaining_listing_barriers": {
+        "indirect_write": 27
+      }
+    },
+    "TNDBG-optimized": {
+      "before_file_bytes": 21563,
+      "after_file_bytes": 21563,
+      "image_sha256": "f5898964800d58b977bdb75aa772199f8453a8d84a0e2cc6cb7c289434b5807a",
+      "lf_crlf_identical": true,
+      "changed_routines": {},
+      "remaining_full_setups": 175,
+      "code_buckets": {
+        "abi_area": 1158,
+        "index_register": 1381,
+        "indirect_memory": 710,
+        "other": 2518,
+        "branch_jump": 1338,
+        "return": 175,
+        "parameter_home": 2280,
+        "global_or_static": 1937,
+        "other_zp": 474,
+        "indexed_memory": 150,
+        "other_absolute": 153,
+        "call": 1932,
+        "local_home": 3073,
+        "pointer_area": 1910,
+        "tail_call": 132,
+        "source_alias": 66
+      },
+      "data_roles": {
+        "param": 254,
+        "local": 339,
+        "inline_or_unlabelled": 998,
+        "global": 367,
+        "raw_menu_payload": 204,
+        "local+global": 2
+      },
+      "applied_reuses": 0,
+      "listing_sha256_lf": "a11150e625c643bf39ccb1316714151f573918a71659b0be5d138663f3a8d7f8",
+      "remaining_repeated_setup_sites": 30,
+      "remaining_raw_candidate_bytes": 300,
+      "remaining_listing_barriers": {
+        "no_detected_write_barrier": 9,
+        "indirect_write": 21
+      }
+    },
+    "TNDBG-mir6502": {
+      "before_file_bytes": 20354,
+      "after_file_bytes": 20333,
+      "image_sha256": "c7fdbbabbd862dac6a3ca79ee165cf7880b6f8fd5741d67ced0f9d848210932c",
+      "lf_crlf_identical": true,
+      "changed_routines": {
+        "Path": {
+          "before_code": 281,
+          "after_code": 274
+        },
+        "DrawWinFrame": {
+          "before_code": 423,
+          "after_code": 416
+        },
+        "ActivateLocation": {
+          "before_code": 68,
+          "after_code": 61
+        }
+      },
+      "remaining_full_setups": 150,
+      "code_buckets": {
+        "abi_area": 994,
+        "index_register": 1185,
+        "indirect_memory": 702,
+        "other": 2421,
+        "branch_jump": 1294,
+        "return": 174,
+        "global_or_static": 2018,
+        "other_zp": 770,
+        "indexed_memory": 162,
+        "other_absolute": 87,
+        "call": 1845,
+        "parameter_home": 2052,
+        "local_home": 2382,
+        "pointer_area": 1046,
+        "tail_call": 198,
+        "named_spill": 849
+      },
+      "data_roles": {
+        "inline_or_unlabelled": 42,
+        "raw_menu_payload": 204,
+        "global": 379,
+        "static_string": 923,
+        "param": 289,
+        "local": 245,
+        "spill": 60
+      },
+      "applied_reuses": 3,
+      "listing_sha256_lf": "d7789c4c2f1db45d39b3ace3bf9cc83e3768d8bddfd54eda18aad14d6433497e",
+      "remaining_repeated_setup_sites": 27,
+      "remaining_raw_candidate_bytes": 270,
+      "remaining_listing_barriers": {
+        "indirect_write": 27
+      }
+    }
+  },
+  "execution": {
+    "vector": "ReadCurrent; common call harness included",
+    "cycles_off": 119,
+    "cycles_on": 109,
+    "scratch_stores_off": 4,
+    "scratch_stores_on": 2,
+    "scratch_window": "$AA-$AF",
+    "pointee_reads": 4,
+    "runtimes": [
+      "cart",
+      "standalone"
+    ]
+  },
+  "qualification": {
+    "mir6502_units_passed": 1082,
+    "existing_units_ignored": 2,
+    "mir6502_integrations_passed": 96,
+    "emission_fixtures_passed": 169,
+    "runtime_executables_passed": 91,
+    "runtime_tests_passed": 405,
+    "raw_optimized_nir": true,
+    "lf_crlf_compilation": true,
+    "runtimes": [
+      "cart",
+      "standalone"
+    ],
+    "shared_nir_contract_changed": false
+  }
+}

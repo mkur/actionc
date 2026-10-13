@@ -82,6 +82,9 @@ impl Default for Mir6502Config {
 impl Mir6502Config {
     pub fn optimized() -> Self {
         Self {
+            enable_record_base_reuse: true,
+            enable_record_base_writes: true,
+            enable_record_base_parameter_origins: true,
             enable_word_inc_update: true,
             enable_direct_byte_word_update: true,
             enable_small_loop_unrolling: true,

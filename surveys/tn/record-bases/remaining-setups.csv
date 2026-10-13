@@ -1,0 +1,111 @@
+image,kind,routine,address,previous_address,bytes,pair,conditions,forms,interpretation
+TN-optimized,repeated_pair_setup,TagsFill,14044,14034,10,174,no_detected_write_barrier,LDA.A local_TagsFill_p | STA.Z $AE | LDA.A local_TagsFill_p+1 | STA.Z $AF,listing pattern only; not a proof
+TN-optimized,repeated_pair_setup,ClearTags,14122,14103,10,174,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AE | LDA.A param_ClearTags_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,ClearTags,14138,14122,10,174,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AE | LDA.A param_ClearTags_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,TagsInit,14189,14166,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,TagsInit,14207,14189,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,TagsInit,14226,14207,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,TagsInit,14245,14226,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,TagsInit,14264,14245,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,TagsInit,14280,14264,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,TagsInit,14295,14280,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,TagsInit,14310,14295,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,TagsReset,14447,14428,10,174,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,TagsReset,14463,14447,10,174,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,TagsReset,14479,14463,10,174,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,TagsExtent,15766,15743,10,174,no_detected_write_barrier,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF,listing pattern only; not a proof
+TN-optimized,repeated_pair_setup,ToggleAllTags,16106,16090,10,174,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,ToggleAllTags,16121,16106,10,174,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,ToggleAllTags,16137,16121,10,174,no_detected_write_barrier,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF,listing pattern only; not a proof
+TN-optimized,repeated_pair_setup,ToggleAllTags,16153,16137,10,174,no_detected_write_barrier,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF,listing pattern only; not a proof
+TN-optimized,repeated_pair_setup,BatchPublish,16603,16586,10,174,indirect_write,LDA.A param_BatchPublish_batch | STA.Z $AE | LDA.A param_BatchPublish_batch+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,MyDosParse,17390,17357,10,174,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,MyDosParse,17450,17434,10,174,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,MyDosCapture,20337,20314,10,174,indirect_write,LDA.A param_MyDosCapture_location | STA.Z $AE | LDA.A param_MyDosCapture_location+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,MyDosPush,20763,20746,10,174,no_detected_write_barrier,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF,listing pattern only; not a proof
+TN-optimized,repeated_pair_setup,MyDosPush,20965,20945,10,174,indirect_write,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF,unproved indirect destination
+TN-optimized,repeated_pair_setup,MyDosParent,21105,21088,10,174,indirect_write,LDA.A param_MyDosParent_location | STA.Z $AE | LDA.A param_MyDosParent_location+1 | STA.Z $AF,unproved indirect destination
+TN-mir6502,repeated_pair_setup,ClearTags,15077,15058,10,172,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AC | LDA.A param_ClearTags_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,ClearTags,15093,15077,10,172,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AC | LDA.A param_ClearTags_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,TagsInit,15142,15115,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,TagsInit,15160,15142,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,TagsInit,15178,15160,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,TagsInit,15196,15178,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,TagsInit,15214,15196,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,TagsInit,15229,15214,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,TagsInit,15244,15229,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,TagsInit,15259,15244,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,TagsReset,15376,15357,10,172,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,TagsReset,15392,15376,10,172,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,TagsReset,15408,15392,10,172,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,TagsExtent,16547,16530,10,172,indirect_write,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,ToggleAllTags,16883,16867,10,172,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AC | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,ToggleAllTags,16898,16883,10,172,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AC | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,BatchBegin,17197,17182,10,172,indirect_write,LDA.A param_BatchBegin_batch | STA.Z $AC | LDA.A param_BatchBegin_batch+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,BatchBegin,17213,17197,10,172,indirect_write,LDA.A param_BatchBegin_batch | STA.Z $AC | LDA.A param_BatchBegin_batch+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,BatchPublish,17365,17348,10,172,indirect_write,LDA.A param_BatchPublish_batch | STA.Z $AC | LDA.A param_BatchPublish_batch+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,MyDosParse,17994,17978,10,172,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,MyDosParse,18060,18044,10,172,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,MyDosName,19390,19373,10,172,indirect_write,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,MyDosName,19405,19390,10,172,indirect_write,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,MyDosRoot,20013,19997,10,172,indirect_write,LDA.A param_MyDosRoot_location | STA.Z $AC | LDA.A param_MyDosRoot_location+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,MyDosRoot,20034,20013,10,172,indirect_write,LDA.A param_MyDosRoot_location | STA.Z $AC | LDA.A param_MyDosRoot_location+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,MyDosCapture,20084,20057,10,172,indirect_write,LDA.A param_MyDosCapture_location | STA.Z $AC | LDA.A param_MyDosCapture_location+1 | STA.Z $AD,unproved indirect destination
+TN-mir6502,repeated_pair_setup,MyDosPush,20579,20559,10,172,indirect_write,LDA.A param_MyDosPush_location | STA.Z $AC | LDA.A param_MyDosPush_location+1 | STA.Z $AD,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,TagsFill,14044,14034,10,174,no_detected_write_barrier,LDA.A local_TagsFill_p | STA.Z $AE | LDA.A local_TagsFill_p+1 | STA.Z $AF,listing pattern only; not a proof
+TNDBG-optimized,repeated_pair_setup,ClearTags,14122,14103,10,174,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AE | LDA.A param_ClearTags_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,ClearTags,14138,14122,10,174,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AE | LDA.A param_ClearTags_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,TagsInit,14189,14166,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,TagsInit,14207,14189,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,TagsInit,14226,14207,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,TagsInit,14245,14226,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,TagsInit,14264,14245,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,TagsInit,14280,14264,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,TagsInit,14295,14280,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,TagsInit,14310,14295,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,TagsReset,14447,14428,10,174,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,TagsReset,14463,14447,10,174,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,TagsReset,14479,14463,10,174,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,TagsExtent,15766,15743,10,174,no_detected_write_barrier,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF,listing pattern only; not a proof
+TNDBG-optimized,repeated_pair_setup,ToggleAllTags,16106,16090,10,174,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,ToggleAllTags,16121,16106,10,174,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,ToggleAllTags,16137,16121,10,174,no_detected_write_barrier,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF,listing pattern only; not a proof
+TNDBG-optimized,repeated_pair_setup,ToggleAllTags,16153,16137,10,174,no_detected_write_barrier,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF,listing pattern only; not a proof
+TNDBG-optimized,repeated_pair_setup,BatchPublish,16603,16586,10,174,indirect_write,LDA.A param_BatchPublish_batch | STA.Z $AE | LDA.A param_BatchPublish_batch+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,MyDosParse,17390,17357,10,174,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,MyDosParse,17450,17434,10,174,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,MyDosCapture,20337,20314,10,174,indirect_write,LDA.A param_MyDosCapture_location | STA.Z $AE | LDA.A param_MyDosCapture_location+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,MyDosPush,20763,20746,10,174,no_detected_write_barrier,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF,listing pattern only; not a proof
+TNDBG-optimized,repeated_pair_setup,MyDosPush,20965,20945,10,174,indirect_write,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,MyDosParent,21105,21088,10,174,indirect_write,LDA.A param_MyDosParent_location | STA.Z $AE | LDA.A param_MyDosParent_location+1 | STA.Z $AF,unproved indirect destination
+TNDBG-optimized,repeated_pair_setup,Path,23047,23025,10,174,no_detected_write_barrier,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF,listing pattern only; not a proof
+TNDBG-optimized,repeated_pair_setup,DrawWinFrame,23745,23723,10,174,no_detected_write_barrier,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF,listing pattern only; not a proof
+TNDBG-optimized,repeated_pair_setup,Dbg,26570,26555,10,174,no_detected_write_barrier,LDA.A global_currentDir | STA.Z $AE | LDA.A global_currentDir+1 | STA.Z $AF,listing pattern only; not a proof
+TNDBG-optimized,repeated_pair_setup,Dbg,26696,26681,10,174,no_detected_write_barrier,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF,listing pattern only; not a proof
+TNDBG-mir6502,repeated_pair_setup,ClearTags,15641,15622,10,172,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AC | LDA.A param_ClearTags_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,ClearTags,15657,15641,10,172,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AC | LDA.A param_ClearTags_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15706,15679,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15724,15706,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15742,15724,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15760,15742,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15778,15760,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15793,15778,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15808,15793,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15823,15808,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,TagsReset,15940,15921,10,172,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,TagsReset,15956,15940,10,172,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,TagsReset,15972,15956,10,172,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,TagsExtent,17111,17094,10,172,indirect_write,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,ToggleAllTags,17447,17431,10,172,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AC | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,ToggleAllTags,17462,17447,10,172,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AC | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,BatchBegin,17761,17746,10,172,indirect_write,LDA.A param_BatchBegin_batch | STA.Z $AC | LDA.A param_BatchBegin_batch+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,BatchBegin,17777,17761,10,172,indirect_write,LDA.A param_BatchBegin_batch | STA.Z $AC | LDA.A param_BatchBegin_batch+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,BatchPublish,17929,17912,10,172,indirect_write,LDA.A param_BatchPublish_batch | STA.Z $AC | LDA.A param_BatchPublish_batch+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,MyDosParse,18558,18542,10,172,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,MyDosParse,18624,18608,10,172,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,MyDosName,19954,19937,10,172,indirect_write,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,MyDosName,19969,19954,10,172,indirect_write,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,MyDosRoot,20577,20561,10,172,indirect_write,LDA.A param_MyDosRoot_location | STA.Z $AC | LDA.A param_MyDosRoot_location+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,MyDosRoot,20598,20577,10,172,indirect_write,LDA.A param_MyDosRoot_location | STA.Z $AC | LDA.A param_MyDosRoot_location+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,MyDosCapture,20648,20621,10,172,indirect_write,LDA.A param_MyDosCapture_location | STA.Z $AC | LDA.A param_MyDosCapture_location+1 | STA.Z $AD,unproved indirect destination
+TNDBG-mir6502,repeated_pair_setup,MyDosPush,21143,21123,10,172,indirect_write,LDA.A param_MyDosPush_location | STA.Z $AC | LDA.A param_MyDosPush_location+1 | STA.Z $AD,unproved indirect destination

@@ -1570,3 +1570,24 @@ routines cannot grow instruction bytes or homes; the final image and occupied
 zero-page set cannot grow. One partial-batch repair can roll back individual
 routines, followed by a final image check. The default/feature-off configuration
 retains the baseline. No SemIR or NIR form or contract changes.
+
+## Final record base reuse
+
+The block-local selector consumes complete base proofs from a generation-scoped
+post-home snapshot and a converged emission placement map. Pair lanes and mutable
+source-byte dependencies are independent. Exact disjoint direct writes may
+preserve them; indirect BYTE/WORD writes require a complete address and footprint
+inside owned data. Unknown entries, calls, machine blocks, hardware and unproved
+writes retain barriers. Only explicit same-block assignments establish bounded
+parameter origins; private ABI classification does not certify closed entry.
+
+The transaction removes redundant pair stores and the low load, retaining the
+original high load to reproduce A/Z/N and previously consumed callee exit facts.
+Every pointee access and RHS snapshot remains. Discovery and validation use the
+same shared proof, and facts are rebuilt after each accepted generation. Final
+placement requires a fresh proof at the original snapshot sites; a new alias
+rejects the entire candidate program. Selection runs after completed inlining
+and home selection. Final code/home/image budgets must improve or stay equal,
+with a strict image saving, identical frames and unchanged zero-page occupancy.
+The optimized configuration enables the qualified subset; the independent
+feature flags retain differential controls. No SemIR or NIR contract changes.

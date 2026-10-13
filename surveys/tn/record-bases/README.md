@@ -83,3 +83,77 @@ through verified NIR before a backend may consume it.
 and complete reporter payloads at 780 → 738 bytes, with unchanged homes and
 zero-page occupancy. Both runtimes compile actual LF/CRLF sources identically;
 emitted execution checks also cover raw and optimized NIR.
+
+Stage 5 enables the qualified subset in optimized MIR6502. Selection runs after
+completed inlining and home selection; feature-off and feature-on therefore use
+the same baseline decisions. The selector retains the original high-byte load,
+checks identical frames and occupied zero page, and requires a strict final
+image saving without growth in selected routine code or homes. Final data
+relocation rebuilds each proof at its original snapshot sites, rejecting any
+new alias. Absolute-backed named reads and hardware RHS reads end the region,
+including reads hidden behind local or parameter IDs. Private spill identity
+alone does not certify RAM placement. The initial owned-data window is
+`$0400–$7FFF`, plus ordinary compiler-private zero-page carriers for reads.
+
+The current generic source has 780 feature-off payload bytes and 738 with all
+three selection flags enabled. `ReadCurrent` changes from 62 to 55 code bytes,
+`KnownFields` 69 to 55, `KnownWord` 66 to 59 and `RebindParameter` 64 to 50.
+The read sentinel's emitted call vector changes from 119 to 109 cycles and from
+four to two writes to `$AA–$AF`, in both runtimes. Its four pointee reads remain
+ordered and unchanged. These cycles include the common call harness; scratch
+writes are a separate metric from total private-memory accesses.
+
+The production scorecard uses complete cartridge images:
+
+| Image | Before XEX bytes | After XEX bytes | Saving |
+| --- | ---: | ---: | ---: |
+| TN, MIR6502 | 16,617 | 16,610 | 7 |
+| TNDBG, MIR6502 | 20,354 | 20,333 | 21 |
+| TN, classic optimized | 18,076 | 18,076 | 0 |
+| TNDBG, classic optimized | 21,563 | 21,563 | 0 |
+
+`ActivateLocation` changes from 68 to 61 code bytes in both roots. TNDBG also
+changes `Path` from 281 to 274 and `DrawWinFrame` from 423 to 416. TN now has
+131 full setups and 27 listing-detected repeats; TNDBG has 150 and 27. Every
+remaining detected repeat follows an indirect write. The typed parameter
+origins for these writes remain unknown; `BatchBegin`, `TagsReset`, `TagsInit`
+and `TagsExtent` retain their existing budgets. The original 280-byte candidate
+budget is therefore not a qualified saving. Header-store reuse across routine
+entry still needs a verified closed-entry/caller contract.
+
+The final VM matrix checks feature controls, raw/optimized NIR, cartridge and
+standalone runtimes, actual LF/CRLF inputs, source-cell mutation, captured
+bounded bases, nested RHS preparations, BYTE/WORD store order and neighbor
+bytes. Additional field windows cover a BYTE at offset 255, WORDs at
+254/255/256, page crossing and a ROM-free read across `$FFFF/$0000`. No SemIR,
+NIR, printer or shared compiler contract changes are involved.
+
+Qualification passes 1,082 MIR6502 unit tests (two existing ignores), all 96
+MIR6502 integrations and all 169 emission fixtures. Cargo builds the isolated
+runtime harness; all 91 test executables pass, totaling 405 tests. Final runtime
+execution used four independent workers with two test threads per executable,
+covering the complete target set rather than a filtered subset.
+
+The maintained [final.json](final.json) pins the qualified binaries, relevant compiler
+sources, fixture sources, final images and scope of checks. Complete artifacts
+are retained under `target/record-bases/qualified`, including typed MIR controls
+and actual LF/CRLF production images. Reporter payloads and unpruned typed root
+budgets are diagnostic; the production table above comes from CLI XEX files.
+Blocker reports include mandatory first setups and repeated proof attempts;
+the 27 remaining listing repeats are the separate candidate census.
+The [remaining setup census](remaining-setups.csv) keeps those application
+candidates separate from classic listing controls and mandatory typed setups.
+
+Reproduce the final scorecard with the retained compiler and reporter:
+
+```sh
+python3 surveys/tn/measure-record-bases.py \
+  --compiler target/record-bases/qualified/actionc-qualified \
+  --reporter target/record-bases/qualified/reporter-qualified \
+  --out-dir target/record-bases/recheck --controls --roots --jobs 4 \
+  --baseline target/record-bases/stage0
+```
+
+The final selector does not add a calling-convention assumption, narrow an
+unknown write effect, or extend reuse across calls, joins or loops. Subsequent
+caller/entry contracts and CFG-wide reuse remain separately scoped work.

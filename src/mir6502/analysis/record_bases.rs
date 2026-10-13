@@ -1,5 +1,4 @@
 //! Complete resident base facts with final physical aliases, not record types.
-#![allow(dead_code)] // Stage 1 supplies proofs; the following slice enables selection.
 use super::{
     effects::classify_op,
     sites::{MirRoutineGeneration, MirSite},
@@ -19,7 +18,9 @@ impl MirPhysicalMemory {
         }
     }
     fn contains_write(&self, address: u16, bytes: u16) -> bool {
-        (0..bytes).all(|n| (0x400..0xC000).contains(&address.wrapping_add(n)))
+        // The initial proof uses RAM common to both Atari execution profiles;
+        // cartridge and hardware windows cannot certify mutable data.
+        (0..bytes).all(|n| (0x400..0x8000).contains(&address.wrapping_add(n)))
             && self.owned_data.iter().any(|(start, size)| {
                 u32::from(address.wrapping_sub(*start)) + u32::from(bytes) <= u32::from(*size)
             })
@@ -54,8 +55,8 @@ impl MirPhysicalMemory {
             *r == routine
                 && m == mem
                 && *normal
-                && ((0x400..0xC000).contains(a)
-                    || matches!(m, MirMem::ZeroPage(_) | MirMem::Spill { .. }))
+                && ((0x400..0x8000).contains(a)
+                    || (*a < 0x100 && matches!(m, MirMem::ZeroPage(_) | MirMem::Spill { .. })))
         })
     }
 }
@@ -160,6 +161,15 @@ impl State {
         options: RecordBaseOptions,
     ) {
         let effect = classify_op(op);
+        // A physical/absolute-backed input can hide behind a param/local ID
+        // or a store's RHS. Its read is a barrier independently of the named
+        // destination. Fixed compiler carriers are handled by exact effects.
+        if effect.memory.direct_reads.iter().any(|range| {
+            !matches!(range.base, MirMem::FixedZeroPage(_))
+                && !memory.ordinary(routine, &range.base)
+        }) {
+            *self = Self::default();
+        }
         let result = match op {
             MirOp::Load {
                 dst: MirDef::Reg(r),
@@ -278,13 +288,6 @@ impl State {
                     *self = Self::default();
                 }
             }
-            for range in &effect.memory.direct_reads {
-                if !memory.ordinary(routine, &range.base)
-                    && matches!(range.base, MirMem::Absolute(_) | MirMem::Global { .. })
-                {
-                    *self = Self::default();
-                }
-            }
         }
         // Implicit constructors and compound operations can clobber a pair
         // without presenting a scalar direct store in the operation stream.
@@ -337,6 +340,16 @@ fn store_slot(op: &MirOp) -> Option<u8> {
     }
 }
 
+pub(in crate::mir6502) fn setup_pair(window: &[MirOp]) -> Option<u8> {
+    let [low, low_store, high, high_store] = window else {
+        return None;
+    };
+    load_source(low)?;
+    load_source(high)?;
+    let pair = store_slot(low_store)?;
+    ([0xAA, 0xAC, 0xAE].contains(&pair) && store_slot(high_store)? == pair + 1).then_some(pair)
+}
+
 pub(in crate::mir6502) fn prove(
     routine: &MirRoutine,
     generation: MirRoutineGeneration,
@@ -353,10 +366,7 @@ pub(in crate::mir6502) fn prove(
     };
     let block = routine.blocks.iter().find(|b| b.id == block)?;
     let window = block.ops.get(index..index.checked_add(4)?)?;
-    let pair = store_slot(&window[1])?;
-    if ![0xAA, 0xAC, 0xAE].contains(&pair) || store_slot(&window[3])? != pair + 1 {
-        return None;
-    }
+    let pair = setup_pair(window)?;
     let inputs = [load_source(&window[0])?, load_source(&window[2])?];
     for input in &inputs {
         if let MirValue::PointerCell(mem) = input {
@@ -402,6 +412,19 @@ pub(in crate::mir6502) fn validate(
     proof.routine == routine.id
         && proof.generation == generation
         && prove(routine, generation, proof.site, memory, proof.options).as_ref() == Some(proof)
+}
+
+/// Rebuild the proof against relocated final data, never transplant old
+/// numeric values into a new layout. The operation snapshot and defining sites
+/// remain the same; the fresh proof must establish complete equality again.
+pub(in crate::mir6502) fn validate_placement(
+    proof: &RecordBaseProof,
+    routine: &MirRoutine,
+    memory: &MirPhysicalMemory,
+) -> bool {
+    proof.routine == routine.id
+        && prove(routine, proof.generation, proof.site, memory, proof.options)
+            .is_some_and(|fresh| fresh.pair == proof.pair && fresh.definitions == proof.definitions)
 }
 
 #[cfg(test)]
@@ -484,8 +507,16 @@ mod tests {
         assert!(validate(&proof, &r, generation, &map));
         assert!(!validate(&proof, &r, generation.next(), &map));
         let mut changed = memory();
-        changed.insert(RoutineId(0), local, 0x3001, true);
+        changed.insert(RoutineId(0), local.clone(), 0x3001, true);
         assert!(!validate(&proof, &r, generation, &changed));
+        assert!(!validate_placement(&proof, &r, &changed));
+        let mut moved = MirPhysicalMemory::default();
+        for (i, mem) in sources().into_iter().enumerate() {
+            moved.insert(r.id, mem, 0x5000 + i as u16, true);
+        }
+        moved.insert(r.id, local.clone(), 0x4000, true);
+        assert!(!validate(&proof, &r, generation, &moved));
+        assert!(validate_placement(&proof, &r, &moved));
         let mut changed_r = r.clone();
         changed_r.blocks[0].ops[4] = MirOp::UpdateMem {
             op: MirUpdateOp::Inc,
@@ -605,6 +636,8 @@ mod tests {
         assert!(!map.contains_write(0x6007, 1));
         map.own_data(0xFFFF, 2);
         assert!(!map.contains_write(0xFFFF, 2));
+        map.own_data(0x8000, 7);
+        assert!(!map.contains_write(0x8000, 1));
     }
     #[test]
     fn physical_aliases_share_addresses_without_claiming_ordinary_absolute_memory() {
@@ -652,5 +685,153 @@ mod tests {
             state.value(&MirValue::PointerCell(high), RoutineId(0), &map, options),
             Some(ByteValue::Memory(0x3001))
         );
+    }
+
+    #[test]
+    fn explicit_barriers_hardware_and_implicit_pair_preparation_end_reuse() {
+        let consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xAC),
+        });
+        for barrier in [
+            MirOp::Barrier {
+                effects: MirEffects::default(),
+            },
+            MirOp::MachineBlock {
+                id: MirMachineBlockId(0),
+                effects: MirEffects::default(),
+            },
+            load(MirMem::Absolute(0xD20A)),
+            MirOp::MaterializeAddress {
+                consumer,
+                value: MirValue::ConstU16(0x6000),
+            },
+            MirOp::AdvanceAddress {
+                consumer,
+                index: MirValue::ConstU8(1),
+                scale: 1,
+            },
+        ] {
+            let mut ops = setup();
+            ops.push(barrier.clone());
+            ops.extend(setup());
+            assert!(
+                prove(
+                    &routine(ops),
+                    MirRoutineGeneration::initial(),
+                    MirSite::Op {
+                        block: MirBlockId(0),
+                        op_index: 5
+                    },
+                    &memory(),
+                    RecordBaseOptions {
+                        writes: true,
+                        parameter_origins: true
+                    }
+                )
+                .is_none(),
+                "{barrier:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn captured_bounded_base_survives_source_cell_mutation_but_fresh_read_does_not() {
+        let [low, high] = sources();
+        let local = [0, 1].map(|offset| MirMem::Local {
+            id: crate::nir::LocalId(0),
+            offset,
+        });
+        let immediate = |value| MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value,
+            width: MirWidth::Byte,
+        };
+        let mut map = memory();
+        for (i, mem) in local.iter().enumerate() {
+            map.insert(RoutineId(0), mem.clone(), 0x4000 + i as u16, true);
+        }
+        let captured_setup = || {
+            vec![
+                load(local[0].clone()),
+                store(MirMem::FixedZeroPage(MirFixedZpSlot(0xAC))),
+                load(local[1].clone()),
+                store(MirMem::FixedZeroPage(MirFixedZpSlot(0xAD))),
+            ]
+        };
+        let mut ops = vec![
+            immediate(0),
+            store(low.clone()),
+            immediate(0x60),
+            store(high.clone()),
+            load(low.clone()),
+            store(local[0].clone()),
+            load(high.clone()),
+            store(local[1].clone()),
+        ];
+        ops.extend(captured_setup());
+        ops.extend([immediate(0), store(low), immediate(0x61), store(high)]);
+        ops.extend(captured_setup());
+        let mut r = routine(ops);
+        let options = RecordBaseOptions {
+            writes: true,
+            parameter_origins: true,
+        };
+        let site = MirSite::Op {
+            block: MirBlockId(0),
+            op_index: 16,
+        };
+        assert!(prove(&r, MirRoutineGeneration::initial(), site, &map, options).is_some());
+        r.blocks[0].ops.splice(16..20, setup());
+        assert!(prove(&r, MirRoutineGeneration::initial(), site, &map, options).is_none());
+    }
+
+    #[test]
+    fn absolute_backed_named_reads_and_hardware_rhs_are_barriers() {
+        let alias = MirMem::Local {
+            id: crate::nir::LocalId(0),
+            offset: 0,
+        };
+        let destination = MirMem::Local {
+            id: crate::nir::LocalId(1),
+            offset: 0,
+        };
+        let mut map = memory();
+        map.insert(RoutineId(0), alias.clone(), 0xD20A, false);
+        map.insert(RoutineId(0), destination.clone(), 0x4000, true);
+        for op in [
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::X),
+                src: MirValue::PointerCell(alias.clone()),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(destination),
+                src: MirValue::PointerCell(alias),
+                width: MirWidth::Byte,
+            },
+        ] {
+            let mut ops = setup();
+            ops.push(op);
+            ops.extend(setup());
+            assert!(
+                prove(
+                    &routine(ops),
+                    MirRoutineGeneration::initial(),
+                    MirSite::Op {
+                        block: MirBlockId(0),
+                        op_index: 5
+                    },
+                    &map,
+                    RecordBaseOptions::default()
+                )
+                .is_none()
+            );
+        }
+        let spill = MirMem::Spill {
+            id: MirSpillId(0),
+            offset: 0,
+        };
+        map.insert(RoutineId(0), spill.clone(), 0xD200, true);
+        assert!(!map.ordinary(RoutineId(0), &spill));
     }
 }

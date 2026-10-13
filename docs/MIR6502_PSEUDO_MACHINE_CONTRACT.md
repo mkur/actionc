@@ -274,17 +274,21 @@ destination address and footprint and cannot follow a pointer type alone.
 Proofs name the routine, generation and operation site and are independently
 replayed before selection. A changed final placement invalidates an earlier
 alias proof. These facts alone do not enable a rewrite or change memory effects.
-Opt-in selection replaces a redundant complete setup with its original high
+Optimized selection replaces a redundant complete setup with its original high
 byte load. This retains A/Z/N, including callee exit facts already consumed by
 caller optimization, and preserves all pointee accesses. The transaction driver
 checks generation and dependencies; final emission checks code/home/image and
-zero-page budgets and replays the alias proofs against the proposed placement.
+zero-page budgets and rebuilds the alias proofs against the proposed placement.
+Selection runs after completed inlining and home selection, comparing the same
+feature-off materialized program. Original frames and reservations stay exact.
 Indirect BYTE and direct-to-indirect WORD stores can preserve a base only when
 the complete destination lies inside a compiler-owned data allocation from
 final placement. A numeric RAM address alone is insufficient: it may name
 instructions or foreign memory. Source bytes, pointer-pair bytes, implicit
 pair clobbers and both WORD destination lanes are checked independently.
 RHS capture and original store order remain executable and unchanged.
+The initial owned-data proof uses the common Atari RAM window `$0400–$7FFF`;
+cartridge, ROM and hardware windows cannot certify a mutable source or write.
 Parameter origins start unknown at every block entry. Complete explicit stores
 inside the block may establish an address into owned data. A partial assignment
 does not bound the other lane. Private ABI storage and a direct-call census do

@@ -5,12 +5,52 @@ use std::path::{Path, PathBuf};
 #[allow(dead_code)]
 #[path = "support/tn_machine.rs"]
 mod machine;
+#[allow(dead_code)]
+#[path = "support/fixed_point.rs"]
+mod support;
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 struct Hooks;
 impl VmRunHooks for Hooks {
     type Error = String;
+}
+
+#[derive(Default)]
+struct Traffic {
+    scratch_writes: usize,
+    accesses: Vec<(bool, u16)>,
+    watched: Option<(u16, u16)>,
+}
+impl VmRunHooks for Traffic {
+    type Error = String;
+    fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {
+        let registers = vm.cpu().registers();
+        let ram = vm.bus().ram();
+        let opcode = ram.read(registers.pc);
+        let operand = registers.pc.wrapping_add(1);
+        let direct = match opcode {
+            0x85 | 0x86 | 0x84 => Some(u16::from(ram.read(operand))),
+            0x8D | 0x8E | 0x8C => Some(ram.read_word(operand)),
+            _ => None,
+        };
+        if direct.is_some_and(|a| (0xAA..=0xAF).contains(&a)) {
+            self.scratch_writes += 1;
+        }
+        if let Some(address) = direct.filter(|a| {
+            self.watched
+                .is_some_and(|(start, bytes)| a.wrapping_sub(start) < bytes)
+        }) {
+            self.accesses.push((true, address));
+        }
+        if matches!(opcode, 0xB1 | 0x91) {
+            let address = ram
+                .read_word(u16::from(ram.read(operand)))
+                .wrapping_add(u16::from(registers.y));
+            self.accesses.push((opcode == 0x91, address));
+        }
+        Ok(())
+    }
 }
 
 #[test]
@@ -54,6 +94,7 @@ fn record_sequences_keep_fields_snapshots_and_mutable_source_cells() {
                 } else {
                     actionc::nir::optimize_program(&raw).unwrap()
                 };
+                let mut read_controls = std::collections::BTreeMap::new();
                 for (enabled, writes, origins) in [
                     (false, false, false),
                     (true, false, false),
@@ -116,7 +157,27 @@ fn record_sequences_keep_fields_snapshots_and_mutable_source_cells() {
                             .ram_mut()
                             .map(global("current"), &base.to_le_bytes())
                             .unwrap();
-                        vm = machine::call(vm, &mut Hooks, routine("ReadCurrent"), &[]);
+                        let mut traffic = Traffic::default();
+                        let cycles = vm.cpu().cycles();
+                        vm = machine::call(vm, &mut traffic, routine("ReadCurrent"), &[]);
+                        let measured = (vm.cpu().cycles() - cycles, traffic.scratch_writes);
+                        assert_eq!(
+                            traffic.accesses,
+                            [base, base + 1, base + 5, base + 6].map(|address| (false, address))
+                        );
+                        if enabled {
+                            let old: &(u64, usize) = read_controls.get(&base).unwrap();
+                            assert!(measured.0 < old.0);
+                            assert_eq!(measured.1 + 2, old.1);
+                        } else {
+                            read_controls.insert(base, measured);
+                        }
+                        if !crlf && !raw_nir && base == 0x6000 {
+                            println!(
+                                "record-base,{runtime:?},{enabled}/{writes}/{origins},ReadCurrent,cycles={},scratch-writes={}",
+                                measured.0, measured.1
+                            );
+                        }
                         assert_eq!(vm.bus().ram().read_word(0xA0), 0xBE01);
                         assert_eq!(vm.bus().ram().read_word(global("observed")), 0x1234);
                         vm = machine::call(
@@ -150,7 +211,15 @@ fn record_sequences_keep_fields_snapshots_and_mutable_source_cells() {
                         .map(data, &[0xA5, 0xA5, 0xA5, 0xA5, 0xA5, 0x43, 0x65])
                         .unwrap();
                     let next = vm.bus().ram().read(data + 7);
-                    vm = machine::call(vm, &mut Hooks, routine("KnownFields"), &[]);
+                    let mut traffic = Traffic {
+                        watched: Some((data, 7)),
+                        ..Traffic::default()
+                    };
+                    vm = machine::call(vm, &mut traffic, routine("KnownFields"), &[]);
+                    assert_eq!(
+                        traffic.accesses,
+                        [3, 2, 4, 0, 1].map(|offset| (true, data + offset))
+                    );
                     assert_eq!(
                         machine::bytes(&vm, data, 7),
                         [0xDC, 0xFE, 0, 0, 1, 0x43, 0x65]
@@ -214,6 +283,92 @@ fn record_sequences_keep_fields_snapshots_and_mutable_source_cells() {
                         0x12,
                         "{runtime:?}/{crlf}: must reread the changed source pointer"
                     );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn wide_field_windows_and_address_wrap_keep_original_byte_addresses() {
+    for offset in [253u16, 254, 255, 256] {
+        let source = format!(
+            "TYPE Wide=[BYTE head BYTE ARRAY pad({}) CARD value BYTE tail]\nWide data\nBYTE guard\nCARD FUNC Read(Wide POINTER p) RETURN(p.value)\nPROC WriteKnown(CARD value) Wide POINTER p p=@data p.head=17 p.value=value p.tail=34 RETURN\nPROC Main() WriteKnown(0) guard=1 RETURN\n",
+            offset - 1,
+        );
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for raw in [false, true] {
+                let ast =
+                    actionc::parser::parse(&actionc::lexer::tokenize(&source).unwrap()).unwrap();
+                let model = actionc::semantic::analyze_with_options(
+                    &ast,
+                    actionc::semantic::SemanticOptions::modern(),
+                )
+                .unwrap();
+                let sem = actionc::semantic::ir::lower_program(&ast, &model);
+                let nir = actionc::nir::lower_program(&sem);
+                let nir = if raw {
+                    nir
+                } else {
+                    actionc::nir::optimize_program(&nir).unwrap()
+                };
+                for enabled in [false, true] {
+                    let mut config = actionc::mir6502::Mir6502Config::optimized();
+                    config.enable_record_base_reuse = enabled;
+                    config.enable_record_base_writes = enabled;
+                    config.enable_record_base_parameter_origins = enabled;
+                    let output = actionc::mir6502::generate_output_with_config_and_runtime(
+                        &nir, 0x2C00, &config, runtime,
+                    )
+                    .unwrap();
+                    let image = actionc::codegen::format_load_file(&output);
+                    let (mut vm, profile) = support::vm_for(runtime);
+                    vm.load_atari_object_for_execution(profile, &image).unwrap();
+                    let data = output
+                        .map
+                        .storage_symbols
+                        .iter()
+                        .find(|s| s.name == "data")
+                        .unwrap()
+                        .address;
+                    let entry = |name| {
+                        output
+                            .map
+                            .routine_addresses
+                            .iter()
+                            .find(|r| r.name == name)
+                            .unwrap()
+                            .address
+                    };
+                    let mut expected = vec![0xA5; usize::from(offset) + 5];
+                    vm.bus_mut().ram_mut().map(data - 1, &expected).unwrap();
+                    expected[1] = 17;
+                    expected[usize::from(offset) + 1..usize::from(offset) + 3]
+                        .copy_from_slice(&0xFEDCu16.to_le_bytes());
+                    expected[usize::from(offset) + 3] = 34;
+                    vm = machine::call(
+                        vm,
+                        &mut Hooks,
+                        entry("WriteKnown"),
+                        &0xFEDCu16.to_le_bytes(),
+                    );
+                    assert_eq!(
+                        machine::bytes(&vm, data - 1, expected.len()),
+                        expected,
+                        "{offset}/{runtime:?}/{raw}/{enabled}"
+                    );
+                    vm = machine::call(vm, &mut Hooks, entry("Read"), &data.to_le_bytes());
+                    assert_eq!(vm.bus().ram().read_word(0xA0), 0xFEDC);
+                    if runtime == Runtime::Standalone {
+                        // The ROM-free profile permits a read across $FFFF/$0000.
+                        let base = 0xFFFFu16.wrapping_sub(offset);
+                        vm.bus_mut().ram_mut().write(0xFFFF, 0xDC);
+                        vm.bus_mut().ram_mut().write(0, 0xFE);
+                        let mut traffic = Traffic::default();
+                        vm = machine::call(vm, &mut traffic, entry("Read"), &base.to_le_bytes());
+                        assert_eq!(vm.bus().ram().read_word(0xA0), 0xFEDC);
+                        assert_eq!(traffic.accesses, [(false, 0xFFFF), (false, 0)]);
+                    }
                 }
             }
         }
