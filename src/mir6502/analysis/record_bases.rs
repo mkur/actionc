@@ -10,8 +10,20 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, Default)]
 pub(in crate::mir6502) struct MirPhysicalMemory {
     entries: Vec<(RoutineId, MirMem, u16, bool)>,
+    owned_data: Vec<(u16, u16)>,
 }
 impl MirPhysicalMemory {
+    pub(in crate::mir6502) fn own_data(&mut self, address: u16, bytes: u16) {
+        if bytes > 0 && !self.owned_data.contains(&(address, bytes)) {
+            self.owned_data.push((address, bytes));
+        }
+    }
+    fn contains_write(&self, address: u16, bytes: u16) -> bool {
+        (0..bytes).all(|n| (0x400..0xC000).contains(&address.wrapping_add(n)))
+            && self.owned_data.iter().any(|(start, size)| {
+                u32::from(address.wrapping_sub(*start)) + u32::from(bytes) <= u32::from(*size)
+            })
+    }
     pub(in crate::mir6502) fn insert(
         &mut self,
         routine: RoutineId,
@@ -205,12 +217,19 @@ impl State {
             if let MirValue::Def(MirDef::Reg(r)) = source {
                 self.registers[reg(*r)] = Some(value.unwrap_or(ByteValue::Memory(address)));
             }
-        } else if let MirOp::StoreIndirect {
-            consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo }),
-            offset,
-            ..
-        } = op
-        {
+        } else if let Some((lo, offset, width)) = match op {
+            MirOp::StoreIndirect {
+                consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo }),
+                offset,
+                ..
+            } => Some((*lo, *offset, 1)),
+            MirOp::CopyDirectWordToIndirect {
+                source,
+                destination: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo }),
+                destination_offset,
+            } if memory.ordinary(routine, source) => Some((*lo, *destination_offset, 2)),
+            _ => None,
+        } {
             let base = self
                 .pairs
                 .get(&lo.0)
@@ -223,10 +242,10 @@ impl State {
                 });
             if let Some(address) = base
                 .filter(|_| options.writes)
-                .map(|base| base.wrapping_add(*offset))
-                .filter(|a| (0x400..0xC000).contains(a))
+                .map(|base| base.wrapping_add(offset))
+                .filter(|a| memory.contains_write(*a, width))
             {
-                self.write(address, 1);
+                self.write(address, width);
             } else {
                 *self = Self::default();
             }
@@ -438,6 +457,7 @@ mod tests {
         for (i, mem) in sources().into_iter().enumerate() {
             memory.insert(RoutineId(0), mem, 0x3000 + i as u16, true);
         }
+        memory.own_data(0x6000, 32);
         memory
     }
     #[test]
@@ -571,6 +591,17 @@ mod tests {
         assert_eq!(state.pairs.len(), 2);
         state.write(0x3001, 1);
         assert_eq!(state.pairs.len(), 1);
+    }
+    #[test]
+    fn data_ownership_excludes_code_foreign_ram_and_incomplete_word_footprints() {
+        let mut map = MirPhysicalMemory::default();
+        assert!(!map.contains_write(0x6000, 1));
+        map.own_data(0x6000, 7);
+        assert!(map.contains_write(0x6005, 2));
+        assert!(!map.contains_write(0x6006, 2));
+        assert!(!map.contains_write(0x6007, 1));
+        map.own_data(0xFFFF, 2);
+        assert!(!map.contains_write(0xFFFF, 2));
     }
     #[test]
     fn physical_aliases_share_addresses_without_claiming_ordinary_absolute_memory() {

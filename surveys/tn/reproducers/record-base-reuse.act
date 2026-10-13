@@ -34,6 +34,12 @@ PROC RebindParameter(Header POINTER p)
   p.valid=1 p.count=2 p.ended=0
 RETURN
 
+PROC KnownWord(CARD value)
+  Header POINTER p
+  p=@data
+  p.valid=0 p.first=value p.ended=1
+RETURN
+
 PROC MutateSource(Header POINTER p)
   p.first=$6000
   p.count=$12
@@ -53,6 +59,7 @@ PROC Main()
   NestedFields(@data,@data)
   KnownFields()
   RebindParameter(@data)
+  KnownWord($7EED)
   MutateSource(@data)
   observed=ReadCurrent()
 RETURN

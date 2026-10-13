@@ -222,4 +222,43 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn proven_data_writes_reuse_bases_and_keep_unbounded_parameters_generic() {
+        for runtime in [
+            crate::runtime::Runtime::ActionCart,
+            crate::runtime::Runtime::Standalone,
+        ] {
+            let input = fixture(false);
+            let mut reads = Mir6502Config::optimized();
+            reads.enable_record_base_reuse = true;
+            let mut writes = reads.clone();
+            writes.enable_record_base_writes = true;
+            let old = crate::mir6502::materialize_program_with_origin_and_runtime(
+                input.clone(),
+                &reads,
+                0x2C00,
+                runtime,
+            )
+            .unwrap();
+            let new = crate::mir6502::materialize_program_with_origin_and_runtime(
+                input.clone(),
+                &writes,
+                0x2C00,
+                runtime,
+            )
+            .unwrap();
+            let a = address_values::Cost::measure(&old, 0x2C00).unwrap();
+            let b = address_values::Cost::measure(&new, 0x2C00).unwrap();
+            assert!(b.bytes < a.bytes);
+            for name in ["KnownFields", "KnownWord"] {
+                let id = input.routines.iter().find(|r| r.name == name).unwrap().id;
+                assert!(b.routine(id) < a.routine(id), "{runtime:?}/{name}");
+            }
+            for name in ["WriteFields", "MutateSource", "RebindParameter"] {
+                let id = input.routines.iter().find(|r| r.name == name).unwrap().id;
+                assert_eq!(b.routine(id), a.routine(id), "{runtime:?}/{name}");
+            }
+        }
+    }
 }

@@ -97,6 +97,28 @@ pub(super) fn emit_program_with_physical_memory(
         .push(MirSegmentKind::Code, layout.storage_end, routine_code_size);
     let mut ctx = MirEmitContext::with_layout(mir, origin, layout, branch_plan);
     if physical_memory {
+        // Data allocations come from actual placement, independently of any
+        // pointer type. Numeric pointers into code or foreign RAM are not
+        // certificates for retaining memory-dependent machine facts.
+        for global in &mir.globals {
+            if matches!(global.backing,MirGlobalBacking::Ordinary {..}) {
+                if let Some(MirStoragePlacement::Absolute {address,size,..})=ctx.layout.globals.get(&global.id) {
+                    ctx.summary.physical_memory.own_data(*address,*size);
+                }
+            }
+        }
+        for routine in &mir.routines {
+            for slot in routine.frame.params.iter().chain(&routine.frame.locals) {
+                let mem=match slot.base {
+                    MirStorageBase::Param(id)=>Some(MirMem::Param {id,offset:0}),
+                    MirStorageBase::Local(id)=>Some(MirMem::Local {id,offset:0}),
+                    _=>None,
+                };
+                if let Some(address)=mem.and_then(|mem|ctx.layout.direct_mem(routine.id,&mem)).map(resolved_mem_address) {
+                    ctx.summary.physical_memory.own_data(address,slot.storage_size);
+                }
+            }
+        }
         for routine in &mir.routines {
             for op in routine.blocks.iter().flat_map(|b| &b.ops) {
                 let effects = super::analysis::effects::classify_op(op);

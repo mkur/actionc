@@ -279,6 +279,12 @@ byte load. This retains A/Z/N, including callee exit facts already consumed by
 caller optimization, and preserves all pointee accesses. The transaction driver
 checks generation and dependencies; final emission checks code/home/image and
 zero-page budgets and replays the alias proofs against the proposed placement.
+Indirect BYTE and direct-to-indirect WORD stores can preserve a base only when
+the complete destination lies inside a compiler-owned data allocation from
+final placement. A numeric RAM address alone is insufficient: it may name
+instructions or foreign memory. Source bytes, pointer-pair bytes, implicit
+pair clobbers and both WORD destination lanes are checked independently.
+RHS capture and original store order remain executable and unchanged.
 Canonical parameter carriers may feed plain or constant-index preparation only
 when block-local capture, register availability and intervening physical write
 ranges prove the bytes still equal their parameter homes. The high byte must

@@ -54,10 +54,10 @@ fn record_sequences_keep_fields_snapshots_and_mutable_source_cells() {
                 } else {
                     actionc::nir::optimize_program(&raw).unwrap()
                 };
-                for enabled in [false, true] {
+                for (enabled, writes) in [(false, false), (true, false), (true, true)] {
                     let mut config = actionc::mir6502::Mir6502Config::optimized();
                     config.enable_record_base_reuse = enabled;
-                    config.enable_record_base_writes = false;
+                    config.enable_record_base_writes = writes;
                     config.enable_record_base_parameter_origins = false;
                     let output = actionc::mir6502::generate_output_with_config_and_runtime(
                         &normalized,
@@ -139,6 +139,28 @@ fn record_sequences_keep_fields_snapshots_and_mutable_source_cells() {
                         assert_eq!(vm.bus().ram().read(base - 1), 0xA5);
                         assert_eq!(vm.bus().ram().read(base + 7), 0xA5);
                     }
+                    let data = global("data");
+                    vm.bus_mut()
+                        .ram_mut()
+                        .map(data, &[0xA5, 0xA5, 0xA5, 0xA5, 0xA5, 0x43, 0x65])
+                        .unwrap();
+                    let next = vm.bus().ram().read(data + 7);
+                    vm = machine::call(vm, &mut Hooks, routine("KnownFields"), &[]);
+                    assert_eq!(
+                        machine::bytes(&vm, data, 7),
+                        [0xDC, 0xFE, 0, 0, 1, 0x43, 0x65]
+                    );
+                    vm = machine::call(
+                        vm,
+                        &mut Hooks,
+                        routine("KnownWord"),
+                        &0x7EEDu16.to_le_bytes(),
+                    );
+                    assert_eq!(
+                        machine::bytes(&vm, data, 7),
+                        [0xED, 0x7E, 0, 0, 1, 0x43, 0x65]
+                    );
+                    assert_eq!(vm.bus().ram().read(data + 7), next);
                     let cell = output
                         .map
                         .storage_symbols

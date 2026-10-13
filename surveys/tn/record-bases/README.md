@@ -61,3 +61,11 @@ the next field: the earlier fixture was already optimized by existing passes.
 reporter payload changes from 703 to 696. Source homes and zero-page occupancy
 do not grow. Raw/optimized NIR execution and LF/CRLF compilation preserve the
 self-cell mutation fallback and field/neighbor checks.
+
+Stage 3 admits BYTE stores and the existing direct-to-indirect WORD copy only
+with a complete destination inside compiler-owned data. Numeric addresses into
+code or foreign RAM retain fallback, as do incomplete WORD footprints. The
+generic `KnownWord` case places a variable WORD store between field operations;
+all RHS staging and low/high store order remain. VM checks execute both known
+store cases with raw/optimized NIR, both runtimes and LF/CRLF sources. Incoming
+record parameters and the self-cell mutation case remain generic.
