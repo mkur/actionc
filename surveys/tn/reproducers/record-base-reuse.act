@@ -1,0 +1,57 @@
+; Generic record sequences. Source pointer cells and field stores stay visible.
+TYPE Header=[CARD first BYTE count,valid,ended CARD value]
+Header data
+Header POINTER current
+CARD observed
+
+CARD FUNC ReadFields(Header POINTER p)
+  CARD first
+  first=p.first
+RETURN(first+p.value)
+
+PROC WriteFields(Header POINTER p CARD value)
+  p.valid=0 p.count=0 p.ended=1 p.first=value
+RETURN
+
+PROC MixedFields(Header POINTER p CARD value)
+  observed=p.first
+  p.value=value
+  observed==+p.value
+RETURN
+
+PROC NestedFields(Header POINTER p Header POINTER q)
+  p.first=q.value p.count=q.valid p.ended=q.count
+RETURN
+
+PROC KnownFields()
+  Header POINTER p
+  p=@data
+  p.valid=0 p.count=0 p.ended=1 p.first=$FEDC
+RETURN
+
+PROC RebindParameter(Header POINTER p)
+  p=@data
+  p.valid=1 p.count=2 p.ended=0
+RETURN
+
+PROC MutateSource(Header POINTER p)
+  p.first=$6000
+  p.count=$12
+RETURN
+
+CARD FUNC ReadCurrent()
+  CARD first
+  first=current.first
+RETURN(first+current.value)
+
+PROC Main()
+  current=@data
+  WriteFields(@data,$1234)
+  observed=ReadFields(@data)
+  MixedFields(@data,$4321)
+  NestedFields(@data,@data)
+  KnownFields()
+  RebindParameter(@data)
+  MutateSource(@data)
+  observed=ReadCurrent()
+RETURN

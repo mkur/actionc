@@ -13,6 +13,12 @@ compiler limitations, with fresh builds of TN and TNDBG.
 The [bitmap traversal audit](bitmap-scans/README.md) compares per-bit and
 byte-wise scans, qualifies a smaller tail-clear loop and identifies the next
 MIR6502 arithmetic and captured-bound proof work.
+The [current code-size audit](size-audit-2026-10-13/README.md) attributes qualified
+TN/TNDBG bytes, measures inlining/unrolling controls and ranks record-address
+retention and intermediate value flow as the next size directions.
+The [record base reuse plan](record-base-reuse-plan.md) stages the shared
+address/alias proofs, reuse across reads and proven writes, bounded parameter
+origins and final size/behavior qualification.
 The [directory handling implementation plan](directory-handling-implementation-plan.md)
 replaces the proposed row overlays with 64-entry batches, independent tagging
 and a MyDOS-first migration toward FujiNet. The implementation and VM checks

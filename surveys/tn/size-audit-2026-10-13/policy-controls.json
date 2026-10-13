@@ -1,0 +1,52 @@
+{
+  "revision": "2e8aaa06",
+  "compiler_sha256": "ee89b34484c589e8004413c729dd52cd8251d2c3dfc2b3f82e11daeeb7873e80",
+  "config_patch_sha256": "92e4360b3d49d0c4bd5c11e32580e0a7fbf086ac6a07111ab1074e642a676977",
+  "controls": {
+    "TN": {
+      "optimized": {
+        "load_file_bytes": 16617,
+        "sha256": "fbd9b817461895c46c00875edb943ac3f15513a6a88a62b62a7e10c5401f7717",
+        "lf_crlf_identical": true
+      },
+      "no_inlining": {
+        "load_file_bytes": 16617,
+        "sha256": "fbd9b817461895c46c00875edb943ac3f15513a6a88a62b62a7e10c5401f7717",
+        "lf_crlf_identical": true
+      },
+      "no_unrolling": {
+        "load_file_bytes": 16617,
+        "sha256": "fbd9b817461895c46c00875edb943ac3f15513a6a88a62b62a7e10c5401f7717",
+        "lf_crlf_identical": true
+      },
+      "size_control": {
+        "load_file_bytes": 16617,
+        "sha256": "fbd9b817461895c46c00875edb943ac3f15513a6a88a62b62a7e10c5401f7717",
+        "lf_crlf_identical": true
+      }
+    },
+    "TNDBG": {
+      "optimized": {
+        "load_file_bytes": 20354,
+        "sha256": "447e045fec0bfcbf5d22858d15efdfe003075cf5f2cfe7e563be5167866dbc99",
+        "lf_crlf_identical": true
+      },
+      "no_inlining": {
+        "load_file_bytes": 20325,
+        "sha256": "b667949f7547fc851a51c9ad4aea21031780a2b854a0879c5bc1e9edbf28f7e0",
+        "lf_crlf_identical": true
+      },
+      "no_unrolling": {
+        "load_file_bytes": 20354,
+        "sha256": "447e045fec0bfcbf5d22858d15efdfe003075cf5f2cfe7e563be5167866dbc99",
+        "lf_crlf_identical": true
+      },
+      "size_control": {
+        "load_file_bytes": 20325,
+        "sha256": "b667949f7547fc851a51c9ad4aea21031780a2b854a0879c5bc1e9edbf28f7e0",
+        "lf_crlf_identical": true
+      }
+    }
+  },
+  "resolved_revision": "2e8aaa06efefa24d24e8881450bd858970c5640e"
+}

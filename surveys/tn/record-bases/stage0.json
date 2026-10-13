@@ -1,0 +1,219 @@
+{
+  "compiler_sha256": "f31bf597713027b4f8bcd97bbc486218eab381d77dc728e8cf18483708ef1cbf",
+  "reporter_sha256": "e120f3935c1b679f169c365b76c567b48e3cd1e22045ba6da90c6982ea0c09b2",
+  "source_sha256_lf": "6e2a2eb7a59802b7964b912036cf2f5a32491d8db48c7decee54e4c2fd2d23d2",
+  "cases": {
+    "cart": {
+      "load_file_bytes": 699,
+      "image_sha256": "6c22b4aa9f7a46023029447a1c06b6ff63fce081fe71ac0c43ce5e97b4329d5d",
+      "lf_crlf_identical": true,
+      "routines": {
+        "ReadFields": {
+          "instruction_form_bytes": 40,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 2,
+          "indirect_y_operations": 4
+        },
+        "WriteFields": {
+          "instruction_form_bytes": 86,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 5
+        },
+        "MixedFields": {
+          "instruction_form_bytes": 112,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 6,
+          "indirect_y_operations": 6
+        },
+        "NestedFields": {
+          "instruction_form_bytes": 111,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 8
+        },
+        "KnownFields": {
+          "instruction_form_bytes": 69,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 2,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 6,
+          "indirect_y_operations": 4
+        },
+        "RebindParameter": {
+          "instruction_form_bytes": 64,
+          "home_bytes": {
+            "spill": 0,
+            "param": 2,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 6,
+          "indirect_y_operations": 3
+        },
+        "MutateSource": {
+          "instruction_form_bytes": 37,
+          "home_bytes": {
+            "spill": 0,
+            "param": 2,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 4,
+          "indirect_y_operations": 3
+        },
+        "ReadCurrent": {
+          "instruction_form_bytes": 46,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 2,
+          "indirect_y_operations": 4
+        },
+        "Main": {
+          "instruction_form_bytes": 93,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        }
+      }
+    },
+    "standalone": {
+      "load_file_bytes": 699,
+      "image_sha256": "6c22b4aa9f7a46023029447a1c06b6ff63fce081fe71ac0c43ce5e97b4329d5d",
+      "lf_crlf_identical": true,
+      "routines": {
+        "ReadFields": {
+          "instruction_form_bytes": 40,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 2,
+          "indirect_y_operations": 4
+        },
+        "WriteFields": {
+          "instruction_form_bytes": 86,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 5
+        },
+        "MixedFields": {
+          "instruction_form_bytes": 112,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 6,
+          "indirect_y_operations": 6
+        },
+        "NestedFields": {
+          "instruction_form_bytes": 111,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 8
+        },
+        "KnownFields": {
+          "instruction_form_bytes": 69,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 2,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 6,
+          "indirect_y_operations": 4
+        },
+        "RebindParameter": {
+          "instruction_form_bytes": 64,
+          "home_bytes": {
+            "spill": 0,
+            "param": 2,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 6,
+          "indirect_y_operations": 3
+        },
+        "MutateSource": {
+          "instruction_form_bytes": 37,
+          "home_bytes": {
+            "spill": 0,
+            "param": 2,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 4,
+          "indirect_y_operations": 3
+        },
+        "ReadCurrent": {
+          "instruction_form_bytes": 46,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 2,
+          "indirect_y_operations": 4
+        },
+        "Main": {
+          "instruction_form_bytes": 93,
+          "home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "pointer_scratch_writes": 0,
+          "indirect_y_operations": 0
+        }
+      }
+    }
+  }
+}

@@ -207,6 +207,10 @@ crowding the active reference set.
 - [MIR6502 rewrite workflow baseline](../surveys/tn/mir6502-rewrite-workflow-baseline.md)
   - reproducible TN artifacts and the checked migration inventory for that
   plan.
+- [MIR6502 record base reuse plan](../surveys/tn/record-base-reuse-plan.md)
+  - staged pointer-pair lifetime and alias proofs, field-sequence reuse and
+  qualification against TN/TNDBG size and behavior.
+
 ## Tooling
 
 - [ACTIONC_VM_USAGE.md](ACTIONC_VM_USAGE.md) - in-repo compiler

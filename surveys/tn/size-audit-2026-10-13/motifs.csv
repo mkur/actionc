@@ -1,0 +1,838 @@
+image,kind,routine,address,previous_address,bytes,pair,conditions,forms
+TN-optimized,pair_setup,Print,11615,,10,174,unproved,LDA.A param_Print_s | STA.Z $AE | LDA.A param_Print_s+1 | STA.Z $AF
+TN-optimized,pair_setup,Range,12622,,10,174,unproved,LDA.A param_Range_s | STA.Z $AE | LDA.A param_Range_s+1 | STA.Z $AF
+TN-optimized,pair_setup,Range,12655,,10,174,unproved,LDA.A param_Range_s | STA.Z $AE | LDA.A param_Range_s+1 | STA.Z $AF
+TN-optimized,pair_setup,Range,12673,,10,174,unproved,LDA.A param_Range_c | STA.Z $AE | LDA.A param_Range_c+1 | STA.Z $AF
+TN-optimized,pair_setup,Range,12735,,10,174,unproved,LDA.A param_Range_c | STA.Z $AE | LDA.A param_Range_c+1 | STA.Z $AF
+TN-optimized,pair_setup,InputLine,12977,,10,174,unproved,LDA.A param_InputLine_string | STA.Z $AE | LDA.A param_InputLine_string+1 | STA.Z $AF
+TN-optimized,pair_setup,Ord,13123,,10,174,unproved,LDA.A param_Ord_menu | STA.Z $AE | LDA.A param_Ord_menu+1 | STA.Z $AF
+TN-optimized,pair_setup,Items,13198,,10,174,unproved,LDA.A param_Items_menu | STA.Z $AE | LDA.A param_Items_menu+1 | STA.Z $AF
+TN-optimized,pair_setup,FindItem,13255,,10,174,unproved,LDA.A param_FindItem_menu | STA.Z $AE | LDA.A param_FindItem_menu+1 | STA.Z $AF
+TN-optimized,pair_setup,DrawMenu,13348,,10,174,unproved,LDA.A param_DrawMenu_menu | STA.Z $AE | LDA.A param_DrawMenu_menu+1 | STA.Z $AF
+TN-optimized,pair_setup,MoveMenuBar,13427,,10,174,unproved,LDA.A param_MoveMenuBar_menu | STA.Z $AE | LDA.A param_MoveMenuBar_menu+1 | STA.Z $AF
+TN-optimized,pair_setup,MoveMenuBar,13493,,10,174,unproved,LDA.A param_MoveMenuBar_menu | STA.Z $AE | LDA.A param_MoveMenuBar_menu+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsFill,14034,,10,174,unproved,LDA.A local_TagsFill_p | STA.Z $AE | LDA.A local_TagsFill_p+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,TagsFill,14044,14034,10,174,no_detected_write_barrier,LDA.A local_TagsFill_p | STA.Z $AE | LDA.A local_TagsFill_p+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsFill,14044,,10,174,unproved,LDA.A local_TagsFill_p | STA.Z $AE | LDA.A local_TagsFill_p+1 | STA.Z $AF
+TN-optimized,pair_setup,ClearTags,14103,,10,174,unproved,LDA.A param_ClearTags_tags | STA.Z $AE | LDA.A param_ClearTags_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,ClearTags,14122,14103,10,174,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AE | LDA.A param_ClearTags_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,ClearTags,14122,,10,174,unproved,LDA.A param_ClearTags_tags | STA.Z $AE | LDA.A param_ClearTags_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,ClearTags,14138,14122,10,174,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AE | LDA.A param_ClearTags_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,ClearTags,14138,,10,174,unproved,LDA.A param_ClearTags_tags | STA.Z $AE | LDA.A param_ClearTags_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsInit,14166,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,TagsInit,14189,14166,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsInit,14189,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,TagsInit,14207,14189,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsInit,14207,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,TagsInit,14226,14207,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsInit,14226,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,TagsInit,14245,14226,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsInit,14245,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,TagsInit,14264,14245,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsInit,14264,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,TagsInit,14280,14264,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsInit,14280,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,TagsInit,14295,14280,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsInit,14295,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,TagsInit,14310,14295,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsInit,14310,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsInit,14380,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsReset,14428,,10,174,unproved,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,TagsReset,14447,14428,10,174,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsReset,14447,,10,174,unproved,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,TagsReset,14463,14447,10,174,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsReset,14463,,10,174,unproved,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,TagsReset,14479,14463,10,174,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsReset,14479,,10,174,unproved,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagBitInRange,14659,,10,174,unproved,LDA.A local_TagBitInRange_p | STA.Z $AE | LDA.A local_TagBitInRange_p+1 | STA.Z $AF
+TN-optimized,pair_setup,ChangeTagged,14789,,10,174,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AE | LDA.A param_ChangeTagged_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,ChangeTagged,14858,,10,174,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AE | LDA.A param_ChangeTagged_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,ChangeTagged,14939,,10,174,unproved,LDA.A local_ChangeTagged_p | STA.Z $AE | LDA.A local_ChangeTagged_p+1 | STA.Z $AF
+TN-optimized,pair_setup,ChangeTagged,15000,,10,174,unproved,LDA.A local_ChangeTagged_p | STA.Z $AE | LDA.A local_ChangeTagged_p+1 | STA.Z $AF
+TN-optimized,pair_setup,ChangeTagged,15051,,10,174,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AE | LDA.A param_ChangeTagged_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,ChangeTagged,15145,,10,174,unproved,LDA.A local_ChangeTagged_p | STA.Z $AE | LDA.A local_ChangeTagged_p+1 | STA.Z $AF
+TN-optimized,pair_setup,ChangeTagged,15196,,10,174,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AE | LDA.A param_ChangeTagged_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,ChangeTagged,15222,,10,174,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AE | LDA.A param_ChangeTagged_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,ChangeTagged,15276,,10,174,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AE | LDA.A param_ChangeTagged_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,ChangeTagged,15303,,10,174,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AE | LDA.A param_ChangeTagged_tags+1 | STA.Z $AF
+TN-optimized,boolean_materialization,SetTagged,15345,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_SetTagged_2 | LDA #$01
+TN-optimized,pair_setup,TagsRecount,15466,,10,174,unproved,LDA.A param_TagsRecount_tags | STA.Z $AE | LDA.A param_TagsRecount_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsRecount,15528,,10,174,unproved,LDA.A param_TagsRecount_tags | STA.Z $AE | LDA.A param_TagsRecount_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsExtent,15644,,10,174,unproved,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsExtent,15699,,10,174,unproved,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsExtent,15727,,10,174,unproved,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsExtent,15743,,10,174,unproved,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,TagsExtent,15766,15743,10,174,no_detected_write_barrier,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsExtent,15766,,10,174,unproved,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsExtent,15801,,10,174,unproved,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsExtent,15876,,10,174,unproved,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsExtent,15929,,10,174,unproved,LDA.A local_TagsExtent_p | STA.Z $AE | LDA.A local_TagsExtent_p+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsExtent,16010,,10,174,unproved,LDA.A local_TagsExtent_p | STA.Z $AE | LDA.A local_TagsExtent_p+1 | STA.Z $AF
+TN-optimized,boolean_materialization,TagsExtent,15790,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_TagsExtent_5 | LDA #$01
+TN-optimized,pair_setup,ToggleAllTags,16090,,10,174,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,ToggleAllTags,16106,16090,10,174,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,ToggleAllTags,16106,,10,174,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,ToggleAllTags,16121,16106,10,174,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,ToggleAllTags,16121,,10,174,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,ToggleAllTags,16137,16121,10,174,no_detected_write_barrier,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,ToggleAllTags,16137,,10,174,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,ToggleAllTags,16153,16137,10,174,no_detected_write_barrier,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,ToggleAllTags,16153,,10,174,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,TagsReady,16206,,10,174,unproved,LDA.A param_TagsReady_tags | STA.Z $AE | LDA.A param_TagsReady_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,NextTagged,16250,,10,174,unproved,LDA.A param_NextTagged_tags | STA.Z $AE | LDA.A param_NextTagged_tags+1 | STA.Z $AF
+TN-optimized,pair_setup,NextTagged,16359,,10,174,unproved,LDA.A param_NextTagged_found | STA.Z $AE | LDA.A param_NextTagged_found+1 | STA.Z $AF
+TN-optimized,pair_setup,BatchPublish,16496,,10,174,unproved,LDA.A param_BatchPublish_batch | STA.Z $AE | LDA.A param_BatchPublish_batch+1 | STA.Z $AF
+TN-optimized,pair_setup,BatchPublish,16586,,10,174,unproved,LDA.A param_BatchPublish_batch | STA.Z $AE | LDA.A param_BatchPublish_batch+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,BatchPublish,16603,16586,10,174,indirect_write,LDA.A param_BatchPublish_batch | STA.Z $AE | LDA.A param_BatchPublish_batch+1 | STA.Z $AF
+TN-optimized,pair_setup,BatchPublish,16603,,10,174,unproved,LDA.A param_BatchPublish_batch | STA.Z $AE | LDA.A param_BatchPublish_batch+1 | STA.Z $AF
+TN-optimized,pair_setup,BatchPublish,16642,,10,174,unproved,LDA.A param_BatchPublish_batch | STA.Z $AE | LDA.A param_BatchPublish_batch+1 | STA.Z $AF
+TN-optimized,duplicate_literal_byte_exit,BatchPublish,16526,16563,5,,return_value_2;two_byte_raw_saving,LDA #$02 | STA.Z $A0 | RTS
+TN-optimized,pair_setup,CachedEntry,16881,,10,174,unproved,LDA.A param_CachedEntry_batch | STA.Z $AE | LDA.A param_CachedEntry_batch+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosSummary,17117,,10,174,unproved,LDA.A param_MyDosSummary_text | STA.Z $AE | LDA.A param_MyDosSummary_text+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosSummary,17171,,10,174,unproved,LDA.A param_MyDosSummary_text | STA.Z $AE | LDA.A param_MyDosSummary_text+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosParse,17357,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,MyDosParse,17390,17357,10,174,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosParse,17390,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosParse,17406,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosParse,17416,,10,172,unproved,LDA.A param_MyDosParse_text | STA.Z $AC | LDA.A param_MyDosParse_text+1 | STA.Z $AD
+TN-optimized,pair_setup,MyDosParse,17434,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,MyDosParse,17450,17434,10,174,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosParse,17450,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosParse,17467,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosParse,17482,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosParse,17519,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosParse,17688,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TN-optimized,duplicate_literal_byte_exit,MyDosParse,17324,17683,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TN-optimized,duplicate_literal_byte_exit,MyDosParse,17352,17683,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TN-optimized,pair_setup,MyDosAfter,17813,,10,174,unproved,LDA.A param_MyDosAfter_right | STA.Z $AE | LDA.A param_MyDosAfter_right+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosAfter,17869,,10,174,unproved,LDA.A param_MyDosAfter_left | STA.Z $AE | LDA.A param_MyDosAfter_left+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosAfter,17919,,10,174,unproved,LDA.A param_MyDosAfter_right | STA.Z $AE | LDA.A param_MyDosAfter_right+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosAfter,18008,,10,174,unproved,LDA.A param_MyDosAfter_left | STA.Z $AE | LDA.A param_MyDosAfter_left+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosAfter,18058,,10,174,unproved,LDA.A param_MyDosAfter_right | STA.Z $AE | LDA.A param_MyDosAfter_right+1 | STA.Z $AF
+TN-optimized,boolean_materialization,MyDosAfter,17847,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_MyDosAfter_2 | LDA #$01
+TN-optimized,duplicate_literal_byte_exit,MyDosAfter,17852,18124,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TN-optimized,duplicate_literal_byte_exit,MyDosAfter,17985,18124,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TN-optimized,pair_setup,SortBatch,18214,,10,174,unproved,LDA.A param_SortBatch_batch | STA.Z $AE | LDA.A param_SortBatch_batch+1 | STA.Z $AF
+TN-optimized,pair_setup,SortBatch,18280,,10,174,unproved,LDA.A param_SortBatch_batch | STA.Z $AE | LDA.A param_SortBatch_batch+1 | STA.Z $AF
+TN-optimized,pair_setup,SortBatch,18385,,10,174,unproved,LDA.A param_SortBatch_batch | STA.Z $AE | LDA.A param_SortBatch_batch+1 | STA.Z $AF
+TN-optimized,pair_setup,SortBatch,18451,,10,174,unproved,LDA.A param_SortBatch_batch | STA.Z $AE | LDA.A param_SortBatch_batch+1 | STA.Z $AF
+TN-optimized,pair_setup,SortBatch,18535,,10,174,unproved,LDA.A param_SortBatch_batch | STA.Z $AE | LDA.A param_SortBatch_batch+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosRead,18843,,10,174,unproved,LDA.A param_MyDosRead_batch | STA.Z $AE | LDA.A param_MyDosRead_batch+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosRead,18909,,10,174,unproved,LDA.A param_MyDosRead_batch | STA.Z $AE | LDA.A param_MyDosRead_batch+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosRead,19034,,10,174,unproved,LDA.A local_MyDosRead_entry | STA.Z $AE | LDA.A local_MyDosRead_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosRead,19056,,10,174,unproved,LDA.A param_MyDosRead_batch | STA.Z $AE | LDA.A param_MyDosRead_batch+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosRead,19122,,10,174,unproved,LDA.A param_MyDosRead_batch | STA.Z $AE | LDA.A param_MyDosRead_batch+1 | STA.Z $AF
+TN-optimized,duplicate_literal_byte_exit,MyDosRead,18715,18750,5,,return_value_6;two_byte_raw_saving,LDA #$06 | STA.Z $A0 | RTS
+TN-optimized,duplicate_literal_byte_exit,MyDosRead,18760,19117,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TN-optimized,duplicate_literal_byte_exit,MyDosRead,18798,19117,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TN-optimized,pair_setup,MyDosName,19190,,10,174,unproved,LDA.A param_MyDosName_entry | STA.Z $AE | LDA.A param_MyDosName_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosName,19230,,10,174,unproved,LDA.A param_MyDosName_entry | STA.Z $AE | LDA.A param_MyDosName_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosName,19302,,10,174,unproved,LDA.A param_MyDosName_entry | STA.Z $AE | LDA.A param_MyDosName_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosName,19380,,10,174,unproved,LDA.A param_MyDosName_output | STA.Z $AE | LDA.A param_MyDosName_output+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosName,19451,,10,174,unproved,LDA.A param_MyDosName_entry | STA.Z $AE | LDA.A param_MyDosName_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosName,19501,,10,174,unproved,LDA.A param_MyDosName_output | STA.Z $AE | LDA.A param_MyDosName_output+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosName,19528,,10,174,unproved,LDA.A param_MyDosName_output | STA.Z $AE | LDA.A param_MyDosName_output+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosName,19563,,10,174,unproved,LDA.A param_MyDosName_entry | STA.Z $AE | LDA.A param_MyDosName_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosName,19614,,10,174,unproved,LDA.A param_MyDosName_entry | STA.Z $AE | LDA.A param_MyDosName_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosName,19664,,10,174,unproved,LDA.A param_MyDosName_output | STA.Z $AE | LDA.A param_MyDosName_output+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosRender,19709,,10,174,unproved,LDA.A param_MyDosRender_output | STA.Z $AE | LDA.A param_MyDosRender_output+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosRender,19730,,10,174,unproved,LDA.A param_MyDosRender_output | STA.Z $AE | LDA.A param_MyDosRender_output+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosRender,19744,,10,174,unproved,LDA.A param_MyDosRender_entry | STA.Z $AE | LDA.A param_MyDosRender_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosRender,19796,,10,174,unproved,LDA.A param_MyDosRender_entry | STA.Z $AE | LDA.A param_MyDosRender_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosRender,19919,,10,174,unproved,LDA.A param_MyDosRender_entry | STA.Z $AE | LDA.A param_MyDosRender_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosRender,20017,,10,174,unproved,LDA.A param_MyDosRender_entry | STA.Z $AE | LDA.A param_MyDosRender_entry+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosRenderSummary,20156,,10,174,unproved,LDA.A param_MyDosRenderSummary_batch | STA.Z $AE | LDA.A param_MyDosRenderSummary_batch+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosRenderSummary,20209,,10,174,unproved,LDA.A param_MyDosRenderSummary_output | STA.Z $AE | LDA.A param_MyDosRenderSummary_output+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosCapture,20314,,10,174,unproved,LDA.A param_MyDosCapture_location | STA.Z $AE | LDA.A param_MyDosCapture_location+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,MyDosCapture,20337,20314,10,174,indirect_write,LDA.A param_MyDosCapture_location | STA.Z $AE | LDA.A param_MyDosCapture_location+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosCapture,20337,,10,174,unproved,LDA.A param_MyDosCapture_location | STA.Z $AE | LDA.A param_MyDosCapture_location+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosPathName,20410,,10,174,unproved,LDA.A param_MyDosPathName_location | STA.Z $AE | LDA.A param_MyDosPathName_location+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosCanEnter,20534,,10,174,unproved,LDA.A param_MyDosCanEnter_name | STA.Z $AE | LDA.A param_MyDosCanEnter_name+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosCanEnter,20604,,10,174,unproved,LDA.A param_MyDosCanEnter_name | STA.Z $AE | LDA.A param_MyDosCanEnter_name+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosCanEnter,20633,,10,174,unproved,LDA.A param_MyDosCanEnter_name | STA.Z $AE | LDA.A param_MyDosCanEnter_name+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosCanEnter,20672,,10,174,unproved,LDA.A param_MyDosCanEnter_name | STA.Z $AE | LDA.A param_MyDosCanEnter_name+1 | STA.Z $AF
+TN-optimized,duplicate_literal_byte_exit,MyDosCanEnter,20594,20689,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TN-optimized,pair_setup,MyDosPush,20746,,10,174,unproved,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,MyDosPush,20763,20746,10,174,no_detected_write_barrier,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosPush,20763,,10,174,unproved,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosPush,20854,,10,174,unproved,LDA.A param_MyDosPush_name | STA.Z $AE | LDA.A param_MyDosPush_name+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosPush,20873,,10,174,unproved,LDA.A param_MyDosPush_name | STA.Z $AE | LDA.A param_MyDosPush_name+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosPush,20925,,10,174,unproved,LDA.A local_MyDosPush_output | STA.Z $AE | LDA.A loc_MyDosPush_1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosPush,20945,,10,174,unproved,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,MyDosPush,20965,20945,10,174,indirect_write,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosPush,20965,,10,174,unproved,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosParent,21028,,10,174,unproved,LDA.A param_MyDosParent_location | STA.Z $AE | LDA.A param_MyDosParent_location+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosParent,21088,,10,174,unproved,LDA.A param_MyDosParent_location | STA.Z $AE | LDA.A param_MyDosParent_location+1 | STA.Z $AF
+TN-optimized,repeated_pair_setup,MyDosParent,21105,21088,10,174,indirect_write,LDA.A param_MyDosParent_location | STA.Z $AE | LDA.A param_MyDosParent_location+1 | STA.Z $AF
+TN-optimized,pair_setup,MyDosParent,21105,,10,174,unproved,LDA.A param_MyDosParent_location | STA.Z $AE | LDA.A param_MyDosParent_location+1 | STA.Z $AF
+TN-optimized,pair_setup,Strcat,21430,,10,174,unproved,LDA.A param_Strcat_t | STA.Z $AE | LDA.A param_Strcat_t+1 | STA.Z $AF
+TN-optimized,pair_setup,Strcat,21453,,10,174,unproved,LDA.A param_Strcat_s | STA.Z $AE | LDA.A param_Strcat_s+1 | STA.Z $AF
+TN-optimized,pair_setup,Strcat,21463,,10,172,unproved,LDA.A param_Strcat_t | STA.Z $AC | LDA.A param_Strcat_t+1 | STA.Z $AD
+TN-optimized,pair_setup,Instr,21518,,10,174,unproved,LDA.A param_Instr_s | STA.Z $AE | LDA.A param_Instr_s+1 | STA.Z $AF
+TN-optimized,pair_setup,PrintFname,21597,,10,174,unproved,LDA.A param_PrintFname_s | STA.Z $AE | LDA.A param_PrintFname_s+1 | STA.Z $AF
+TN-optimized,pair_setup,DirectoryFailure,21685,,10,174,unproved,LDA.A global_currentBatch | STA.Z $AE | LDA.A global_currentBatch+1 | STA.Z $AF
+TN-optimized,pair_setup,FetchWindow,21824,,10,174,unproved,LDA.A global_currentBatch | STA.Z $AE | LDA.A global_currentBatch+1 | STA.Z $AF
+TN-optimized,pair_setup,FetchWindow,21849,,10,174,unproved,LDA.A global_currentBatch | STA.Z $AE | LDA.A global_currentBatch+1 | STA.Z $AF
+TN-optimized,pair_setup,FetchWindow,21893,,10,174,unproved,LDA.A global_currentBatch | STA.Z $AE | LDA.A global_currentBatch+1 | STA.Z $AF
+TN-optimized,pair_setup,FetchWindow,21951,,10,174,unproved,LDA.A global_currentTags | STA.Z $AE | LDA.A global_currentTags+1 | STA.Z $AF
+TN-optimized,pair_setup,ListingEnd,21985,,10,174,unproved,LDA.A global_currentTags | STA.Z $AE | LDA.A global_currentTags+1 | STA.Z $AF
+TN-optimized,pair_setup,ListingEnd,22033,,10,174,unproved,LDA.A global_currentTags | STA.Z $AE | LDA.A global_currentTags+1 | STA.Z $AF
+TN-optimized,duplicate_literal_byte_exit,EnsureView,22229,22388,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TN-optimized,pair_setup,FileRange,22652,,10,174,unproved,LDA.A global_currentTags | STA.Z $AE | LDA.A global_currentTags+1 | STA.Z $AF
+TN-optimized,pair_setup,FileRange,22671,,10,174,unproved,LDA.A global_currentTags | STA.Z $AE | LDA.A global_currentTags+1 | STA.Z $AF
+TN-optimized,pair_setup,Path,22957,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TN-optimized,pair_setup,DrawWinFrame,23550,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TN-optimized,pair_setup,TaggedFiles,23719,,10,174,unproved,LDA.A global_currentTags | STA.Z $AE | LDA.A global_currentTags+1 | STA.Z $AF
+TN-optimized,pair_setup,IsProtected,23798,,10,174,unproved,LDA.A local_IsProtected_entry | STA.Z $AE | LDA.A local_IsProtected_entry+1 | STA.Z $AF
+TN-optimized,boolean_materialization,IsProtected,23820,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_IsProtected_3 | LDA #$01
+TN-optimized,pair_setup,IsDirectory,23864,,10,174,unproved,LDA.A local_IsDirectory_entry | STA.Z $AE | LDA.A local_IsDirectory_entry+1 | STA.Z $AF
+TN-optimized,boolean_materialization,IsDirectory,23886,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_IsDirectory_3 | LDA #$01
+TN-optimized,pair_setup,ActivateLocation,24025,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TN-optimized,pair_setup,ActivateLocation,24055,,10,174,unproved,LDA.A global_currentDir | STA.Z $AE | LDA.A global_currentDir+1 | STA.Z $AF
+TN-optimized,pair_setup,SetWin,24132,,10,174,unproved,LDA.A global_currentDir | STA.Z $AE | LDA.A global_currentDir+1 | STA.Z $AF
+TN-optimized,pair_setup,SetWin,24437,,10,174,unproved,LDA.A global_currentBatch | STA.Z $AE | LDA.A global_currentBatch+1 | STA.Z $AF
+TN-optimized,pair_setup,EnterDirectory,24540,,10,174,unproved,LDA.A global_currentDir | STA.Z $AE | LDA.A global_currentDir+1 | STA.Z $AF
+TN-optimized,pair_setup,EnterDirectory,24581,,10,174,unproved,LDA.A global_currentDir | STA.Z $AE | LDA.A global_currentDir+1 | STA.Z $AF
+TN-mir6502,pair_setup,Print,12824,,10,172,unproved,LDA.A param_Print_s | STA.Z $AC | LDA.A param_Print_s+1 | STA.Z $AD
+TN-mir6502,pair_setup,Range,13746,,10,172,unproved,LDA.A param_Range_s | STA.Z $AC | LDA.A param_Range_s+1 | STA.Z $AD
+TN-mir6502,pair_setup,Range,13781,,10,172,unproved,LDA.A param_Range_s | STA.Z $AC | LDA.A param_Range_s+1 | STA.Z $AD
+TN-mir6502,pair_setup,Range,13799,,10,172,unproved,LDA.A param_Range_c | STA.Z $AC | LDA.A param_Range_c+1 | STA.Z $AD
+TN-mir6502,pair_setup,Range,13848,,10,172,unproved,LDA.A param_Range_c | STA.Z $AC | LDA.A param_Range_c+1 | STA.Z $AD
+TN-mir6502,pair_setup,InputLine,14046,,10,172,unproved,LDA.A param_InputLine_string | STA.Z $AC | LDA.A param_InputLine_string+1 | STA.Z $AD
+TN-mir6502,pair_setup,InputLine,14077,,10,172,unproved,LDA.A param_InputLine_string | STA.Z $AC | LDA.A param_InputLine_string+1 | STA.Z $AD
+TN-mir6502,pair_setup,Ord,14208,,10,172,unproved,LDA.A param_Ord_menu | STA.Z $AC | LDA.A param_Ord_menu+1 | STA.Z $AD
+TN-mir6502,pair_setup,Items,14280,,10,172,unproved,LDA.A param_Items_menu | STA.Z $AC | LDA.A param_Items_menu+1 | STA.Z $AD
+TN-mir6502,pair_setup,DrawMenu,14413,,10,172,unproved,LDA.A param_DrawMenu_menu | STA.Z $AC | LDA.A param_DrawMenu_menu+1 | STA.Z $AD
+TN-mir6502,pair_setup,MoveMenuBar,14486,,10,172,unproved,LDA.A param_MoveMenuBar_menu | STA.Z $AC | LDA.A param_MoveMenuBar_menu+1 | STA.Z $AD
+TN-mir6502,pair_setup,MoveMenuBar,14546,,10,172,unproved,LDA.A param_MoveMenuBar_menu | STA.Z $AC | LDA.A param_MoveMenuBar_menu+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsFill,15007,,10,172,unproved,LDA.A local_TagsFill_p | STA.Z $AC | LDA.A local_TagsFill_p+1 | STA.Z $AD
+TN-mir6502,pair_setup,ClearTags,15058,,10,172,unproved,LDA.A param_ClearTags_tags | STA.Z $AC | LDA.A param_ClearTags_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,ClearTags,15077,15058,10,172,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AC | LDA.A param_ClearTags_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,ClearTags,15077,,10,172,unproved,LDA.A param_ClearTags_tags | STA.Z $AC | LDA.A param_ClearTags_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,ClearTags,15093,15077,10,172,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AC | LDA.A param_ClearTags_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,ClearTags,15093,,10,172,unproved,LDA.A param_ClearTags_tags | STA.Z $AC | LDA.A param_ClearTags_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsInit,15115,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,TagsInit,15142,15115,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsInit,15142,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,TagsInit,15160,15142,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsInit,15160,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,TagsInit,15178,15160,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsInit,15178,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,TagsInit,15196,15178,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsInit,15196,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,TagsInit,15214,15196,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsInit,15214,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,TagsInit,15229,15214,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsInit,15229,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,TagsInit,15244,15229,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsInit,15244,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,TagsInit,15259,15244,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsInit,15259,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsInit,15307,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TN-mir6502,word_store_stack_shuttle,TagsInit,15128,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A param_TagsInit_bits+1 | PHA | TXA | LDY #$00 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TN-mir6502,word_store_stack_shuttle,TagsInit,15320,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A param_TagsInit_capacity+1 | PHA | TXA | LDY #$02 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TN-mir6502,pair_setup,TagsReset,15357,,10,172,unproved,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,TagsReset,15376,15357,10,172,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsReset,15376,,10,172,unproved,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,TagsReset,15392,15376,10,172,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsReset,15392,,10,172,unproved,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,TagsReset,15408,15392,10,172,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsReset,15408,,10,172,unproved,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagBitInRange,15536,,10,172,unproved,LDA.A local_TagBitInRange_p | STA.Z $AC | LDA.A local_TagBitInRange_p+1 | STA.Z $AD
+TN-mir6502,boolean_materialization,TagBitInRange,15555,,7,,consumer_may_require_numeric_value,LDA #$01 | JMP.A loc_TagBitInRange_2 | LDA #$00
+TN-mir6502,pair_setup,ChangeTagged,15638,,10,172,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AC | LDA.A param_ChangeTagged_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,ChangeTagged,15706,,10,172,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AC | LDA.A param_ChangeTagged_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,ChangeTagged,15786,,10,172,unproved,LDA.A local_ChangeTagged_p | STA.Z $AC | LDA.A local_ChangeTagged_p+1 | STA.Z $AD
+TN-mir6502,pair_setup,ChangeTagged,15863,,8,172,unproved,LDA.Z $E4 | STA.Z $AC | LDA.Z $EA | STA.Z $AD
+TN-mir6502,pair_setup,ChangeTagged,15881,,10,172,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AC | LDA.A param_ChangeTagged_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,ChangeTagged,15940,,8,172,unproved,LDA.Z $E2 | STA.Z $AC | LDA.Z $E3 | STA.Z $AD
+TN-mir6502,pair_setup,ChangeTagged,15958,,10,172,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AC | LDA.A param_ChangeTagged_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,ChangeTagged,15994,,10,172,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AC | LDA.A param_ChangeTagged_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,ChangeTagged,16074,,10,172,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AC | LDA.A param_ChangeTagged_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,ChangeTagged,16095,,10,172,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AC | LDA.A param_ChangeTagged_tags+1 | STA.Z $AD
+TN-mir6502,boolean_materialization,ChangeTagged,15818,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_ChangeTagged_4 | LDA #$01
+TN-mir6502,stored_boolean_materialization,ChangeTagged,16040,,13,,consumer_may_require_numeric_value_and_home,LDA #$01 | STA.A spill_ChangeTagged_100 | JMP.A loc_ChangeTagged_10 | LDA #$00 | STA.A spill_ChangeTagged_100
+TN-mir6502,duplicate_literal_byte_exit,ChangeTagged,16069,16090,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TN-mir6502,stored_boolean_materialization,SetTagged,16125,,11,,consumer_may_require_numeric_value_and_home,LDA #$01 | STA.Z $A4 | JMP.A loc_SetTagged_2 | LDA #$00 | STA.Z $A4
+TN-mir6502,pair_setup,TagsRecount,16308,,10,172,unproved,LDA.A param_TagsRecount_tags | STA.Z $AC | LDA.A param_TagsRecount_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsExtent,16361,,10,172,unproved,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsExtent,16422,,10,172,unproved,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsExtent,16454,,10,172,unproved,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsExtent,16470,,10,172,unproved,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsExtent,16530,,10,172,unproved,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,TagsExtent,16547,16530,10,172,indirect_write,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsExtent,16547,,10,172,unproved,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsExtent,16662,,10,172,unproved,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,TagsExtent,16745,,8,172,unproved,LDA.Z $E4 | STA.Z $AC | LDA.Z $E5 | STA.Z $AD
+TN-mir6502,pair_setup,TagsExtent,16802,,10,172,unproved,LDA.A local_TagsExtent_p | STA.Z $AC | LDA.A local_TagsExtent_p+1 | STA.Z $AD
+TN-mir6502,boolean_materialization,TagsExtent,16410,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_TagsExtent_2 | LDA #$01
+TN-mir6502,stored_boolean_materialization,TagsExtent,16517,,13,,consumer_may_require_numeric_value_and_home,LDA #$00 | STA.A spill_TagsExtent_22 | JMP.A loc_TagsExtent_7 | LDA #$01 | STA.A spill_TagsExtent_22
+TN-mir6502,stored_boolean_materialization,TagsExtent,16578,,13,,consumer_may_require_numeric_value_and_home,LDA #$00 | STA.A spill_TagsExtent_23 | JMP.A loc_TagsExtent_9 | LDA #$01 | STA.A spill_TagsExtent_23
+TN-mir6502,word_store_stack_shuttle,TagsExtent,16435,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A param_TagsExtent_extent+1 | PHA | TXA | LDY #$04 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TN-mir6502,pair_setup,ToggleAllTags,16867,,10,172,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AC | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,ToggleAllTags,16883,16867,10,172,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AC | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,ToggleAllTags,16883,,10,172,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AC | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,ToggleAllTags,16898,16883,10,172,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AC | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,ToggleAllTags,16898,,10,172,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AC | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AD
+TN-mir6502,duplicate_literal_byte_exit,TagsReady,16973,16978,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TN-mir6502,pair_setup,NextTagged,16989,,10,172,unproved,LDA.A param_NextTagged_tags | STA.Z $AC | LDA.A param_NextTagged_tags+1 | STA.Z $AD
+TN-mir6502,pair_setup,NextTagged,17123,,10,172,unproved,LDA.A param_NextTagged_found | STA.Z $AC | LDA.A param_NextTagged_found+1 | STA.Z $AD
+TN-mir6502,word_store_stack_shuttle,NextTagged,17136,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A local_NextTagged_ordinal+1 | PHA | TXA | LDY #$00 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TN-mir6502,pair_setup,BatchBegin,17182,,10,172,unproved,LDA.A param_BatchBegin_batch | STA.Z $AC | LDA.A param_BatchBegin_batch+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,BatchBegin,17197,17182,10,172,indirect_write,LDA.A param_BatchBegin_batch | STA.Z $AC | LDA.A param_BatchBegin_batch+1 | STA.Z $AD
+TN-mir6502,pair_setup,BatchBegin,17197,,10,172,unproved,LDA.A param_BatchBegin_batch | STA.Z $AC | LDA.A param_BatchBegin_batch+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,BatchBegin,17213,17197,10,172,indirect_write,LDA.A param_BatchBegin_batch | STA.Z $AC | LDA.A param_BatchBegin_batch+1 | STA.Z $AD
+TN-mir6502,pair_setup,BatchBegin,17213,,10,172,unproved,LDA.A param_BatchBegin_batch | STA.Z $AC | LDA.A param_BatchBegin_batch+1 | STA.Z $AD
+TN-mir6502,word_store_stack_shuttle,BatchBegin,17226,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A param_BatchBegin_first+1 | PHA | TXA | LDY #$00 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TN-mir6502,pair_setup,BatchPublish,17247,,10,172,unproved,LDA.A param_BatchPublish_batch | STA.Z $AC | LDA.A param_BatchPublish_batch+1 | STA.Z $AD
+TN-mir6502,pair_setup,BatchPublish,17348,,10,172,unproved,LDA.A param_BatchPublish_batch | STA.Z $AC | LDA.A param_BatchPublish_batch+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,BatchPublish,17365,17348,10,172,indirect_write,LDA.A param_BatchPublish_batch | STA.Z $AC | LDA.A param_BatchPublish_batch+1 | STA.Z $AD
+TN-mir6502,pair_setup,BatchPublish,17365,,10,172,unproved,LDA.A param_BatchPublish_batch | STA.Z $AC | LDA.A param_BatchPublish_batch+1 | STA.Z $AD
+TN-mir6502,pair_setup,BatchPublish,17404,,10,172,unproved,LDA.A param_BatchPublish_batch | STA.Z $AC | LDA.A param_BatchPublish_batch+1 | STA.Z $AD
+TN-mir6502,duplicate_literal_byte_exit,BatchPublish,17277,17428,5,,return_value_2;two_byte_raw_saving,LDA #$02 | STA.Z $A0 | RTS
+TN-mir6502,duplicate_literal_byte_exit,MyDosSummary,17862,17908,5,,return_value_0;two_byte_raw_saving,LDA #$00 | STA.Z $A0 | RTS
+TN-mir6502,pair_setup,MyDosParse,17949,,10,172,unproved,LDA.A param_MyDosParse_text | STA.Z $AC | LDA.A param_MyDosParse_text+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosParse,17978,,10,172,unproved,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,MyDosParse,17994,17978,10,172,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosParse,17994,,10,172,unproved,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosParse,18012,,10,172,unproved,LDA.A param_MyDosParse_text | STA.Z $AC | LDA.A param_MyDosParse_text+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosParse,18028,,10,172,unproved,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosParse,18044,,10,172,unproved,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,MyDosParse,18060,18044,10,172,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosParse,18060,,10,172,unproved,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosParse,18083,,10,172,unproved,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosParse,18184,,10,172,unproved,LDA.A param_MyDosParse_text | STA.Z $AC | LDA.A param_MyDosParse_text+1 | STA.Z $AD
+TN-mir6502,duplicate_literal_byte_exit,MyDosParse,17944,18222,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TN-mir6502,duplicate_literal_byte_exit,MyDosParse,17967,18222,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TN-mir6502,pair_setup,MyDosAfter,18320,,10,172,unproved,LDA.A param_MyDosAfter_right | STA.Z $AC | LDA.A param_MyDosAfter_right+1 | STA.Z $AD
+TN-mir6502,boolean_materialization,MyDosAfter,18467,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_MyDosAfter_9 | LDA #$01
+TN-mir6502,duplicate_literal_byte_exit,MyDosAfter,18433,18452,5,,return_value_0;two_byte_raw_saving,LDA #$00 | STA.Z $A0 | RTS
+TN-mir6502,duplicate_literal_byte_exit,MyDosAfter,18440,18452,5,,return_value_0;two_byte_raw_saving,LDA #$00 | STA.Z $A0 | RTS
+TN-mir6502,duplicate_literal_byte_exit,MyDosAfter,18445,18472,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TN-mir6502,duplicate_literal_byte_exit,MyDosAfter,18457,18472,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TN-mir6502,pair_setup,SortBatch,18567,,10,172,unproved,LDA.A local_SortBatch_entry | STA.Z $AC | LDA.A local_SortBatch_entry+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosRead,19111,,10,172,unproved,LDA.A local_MyDosRead_entry | STA.Z $AC | LDA.A local_MyDosRead_entry+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosRead,19174,,10,172,unproved,LDA.A param_MyDosRead_batch | STA.Z $AC | LDA.A param_MyDosRead_batch+1 | STA.Z $AD
+TN-mir6502,duplicate_literal_byte_exit,MyDosRead,18860,18897,5,,return_value_6;two_byte_raw_saving,LDA #$06 | STA.Z $A0 | RTS
+TN-mir6502,duplicate_literal_byte_exit,MyDosRead,18907,19169,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TN-mir6502,duplicate_literal_byte_exit,MyDosRead,18944,19169,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TN-mir6502,pair_setup,MyDosName,19232,,10,172,unproved,LDA.A param_MyDosName_entry | STA.Z $AC | LDA.A param_MyDosName_entry+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosName,19373,,10,172,unproved,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,MyDosName,19390,19373,10,172,indirect_write,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosName,19390,,10,172,unproved,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,MyDosName,19405,19390,10,172,indirect_write,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosName,19405,,10,172,unproved,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosName,19438,,10,172,unproved,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosName,19509,,10,172,unproved,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosName,19574,,10,172,unproved,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TN-mir6502,duplicate_literal_byte_exit,MyDosName,19539,19544,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TN-mir6502,pair_setup,MyDosRender,19611,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosRender,19632,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosRender,19648,,10,172,unproved,LDA.A param_MyDosRender_entry | STA.Z $AC | LDA.A param_MyDosRender_entry+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosRender,19668,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosRender,19718,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosRender,19749,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosRender,19803,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosRender,19854,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosRender,19886,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosRenderSummary,19950,,10,172,unproved,LDA.A param_MyDosRenderSummary_output | STA.Z $AC | LDA.A param_MyDosRenderSummary_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosRoot,19997,,10,172,unproved,LDA.A param_MyDosRoot_location | STA.Z $AC | LDA.A param_MyDosRoot_location+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,MyDosRoot,20013,19997,10,172,indirect_write,LDA.A param_MyDosRoot_location | STA.Z $AC | LDA.A param_MyDosRoot_location+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosRoot,20013,,10,172,unproved,LDA.A param_MyDosRoot_location | STA.Z $AC | LDA.A param_MyDosRoot_location+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,MyDosRoot,20034,20013,10,172,indirect_write,LDA.A param_MyDosRoot_location | STA.Z $AC | LDA.A param_MyDosRoot_location+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosRoot,20034,,10,172,unproved,LDA.A param_MyDosRoot_location | STA.Z $AC | LDA.A param_MyDosRoot_location+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosCapture,20057,,10,172,unproved,LDA.A param_MyDosCapture_location | STA.Z $AC | LDA.A param_MyDosCapture_location+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,MyDosCapture,20084,20057,10,172,indirect_write,LDA.A param_MyDosCapture_location | STA.Z $AC | LDA.A param_MyDosCapture_location+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosCapture,20084,,10,172,unproved,LDA.A param_MyDosCapture_location | STA.Z $AC | LDA.A param_MyDosCapture_location+1 | STA.Z $AD
+TN-mir6502,word_store_stack_shuttle,MyDosCapture,20070,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A param_MyDosCapture_sector+1 | PHA | TXA | LDY #$00 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TN-mir6502,pair_setup,MyDosPathName,20162,,8,174,unproved,LDA.Z $E3 | STA.Z $AE | LDA #$00 | STA.Z $AF
+TN-mir6502,pair_setup,MyDosCanEnter,20251,,10,172,unproved,LDA.A param_MyDosCanEnter_name | STA.Z $AC | LDA.A param_MyDosCanEnter_name+1 | STA.Z $AD
+TN-mir6502,duplicate_literal_byte_exit,MyDosCanEnter,20285,20355,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TN-mir6502,pair_setup,MyDosPush,20398,,10,172,unproved,LDA.A param_MyDosPush_location | STA.Z $AC | LDA.A param_MyDosPush_location+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosPush,20486,,10,172,unproved,LDA.A param_MyDosPush_name | STA.Z $AC | LDA.A param_MyDosPush_name+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosPush,20512,,10,172,unproved,LDA.A local_MyDosPush_output | STA.Z $AC | LDA.A local_MyDosPush_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosPush,20539,,10,172,unproved,LDA.A local_MyDosPush_output | STA.Z $AC | LDA.A local_MyDosPush_output+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosPush,20559,,10,172,unproved,LDA.A param_MyDosPush_location | STA.Z $AC | LDA.A param_MyDosPush_location+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,MyDosPush,20579,20559,10,172,indirect_write,LDA.A param_MyDosPush_location | STA.Z $AC | LDA.A param_MyDosPush_location+1 | STA.Z $AD
+TN-mir6502,pair_setup,MyDosPush,20579,,10,172,unproved,LDA.A param_MyDosPush_location | STA.Z $AC | LDA.A param_MyDosPush_location+1 | STA.Z $AD
+TN-mir6502,word_store_stack_shuttle,MyDosPush,20592,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A param_MyDosPush_newSector+1 | PHA | TXA | LDY #$00 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TN-mir6502,pair_setup,MyDosParent,20689,,10,172,unproved,LDA.A param_MyDosParent_location | STA.Z $AC | LDA.A param_MyDosParent_location+1 | STA.Z $AD
+TN-mir6502,word_store_stack_shuttle,MyDosParent,20702,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A local_MyDosParent_sector+1 | PHA | TXA | LDY #$00 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TN-mir6502,pair_setup,Strcpy,20743,,8,172,unproved,LDA.Z $E2 | STA.Z $AC | LDA.Z $E3 | STA.Z $AD
+TN-mir6502,pair_setup,Strcat,20844,,10,172,unproved,LDA.A param_Strcat_t | STA.Z $AC | LDA.A param_Strcat_t+1 | STA.Z $AD
+TN-mir6502,pair_setup,Strcat,20869,,10,172,unproved,LDA.A param_Strcat_s | STA.Z $AC | LDA.A param_Strcat_s+1 | STA.Z $AD
+TN-mir6502,pair_setup,Strcat,20879,,10,174,unproved,LDA.A param_Strcat_t | STA.Z $AE | LDA.A param_Strcat_t+1 | STA.Z $AF
+TN-mir6502,pair_setup,PrintFname,20976,,10,172,unproved,LDA.A param_PrintFname_s | STA.Z $AC | LDA.A param_PrintFname_s+1 | STA.Z $AD
+TN-mir6502,pair_setup,DirectoryFailure,21070,,10,172,unproved,LDA.A global_currentBatch | STA.Z $AC | LDA.A global_currentBatch+1 | STA.Z $AD
+TN-mir6502,pair_setup,FetchWindow,21201,,10,172,unproved,LDA.A global_currentBatch | STA.Z $AC | LDA.A global_currentBatch+1 | STA.Z $AD
+TN-mir6502,pair_setup,FetchWindow,21226,,10,172,unproved,LDA.A global_currentBatch | STA.Z $AC | LDA.A global_currentBatch+1 | STA.Z $AD
+TN-mir6502,pair_setup,FetchWindow,21257,,10,172,unproved,LDA.A global_currentBatch | STA.Z $AC | LDA.A global_currentBatch+1 | STA.Z $AD
+TN-mir6502,pair_setup,FetchWindow,21308,,10,172,unproved,LDA.A global_currentTags | STA.Z $AC | LDA.A global_currentTags+1 | STA.Z $AD
+TN-mir6502,pair_setup,ListingEnd,21349,,10,172,unproved,LDA.A global_currentTags | STA.Z $AC | LDA.A global_currentTags+1 | STA.Z $AD
+TN-mir6502,pair_setup,ListingEnd,21401,,10,172,unproved,LDA.A global_currentTags | STA.Z $AC | LDA.A global_currentTags+1 | STA.Z $AD
+TN-mir6502,duplicate_literal_byte_exit,EnsureView,21566,21742,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TN-mir6502,pair_setup,FileRange,21932,,10,172,unproved,LDA.A global_currentTags | STA.Z $AC | LDA.A global_currentTags+1 | STA.Z $AD
+TN-mir6502,pair_setup,Path,22226,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TN-mir6502,pair_setup,DrawWinFrame,22681,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TN-mir6502,pair_setup,TaggedFiles,22849,,10,172,unproved,LDA.A global_currentTags | STA.Z $AC | LDA.A global_currentTags+1 | STA.Z $AD
+TN-mir6502,pair_setup,IsProtected,22912,,10,172,unproved,LDA.A local_IsProtected_entry | STA.Z $AC | LDA.A local_IsProtected_entry+1 | STA.Z $AD
+TN-mir6502,boolean_materialization,IsProtected,22930,,7,,consumer_may_require_numeric_value,LDA #$01 | JMP.A loc_IsProtected_3 | LDA #$00
+TN-mir6502,duplicate_literal_byte_exit,IsProtected,22907,22935,5,,return_value_0;two_byte_raw_saving,LDA #$00 | STA.Z $A0 | RTS
+TN-mir6502,pair_setup,IsDirectory,22961,,10,172,unproved,LDA.A local_IsDirectory_entry | STA.Z $AC | LDA.A local_IsDirectory_entry+1 | STA.Z $AD
+TN-mir6502,boolean_materialization,IsDirectory,22979,,7,,consumer_may_require_numeric_value,LDA #$01 | JMP.A loc_IsDirectory_3 | LDA #$00
+TN-mir6502,duplicate_literal_byte_exit,IsDirectory,22956,22984,5,,return_value_0;two_byte_raw_saving,LDA #$00 | STA.Z $A0 | RTS
+TN-mir6502,pair_setup,ActivateLocation,23103,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TN-mir6502,repeated_pair_setup,ActivateLocation,23126,23103,10,172,no_detected_write_barrier,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TN-mir6502,pair_setup,ActivateLocation,23126,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TN-mir6502,pair_setup,ActivateLocation,23143,,10,172,unproved,LDA.A global_currentDir | STA.Z $AC | LDA.A global_currentDir+1 | STA.Z $AD
+TN-mir6502,word_store_stack_shuttle,ActivateLocation,23156,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A local_ActivateLocation_sector+1 | PHA | TXA | LDY #$00 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TN-mir6502,pair_setup,SetWin,23182,,10,172,unproved,LDA.A global_currentDir | STA.Z $AC | LDA.A global_currentDir+1 | STA.Z $AD
+TN-mir6502,pair_setup,SetWin,23491,,10,172,unproved,LDA.A global_currentBatch | STA.Z $AC | LDA.A global_currentBatch+1 | STA.Z $AD
+TN-mir6502,pair_setup,EnterDirectory,23597,,10,172,unproved,LDA.A global_currentDir | STA.Z $AC | LDA.A global_currentDir+1 | STA.Z $AD
+TN-mir6502,pair_setup,EnterDirectory,23640,,10,172,unproved,LDA.A global_currentDir | STA.Z $AC | LDA.A global_currentDir+1 | STA.Z $AD
+TN-mir6502,stored_boolean_materialization,PrintB,23878,,13,,consumer_may_require_numeric_value_and_home,LDA #$01 | STA.A spill_PrintB_30 | JMP.A loc_PrintB_4 | LDA #$00 | STA.A spill_PrintB_30
+TN-mir6502,boolean_materialization,Copy,25849,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_Copy_8 | LDA #$01
+TN-mir6502,stored_boolean_materialization,Copy,25793,,13,,consumer_may_require_numeric_value_and_home,LDA #$01 | STA.A local_Copy_diskswap | JMP.A loc_Copy_4 | LDA #$00 | STA.A local_Copy_diskswap
+TNDBG-optimized,pair_setup,Print,11615,,10,174,unproved,LDA.A param_Print_s | STA.Z $AE | LDA.A param_Print_s+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Range,12622,,10,174,unproved,LDA.A param_Range_s | STA.Z $AE | LDA.A param_Range_s+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Range,12655,,10,174,unproved,LDA.A param_Range_s | STA.Z $AE | LDA.A param_Range_s+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Range,12673,,10,174,unproved,LDA.A param_Range_c | STA.Z $AE | LDA.A param_Range_c+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Range,12735,,10,174,unproved,LDA.A param_Range_c | STA.Z $AE | LDA.A param_Range_c+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,InputLine,12977,,10,174,unproved,LDA.A param_InputLine_string | STA.Z $AE | LDA.A param_InputLine_string+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Ord,13123,,10,174,unproved,LDA.A param_Ord_menu | STA.Z $AE | LDA.A param_Ord_menu+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Items,13198,,10,174,unproved,LDA.A param_Items_menu | STA.Z $AE | LDA.A param_Items_menu+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,FindItem,13255,,10,174,unproved,LDA.A param_FindItem_menu | STA.Z $AE | LDA.A param_FindItem_menu+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,DrawMenu,13348,,10,174,unproved,LDA.A param_DrawMenu_menu | STA.Z $AE | LDA.A param_DrawMenu_menu+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MoveMenuBar,13427,,10,174,unproved,LDA.A param_MoveMenuBar_menu | STA.Z $AE | LDA.A param_MoveMenuBar_menu+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MoveMenuBar,13493,,10,174,unproved,LDA.A param_MoveMenuBar_menu | STA.Z $AE | LDA.A param_MoveMenuBar_menu+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsFill,14034,,10,174,unproved,LDA.A local_TagsFill_p | STA.Z $AE | LDA.A local_TagsFill_p+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,TagsFill,14044,14034,10,174,no_detected_write_barrier,LDA.A local_TagsFill_p | STA.Z $AE | LDA.A local_TagsFill_p+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsFill,14044,,10,174,unproved,LDA.A local_TagsFill_p | STA.Z $AE | LDA.A local_TagsFill_p+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ClearTags,14103,,10,174,unproved,LDA.A param_ClearTags_tags | STA.Z $AE | LDA.A param_ClearTags_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,ClearTags,14122,14103,10,174,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AE | LDA.A param_ClearTags_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ClearTags,14122,,10,174,unproved,LDA.A param_ClearTags_tags | STA.Z $AE | LDA.A param_ClearTags_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,ClearTags,14138,14122,10,174,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AE | LDA.A param_ClearTags_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ClearTags,14138,,10,174,unproved,LDA.A param_ClearTags_tags | STA.Z $AE | LDA.A param_ClearTags_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsInit,14166,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,TagsInit,14189,14166,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsInit,14189,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,TagsInit,14207,14189,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsInit,14207,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,TagsInit,14226,14207,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsInit,14226,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,TagsInit,14245,14226,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsInit,14245,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,TagsInit,14264,14245,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsInit,14264,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,TagsInit,14280,14264,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsInit,14280,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,TagsInit,14295,14280,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsInit,14295,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,TagsInit,14310,14295,10,174,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsInit,14310,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsInit,14380,,10,174,unproved,LDA.A param_TagsInit_tags | STA.Z $AE | LDA.A param_TagsInit_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsReset,14428,,10,174,unproved,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,TagsReset,14447,14428,10,174,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsReset,14447,,10,174,unproved,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,TagsReset,14463,14447,10,174,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsReset,14463,,10,174,unproved,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,TagsReset,14479,14463,10,174,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsReset,14479,,10,174,unproved,LDA.A param_TagsReset_tags | STA.Z $AE | LDA.A param_TagsReset_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagBitInRange,14659,,10,174,unproved,LDA.A local_TagBitInRange_p | STA.Z $AE | LDA.A local_TagBitInRange_p+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ChangeTagged,14789,,10,174,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AE | LDA.A param_ChangeTagged_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ChangeTagged,14858,,10,174,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AE | LDA.A param_ChangeTagged_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ChangeTagged,14939,,10,174,unproved,LDA.A local_ChangeTagged_p | STA.Z $AE | LDA.A local_ChangeTagged_p+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ChangeTagged,15000,,10,174,unproved,LDA.A local_ChangeTagged_p | STA.Z $AE | LDA.A local_ChangeTagged_p+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ChangeTagged,15051,,10,174,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AE | LDA.A param_ChangeTagged_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ChangeTagged,15145,,10,174,unproved,LDA.A local_ChangeTagged_p | STA.Z $AE | LDA.A local_ChangeTagged_p+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ChangeTagged,15196,,10,174,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AE | LDA.A param_ChangeTagged_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ChangeTagged,15222,,10,174,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AE | LDA.A param_ChangeTagged_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ChangeTagged,15276,,10,174,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AE | LDA.A param_ChangeTagged_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ChangeTagged,15303,,10,174,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AE | LDA.A param_ChangeTagged_tags+1 | STA.Z $AF
+TNDBG-optimized,boolean_materialization,SetTagged,15345,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_SetTagged_2 | LDA #$01
+TNDBG-optimized,pair_setup,TagsRecount,15466,,10,174,unproved,LDA.A param_TagsRecount_tags | STA.Z $AE | LDA.A param_TagsRecount_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsRecount,15528,,10,174,unproved,LDA.A param_TagsRecount_tags | STA.Z $AE | LDA.A param_TagsRecount_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsExtent,15644,,10,174,unproved,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsExtent,15699,,10,174,unproved,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsExtent,15727,,10,174,unproved,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsExtent,15743,,10,174,unproved,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,TagsExtent,15766,15743,10,174,no_detected_write_barrier,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsExtent,15766,,10,174,unproved,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsExtent,15801,,10,174,unproved,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsExtent,15876,,10,174,unproved,LDA.A param_TagsExtent_tags | STA.Z $AE | LDA.A param_TagsExtent_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsExtent,15929,,10,174,unproved,LDA.A local_TagsExtent_p | STA.Z $AE | LDA.A local_TagsExtent_p+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsExtent,16010,,10,174,unproved,LDA.A local_TagsExtent_p | STA.Z $AE | LDA.A local_TagsExtent_p+1 | STA.Z $AF
+TNDBG-optimized,boolean_materialization,TagsExtent,15790,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_TagsExtent_5 | LDA #$01
+TNDBG-optimized,pair_setup,ToggleAllTags,16090,,10,174,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,ToggleAllTags,16106,16090,10,174,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ToggleAllTags,16106,,10,174,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,ToggleAllTags,16121,16106,10,174,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ToggleAllTags,16121,,10,174,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,ToggleAllTags,16137,16121,10,174,no_detected_write_barrier,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ToggleAllTags,16137,,10,174,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,ToggleAllTags,16153,16137,10,174,no_detected_write_barrier,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ToggleAllTags,16153,,10,174,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AE | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TagsReady,16206,,10,174,unproved,LDA.A param_TagsReady_tags | STA.Z $AE | LDA.A param_TagsReady_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,NextTagged,16250,,10,174,unproved,LDA.A param_NextTagged_tags | STA.Z $AE | LDA.A param_NextTagged_tags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,NextTagged,16359,,10,174,unproved,LDA.A param_NextTagged_found | STA.Z $AE | LDA.A param_NextTagged_found+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,BatchPublish,16496,,10,174,unproved,LDA.A param_BatchPublish_batch | STA.Z $AE | LDA.A param_BatchPublish_batch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,BatchPublish,16586,,10,174,unproved,LDA.A param_BatchPublish_batch | STA.Z $AE | LDA.A param_BatchPublish_batch+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,BatchPublish,16603,16586,10,174,indirect_write,LDA.A param_BatchPublish_batch | STA.Z $AE | LDA.A param_BatchPublish_batch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,BatchPublish,16603,,10,174,unproved,LDA.A param_BatchPublish_batch | STA.Z $AE | LDA.A param_BatchPublish_batch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,BatchPublish,16642,,10,174,unproved,LDA.A param_BatchPublish_batch | STA.Z $AE | LDA.A param_BatchPublish_batch+1 | STA.Z $AF
+TNDBG-optimized,duplicate_literal_byte_exit,BatchPublish,16526,16563,5,,return_value_2;two_byte_raw_saving,LDA #$02 | STA.Z $A0 | RTS
+TNDBG-optimized,pair_setup,CachedEntry,16881,,10,174,unproved,LDA.A param_CachedEntry_batch | STA.Z $AE | LDA.A param_CachedEntry_batch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosSummary,17117,,10,174,unproved,LDA.A param_MyDosSummary_text | STA.Z $AE | LDA.A param_MyDosSummary_text+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosSummary,17171,,10,174,unproved,LDA.A param_MyDosSummary_text | STA.Z $AE | LDA.A param_MyDosSummary_text+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosParse,17357,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,MyDosParse,17390,17357,10,174,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosParse,17390,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosParse,17406,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosParse,17416,,10,172,unproved,LDA.A param_MyDosParse_text | STA.Z $AC | LDA.A param_MyDosParse_text+1 | STA.Z $AD
+TNDBG-optimized,pair_setup,MyDosParse,17434,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,MyDosParse,17450,17434,10,174,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosParse,17450,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosParse,17467,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosParse,17482,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosParse,17519,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosParse,17688,,10,174,unproved,LDA.A param_MyDosParse_entry | STA.Z $AE | LDA.A param_MyDosParse_entry+1 | STA.Z $AF
+TNDBG-optimized,duplicate_literal_byte_exit,MyDosParse,17324,17683,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TNDBG-optimized,duplicate_literal_byte_exit,MyDosParse,17352,17683,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TNDBG-optimized,pair_setup,MyDosAfter,17813,,10,174,unproved,LDA.A param_MyDosAfter_right | STA.Z $AE | LDA.A param_MyDosAfter_right+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosAfter,17869,,10,174,unproved,LDA.A param_MyDosAfter_left | STA.Z $AE | LDA.A param_MyDosAfter_left+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosAfter,17919,,10,174,unproved,LDA.A param_MyDosAfter_right | STA.Z $AE | LDA.A param_MyDosAfter_right+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosAfter,18008,,10,174,unproved,LDA.A param_MyDosAfter_left | STA.Z $AE | LDA.A param_MyDosAfter_left+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosAfter,18058,,10,174,unproved,LDA.A param_MyDosAfter_right | STA.Z $AE | LDA.A param_MyDosAfter_right+1 | STA.Z $AF
+TNDBG-optimized,boolean_materialization,MyDosAfter,17847,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_MyDosAfter_2 | LDA #$01
+TNDBG-optimized,duplicate_literal_byte_exit,MyDosAfter,17852,18124,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TNDBG-optimized,duplicate_literal_byte_exit,MyDosAfter,17985,18124,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TNDBG-optimized,pair_setup,SortBatch,18214,,10,174,unproved,LDA.A param_SortBatch_batch | STA.Z $AE | LDA.A param_SortBatch_batch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,SortBatch,18280,,10,174,unproved,LDA.A param_SortBatch_batch | STA.Z $AE | LDA.A param_SortBatch_batch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,SortBatch,18385,,10,174,unproved,LDA.A param_SortBatch_batch | STA.Z $AE | LDA.A param_SortBatch_batch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,SortBatch,18451,,10,174,unproved,LDA.A param_SortBatch_batch | STA.Z $AE | LDA.A param_SortBatch_batch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,SortBatch,18535,,10,174,unproved,LDA.A param_SortBatch_batch | STA.Z $AE | LDA.A param_SortBatch_batch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosRead,18843,,10,174,unproved,LDA.A param_MyDosRead_batch | STA.Z $AE | LDA.A param_MyDosRead_batch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosRead,18909,,10,174,unproved,LDA.A param_MyDosRead_batch | STA.Z $AE | LDA.A param_MyDosRead_batch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosRead,19034,,10,174,unproved,LDA.A local_MyDosRead_entry | STA.Z $AE | LDA.A local_MyDosRead_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosRead,19056,,10,174,unproved,LDA.A param_MyDosRead_batch | STA.Z $AE | LDA.A param_MyDosRead_batch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosRead,19122,,10,174,unproved,LDA.A param_MyDosRead_batch | STA.Z $AE | LDA.A param_MyDosRead_batch+1 | STA.Z $AF
+TNDBG-optimized,duplicate_literal_byte_exit,MyDosRead,18715,18750,5,,return_value_6;two_byte_raw_saving,LDA #$06 | STA.Z $A0 | RTS
+TNDBG-optimized,duplicate_literal_byte_exit,MyDosRead,18760,19117,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TNDBG-optimized,duplicate_literal_byte_exit,MyDosRead,18798,19117,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TNDBG-optimized,pair_setup,MyDosName,19190,,10,174,unproved,LDA.A param_MyDosName_entry | STA.Z $AE | LDA.A param_MyDosName_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosName,19230,,10,174,unproved,LDA.A param_MyDosName_entry | STA.Z $AE | LDA.A param_MyDosName_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosName,19302,,10,174,unproved,LDA.A param_MyDosName_entry | STA.Z $AE | LDA.A param_MyDosName_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosName,19380,,10,174,unproved,LDA.A param_MyDosName_output | STA.Z $AE | LDA.A param_MyDosName_output+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosName,19451,,10,174,unproved,LDA.A param_MyDosName_entry | STA.Z $AE | LDA.A param_MyDosName_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosName,19501,,10,174,unproved,LDA.A param_MyDosName_output | STA.Z $AE | LDA.A param_MyDosName_output+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosName,19528,,10,174,unproved,LDA.A param_MyDosName_output | STA.Z $AE | LDA.A param_MyDosName_output+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosName,19563,,10,174,unproved,LDA.A param_MyDosName_entry | STA.Z $AE | LDA.A param_MyDosName_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosName,19614,,10,174,unproved,LDA.A param_MyDosName_entry | STA.Z $AE | LDA.A param_MyDosName_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosName,19664,,10,174,unproved,LDA.A param_MyDosName_output | STA.Z $AE | LDA.A param_MyDosName_output+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosRender,19709,,10,174,unproved,LDA.A param_MyDosRender_output | STA.Z $AE | LDA.A param_MyDosRender_output+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosRender,19730,,10,174,unproved,LDA.A param_MyDosRender_output | STA.Z $AE | LDA.A param_MyDosRender_output+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosRender,19744,,10,174,unproved,LDA.A param_MyDosRender_entry | STA.Z $AE | LDA.A param_MyDosRender_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosRender,19796,,10,174,unproved,LDA.A param_MyDosRender_entry | STA.Z $AE | LDA.A param_MyDosRender_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosRender,19919,,10,174,unproved,LDA.A param_MyDosRender_entry | STA.Z $AE | LDA.A param_MyDosRender_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosRender,20017,,10,174,unproved,LDA.A param_MyDosRender_entry | STA.Z $AE | LDA.A param_MyDosRender_entry+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosRenderSummary,20156,,10,174,unproved,LDA.A param_MyDosRenderSummary_batch | STA.Z $AE | LDA.A param_MyDosRenderSummary_batch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosRenderSummary,20209,,10,174,unproved,LDA.A param_MyDosRenderSummary_output | STA.Z $AE | LDA.A param_MyDosRenderSummary_output+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosCapture,20314,,10,174,unproved,LDA.A param_MyDosCapture_location | STA.Z $AE | LDA.A param_MyDosCapture_location+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,MyDosCapture,20337,20314,10,174,indirect_write,LDA.A param_MyDosCapture_location | STA.Z $AE | LDA.A param_MyDosCapture_location+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosCapture,20337,,10,174,unproved,LDA.A param_MyDosCapture_location | STA.Z $AE | LDA.A param_MyDosCapture_location+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosPathName,20410,,10,174,unproved,LDA.A param_MyDosPathName_location | STA.Z $AE | LDA.A param_MyDosPathName_location+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosCanEnter,20534,,10,174,unproved,LDA.A param_MyDosCanEnter_name | STA.Z $AE | LDA.A param_MyDosCanEnter_name+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosCanEnter,20604,,10,174,unproved,LDA.A param_MyDosCanEnter_name | STA.Z $AE | LDA.A param_MyDosCanEnter_name+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosCanEnter,20633,,10,174,unproved,LDA.A param_MyDosCanEnter_name | STA.Z $AE | LDA.A param_MyDosCanEnter_name+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosCanEnter,20672,,10,174,unproved,LDA.A param_MyDosCanEnter_name | STA.Z $AE | LDA.A param_MyDosCanEnter_name+1 | STA.Z $AF
+TNDBG-optimized,duplicate_literal_byte_exit,MyDosCanEnter,20594,20689,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TNDBG-optimized,pair_setup,MyDosPush,20746,,10,174,unproved,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,MyDosPush,20763,20746,10,174,no_detected_write_barrier,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosPush,20763,,10,174,unproved,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosPush,20854,,10,174,unproved,LDA.A param_MyDosPush_name | STA.Z $AE | LDA.A param_MyDosPush_name+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosPush,20873,,10,174,unproved,LDA.A param_MyDosPush_name | STA.Z $AE | LDA.A param_MyDosPush_name+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosPush,20925,,10,174,unproved,LDA.A local_MyDosPush_output | STA.Z $AE | LDA.A loc_MyDosPush_1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosPush,20945,,10,174,unproved,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,MyDosPush,20965,20945,10,174,indirect_write,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosPush,20965,,10,174,unproved,LDA.A param_MyDosPush_location | STA.Z $AE | LDA.A param_MyDosPush_location+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosParent,21028,,10,174,unproved,LDA.A param_MyDosParent_location | STA.Z $AE | LDA.A param_MyDosParent_location+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosParent,21088,,10,174,unproved,LDA.A param_MyDosParent_location | STA.Z $AE | LDA.A param_MyDosParent_location+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,MyDosParent,21105,21088,10,174,indirect_write,LDA.A param_MyDosParent_location | STA.Z $AE | LDA.A param_MyDosParent_location+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,MyDosParent,21105,,10,174,unproved,LDA.A param_MyDosParent_location | STA.Z $AE | LDA.A param_MyDosParent_location+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Strcat,21521,,10,174,unproved,LDA.A param_Strcat_t | STA.Z $AE | LDA.A param_Strcat_t+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Strcat,21544,,10,174,unproved,LDA.A param_Strcat_s | STA.Z $AE | LDA.A param_Strcat_s+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Strcat,21554,,10,172,unproved,LDA.A param_Strcat_t | STA.Z $AC | LDA.A param_Strcat_t+1 | STA.Z $AD
+TNDBG-optimized,pair_setup,Instr,21609,,10,174,unproved,LDA.A param_Instr_s | STA.Z $AE | LDA.A param_Instr_s+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,PrintFname,21688,,10,174,unproved,LDA.A param_PrintFname_s | STA.Z $AE | LDA.A param_PrintFname_s+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,DirectoryFailure,21776,,10,174,unproved,LDA.A global_currentBatch | STA.Z $AE | LDA.A global_currentBatch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,FetchWindow,21915,,10,174,unproved,LDA.A global_currentBatch | STA.Z $AE | LDA.A global_currentBatch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,FetchWindow,21940,,10,174,unproved,LDA.A global_currentBatch | STA.Z $AE | LDA.A global_currentBatch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,FetchWindow,21984,,10,174,unproved,LDA.A global_currentBatch | STA.Z $AE | LDA.A global_currentBatch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,FetchWindow,22042,,10,174,unproved,LDA.A global_currentTags | STA.Z $AE | LDA.A global_currentTags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ListingEnd,22076,,10,174,unproved,LDA.A global_currentTags | STA.Z $AE | LDA.A global_currentTags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ListingEnd,22124,,10,174,unproved,LDA.A global_currentTags | STA.Z $AE | LDA.A global_currentTags+1 | STA.Z $AF
+TNDBG-optimized,duplicate_literal_byte_exit,EnsureView,22320,22479,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TNDBG-optimized,pair_setup,FileRange,22743,,10,174,unproved,LDA.A global_currentTags | STA.Z $AE | LDA.A global_currentTags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,FileRange,22762,,10,174,unproved,LDA.A global_currentTags | STA.Z $AE | LDA.A global_currentTags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Path,23025,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,Path,23047,23025,10,174,no_detected_write_barrier,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Path,23047,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Path,23180,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,DrawWinFrame,23723,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,DrawWinFrame,23745,23723,10,174,no_detected_write_barrier,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,DrawWinFrame,23745,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,DrawWinFrame,23907,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,TaggedFiles,24076,,10,174,unproved,LDA.A global_currentTags | STA.Z $AE | LDA.A global_currentTags+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,IsProtected,24155,,10,174,unproved,LDA.A local_IsProtected_entry | STA.Z $AE | LDA.A local_IsProtected_entry+1 | STA.Z $AF
+TNDBG-optimized,boolean_materialization,IsProtected,24177,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_IsProtected_3 | LDA #$01
+TNDBG-optimized,pair_setup,IsDirectory,24221,,10,174,unproved,LDA.A local_IsDirectory_entry | STA.Z $AE | LDA.A local_IsDirectory_entry+1 | STA.Z $AF
+TNDBG-optimized,boolean_materialization,IsDirectory,24243,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_IsDirectory_3 | LDA #$01
+TNDBG-optimized,pair_setup,ActivateLocation,24382,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,ActivateLocation,24412,,10,174,unproved,LDA.A global_currentDir | STA.Z $AE | LDA.A global_currentDir+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,SetWin,24497,,10,174,unproved,LDA.A global_currentDir | STA.Z $AE | LDA.A global_currentDir+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,SetWin,24802,,10,174,unproved,LDA.A global_currentBatch | STA.Z $AE | LDA.A global_currentBatch+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,EnterDirectory,24905,,10,174,unproved,LDA.A global_currentDir | STA.Z $AE | LDA.A global_currentDir+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,EnterDirectory,24946,,10,174,unproved,LDA.A global_currentDir | STA.Z $AE | LDA.A global_currentDir+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Dbg,26319,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Dbg,26392,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Dbg,26555,,10,174,unproved,LDA.A global_currentDir | STA.Z $AE | LDA.A global_currentDir+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,Dbg,26570,26555,10,174,no_detected_write_barrier,LDA.A global_currentDir | STA.Z $AE | LDA.A global_currentDir+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Dbg,26570,,10,174,unproved,LDA.A global_currentDir | STA.Z $AE | LDA.A global_currentDir+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Dbg,26616,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Dbg,26681,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,repeated_pair_setup,Dbg,26696,26681,10,174,no_detected_write_barrier,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Dbg,26696,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Dbg,26761,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Dbg,26784,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Dbg,26809,,10,174,unproved,LDA.A global_currentLocation | STA.Z $AE | LDA.A global_currentLocation+1 | STA.Z $AF
+TNDBG-optimized,pair_setup,Dbg,26863,,10,174,unproved,LDA.A global_s | STA.Z $AE | LDA.A data_generated_9 | STA.Z $AF
+TNDBG-optimized,pair_setup,Copy,30268,,10,170,unproved,LDA.A local_Copy_files | STA.Z $AA | LDA.A local_Copy_flag | STA.Z $AB
+TNDBG-optimized,pair_setup,Copy,30359,,10,170,unproved,LDA.A local_Copy_files | STA.Z $AA | LDA.A local_Copy_flag | STA.Z $AB
+TNDBG-optimized,pair_setup,Copy,30440,,10,170,unproved,LDA.A local_Copy_files | STA.Z $AA | LDA.A local_Copy_flag | STA.Z $AB
+TNDBG-optimized,pair_setup,Copy,30827,,10,170,unproved,LDA.A local_Copy_files | STA.Z $AA | LDA.A local_Copy_flag | STA.Z $AB
+TNDBG-optimized,pair_setup,Copy,30932,,10,170,unproved,LDA.A local_Copy_files | STA.Z $AA | LDA.A local_Copy_flag | STA.Z $AB
+TNDBG-optimized,pair_setup,Copy,31033,,10,170,unproved,LDA.A local_Copy_files | STA.Z $AA | LDA.A local_Copy_flag | STA.Z $AB
+TNDBG-optimized,pair_setup,Copy,31129,,10,170,unproved,LDA.A local_Copy_files | STA.Z $AA | LDA.A local_Copy_flag | STA.Z $AB
+TNDBG-mir6502,pair_setup,Print,13388,,10,172,unproved,LDA.A param_Print_s | STA.Z $AC | LDA.A param_Print_s+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Range,14310,,10,172,unproved,LDA.A param_Range_s | STA.Z $AC | LDA.A param_Range_s+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Range,14345,,10,172,unproved,LDA.A param_Range_s | STA.Z $AC | LDA.A param_Range_s+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Range,14363,,10,172,unproved,LDA.A param_Range_c | STA.Z $AC | LDA.A param_Range_c+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Range,14412,,10,172,unproved,LDA.A param_Range_c | STA.Z $AC | LDA.A param_Range_c+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,InputLine,14610,,10,172,unproved,LDA.A param_InputLine_string | STA.Z $AC | LDA.A param_InputLine_string+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,InputLine,14641,,10,172,unproved,LDA.A param_InputLine_string | STA.Z $AC | LDA.A param_InputLine_string+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Ord,14772,,10,172,unproved,LDA.A param_Ord_menu | STA.Z $AC | LDA.A param_Ord_menu+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Items,14844,,10,172,unproved,LDA.A param_Items_menu | STA.Z $AC | LDA.A param_Items_menu+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,DrawMenu,14977,,10,172,unproved,LDA.A param_DrawMenu_menu | STA.Z $AC | LDA.A param_DrawMenu_menu+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MoveMenuBar,15050,,10,172,unproved,LDA.A param_MoveMenuBar_menu | STA.Z $AC | LDA.A param_MoveMenuBar_menu+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MoveMenuBar,15110,,10,172,unproved,LDA.A param_MoveMenuBar_menu | STA.Z $AC | LDA.A param_MoveMenuBar_menu+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsFill,15571,,10,172,unproved,LDA.A local_TagsFill_p | STA.Z $AC | LDA.A local_TagsFill_p+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ClearTags,15622,,10,172,unproved,LDA.A param_ClearTags_tags | STA.Z $AC | LDA.A param_ClearTags_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,ClearTags,15641,15622,10,172,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AC | LDA.A param_ClearTags_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ClearTags,15641,,10,172,unproved,LDA.A param_ClearTags_tags | STA.Z $AC | LDA.A param_ClearTags_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,ClearTags,15657,15641,10,172,indirect_write,LDA.A param_ClearTags_tags | STA.Z $AC | LDA.A param_ClearTags_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ClearTags,15657,,10,172,unproved,LDA.A param_ClearTags_tags | STA.Z $AC | LDA.A param_ClearTags_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsInit,15679,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15706,15679,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsInit,15706,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15724,15706,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsInit,15724,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15742,15724,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsInit,15742,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15760,15742,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsInit,15760,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15778,15760,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsInit,15778,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15793,15778,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsInit,15793,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15808,15793,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsInit,15808,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,TagsInit,15823,15808,10,172,indirect_write,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsInit,15823,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsInit,15871,,10,172,unproved,LDA.A param_TagsInit_tags | STA.Z $AC | LDA.A param_TagsInit_tags+1 | STA.Z $AD
+TNDBG-mir6502,word_store_stack_shuttle,TagsInit,15692,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A param_TagsInit_bits+1 | PHA | TXA | LDY #$00 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TNDBG-mir6502,word_store_stack_shuttle,TagsInit,15884,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A param_TagsInit_capacity+1 | PHA | TXA | LDY #$02 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TNDBG-mir6502,pair_setup,TagsReset,15921,,10,172,unproved,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,TagsReset,15940,15921,10,172,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsReset,15940,,10,172,unproved,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,TagsReset,15956,15940,10,172,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsReset,15956,,10,172,unproved,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,TagsReset,15972,15956,10,172,indirect_write,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsReset,15972,,10,172,unproved,LDA.A param_TagsReset_tags | STA.Z $AC | LDA.A param_TagsReset_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagBitInRange,16100,,10,172,unproved,LDA.A local_TagBitInRange_p | STA.Z $AC | LDA.A local_TagBitInRange_p+1 | STA.Z $AD
+TNDBG-mir6502,boolean_materialization,TagBitInRange,16119,,7,,consumer_may_require_numeric_value,LDA #$01 | JMP.A loc_TagBitInRange_2 | LDA #$00
+TNDBG-mir6502,pair_setup,ChangeTagged,16202,,10,172,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AC | LDA.A param_ChangeTagged_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ChangeTagged,16270,,10,172,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AC | LDA.A param_ChangeTagged_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ChangeTagged,16350,,10,172,unproved,LDA.A local_ChangeTagged_p | STA.Z $AC | LDA.A local_ChangeTagged_p+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ChangeTagged,16427,,8,172,unproved,LDA.Z $E4 | STA.Z $AC | LDA.Z $EA | STA.Z $AD
+TNDBG-mir6502,pair_setup,ChangeTagged,16445,,10,172,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AC | LDA.A param_ChangeTagged_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ChangeTagged,16504,,8,172,unproved,LDA.Z $E2 | STA.Z $AC | LDA.Z $E3 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ChangeTagged,16522,,10,172,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AC | LDA.A param_ChangeTagged_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ChangeTagged,16558,,10,172,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AC | LDA.A param_ChangeTagged_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ChangeTagged,16638,,10,172,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AC | LDA.A param_ChangeTagged_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ChangeTagged,16659,,10,172,unproved,LDA.A param_ChangeTagged_tags | STA.Z $AC | LDA.A param_ChangeTagged_tags+1 | STA.Z $AD
+TNDBG-mir6502,boolean_materialization,ChangeTagged,16382,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_ChangeTagged_4 | LDA #$01
+TNDBG-mir6502,stored_boolean_materialization,ChangeTagged,16604,,13,,consumer_may_require_numeric_value_and_home,LDA #$01 | STA.A spill_ChangeTagged_100 | JMP.A loc_ChangeTagged_10 | LDA #$00 | STA.A spill_ChangeTagged_100
+TNDBG-mir6502,duplicate_literal_byte_exit,ChangeTagged,16633,16654,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TNDBG-mir6502,stored_boolean_materialization,SetTagged,16689,,11,,consumer_may_require_numeric_value_and_home,LDA #$01 | STA.Z $A4 | JMP.A loc_SetTagged_2 | LDA #$00 | STA.Z $A4
+TNDBG-mir6502,pair_setup,TagsRecount,16872,,10,172,unproved,LDA.A param_TagsRecount_tags | STA.Z $AC | LDA.A param_TagsRecount_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsExtent,16925,,10,172,unproved,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsExtent,16986,,10,172,unproved,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsExtent,17018,,10,172,unproved,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsExtent,17034,,10,172,unproved,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsExtent,17094,,10,172,unproved,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,TagsExtent,17111,17094,10,172,indirect_write,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsExtent,17111,,10,172,unproved,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsExtent,17226,,10,172,unproved,LDA.A param_TagsExtent_tags | STA.Z $AC | LDA.A param_TagsExtent_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsExtent,17309,,8,172,unproved,LDA.Z $E4 | STA.Z $AC | LDA.Z $E5 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TagsExtent,17366,,10,172,unproved,LDA.A local_TagsExtent_p | STA.Z $AC | LDA.A local_TagsExtent_p+1 | STA.Z $AD
+TNDBG-mir6502,boolean_materialization,TagsExtent,16974,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_TagsExtent_2 | LDA #$01
+TNDBG-mir6502,stored_boolean_materialization,TagsExtent,17081,,13,,consumer_may_require_numeric_value_and_home,LDA #$00 | STA.A spill_TagsExtent_22 | JMP.A loc_TagsExtent_7 | LDA #$01 | STA.A spill_TagsExtent_22
+TNDBG-mir6502,stored_boolean_materialization,TagsExtent,17142,,13,,consumer_may_require_numeric_value_and_home,LDA #$00 | STA.A spill_TagsExtent_23 | JMP.A loc_TagsExtent_9 | LDA #$01 | STA.A spill_TagsExtent_23
+TNDBG-mir6502,word_store_stack_shuttle,TagsExtent,16999,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A param_TagsExtent_extent+1 | PHA | TXA | LDY #$04 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TNDBG-mir6502,pair_setup,ToggleAllTags,17431,,10,172,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AC | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,ToggleAllTags,17447,17431,10,172,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AC | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ToggleAllTags,17447,,10,172,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AC | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,ToggleAllTags,17462,17447,10,172,indirect_write,LDA.A param_ToggleAllTags_tags | STA.Z $AC | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ToggleAllTags,17462,,10,172,unproved,LDA.A param_ToggleAllTags_tags | STA.Z $AC | LDA.A param_ToggleAllTags_tags+1 | STA.Z $AD
+TNDBG-mir6502,duplicate_literal_byte_exit,TagsReady,17537,17542,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TNDBG-mir6502,pair_setup,NextTagged,17553,,10,172,unproved,LDA.A param_NextTagged_tags | STA.Z $AC | LDA.A param_NextTagged_tags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,NextTagged,17687,,10,172,unproved,LDA.A param_NextTagged_found | STA.Z $AC | LDA.A param_NextTagged_found+1 | STA.Z $AD
+TNDBG-mir6502,word_store_stack_shuttle,NextTagged,17700,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A local_NextTagged_ordinal+1 | PHA | TXA | LDY #$00 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TNDBG-mir6502,pair_setup,BatchBegin,17746,,10,172,unproved,LDA.A param_BatchBegin_batch | STA.Z $AC | LDA.A param_BatchBegin_batch+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,BatchBegin,17761,17746,10,172,indirect_write,LDA.A param_BatchBegin_batch | STA.Z $AC | LDA.A param_BatchBegin_batch+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,BatchBegin,17761,,10,172,unproved,LDA.A param_BatchBegin_batch | STA.Z $AC | LDA.A param_BatchBegin_batch+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,BatchBegin,17777,17761,10,172,indirect_write,LDA.A param_BatchBegin_batch | STA.Z $AC | LDA.A param_BatchBegin_batch+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,BatchBegin,17777,,10,172,unproved,LDA.A param_BatchBegin_batch | STA.Z $AC | LDA.A param_BatchBegin_batch+1 | STA.Z $AD
+TNDBG-mir6502,word_store_stack_shuttle,BatchBegin,17790,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A param_BatchBegin_first+1 | PHA | TXA | LDY #$00 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TNDBG-mir6502,pair_setup,BatchPublish,17811,,10,172,unproved,LDA.A param_BatchPublish_batch | STA.Z $AC | LDA.A param_BatchPublish_batch+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,BatchPublish,17912,,10,172,unproved,LDA.A param_BatchPublish_batch | STA.Z $AC | LDA.A param_BatchPublish_batch+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,BatchPublish,17929,17912,10,172,indirect_write,LDA.A param_BatchPublish_batch | STA.Z $AC | LDA.A param_BatchPublish_batch+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,BatchPublish,17929,,10,172,unproved,LDA.A param_BatchPublish_batch | STA.Z $AC | LDA.A param_BatchPublish_batch+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,BatchPublish,17968,,10,172,unproved,LDA.A param_BatchPublish_batch | STA.Z $AC | LDA.A param_BatchPublish_batch+1 | STA.Z $AD
+TNDBG-mir6502,duplicate_literal_byte_exit,BatchPublish,17841,17992,5,,return_value_2;two_byte_raw_saving,LDA #$02 | STA.Z $A0 | RTS
+TNDBG-mir6502,duplicate_literal_byte_exit,MyDosSummary,18426,18472,5,,return_value_0;two_byte_raw_saving,LDA #$00 | STA.Z $A0 | RTS
+TNDBG-mir6502,pair_setup,MyDosParse,18513,,10,172,unproved,LDA.A param_MyDosParse_text | STA.Z $AC | LDA.A param_MyDosParse_text+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosParse,18542,,10,172,unproved,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,MyDosParse,18558,18542,10,172,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosParse,18558,,10,172,unproved,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosParse,18576,,10,172,unproved,LDA.A param_MyDosParse_text | STA.Z $AC | LDA.A param_MyDosParse_text+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosParse,18592,,10,172,unproved,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosParse,18608,,10,172,unproved,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,MyDosParse,18624,18608,10,172,indirect_write,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosParse,18624,,10,172,unproved,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosParse,18647,,10,172,unproved,LDA.A param_MyDosParse_entry | STA.Z $AC | LDA.A param_MyDosParse_entry+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosParse,18748,,10,172,unproved,LDA.A param_MyDosParse_text | STA.Z $AC | LDA.A param_MyDosParse_text+1 | STA.Z $AD
+TNDBG-mir6502,duplicate_literal_byte_exit,MyDosParse,18508,18786,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TNDBG-mir6502,duplicate_literal_byte_exit,MyDosParse,18531,18786,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TNDBG-mir6502,pair_setup,MyDosAfter,18884,,10,172,unproved,LDA.A param_MyDosAfter_right | STA.Z $AC | LDA.A param_MyDosAfter_right+1 | STA.Z $AD
+TNDBG-mir6502,boolean_materialization,MyDosAfter,19031,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_MyDosAfter_9 | LDA #$01
+TNDBG-mir6502,duplicate_literal_byte_exit,MyDosAfter,18997,19016,5,,return_value_0;two_byte_raw_saving,LDA #$00 | STA.Z $A0 | RTS
+TNDBG-mir6502,duplicate_literal_byte_exit,MyDosAfter,19004,19016,5,,return_value_0;two_byte_raw_saving,LDA #$00 | STA.Z $A0 | RTS
+TNDBG-mir6502,duplicate_literal_byte_exit,MyDosAfter,19009,19036,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TNDBG-mir6502,duplicate_literal_byte_exit,MyDosAfter,19021,19036,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TNDBG-mir6502,pair_setup,SortBatch,19131,,10,172,unproved,LDA.A local_SortBatch_entry | STA.Z $AC | LDA.A local_SortBatch_entry+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosRead,19675,,10,172,unproved,LDA.A local_MyDosRead_entry | STA.Z $AC | LDA.A local_MyDosRead_entry+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosRead,19738,,10,172,unproved,LDA.A param_MyDosRead_batch | STA.Z $AC | LDA.A param_MyDosRead_batch+1 | STA.Z $AD
+TNDBG-mir6502,duplicate_literal_byte_exit,MyDosRead,19424,19461,5,,return_value_6;two_byte_raw_saving,LDA #$06 | STA.Z $A0 | RTS
+TNDBG-mir6502,duplicate_literal_byte_exit,MyDosRead,19471,19733,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TNDBG-mir6502,duplicate_literal_byte_exit,MyDosRead,19508,19733,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TNDBG-mir6502,pair_setup,MyDosName,19796,,10,172,unproved,LDA.A param_MyDosName_entry | STA.Z $AC | LDA.A param_MyDosName_entry+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosName,19937,,10,172,unproved,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,MyDosName,19954,19937,10,172,indirect_write,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosName,19954,,10,172,unproved,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,MyDosName,19969,19954,10,172,indirect_write,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosName,19969,,10,172,unproved,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosName,20002,,10,172,unproved,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosName,20073,,10,172,unproved,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosName,20138,,10,172,unproved,LDA.A param_MyDosName_output | STA.Z $AC | LDA.A param_MyDosName_output+1 | STA.Z $AD
+TNDBG-mir6502,duplicate_literal_byte_exit,MyDosName,20103,20108,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TNDBG-mir6502,pair_setup,MyDosRender,20175,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosRender,20196,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosRender,20212,,10,172,unproved,LDA.A param_MyDosRender_entry | STA.Z $AC | LDA.A param_MyDosRender_entry+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosRender,20232,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosRender,20282,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosRender,20313,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosRender,20367,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosRender,20418,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosRender,20450,,10,172,unproved,LDA.A param_MyDosRender_output | STA.Z $AC | LDA.A param_MyDosRender_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosRenderSummary,20514,,10,172,unproved,LDA.A param_MyDosRenderSummary_output | STA.Z $AC | LDA.A param_MyDosRenderSummary_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosRoot,20561,,10,172,unproved,LDA.A param_MyDosRoot_location | STA.Z $AC | LDA.A param_MyDosRoot_location+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,MyDosRoot,20577,20561,10,172,indirect_write,LDA.A param_MyDosRoot_location | STA.Z $AC | LDA.A param_MyDosRoot_location+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosRoot,20577,,10,172,unproved,LDA.A param_MyDosRoot_location | STA.Z $AC | LDA.A param_MyDosRoot_location+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,MyDosRoot,20598,20577,10,172,indirect_write,LDA.A param_MyDosRoot_location | STA.Z $AC | LDA.A param_MyDosRoot_location+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosRoot,20598,,10,172,unproved,LDA.A param_MyDosRoot_location | STA.Z $AC | LDA.A param_MyDosRoot_location+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosCapture,20621,,10,172,unproved,LDA.A param_MyDosCapture_location | STA.Z $AC | LDA.A param_MyDosCapture_location+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,MyDosCapture,20648,20621,10,172,indirect_write,LDA.A param_MyDosCapture_location | STA.Z $AC | LDA.A param_MyDosCapture_location+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosCapture,20648,,10,172,unproved,LDA.A param_MyDosCapture_location | STA.Z $AC | LDA.A param_MyDosCapture_location+1 | STA.Z $AD
+TNDBG-mir6502,word_store_stack_shuttle,MyDosCapture,20634,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A param_MyDosCapture_sector+1 | PHA | TXA | LDY #$00 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TNDBG-mir6502,pair_setup,MyDosPathName,20726,,8,174,unproved,LDA.Z $E3 | STA.Z $AE | LDA #$00 | STA.Z $AF
+TNDBG-mir6502,pair_setup,MyDosCanEnter,20815,,10,172,unproved,LDA.A param_MyDosCanEnter_name | STA.Z $AC | LDA.A param_MyDosCanEnter_name+1 | STA.Z $AD
+TNDBG-mir6502,duplicate_literal_byte_exit,MyDosCanEnter,20849,20919,5,,return_value_3;two_byte_raw_saving,LDA #$03 | STA.Z $A0 | RTS
+TNDBG-mir6502,pair_setup,MyDosPush,20962,,10,172,unproved,LDA.A param_MyDosPush_location | STA.Z $AC | LDA.A param_MyDosPush_location+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosPush,21050,,10,172,unproved,LDA.A param_MyDosPush_name | STA.Z $AC | LDA.A param_MyDosPush_name+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosPush,21076,,10,172,unproved,LDA.A local_MyDosPush_output | STA.Z $AC | LDA.A local_MyDosPush_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosPush,21103,,10,172,unproved,LDA.A local_MyDosPush_output | STA.Z $AC | LDA.A local_MyDosPush_output+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosPush,21123,,10,172,unproved,LDA.A param_MyDosPush_location | STA.Z $AC | LDA.A param_MyDosPush_location+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,MyDosPush,21143,21123,10,172,indirect_write,LDA.A param_MyDosPush_location | STA.Z $AC | LDA.A param_MyDosPush_location+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,MyDosPush,21143,,10,172,unproved,LDA.A param_MyDosPush_location | STA.Z $AC | LDA.A param_MyDosPush_location+1 | STA.Z $AD
+TNDBG-mir6502,word_store_stack_shuttle,MyDosPush,21156,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A param_MyDosPush_newSector+1 | PHA | TXA | LDY #$00 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TNDBG-mir6502,pair_setup,MyDosParent,21253,,10,172,unproved,LDA.A param_MyDosParent_location | STA.Z $AC | LDA.A param_MyDosParent_location+1 | STA.Z $AD
+TNDBG-mir6502,word_store_stack_shuttle,MyDosParent,21266,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A local_MyDosParent_sector+1 | PHA | TXA | LDY #$00 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TNDBG-mir6502,pair_setup,Strcpy,21307,,8,172,unproved,LDA.Z $E2 | STA.Z $AC | LDA.Z $E3 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Strcat,21408,,10,172,unproved,LDA.A param_Strcat_t | STA.Z $AC | LDA.A param_Strcat_t+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Strcat,21433,,10,172,unproved,LDA.A param_Strcat_s | STA.Z $AC | LDA.A param_Strcat_s+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Strcat,21443,,10,174,unproved,LDA.A param_Strcat_t | STA.Z $AE | LDA.A param_Strcat_t+1 | STA.Z $AF
+TNDBG-mir6502,pair_setup,PrintFname,21540,,10,172,unproved,LDA.A param_PrintFname_s | STA.Z $AC | LDA.A param_PrintFname_s+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,DirectoryFailure,21634,,10,172,unproved,LDA.A global_currentBatch | STA.Z $AC | LDA.A global_currentBatch+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,FetchWindow,21765,,10,172,unproved,LDA.A global_currentBatch | STA.Z $AC | LDA.A global_currentBatch+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,FetchWindow,21790,,10,172,unproved,LDA.A global_currentBatch | STA.Z $AC | LDA.A global_currentBatch+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,FetchWindow,21821,,10,172,unproved,LDA.A global_currentBatch | STA.Z $AC | LDA.A global_currentBatch+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,FetchWindow,21872,,10,172,unproved,LDA.A global_currentTags | STA.Z $AC | LDA.A global_currentTags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ListingEnd,21913,,10,172,unproved,LDA.A global_currentTags | STA.Z $AC | LDA.A global_currentTags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ListingEnd,21965,,10,172,unproved,LDA.A global_currentTags | STA.Z $AC | LDA.A global_currentTags+1 | STA.Z $AD
+TNDBG-mir6502,duplicate_literal_byte_exit,EnsureView,22130,22306,5,,return_value_1;two_byte_raw_saving,LDA #$01 | STA.Z $A0 | RTS
+TNDBG-mir6502,pair_setup,FileRange,22496,,10,172,unproved,LDA.A global_currentTags | STA.Z $AC | LDA.A global_currentTags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Path,22761,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,Path,22795,22761,10,172,no_detected_write_barrier,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Path,22795,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Path,22910,,10,172,unproved,LDA.A global_dbgPathName | STA.Z $AC | LDA.A global_dbgPathName+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Path,22983,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,DrawWinFrame,23384,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,DrawWinFrame,23418,23384,10,172,no_detected_write_barrier,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,DrawWinFrame,23418,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,DrawWinFrame,23533,,10,172,unproved,LDA.A global_dbgFrameName | STA.Z $AC | LDA.A global_dbgFrameName+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,DrawWinFrame,23631,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,TaggedFiles,23799,,10,172,unproved,LDA.A global_currentTags | STA.Z $AC | LDA.A global_currentTags+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,IsProtected,23862,,10,172,unproved,LDA.A local_IsProtected_entry | STA.Z $AC | LDA.A local_IsProtected_entry+1 | STA.Z $AD
+TNDBG-mir6502,boolean_materialization,IsProtected,23880,,7,,consumer_may_require_numeric_value,LDA #$01 | JMP.A loc_IsProtected_3 | LDA #$00
+TNDBG-mir6502,duplicate_literal_byte_exit,IsProtected,23857,23885,5,,return_value_0;two_byte_raw_saving,LDA #$00 | STA.Z $A0 | RTS
+TNDBG-mir6502,pair_setup,IsDirectory,23911,,10,172,unproved,LDA.A local_IsDirectory_entry | STA.Z $AC | LDA.A local_IsDirectory_entry+1 | STA.Z $AD
+TNDBG-mir6502,boolean_materialization,IsDirectory,23929,,7,,consumer_may_require_numeric_value,LDA #$01 | JMP.A loc_IsDirectory_3 | LDA #$00
+TNDBG-mir6502,duplicate_literal_byte_exit,IsDirectory,23906,23934,5,,return_value_0;two_byte_raw_saving,LDA #$00 | STA.Z $A0 | RTS
+TNDBG-mir6502,pair_setup,ActivateLocation,24053,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,repeated_pair_setup,ActivateLocation,24076,24053,10,172,no_detected_write_barrier,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ActivateLocation,24076,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,ActivateLocation,24093,,10,172,unproved,LDA.A global_currentDir | STA.Z $AC | LDA.A global_currentDir+1 | STA.Z $AD
+TNDBG-mir6502,word_store_stack_shuttle,ActivateLocation,24106,,4,172,preserves_full_capture_and_store_byte_order,"TAX | LDA.A local_ActivateLocation_sector+1 | PHA | TXA | LDY #$00 | STA ($AC),Y | PLA | INY | STA ($AC),Y"
+TNDBG-mir6502,pair_setup,SetWin,24140,,10,172,unproved,LDA.A global_currentDir | STA.Z $AC | LDA.A global_currentDir+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,SetWin,24449,,10,172,unproved,LDA.A global_currentBatch | STA.Z $AC | LDA.A global_currentBatch+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,EnterDirectory,24555,,10,172,unproved,LDA.A global_currentDir | STA.Z $AC | LDA.A global_currentDir+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,EnterDirectory,24598,,10,172,unproved,LDA.A global_currentDir | STA.Z $AC | LDA.A global_currentDir+1 | STA.Z $AD
+TNDBG-mir6502,stored_boolean_materialization,PrintB,24844,,13,,consumer_may_require_numeric_value_and_home,LDA #$01 | STA.A spill_PrintB_30 | JMP.A loc_PrintB_4 | LDA #$00 | STA.A spill_PrintB_30
+TNDBG-mir6502,pair_setup,Dbg,25548,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Dbg,25623,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Dbg,25791,,10,172,unproved,LDA.A global_currentDir | STA.Z $AC | LDA.A global_currentDir+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Dbg,25891,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Dbg,25973,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Dbg,25997,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Dbg,26022,,10,172,unproved,LDA.A global_currentLocation | STA.Z $AC | LDA.A global_currentLocation+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Dbg,26076,,10,172,unproved,LDA.A global_s | STA.Z $AC | LDA.A global_s+1 | STA.Z $AD
+TNDBG-mir6502,pair_setup,Copy,29164,,10,170,unproved,LDA.A spill_Copy_366 | STA.Z $AA | LDA.A spill_Copy_176 | STA.Z $AB
+TNDBG-mir6502,pair_setup,Copy,29255,,10,170,unproved,LDA.A spill_Copy_366 | STA.Z $AA | LDA.A spill_Copy_176 | STA.Z $AB
+TNDBG-mir6502,pair_setup,Copy,29336,,10,170,unproved,LDA.A spill_Copy_366 | STA.Z $AA | LDA.A spill_Copy_176 | STA.Z $AB
+TNDBG-mir6502,pair_setup,Copy,29777,,10,170,unproved,LDA.A spill_Copy_176 | STA.Z $AA | LDA.A spill_Copy_180 | STA.Z $AB
+TNDBG-mir6502,pair_setup,Copy,29890,,10,170,unproved,LDA.A spill_Copy_176 | STA.Z $AA | LDA.A spill_Copy_180 | STA.Z $AB
+TNDBG-mir6502,pair_setup,Copy,30003,,10,170,unproved,LDA.A spill_Copy_176 | STA.Z $AA | LDA.A spill_Copy_180 | STA.Z $AB
+TNDBG-mir6502,pair_setup,Copy,30111,,10,170,unproved,LDA.A spill_Copy_176 | STA.Z $AA | LDA.A spill_Copy_180 | STA.Z $AB
+TNDBG-mir6502,boolean_materialization,Copy,28894,,7,,consumer_may_require_numeric_value,LDA #$00 | JMP.A loc_Copy_8 | LDA #$01
+TNDBG-mir6502,stored_boolean_materialization,Copy,28838,,13,,consumer_may_require_numeric_value_and_home,LDA #$01 | STA.A local_Copy_diskswap | JMP.A loc_Copy_4 | LDA #$00 | STA.A local_Copy_diskswap
