@@ -1,0 +1,1785 @@
+{
+  "date": "2026-10-13",
+  "compiler_revision": "98fe6cb9",
+  "compiler_sha256": "8783d2fb29af783a6f4e1bd0cca0e5f613f38945a1abd0cfb44f910d2fcb7624",
+  "fixture_sha256_lf": "d6b341c41c5947ee7309845407a119e4a7668fab80e9a5a9c2af32bd5ec7f117",
+  "baseline_directory_sha256_lf": "a80a7a8f998ff66227c802d8468ae7f579fd370f59099c2830088f0f045d2afc",
+  "qualified_directory_sha256_lf": "cf1a11914c27be3e5b99dcf231b554cb644fd923250b87f3fff553b97ddb2f25",
+  "roots": {
+    "baseline": {
+      "optimized": {
+        "load_file_bytes": 18090,
+        "routines": {
+          "TagBitInRange": {
+            "instruction_form_bytes": 124,
+            "home_bytes": {
+              "spill": 0,
+              "param": 7,
+              "local": 3,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0E6": 1
+            },
+            "pointer_scratch_writes": 10,
+            "indirect_y_operations": 3
+          },
+          "TagsRecount": {
+            "instruction_form_bytes": 216,
+            "home_bytes": {
+              "spill": 0,
+              "param": 8,
+              "local": 6,
+              "static_string": 0
+            },
+            "calls": {
+              "TagBitInRange": 1
+            },
+            "pointer_scratch_writes": 14,
+            "indirect_y_operations": 10
+          },
+          "TagsExtent": {
+            "instruction_form_bytes": 429,
+            "home_bytes": {
+              "spill": 0,
+              "param": 16,
+              "local": 11,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0F5": 1,
+              "$A0E6": 2
+            },
+            "pointer_scratch_writes": 26,
+            "indirect_y_operations": 16
+          }
+        }
+      },
+      "mir6502": {
+        "load_file_bytes": 16705,
+        "routines": {
+          "TagBitInRange": {
+            "instruction_form_bytes": 140,
+            "home_bytes": {
+              "spill": 0,
+              "param": 4,
+              "local": 3,
+              "static_string": 0
+            },
+            "calls": {},
+            "pointer_scratch_writes": 4,
+            "indirect_y_operations": 3
+          },
+          "TagsRecount": {
+            "instruction_form_bytes": 176,
+            "home_bytes": {
+              "spill": 2,
+              "param": 2,
+              "local": 6,
+              "static_string": 0
+            },
+            "calls": {
+              "TagBitInRange": 1
+            },
+            "pointer_scratch_writes": 8,
+            "indirect_y_operations": 10
+          },
+          "TagsExtent": {
+            "instruction_form_bytes": 515,
+            "home_bytes": {
+              "spill": 4,
+              "param": 5,
+              "local": 11,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0F5": 1
+            },
+            "pointer_scratch_writes": 18,
+            "indirect_y_operations": 16
+          }
+        }
+      }
+    },
+    "cached": {
+      "optimized": {
+        "load_file_bytes": 18105,
+        "routines": {
+          "TagBitInRange": {
+            "instruction_form_bytes": 124,
+            "home_bytes": {
+              "spill": 0,
+              "param": 7,
+              "local": 3,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0E6": 1
+            },
+            "pointer_scratch_writes": 10,
+            "indirect_y_operations": 3
+          },
+          "TagsRecount": {
+            "instruction_form_bytes": 222,
+            "home_bytes": {
+              "spill": 0,
+              "param": 15,
+              "local": 13,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0E6": 1
+            },
+            "pointer_scratch_writes": 11,
+            "indirect_y_operations": 9
+          },
+          "TagsExtent": {
+            "instruction_form_bytes": 429,
+            "home_bytes": {
+              "spill": 0,
+              "param": 16,
+              "local": 11,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0F5": 1,
+              "$A0E6": 2
+            },
+            "pointer_scratch_writes": 26,
+            "indirect_y_operations": 16
+          }
+        }
+      },
+      "mir6502": {
+        "load_file_bytes": 16807,
+        "routines": {
+          "TagBitInRange": {
+            "instruction_form_bytes": 140,
+            "home_bytes": {
+              "spill": 0,
+              "param": 4,
+              "local": 3,
+              "static_string": 0
+            },
+            "calls": {},
+            "pointer_scratch_writes": 4,
+            "indirect_y_operations": 3
+          },
+          "TagsRecount": {
+            "instruction_form_bytes": 271,
+            "home_bytes": {
+              "spill": 2,
+              "param": 2,
+              "local": 13,
+              "static_string": 0
+            },
+            "calls": {},
+            "pointer_scratch_writes": 8,
+            "indirect_y_operations": 9
+          },
+          "TagsExtent": {
+            "instruction_form_bytes": 515,
+            "home_bytes": {
+              "spill": 4,
+              "param": 5,
+              "local": 11,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0F5": 1
+            },
+            "pointer_scratch_writes": 18,
+            "indirect_y_operations": 16
+          }
+        }
+      }
+    },
+    "byte_shift": {
+      "optimized": {
+        "load_file_bytes": 18194,
+        "routines": {
+          "TagBitInRange": {
+            "instruction_form_bytes": 124,
+            "home_bytes": {
+              "spill": 0,
+              "param": 7,
+              "local": 3,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0E6": 1
+            },
+            "pointer_scratch_writes": 10,
+            "indirect_y_operations": 3
+          },
+          "TagsRecount": {
+            "instruction_form_bytes": 315,
+            "home_bytes": {
+              "spill": 0,
+              "param": 14,
+              "local": 12,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0E6": 1
+            },
+            "pointer_scratch_writes": 16,
+            "indirect_y_operations": 10
+          },
+          "TagsExtent": {
+            "instruction_form_bytes": 429,
+            "home_bytes": {
+              "spill": 0,
+              "param": 16,
+              "local": 11,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0F5": 1,
+              "$A0E6": 2
+            },
+            "pointer_scratch_writes": 26,
+            "indirect_y_operations": 16
+          }
+        }
+      },
+      "mir6502": {
+        "load_file_bytes": 16853,
+        "routines": {
+          "TagBitInRange": {
+            "instruction_form_bytes": 140,
+            "home_bytes": {
+              "spill": 0,
+              "param": 4,
+              "local": 3,
+              "static_string": 0
+            },
+            "calls": {},
+            "pointer_scratch_writes": 4,
+            "indirect_y_operations": 3
+          },
+          "TagsRecount": {
+            "instruction_form_bytes": 318,
+            "home_bytes": {
+              "spill": 2,
+              "param": 2,
+              "local": 12,
+              "static_string": 0
+            },
+            "calls": {},
+            "pointer_scratch_writes": 10,
+            "indirect_y_operations": 10
+          },
+          "TagsExtent": {
+            "instruction_form_bytes": 515,
+            "home_bytes": {
+              "spill": 4,
+              "param": 5,
+              "local": 11,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0F5": 1
+            },
+            "pointer_scratch_writes": 18,
+            "indirect_y_operations": 16
+          }
+        }
+      }
+    },
+    "byte_nibbles": {
+      "optimized": {
+        "load_file_bytes": 18489,
+        "routines": {
+          "TagBitInRange": {
+            "instruction_form_bytes": 124,
+            "home_bytes": {
+              "spill": 0,
+              "param": 7,
+              "local": 3,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0E6": 1
+            },
+            "pointer_scratch_writes": 10,
+            "indirect_y_operations": 3
+          },
+          "TagsRecount": {
+            "instruction_form_bytes": 593,
+            "home_bytes": {
+              "spill": 0,
+              "param": 14,
+              "local": 12,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0E6": 1
+            },
+            "pointer_scratch_writes": 48,
+            "indirect_y_operations": 14
+          },
+          "TagsExtent": {
+            "instruction_form_bytes": 429,
+            "home_bytes": {
+              "spill": 0,
+              "param": 16,
+              "local": 11,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0F5": 1,
+              "$A0E6": 2
+            },
+            "pointer_scratch_writes": 26,
+            "indirect_y_operations": 16
+          }
+        }
+      },
+      "mir6502": {
+        "load_file_bytes": 16907,
+        "routines": {
+          "TagBitInRange": {
+            "instruction_form_bytes": 140,
+            "home_bytes": {
+              "spill": 0,
+              "param": 4,
+              "local": 3,
+              "static_string": 0
+            },
+            "calls": {},
+            "pointer_scratch_writes": 4,
+            "indirect_y_operations": 3
+          },
+          "TagsRecount": {
+            "instruction_form_bytes": 356,
+            "home_bytes": {
+              "spill": 2,
+              "param": 2,
+              "local": 12,
+              "static_string": 0
+            },
+            "calls": {},
+            "pointer_scratch_writes": 10,
+            "indirect_y_operations": 10
+          },
+          "TagsExtent": {
+            "instruction_form_bytes": 515,
+            "home_bytes": {
+              "spill": 4,
+              "param": 5,
+              "local": 11,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0F5": 1
+            },
+            "pointer_scratch_writes": 18,
+            "indirect_y_operations": 16
+          }
+        }
+      }
+    },
+    "cached_bound": {
+      "optimized": {
+        "load_file_bytes": 18076,
+        "routines": {
+          "TagBitInRange": {
+            "instruction_form_bytes": 124,
+            "home_bytes": {
+              "spill": 0,
+              "param": 7,
+              "local": 3,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0E6": 1
+            },
+            "pointer_scratch_writes": 10,
+            "indirect_y_operations": 3
+          },
+          "TagsRecount": {
+            "instruction_form_bytes": 216,
+            "home_bytes": {
+              "spill": 0,
+              "param": 8,
+              "local": 6,
+              "static_string": 0
+            },
+            "calls": {
+              "TagBitInRange": 1
+            },
+            "pointer_scratch_writes": 14,
+            "indirect_y_operations": 10
+          },
+          "TagsExtent": {
+            "instruction_form_bytes": 413,
+            "home_bytes": {
+              "spill": 0,
+              "param": 18,
+              "local": 13,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0F5": 1,
+              "$A0E6": 2
+            },
+            "pointer_scratch_writes": 24,
+            "indirect_y_operations": 16
+          }
+        }
+      },
+      "mir6502": {
+        "load_file_bytes": 16693,
+        "routines": {
+          "TagBitInRange": {
+            "instruction_form_bytes": 140,
+            "home_bytes": {
+              "spill": 0,
+              "param": 4,
+              "local": 3,
+              "static_string": 0
+            },
+            "calls": {},
+            "pointer_scratch_writes": 4,
+            "indirect_y_operations": 3
+          },
+          "TagsRecount": {
+            "instruction_form_bytes": 176,
+            "home_bytes": {
+              "spill": 2,
+              "param": 2,
+              "local": 6,
+              "static_string": 0
+            },
+            "calls": {
+              "TagBitInRange": 1
+            },
+            "pointer_scratch_writes": 8,
+            "indirect_y_operations": 10
+          },
+          "TagsExtent": {
+            "instruction_form_bytes": 503,
+            "home_bytes": {
+              "spill": 2,
+              "param": 5,
+              "local": 13,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0F5": 1
+            },
+            "pointer_scratch_writes": 18,
+            "indirect_y_operations": 16
+          }
+        }
+      }
+    },
+    "byte_nibbles_bound": {
+      "optimized": {
+        "load_file_bytes": 18475,
+        "routines": {
+          "TagBitInRange": {
+            "instruction_form_bytes": 124,
+            "home_bytes": {
+              "spill": 0,
+              "param": 7,
+              "local": 3,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0E6": 1
+            },
+            "pointer_scratch_writes": 10,
+            "indirect_y_operations": 3
+          },
+          "TagsRecount": {
+            "instruction_form_bytes": 593,
+            "home_bytes": {
+              "spill": 0,
+              "param": 14,
+              "local": 12,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0E6": 1
+            },
+            "pointer_scratch_writes": 48,
+            "indirect_y_operations": 14
+          },
+          "TagsExtent": {
+            "instruction_form_bytes": 413,
+            "home_bytes": {
+              "spill": 0,
+              "param": 18,
+              "local": 13,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0F5": 1,
+              "$A0E6": 2
+            },
+            "pointer_scratch_writes": 24,
+            "indirect_y_operations": 16
+          }
+        }
+      },
+      "mir6502": {
+        "load_file_bytes": 16895,
+        "routines": {
+          "TagBitInRange": {
+            "instruction_form_bytes": 140,
+            "home_bytes": {
+              "spill": 0,
+              "param": 4,
+              "local": 3,
+              "static_string": 0
+            },
+            "calls": {},
+            "pointer_scratch_writes": 4,
+            "indirect_y_operations": 3
+          },
+          "TagsRecount": {
+            "instruction_form_bytes": 356,
+            "home_bytes": {
+              "spill": 2,
+              "param": 2,
+              "local": 12,
+              "static_string": 0
+            },
+            "calls": {},
+            "pointer_scratch_writes": 10,
+            "indirect_y_operations": 10
+          },
+          "TagsExtent": {
+            "instruction_form_bytes": 503,
+            "home_bytes": {
+              "spill": 2,
+              "param": 5,
+              "local": 13,
+              "static_string": 0
+            },
+            "calls": {
+              "$A0F5": 1
+            },
+            "pointer_scratch_writes": 18,
+            "indirect_y_operations": 16
+          }
+        }
+      }
+    }
+  },
+  "generic": {
+    "generic-optimized-cart": {
+      "load_file_bytes": 1632,
+      "routines": {
+        "HasBit": {
+          "instruction_form_bytes": 124,
+          "home_bytes": {
+            "spill": 0,
+            "param": 7,
+            "local": 3,
+            "static_string": 0
+          },
+          "calls": {
+            "$A0E6": 1
+          },
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 3
+        },
+        "BitByBit": {
+          "instruction_form_bytes": 216,
+          "home_bytes": {
+            "spill": 0,
+            "param": 8,
+            "local": 6,
+            "static_string": 0
+          },
+          "calls": {
+            "HasBit": 1
+          },
+          "pointer_scratch_writes": 14,
+          "indirect_y_operations": 10
+        },
+        "CachedBits": {
+          "instruction_form_bytes": 222,
+          "home_bytes": {
+            "spill": 0,
+            "param": 15,
+            "local": 13,
+            "static_string": 0
+          },
+          "calls": {
+            "$A0E6": 1
+          },
+          "pointer_scratch_writes": 11,
+          "indirect_y_operations": 9
+        },
+        "ByteShift": {
+          "instruction_form_bytes": 315,
+          "home_bytes": {
+            "spill": 0,
+            "param": 14,
+            "local": 12,
+            "static_string": 0
+          },
+          "calls": {
+            "$A0E6": 1
+          },
+          "pointer_scratch_writes": 16,
+          "indirect_y_operations": 10
+        },
+        "ByteNibbles": {
+          "instruction_form_bytes": 593,
+          "home_bytes": {
+            "spill": 0,
+            "param": 14,
+            "local": 12,
+            "static_string": 0
+          },
+          "calls": {
+            "$A0E6": 1
+          },
+          "pointer_scratch_writes": 48,
+          "indirect_y_operations": 14
+        }
+      }
+    },
+    "generic-optimized-standalone": {
+      "load_file_bytes": 1647,
+      "routines": {
+        "HasBit": {
+          "instruction_form_bytes": 124,
+          "home_bytes": {
+            "spill": 0,
+            "param": 7,
+            "local": 3,
+            "static_string": 0
+          },
+          "calls": {
+            "ACTION.RUNTIME.SYSLIB::RShift": 1
+          },
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 3
+        },
+        "BitByBit": {
+          "instruction_form_bytes": 216,
+          "home_bytes": {
+            "spill": 0,
+            "param": 8,
+            "local": 6,
+            "static_string": 0
+          },
+          "calls": {
+            "HasBit": 1
+          },
+          "pointer_scratch_writes": 14,
+          "indirect_y_operations": 10
+        },
+        "CachedBits": {
+          "instruction_form_bytes": 222,
+          "home_bytes": {
+            "spill": 0,
+            "param": 15,
+            "local": 13,
+            "static_string": 0
+          },
+          "calls": {
+            "ACTION.RUNTIME.SYSLIB::RShift": 1
+          },
+          "pointer_scratch_writes": 11,
+          "indirect_y_operations": 9
+        },
+        "ByteShift": {
+          "instruction_form_bytes": 315,
+          "home_bytes": {
+            "spill": 0,
+            "param": 14,
+            "local": 12,
+            "static_string": 0
+          },
+          "calls": {
+            "ACTION.RUNTIME.SYSLIB::RShift": 1
+          },
+          "pointer_scratch_writes": 16,
+          "indirect_y_operations": 10
+        },
+        "ByteNibbles": {
+          "instruction_form_bytes": 593,
+          "home_bytes": {
+            "spill": 0,
+            "param": 14,
+            "local": 12,
+            "static_string": 0
+          },
+          "calls": {
+            "ACTION.RUNTIME.SYSLIB::RShift": 1
+          },
+          "pointer_scratch_writes": 48,
+          "indirect_y_operations": 14
+        }
+      }
+    },
+    "generic-mir6502-cart": {
+      "load_file_bytes": 1416,
+      "routines": {
+        "HasBit": {
+          "instruction_form_bytes": 140,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 3,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 4,
+          "indirect_y_operations": 3
+        },
+        "BitByBit": {
+          "instruction_form_bytes": 176,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 6,
+            "static_string": 0
+          },
+          "calls": {
+            "HasBit": 1
+          },
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 10
+        },
+        "CachedBits": {
+          "instruction_form_bytes": 271,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 13,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 9
+        },
+        "ByteShift": {
+          "instruction_form_bytes": 318,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 12,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 10
+        },
+        "ByteNibbles": {
+          "instruction_form_bytes": 356,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 12,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 10
+        }
+      }
+    },
+    "generic-mir6502-standalone": {
+      "load_file_bytes": 1416,
+      "routines": {
+        "HasBit": {
+          "instruction_form_bytes": 140,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 3,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 4,
+          "indirect_y_operations": 3
+        },
+        "BitByBit": {
+          "instruction_form_bytes": 176,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 6,
+            "static_string": 0
+          },
+          "calls": {
+            "HasBit": 1
+          },
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 10
+        },
+        "CachedBits": {
+          "instruction_form_bytes": 271,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 13,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 9
+        },
+        "ByteShift": {
+          "instruction_form_bytes": 318,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 12,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 10
+        },
+        "ByteNibbles": {
+          "instruction_form_bytes": 356,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 12,
+            "static_string": 0
+          },
+          "calls": {},
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 10
+        }
+      }
+    }
+  },
+  "profiles": {
+    "baseline": [
+      "Optimized,publish_prefix,1088,332812,0",
+      "Optimized,publish_complete,1089,552455,0",
+      "Mir6502,publish_prefix,1088,289381,18",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagBitInRange,221952,69632,0,4352,3264,0,9792,6528",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagsRecount,66527,17450,1088,4,6,3,2179,8723",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagsExtent,313,88,1,10,10,9,18,13",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,BatchPublish,249,69,2,8,5,6,16,10",
+      "Mir6502,publish_complete,1089,407371,2276",
+      "tn-routine,TN,Mir6502,publish_complete,1089,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,publish_complete,1089,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagBitInRange,224334,70785,0,4356,3267,0,9801,6534",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagsRecount,133017,38157,1089,4360,4362,3,4359,8731",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagsExtent,49431,14825,1,766,390,2267,22,3794",
+      "tn-routine,TN,Mir6502,publish_complete,1089,BatchPublish,249,69,2,8,5,6,16,10"
+    ],
+    "cached": [
+      "Optimized,publish_prefix,1088,197948,0",
+      "Optimized,publish_complete,1089,274828,0",
+      "Mir6502,publish_prefix,1088,206752,18",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagsRecount,205850,64251,0,2182,1096,3,4,19609",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagsExtent,313,88,1,10,10,9,18,13",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,BatchPublish,249,69,2,8,5,6,16,10",
+      "Mir6502,publish_complete,1089,264791,2276",
+      "tn-routine,TN,Mir6502,publish_complete,1089,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,publish_complete,1089,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagsRecount,214771,66492,0,2184,1097,3,4,21813",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagsExtent,49431,14825,1,766,390,2267,22,3794",
+      "tn-routine,TN,Mir6502,publish_complete,1089,BatchPublish,249,69,2,8,5,6,16,10"
+    ],
+    "byte_shift": [
+      "Optimized,publish_prefix,1088,11016,0",
+      "Optimized,publish_complete,1089,132404,0",
+      "Mir6502,publish_prefix,1088,9733,18",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagsRecount,8831,2390,0,278,144,3,4,1380",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagsExtent,313,88,1,10,10,9,18,13",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,BatchPublish,249,69,2,8,5,6,16,10",
+      "Mir6502,publish_complete,1089,99210,2276",
+      "tn-routine,TN,Mir6502,publish_complete,1089,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,publish_complete,1089,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagsRecount,49190,15476,0,280,145,3,4,5750",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagsExtent,49431,14825,1,766,390,2267,22,3794",
+      "tn-routine,TN,Mir6502,publish_complete,1089,BatchPublish,249,69,2,8,5,6,16,10"
+    ],
+    "byte_nibbles": [
+      "Optimized,publish_prefix,1088,44612,0",
+      "Optimized,publish_complete,1089,112885,0",
+      "Mir6502,publish_prefix,1088,18165,18",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagsRecount,17263,5246,0,278,144,3,4,2060",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagsExtent,313,88,1,10,10,9,18,13",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,BatchPublish,249,69,2,8,5,6,16,10",
+      "Mir6502,publish_complete,1089,67411,2276",
+      "tn-routine,TN,Mir6502,publish_complete,1089,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,publish_complete,1089,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagsRecount,17391,5285,0,280,145,3,4,2079",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagsExtent,49431,14825,1,766,390,2267,22,3794",
+      "tn-routine,TN,Mir6502,publish_complete,1089,BatchPublish,249,69,2,8,5,6,16,10"
+    ],
+    "cached_bound": [
+      "Optimized,publish_prefix,1088,332812,0",
+      "Optimized,publish_complete,1089,508546,0",
+      "Mir6502,publish_prefix,1088,289381,18",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagBitInRange,221952,69632,0,4352,3264,0,9792,6528",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagsRecount,66527,17450,1088,4,6,3,2179,8723",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagsExtent,313,88,1,10,10,9,18,13",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,BatchPublish,249,69,2,8,5,6,16,10",
+      "Mir6502,publish_complete,1089,382607,18",
+      "tn-routine,TN,Mir6502,publish_complete,1089,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,publish_complete,1089,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagBitInRange,224334,70785,0,4356,3267,0,9801,6534",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagsRecount,133017,38157,1089,4360,4362,3,4359,8731",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagsExtent,24667,6571,1,766,390,9,22,3798",
+      "tn-routine,TN,Mir6502,publish_complete,1089,BatchPublish,249,69,2,8,5,6,16,10"
+    ],
+    "byte_nibbles_bound": [
+      "Optimized,publish_prefix,1088,44612,0",
+      "Optimized,publish_complete,1089,68976,0",
+      "Mir6502,publish_prefix,1088,18165,18",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagsRecount,17263,5246,0,278,144,3,4,2060",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,TagsExtent,313,88,1,10,10,9,18,13",
+      "tn-routine,TN,Mir6502,publish_prefix,1088,BatchPublish,249,69,2,8,5,6,16,10",
+      "Mir6502,publish_complete,1089,42647,18",
+      "tn-routine,TN,Mir6502,publish_complete,1089,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+      "tn-routine,TN,Mir6502,publish_complete,1089,<resident-ROM>,323,96,0,0,17,0,0,0",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagsRecount,17391,5285,0,280,145,3,4,2079",
+      "tn-routine,TN,Mir6502,publish_complete,1089,TagsExtent,24667,6571,1,766,390,9,22,3798",
+      "tn-routine,TN,Mir6502,publish_complete,1089,BatchPublish,249,69,2,8,5,6,16,10"
+    ]
+  },
+  "qualified_roots": {
+    "TN-optimized": {
+      "load_file_bytes": 18076,
+      "sha256": "2a560641f0e9be89709549f5a33178a1a91a37dd65a5494456b252af34d74867",
+      "lf_crlf_identical": true,
+      "routines": {
+        "TagBitInRange": {
+          "start": 14560,
+          "end": 14691,
+          "entry": 14567,
+          "instruction_form_bytes": 124,
+          "directive_form_bytes": 7,
+          "instructions": 59,
+          "direct_calls": 1,
+          "calls": {
+            "$A0E6": 1
+          },
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 3,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 7,
+            "local": 3,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 14,
+            "local": 8,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 18,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 18,
+            "LDY": 2,
+            "DEY": 1,
+            "PHA": 2,
+            "TAX": 2,
+            "JSR": 1,
+            "TXA": 1,
+            "PLA": 2,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 2,
+            "BNE": 1,
+            "TYA": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "TagsRecount": {
+          "start": 15396,
+          "end": 15620,
+          "entry": 15404,
+          "instruction_form_bytes": 216,
+          "directive_form_bytes": 8,
+          "instructions": 100,
+          "direct_calls": 1,
+          "calls": {
+            "TagBitInRange": 1
+          },
+          "pointer_scratch_writes": 14,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 4,
+          "home_bytes": {
+            "spill": 0,
+            "param": 8,
+            "local": 6,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 32,
+            "local": 28,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 28,
+            "LDY": 6,
+            "LDA": 29,
+            "DEY": 4,
+            "CMP": 2,
+            "SBC": 2,
+            "BCS": 2,
+            "STY": 2,
+            "LDX": 1,
+            "JSR": 1,
+            "BEQ": 1,
+            "CLC": 2,
+            "ADC": 4,
+            "PHA": 4,
+            "PLA": 4,
+            "INY": 1,
+            "INC": 2,
+            "BNE": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "TagsExtent": {
+          "start": 15620,
+          "end": 16054,
+          "entry": 15638,
+          "instruction_form_bytes": 413,
+          "directive_form_bytes": 21,
+          "instructions": 178,
+          "direct_calls": 3,
+          "calls": {
+            "$A0F5": 1,
+            "$A0E6": 2
+          },
+          "pointer_scratch_writes": 24,
+          "indirect_y_operations": 16,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 18,
+            "local": 13,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 78,
+            "local": 58,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 3,
+            "LDA": 58,
+            "STA": 48,
+            "LDY": 10,
+            "DEY": 4,
+            "CMP": 4,
+            "SBC": 5,
+            "BCC": 3,
+            "BEQ": 4,
+            "JMP": 4,
+            "TAX": 3,
+            "TXA": 2,
+            "CLC": 1,
+            "ADC": 2,
+            "INY": 1,
+            "AND": 2,
+            "TAY": 1,
+            "SEC": 1,
+            "PHA": 4,
+            "PLA": 4,
+            "INC": 8,
+            "BNE": 4,
+            "BCS": 1,
+            "LDX": 1
+          }
+        }
+      }
+    },
+    "TN-mir6502": {
+      "load_file_bytes": 16693,
+      "sha256": "385ed22a86deac355507f5dfacdd1746e3d6df981605dabd61a7ce51e4ea9b3e",
+      "lf_crlf_identical": true,
+      "routines": {
+        "TagBitInRange": {
+          "start": 15457,
+          "end": 15597,
+          "entry": 15457,
+          "instruction_form_bytes": 140,
+          "directive_form_bytes": 0,
+          "instructions": 66,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 4,
+          "indirect_y_operations": 3,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 3,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 9,
+            "local": 6,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 21,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 23,
+            "LDY": 3,
+            "INY": 1,
+            "LSR": 3,
+            "ROR": 3,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 3,
+            "BEQ": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "TagsRecount": {
+          "start": 16231,
+          "end": 16407,
+          "entry": 16231,
+          "instruction_form_bytes": 176,
+          "directive_form_bytes": 0,
+          "instructions": 76,
+          "direct_calls": 1,
+          "calls": {
+            "TagBitInRange": 1
+          },
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 1,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 6,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 4,
+            "param": 7,
+            "local": 22,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 3,
+            "STA": 22,
+            "LDY": 4,
+            "LDA": 20,
+            "INY": 6,
+            "CMP": 4,
+            "BCC": 2,
+            "BNE": 2,
+            "BCS": 1,
+            "SBC": 1,
+            "RTS": 1,
+            "LDX": 1,
+            "JSR": 1,
+            "BEQ": 1,
+            "CLC": 1,
+            "ADC": 2,
+            "DEY": 1,
+            "INC": 2,
+            "JMP": 1
+          }
+        },
+        "TagsExtent": {
+          "start": 16407,
+          "end": 16913,
+          "entry": 16407,
+          "instruction_form_bytes": 503,
+          "directive_form_bytes": 3,
+          "instructions": 219,
+          "direct_calls": 1,
+          "calls": {
+            "$A0F5": 1
+          },
+          "pointer_scratch_writes": 18,
+          "indirect_y_operations": 16,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 2,
+            "param": 5,
+            "local": 13,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 12,
+            "param": 22,
+            "local": 55,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 1,
+            "LDA": 75,
+            "STA": 64,
+            "LDY": 11,
+            "INY": 6,
+            "CMP": 5,
+            "SBC": 4,
+            "BCC": 5,
+            "JMP": 6,
+            "ORA": 1,
+            "BEQ": 3,
+            "TAX": 1,
+            "PHA": 1,
+            "TXA": 1,
+            "PLA": 1,
+            "BNE": 6,
+            "AND": 3,
+            "LSR": 6,
+            "ROR": 6,
+            "CLC": 1,
+            "ADC": 2,
+            "SEC": 1,
+            "INC": 8,
+            "LDX": 1
+          }
+        }
+      }
+    },
+    "TNDBG-optimized": {
+      "load_file_bytes": 21563,
+      "sha256": "f5898964800d58b977bdb75aa772199f8453a8d84a0e2cc6cb7c289434b5807a",
+      "lf_crlf_identical": true,
+      "routines": {
+        "TagBitInRange": {
+          "start": 14560,
+          "end": 14691,
+          "entry": 14567,
+          "instruction_form_bytes": 124,
+          "directive_form_bytes": 7,
+          "instructions": 59,
+          "direct_calls": 1,
+          "calls": {
+            "$A0E6": 1
+          },
+          "pointer_scratch_writes": 10,
+          "indirect_y_operations": 3,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 7,
+            "local": 3,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 14,
+            "local": 8,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 18,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 18,
+            "LDY": 2,
+            "DEY": 1,
+            "PHA": 2,
+            "TAX": 2,
+            "JSR": 1,
+            "TXA": 1,
+            "PLA": 2,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 2,
+            "BNE": 1,
+            "TYA": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "TagsRecount": {
+          "start": 15396,
+          "end": 15620,
+          "entry": 15404,
+          "instruction_form_bytes": 216,
+          "directive_form_bytes": 8,
+          "instructions": 100,
+          "direct_calls": 1,
+          "calls": {
+            "TagBitInRange": 1
+          },
+          "pointer_scratch_writes": 14,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 4,
+          "home_bytes": {
+            "spill": 0,
+            "param": 8,
+            "local": 6,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 32,
+            "local": 28,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 2,
+            "STA": 28,
+            "LDY": 6,
+            "LDA": 29,
+            "DEY": 4,
+            "CMP": 2,
+            "SBC": 2,
+            "BCS": 2,
+            "STY": 2,
+            "LDX": 1,
+            "JSR": 1,
+            "BEQ": 1,
+            "CLC": 2,
+            "ADC": 4,
+            "PHA": 4,
+            "PLA": 4,
+            "INY": 1,
+            "INC": 2,
+            "BNE": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "TagsExtent": {
+          "start": 15620,
+          "end": 16054,
+          "entry": 15638,
+          "instruction_form_bytes": 413,
+          "directive_form_bytes": 21,
+          "instructions": 178,
+          "direct_calls": 3,
+          "calls": {
+            "$A0F5": 1,
+            "$A0E6": 2
+          },
+          "pointer_scratch_writes": 24,
+          "indirect_y_operations": 16,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 18,
+            "local": 13,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 78,
+            "local": 58,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 3,
+            "LDA": 58,
+            "STA": 48,
+            "LDY": 10,
+            "DEY": 4,
+            "CMP": 4,
+            "SBC": 5,
+            "BCC": 3,
+            "BEQ": 4,
+            "JMP": 4,
+            "TAX": 3,
+            "TXA": 2,
+            "CLC": 1,
+            "ADC": 2,
+            "INY": 1,
+            "AND": 2,
+            "TAY": 1,
+            "SEC": 1,
+            "PHA": 4,
+            "PLA": 4,
+            "INC": 8,
+            "BNE": 4,
+            "BCS": 1,
+            "LDX": 1
+          }
+        }
+      }
+    },
+    "TNDBG-mir6502": {
+      "load_file_bytes": 20430,
+      "sha256": "7ace124135bdd07eb4db01d68bf05367f7e13d54accc1c915fda09ecfa2b326f",
+      "lf_crlf_identical": true,
+      "routines": {
+        "TagBitInRange": {
+          "start": 16021,
+          "end": 16161,
+          "entry": 16021,
+          "instruction_form_bytes": 140,
+          "directive_form_bytes": 0,
+          "instructions": 66,
+          "direct_calls": 0,
+          "calls": {},
+          "pointer_scratch_writes": 4,
+          "indirect_y_operations": 3,
+          "abi_cell_accesses": 2,
+          "home_bytes": {
+            "spill": 0,
+            "param": 4,
+            "local": 3,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 0,
+            "param": 9,
+            "local": 6,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STA": 21,
+            "STX": 2,
+            "STY": 1,
+            "LDA": 23,
+            "LDY": 3,
+            "INY": 1,
+            "LSR": 3,
+            "ROR": 3,
+            "CLC": 1,
+            "ADC": 2,
+            "AND": 3,
+            "BEQ": 1,
+            "JMP": 1,
+            "RTS": 1
+          }
+        },
+        "TagsRecount": {
+          "start": 16795,
+          "end": 16971,
+          "entry": 16795,
+          "instruction_form_bytes": 176,
+          "directive_form_bytes": 0,
+          "instructions": 76,
+          "direct_calls": 1,
+          "calls": {
+            "TagBitInRange": 1
+          },
+          "pointer_scratch_writes": 8,
+          "indirect_y_operations": 10,
+          "abi_cell_accesses": 1,
+          "home_bytes": {
+            "spill": 2,
+            "param": 2,
+            "local": 6,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 4,
+            "param": 7,
+            "local": 22,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "STX": 3,
+            "STA": 22,
+            "LDY": 4,
+            "LDA": 20,
+            "INY": 6,
+            "CMP": 4,
+            "BCC": 2,
+            "BNE": 2,
+            "BCS": 1,
+            "SBC": 1,
+            "RTS": 1,
+            "LDX": 1,
+            "JSR": 1,
+            "BEQ": 1,
+            "CLC": 1,
+            "ADC": 2,
+            "DEY": 1,
+            "INC": 2,
+            "JMP": 1
+          }
+        },
+        "TagsExtent": {
+          "start": 16971,
+          "end": 17477,
+          "entry": 16971,
+          "instruction_form_bytes": 503,
+          "directive_form_bytes": 3,
+          "instructions": 219,
+          "direct_calls": 1,
+          "calls": {
+            "$A0F5": 1
+          },
+          "pointer_scratch_writes": 18,
+          "indirect_y_operations": 16,
+          "abi_cell_accesses": 0,
+          "home_bytes": {
+            "spill": 2,
+            "param": 5,
+            "local": 13,
+            "static_string": 0
+          },
+          "fixed_home_bytes": {
+            "spill": 0,
+            "param": 0,
+            "local": 0,
+            "static_string": 0
+          },
+          "static_home_operand_accesses": {
+            "spill": 12,
+            "param": 22,
+            "local": 55,
+            "static_string": 0
+          },
+          "mnemonics": {
+            "JSR": 1,
+            "LDA": 75,
+            "STA": 64,
+            "LDY": 11,
+            "INY": 6,
+            "CMP": 5,
+            "SBC": 4,
+            "BCC": 5,
+            "JMP": 6,
+            "ORA": 1,
+            "BEQ": 3,
+            "TAX": 1,
+            "PHA": 1,
+            "TXA": 1,
+            "PLA": 1,
+            "BNE": 6,
+            "AND": 3,
+            "LSR": 6,
+            "ROR": 6,
+            "CLC": 1,
+            "ADC": 2,
+            "SEC": 1,
+            "INC": 8,
+            "LDX": 1
+          }
+        }
+      }
+    }
+  },
+  "checks": {
+    "bitmap-scans": {
+      "passed": 2,
+      "log": "target/tn-bitmap-scan/bitmap-scans.log"
+    },
+    "tail-bound": {
+      "passed": 1,
+      "log": "target/tn-bitmap-scan/tail-bound.log"
+    },
+    "qualification": {
+      "passed": 6,
+      "log": "target/tn-bitmap-scan/qualification.log"
+    },
+    "counterfactual_profiles": {
+      "passed": 15,
+      "logs": [
+        "target/tn-bitmap-scan/cached-profile.log",
+        "target/tn-bitmap-scan/byte_shift-profile.log",
+        "target/tn-bitmap-scan/byte_nibbles-profile.log",
+        "target/tn-bitmap-scan/cached_bound-profile.log",
+        "target/tn-bitmap-scan/byte_nibbles_bound-TN-profile.log"
+      ]
+    },
+    "qualified_TNDBG_profile": {
+      "passed": 3,
+      "log": "target/tn-bitmap-scan/production-TNDBG-profile.log"
+    },
+    "qualified_roots_LF_CRLF": {
+      "images": 4,
+      "identical": true,
+      "log": "target/tn-bitmap-scan/qualified-measure.log"
+    }
+  },
+  "generic_vectors": [
+    "bitmap,Optimized,ActionCart,BitByBit,4096,1088,0,332021,1088,2177,10884",
+    "bitmap,Optimized,ActionCart,CachedBits,4096,1088,0,197157,1088,1089,5446",
+    "bitmap,Optimized,ActionCart,ByteShift,4096,1088,0,10225,136,2,278",
+    "bitmap,Optimized,ActionCart,ByteNibbles,4096,1088,0,43821,136,2,2726",
+    "bitmap,Optimized,ActionCart,BitByBit,4096,1088,1,483253,1088,2177,23940",
+    "bitmap,Optimized,ActionCart,CachedBits,4096,1088,1,205881,1088,1089,5446",
+    "bitmap,Optimized,ActionCart,ByteShift,4096,1088,1,63537,136,2,2454",
+    "bitmap,Optimized,ActionCart,ByteNibbles,4096,1088,1,43821,136,2,2726",
+    "bitmap,Optimized,ActionCart,BitByBit,4096,1088,2,407776,1088,2177,17424",
+    "bitmap,Optimized,ActionCart,CachedBits,4096,1088,2,201527,1088,1089,5446",
+    "bitmap,Optimized,ActionCart,ByteShift,4096,1088,2,57368,136,2,2202",
+    "bitmap,Optimized,ActionCart,ByteNibbles,4096,1088,2,43826,136,2,2726",
+    "bitmap,Optimized,Standalone,BitByBit,4096,1088,0,332021,1088,2177,10884",
+    "bitmap,Optimized,Standalone,CachedBits,4096,1088,0,197157,1088,1089,5446",
+    "bitmap,Optimized,Standalone,ByteShift,4096,1088,0,10225,136,2,278",
+    "bitmap,Optimized,Standalone,ByteNibbles,4096,1088,0,43821,136,2,2726",
+    "bitmap,Optimized,Standalone,BitByBit,4096,1088,1,483253,1088,2177,23940",
+    "bitmap,Optimized,Standalone,CachedBits,4096,1088,1,205881,1088,1089,5446",
+    "bitmap,Optimized,Standalone,ByteShift,4096,1088,1,63537,136,2,2454",
+    "bitmap,Optimized,Standalone,ByteNibbles,4096,1088,1,43821,136,2,2726",
+    "bitmap,Optimized,Standalone,BitByBit,4096,1088,2,407776,1088,2177,17424",
+    "bitmap,Optimized,Standalone,CachedBits,4096,1088,2,201527,1088,1089,5446",
+    "bitmap,Optimized,Standalone,ByteShift,4096,1088,2,57368,136,2,2202",
+    "bitmap,Optimized,Standalone,ByteNibbles,4096,1088,2,43826,136,2,2726",
+    "bitmap,Mir6502,ActionCart,BitByBit,4096,1088,0,288496,1088,1089,4356",
+    "bitmap,Mir6502,ActionCart,CachedBits,4096,1088,0,205867,1088,1,2182",
+    "bitmap,Mir6502,ActionCart,ByteShift,4096,1088,0,8848,136,1,278",
+    "bitmap,Mir6502,ActionCart,ByteNibbles,4096,1088,0,17280,136,1,278",
+    "bitmap,Mir6502,ActionCart,BitByBit,4096,1088,1,357040,1088,1089,8708",
+    "bitmap,Mir6502,ActionCart,CachedBits,4096,1088,1,214591,1088,1,2182",
+    "bitmap,Mir6502,ActionCart,ByteShift,4096,1088,1,49124,136,1,278",
+    "bitmap,Mir6502,ActionCart,ByteNibbles,4096,1088,1,17300,136,1,278",
+    "bitmap,Mir6502,ActionCart,BitByBit,4096,1088,2,322831,1088,1089,6536",
+    "bitmap,Mir6502,ActionCart,CachedBits,4096,1088,2,210237,1088,1,2182",
+    "bitmap,Mir6502,ActionCart,ByteShift,4096,1088,2,44457,136,1,278",
+    "bitmap,Mir6502,ActionCart,ByteNibbles,4096,1088,2,17295,136,1,278",
+    "bitmap,Mir6502,Standalone,BitByBit,4096,1088,0,288496,1088,1089,4356",
+    "bitmap,Mir6502,Standalone,CachedBits,4096,1088,0,205867,1088,1,2182",
+    "bitmap,Mir6502,Standalone,ByteShift,4096,1088,0,8848,136,1,278",
+    "bitmap,Mir6502,Standalone,ByteNibbles,4096,1088,0,17280,136,1,278",
+    "bitmap,Mir6502,Standalone,BitByBit,4096,1088,1,357040,1088,1089,8708",
+    "bitmap,Mir6502,Standalone,CachedBits,4096,1088,1,214591,1088,1,2182",
+    "bitmap,Mir6502,Standalone,ByteShift,4096,1088,1,49124,136,1,278",
+    "bitmap,Mir6502,Standalone,ByteNibbles,4096,1088,1,17300,136,1,278",
+    "bitmap,Mir6502,Standalone,BitByBit,4096,1088,2,322831,1088,1089,6536",
+    "bitmap,Mir6502,Standalone,CachedBits,4096,1088,2,210237,1088,1,2182",
+    "bitmap,Mir6502,Standalone,ByteShift,4096,1088,2,44457,136,1,278",
+    "bitmap,Mir6502,Standalone,ByteNibbles,4096,1088,2,17295,136,1,278"
+  ],
+  "generic_vector_columns": [
+    "kind",
+    "backend",
+    "runtime",
+    "routine",
+    "capacity",
+    "limit",
+    "pattern_0_clear_1_set_2_mixed",
+    "cycles",
+    "bitmap_reads",
+    "jsr",
+    "pointer_writes"
+  ],
+  "profile_columns": [
+    "backend",
+    "workload",
+    "count",
+    "cycles",
+    "spill_operand_accesses"
+  ],
+  "exclusive_profile_columns": [
+    "kind",
+    "root",
+    "backend",
+    "workload",
+    "count",
+    "routine",
+    "cycles",
+    "instructions",
+    "jsr",
+    "pointer_scratch_writes",
+    "indirect_y",
+    "spill_operands",
+    "param_operands",
+    "local_operands"
+  ],
+  "qualified_TNDBG_profiles": [
+    "Optimized,publish_prefix,1088,332812,0",
+    "Optimized,publish_complete,1089,508546,0",
+    "Mir6502,publish_prefix,1088,289381,18",
+    "tn-routine,TNDBG,Mir6502,publish_prefix,1088,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+    "tn-routine,TNDBG,Mir6502,publish_prefix,1088,<resident-ROM>,323,96,0,0,17,0,0,0",
+    "tn-routine,TNDBG,Mir6502,publish_prefix,1088,TagBitInRange,221952,69632,0,4352,3264,0,9792,6528",
+    "tn-routine,TNDBG,Mir6502,publish_prefix,1088,TagsRecount,66527,17450,1088,4,6,3,2179,8723",
+    "tn-routine,TNDBG,Mir6502,publish_prefix,1088,TagsExtent,313,88,1,10,10,9,18,13",
+    "tn-routine,TNDBG,Mir6502,publish_prefix,1088,BatchPublish,249,69,2,8,5,6,16,10",
+    "Mir6502,publish_complete,1089,382607,18",
+    "tn-routine,TNDBG,Mir6502,publish_complete,1089,<wrapper-or-substituted-service>,17,6,1,0,0,0,0,0",
+    "tn-routine,TNDBG,Mir6502,publish_complete,1089,<resident-ROM>,323,96,0,0,17,0,0,0",
+    "tn-routine,TNDBG,Mir6502,publish_complete,1089,TagBitInRange,224334,70785,0,4356,3267,0,9801,6534",
+    "tn-routine,TNDBG,Mir6502,publish_complete,1089,TagsRecount,133017,38157,1089,4360,4362,3,4359,8731",
+    "tn-routine,TNDBG,Mir6502,publish_complete,1089,TagsExtent,24667,6571,1,766,390,9,22,3798",
+    "tn-routine,TNDBG,Mir6502,publish_complete,1089,BatchPublish,249,69,2,8,5,6,16,10"
+  ]
+}

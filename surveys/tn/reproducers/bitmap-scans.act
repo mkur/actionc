@@ -1,0 +1,101 @@
+; Generic ordinary-RAM bitmap scans. The descriptor and backing are distinct.
+; Tables are mutable Action! arrays; no compiler constant-data claim is made.
+BYTE ARRAY masks(8)=[1 2 4 8 16 32 64 128]
+BYTE ARRAY nibbleCounts(16)=[0 1 1 2 1 2 2 3 1 2 2 3 2 3 3 4]
+TYPE BitSpan=[BYTE POINTER data CARD capacity,limit,total]
+BYTE choice
+BitSpan POINTER selected
+
+BYTE FUNC HasBit(BitSpan POINTER span CARD ordinal)
+  BYTE POINTER p
+  BYTE mask
+  p=span.data+(ordinal RSH 3)
+  mask=masks(BYTE(ordinal&7))
+RETURN((p^&mask)#0)
+
+PROC BitByBit(BitSpan POINTER span)
+  CARD ordinal,limit
+  LET CARD capacity=span.capacity
+  limit=span.limit
+  IF limit>capacity THEN limit=capacity FI
+  span.total=0 ordinal=0
+  WHILE ordinal<limit DO
+    IF HasBit(span,ordinal) THEN span.total==+1 FI
+    ordinal==+1
+  OD
+RETURN
+
+PROC CachedBits(BitSpan POINTER span)
+  BYTE POINTER base,p
+  BYTE mask
+  CARD ordinal,limit,total
+  LET CARD capacity=span.capacity
+  limit=span.limit
+  IF limit>capacity THEN limit=capacity FI
+  base=span.data total=0 ordinal=0
+  WHILE ordinal<limit DO
+    p=base+(ordinal RSH 3)
+    mask=masks(BYTE(ordinal&7))
+    IF p^&mask THEN total==+1 FI
+    ordinal==+1
+  OD
+  span.total=total
+RETURN
+
+PROC ByteShift(BitSpan POINTER span)
+  BYTE POINTER p
+  BYTE value,tail
+  CARD limit,whole,total
+  LET CARD capacity=span.capacity
+  limit=span.limit
+  IF limit>capacity THEN limit=capacity FI
+  p=span.data whole=limit RSH 3 tail=BYTE(limit&7) total=0
+  WHILE whole DO
+    value=p^
+    WHILE value DO
+      total==+(value&1)
+      value==RSH 1
+    OD
+    p==+1 whole==-1
+  OD
+  IF tail THEN
+    value=masks(tail)-1
+    value=p^&value
+    WHILE value DO
+      total==+(value&1)
+      value==RSH 1
+    OD
+  FI
+  span.total=total
+RETURN
+
+PROC ByteNibbles(BitSpan POINTER span)
+  BYTE POINTER p
+  BYTE value,tail
+  CARD limit,whole,total
+  LET CARD capacity=span.capacity
+  limit=span.limit
+  IF limit>capacity THEN limit=capacity FI
+  p=span.data whole=limit RSH 3 tail=BYTE(limit&7) total=0
+  WHILE whole DO
+    value=p^
+    total==+nibbleCounts(value&15)
+    total==+nibbleCounts(value RSH 4)
+    p==+1 whole==-1
+  OD
+  IF tail THEN
+    value=masks(tail)-1
+    value=p^&value
+    total==+nibbleCounts(value&15)
+    total==+nibbleCounts(value RSH 4)
+  FI
+  span.total=total
+RETURN
+
+PROC Main()
+  IF choice=0 THEN BitByBit(selected)
+  ELSEIF choice=1 THEN CachedBits(selected)
+  ELSEIF choice=2 THEN ByteShift(selected)
+  ELSE ByteNibbles(selected)
+  FI
+RETURN

@@ -10,6 +10,9 @@ The original MIR6502 listing baseline and optimization backlog are in
 The [source modernization audit](source-modernization-audit-2026-09-15.md)
 identifies uses for current language features, preservation constraints and
 compiler limitations, with fresh builds of TN and TNDBG.
+The [bitmap traversal audit](bitmap-scans/README.md) compares per-bit and
+byte-wise scans, qualifies a smaller tail-clear loop and identifies the next
+MIR6502 arithmetic and captured-bound proof work.
 The [directory handling implementation plan](directory-handling-implementation-plan.md)
 replaces the proposed row overlays with 64-entry batches, independent tagging
 and a MyDOS-first migration toward FujiNet. The implementation and VM checks

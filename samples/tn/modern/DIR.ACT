@@ -128,7 +128,7 @@ RETURN
 ; A seek to a valid ordinal also establishes that the preceding ordinals exist.
 PROC TagsExtent(Selection POINTER tags CARD extent BYTE complete)
   BYTE POINTER p
-  CARD ordinal
+  CARD ordinal,byteLimit
   BYTE mask
   LET CARD capacity=tags.capacity
   LET CARD previous=tags.extent
@@ -137,6 +137,7 @@ PROC TagsExtent(Selection POINTER tags CARD extent BYTE complete)
   LET CARD currentExtent=tags.extent
   tags.limited=currentExtent>capacity
   IF tags.complete AND currentExtent<capacity THEN
+    byteLimit=capacity RSH 3
     ordinal=currentExtent RSH 3
     p=tags.bits+ordinal
     mask=BYTE(currentExtent&7)
@@ -145,7 +146,7 @@ PROC TagsExtent(Selection POINTER tags CARD extent BYTE complete)
       p^==&mask
       p==+1 ordinal==+1
     FI
-    WHILE ordinal<(capacity RSH 3) DO
+    WHILE ordinal<byteLimit DO
       p^=0 p==+1
       ordinal==+1
     OD
