@@ -32,6 +32,7 @@ pub(super) mod compare_branch;
 mod copies;
 mod copy_loops;
 mod dead_spills;
+mod dead_arithmetic;
 mod defs;
 mod dynamic_loops;
 mod flags;
@@ -1577,6 +1578,11 @@ pub(super) fn materialize_program_with_reporting(
     // the now write-only entry capture is removed in the same pipeline.
     for routine in &mut program.routines {
         elide_write_only_param_homes(routine, &mut peephole_stats);
+    }
+    if config.enable_peepholes && config.enable_dead_register_arithmetic {
+        for routine in &mut program.routines {
+            dead_arithmetic::run(routine, &layout, &mut peephole_stats)?;
+        }
     }
     if config.enable_peepholes && config.enable_private_memory_shifts {
         for routine in &mut program.routines {

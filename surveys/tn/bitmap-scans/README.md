@@ -130,17 +130,34 @@ indexed/register variants and source-owned targets. The
 [pseudo-machine contract](../../../docs/MIR6502_PSEUDO_MACHINE_CONTRACT.md)
 defines the new forms; the shared rewrite inventory includes their proof.
 
-## Remaining compiler slices
+## Qualified masked index cleanup
 
-1. **Discarded high lanes of masked indexes.** `BYTE(ordinal&7)` still emits
-   the high-parameter load and `AND #0` before an LDY/table read. Use typed
-   consumer and flag facts to remove dead computation without deleting
-   observable source reads or changing evaluation order.
-2. **Loop-invariant computation from captured bounds.** Generalize the
-   demonstrated bound motion through MIR CFG, dominance and complete-use facts.
-   Keep arithmetic from an already captured value separate from hoisting record
-   loads across pointer writes or calls. The latter needs stronger alias/effect
-   proofs and cannot follow merely from an unchanged source pointer.
+Optimized MIR6502 removes dead register AND/OR/XOR using shared A and N/Z
+liveness across the complete CFG. Removing the high-lane AND exposes an unused
+parameter reload to the existing conservative load cleanup. WORD source
+captures, observable absolute reads, public argument homes and the full
+`ordinal RSH 3` address computation retain their semantics.
+
+[dead-high-indexes.json](dead-high-indexes.json) pins the compiler and checks.
+`TagBitInRange` falls from 125 to 120 instruction bytes. TN and TNDBG MIR images
+shrink by another 10 bytes, to 16,617 and 20,354. Both prefix vectors change from
+273,061 to 266,533 cycles (2.4% fewer); complete publication changes from
+366,248 to 359,714. Classic images stay byte-identical and all full-root LF/CRLF
+images match. The direct masked-index feature-off/on vector takes 42/38 cycles
+in both runtimes. Snapshot tests check both ordered source-byte reads, an
+intervening overwrite, result guards and wide indexes through 65,535.
+
+Qualification passes 1,063 MIR6502 unit tests, 96 integrations, the 169-fixture
+emission sweep and the masked-index, bitmap, private-shift and TN profile VM
+targets. Live A, live flags, memory operands and carry arithmetic retain fallback.
+
+## Remaining compiler slice
+
+**Loop-invariant computation from captured bounds.** Generalize the
+ demonstrated bound motion through MIR CFG, dominance and complete-use facts.
+ Keep arithmetic from an already captured value separate from hoisting record
+ loads across pointer writes or calls. The latter needs stronger alias/effect
+ proofs and cannot follow merely from an unchanged source pointer.
 
 These are general backend directions, with the generic fixture as the acceptance
 corpus. The much larger byte-wise traversal gain remains a source-level option

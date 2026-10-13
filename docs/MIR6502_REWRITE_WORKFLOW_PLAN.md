@@ -1527,3 +1527,15 @@ The workflow is complete when:
 At that point, adding a new peephole should normally require only a local
 matcher, shared legality queries, a cost decision, and focused tests. It should
 not require inventing another liveness scan or data-flow pass.
+
+## Dead register bitwise computation
+
+Post-home cleanup can remove a BYTE AND, OR or XOR with register/immediate
+operands when the shared machine liveness proves A and N/Z dead on every
+successor. Carry and overflow stay unchanged. Memory operands, explicit carry
+contracts and arithmetic with other flag effects retain fallback. The same
+generation-checked fixed point removes exposed pure reloads through the existing
+load classifier; absolute and hardware captures remain observable. This is
+target computation cleanup and does not narrow source WORD reads, argument
+snapshots or address arithmetic. The optimized configuration enables the
+selection; its independent feature flag supports differential qualification.

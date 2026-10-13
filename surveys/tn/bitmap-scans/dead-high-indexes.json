@@ -1,0 +1,80 @@
+{
+  "baseline_commit": "bbcffd68",
+  "compiler_sha256": "055f522b38c6cb9b8497aa7f629acb8d9b644a5d7602933869cd58b6d9967bc4",
+  "sources_sha256_lf": {
+    "src/mir6502/materialize/dead_arithmetic.rs": "58ffb10a9d84c57d8575f000a3b590d00d223a8ec28e67b381f89244162b5666",
+    "src/mir6502/materialize.rs": "4de443e6827048c89c5b357aa0c01dc684aeccc70c2ad6ce91f9dd5d9e1ccd4f",
+    "src/mir6502/passes.rs": "423b976a430dbffbc5f8d725e2ad53e2f7725e6a9177ea8a989a61fdf2521e7b"
+  },
+  "images": {
+    "TN": {
+      "classic": 18076,
+      "mir_before": 16627,
+      "mir_after": 16617,
+      "optimized_sha256": "2a560641f0e9be89709549f5a33178a1a91a37dd65a5494456b252af34d74867",
+      "mir6502_sha256": "fbd9b817461895c46c00875edb943ac3f15513a6a88a62b62a7e10c5401f7717"
+    },
+    "TNDBG": {
+      "classic": 21563,
+      "mir_before": 20364,
+      "mir_after": 20354,
+      "optimized_sha256": "f5898964800d58b977bdb75aa772199f8453a8d84a0e2cc6cb7c289434b5807a",
+      "mir6502_sha256": "447e045fec0bfcbf5d22858d15efdfe003075cf5f2cfe7e563be5167866dbc99"
+    }
+  },
+  "routine_instruction_bytes": {
+    "TagBitInRange": [
+      125,
+      120
+    ]
+  },
+  "cycles": {
+    "publish_prefix": [
+      273061,
+      266533
+    ],
+    "publish_complete": [
+      366248,
+      359714
+    ],
+    "exclusive_TagBitInRange_prefix": [
+      205632,
+      199104
+    ],
+    "Mask_feature_off_on": [
+      42,
+      38
+    ]
+  },
+  "qualification": {
+    "mir_units": 1063,
+    "mir_unit_ignores": 2,
+    "mir_integrations": 96,
+    "mir_emit_load_fixtures": 169,
+    "vm_targets": [
+      "dead_high_indexes",
+      "bitmap_scans",
+      "private_memory_shifts",
+      "tn_size_profile"
+    ],
+    "modes": "classic unchanged; MIR6502 feature off/on",
+    "runtimes": [
+      "cart",
+      "standalone"
+    ],
+    "source_newlines": [
+      "LF",
+      "CRLF"
+    ]
+  },
+  "artifacts": "target/tn-arithmetic/dead-index",
+  "logs": [
+    "target/tn-arithmetic/dead-index-units.log",
+    "target/tn-arithmetic/dead-index-integrations.log",
+    "target/tn-arithmetic/dead-index-vm.log",
+    "target/tn-arithmetic/dead-index-sweep.log",
+    "target/tn-arithmetic/dead-index-TN-profile.log",
+    "target/tn-arithmetic/dead-index-TNDBG-profile.log",
+    "target/tn-arithmetic/dead-index-measure.log"
+  ]
+}
