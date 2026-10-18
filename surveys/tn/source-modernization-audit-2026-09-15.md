@@ -37,7 +37,7 @@ Isolated full-TN experiments, relative to `1bfb8ea7`, in cartridge mode:
 | VOLATILE keyboard status | 0 | 0 | Adopted; byte-identical output |
 | Record views in IsTagged/IsProtected/IsDirectory | +51 | +38 | Adopted in TN and TNDBG; combined costs below |
 | CopyChunk record array replacing parallel tables | +209 | +229 | Defer; indexing cost is too large for this cleanup |
-| One scoped LET snapshot of FindItem in PopUp | +6 | +1 | Candidate for a later menu-focused change |
+| One scoped LET snapshot of FindItem in PopUp | +6 | +1 | Adopted in shared LIB.ACT with an explicit NO_ITEM comparison |
 | Whole-record panel assignment | Rejected by classic placement | +158 | Keep SIZEOF-based MovePage |
 
 The adopted `DirectoryRow` view changes only the three predicate consumers,
@@ -49,16 +49,29 @@ protected and ordinary file rows, verify the raw mask after tagging, and ensure
 predicate reads leave row bytes unchanged.
 
 CopyChunk keeps the same 48-byte payload, but total reserved memory grows by
-225/229 bytes in classic/MIR6502. The LET probe uses an explicit BEGIN/END block
-inside the loop; it removes the second
-FindItem call on a match. No cycle or menu-behavior claim is made for that probe.
+225/229 bytes in classic/MIR6502.
 Unadopted probes received compile/size checks, not full behavioral qualification.
+
+The adopted menu change uses `LET CARD item=FindItem(menu,ch)` inside an explicit
+BEGIN/END block in PopUp's loop. `IF item # NO_ITEM` tests the captured address
+before reusing it, eliminating the second scan on a match. `IF item` currently
+exposes incorrect high-byte reuse in classic code generation for the following
+assignment to `mp`; keep the explicit NO_ITEM comparison until that compiler
+issue is fixed. The menu VM checks run the actual lookup and menu-bar routines
+against TN's density and delete/cancel menus. They verify one fresh lookup per
+key, shortcuts, unknown keys, navigation results, Return/Escape, repeated calls,
+highlight transitions, position restoration and balanced CPU/arena stacks.
+Range input and drawing are stubbed. No cycle-count claim is made.
+Applied after `68687a80`, this menu change adds 3 bytes in classic TN and 1 byte
+in each MIR6502 build; classic TNDBG shrinks by 9 bytes. Reserved memory changes
+by the same amounts.
 
 Applied after the panel-state cleanup at `db34013a`, the row views add 53 bytes
 to classic TN, 63 to classic TNDBG and 38 to each MIR6502 build. Reserved memory
-grows by the same amounts. The combined changes relative to `1bfb8ea7` are
-+38/+24 bytes for TN and +50/+24 for TNDBG (classic/MIR6502). Exact final sizes
-and copy buffer locations are in the [sample notes](../../samples/tn/README.md).
+grows by the same amounts. Including the subsequent LET menu change, the combined
+changes relative to `1bfb8ea7` are +41/+25 bytes for each root (classic/MIR6502).
+Exact final sizes and copy buffer locations are in the
+[sample notes](../../samples/tn/README.md).
 The code retains MyDOS's 64-file limit, packed path buffers, row encodings,
 I/O ordering, original copy algorithm and persistent-local initialization rules.
 
@@ -82,7 +95,8 @@ and MIR6502. Current totals can be rebuilt with
 `python3 surveys/tn/measure-directory.py --out-dir target/tn-state-review`.
 The isolated source copies, listings, comparison scripts and JSON measurements
 from this review are under ignored `target/tn-modernization-review/`; the adopted
-row-view build comparisons are under `target/tn-directory-row-review/`.
+row-view build comparisons are under `target/tn-directory-row-review/`, and the
+menu comparisons are under `target/tn-menu-let-review/`.
 
 ## September audit context
 

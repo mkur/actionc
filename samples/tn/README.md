@@ -74,15 +74,24 @@ raw zero/`$7F` mask used by Tag's XOR. Applied after the panel-state cleanup at
 `db34013a`, these views add 38 bytes to each MIR6502 build, 53 bytes to classic
 TN and 63 bytes to classic TNDBG. Reserved memory grows by the same amounts.
 
+`PopUp` in shared `LIB.ACT` captures `FindItem(menu, ch)` in a scoped
+`LET CARD item`, then checks `item # NO_ITEM` and reuses the address. Each key
+returned by Range gets one fresh lookup; a matching shortcut no longer scans
+the menu twice.
+The explicit `BEGIN`/`END` block keeps the immutable result local to that part
+of the loop. Relative to `68687a80`, this adds 3 bytes in classic TN and 1 byte
+in each MIR6502 build; classic TNDBG shrinks by 9 bytes. Reserved memory changes
+by the same amounts.
+
 Measured with the compiler implementation at `4baaac89`, against the restored
 source baseline `1bfb8ea7`:
 
 | Program/backend | Load-file bytes | Change | Reserved bytes from `$2C00` | Copy buffer |
 | --- | ---: | ---: | ---: | --- |
-| TN classic | 10,587 | +38 | 13,219 | `$5FA3` |
-| TN MIR6502 | 9,967 | +24 | 12,749 | `$5DCD` |
-| TNDBG classic | 13,844 | +50 | 16,476 | `$6C5C` |
-| TNDBG MIR6502 | 13,072 | +24 | 15,854 | `$69EE` |
+| TN classic | 10,590 | +41 | 13,222 | `$5FA6` |
+| TN MIR6502 | 9,968 | +25 | 12,750 | `$5DCE` |
+| TNDBG classic | 13,835 | +41 | 16,467 | `$6C53` |
+| TNDBG MIR6502 | 13,073 | +25 | 15,855 | `$69EF` |
 
 Counts include load headers and INITAD. Reserved memory also includes static
 homes and deferred arrays; it changes by the same amount as the load file in
@@ -91,7 +100,8 @@ configurations. Reproduce current memory totals with
 `python3 surveys/tn/measure-directory.py --out-dir target/tn-state-review`.
 
 The [dispatch VM test](../../tools/vm-runtime-tests/tests/tn_dispatch.rs) compiles
-both full programs in their two advertised cartridge modes and runs 96 scenarios.
+both full programs in their two advertised cartridge modes and runs 96 dispatch
+scenarios.
 It executes the real key lookup, dispatcher and Handle loop, with UI and command
 entry points stubbed: every command, unknown keys, empty-directory gates,
 repeated dispatch, Copy's exit/cleanup ordering and stack balance are checked.
@@ -109,7 +119,12 @@ The restored MyDOS characterization also covers 0/1/63/64-file directories,
 exact rendering and operation names, tag-all behavior, copy continuation and
 disk-swap prompts. It directly checks all three row predicates, including the
 raw tag mask after tagging, and verifies that predicate reads leave the row
-bytes unchanged. Run the focused checks with:
+bytes unchanged. The [menu checks](../../tools/vm-runtime-tests/tests/support/tn_menus.rs)
+run nine cases per build through the actual PopUp, lookup, ordinal and menu-bar
+routines, with Range input and drawing stubbed. They cover matching shortcuts,
+Return/Escape, unknown keys, navigation results, repeated calls and different
+menus. They assert one lookup per input key, highlight transitions, position
+restoration and balanced CPU/arena stacks. Run the focused checks with:
 
 ```sh
 cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml --test tn_dispatch --test tn_codegen_reproducers --test call_predicates --test bitmap_scans

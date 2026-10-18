@@ -848,11 +848,14 @@ CHAR FUNC PopUp( BYTE POINTER mp BYTE c, spc )
     d = c
     ch = Range( "+*\{$1E}\{$1F}", limit, @c )
 
-    IF FindItem( menu, ch ) THEN
-      mp = FindItem( menu, ch )
-      c = Ord( menu, mp )
-      ch = EOL
-    FI
+    BEGIN
+      LET CARD item = FindItem( menu, ch )
+      IF item # NO_ITEM THEN
+        mp = item
+        c = Ord( menu, mp )
+        ch = EOL
+      FI
+    END
 
     IF c # d THEN
       MoveMenuBar( menu, d )
