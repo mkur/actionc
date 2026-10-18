@@ -1745,6 +1745,29 @@ check retains store-only savings. Reports distinguish removed and retained home
 bytes. Both switches default on with copy-value forwarding and peepholes;
 home elision depends on successful store elision.
 
+`enable_constructor_payload_forwarding` adds a separately costed refinement
+after successful store elision (with or without home elision). In a terminal
+transfer already covered by the complete caller-buffer proof, a uniquely
+defined byte/word load from an ordinary producer local or parameter can become
+direct byte reads at its result stores. Up to eight uniquely defined,
+width-preserving virtual moves may connect the load to its stores, including
+pointer-to-CARD casts. All uses must be in that chain or the transfer.
+The load and transfer must share a block, with at most 64
+intervening operations, all inert virtual scalar preparation. Calls, writes,
+pointer/global/absolute reads, faults, additional uses and ambiguous definitions
+retain the capture. This changes only the placement of proven inert reads;
+result store order and all effectful payload evaluations remain unchanged.
+
+Every source lane has checked in-object bounds and joins the surviving
+incoming-pointer and caller-buffer cells in physical alias checks against both
+layouts. Address preparation must use the exact captured-copy transfer suffix.
+The emitted proposal must shrink the previous image without growing affected
+routine code/homes or occupied zero page. Rejection retains the earlier store
+and home savings. The switch defaults on; reports count
+`constructor-payload-bytes-forwarded` or
+`constructor-payload-declined-cost-or-alias`. Ordinary overlap-safe copies keep
+their captured inputs when the constructor's stronger destination proof fails.
+
 ## Runtime Helpers
 
 Known runtime helpers should be represented explicitly before emission.

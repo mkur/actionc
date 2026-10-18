@@ -140,3 +140,32 @@ the final buffer moved from `$5E92` to `$5E6E`. Final emitted size is 10,116
 bytes, total reserved size 12,910 bytes. The final cost gates reject additional
 zero-page demand. The remaining variant overhead versus maintained TN is 160
 bytes. TN source and unrelated workspace changes were preserved.
+
+## Follow-up: direct payload loads
+
+The next slice removes remaining payload staging after the constructor's
+disjoint-result-buffer proof succeeds. It follows bounded, uniquely defined
+byte/word loads and width-preserving virtual moves, including pointer-to-CARD
+casts, into terminal result stores. Every use must belong to the selected
+chain or transfer. Calls, changed sources, other uses and unresolved aliases
+retain staging. Independent physical-alias and final-size checks preserve
+earlier constructor-store/home savings if this refinement is rejected.
+
+The menu-variant TN experiment shrinks from 10,128 to 10,120 XEX bytes;
+`FindItem` shrinks from 118 to 110 code bytes. The two payload bytes now load
+directly from `menu` at their result stores, without the `$E2/$E3` staging.
+Maintained TN and TNDBG remain byte-identical. The variant buffer is `$5E66`,
+deferred storage remains 2,794 bytes, and the remaining variant overhead is
+152 bytes. No ABI, NIR, semantic or printed-IR contract changes are needed.
+
+Follow-up compiler qualification passed: 1,116 MIR6502 library tests (two
+ignored), all 96 tests in the 11 MIR6502 integration targets, and all 169
+emission/load sweep fixtures. Four new unit tests cover direct local/parameter
+reads, pointer casts, bounded chains, changed sources, extra uses and independent
+alias rollback. The new VM regression checks repeated mixed byte/word results,
+complete empty-value clearing, raw/optimized NIR, both runtimes and actual
+LF/CRLF parsing with identical output.
+All 49 tests in the same ten VM targets listed above passed, including the
+existing overlap, invalid-tag, callback/reentry and TN behavior regressions.
+MIR snapshots are unchanged; formatting, patch whitespace and preservation of
+unrelated workspace changes were checked.

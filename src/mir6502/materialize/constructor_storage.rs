@@ -21,10 +21,13 @@ use crate::mir6502::{
 use crate::nir::{LocalId, ParamId};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod payloads;
+
 #[derive(Clone)]
 struct Candidate {
     routine: RoutineId,
     local: LocalId,
+    return_block: MirBlockId,
     bytes: u16,
     stored_bytes: usize,
     protected: BTreeMap<RoutineId, Vec<MirMem>>,
@@ -325,6 +328,7 @@ fn prove(
     Ok(Candidate {
         routine: r.id,
         local,
+        return_block: block.id,
         bytes: slot.storage_size,
         stored_bytes: stores
             .iter()
@@ -736,6 +740,11 @@ pub(super) fn improve(
         } else {
             *forwarded = selected;
             *emitted = proposed.unwrap();
+        }
+        if config.enable_constructor_payload_forwarding {
+            payloads::improve(
+                forwarded, emitted, &applied, &protected, config, origin, runtime, &mut stats,
+            );
         }
     }
     stats

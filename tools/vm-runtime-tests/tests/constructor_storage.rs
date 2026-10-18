@@ -27,6 +27,15 @@ fn compile(
     optimized: bool,
     enabled: bool,
 ) -> codegen::CodegenOutput {
+    compile_options(source, runtime, optimized, enabled, true)
+}
+fn compile_options(
+    source: &str,
+    runtime: Runtime,
+    optimized: bool,
+    enabled: bool,
+    payload_forwarding: bool,
+) -> codegen::CodegenOutput {
     let file = support::Source::new(source);
     let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
     let model = actionc::semantic::analyze_with_options(
@@ -49,7 +58,55 @@ fn compile(
         Mir6502Config::default()
     };
     config.enable_constructor_store_elision = enabled;
+    config.enable_constructor_payload_forwarding = payload_forwarding;
     mir6502::generate_output_with_config_and_runtime(&nir, 0x3000, &config, runtime).unwrap()
+}
+
+#[test]
+fn constructor_payload_loads_preserve_mixed_bytes_and_words() {
+    let source = "TYPE Choice=VARIANT [EMPTY FOUND [BYTE first CARD second]]\nChoice result\nChoice FUNC Make(CARD n BYTE flag)\nBYTE POINTER saved\nsaved=BYTE POINTER(n)\nIF n=0 THEN RETURN(Choice.EMPTY) FI\nRETURN(Choice.FOUND(flag,CARD(saved)))\nPROC Run(CARD n BYTE flag)\nresult=Make(n,flag)\nRETURN\nPROC Main()\nRETURN\n";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for optimized in [false, true] {
+            let before = compile_options(source, runtime, optimized, true, false);
+            let after = compile_options(source, runtime, optimized, true, true);
+            assert!(
+                after.bytes.len() < before.bytes.len(),
+                "{runtime:?}, optimized={optimized}"
+            );
+            let crlf = compile_options(
+                &source.replace('\n', "\r\n"),
+                runtime,
+                optimized,
+                true,
+                true,
+            );
+            assert_eq!(
+                codegen::format_load_file(&after),
+                codegen::format_load_file(&crlf)
+            );
+            for output in [before, after] {
+                let mut vm = load(&output, runtime);
+                for (n, flag) in [(0x12FFu16, 0x7B), (0, 0xFF), (0xAB00, 0x81), (0xFFFF, 0)] {
+                    let result = storage(&output, "result");
+                    vm.bus_mut().ram_mut().map(result, &[0xCC; 4]).unwrap();
+                    vm = machine::call(
+                        vm,
+                        &mut NoHooks,
+                        routine(&output, "Run"),
+                        &[n as u8, (n >> 8) as u8, flag],
+                    );
+                    assert_eq!(
+                        machine::bytes(&vm, result, 4),
+                        if n == 0 {
+                            vec![1, 0, 0, 0]
+                        } else {
+                            vec![2, flag, n as u8, (n >> 8) as u8]
+                        }
+                    );
+                }
+            }
+        }
+    }
 }
 fn storage(output: &codegen::CodegenOutput, name: &str) -> u16 {
     output
