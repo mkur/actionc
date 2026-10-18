@@ -305,6 +305,8 @@ pub struct MirStorageId(pub u32);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MirStorageSlot {
+    /// Verified scalar value provenance. Storage/effect proofs are still required.
+    pub scalar_purpose: MirScalarPurpose,
     pub id: MirStorageId,
     pub name: Option<String>,
     pub storage: MirStorageClass,
@@ -319,6 +321,14 @@ pub struct MirStorageSlot {
     pub offset: u16,
     pub mutable: bool,
     pub init: Option<MirStorageInit>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum MirScalarPurpose {
+    #[default]
+    Storage,
+    ArgumentCapture,
+    PatternBinding,
 }
 
 impl MirStorageSlot {

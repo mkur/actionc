@@ -37,6 +37,8 @@ LocalPurposeStorage
 LocalPurposeAggregateBacking
 LocalPurposeRealTemporary
 LocalPurposeAggregateCapture
+LocalPurposeArgumentCapture
+LocalPurposePatternBinding
 StorageClassScalar
 StorageClassArray
 StorageClassRecord

@@ -497,6 +497,10 @@ pub struct NirLocal {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NirLocalPurpose {
     Storage,
+    /// Ordered scalar call preparation. This is provenance, not a no-alias fact.
+    ArgumentCapture,
+    /// Immutable scalar pattern value initialized on entry to its matched arm.
+    PatternBinding,
     /// Runtime-initialized aggregate snapshot. Source code may read its value
     /// but cannot expose its storage address. This is not an optimizer no-alias
     /// promise: indirect memory, calls and static activation remain conservative.

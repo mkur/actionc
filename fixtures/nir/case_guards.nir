@@ -28,8 +28,8 @@ routine r1 Main signature=s2726028260 convention=target-public activation=classi
   local __actionc_value_3: Event* duration=routine-static size=2 align=1
   local __actionc_value_4: Event duration=routine-static size=2 align=1 purpose=aggregate-capture
   local __actionc_value_5: Event duration=routine-static size=2 align=1 purpose=aggregate-capture
-  local Main::block0::code: Byte duration=routine-static size=1 align=1
-  local Main::block1::code: Byte duration=routine-static size=1 align=1
+  local Main::block0::code: Byte duration=routine-static size=1 align=1 purpose=pattern-binding
+  local Main::block1::code: Byte duration=routine-static size=1 align=1 purpose=pattern-binding
 bb1:
   %t0:Event* = addr current
   store __actionc_value_3 = %t0

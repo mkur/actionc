@@ -8,7 +8,7 @@ routine r0 Main signature=s2726028260 convention=target-public activation=classi
   local __actionc_value_0: Outer* duration=routine-static size=2 align=1
   local __actionc_value_1: Outer duration=routine-static size=4 align=1 purpose=aggregate-capture
   local __actionc_value_2: Outer duration=routine-static size=4 align=1 purpose=aggregate-capture
-  local Main::block1::n: Int duration=routine-static size=2 align=1
+  local Main::block1::n: Int duration=routine-static size=2 align=1 purpose=pattern-binding
 bb0:
   %t0:Outer* = addr current
   store __actionc_value_0 = %t0

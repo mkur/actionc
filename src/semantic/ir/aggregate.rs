@@ -133,6 +133,7 @@ impl IrBuilder<'_> {
                     });
                 }
                 declarations.push(SemDeclaration {
+                    purpose: SemDeclarationPurpose::PatternBinding,
                     symbol,
                     ty,
                     storage: SemDeclarationStorage::Scalar,
@@ -294,6 +295,7 @@ impl IrBuilder<'_> {
             span,
         };
         self.aggregate_locals.push(SemDeclaration {
+            purpose: crate::semantic::ir::SemDeclarationPurpose::Storage,
             ty: self.sem_type_from_symbol(&symbol),
             symbol: symbol.clone(),
             storage: SemDeclarationStorage::Scalar,
@@ -936,6 +938,7 @@ impl IrBuilder<'_> {
     ) {
         if let SemCallable::Indirect { target, .. } = &mut call.callee {
             let capture = self.private_value_place(scope, target.ty.clone(), target.span);
+            self.aggregate_locals.last_mut().unwrap().purpose = SemDeclarationPurpose::ArgumentCapture;
             call.preparation.push(SemStmt::Assign {
                 target: capture.clone(), value: *target.clone(), span: target.span,
             });
@@ -948,6 +951,7 @@ impl IrBuilder<'_> {
                 call.args.push(Self::value_expr(&capture.place));
             } else {
                 let capture = self.private_value_place(scope, expected.clone(), arg.span);
+                self.aggregate_locals.last_mut().unwrap().purpose = SemDeclarationPurpose::ArgumentCapture;
                 let value = self.lower_value_for_expected_type(scope, &expected, arg);
                 call.preparation.push(SemStmt::Assign {
                     target: capture.clone(), value, span: arg.span,

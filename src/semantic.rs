@@ -7141,6 +7141,7 @@ mod tests {
         assert!(app.items.iter().any(|item| matches!(
             item,
             ir::SemItem::Declaration(ir::SemDeclaration {
+                purpose: crate::semantic::ir::SemDeclarationPurpose::Storage,
                 symbol,
                 storage: ir::SemDeclarationStorage::Array {
                     fixed_address: Some(0x83F1),

@@ -5,7 +5,7 @@ routine r0 Main signature=s2726028260 convention=target-public activation=classi
   local __actionc_value_0: MaybeByte duration=routine-static size=2 align=1 purpose=aggregate-capture
   local Main::block0::block1::item: MaybeByte duration=routine-static size=2 align=1 purpose=aggregate-capture
   local Main::block0::block1::block2::value: Byte duration=routine-static size=1 align=1
-  local Main::block0::block1::block4::n: Byte duration=routine-static size=1 align=1
+  local Main::block0::block1::block4::n: Byte duration=routine-static size=1 align=1 purpose=pattern-binding
 bb0:
   store Main::block0::block1::item.+1 = 42
   store Main::block0::block1::item.+0 = 2

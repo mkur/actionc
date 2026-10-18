@@ -56,6 +56,7 @@ pub(super) fn expand_large_aggregate_copies(routine: &mut MirRoutine) -> usize {
         (1, "$aggregate-copy-index", 2, Some(MirWidth::Word)),
     ] {
         routine.frame.locals.push(MirStorageSlot {
+            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
             id: MirStorageId(next_slot + index),
             name: Some(name.into()),
             storage: MirStorageClass::Scalar,

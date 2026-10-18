@@ -398,6 +398,12 @@ impl NirLowerer {
                                 kind: declaration_kind(local),
                                 purpose: if local.symbol.is_immutable && local.ty.value.is_record() {
                                     NirLocalPurpose::AggregateCapture
+                                } else if !local.ty.value.is_real() && !local.ty.value.is_record() {
+                                    match local.purpose {
+                                        crate::semantic::ir::SemDeclarationPurpose::ArgumentCapture => NirLocalPurpose::ArgumentCapture,
+                                        crate::semantic::ir::SemDeclarationPurpose::PatternBinding => NirLocalPurpose::PatternBinding,
+                                        crate::semantic::ir::SemDeclarationPurpose::Storage => NirLocalPurpose::Storage,
+                                    }
                                 } else { NirLocalPurpose::Storage },
                                 storage: if local.symbol.is_immutable && local.ty.value.is_record() {
                                     NirStorageClass::Record

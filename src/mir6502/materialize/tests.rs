@@ -562,6 +562,7 @@ fn direct_word_to_indirect_copy_test_program(x_live: bool) -> MirProgram {
     }
     let frame = MirFrame {
         params: vec![MirStorageSlot {
+            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
             id: MirStorageId(0),
             name: Some("destination".to_string()),
             storage: MirStorageClass::Scalar,
@@ -573,6 +574,7 @@ fn direct_word_to_indirect_copy_test_program(x_live: bool) -> MirProgram {
             init: None,
         }],
         locals: vec![MirStorageSlot {
+            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
             id: MirStorageId(1),
             name: Some("source".to_string()),
             storage: MirStorageClass::Scalar,
@@ -21631,6 +21633,7 @@ fn exact_terminal_indirect_jump_gets_structured_machine_effects() {
     let mut program = empty_test_program();
     program.routines[0].frame.locals = vec![
         MirStorageSlot {
+            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
             id: MirStorageId(0),
             name: Some("table".to_string()),
             storage: MirStorageClass::Array,
@@ -21648,6 +21651,7 @@ fn exact_terminal_indirect_jump_gets_structured_machine_effects() {
             }),
         },
         MirStorageSlot {
+            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
             id: MirStorageId(1),
             name: Some("go".to_string()),
             storage: MirStorageClass::Scalar,
@@ -22128,6 +22132,7 @@ fn known_callee_index_param_carrier_program(callee_ops: Vec<MirOp>) -> MirProgra
         abi: MirRoutineAbi::Action,
         frame: MirFrame {
             params: vec![MirStorageSlot {
+                scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
                 id: MirStorageId(0),
                 name: Some("value".to_string()),
                 storage: MirStorageClass::Scalar,
@@ -22203,6 +22208,7 @@ fn leaf_word_param_result_routine() -> MirRoutine {
         abi: MirRoutineAbi::Action,
         frame: MirFrame {
             params: vec![MirStorageSlot {
+                scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
                 id: MirStorageId(0),
                 name: Some("value".to_string()),
                 storage: MirStorageClass::Scalar,
@@ -22698,6 +22704,7 @@ fn descriptor_lea_materializes_pointer_bytes_for_index_base() {
     };
     let mut program = empty_test_program();
     program.routines[0].frame.locals.push(MirStorageSlot {
+        scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
         id: MirStorageId(0),
         name: Some("items".to_string()),
         storage: MirStorageClass::Array,
@@ -22770,6 +22777,7 @@ fn descriptor_lea_materializes_pointer_bytes_for_index_base() {
 fn byte_scalar_storage_test_program() -> MirProgram {
     let mut program = empty_test_program();
     program.routines[0].frame.params.push(MirStorageSlot {
+        scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
         id: MirStorageId(0),
         name: Some("p".to_string()),
         storage: MirStorageClass::Scalar,
@@ -22781,6 +22789,7 @@ fn byte_scalar_storage_test_program() -> MirProgram {
         init: None,
     });
     program.routines[0].frame.locals.push(MirStorageSlot {
+        scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
         id: MirStorageId(1),
         name: Some("l".to_string()),
         storage: MirStorageClass::Scalar,
@@ -25062,6 +25071,7 @@ fn param_address_consumer_preserves_public_homes_and_barriers() {
         ops: vec![home(0, MirReg::A), home(1, MirReg::X), prepare.clone()],
     }]);
     r.frame.params.push(MirStorageSlot {
+        scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
         id: MirStorageId(0),
         name: Some("pointer".into()),
         storage: MirStorageClass::Scalar,

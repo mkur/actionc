@@ -692,6 +692,7 @@ pub struct MirFrame {
 }
 
 pub struct MirStorageSlot {
+    pub scalar_purpose: MirScalarPurpose,
     pub id: MirStorageId,
     pub width: MirWidth,
     pub base: MirStorageBase,
@@ -712,6 +713,9 @@ pub enum MirStorageBase {
 
 Rules:
 
+- Scalar argument-capture and pattern-binding provenance is retained by local ID.
+  It requires ordinary uninitialized scalar storage and supplies no alias or
+  reentry exemption.
 - MIR6502 accepts only NIR routines with `ClassicStatic` activation. It maps
   their parameters and ordinary locals to the established fixed per-routine
   homes. `NativeReentrant` is rejected before home selection; supporting it

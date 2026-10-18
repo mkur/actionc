@@ -213,6 +213,8 @@ pub struct SemSet {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemDeclaration {
+    /// Origin of a runtime value home; never a no-alias or no-reentry promise.
+    pub purpose: SemDeclarationPurpose,
     pub symbol: SemSymbolRef,
     pub ty: SemType,
     pub storage: SemDeclarationStorage,
@@ -223,6 +225,14 @@ pub struct SemDeclaration {
     pub static_initializer: Option<SemStaticInitializer>,
     pub span: Span,
     pub group_span: Span,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SemDeclarationPurpose {
+    #[default]
+    Storage,
+    ArgumentCapture,
+    PatternBinding,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2726,6 +2736,7 @@ impl<'a> IrBuilder<'a> {
                 }
             }).collect();
             let declaration = SemItem::Declaration(SemDeclaration {
+                purpose: crate::semantic::ir::SemDeclarationPurpose::Storage,
                 ty: self.sem_type_from_symbol(&symbol),
                 storage: SemDeclarationStorage::Type { record_type: layout.record_type.clone(), fields },
                 initializer: None, static_initializer: None, span: layout.span, group_span: layout.span,
@@ -2939,6 +2950,7 @@ impl<'a> IrBuilder<'a> {
                     self.ordinary_value_symbols.insert(symbol.id);
                 }
                 Some(SemDeclaration {
+                    purpose: crate::semantic::ir::SemDeclarationPurpose::Storage,
                     ty,
                     symbol,
                     storage,
@@ -2963,6 +2975,7 @@ impl<'a> IrBuilder<'a> {
                 owner: Some(symbol.id), symbol: None, offset: Some(field.offset), span: field.span,
             }).collect();
             return vec![SemDeclaration {
+                purpose: crate::semantic::ir::SemDeclarationPurpose::Storage,
                 ty: self.sem_type_from_symbol(&symbol), symbol,
                 storage: SemDeclarationStorage::Type { record_type: layout.record_type.clone(), fields },
                 initializer: None, static_initializer: None, span: decl.span, group_span: decl.span,
@@ -2972,6 +2985,7 @@ impl<'a> IrBuilder<'a> {
             let symbol = self.symbol_ref(scope, &decl.name, decl.span).expect("validated enum symbol");
             let enum_type = self.model.enums.types[&symbol.id].clone();
             return vec![SemDeclaration {
+                purpose: crate::semantic::ir::SemDeclarationPurpose::Storage,
                 ty: self.sem_type_from_symbol(&symbol), symbol,
                 storage: SemDeclarationStorage::Enum { enum_type },
                 initializer: None, static_initializer: None, span: decl.span, group_span: decl.span,
@@ -2985,6 +2999,7 @@ impl<'a> IrBuilder<'a> {
                 let fields = self.lower_record_fields(scope, symbol.id, fields);
                 let record_type = self.record_type_from_fields(&symbol, &fields);
                 vec![SemDeclaration {
+                    purpose: crate::semantic::ir::SemDeclarationPurpose::Storage,
                     ty: self.sem_type_from_symbol(&symbol),
                     symbol,
                     storage: SemDeclarationStorage::Type {
@@ -3006,6 +3021,7 @@ impl<'a> IrBuilder<'a> {
                 let fields = self.lower_record_fields(scope, symbol.id, &decl.fields);
                 let record_type = self.record_type_from_fields(&symbol, &fields);
                 vec![SemDeclaration {
+                    purpose: crate::semantic::ir::SemDeclarationPurpose::Storage,
                     ty: self.sem_type_from_symbol(&symbol),
                     symbol,
                     storage: SemDeclarationStorage::Record {
@@ -3400,6 +3416,7 @@ impl<'a> IrBuilder<'a> {
             };
             self.ordinary_value_symbols.insert(symbol.id);
             let declaration = SemDeclaration {
+                purpose: crate::semantic::ir::SemDeclarationPurpose::Storage,
                 symbol, ty, storage: SemDeclarationStorage::Scalar,
                 initializer: None, static_initializer: None, span: *span, group_span: *span,
             };

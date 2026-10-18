@@ -19,14 +19,14 @@ bb0:
 routine r1 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[__actionc_value_1, __actionc_value_2, __actionc_value_3, __actionc_value_4, __actionc_value_5, __actionc_value_6, __actionc_value_7, __actionc_value_8, __actionc_value_9, __actionc_value_10, Main::block0::saved]
   local __actionc_value_1: Pair* duration=routine-static size=2 align=1
   local __actionc_value_2: Pair duration=routine-static size=3 align=1 purpose=aggregate-capture
-  local __actionc_value_3: Func { return_type: Pair } duration=routine-static size=2 align=1
+  local __actionc_value_3: Func { return_type: Pair } duration=routine-static size=2 align=1 purpose=argument-capture
   local __actionc_value_4: Pair duration=routine-static size=3 align=1 purpose=aggregate-capture
-  local __actionc_value_5: Byte duration=routine-static size=1 align=1
+  local __actionc_value_5: Byte duration=routine-static size=1 align=1 purpose=argument-capture
   local __actionc_value_6: Pair* duration=routine-static size=2 align=1
   local __actionc_value_7: Pair duration=routine-static size=3 align=1 purpose=aggregate-capture
-  local __actionc_value_8: Func { return_type: Pair } duration=routine-static size=2 align=1
+  local __actionc_value_8: Func { return_type: Pair } duration=routine-static size=2 align=1 purpose=argument-capture
   local __actionc_value_9: Pair duration=routine-static size=3 align=1 purpose=aggregate-capture
-  local __actionc_value_10: Byte duration=routine-static size=1 align=1
+  local __actionc_value_10: Byte duration=routine-static size=1 align=1 purpose=argument-capture
   local Main::block0::saved: Pair duration=routine-static size=3 align=1 purpose=aggregate-capture
 bb1:
   store callback = routine_addr0(Updated)

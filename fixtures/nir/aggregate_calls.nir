@@ -19,11 +19,11 @@ routine r1 Main signature=s2726028260 convention=target-public activation=classi
   local __actionc_value_1: Pair* duration=routine-static size=2 align=1
   local __actionc_value_2: Pair duration=routine-static size=3 align=1 purpose=aggregate-capture
   local __actionc_value_3: Pair duration=routine-static size=3 align=1 purpose=aggregate-capture
-  local __actionc_value_4: Byte duration=routine-static size=1 align=1
+  local __actionc_value_4: Byte duration=routine-static size=1 align=1 purpose=argument-capture
   local __actionc_value_5: Pair* duration=routine-static size=2 align=1
   local __actionc_value_6: Pair duration=routine-static size=3 align=1 purpose=aggregate-capture
   local __actionc_value_7: Pair duration=routine-static size=3 align=1 purpose=aggregate-capture
-  local __actionc_value_8: Byte duration=routine-static size=1 align=1
+  local __actionc_value_8: Byte duration=routine-static size=1 align=1 purpose=argument-capture
   local Main::block0::saved: Pair duration=routine-static size=3 align=1 purpose=aggregate-capture
 bb1:
   %t0:Pair* = addr Main::block0::saved

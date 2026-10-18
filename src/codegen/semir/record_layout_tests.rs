@@ -96,6 +96,7 @@ fn canonical_classic_layout_controls_allocation_without_recomputing_ast_bounds()
         .flat_map(|module| &mut module.items)
     {
         if let SemItem::Declaration(SemDeclaration {
+            purpose: crate::semantic::ir::SemDeclarationPurpose::Storage,
             storage: SemDeclarationStorage::Type { fields, .. },
             ..
         }) = item
@@ -154,6 +155,7 @@ fn canonical_classic_layout_merging_rebases_nested_record_references() {
 fn canonical_classic_layout_rejects_inconsistent_field_shapes() {
     let mut semir = lower("TYPE Buffer=[INT ARRAY x(100)] Buffer data PROC Main() RETURN");
     let SemItem::Declaration(SemDeclaration {
+        purpose: crate::semantic::ir::SemDeclarationPurpose::Storage,
         storage: SemDeclarationStorage::Type { record_type, .. },
         ..
     }) = &mut semir.modules[0].items[0]

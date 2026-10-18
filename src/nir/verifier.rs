@@ -631,6 +631,15 @@ impl NirVerifier {
                     ),
                 ));
             }
+            if matches!(local.purpose, NirLocalPurpose::ArgumentCapture | NirLocalPurpose::PatternBinding)
+                && (local.storage != NirStorageClass::Scalar
+                    || local.ty.kind.integer().is_none() && !matches!(local.ty.kind, NirTypeKind::Pointer { .. } | NirTypeKind::Callable { .. } | NirTypeKind::Bool)
+                    || local.backing != NirLocalBacking::Ordinary
+                    || local.init.is_some())
+            {
+                self.diagnostics.push(NirDiagnostic::routine(&routine.name,
+                    format!("scalar value local `{}` must have scalar integer/pointer/callable type, ordinary scalar backing and executable initialization", local.name)));
+            }
             if matches!(local.purpose, NirLocalPurpose::AggregateCapture)
                 && (!matches!(local.ty.kind, NirTypeKind::Record { definition: Some(_), .. })
                     || !matches!(local.backing, NirLocalBacking::Ordinary)

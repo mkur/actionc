@@ -4873,3 +4873,32 @@ fn byte_pointer_type() -> NirType {
         pointer: true,
     }
 }
+
+#[test]
+fn scalar_capture_and_pattern_provenance_survives_lowering() {
+    let source = "TYPE Maybe=VARIANT [NONE SOME [CARD value]]\nMaybe FUNC Make(CARD n)\nRETURN(Maybe.SOME(n))\nPROC Main()\nCASE Make(42) OF\nWHEN Maybe.SOME(value) THEN\nPrintCE(value)\nWHEN Maybe.NONE THEN\nESAC\nRETURN";
+    let raw = lower_modern_source(source);
+    verify_program(&raw).unwrap();
+    let main = raw.routines.iter().find(|r| r.name == "Main").unwrap();
+    for purpose in [NirLocalPurpose::ArgumentCapture, NirLocalPurpose::PatternBinding] {
+        let local = main.locals.iter().find(|l| l.purpose == purpose).unwrap();
+        assert_eq!(local.storage, NirStorageClass::Scalar);
+        assert_eq!(local.backing, NirLocalBacking::Ordinary);
+        assert!(local.init.is_none());
+        let mut invalid = raw.clone();
+        invalid.routines.iter_mut().find(|r| r.id == main.id).unwrap()
+            .locals.iter_mut().find(|l| l.id == local.id).unwrap().storage = NirStorageClass::Array;
+        assert!(verify_program(&invalid).unwrap_err().iter().any(|d| d.message.contains("scalar value local")));
+    }
+    // Names are debug data: changing all of them must not affect MIR provenance.
+    let mut renamed = raw.clone();
+    for routine in &mut renamed.routines {
+        for local in &mut routine.locals { local.name = format!("renamed{}", local.id.0); }
+    }
+    let mir = crate::mir6502::lower_program(&renamed).unwrap();
+    let main = mir.routines.iter().find(|r| r.name == "Main").unwrap();
+    assert!(main.frame.locals.iter().any(|s| s.scalar_purpose == crate::mir6502::MirScalarPurpose::ArgumentCapture));
+    assert!(main.frame.locals.iter().any(|s| s.scalar_purpose == crate::mir6502::MirScalarPurpose::PatternBinding));
+    let optimized = optimize_program(&raw).unwrap();
+    verify_program(&optimized).unwrap();
+}

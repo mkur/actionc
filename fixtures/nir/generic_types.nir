@@ -17,9 +17,9 @@ bb0:
 routine r1 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[__actionc_value_1, __actionc_value_2, __actionc_value_3, __actionc_value_4, Main::block1::n]
   local __actionc_value_1: Option<BYTE>* duration=routine-static size=2 align=1
   local __actionc_value_2: Option<BYTE> duration=routine-static size=2 align=1 purpose=aggregate-capture
-  local __actionc_value_3: Byte duration=routine-static size=1 align=1
+  local __actionc_value_3: Byte duration=routine-static size=1 align=1 purpose=argument-capture
   local __actionc_value_4: Option<BYTE> duration=routine-static size=2 align=1 purpose=aggregate-capture
-  local Main::block1::n: Byte duration=routine-static size=1 align=1
+  local Main::block1::n: Byte duration=routine-static size=1 align=1 purpose=pattern-binding
 bb1:
   %t0:Option<BYTE>* = addr current
   store __actionc_value_1 = %t0

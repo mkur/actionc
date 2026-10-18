@@ -24,9 +24,9 @@ bb0:
 routine r1 Pick signature=s1079941742 convention=target-public activation=classic-static entry=relocatable params=[-] locals=[__actionc_value_3, __actionc_value_4, Pick::block0::block1::n, Pick::block0::block2::n, Pick::block0::block2::block4::m]
   local __actionc_value_3: MaybeByte duration=routine-static size=2 align=1 purpose=aggregate-capture
   local __actionc_value_4: MaybeByte duration=routine-static size=2 align=1 purpose=aggregate-capture
-  local Pick::block0::block1::n: Byte duration=routine-static size=1 align=1
-  local Pick::block0::block2::n: Byte duration=routine-static size=1 align=1
-  local Pick::block0::block2::block4::m: Byte duration=routine-static size=1 align=1
+  local Pick::block0::block1::n: Byte duration=routine-static size=1 align=1 purpose=pattern-binding
+  local Pick::block0::block2::n: Byte duration=routine-static size=1 align=1 purpose=pattern-binding
+  local Pick::block0::block2::block4::m: Byte duration=routine-static size=1 align=1 purpose=pattern-binding
 bb1:
   copy_bytes __actionc_value_3 = current size=2
   %t0:Byte = load __actionc_value_3.+0

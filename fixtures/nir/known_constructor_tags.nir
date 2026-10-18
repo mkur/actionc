@@ -5,7 +5,7 @@ static __nir_str_Main_0:Char* bytes=[$08 $4E $6F $20 $76 $61 $6C $75 $65] = "No 
 routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[__actionc_value_0, Main::block0::item, Main::block0::block2::value]
   local __actionc_value_0: MaybeByte duration=routine-static size=2 align=1 purpose=aggregate-capture
   local Main::block0::item: MaybeByte duration=routine-static size=2 align=1 purpose=aggregate-capture
-  local Main::block0::block2::value: Byte duration=routine-static size=1 align=1
+  local Main::block0::block2::value: Byte duration=routine-static size=1 align=1 purpose=pattern-binding
 bb0:
   store Main::block0::item.+1 = 42
   store Main::block0::item.+0 = 2

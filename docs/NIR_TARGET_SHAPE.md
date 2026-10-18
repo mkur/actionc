@@ -146,6 +146,16 @@ introduced by this identity migration.
 
 ### Aggregate call boundaries
 
+Scalar preparation homes carry `NirLocalPurpose::ArgumentCapture`; scalar CASE
+payload bindings carry `PatternBinding`. SemIR marks these at their creation,
+and NIR preserves the provenance by local ID. Both require ordinary scalar
+integer, Boolean, data/code-pointer storage with executable initialization and
+no load-time image.
+Neither purpose grants a no-alias, freshness, single-assignment, or no-reentry
+promise. In particular, classic routine-static homes remain observable across
+unknown effects. Targets must prove value availability separately from store
+and home deletion. Aggregate captures retain their existing contract.
+
 SemIR owns by-value argument capture, left-to-right evaluation, result-buffer
 lifetimes and variant validation. A `SemCall` carries ordered preparation and an
 optional aggregate result place. Classic projects preparation as a compiler-only
