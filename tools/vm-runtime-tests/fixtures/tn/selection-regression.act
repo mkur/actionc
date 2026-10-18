@@ -1,3 +1,5 @@
+; Frozen compiler regression input from tn-ng at 4baaac89.
+; Kept independent of the maintained TN directory implementation.
 ; Directory data and selection. No screen or operating-system dependencies.
 ; Backing storage belongs to the caller. A batch holds at most 64 entries;
 ; the tag bitmap belongs to the listing and survives replacing the batch.

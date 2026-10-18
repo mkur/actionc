@@ -13,15 +13,8 @@ use actionc_vm::{
 mod copy;
 #[path = "support/tn_directory.rs"]
 mod directory;
-#[allow(dead_code)]
-#[path = "support/tn_layout.rs"]
-mod layout;
-#[path = "support/tn_locations.rs"]
-mod locations;
 #[path = "support/tn_machine.rs"]
 mod machine;
-#[path = "support/tn_paging.rs"]
-mod paging;
 #[path = "support/tn_panels.rs"]
 mod panels;
 
@@ -65,7 +58,7 @@ impl VmRunHooks for DispatchHooks {
             return Ok(());
         };
         self.trace.push(name);
-        if name == "FileRange" {
+        if name == "Range" {
             self.input_stack_depths.push(vm.cpu().registers().sp);
             if let Some(key) = self.keys.pop_front() {
                 // Match Range's CHAR result ABI in A and $A0, then really RTS.
@@ -114,7 +107,7 @@ fn run(
             .all(|s| s.end < ENTRY || s.start > STOP)
     );
     let ram = vm.bus_mut().ram_mut();
-    ram.write_word(files_address, u16::from(files));
+    ram.write(files_address, files);
     ram.map(ENTRY, &[0x20, handle as u8, (handle >> 8) as u8, 0xEA])
         .unwrap();
     ram.map(RETURN, &[0x60, 0xA9, 0, 0x85, 0xA0, 0x60]).unwrap();
@@ -158,7 +151,7 @@ fn run(
 fn expected_trace(commands: &[Option<&'static str>]) -> Vec<&'static str> {
     let mut trace = vec!["Inv"];
     for &command in commands {
-        trace.extend(["Close", "FileRange"]);
+        trace.extend(["Close", "Range"]);
         if let Some(name) = command {
             trace.push(name);
         }
@@ -169,7 +162,7 @@ fn expected_trace(commands: &[Option<&'static str>]) -> Vec<&'static str> {
             trace.push("CloseAll");
         }
     }
-    trace.extend(["Close", "FileRange"]);
+    trace.extend(["Close", "Range"]);
     trace
 }
 
@@ -186,24 +179,11 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
                 &CompileOptions::for_mode(mode).with_runtime(Runtime::ActionCart),
             )
             .unwrap_or_else(|error| panic!("{source}/{mode:?}: {error}"));
-            // Leave measured headroom while catching a return to the Stage 0
-            // footprint. Timing observations do not participate in this budget.
-            let load_budget = match (mode, debug) {
-                (CompileMode::Optimized, false) => 18_300,
-                (CompileMode::Optimized, true) => 21_750,
-                (CompileMode::Mir6502, false) => 17_000,
-                (CompileMode::Mir6502, true) => 20_750,
-                _ => unreachable!(),
-            };
-            assert!(
-                compiled.object_bytes().len() <= load_budget,
-                "{source}/{mode:?}: load file exceeds {load_budget}-byte budget"
-            );
             let listing = compiled.source_listing();
             let handle = routine_address(&listing, "Handle");
             let files_address = global_address(&listing, "active");
             let mut entries = BTreeMap::new();
-            for name in ["Inv", "Close", "CloseAll", "FileRange"].into_iter().chain(
+            for name in ["Inv", "Close", "CloseAll", "Range"].into_iter().chain(
                 COMMANDS
                     .iter()
                     .filter(|(_, name)| debug || *name != "Dbg")
@@ -274,8 +254,6 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
             panels::check(&compiled, debug);
             directory::check(&compiled, debug);
             copy::check(&compiled, debug);
-            locations::check(&compiled);
-            paging::check(&compiled);
         }
     }
 }

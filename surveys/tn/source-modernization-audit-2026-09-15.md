@@ -1,5 +1,10 @@
 # TOMS Navigator source modernization audit
 
+Branch scope: the directory batch migration and its qualification described
+here are preserved on `tn-ng` (checkpoint `4baaac89`). On `main`, maintained TN
+is restored to `8ccdc683`, before that migration. Paths and completion statements
+below refer to the migration branch unless explicitly described as pre-migration.
+
 Audit baseline: `1514c41`, 2026-09-15. Scope: existing TN behavior only.
 No application, library or compiler source was changed by this audit.
 

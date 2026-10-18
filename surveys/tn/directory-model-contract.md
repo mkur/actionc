@@ -1,5 +1,10 @@
 # TN directory model contract
 
+Branch scope: the directory batch migration and its qualification described
+here are preserved on `tn-ng` (checkpoint `4baaac89`). On `main`, maintained TN
+is restored to `8ccdc683`, before that migration. Paths and completion statements
+below refer to the migration branch unless explicitly described as pre-migration.
+
 This implements the [directory migration plan](directory-handling-implementation-plan.md).
 The source remains MyDOS during this milestone; a simulated source supplies
 larger listings in tests.

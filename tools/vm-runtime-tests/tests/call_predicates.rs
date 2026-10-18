@@ -1,4 +1,4 @@
-//! Argument snapshots, source ordering and the real TN public normalization wrapper.
+//! Argument snapshots, source ordering and a frozen TN selection wrapper.
 use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
 use actionc_vm::{CompilerVm, ExecutionProfile, VmRunHooks};
 use std::path::{Path, PathBuf};
@@ -153,39 +153,37 @@ fn snapshot_cases(alias_regression_only: bool) {
 }
 
 #[test]
-fn tn_roots_set_tagged_normalizes_and_preserves_bounds_and_counts() {
-    for program in ["TN", "TNDBG"] {
+fn frozen_set_tagged_normalizes_and_preserves_bounds_and_counts() {
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
             for crlf in [false, true] {
-                let dir = Source(std::env::temp_dir().join(format!(
-                    "actionc-call-tags-{}-{program}-{mode:?}-{crlf}",
+                let file = Source(std::env::temp_dir().join(format!(
+                    "actionc-call-tags-{}-{mode:?}-{runtime:?}-{crlf}.act",
                     std::process::id()
                 )));
-                std::fs::create_dir_all(&dir.0).unwrap();
-                for file in std::fs::read_dir(root().join("samples/tn/modern")).unwrap() {
-                    let file = file.unwrap();
-                    if file.path().extension().is_some_and(|e| e == "ACT") {
-                        let text = std::fs::read_to_string(file.path())
-                            .unwrap()
-                            .replace("\r\n", "\n");
-                        std::fs::write(
-                            dir.0.join(file.file_name()),
-                            if crlf {
-                                text.replace('\n', "\r\n")
-                            } else {
-                                text
-                            },
-                        )
-                        .unwrap();
-                    }
-                }
+                let text = std::fs::read_to_string(
+                    root().join("tools/vm-runtime-tests/fixtures/tn/selection-regression.act"),
+                )
+                .unwrap()
+                .replace("\r\n", "\n")
+                    + "\nSelection POINTER descriptor\nCARD ordinal\nBYTE setting,result\n\
+                       PROC Main() result=SetTagged(descriptor,ordinal,setting) RETURN\n";
+                std::fs::write(
+                    &file.0,
+                    if crlf {
+                        text.replace('\n', "\r\n")
+                    } else {
+                        text
+                    },
+                )
+                .unwrap();
                 let compiled = compile_file(
-                    dir.0.join(format!("{program}.ACT")),
-                    &CompileOptions::for_mode(mode).with_runtime(Runtime::ActionCart),
+                    &file.0,
+                    &CompileOptions::for_mode(mode).with_runtime(runtime),
                 )
                 .unwrap();
                 let listing = compiled.source_listing();
-                let mut vm = machine::load(&compiled);
+                let mut vm = load(&compiled, runtime);
                 let selection = 0x7000;
                 let bitmap = 0x7101;
                 for ordinal in [0u16, 7, 8, 19, 20, 64, 65535] {
@@ -210,7 +208,7 @@ fn tn_roots_set_tagged_normalizes_and_preserves_bounds_and_counts() {
                         assert_eq!(
                             vm.bus().ram().read(0xA0),
                             if valid { 1 } else { 2 },
-                            "{program}/{mode:?}/{ordinal}/{setting}"
+                            "{runtime:?}/{mode:?}/{ordinal}/{setting}"
                         );
                         assert_eq!(machine::bytes(&vm, selection, 14), state, "selection state");
                         assert_eq!(
@@ -222,7 +220,7 @@ fn tn_roots_set_tagged_normalizes_and_preserves_bounds_and_counts() {
                         assert_eq!(vm.bus().ram().read(bitmap + 8), 0xA5);
                         if !crlf && matches!(ordinal, 0 | 20) {
                             println!(
-                                "call-tags,{program},{mode:?},{ordinal},{setting},{}",
+                                "call-tags,{runtime:?},{mode:?},{ordinal},{setting},{}",
                                 vm.cpu().cycles() - cycles
                             );
                         }

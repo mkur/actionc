@@ -10852,27 +10852,18 @@ mod tests {
 
         assert_eq!(
             skipped_lengths,
-            vec![8, 8, 32, 32, 40, 1367, 1367],
+            vec![10, 16, 32, 40, 47, 47, 130, 130, 1171, 1171],
             "TN should defer every eligible uninitialized global and local array backing range"
         );
-        // Generic panel state is separate from source-owned locations and
-        // selection. All three small record values are emitted.
-        for (name, size) in [
-            ("active", 5),
-            ("leftPanel", 5),
-            ("rightPanel", 5),
-            ("leftTags", 14),
-            ("rightTags", 14),
-            ("leftLocation", 49),
-            ("rightLocation", 49),
-        ] {
+        // The active and saved panels each retain the eight-byte layout.
+        for name in ["active", "leftPanel", "rightPanel"] {
             let symbol = output
                 .map
                 .storage_symbols
                 .iter()
                 .find(|symbol| symbol.name == name)
                 .unwrap_or_else(|| panic!("missing TN panel record {name}"));
-            assert_eq!(symbol.size, size, "{name} directory-model layout");
+            assert_eq!(symbol.size, 8, "{name} must preserve the panel layout");
             assert!(symbol.array.is_none(), "{name} should be a record value");
             assert!(symbol.address >= output.origin);
             assert!(symbol.address + symbol.size <= emitted_end);

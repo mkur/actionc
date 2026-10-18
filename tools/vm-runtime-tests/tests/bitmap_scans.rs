@@ -194,10 +194,12 @@ fn bitmap_traversal_variants_match_host_counts_and_preserve_guards() {
 }
 
 #[test]
-fn production_tail_bound_matches_the_uncached_loop_in_both_runtimes() {
-    let current = std::fs::read_to_string(root().join("samples/tn/modern/DIR.ACT"))
-        .unwrap()
-        .replace("\r\n", "\n");
+fn frozen_tail_bound_matches_the_uncached_loop_in_both_runtimes() {
+    let current = std::fs::read_to_string(
+        root().join("tools/vm-runtime-tests/fixtures/tn/selection-regression.act"),
+    )
+    .unwrap()
+    .replace("\r\n", "\n");
     assert_eq!(current.matches("byteLimit=capacity RSH 3\n").count(), 1);
     let previous = current
         .replace("CARD ordinal,byteLimit\n", "CARD ordinal\n")

@@ -208,14 +208,15 @@ The optional `surveys/tn/check-stability.sh` currently stops on unchanged
 during the directory migration. Investigate the compatibility typing rule with
 a focused original-language regression; do not edit the archived sample to
 make the diagnostic disappear. The maintained modern builds pass their
-separate behavioral tests with the reordered DirBatch layout in classic and
-MIR6502; those tests run in normal CI.
+separate behavioral tests in classic and MIR6502; those tests run in normal CI.
+The directory-batch implementation is preserved on `tn-ng`; `main` uses the
+pre-migration layout.
 
 ## Classic Indirect Expressions in TN Directory Code
 
 Status: found during the TN directory migration; compiler fixes not started.
-The [directory model tests](../tools/vm-runtime-tests/tests/tn_directory_model.rs)
-exercise source forms that avoid these issues; keep independent failing
+The [frozen selection fixture](../tools/vm-runtime-tests/fixtures/tn/selection-regression.act)
+retains source forms that avoid these issues; keep independent failing
 reproducers when addressing the compiler, rather than adding TN special cases.
 
 - A CARD comparison such as `ordinal>=tags.capacity`, where tags is a record

@@ -1,5 +1,13 @@
 # TN Stability Check
 
+TN's maintained sources on `main` are restored to the pre-directory-refactor
+checkpoint `8ccdc683`. The newer batch/paging implementation is preserved on
+`tn-ng` at `4baaac89`. Directory migration, bitmap, size-reduction and later
+profiling reports below describe that newer source. Run their batch-specific
+measurement scripts and profiling commands from `tn-ng`; their recorded results
+are historical and do not describe the restored sample. Compiler improvements
+and independent regression reproducers remain on `main`.
+
 This check keeps TOMS Navigator in the compatibility workflow as a large real
 program. The small original-compiler probes catch narrow codegen shapes; TN
 catches broad layout regressions, include handling, and routine-local storage
@@ -21,9 +29,8 @@ address/alias proofs, reuse across reads and proven writes, bounded parameter
 origins and final size/behavior qualification.
 The [directory handling implementation plan](directory-handling-implementation-plan.md)
 replaces the proposed row overlays with 64-entry batches, independent tagging
-and a MyDOS-first migration toward FujiNet. The implementation and VM checks
-are complete; see the [sample notes](../../samples/tn/README.md) for measured
-memory and the outstanding disk-level emulator check.
+and a MyDOS-first migration toward FujiNet. The implementation and its VM checks
+are preserved on `tn-ng`; see that branch's `samples/tn/README.md` for its memory measurements and acceptance notes.
 The proposed [size reduction implementation plan](size-reduction-implementation-plan.md)
 preserves the FujiNet paging contract while addressing shared entry addressing,
 classic correctness, MIR6502 record/pointer generation and validation ownership.
@@ -51,17 +58,14 @@ surveys/tn/check-stability.sh
 ```
 
 The script compiles TN with `compat` from the archived original extraction and
-with `modern` from the maintained source under `../modern`, compares each
+with `modern` from the maintained source under `samples/tn/modern`, compares each
 load-file size against the original Action! compiler `TN.COM`, and fails when a
 profile exceeds its size budget.
 
-The directory migration intentionally increases the maintained program's size.
-The modern budget is now +/- 6,400 bytes against the original 12,127-byte file;
-the maintained classic load file is 18,352 bytes (delta +6,225). Compare memory
-and behavior using the sample's focused checks and `measure-directory.py` too.
-The compatibility budget remains 512 bytes. At this checkpoint the script stops
-on an existing diagnostic in the unchanged archived source: BYTE Fnamecmp rejects
-`RETURN(-1)` at line 336. The modern build is within its revised budget.
+The restored modern budget is +/- 1,792 bytes against the original 12,127-byte
+file. The compatibility budget remains 512 bytes. The archived-source check has
+an existing diagnostic: BYTE Fnamecmp rejects `RETURN(-1)` at line 336. Use the
+[focused sample checks](../../samples/tn/README.md) to validate maintained TN.
 
 Default inputs:
 

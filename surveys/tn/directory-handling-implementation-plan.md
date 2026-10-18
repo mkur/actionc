@@ -1,5 +1,10 @@
 # TN directory handling implementation plan
 
+Branch scope: the directory batch migration and its qualification described
+here are preserved on `tn-ng` (checkpoint `4baaac89`). On `main`, maintained TN
+is restored to `8ccdc683`, before that migration. Paths and completion statements
+below refer to the migration branch unless explicitly described as pre-migration.
+
 Status: implementation complete, 2026-09-15. All six slices are implemented
 and committed separately. The maintained roots pass focused MyDOS, paging,
 selection, location and storage checks in both cartridge backends. Memory is

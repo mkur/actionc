@@ -1,5 +1,10 @@
 # TN size reduction and record code generation implementation plan
 
+Branch scope: the directory batch migration and its qualification described
+here are preserved on `tn-ng` (checkpoint `4baaac89`). On `main`, maintained TN
+is restored to `8ccdc683`, before that migration. Paths and completion statements
+below refer to the migration branch unless explicitly described as pre-migration.
+
 Status: Stages 0–7 complete, 2026-10-12. The maintained
 [qualification report](size-reduction/README.md) pins the baseline and preserved
 provider acceptance.

@@ -11,7 +11,7 @@ order, early returns, source snapshots and the public Action! ABI.
 
 ## Objective and current evidence
 
-[MyDosAfter](../../samples/tn/modern/MYDOS.ACT) compares directory flags, eleven
+`MyDosAfter` (`samples/tn/modern/MYDOS.ACT` on `tn-ng`) compares directory flags, eleven
 name bytes and then three detail bytes. Its pointers remain unchanged, but
 the current MIR6502 name loop constructs `left + 6` and `right + 6` on every
 iteration, alternately overwriting the same zero-page pointer pair. It stores
