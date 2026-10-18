@@ -31,6 +31,7 @@ mod calls;
 mod cfg;
 pub(super) mod compare_branch;
 mod copies;
+pub(super) mod copy_values;
 mod copy_loops;
 mod dead_spills;
 mod dead_arithmetic;

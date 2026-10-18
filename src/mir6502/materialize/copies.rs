@@ -173,6 +173,39 @@ fn select_copy(
     Ok((out, prepared_address))
 }
 
+/// All bytes are constants or immutable captures already evaluated before this
+/// copy. Preparing the destination once and emitting stores therefore retains
+/// value-copy semantics even when the destination aliases the original source.
+pub(super) fn copy_captured_values(destination: &MirAddr, bytes: &[MirValue]) -> Option<Vec<MirOp>> {
+    let destination = plan_endpoint(destination, u16::try_from(bytes.len()).ok()?).ok()?;
+    let mut out = Vec::new();
+    match destination {
+        EndpointPlan::Direct(addr) => {
+            for (offset, value) in bytes.iter().enumerate() {
+                out.push(MirOp::Store {
+                    dst: offset_aggregate_addr(&addr, offset as u16),
+                    src: value.clone(),
+                    width: MirWidth::Byte,
+                });
+            }
+        }
+        EndpointPlan::Prepared {
+            setup,
+            first_offset,
+        } => {
+            out.extend(setup);
+            for (offset, value) in bytes.iter().enumerate() {
+                out.push(MirOp::StoreIndirect {
+                    consumer: DEFAULT_POINTER_PAIR,
+                    src: value.clone(),
+                    offset: first_offset + offset as u16,
+                });
+            }
+        }
+    }
+    Some(out)
+}
+
 fn plan_endpoint(addr: &MirAddr, size: u16) -> Result<EndpointPlan, SelectionBlock> {
     let plan = match addr {
         MirAddr::Direct(_) => Ok(EndpointPlan::Direct(addr.clone())),
