@@ -195,7 +195,7 @@ fn computed_address_fallback_executes_full_word_scales_and_wrap() {
     let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
     let model = crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern()).unwrap();
     let nir = crate::nir::optimize_program(&crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model))).unwrap();
-    for stride in [1u16, 2, 20, 255, 256, 65535] {
+    for stride in [1u16, 2, 3, 20, 255, 256, 65535] {
         for offset in [0u16, 38, 255, 256] {
             let mut mir = crate::mir6502::lower_program(&nir).unwrap();
             let mut found = false;
@@ -227,5 +227,116 @@ fn computed_address_fallback_executes_full_word_scales_and_wrap() {
                 }
             }
         }
+    }
+}
+
+#[test]
+fn byte_triple_address_executes_every_index_and_wraps_complete_pointer() {
+    let source = "PROC Main() RETURN";
+    let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
+    let model =
+        crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
+            .unwrap();
+    let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+    let template = crate::mir6502::materialize_program(
+        crate::mir6502::lower_program(&nir).unwrap(),
+        &Mir6502Config::default(),
+    )
+    .unwrap();
+    // Include inputs in each register and overlapping the output/scratch.
+    // None may be re-read after the recipe has overwritten it.
+    for input in [
+        MirValue::Def(MirDef::Reg(MirReg::A)),
+        MirValue::Def(MirDef::Reg(MirReg::X)),
+        MirValue::Def(MirDef::Reg(MirReg::Y)),
+        MirValue::PointerCell(MirMem::Absolute(0x600)),
+        MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(0xAC))),
+        MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(0xAE))),
+        MirValue::Word {
+            lo: Box::new(MirValue::PointerCell(MirMem::Absolute(0x600))),
+            hi: Box::new(MirValue::ConstU8(0)),
+        },
+    ] {
+        for base in [0u16, 0x50FF, 0xFFF0] {
+            let mut mir = template.clone();
+            mir.routines[0].frame.fixed_zero_page = (0xAC..=0xAF).map(MirFixedZpSlot).collect();
+            let ops = &mut mir.routines[0].blocks[0].ops;
+            ops.clear();
+            if let MirValue::Def(MirDef::Reg(reg)) = input {
+                ops.push(MirOp::Load {
+                    dst: MirDef::Reg(reg),
+                    src: MirAddr::Direct(MirMem::Absolute(0x600)),
+                    width: MirWidth::Byte,
+                });
+            }
+            ops.push(MirOp::MaterializeIndexedAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                base: MirValue::ConstU16(base),
+                index: input.clone(),
+                scale: 3,
+            });
+            let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
+            let summary = crate::mir6502::emit::emit_program(&mir, 0x3000, &mut emitter).unwrap();
+            let emission = emitter.finish_with_relocations().unwrap();
+            let compiled = crate::mir6502::codegen_output(
+                emission,
+                0x3000,
+                summary,
+                Runtime::ActionCart,
+                &mir,
+            );
+            for index in 0u16..=255 {
+                let mut ram = memory(&compiled, Runtime::ActionCart);
+                ram[0x600] = index as u8;
+                ram[0xAC] = index as u8;
+                ram[0xAE] = index as u8;
+                ram[0xAF] = 0xA5;
+                super::leaf_test_cpu::run_memory(&mut ram, usize::from(compiled.run_address));
+                assert_eq!(
+                    u16::from_le_bytes([ram[0xAC], ram[0xAD]]),
+                    base.wrapping_add(3 * index),
+                    "{input:?}/base={base:04X}/index={index}"
+                );
+                assert_eq!(ram[0xAF], 0xA5, "unused high scratch must survive");
+            }
+        }
+    }
+}
+
+#[test]
+fn byte_triple_address_selection_requires_static_base_and_byte_index() {
+    for (declaration, index_type, expected) in [
+        ("Entry ARRAY rows(16)=$5000", "BYTE", true),
+        ("Entry ARRAY rows(16)=$5000", "CARD", false),
+        ("Entry ARRAY rows", "BYTE", false),
+    ] {
+        let source = format!(
+            "TYPE Entry=[BYTE tag CARD length]\n{declaration}\n{index_type} index=$0600\nBYTE observed=$0602\nPROC Main()\nobserved=rows(index).tag\nRETURN\n"
+        );
+        let ast = crate::parser::parse(&crate::lexer::tokenize(&source).unwrap()).unwrap();
+        let model =
+            crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
+                .unwrap();
+        let nir = crate::nir::optimize_program(&crate::nir::lower_program(
+            &crate::semantic::ir::lower_program(&ast, &model),
+        ))
+        .unwrap();
+        let mir = crate::mir6502::materialize_program(
+            crate::mir6502::lower_program(&nir).unwrap(),
+            &Mir6502Config::optimized(),
+        )
+        .unwrap();
+        let selected = mir
+            .routines
+            .iter()
+            .flat_map(|r| &r.blocks)
+            .flat_map(|b| &b.ops)
+            .any(|op| matches!(op, MirOp::MaterializeIndexedAddress { scale: 3, .. }));
+        assert_eq!(
+            selected,
+            expected,
+            "{source}\n{}",
+            crate::mir6502::format_program(&mir)
+        );
     }
 }

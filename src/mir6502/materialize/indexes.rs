@@ -533,6 +533,22 @@ pub(super) fn materialize_delayed_indexed_address_to_consumer(
     layout: &MaterializeLayout,
     out: &mut Vec<MirOp>,
 ) {
+    let captured_index = MirValue::Def(MirDef::Reg(MirReg::A));
+    if elem_size == 3
+        && matches!(consumer, MirAddressConsumer::IndirectIndexedY(_))
+        && crate::mir6502::ir::byte_triple_address_inputs(&base, &captured_index)
+    {
+        // The base is an immediate address, so evaluating the delayed byte
+        // expression first cannot reorder any memory reads.
+        materialize_delayed_byte_index_to_a(index, out);
+        out.push(MirOp::MaterializeIndexedAddress {
+            consumer,
+            base,
+            index: captured_index,
+            scale: 3,
+        });
+        return;
+    }
     materialize_base_address(base, consumer, layout, out);
     materialize_delayed_byte_index_to_a(index, out);
     out.push(MirOp::AdvanceAddress {
@@ -4024,7 +4040,11 @@ pub(super) fn materialize_indexed_address_to_consumer(
         return;
     }
     let scale = elem_size.min(u8::MAX as u16) as u8;
-    if matches!(scale, 1 | 2) {
+    if matches!(scale, 1 | 2)
+        || (scale == 3
+            && matches!(consumer, MirAddressConsumer::IndirectIndexedY(_))
+            && crate::mir6502::ir::byte_triple_address_inputs(&base, &index))
+    {
         out.push(MirOp::MaterializeIndexedAddress {
             consumer,
             base,

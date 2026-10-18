@@ -1,0 +1,10 @@
+TYPE Entry=[BYTE tag CARD length]
+Entry ARRAY entries(16)=$5000
+BYTE index=$0800,tag=$0801
+CARD length=$0802,observed=$0804
+
+PROC Main()
+  entries(index).tag=tag
+  entries(index).length=length
+  observed=entries(index).length
+RETURN

@@ -23,7 +23,7 @@ impl actionc_vm::VmRunHooks for Hooks {
 
 #[test]
 fn record_elements_preserve_wide_indexes_calls_and_guard_bytes() {
-    for stride in [2u16, 20, 255, 256] {
+    for stride in [2u16, 3, 20, 255, 256] {
         let padding = if stride == 2 {
             String::new()
         } else {

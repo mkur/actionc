@@ -134,6 +134,7 @@ fn estimated_op_cost(op: &MirOp) -> (u16, u16) {
         MirOp::CompareIndirectWords { .. } => (9, 20),
         MirOp::Call { .. } | MirOp::RuntimeHelper { .. } => (3, 6),
         MirOp::MaterializeAddress { .. } => (6, 8),
+        MirOp::MaterializeIndexedAddress { scale: 3, .. } => (26, 40),
         MirOp::MaterializeIndexedAddress { consumer, .. } if consumer.uses_scaled_y() => (8, 12),
         MirOp::MaterializeIndexedAddress { .. } => (12, 18),
         MirOp::AdvanceAddress { .. } => (8, 12),

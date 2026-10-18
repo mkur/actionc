@@ -688,6 +688,11 @@ fn update_fixed_zero_page_values(
     before: &MirMachineValueState,
     known_callees: &MirKnownCalleeSummaries,
 ) {
+    if matches!(op, MirOp::MaterializeIndexedAddress { scale: 3, .. }) {
+        let scratch = MirMem::FixedZeroPage(MirFixedZpSlot(0xAE));
+        invalidate_fixed_zero_page_value_dependencies(state, &scratch);
+        remove_fixed_zero_page_slot(state, &scratch);
+    }
     match op {
         MirOp::ComputeAddress { .. } => {},
 
@@ -1698,6 +1703,51 @@ mod tests {
             ),
             Ok(Some(MirMachineValue::DirectMem(high_source)))
         );
+    }
+
+    #[test]
+    fn byte_triple_address_invalidates_cached_scratch_and_dependents() {
+        let scratch = MirFixedZpSlot(0xAE);
+        let dependent = MirFixedZpSlot(0xA8);
+        let routine = routine(vec![
+            block(
+                0,
+                vec![
+                    MirOp::LoadImm {
+                        dst: MirDef::Reg(MirReg::A),
+                        value: 7,
+                        width: MirWidth::Byte,
+                    },
+                    store_a(MirMem::FixedZeroPage(scratch)),
+                    load_a(MirMem::FixedZeroPage(scratch)),
+                    store_a(MirMem::FixedZeroPage(dependent)),
+                    MirOp::MaterializeIndexedAddress {
+                        consumer: crate::mir6502::ir::MirAddressConsumer::IndirectIndexedY(
+                            crate::mir6502::ir::MirPointerPair::Fixed {
+                                lo: MirFixedZpSlot(0xAC),
+                            },
+                        ),
+                        base: MirValue::ConstU16(0x5000),
+                        index: MirValue::PointerCell(MirMem::Absolute(0x600)),
+                        scale: 3,
+                    },
+                ],
+                MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+        ]);
+        let values = analyze(&routine);
+        for slot in [scratch, dependent] {
+            assert_eq!(
+                values.fixed_zero_page_value_at(
+                    MirSite::BlockEntry {
+                        block: MirBlockId(1)
+                    },
+                    slot
+                ),
+                Ok(None)
+            );
+        }
     }
 
     #[test]

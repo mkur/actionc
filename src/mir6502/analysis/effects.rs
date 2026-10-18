@@ -868,15 +868,22 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             consumer,
             base,
             index,
-            ..
+            scale,
         } => {
             record_consumer_write(*consumer, &mut summary);
             record_value_as(base, MirTempUseKind::Address, &mut summary);
             record_value_as(index, MirTempUseKind::Address, &mut summary);
             summary.machine.conservative_register_clobbers.a = true;
-            if consumer.preserves_index_in_y() {
+            if consumer.preserves_index_in_y() || *scale == 3 {
                 set_register(&mut summary.machine.register_writes, MirReg::Y);
                 summary.machine.conservative_register_clobbers.y = true;
+            }
+            if *scale == 3 {
+                record_definite_memory_range_write(
+                    &MirMem::FixedZeroPage(MirFixedZpSlot(0xAE)),
+                    MirWidth::Byte,
+                    &mut summary,
+                );
             }
             summary.machine.flag_clobbers = MirFlagSet::all();
             summary.machine.writes_any_flags_compat = true;
@@ -2761,6 +2768,36 @@ mod tests {
         assert!(high.writes_reg(MirReg::Y));
         assert!(high.machine.flag_writes.z);
         assert!(high.machine.flag_writes.n);
+    }
+
+    #[test]
+    fn byte_triple_address_exposes_y_and_reserved_scratch_clobbers() {
+        let summary = classify_op(&MirOp::MaterializeIndexedAddress {
+            consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                lo: MirFixedZpSlot(0xAC),
+            }),
+            base: MirValue::ConstU16(0x50FF),
+            index: MirValue::Def(MirDef::Reg(MirReg::Y)),
+            scale: 3,
+        });
+        assert!(summary.reads_reg(MirReg::Y));
+        assert!(summary.writes_reg(MirReg::Y));
+        assert!(summary.may_clobber_reg_compat(MirReg::A));
+        assert!(summary.may_clobber_reg_compat(MirReg::Y));
+        assert!(!summary.may_clobber_reg_compat(MirReg::X));
+        assert!(summary.machine.flag_clobbers.c);
+        assert!(
+            summary
+                .homes
+                .writes
+                .contains(&MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xAE)))
+        );
+        assert!(
+            !summary
+                .homes
+                .writes
+                .contains(&MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xAF)))
+        );
     }
 
     #[test]

@@ -2472,6 +2472,14 @@ fn emit_op(
                 );
                 return;
             };
+            if *scale == 3 {
+                if !emit_byte_triple_plus_base_to_pointer(
+                    ctx, routine, block, index, &base_lo, &base_hi, pointer_slot, emitter,
+                ) {
+                    unsupported(ctx, routine, block, "scale-three address is not emit-ready");
+                }
+                return;
+            }
             if !matches!(*scale, 1 | 2) {
                 unsupported(
                     ctx,
@@ -4199,6 +4207,65 @@ fn emit_scaled_index_to_scratch(
         emitter.emit_rol_a();
     }
     emit_sta_mem(ResolvedMem::ZeroPage(ADDRESS_INDEX_SCRATCH_HI), emitter);
+    true
+}
+
+fn emit_byte_triple_plus_base_to_pointer(
+    ctx: &mut MirEmitContext<'_>,
+    routine: RoutineId,
+    block: MirBlockId,
+    index: &MirValue,
+    base_lo: &MirValue,
+    base_hi: &MirValue,
+    pointer_slot: u8,
+    emitter: &mut TrackedEmitter,
+) -> bool {
+    let Some((index_lo, index_hi)) = split_index_value_as_word(ctx, index) else {
+        return false;
+    };
+    if !matches!(index_hi, MirValue::ConstU8(0) | MirValue::ConstU16(0))
+        || !can_emit_value_to_a(ctx, routine, &index_lo)
+        || !can_emit_adc_value_to_a(ctx, routine, base_lo)
+        || !can_emit_adc_value_to_a(ctx, routine, base_hi)
+    {
+        return false;
+    }
+    // Y counts the carries in 2*i + i (0..765), then ADC carries the low
+    // base addition into the high byte. Read the index exactly once, before
+    // clobbering any scratch or registers that might carry it.
+    emit_value_to_a(ctx, routine, block, &index_lo, emitter);
+    emit_sta_mem(ResolvedMem::ZeroPage(ADDRESS_INDEX_SCRATCH_LO), emitter);
+    emitter.emit_ldy_imm(0);
+    emitter.emit_asl_a();
+    let doubled = format!(
+        "__mir6502_triple_double_{}_{}_{}",
+        routine.0,
+        block.0,
+        emitter.position()
+    );
+    emitter.emit_branch_label(opcode::BCC_REL, doubled.clone(), SYNTHETIC_SPAN);
+    emitter.emit_iny();
+    bind_label(ctx, emitter, routine, Some(block), doubled);
+    emitter.emit_clc();
+    emitter.emit_adc_zero_page(ZeroPage::new(ADDRESS_INDEX_SCRATCH_LO));
+    let tripled = format!(
+        "__mir6502_triple_sum_{}_{}_{}",
+        routine.0,
+        block.0,
+        emitter.position()
+    );
+    emitter.emit_branch_label(opcode::BCC_REL, tripled.clone(), SYNTHETIC_SPAN);
+    emitter.emit_iny();
+    bind_label(ctx, emitter, routine, Some(block), tripled);
+    emitter.emit_clc();
+    emit_adc_value_to_a(ctx, routine, block, base_lo, emitter);
+    emit_sta_mem(ResolvedMem::ZeroPage(pointer_slot), emitter);
+    emitter.emit_tya();
+    emit_adc_value_to_a(ctx, routine, block, base_hi, emitter);
+    emit_sta_mem(
+        ResolvedMem::ZeroPage(pointer_slot.saturating_add(1)),
+        emitter,
+    );
     true
 }
 

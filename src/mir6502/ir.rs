@@ -666,6 +666,9 @@ pub enum MirOp {
         elem_size: u16,
         offset: u16,
     },
+    /// Scales 1/2 support general word inputs. Scale 3 requires an immediate
+    /// base and a byte index; it produces a complete pointer, clobbering A, Y,
+    /// flags and reserved scratch $AE. It never truncates the scaled index.
     MaterializeIndexedAddress {
         consumer: MirAddressConsumer,
         base: MirValue,
@@ -752,6 +755,43 @@ pub enum MirValue {
         byte: u8,
     },
     PointerCell(MirMem),
+}
+
+/// Operand contract for the byte-times-three address recipe. Storage address
+/// lanes are relocation constants, not reads of the storage they name.
+pub(in crate::mir6502) fn byte_triple_address_inputs(base: &MirValue, index: &MirValue) -> bool {
+    fn immediate_byte(value: &MirValue) -> bool {
+        matches!(
+            value,
+            MirValue::ConstU8(_)
+                | MirValue::ConstU16(0..=255)
+                | MirValue::StorageAddrByte { byte: 0..=1, .. }
+                | MirValue::RoutineAddrByte { byte: 0..=1, .. }
+        )
+    }
+    fn byte(value: &MirValue) -> bool {
+        immediate_byte(value)
+            || matches!(
+                value,
+                MirValue::Def(MirDef::Reg(_) | MirDef::VTempByte { .. }) | MirValue::PointerCell(_)
+            )
+    }
+    let immediate_base = match base {
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_) => true,
+        MirValue::Word { lo, hi } => immediate_byte(lo) && immediate_byte(hi),
+        _ => false,
+    };
+    let byte_index = match index {
+        MirValue::Word { lo, hi } => {
+            byte(lo) && matches!(hi.as_ref(), MirValue::ConstU8(0) | MirValue::ConstU16(0))
+        }
+        _ => byte(index),
+    };
+    immediate_base && byte_index
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -260,6 +260,18 @@ word arithmetic. Constant indexed construction adds its complete scaled offset
 with 16-bit wrap. Its high base byte must survive the low-byte computation and
 pointer store; emission retains the general path when that condition is absent.
 
+`MaterializeIndexedAddress` admits scales one and two for general word inputs.
+Scale three is a MIR6502 recipe for an immediate base (including typed storage
+relocations) and a byte index, with a complete `IndirectIndexedY` pointer result.
+The verifier rejects wider indexes, mutable base lanes, other consumers and
+unsupported scales. The index is captured once before any scratch write; the
+recipe computes the full `base + 3*index` modulo 65536 for every index 0–255.
+Y counts multiplication carries, so neither an array capacity nor a narrower
+range assumption is needed. A, Y, flags and reserved `$AE` are clobbered; X and
+`$AF` survive. Effects and machine-value analysis expose these clobbers. Wider
+indexes and dynamic bases retain the general address path. This recipe does
+not license reusing an address across a potentially aliased store or call.
+
 Post-home block-local base reuse requires exact resident pointer provenance,
 unchanged source cells and pair bytes, and dead removed register/flag effects.
 Unknown writes, calls and machine barriers invalidate the fact. Final placement

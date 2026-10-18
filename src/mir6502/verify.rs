@@ -1980,6 +1980,23 @@ impl MirVerifier {
                 scale,
             } => {
                 self.verify_address_consumer(routine, block, consumer);
+                if !matches!(*scale, 1 | 2 | 3) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indexed address materialization requires scale one, two or three",
+                    ));
+                }
+                if *scale == 3
+                    && (!matches!(consumer, MirAddressConsumer::IndirectIndexedY(_))
+                        || !super::ir::byte_triple_address_inputs(base, index))
+                {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "scale-three address requires an immediate base, a byte index and a complete pointer consumer",
+                    ));
+                }
                 if consumer.uses_live_y() {
                     self.reject_scaled_y_consumer(routine,block,consumer,"indexed address construction");
                 }
@@ -4388,6 +4405,78 @@ mod tests {
                 .message
                 .contains("paged-Y address materialization requires scale one")
         }));
+    }
+
+    #[test]
+    fn scale_three_address_requires_immediate_base_byte_index_and_complete_pair() {
+        let pair = MirPointerPair::Fixed {
+            lo: crate::mir6502::MirFixedZpSlot(0xAC),
+        };
+        for (base, index, consumer, scale, accepted) in [
+            (
+                MirValue::ConstU16(0x50FF),
+                MirValue::ConstU8(255),
+                MirAddressConsumer::IndirectIndexedY(pair),
+                3,
+                true,
+            ),
+            (
+                MirValue::ConstU16(0x50FF),
+                MirValue::ConstU16(256),
+                MirAddressConsumer::IndirectIndexedY(pair),
+                3,
+                false,
+            ),
+            (
+                MirValue::Word {
+                    lo: Box::new(MirValue::PointerCell(MirMem::Absolute(0x600))),
+                    hi: Box::new(MirValue::ConstU8(0x50)),
+                },
+                MirValue::ConstU8(1),
+                MirAddressConsumer::IndirectIndexedY(pair),
+                3,
+                false,
+            ),
+            (
+                MirValue::ConstU16(0x50FF),
+                MirValue::ConstU8(1),
+                MirAddressConsumer::PagedIndirectIndexedY(pair),
+                3,
+                false,
+            ),
+            (
+                MirValue::ConstU16(0x50FF),
+                MirValue::ConstU8(1),
+                MirAddressConsumer::ScaledIndirectIndexedY(pair),
+                3,
+                false,
+            ),
+            (
+                MirValue::ConstU16(0x50FF),
+                MirValue::ConstU8(1),
+                MirAddressConsumer::IndirectIndexedY(pair),
+                4,
+                false,
+            ),
+        ] {
+            let program = program_with_routines(vec![routine(
+                RoutineId(0),
+                "Main",
+                vec![block_with_ops(
+                    MirBlockId(0),
+                    "bb0",
+                    vec![MirOp::MaterializeIndexedAddress {
+                        consumer,
+                        base,
+                        index,
+                        scale,
+                    }],
+                    MirTerminator::Return,
+                )],
+            )]);
+            let result = verify_program(&program, MirPhase::PreEmission);
+            assert_eq!(result.is_ok(), accepted, "{program:?}: {result:?}");
+        }
     }
 
     #[test]

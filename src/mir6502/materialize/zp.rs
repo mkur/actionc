@@ -118,7 +118,8 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
 fn routine_uses_address_advance(routine: &MirRoutine) -> bool {
     routine.blocks.iter().any(|block| {
         block.ops.iter().any(|op| match op {
-            MirOp::AdvanceAddress { .. } => true,
+            MirOp::AdvanceAddress { .. }
+            | MirOp::MaterializeIndexedAddress { scale: 3, .. } => true,
             MirOp::CopyBytes {
                 source,
                 destination,

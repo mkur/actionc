@@ -3,8 +3,9 @@
 ## Current review: 2026-10-18
 
 Scope: the small-directory implementation restored on `main` at `1bfb8ea7`.
-The compiler implementation is `4baaac89`; the intervening rollback changed
-samples and tests. The larger directory architecture remains on `tn-ng`.
+The initial source comparisons used compiler `4baaac89`; the compiler follow-up
+below records the later address-generation change. The larger directory
+architecture remains on `tn-ng`.
 The September findings below are historical; this section records the current
 measurement and acceptance decisions.
 
@@ -51,6 +52,58 @@ predicate reads leave row bytes unchanged.
 CopyChunk keeps the same 48-byte payload, but total reserved memory grows by
 225/229 bytes in classic/MIR6502.
 Unadopted probes received compile/size checks, not full behavioral qualification.
+
+### Compiler follow-up: three-byte record addressing
+
+The MIR6502 backend now selects a shorter complete address calculation for
+three-byte records with a fixed storage base and a BYTE index. It computes
+`base + 3*index` with full 16-bit carry and wrap, including indexes above 85;
+the declared 16-element capacity is not treated as a range proof. Wider indexes
+and mutable bases retain general address generation. The recipe uses existing
+scratch `$AE` and Y, whose clobbers are explicit in MIR. It does not reuse an
+address across potentially aliased stores or calls.
+
+Rebuilding the isolated CopyChunk experiment on the current `bdf594b0` sources
+gives these cartridge-mode TN results:
+
+| MIR6502 measurement | Before | After |
+| --- | ---: | ---: |
+| Two adjacent CopyChunk field stores | 133 bytes | 86 bytes |
+| Full CopyChunk prototype load file | 10,197 bytes | 10,071 bytes |
+| Extra load/reserved bytes over parallel arrays | 229 bytes | 103 bytes |
+| CopyChunk payload | 48 bytes | 48 bytes |
+
+The maintained TN and TNDBG images are byte-identical before/after, at 9,968
+and 13,073 load-file bytes. The TNDBG CopyChunk prototype shrinks from 13,462
+to 13,273 bytes, reducing its overhead from 389 to 200 bytes. CopyChunk is still
+an isolated source experiment; its remaining overhead has not been accepted
+into TN. The general
+[store/store/read probe](reproducers/three-byte-record-address.act) shrinks from
+197 to 135 code bytes. These are size measurements, not cycle-count claims.
+
+The new compiler regressions execute all 256 BYTE indexes, page crossings,
+16-bit address wrap, inputs overlapping scratch/pointer cells, single index
+evaluation, a store that changes the next index, local storage relocations and
+wide-index fallbacks. Runtime coverage includes cartridge and standalone,
+raw/optimized NIR, conservative/optimized MIR6502 and LF/CRLF source paths.
+The complete CopyChunk prototype has size coverage; the maintained TN program
+and the general record cases receive runtime coverage.
+
+The selected operand and clobber contract is documented in
+[MIR6502 address-use proofs](../../docs/MIR6502_PSEUDO_MACHINE_CONTRACT.md#address-use-proofs).
+
+Compiler validation: MIR6502 library tests, NIR snapshots, the NIR fixture sweep,
+and all 169 MIR6502 fixtures through emission pass. VM targets:
+`three_byte_records`, `record_consumer_boundaries`, `record_base_reuse`,
+`address_values`, `embedded_record_arrays`, `tn_codegen_reproducers` and
+`tn_dispatch` all pass. The full `cargo test` passes the sample-build matrix but
+stops in `parses_all_sample_programs`: the pre-existing untracked
+`samples/vbxe/shared/lines.act` cannot resolve `SHARED.SCREEN` with that test's
+module options. The saved pre-change compiler reproduces the same error.
+The 14 integration targets following `samples`, and doc tests, pass when run
+separately. This unrelated local sample/module configuration is left untouched.
+
+### Adopted menu and row changes
 
 The adopted menu change uses `LET CARD item=FindItem(menu,ch)` inside an explicit
 BEGIN/END block in PopUp's loop. `IF item # NO_ITEM` tests the captured address
