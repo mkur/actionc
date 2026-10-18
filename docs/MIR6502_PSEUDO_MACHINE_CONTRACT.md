@@ -127,6 +127,32 @@ Ordinary direct storage reads and the constructor's private carrier reads may
 remain between a captured load and its exclusive consumer when the existing
 availability and physical interference proofs hold.
 
+### Tiny constant fills
+
+Before home allocation and ABI prologues, MIR6502 can replace a closed
+word-counter loop that stores one constant byte into one through eight
+consecutive bytes of an ordinary local object. Selection uses typed storage
+IDs, exact constant bounds and an in-object byte window. It does not inspect
+variant types, constructor names or source syntax. SemIR still owns the rule
+that inactive variant payload bytes are zeroed; NIR retains the original typed
+stores and loop.
+
+The matched pointer setup and counter have no other executable, alias or data
+relocation uses. Other frame-address exposure, observable routine entries,
+machine code, volatile barriers, calls in the loop, extra CFG entries, escaping
+temps, signed/wrapping bounds and unknown destinations reject selection. The
+replacement preserves every destination write in ascending byte order and
+leaves later stores, including constructor tag publication, in place. No
+snapshot, validation or aggregate-return ABI rule changes.
+
+The bounded replacement costs at most one immediate load plus eight absolute
+stores (26 bytes), below the conservative 30-byte lower bound of the matched
+word-counter computation. Larger fills keep the loop. Selection removes the
+unobserved pointer/counter homes, verifies pre-materialization MIR again, and
+reports `tiny-constant-fill-selected`. It requires peepholes and
+`enable_tiny_constant_fills`, enabled in both default and optimized policies;
+the explicit feature-off configuration retains the original computation.
+
 ### Costed scalar leaf inlining
 
 MIR routines preserve verified NIR's typed `Auto` / `Prefer` inline metadata.

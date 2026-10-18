@@ -207,6 +207,39 @@ fn short_alternatives_clear_poisoned_page_crossing_unused_regions() {
 }
 
 #[test]
+fn tiny_constructor_fills_keep_every_write_and_commit_the_tag_last() {
+    // Two bytes exercise the motivating word payload; eight is the MIR
+    // selection limit and nine must retain the general loop. The short arm
+    // also checks that clearing starts after its live payload byte.
+    for bytes in [2, 8, 9] {
+        for short in [false, true] {
+            let constructor = if short {
+                "Value.SHORT(42)"
+            } else {
+                "Value.EMPTY"
+            };
+            let source = format!(
+                "TYPE Payload=[BYTE ARRAY bytes({bytes})]\nTYPE Value=VARIANT [EMPTY FULL [Payload payload] SHORT [BYTE value]]\nValue current\nBYTE done=$600\nPROC Main()\ncurrent={constructor}\ndone=$A5\nDO OD\nRETURN\n"
+            );
+            let mut expected = vec![0; bytes + 1];
+            expected[0] = if short { 3 } else { 1 };
+            if short {
+                expected[1] = 42;
+            }
+            check(&source, &expected);
+        }
+    }
+    let mut expected = vec![0; 257];
+    expected[0] = 2;
+    expected[1] = 42;
+    expected[253] = 99;
+    check(
+        "TYPE Prefix=[BYTE ARRAY bytes(253)] TYPE Payload=[BYTE ARRAY bytes(256)] TYPE Value=VARIANT [FULL [Payload data] SHORT [Prefix data]] Prefix head Value current BYTE done=$600 PROC Main() head.bytes(0)=42 head.bytes(252)=99 current=Value.SHORT(head) done=$A5 DO OD RETURN",
+        &expected,
+    );
+}
+
+#[test]
 fn copied_union_payload_keeps_its_complete_byte_image() {
     check(
         "TYPE View=UNION [CARD word BYTE ARRAY bytes(3)] TYPE Value=VARIANT [NONE DATA [View view]] View original Value current BYTE done=$600 PROC Main() original.word=$1234 original.bytes(2)=$A5 current=Value.DATA(original) done=$A5 DO OD RETURN",

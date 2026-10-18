@@ -67,6 +67,7 @@ mod temp_rewrite;
 mod temp_uses;
 mod temp_widths;
 mod temps;
+mod tiny_fills;
 mod values;
 mod word_sources;
 mod word_values;
@@ -1359,6 +1360,24 @@ pub(super) fn materialize_program_with_reporting(
         }).collect::<Vec<_>>();
     let mut peephole_stats = MirPeepholeStats::default();
     let mut home_fates = BTreeMap::<RoutineId, HomeFateTracker>::new();
+    if config.enable_peepholes && config.enable_tiny_constant_fills {
+        let selected = tiny_fills::select(&mut program);
+        if !selected.is_empty() {
+            for (routine, count) in selected {
+                peephole_stats.record_many(routine, "tiny-constant-fill-selected", count);
+            }
+            // Hand-built MIR may already use fixed slots whose bookkeeping
+            // would otherwise be populated later during materialization.
+            for routine in &mut program.routines {
+                reserve_used_fixed_zero_page_slots(routine);
+            }
+            verify_materialization_stage(
+                &program,
+                MirPhase::PreMaterialization,
+                "tiny constant fill selection",
+            )?;
+        }
+    }
     for routine in &mut program.routines {
         let selected = copy_loops::expand_large_aggregate_copies(routine);
         peephole_stats.record_many(routine.id, "aggregate-copy-loop-selected", selected);
