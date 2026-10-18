@@ -108,3 +108,26 @@ partial relocation lanes, pointer-cell operands, and cross-block or multiply
 defined pointer temps are unsupported. Three focused analysis tests pass,
 covering these cases and byte/word bounds. No emission path consumes the facts
 yet, and no IR contracts or fixtures changed.
+
+## Slice 2 results
+
+The new analysis returns context-specific read/write footprints and borrowed
+object extents. It audits complete routine bodies using actual arguments and
+does not cache results by callee ID. Nonvolatile copies include hidden result
+buffers in their bounds proof. Pointer homes require complete same-block
+transfers and a whole-graph census excluding address exposure, partial reads,
+and reads of stale contents. Parameter writes are unsupported.
+
+Canonical Action argument placement and public scalar result slots are checked
+separately from body effects. Calls requiring more than four argument bytes
+remain unsupported because their later prologue uses the SArgs runtime helper.
+Coarse unknown/opaque memory summaries of complete direct Action calls can be
+narrowed by the audited body; explicit OS effects, all-memory/region effects,
+helpers and unknown bodies cannot. This is independent of existing callee
+summaries and does not change call scheduling or effect annotations.
+
+Nine focused analysis tests pass, including transitive and context-dependent
+calls, bounded writes and copies, hidden parameter ordering, constant offsets,
+escapes, parameter mutation, stale/partial reads, frame data exposure, recursion,
+depth/operation budgets, and runtime argument-prologue rejection. The analysis
+still has no optimization consumer in this slice.

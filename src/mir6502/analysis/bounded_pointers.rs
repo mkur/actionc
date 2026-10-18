@@ -12,6 +12,10 @@ use crate::{
 };
 use std::collections::BTreeMap;
 
+mod audit;
+#[allow(unused_imports)] // Consumed by scalar cleanup in the next slice.
+pub(in crate::mir6502) use audit::{Summary, summarize};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(in crate::mir6502) enum Object {
     Local(RoutineId, LocalId),
@@ -199,6 +203,10 @@ impl<'a> Values<'a> {
                 })
             { return None; }
         }
+        let value = match value {
+            Value::Constant(n) if width == MirWidth::Byte => Value::Constant(n & 255),
+            other => other,
+        };
         self.temps.insert(*id, value);
         Some(())
     }
