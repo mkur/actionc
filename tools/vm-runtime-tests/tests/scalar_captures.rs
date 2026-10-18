@@ -26,7 +26,7 @@ fn compile(
     runtime: Runtime,
     optimized: bool,
     arguments: bool,
-    _bindings: bool,
+    bindings: bool,
 ) -> codegen::CodegenOutput {
     let file = support::Source::new(source);
     let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
@@ -50,6 +50,7 @@ fn compile(
         Mir6502Config::default()
     };
     config.enable_argument_capture_forwarding = arguments;
+    config.enable_pattern_binding_forwarding = bindings;
     mir6502::generate_output_with_config_and_runtime(&nir, 0x3000, &config, runtime).unwrap()
 }
 fn storage(output: &codegen::CodegenOutput, name: &str) -> u16 {
@@ -122,6 +123,88 @@ fn argument_captures_keep_order_when_later_arguments_change_the_source() {
                             if name == "Nested" { 999 } else { n }
                         );
                     }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn pattern_bindings_keep_payloads_and_remove_unobserved_storage() {
+    let source = "TYPE Maybe=VARIANT [NONE SOME [CARD value]]\nMaybe sample\nCARD answer\nPROC Match()\nCASE sample OF\nWHEN Maybe.SOME(value) THEN\nanswer=value\nWHEN Maybe.NONE THEN\nanswer=0\nESAC\nRETURN\nPROC Main()\nRETURN\n";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for optimized in [false, true] {
+            let off = compile(source, runtime, optimized, false, false);
+            let on = compile(source, runtime, optimized, false, true);
+            assert!(
+                if optimized {
+                    on.bytes.len() <= off.bytes.len()
+                } else {
+                    on.bytes.len() < off.bytes.len()
+                },
+                "binding optimization must save bytes: {runtime:?} {optimized}: {} -> {}",
+                off.bytes.len(),
+                on.bytes.len()
+            );
+            let crlf = compile(
+                &source.replace('\n', "\r\n"),
+                runtime,
+                optimized,
+                false,
+                true,
+            );
+            assert_eq!(
+                codegen::format_load_file(&on),
+                codegen::format_load_file(&crlf)
+            );
+            for output in [off, on] {
+                let mut vm = load(&output, runtime);
+                for n in [1u16, 0xFFFF, 0, 0x1234] {
+                    for tag in [2, 1] {
+                        let bytes = [tag, n as u8, (n >> 8) as u8];
+                        vm.bus_mut()
+                            .ram_mut()
+                            .map(storage(&output, "sample"), &bytes)
+                            .unwrap();
+                        vm = machine::call(vm, &mut NoHooks, routine(&output, "Match"), &[]);
+                        assert_eq!(
+                            vm.bus().ram().read_word(storage(&output, "answer")),
+                            if tag == 2 { n } else { 0 }
+                        );
+                        assert_eq!(machine::bytes(&vm, storage(&output, "sample"), 3), bytes);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn guard_calls_keep_case_snapshots_and_reinitialize_bindings() {
+    let source = "TYPE Event=VARIANT [NONE KEY [CARD code]]\nEvent current\nCARD answer\nBYTE calls\nBYTE FUNC Reject(CARD old)\ncalls==+1\ncurrent=Event.NONE\nRETURN(0)\nPROC Match(CARD n)\ncurrent=Event.KEY(n)\nCASE current OF\nWHEN Event.KEY(code) IF Reject(code) THEN\nanswer=65535\nWHEN Event.KEY(code) IF code>3 THEN\nanswer=code\nELSE\nanswer=0\nESAC\nRETURN\nPROC Main()\nRETURN\n";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for optimized in [false, true] {
+            for (arguments, bindings) in
+                [(false, false), (true, false), (false, true), (true, true)]
+            {
+                let output = compile(source, runtime, optimized, arguments, bindings);
+                let mut vm = load(&output, runtime);
+                for (iteration, n) in [42u16, 1, 0x1234, 0xFFFF, 0].into_iter().enumerate() {
+                    vm = machine::call(
+                        vm,
+                        &mut NoHooks,
+                        routine(&output, "Match"),
+                        &n.to_le_bytes(),
+                    );
+                    assert_eq!(
+                        vm.bus().ram().read_word(storage(&output, "answer")),
+                        if n > 3 { n } else { 0 }
+                    );
+                    assert_eq!(
+                        vm.bus().ram().read(storage(&output, "calls")),
+                        (iteration + 1) as u8
+                    );
+                    assert_eq!(vm.bus().ram().read(storage(&output, "current")), 1);
                 }
             }
         }

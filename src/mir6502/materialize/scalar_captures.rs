@@ -25,7 +25,7 @@ fn enabled(slot: &MirStorageSlot, config: &Mir6502Config) -> bool {
     }
     match slot.scalar_purpose {
         MirScalarPurpose::ArgumentCapture => config.enable_argument_capture_forwarding,
-        MirScalarPurpose::PatternBinding => false,
+        MirScalarPurpose::PatternBinding => config.enable_pattern_binding_forwarding,
         MirScalarPurpose::Storage => false,
     }
 }
@@ -39,6 +39,7 @@ pub(in crate::mir6502) fn materialize_costed(
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
     let mut off = config.clone();
     off.enable_argument_capture_forwarding = false;
+    off.enable_pattern_binding_forwarding = false;
     let fallback = |p, reporting| {
         crate::mir6502::materialize_resolved_program_without_scalar_costing(
             p, &off, origin, runtime, reporting,
@@ -372,6 +373,7 @@ mod tests {
         crate::mir6502::lower_program(&nir).unwrap()
     }
     const ARGUMENTS: &str = "TYPE Data=[CARD value]\nData result\nCARD number\nData FUNC Make(CARD n BYTE b)\nData item\nitem.value=n+b\nRETURN(item)\nPROC Main()\nresult=Make(number,42)\nRETURN\n";
+    const BINDING: &str = "TYPE Maybe=VARIANT [NONE SOME [CARD value]]\nCARD answer\nPROC Main()\nLET sample=Maybe.SOME(1234)\nCASE sample OF\nWHEN Maybe.SOME(value) THEN\nanswer=value\nWHEN Maybe.NONE THEN\nanswer=0\nESAC\nRETURN\n";
 
     #[test]
     fn scalar_captures_forward_arguments_but_preserve_observable_stores() {
@@ -397,8 +399,21 @@ mod tests {
     }
 
     #[test]
+    fn scalar_captures_promote_matched_scalar_bindings() {
+        for optimized in [false, true] {
+            let mut program = lower(BINDING, optimized);
+            let selected = select(&mut program, &Mir6502Config::default());
+            assert!(
+                optimized || !selected.removed.is_empty(),
+                "unobserved binding home removed"
+            );
+            crate::mir6502::verify_program(&program, MirPhase::PreMaterialization).unwrap();
+        }
+    }
+
+    #[test]
     fn scalar_captures_final_cost_never_grows() {
-        for source in [ARGUMENTS] {
+        for source in [ARGUMENTS, BINDING] {
             for optimized in [false, true] {
                 let program = lower(source, optimized);
                 for runtime in [
@@ -407,7 +422,8 @@ mod tests {
                 ] {
                     let mut off = Mir6502Config::default();
                     off.enable_argument_capture_forwarding = false;
-                                    let old = crate::mir6502::materialize_program_with_origin_and_runtime(
+                    off.enable_pattern_binding_forwarding = false;
+                    let old = crate::mir6502::materialize_program_with_origin_and_runtime(
                         program.clone(),
                         &off,
                         0x3000,
@@ -431,6 +447,273 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn scalar_captures_reject_barriers_aliases_partial_writes_and_changed_values() {
+        for reason in [
+            "barrier",
+            "absolute read",
+            "pointer write",
+            "partial write",
+            "redefinition",
+            "alias",
+            "long interval",
+        ] {
+            let mut p = lower(BINDING, false);
+            let r = &mut p.routines[0];
+            let slot = r
+                .frame
+                .locals
+                .iter()
+                .find(|s| s.scalar_purpose == MirScalarPurpose::PatternBinding)
+                .unwrap()
+                .clone();
+            let MirStorageBase::Local(id) = slot.base else {
+                unreachable!()
+            };
+            let b = r.blocks.iter_mut().find(|b| b.ops.iter().any(|op| matches!(op, MirOp::Store { dst: MirAddr::Direct(MirMem::Local { id: target, .. }), .. } if *target == id))).unwrap();
+            let at = b.ops.iter().position(|op| matches!(op, MirOp::Store { dst: MirAddr::Direct(MirMem::Local { id: target, .. }), .. } if *target == id)).unwrap();
+            let MirOp::Store { src, .. } = b.ops[at].clone() else {
+                unreachable!()
+            };
+            match reason {
+                "barrier" => b.ops.insert(
+                    at + 1,
+                    MirOp::Barrier {
+                        effects: MirEffects::default(),
+                    },
+                ),
+                "absolute read" => {
+                    r.temps.push(MirTemp { id: MirTempId(900) });
+                    b.ops.insert(
+                        at + 1,
+                        MirOp::Load {
+                            dst: MirDef::VTemp(MirTempId(900)),
+                            src: MirAddr::Direct(MirMem::Absolute(0xD20A)),
+                            width: MirWidth::Byte,
+                        },
+                    );
+                }
+                "pointer write" => b.ops.insert(
+                    at + 1,
+                    MirOp::Store {
+                        dst: MirAddr::Deref {
+                            ptr: MirValue::ConstU16(0x900),
+                            offset: 0,
+                        },
+                        src: MirValue::ConstU8(0),
+                        width: MirWidth::Byte,
+                    },
+                ),
+                "partial write" => b.ops.insert(
+                    at + 1,
+                    MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::Local { id, offset: 1 }),
+                        src: MirValue::ConstU8(0),
+                        width: MirWidth::Byte,
+                    },
+                ),
+                "redefinition" => {
+                    let MirValue::Def(dst) = src else {
+                        unreachable!()
+                    };
+                    b.ops.insert(
+                        at + 1,
+                        MirOp::LoadImm {
+                            dst,
+                            value: 0,
+                            width: MirWidth::Word,
+                        },
+                    );
+                }
+                "alias" => r.frame.locals.push(MirStorageSlot {
+                    id: MirStorageId(900),
+                    scalar_purpose: MirScalarPurpose::Storage,
+                    base: MirStorageBase::LocalAlias {
+                        id: crate::nir::LocalId(900),
+                        target: id,
+                    },
+                    ..slot
+                }),
+                "long interval" => {
+                    for n in 0..33 {
+                        let temp = MirTempId(900 + n);
+                        r.temps.push(MirTemp { id: temp });
+                        b.ops.insert(
+                            at + 1,
+                            MirOp::LoadImm {
+                                dst: MirDef::VTemp(temp),
+                                value: 0,
+                                width: MirWidth::Byte,
+                            },
+                        );
+                    }
+                }
+                _ => unreachable!(),
+            }
+            let selected = select(&mut p, &Mir6502Config::default());
+            assert!(
+                selected.forwarded.is_empty()
+                    && selected.removed.is_empty()
+                    && selected.kept.is_empty(),
+                "{reason}"
+            );
+        }
+    }
+
+    #[test]
+    fn scalar_captures_preserve_exposed_and_successor_observed_binding_stores() {
+        for exposure in ["successor", "address", "data"] {
+            let mut p = lower(BINDING, false);
+            let r = &mut p.routines[0];
+            let slot = r
+                .frame
+                .locals
+                .iter()
+                .find(|s| s.scalar_purpose == MirScalarPurpose::PatternBinding)
+                .unwrap();
+            let MirStorageBase::Local(id) = slot.base else {
+                unreachable!()
+            };
+            if exposure == "address" {
+                r.temps.push(MirTemp { id: MirTempId(900) });
+                r.blocks[0].ops.insert(
+                    0,
+                    MirOp::LeaAddr {
+                        dst: MirDef::VTemp(MirTempId(900)),
+                        target: MirMem::Local {
+                            id: crate::nir::LocalId(0),
+                            offset: 0,
+                        },
+                        width: MirWidth::Word,
+                    },
+                );
+            } else if exposure == "data" {
+                p.statics.push(MirStatic {
+                    id: crate::nir::SymbolId(900),
+                    name: "capture_address".into(),
+                    ty: "CARD".into(),
+                    display: String::new(),
+                    alignment: 1,
+                    mutable: false,
+                    section: "rodata".into(),
+                    image: MirDataImage {
+                        bytes: vec![0; 2],
+                        relocations: vec![MirDataRelocation {
+                            offset: 0,
+                            kind: MirDataRelocationKind::Word16,
+                            target: MirDataRelocationTarget::Local { routine: r.id, id },
+                            addend: 0,
+                            span: crate::source::Span::new(0, 0),
+                        }],
+                    },
+                });
+            } else {
+                let exit = r
+                    .blocks
+                    .iter_mut()
+                    .find(|b| matches!(b.terminator, MirTerminator::Return))
+                    .unwrap();
+                exit.ops.push(MirOp::Barrier {
+                    effects: MirEffects::default(),
+                });
+            }
+            let selected = select(&mut p, &Mir6502Config::default());
+            assert!(!selected.forwarded.is_empty());
+            assert!(selected.removed.is_empty() && selected.kept.is_empty());
+            assert!(p.routines[0].blocks.iter().flat_map(|b| &b.ops).any(|op| matches!(op, MirOp::Store { dst: MirAddr::Direct(MirMem::Local { id: target, .. }), .. } if *target == id)));
+        }
+    }
+
+    #[test]
+    fn scalar_captures_final_layout_rejects_absolute_and_neighbor_aliases() {
+        for neighbor in [false, true] {
+            let mut p = lower(BINDING, false);
+            let mut off = Mir6502Config::default();
+            off.enable_argument_capture_forwarding = false;
+            off.enable_pattern_binding_forwarding = false;
+            let baseline =
+                crate::mir6502::materialize_program_with_origin(p.clone(), &off, 0x3000).unwrap();
+            let id = p.routines[0]
+                .frame
+                .locals
+                .iter()
+                .find_map(|s| match s.base {
+                    MirStorageBase::Local(id)
+                        if s.scalar_purpose == MirScalarPurpose::PatternBinding =>
+                    {
+                        Some(id)
+                    }
+                    _ => None,
+                })
+                .unwrap();
+            let address = super::super::MaterializeLayout::new(&baseline, 0x3000)
+                .mem_address(p.routines[0].id, &MirMem::Local { id, offset: 0 })
+                .unwrap();
+            if neighbor {
+                let r = &p.routines[0];
+                let other = r
+                    .frame
+                    .locals
+                    .iter()
+                    .find_map(|s| match s.base {
+                        MirStorageBase::Local(other) if other != id => Some(other),
+                        _ => None,
+                    })
+                    .unwrap();
+                let base = super::super::MaterializeLayout::new(&baseline, 0x3000)
+                    .mem_address(
+                        r.id,
+                        &MirMem::Local {
+                            id: other,
+                            offset: 0,
+                        },
+                    )
+                    .unwrap();
+                let slot = r
+                    .frame
+                    .locals
+                    .iter()
+                    .find(|s| s.base == MirStorageBase::Local(id))
+                    .unwrap()
+                    .clone();
+                p.routines[0].frame.locals.push(MirStorageSlot {
+                    id: MirStorageId(900),
+                    scalar_purpose: MirScalarPurpose::Storage,
+                    base: MirStorageBase::LocalAlias {
+                        id: crate::nir::LocalId(900),
+                        target: other,
+                    },
+                    offset: address.checked_sub(base).unwrap(),
+                    ..slot
+                });
+            } else {
+                let mut alias = p
+                    .globals
+                    .iter()
+                    .find(|g| g.storage_size > 0)
+                    .unwrap()
+                    .clone();
+                alias.id = crate::nir::SymbolId(900);
+                alias.name = "absolute_observer".into();
+                alias.backing = MirGlobalBacking::Absolute(address);
+                alias.init = None;
+                p.globals.push(alias);
+            }
+            let before =
+                crate::mir6502::materialize_program_with_origin(p.clone(), &off, 0x3000).unwrap();
+            let after = crate::mir6502::materialize_program_with_origin(
+                p,
+                &Mir6502Config::default(),
+                0x3000,
+            )
+            .unwrap();
+            assert_eq!(
+                before, after,
+                "declining the candidate restores the entire original program"
+            );
         }
     }
 
@@ -501,6 +784,66 @@ mod tests {
                 p.routines[0].blocks[0].ops.insert(0, op);
             }
             assert!(!private_cells::has_only_named_reads(&p), "{reason}");
+        }
+    }
+
+    #[test]
+    fn scalar_capture_store_deletion_requires_every_written_byte_in_bounds() {
+        for (offset, expected) in [(0, true), (1, false), (2, false), (u16::MAX, false)] {
+            let mut p = lower(BINDING, false);
+            let r = &mut p.routines[0];
+            let id = r
+                .frame
+                .locals
+                .iter()
+                .find_map(|s| match s.base {
+                    MirStorageBase::Local(id)
+                        if s.scalar_purpose == MirScalarPurpose::PatternBinding =>
+                    {
+                        Some(id)
+                    }
+                    _ => None,
+                })
+                .unwrap();
+            let block = r.blocks.iter_mut().find(|b| b.ops.iter().any(|op| matches!(op,
+                MirOp::Store { dst: MirAddr::Direct(MirMem::Local { id: target, .. }), .. } if *target == id))).unwrap();
+            let mut source = None;
+            for op in &mut block.ops {
+                match op {
+                    MirOp::Store {
+                        dst:
+                            MirAddr::Direct(MirMem::Local {
+                                id: target,
+                                offset: at,
+                            }),
+                        src,
+                        ..
+                    } if *target == id => {
+                        *at = offset;
+                        source = Some(src.clone());
+                    }
+                    MirOp::Load {
+                        dst,
+                        src: MirAddr::Direct(MirMem::Local { id: target, .. }),
+                        width,
+                    } if *target == id => {
+                        *op = MirOp::Move {
+                            dst: dst.clone(),
+                            src: source.clone().unwrap(),
+                            width: *width,
+                        };
+                    }
+                    _ => {}
+                }
+            }
+            assert_eq!(
+                private_cells::home_has_only_captured_stores(&p.routines[0], id),
+                expected
+            );
+            assert_eq!(
+                private_cells::scalar_home_unobserved(&p, &p.routines[0], id),
+                expected
+            );
         }
     }
 }

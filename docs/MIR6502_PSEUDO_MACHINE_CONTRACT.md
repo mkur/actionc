@@ -1598,7 +1598,7 @@ Rules:
   retained address inputs. Absolute and arbitrary pointer-backed indexed loads,
   indirect calls, barriers, and reordered producer groups are ineligible.
 
-## Scalar argument captures
+## Scalar argument captures and pattern bindings
 
 `MirStorageSlot::scalar_purpose` preserves verified NIR argument-capture and
 pattern-binding provenance by local ID. It does not imply privacy, freshness,
@@ -1613,7 +1613,8 @@ overlapping writes end availability. Original evaluation, conversion and
 validation points remain intact. Register/zero-page argument placement is
 still owned by the existing ABI materializer.
 
-Store deletion is a separate observation proof. An unexposed frame may lose
+Store deletion is a separate observation proof, including checked bounds for
+every written byte. An unexposed frame may lose
 an unread binding home only when every stored byte remains unobserved on all
 successor paths until overwrite or return. Unknown effects retain the home;
 an invalid-tag failure on a different CASE arm is not a successor of a matched
@@ -1630,9 +1631,11 @@ destination contract. Thus copies and static-frame layout retain their
 storage, and reentry cannot introduce an unenumerated read. This does
 not assume that a routine-static capture is private to an invocation.
 
-Both deletion proofs require final physical exclusion of absolute/global
-aliases. Retained allocations are checked in both baseline and proposed
-layouts. `enable_argument_capture_forwarding` is enabled with peepholes.
+Both deletion proofs require final physical exclusion of absolute addresses,
+global aliases and local alias views, including views into a neighboring home.
+Retained allocations are checked in both baseline and proposed
+layouts. `enable_argument_capture_forwarding` and
+`enable_pattern_binding_forwarding` are independent, enabled with peepholes.
 Fully emitted costing requires a smaller image, no affected-routine code/home
 growth, and no additional occupied zero-page bytes. One bounded rollback removes
 growing routines before final remeasurement. Failure restores the original

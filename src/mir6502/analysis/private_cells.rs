@@ -128,6 +128,9 @@ pub(in crate::mir6502) fn physical_cells_unaliased(
     origin: u16,
     cells: &std::collections::BTreeMap<RoutineId, Vec<MirMem>>,
 ) -> bool {
+    if cells.is_empty() {
+        return true;
+    }
     let layout = crate::mir6502::materialize::MaterializeLayout::new(p, origin);
     let mut addresses = vec![];
     for (&id, mems) in cells {
@@ -159,10 +162,15 @@ pub(in crate::mir6502) fn physical_cells_unaliased(
     }
     for r in &p.routines {
         for slot in r.frame.locals.iter().chain(&r.frame.params) {
-            if let MirStorageBase::Absolute(a) = slot.base {
-                if overlaps(a.wrapping_add(slot.offset), slot.storage_size) {
-                    return false;
+            let address = match slot.base {
+                MirStorageBase::Absolute(a) => Some(a.wrapping_add(slot.offset)),
+                MirStorageBase::LocalAlias { id, .. } => {
+                    layout.mem_address(r.id, &MirMem::Local { id, offset: 0 })
                 }
+                _ => continue,
+            };
+            if address.is_none_or(|a| overlaps(a, slot.storage_size)) {
+                return false;
             }
         }
         for op in r.blocks.iter().flat_map(|b| &b.ops) {
@@ -232,7 +240,10 @@ pub(in crate::mir6502) fn scalar_home_unobserved(
                 else {
                     return false;
                 };
-                if *target != id || !frozen(src) {
+                if *target != id
+                    || !frozen(src)
+                    || !scalar_store_in_bounds(routine, id, *offset, *width)
+                {
                     return false;
                 }
                 for byte in 0..if *width == MirWidth::Byte { 1 } else { 2 } {
@@ -405,6 +416,12 @@ pub(in crate::mir6502) fn home_has_only_captured_stores(
     routine: &MirRoutine,
     id: crate::nir::LocalId,
 ) -> bool {
+    if !matches!(
+        routine.abi,
+        MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry
+    ) {
+        return false;
+    }
     fn captured(v: &MirValue) -> bool {
         match v {
             MirValue::ConstU8(_)
@@ -432,7 +449,7 @@ pub(in crate::mir6502) fn home_has_only_captured_stores(
                 .chain(effect.direct_writes.iter().map(|w| &w.base))
                 .any(|m| matches!(m, MirMem::Local { id: other, .. } if *other == id))
             {
-                if !matches!(op, MirOp::Store { dst: MirAddr::Direct(MirMem::Local { id: target, .. }), src, .. } if *target == id && captured(src))
+                if !matches!(op, MirOp::Store { dst: MirAddr::Direct(MirMem::Local { id: target, offset }), src, width } if *target == id && captured(src) && scalar_store_in_bounds(routine, id, *offset, *width))
                 {
                     return false;
                 }
@@ -449,4 +466,21 @@ pub(in crate::mir6502) fn home_has_only_captured_stores(
         }
     }
     stores > 0
+}
+
+fn scalar_store_in_bounds(
+    routine: &MirRoutine,
+    id: crate::nir::LocalId,
+    offset: u16,
+    width: MirWidth,
+) -> bool {
+    offset
+        .checked_add(if width == MirWidth::Byte { 1 } else { 2 })
+        .is_some_and(|end| {
+            routine.frame.locals.iter().any(|slot| {
+                slot.base == MirStorageBase::Local(id)
+                    && slot.offset == 0
+                    && end <= slot.storage_size
+            })
+        })
 }
