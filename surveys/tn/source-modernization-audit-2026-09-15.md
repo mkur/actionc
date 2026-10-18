@@ -35,22 +35,32 @@ Isolated full-TN experiments, relative to `1bfb8ea7`, in cartridge mode:
 | Put tagged count in PanelState | -15 | -14 | Adopted in TN and TNDBG |
 | Typed command enum | 0 | 0 | Adopted; byte-identical output |
 | VOLATILE keyboard status | 0 | 0 | Adopted; byte-identical output |
-| Record views in IsTagged/IsProtected/IsDirectory | +51 | +38 | Keep as an optional readability tradeoff |
+| Record views in IsTagged/IsProtected/IsDirectory | +51 | +38 | Adopted in TN and TNDBG; combined costs below |
 | CopyChunk record array replacing parallel tables | +209 | +229 | Defer; indexing cost is too large for this cleanup |
 | One scoped LET snapshot of FindItem in PopUp | +6 | +1 | Candidate for a later menu-focused change |
 | Whole-record panel assignment | Rejected by classic placement | +158 | Keep SIZEOF-based MovePage |
 
-The row-view probe changes only the three predicate consumers, preserving the
-18-byte layout and CARD address table. CopyChunk keeps the same 48-byte payload,
-but total reserved memory grows by 225/229 bytes in classic/MIR6502. The LET
-probe uses an explicit BEGIN/END block inside the loop; it removes the second
+The adopted `DirectoryRow` view changes only the three predicate consumers,
+preserving the 18-byte layout, screen-byte encoding and CARD address table.
+Typed pointers read the existing directory storage without copying rows or
+allocating per-file records. `IsTagged` retains the zero/`$7F` mask needed by
+Tag's XOR. VM checks directly exercise all three predicates across directory,
+protected and ordinary file rows, verify the raw mask after tagging, and ensure
+predicate reads leave row bytes unchanged.
+
+CopyChunk keeps the same 48-byte payload, but total reserved memory grows by
+225/229 bytes in classic/MIR6502. The LET probe uses an explicit BEGIN/END block
+inside the loop; it removes the second
 FindItem call on a match. No cycle or menu-behavior claim is made for that probe.
 Unadopted probes received compile/size checks, not full behavioral qualification.
 
-The final TNDBG deltas are -13 classic / -14 MIR6502. Exact final sizes and copy
-buffer locations are in the [sample notes](../../samples/tn/README.md). The code
-retains MyDOS's 64-file limit, packed path buffers, row encodings, I/O ordering,
-original copy algorithm and persistent-local initialization rules.
+Applied after the panel-state cleanup at `db34013a`, the row views add 53 bytes
+to classic TN, 63 to classic TNDBG and 38 to each MIR6502 build. Reserved memory
+grows by the same amounts. The combined changes relative to `1bfb8ea7` are
++38/+24 bytes for TN and +50/+24 for TNDBG (classic/MIR6502). Exact final sizes
+and copy buffer locations are in the [sample notes](../../samples/tn/README.md).
+The code retains MyDOS's 64-file limit, packed path buffers, row encodings,
+I/O ordering, original copy algorithm and persistent-local initialization rules.
 
 Further useful language work should stay narrow. Typed path fields could name
 the existing sector/name layout, but require focused depth and eight-character
@@ -71,7 +81,8 @@ copies with identical XEX bytes. The VM test exercises both roots in classic
 and MIR6502. Current totals can be rebuilt with
 `python3 surveys/tn/measure-directory.py --out-dir target/tn-state-review`.
 The isolated source copies, listings, comparison scripts and JSON measurements
-from this review are under ignored `target/tn-modernization-review/`.
+from this review are under ignored `target/tn-modernization-review/`; the adopted
+row-view build comparisons are under `target/tn-directory-row-review/`.
 
 ## September audit context
 

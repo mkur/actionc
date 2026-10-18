@@ -180,6 +180,17 @@ pub fn check(compiled: &CompiledProgram, _debug: bool) {
                 file.row(false),
                 "{file:?}"
             );
+            // The typed views must read the existing row's tag/marker bytes,
+            // preserve the raw tag mask, and leave display storage untouched.
+            for (name, result) in [
+                ("IsTagged", 0),
+                ("IsProtected", u8::from(file.protected)),
+                ("IsDirectory", u8::from(file.directory)),
+            ] {
+                vm = machine::call(vm, &mut hooks, routine(name), &[i as u8]);
+                assert_eq!(vm.bus().ram().read(0xA0), result, "{name}: {file:?}");
+            }
+            assert_eq!(machine::bytes(&vm, address, 18), file.row(false));
             vm = machine::call(vm, &mut hooks, routine("Convert"), &address.to_le_bytes());
             assert_eq!(machine::counted(&vm, global("fname")), file.filename());
         }
@@ -207,6 +218,12 @@ pub fn check(compiled: &CompiledProgram, _debug: bool) {
             ] {
                 vm = machine::call(vm, &mut hooks, routine(routine_name), &arguments);
                 assert_eq!(vm.bus().ram().read(global("active") + 8), selected as u8);
+                vm = machine::call(vm, &mut hooks, routine("IsTagged"), &[0]);
+                assert_eq!(
+                    vm.bus().ram().read(0xA0),
+                    if selected == 0 { 0 } else { 0x7F },
+                    "IsTagged must return the mask used by Tag's XOR"
+                );
             }
             if count > 1 {
                 vm = machine::call(vm, &mut hooks, routine("Tag"), &[0]);

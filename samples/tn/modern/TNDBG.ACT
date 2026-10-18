@@ -347,13 +347,33 @@ BYTE FUNC TaggedFiles()
 RETURN(active.taggedCount)
 
 
+; Typed view of a converted directory row; the backing stays in dirBuf.
+; Names and markers here are screen bytes, with the tag mask at offset zero.
+TYPE DirectoryRow=[
+  BYTE tag,marker
+  BYTE ARRAY name(8)
+  BYTE nameSeparator
+  BYTE ARRAY extension(3)
+  BYTE extensionSeparator
+  BYTE ARRAY sectorText(3)
+]
+
+
 BYTE FUNC IsTagged( BYTE i )
-RETURN(Value(v(i)))
+
+ DirectoryRow POINTER entry
+
+  entry=v(i)
+RETURN(entry.tag)
 
 
 BYTE FUNC IsProtected( BYTE i )
 
-  IF Value(v(i) + 1 ) = PROTECTED_MARKER THEN
+ DirectoryRow POINTER entry
+
+  entry=v(i)
+
+  IF entry.marker = PROTECTED_MARKER THEN
     RETURN( 1 )
   ELSE
     RETURN( 0 ) 
@@ -362,7 +382,11 @@ BYTE FUNC IsProtected( BYTE i )
 
 BYTE FUNC IsDirectory( BYTE i )
 
-  IF Value(v(i) + 1 ) = DIRECTORY_MARKER THEN
+ DirectoryRow POINTER entry
+
+  entry=v(i)
+
+  IF entry.marker = DIRECTORY_MARKER THEN
     RETURN( 1 )
   ELSE
     RETURN( 0 ) 

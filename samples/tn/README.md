@@ -65,18 +65,27 @@ the size-based copies avoid that existing compiler issue. The two saved records
 occupy 18 bytes in the load segment. A switch copies one extra byte in each
 direction, while direct tagged-count accesses make the programs smaller overall.
 
+`DirectoryRow` gives the existing 18-byte display row named fields for its tag,
+marker, name, extension, separators and sector text. `IsTagged`, `IsProtected`
+and `IsDirectory` use typed pointers into the existing directory buffer through
+the `v` address table. There is no row copy or additional per-file storage.
+The fields retain their screen-byte encoding, and `IsTagged` still returns the
+raw zero/`$7F` mask used by Tag's XOR. Applied after the panel-state cleanup at
+`db34013a`, these views add 38 bytes to each MIR6502 build, 53 bytes to classic
+TN and 63 bytes to classic TNDBG. Reserved memory grows by the same amounts.
+
 Measured with the compiler implementation at `4baaac89`, against the restored
 source baseline `1bfb8ea7`:
 
 | Program/backend | Load-file bytes | Change | Reserved bytes from `$2C00` | Copy buffer |
 | --- | ---: | ---: | ---: | --- |
-| TN classic | 10,534 | -15 | 13,166 | `$5F6E` |
-| TN MIR6502 | 9,929 | -14 | 12,711 | `$5DA7` |
-| TNDBG classic | 13,781 | -13 | 16,413 | `$6C1D` |
-| TNDBG MIR6502 | 13,034 | -14 | 15,816 | `$69C8` |
+| TN classic | 10,587 | +38 | 13,219 | `$5FA3` |
+| TN MIR6502 | 9,967 | +24 | 12,749 | `$5DCD` |
+| TNDBG classic | 13,844 | +50 | 16,476 | `$6C5C` |
+| TNDBG MIR6502 | 13,072 | +24 | 15,854 | `$69EE` |
 
 Counts include load headers and INITAD. Reserved memory also includes static
-homes and deferred arrays; it shrinks by the same amount as the load file in
+homes and deferred arrays; it changes by the same amount as the load file in
 each build. LF and CRLF source copies produce identical XEX images in all four
 configurations. Reproduce current memory totals with
 `python3 surveys/tn/measure-directory.py --out-dir target/tn-state-review`.
@@ -98,7 +107,9 @@ checks also pass; the latter verifies all three record extents and placement.
 
 The restored MyDOS characterization also covers 0/1/63/64-file directories,
 exact rendering and operation names, tag-all behavior, copy continuation and
-disk-swap prompts. Run the focused checks with:
+disk-swap prompts. It directly checks all three row predicates, including the
+raw tag mask after tagging, and verifies that predicate reads leave the row
+bytes unchanged. Run the focused checks with:
 
 ```sh
 cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml --test tn_dispatch --test tn_codegen_reproducers --test call_predicates --test bitmap_scans
