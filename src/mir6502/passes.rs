@@ -14,6 +14,8 @@ pub struct Mir6502Config {
     pub enable_tiny_constant_fills: bool,
     /// Forward captured bytes into small copies, subject to final size costing.
     pub enable_copy_value_forwarding: bool,
+    /// Forward ordered scalar argument captures, with independent store proofs.
+    pub enable_argument_capture_forwarding: bool,
     pub enable_word_inc_update: bool,
     pub enable_direct_byte_word_update: bool,
     /// Allow bounded code growth for exact small counted loops. The selector
@@ -66,6 +68,7 @@ impl Default for Mir6502Config {
             enable_peepholes: true,
             enable_tiny_constant_fills: true,
             enable_copy_value_forwarding: true,
+            enable_argument_capture_forwarding: true,
             enable_word_inc_update: true,
             enable_direct_byte_word_update: false,
             enable_small_loop_unrolling: false,

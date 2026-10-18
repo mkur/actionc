@@ -1,0 +1,160 @@
+//! Scalar value captures retain evaluation order, CASE snapshots and ABI state.
+use actionc::{
+    codegen,
+    compiler::Runtime,
+    mir6502::{self, Mir6502Config},
+};
+use actionc_vm::{CompilerVm, VmRunHooks};
+fn root() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+#[allow(dead_code)]
+#[path = "support/tn_machine.rs"]
+mod machine;
+#[allow(dead_code)]
+#[path = "support/fixed_point.rs"]
+mod support;
+struct NoHooks;
+impl VmRunHooks for NoHooks {
+    type Error = String;
+    fn before_step(&mut self, _: &mut CompilerVm) -> Result<(), String> {
+        Ok(())
+    }
+}
+fn compile(
+    source: &str,
+    runtime: Runtime,
+    optimized: bool,
+    arguments: bool,
+    _bindings: bool,
+) -> codegen::CodegenOutput {
+    let file = support::Source::new(source);
+    let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+    let model = actionc::semantic::analyze_with_options(
+        &loaded.program,
+        actionc::semantic::SemanticOptions::modern(),
+    )
+    .unwrap();
+    let raw = actionc::nir::lower_program(&actionc::semantic::ir::lower_program(
+        &loaded.program,
+        &model,
+    ));
+    let nir = if optimized {
+        actionc::nir::optimize_program(&raw).unwrap()
+    } else {
+        raw
+    };
+    let mut config = if optimized {
+        Mir6502Config::optimized()
+    } else {
+        Mir6502Config::default()
+    };
+    config.enable_argument_capture_forwarding = arguments;
+    mir6502::generate_output_with_config_and_runtime(&nir, 0x3000, &config, runtime).unwrap()
+}
+fn storage(output: &codegen::CodegenOutput, name: &str) -> u16 {
+    output
+        .map
+        .storage_symbols
+        .iter()
+        .find(|s| s.name == name)
+        .unwrap()
+        .address
+}
+fn routine(output: &codegen::CodegenOutput, name: &str) -> u16 {
+    output
+        .routine_addresses
+        .iter()
+        .find(|r| r.name == name)
+        .unwrap()
+        .address
+}
+fn load(output: &codegen::CodegenOutput, runtime: Runtime) -> CompilerVm {
+    let (mut vm, profile) = support::vm_for(runtime);
+    vm.load_atari_object_for_execution(profile, &codegen::format_load_file(output))
+        .unwrap();
+    vm
+}
+
+#[test]
+fn argument_captures_keep_order_when_later_arguments_change_the_source() {
+    let source = "TYPE Pair=[CARD first BYTE second]\nPair result\nCARD number\nCARD FUNC Change()\nnumber=999\nRETURN(7)\nPair FUNC Make(CARD n BYTE b)\nPair item\nitem.first=n\nitem.second=b\nRETURN(item)\nPROC Plain()\nresult=Make(number,42)\nRETURN\nPROC Nested()\nresult=Make(number,Change())\nRETURN\nPROC Main()\nRETURN\n";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for optimized in [false, true] {
+            let off = compile(source, runtime, optimized, false, false);
+            let on = compile(source, runtime, optimized, true, false);
+            assert!(
+                on.bytes.len() < off.bytes.len(),
+                "argument optimization must save bytes: {runtime:?} {optimized}: {} -> {}",
+                off.bytes.len(),
+                on.bytes.len()
+            );
+            // Exercise CRLF through the actual source/include parser.
+            let crlf = compile(
+                &source.replace('\n', "\r\n"),
+                runtime,
+                optimized,
+                true,
+                false,
+            );
+            assert_eq!(
+                codegen::format_load_file(&on),
+                codegen::format_load_file(&crlf)
+            );
+            for output in [off, on] {
+                let mut vm = load(&output, runtime);
+                let result = storage(&output, "result");
+                let number = storage(&output, "number");
+                for n in [0u16, 1, 0x1234, 0xFFFF] {
+                    for (name, byte) in [("Plain", 42), ("Nested", 7)] {
+                        vm.bus_mut()
+                            .ram_mut()
+                            .map(number, &n.to_le_bytes())
+                            .unwrap();
+                        vm.bus_mut().ram_mut().map(result, &[0xCC; 3]).unwrap();
+                        vm = machine::call(vm, &mut NoHooks, routine(&output, name), &[]);
+                        assert_eq!(
+                            machine::bytes(&vm, result, 3),
+                            [n as u8, (n >> 8) as u8, byte]
+                        );
+                        assert_eq!(
+                            vm.bus().ram().read_word(number),
+                            if name == "Nested" { 999 } else { n }
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn argument_captures_preserve_static_frame_reentry_behavior() {
+    let source = "TYPE Pair=[CARD first BYTE second]\nPair result\nCARD number\nBYTE depth,calls\nPROC POINTER again()\nBYTE FUNC NextValue()\ncalls==+1\nIF depth=0 THEN\ndepth=1\nnumber=23\nagain()\ndepth=0\nFI\nRETURN(5)\nPair FUNC Make(CARD n BYTE b)\nPair item\nitem.first=n\nitem.second=b\nRETURN(item)\nPROC Gather()\nresult=Make(number,NextValue())\nRETURN\nPROC Main()\nagain=Gather\nRETURN\n";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for optimized in [false, true] {
+            let mut expected = None;
+            for enabled in [false, true] {
+                let output = compile(source, runtime, optimized, enabled, enabled);
+                let mut vm = load(&output, runtime);
+                vm = machine::call(vm, &mut NoHooks, routine(&output, "Main"), &[]);
+                vm.bus_mut()
+                    .ram_mut()
+                    .map(storage(&output, "number"), &7u16.to_le_bytes())
+                    .unwrap();
+                vm = machine::call(vm, &mut NoHooks, routine(&output, "Gather"), &[]);
+                let observed = (
+                    machine::bytes(&vm, storage(&output, "result"), 3),
+                    vm.bus().ram().read(storage(&output, "depth")),
+                    vm.bus().ram().read(storage(&output, "calls")),
+                );
+                assert_eq!((observed.1, observed.2), (0, 2));
+                if let Some(expected) = &expected {
+                    assert_eq!(&observed, expected);
+                } else {
+                    expected = Some(observed);
+                }
+            }
+        }
+    }
+}

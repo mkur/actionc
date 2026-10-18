@@ -1598,6 +1598,47 @@ Rules:
   retained address inputs. Absolute and arbitrary pointer-backed indexed loads,
   indirect calls, barriers, and reordered producer groups are ineligible.
 
+## Scalar argument captures
+
+`MirStorageSlot::scalar_purpose` preserves verified NIR argument-capture and
+pattern-binding provenance by local ID. It does not imply privacy, freshness,
+single assignment, or freedom from reentry. The verifier requires ordinary,
+uninitialized scalar local storage for either purpose. Names are debug data.
+
+Before home allocation, BYTE/word capture loads may reuse the value of a
+preceding complete store in the same block, within 32 operations. Constants
+and uniquely defined virtual values are snapshots; live registers and memory
+operands are not. Calls, barriers, indirect/absolute accesses, alias views and
+overlapping writes end availability. Original evaluation, conversion and
+validation points remain intact. Register/zero-page argument placement is
+still owned by the existing ABI materializer.
+
+Store deletion is a separate observation proof. An unexposed frame may lose
+an unread binding home only when every stored byte remains unobserved on all
+successor paths until overwrite or return. Unknown effects retain the home;
+an invalid-tag failure on a different CASE arm is not a successor of a matched
+binding's initialization. Data relocations and frame-address exposure remain
+independent blockers.
+
+A second, narrower proof removes stores while retaining their allocations:
+every read in the complete MIR program must name storage directly, every call
+must have its complete body in that census, and the candidate must have only
+captured-value stores left. Indirect calls/reads, helpers, machine blocks and
+barriers reject this proof. Absolute/hardware accesses and general pointer
+writes also reject it; nonvolatile `CopyBytes` retains its explicit write-only
+destination contract. Thus copies and static-frame layout retain their
+storage, and reentry cannot introduce an unenumerated read. This does
+not assume that a routine-static capture is private to an invocation.
+
+Both deletion proofs require final physical exclusion of absolute/global
+aliases. Retained allocations are checked in both baseline and proposed
+layouts. `enable_argument_capture_forwarding` is enabled with peepholes.
+Fully emitted costing requires a smaller image, no affected-routine code/home
+growth, and no additional occupied zero-page bytes. One bounded rollback removes
+growing routines before final remeasurement. Failure restores the original
+program. Reports distinguish forwarded loads, removed stored/home bytes and
+final cost/alias rejection. Already promoted NIR is unchanged.
+
 ## Whole-Record Copies
 
 NIR `CopyBytes` lowers to a pre-home MIR6502 `CopyBytes` operation carrying the

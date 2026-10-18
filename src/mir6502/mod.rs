@@ -221,6 +221,16 @@ fn materialize_resolved_program_without_copy_costing(
     program: MirProgram, config: &Mir6502Config, origin: u16,
     runtime: crate::runtime::Runtime, report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    if config.enable_peepholes && config.enable_argument_capture_forwarding {
+        return materialize::scalar_captures::materialize_costed(program, config, origin, runtime, report);
+    }
+    materialize_resolved_program_without_scalar_costing(program, config, origin, runtime, report)
+}
+
+fn materialize_resolved_program_without_scalar_costing(
+    program: MirProgram, config: &Mir6502Config, origin: u16,
+    runtime: crate::runtime::Runtime, report: bool,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
     let mut materialized =
         materialize::materialize_program_with_reporting(program, config, origin, report)
             .map_err(|diagnostics| phase_diagnostics("materialization", diagnostics))?;
