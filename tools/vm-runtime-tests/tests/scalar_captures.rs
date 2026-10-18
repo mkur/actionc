@@ -28,6 +28,19 @@ fn compile(
     arguments: bool,
     bindings: bool,
 ) -> codegen::CodegenOutput {
+    compile_options(
+        source, runtime, optimized, arguments, bindings, true, 0x3000,
+    )
+}
+fn compile_options(
+    source: &str,
+    runtime: Runtime,
+    optimized: bool,
+    arguments: bool,
+    bindings: bool,
+    across_calls: bool,
+    origin: u16,
+) -> codegen::CodegenOutput {
     let file = support::Source::new(source);
     let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
     let model = actionc::semantic::analyze_with_options(
@@ -51,7 +64,8 @@ fn compile(
     };
     config.enable_argument_capture_forwarding = arguments;
     config.enable_pattern_binding_forwarding = bindings;
-    mir6502::generate_output_with_config_and_runtime(&nir, 0x3000, &config, runtime).unwrap()
+    config.enable_scalar_capture_call_elision = across_calls;
+    mir6502::generate_output_with_config_and_runtime(&nir, origin, &config, runtime).unwrap()
 }
 fn storage(output: &codegen::CodegenOutput, name: &str) -> u16 {
     output
@@ -75,6 +89,82 @@ fn load(output: &codegen::CodegenOutput, runtime: Runtime) -> CompilerVm {
     vm.load_atari_object_for_execution(profile, &codegen::format_load_file(output))
         .unwrap();
     vm
+}
+
+#[test]
+fn pattern_binding_storage_is_elided_across_exact_callees() {
+    let source = "TYPE Choice=VARIANT [NONE SOME [CARD value]]\nChoice input\nCARD answer\nPROC Save(CARD n)\nanswer=n\nRETURN\nPROC Relay(CARD n)\nSave(n)\nRETURN\nBYTE FUNC ReadPointer()\nBYTE POINTER p=$9000\nRETURN(p^)\nPROC Run()\nCASE input OF\nWHEN Choice.SOME(value) THEN\nRelay(value)\nWHEN Choice.NONE THEN\nanswer=ReadPointer()\nESAC\nRETURN\nPROC Main()\nRETURN\n";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for optimized in [false, true] {
+            let before = compile_options(source, runtime, optimized, true, true, false, 0x3000);
+            let after = compile_options(source, runtime, optimized, true, true, true, 0x3000);
+            assert!(after.bytes.len() <= before.bytes.len());
+            if !optimized {
+                assert!(after.bytes.len() < before.bytes.len());
+            }
+            let crlf = compile_options(
+                &source.replace('\n', "\r\n"),
+                runtime,
+                optimized,
+                true,
+                true,
+                true,
+                0x3000,
+            );
+            assert_eq!(
+                codegen::format_load_file(&after),
+                codegen::format_load_file(&crlf)
+            );
+            for output in [before, after] {
+                let mut vm = load(&output, runtime);
+                vm.bus_mut().ram_mut().map(0x9000, &[0xA7]).unwrap();
+                for n in [0u16, 1, 0x12FF, 0xFF00, 0xFFFF] {
+                    for tag in [2, 1] {
+                        let value = [tag, n as u8, (n >> 8) as u8];
+                        vm.bus_mut()
+                            .ram_mut()
+                            .map(storage(&output, "input"), &value)
+                            .unwrap();
+                        vm = machine::call(vm, &mut NoHooks, routine(&output, "Run"), &[]);
+                        assert_eq!(
+                            vm.bus().ram().read_word(storage(&output, "answer")),
+                            if tag == 2 { n } else { 0xA7 }
+                        );
+                        assert_eq!(machine::bytes(&vm, storage(&output, "input"), 3), value);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn argument_address_captures_keep_relocations_after_forwarding() {
+    let source = "TYPE Data=[CARD value]\nData result\nBYTE ARRAY buffer(4)\nPROC Marker()\nRETURN\nData FUNC Make(CARD n)\nData item\nitem.value=n\nRETURN(item)\nPROC CodeAddress()\nresult=Make(CARD(@Marker))\nRETURN\nPROC DataAddress()\nresult=Make(CARD(buffer))\nRETURN\nPROC Main()\nRETURN\n";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        // Raw NIR needs capture forwarding; optimized NIR may already fold it.
+        for (optimized, origin) in [(false, 0x3000), (true, 0x3200)] {
+            let before = compile_options(source, runtime, optimized, false, false, false, origin);
+            let after = compile_options(source, runtime, optimized, true, false, true, origin);
+            assert!(after.bytes.len() <= before.bytes.len());
+            if !optimized {
+                assert!(after.bytes.len() < before.bytes.len());
+            }
+            for output in [before, after] {
+                let mut vm = load(&output, runtime);
+                for (name, expected) in [
+                    ("CodeAddress", routine(&output, "Marker")),
+                    ("DataAddress", storage(&output, "buffer")),
+                ] {
+                    vm = machine::call(vm, &mut NoHooks, routine(&output, name), &[]);
+                    assert_eq!(
+                        vm.bus().ram().read_word(storage(&output, "result")),
+                        expected
+                    );
+                }
+            }
+        }
+    }
 }
 
 #[test]

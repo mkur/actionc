@@ -12,6 +12,8 @@ use crate::mir6502::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+mod observations;
+
 #[derive(Default)]
 struct Selection {
     forwarded: BTreeMap<RoutineId, usize>,
@@ -62,7 +64,8 @@ pub(in crate::mir6502) fn materialize_costed(
         .copied()
         .collect::<BTreeSet<_>>();
     if affected.is_empty() {
-        return fallback(original, report);
+        let emitted = fallback(original.clone(), false)?;
+        return finish(original, emitted, config, origin, runtime, report);
     }
     let attempted = affected.clone();
     crate::mir6502::verify_program(&selected, MirPhase::PreMaterialization)?;
@@ -136,14 +139,40 @@ pub(in crate::mir6502) fn materialize_costed(
         }
         super::maybe_report_peepholes(&original, &stats, config);
     }
-    if report && super::stats::reporting_enabled(config) {
-        fallback(if accepted { selected } else { original }, true)
-    } else {
-        Ok(if accepted {
+    finish(
+        if accepted { selected } else { original },
+        if accepted {
             proposed.unwrap()
         } else {
             baseline
-        })
+        },
+        config,
+        origin,
+        runtime,
+        report,
+    )
+}
+
+fn finish(
+    mut selected: MirProgram,
+    mut emitted: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    report: bool,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    if config.enable_scalar_capture_call_elision {
+        let stats = observations::improve(&mut selected, &mut emitted, config, origin, runtime);
+        if report {
+            super::maybe_report_peepholes(&selected, &stats, config);
+        }
+    }
+    if report && super::stats::reporting_enabled(config) {
+        crate::mir6502::materialize_resolved_program_without_scalar_costing(
+            selected, config, origin, runtime, true,
+        )
+    } else {
+        Ok(emitted)
     }
 }
 
@@ -169,6 +198,16 @@ fn captured(
 ) -> bool {
     match value {
         MirValue::ConstU8(_) | MirValue::ConstU16(_) => true,
+        MirValue::StaticAddr(_) | MirValue::GlobalAddr(_) | MirValue::RoutineAddr(_)
+            if width == MirWidth::Word =>
+        {
+            true
+        }
+        MirValue::RoutineAddrByte { .. } | MirValue::StorageAddrByte { .. }
+            if width == MirWidth::Byte =>
+        {
+            true
+        }
         MirValue::Def(MirDef::VTemp(id)) => {
             widths.get(id) == Some(&width)
                 && (0..if width == MirWidth::Byte { 1 } else { 2 }).all(|byte| {
@@ -190,8 +229,8 @@ fn captured(
     }
 }
 
-fn select(program: &mut MirProgram, config: &Mir6502Config) -> Selection {
-    let mut selection = Selection::default();
+fn forward_loads(program: &mut MirProgram, config: &Mir6502Config) -> BTreeMap<RoutineId, usize> {
+    let mut forwarded = BTreeMap::new();
     for routine in &mut program.routines {
         let slots = routine.frame.locals.iter().filter_map(|s| {
             let MirStorageBase::Local(id) = s.base else { return None; };
@@ -224,7 +263,7 @@ fn select(program: &mut MirProgram, config: &Mir6502Config) -> Selection {
                                 src: value.clone(),
                                 width: *width,
                             };
-                            *selection.forwarded.entry(routine.id).or_default() += 1;
+                            *forwarded.entry(routine.id).or_default() += 1;
                             continue;
                         }
                     }
@@ -286,6 +325,14 @@ fn select(program: &mut MirProgram, config: &Mir6502Config) -> Selection {
             }
         }
     }
+    forwarded
+}
+
+fn select(program: &mut MirProgram, config: &Mir6502Config) -> Selection {
+    let mut selection = Selection {
+        forwarded: forward_loads(program, config),
+        ..Selection::default()
+    };
     // Rebuild observation facts after forwarding. Removing a store is a
     // separate proof, including paths after the last direct value use.
     let only_named_reads = private_cells::has_only_named_reads(program);
@@ -359,7 +406,7 @@ fn select(program: &mut MirProgram, config: &Mir6502Config) -> Selection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn lower(source: &str, optimized: bool) -> MirProgram {
+    pub(super) fn lower(source: &str, optimized: bool) -> MirProgram {
         let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
         let model =
             crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
@@ -374,6 +421,70 @@ mod tests {
     }
     const ARGUMENTS: &str = "TYPE Data=[CARD value]\nData result\nCARD number\nData FUNC Make(CARD n BYTE b)\nData item\nitem.value=n+b\nRETURN(item)\nPROC Main()\nresult=Make(number,42)\nRETURN\n";
     const BINDING: &str = "TYPE Maybe=VARIANT [NONE SOME [CARD value]]\nCARD answer\nPROC Main()\nLET sample=Maybe.SOME(1234)\nCASE sample OF\nWHEN Maybe.SOME(value) THEN\nanswer=value\nWHEN Maybe.NONE THEN\nanswer=0\nESAC\nRETURN\n";
+
+    #[test]
+    fn scalar_captures_forward_immutable_address_operands() {
+        let original = lower(ARGUMENTS, false);
+        let owner = original
+            .routines
+            .iter()
+            .find(|r| r.name == "Main")
+            .unwrap()
+            .id;
+        let global = original
+            .globals
+            .iter()
+            .find(|g| g.name == "number")
+            .unwrap()
+            .id;
+        for address in [
+            MirValue::RoutineAddr(owner),
+            MirValue::GlobalAddr(global),
+            MirValue::Word {
+                lo: Box::new(MirValue::RoutineAddrByte { id: owner, byte: 0 }),
+                hi: Box::new(MirValue::RoutineAddrByte { id: owner, byte: 1 }),
+            },
+        ] {
+            let mut p = original.clone();
+            let r = p.routines.iter_mut().find(|r| r.id == owner).unwrap();
+            let local = r
+                .frame
+                .locals
+                .iter()
+                .find_map(|s| match s.base {
+                    MirStorageBase::Local(id)
+                        if s.purpose == MirStoragePurpose::ArgumentCapture
+                            && s.scalar_width == Some(MirWidth::Word) =>
+                    {
+                        Some(id)
+                    }
+                    _ => None,
+                })
+                .unwrap();
+            let store = r.blocks.iter_mut().flat_map(|b| &mut b.ops).find(|op|
+                matches!(op, MirOp::Store { dst: MirAddr::Direct(MirMem::Local { id, offset: 0 }), .. } if *id == local)).unwrap();
+            // Exercise the legal constant form directly: source casts can
+            // introduce virtual definitions before the capture reaches MIR.
+            let MirOp::Store { src, .. } = store else {
+                unreachable!()
+            };
+            *src = address.clone();
+            crate::mir6502::verify_program(&p, MirPhase::PreMaterialization).unwrap();
+            let selected = select(&mut p, &Mir6502Config::default());
+            assert!(!selected.forwarded.is_empty());
+            assert!(
+                p.routines
+                    .iter()
+                    .flat_map(|r| &r.blocks)
+                    .flat_map(|b| &b.ops)
+                    .any(|op| matches!(op, MirOp::Move { src, .. } if *src == address)),
+                "the forwarded value must retain its relocation identity"
+            );
+            crate::mir6502::verify_program(&p, MirPhase::PreMaterialization).unwrap();
+            crate::mir6502::materialize_program_with_origin(p, &Mir6502Config::default(), 0x3200)
+                .unwrap();
+        }
+    }
 
     #[test]
     fn scalar_captures_forward_arguments_but_preserve_observable_stores() {
@@ -641,9 +752,7 @@ mod tests {
                 .locals
                 .iter()
                 .find_map(|s| match s.base {
-                    MirStorageBase::Local(id)
-                        if s.purpose == MirStoragePurpose::PatternBinding =>
-                    {
+                    MirStorageBase::Local(id) if s.purpose == MirStoragePurpose::PatternBinding => {
                         Some(id)
                     }
                     _ => None,
@@ -797,9 +906,7 @@ mod tests {
                 .locals
                 .iter()
                 .find_map(|s| match s.base {
-                    MirStorageBase::Local(id)
-                        if s.purpose == MirStoragePurpose::PatternBinding =>
-                    {
+                    MirStorageBase::Local(id) if s.purpose == MirStoragePurpose::PatternBinding => {
                         Some(id)
                     }
                     _ => None,

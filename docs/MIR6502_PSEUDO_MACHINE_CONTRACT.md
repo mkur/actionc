@@ -1607,8 +1607,10 @@ uninitialized scalar local storage for either purpose. Names are debug data.
 
 Before home allocation, BYTE/word capture loads may reuse the value of a
 preceding complete store in the same block, within 32 operations. Constants
-and uniquely defined virtual values are snapshots; live registers and memory
-operands are not. Calls, barriers, indirect/absolute accesses, alias views and
+and uniquely defined virtual values are snapshots; immutable code/data address
+constants also retain their relocation identities when forwarded. Live
+registers and memory operands are not snapshots. Calls, barriers,
+indirect/absolute accesses, alias views and
 overlapping writes end availability. Original evaluation, conversion and
 validation points remain intact. Register/zero-page argument placement is
 still owned by the existing ABI materializer.
@@ -1621,6 +1623,18 @@ an invalid-tag failure on a different CASE arm is not a successor of a matched
 binding's initialization. Data relocations and frame-address exposure remain
 independent blockers.
 
+The bounded call extension (`enable_scalar_capture_call_elision`) admits an
+acyclic direct callee graph only when existing summaries have exact reads and
+writes and every named access is within an ordinary object in its owning
+routine. Callee-local IDs are never compared with caller-local IDs. Calls with
+opaque/OS/unknown effects, helpers, machine blocks, indirect accesses,
+absolute/hardware memory, aliases and unbounded accesses remain barriers.
+Argument/result placement must use registers or zero page; the callee summary
+does not prove arbitrary absolute ABI homes safe. A candidate's stored-byte
+lifetimes share a 512-operation budget. Each complete callee audit also has a
+512-operation budget; call depth is capped at 16. Effects on other CASE arms
+do not invalidate a proved lifetime.
+
 A second, narrower proof removes stores while retaining their allocations:
 every read in the complete MIR program must name storage directly, every call
 must have its complete body in that census, and the candidate must have only
@@ -1631,7 +1645,7 @@ destination contract. Thus copies and static-frame layout retain their
 storage, and reentry cannot introduce an unenumerated read. This does
 not assume that a routine-static capture is private to an invocation.
 
-Both deletion proofs require final physical exclusion of absolute addresses,
+All deletion proofs require final physical exclusion of absolute addresses,
 global aliases and local alias views, including views into a neighboring home.
 Retained allocations are checked in both baseline and proposed
 layouts. `enable_argument_capture_forwarding` and
@@ -1639,7 +1653,10 @@ layouts. `enable_argument_capture_forwarding` and
 Fully emitted costing requires a smaller image, no affected-routine code/home
 growth, and no additional occupied zero-page bytes. One bounded rollback removes
 growing routines before final remeasurement. Failure restores the original
-program. Reports distinguish forwarded loads, removed stored/home bytes and
+program. The call extension is costed independently against the previously
+accepted scalar result. It may combine otherwise cost-neutral load forwarding
+with home deletion, but failure retains all earlier accepted savings. Reports
+distinguish forwarded loads, removed stored/home bytes and
 final cost/alias rejection. Already promoted NIR is unchanged.
 
 ## Whole-Record Copies
