@@ -139,6 +139,66 @@ fn pattern_binding_storage_is_elided_across_exact_callees() {
 }
 
 #[test]
+fn argument_captures_cross_global_reads_and_keep_code_addresses_and_values() {
+    let source = "TYPE Data=[CARD first CARD second BYTE flag]\nData result\nCARD number\nBYTE key\nPROC Marker()\nRETURN\nData FUNC Make(CARD first,second BYTE flag)\nData item\nitem.first=first\nitem.second=second\nitem.flag=flag\nRETURN(item)\nPROC Code()\nresult=Make(CARD(@Marker),number,key)\nRETURN\nPROC Values()\nresult=Make(number,number,key)\nRETURN\nPROC Main()\nRETURN\n";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for (optimized, origin) in [(false, 0x3000), (true, 0x3200)] {
+            let before = compile_options(source, runtime, optimized, false, false, false, origin);
+            let after = compile_options(source, runtime, optimized, true, false, false, origin);
+            assert!(
+                after.bytes.len() < before.bytes.len(),
+                "{runtime:?}, optimized={optimized}"
+            );
+            let crlf = compile_options(
+                &source.replace('\n', "\r\n"),
+                runtime,
+                optimized,
+                true,
+                false,
+                false,
+                origin,
+            );
+            assert_eq!(
+                codegen::format_load_file(&after),
+                codegen::format_load_file(&crlf)
+            );
+            for output in [before, after] {
+                let mut vm = load(&output, runtime);
+                for (n, key) in [(0u16, 0), (0x12FF, 0x80), (0xFF00, 1), (0xFFFF, 0xFF)] {
+                    vm.bus_mut()
+                        .ram_mut()
+                        .map(storage(&output, "number"), &n.to_le_bytes())
+                        .unwrap();
+                    vm.bus_mut()
+                        .ram_mut()
+                        .map(storage(&output, "key"), &[key])
+                        .unwrap();
+                    for (name, first) in [("Code", routine(&output, "Marker")), ("Values", n)] {
+                        vm.bus_mut()
+                            .ram_mut()
+                            .map(storage(&output, "result"), &[0xCC; 5])
+                            .unwrap();
+                        vm = machine::call(vm, &mut NoHooks, routine(&output, name), &[]);
+                        assert_eq!(
+                            machine::bytes(&vm, storage(&output, "result"), 5),
+                            [
+                                first as u8,
+                                (first >> 8) as u8,
+                                n as u8,
+                                (n >> 8) as u8,
+                                key
+                            ]
+                        );
+                        assert_eq!(vm.bus().ram().read_word(storage(&output, "number")), n);
+                        assert_eq!(vm.bus().ram().read(storage(&output, "key")), key);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn argument_address_captures_keep_relocations_after_forwarding() {
     let source = "TYPE Data=[CARD value]\nData result\nBYTE ARRAY buffer(4)\nPROC Marker()\nRETURN\nData FUNC Make(CARD n)\nData item\nitem.value=n\nRETURN(item)\nPROC CodeAddress()\nresult=Make(CARD(@Marker))\nRETURN\nPROC DataAddress()\nresult=Make(CARD(buffer))\nRETURN\nPROC Main()\nRETURN\n";
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {

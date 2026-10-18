@@ -1609,9 +1609,13 @@ Before home allocation, BYTE/word capture loads may reuse the value of a
 preceding complete store in the same block, within 32 operations. Constants
 and uniquely defined virtual values are snapshots; immutable code/data address
 constants also retain their relocation identities when forwarded. Live
-registers and memory operands are not snapshots. Calls, barriers,
-indirect/absolute accesses, alias views and
-overlapping writes end availability. Original evaluation, conversion and
+registers and memory operands are not snapshots. A direct scalar load wholly
+within an ordinary global preserves availability; its offset plus width must
+fit the declared storage size without arithmetic overflow. The load remains
+at its original evaluation point. Absolute/aliased globals, unknown identities,
+out-of-bounds loads and global writes retain their barrier behavior. Calls,
+barriers, indirect/absolute accesses, alias views and overlapping writes end
+availability. Original evaluation, conversion and
 validation points remain intact. Register/zero-page argument placement is
 still owned by the existing ABI materializer.
 

@@ -268,6 +268,13 @@ fn forward_loads(program: &mut MirProgram, config: &Mir6502Config) -> BTreeMap<R
                         }
                     }
                 }
+                // Reading ordinary RAM cannot change an already captured
+                // value. Keep this load in place; only its effect on the
+                // availability map changes. Stores and other global accesses
+                // still go through the conservative barrier checks below.
+                if ordinary_global_load(op, &program.globals) {
+                    continue;
+                }
                 let effect = classify_op(op);
                 // Stop at unknown effects, absolute/hardware memory, calls and
                 // pointer accesses. Ordinary distinct frame cells are disjoint;
@@ -326,6 +333,25 @@ fn forward_loads(program: &mut MirProgram, config: &Mir6502Config) -> BTreeMap<R
         }
     }
     forwarded
+}
+
+fn ordinary_global_load(op: &MirOp, globals: &[MirGlobal]) -> bool {
+    let MirOp::Load {
+        src: MirAddr::Direct(MirMem::Global { id, offset }),
+        width,
+        ..
+    } = op
+    else {
+        return false;
+    };
+    let bytes = if *width == MirWidth::Byte { 1 } else { 2 };
+    globals.iter().any(|g| {
+        g.id == *id
+            && matches!(g.backing, MirGlobalBacking::Ordinary { .. })
+            && offset
+                .checked_add(bytes)
+                .is_some_and(|end| end <= g.storage_size)
+    })
 }
 
 fn select(program: &mut MirProgram, config: &Mir6502Config) -> Selection {
@@ -421,6 +447,198 @@ mod tests {
     }
     const ARGUMENTS: &str = "TYPE Data=[CARD value]\nData result\nCARD number\nData FUNC Make(CARD n BYTE b)\nData item\nitem.value=n+b\nRETURN(item)\nPROC Main()\nresult=Make(number,42)\nRETURN\n";
     const BINDING: &str = "TYPE Maybe=VARIANT [NONE SOME [CARD value]]\nCARD answer\nPROC Main()\nLET sample=Maybe.SOME(1234)\nCASE sample OF\nWHEN Maybe.SOME(value) THEN\nanswer=value\nWHEN Maybe.NONE THEN\nanswer=0\nESAC\nRETURN\n";
+
+    fn global_read_arguments(optimized: bool) -> (MirProgram, RoutineId, crate::nir::LocalId) {
+        let source = ARGUMENTS
+            .replace("CARD number\n", "CARD number\nBYTE flag\n")
+            .replace("Make(number,42)", "Make(CARD(@Main),flag)");
+        let p = lower(&source, optimized);
+        let r = p.routines.iter().find(|r| r.name == "Main").unwrap();
+        let local = r
+            .frame
+            .locals
+            .iter()
+            .find_map(|s| match s.base {
+                MirStorageBase::Local(id)
+                    if s.purpose == MirStoragePurpose::ArgumentCapture
+                        && s.scalar_width == Some(MirWidth::Word) =>
+                {
+                    Some(id)
+                }
+                _ => None,
+            })
+            .unwrap();
+        let owner = r.id;
+        (p, owner, local)
+    }
+
+    #[test]
+    fn scalar_captures_forward_across_bounded_global_reads_without_moving_them() {
+        for optimized in [false, true] {
+            let (mut p, owner, local) = global_read_arguments(optimized);
+            let r = p.routines.iter().find(|r| r.id == owner).unwrap();
+            let before = r.blocks.clone();
+            assert!(before.iter().flat_map(|b| &b.ops).any(|op| matches!(op,
+                MirOp::Load { src: MirAddr::Direct(MirMem::Local { id, offset: 0 }), .. } if *id == local)));
+            assert!(forward_loads(&mut p, &Mir6502Config::default()).contains_key(&owner));
+            let r = p.routines.iter().find(|r| r.id == owner).unwrap();
+            for (old, new) in before.iter().zip(&r.blocks) {
+                assert_eq!(old.ops.len(), new.ops.len());
+                for (old, new) in old.ops.iter().zip(&new.ops) {
+                    if matches!(
+                        old,
+                        MirOp::Load {
+                            src: MirAddr::Direct(MirMem::Global { .. }),
+                            ..
+                        }
+                    ) {
+                        assert_eq!(old, new, "global reads stay at their evaluation point");
+                    }
+                    if matches!(old, MirOp::Load { src: MirAddr::Direct(MirMem::Local { id, offset: 0 }), .. } if *id == local)
+                    {
+                        assert!(
+                            matches!(new, MirOp::Move { .. }),
+                            "captured address is forwarded"
+                        );
+                    }
+                }
+            }
+            crate::mir6502::verify_program(&p, MirPhase::PreMaterialization).unwrap();
+        }
+    }
+
+    #[test]
+    fn scalar_captures_global_reads_keep_alias_bounds_and_write_barriers() {
+        for reason in [
+            "absolute",
+            "alias",
+            "missing",
+            "out of bounds",
+            "overflow",
+            "word overrun",
+            "pointer",
+            "write",
+            "redefinition",
+        ] {
+            let (mut p, owner, local) = global_read_arguments(true);
+            let flag = p.globals.iter().find(|g| g.name == "flag").unwrap().id;
+            let number = p.globals.iter().find(|g| g.name == "number").unwrap().id;
+            let g = p.globals.iter_mut().find(|g| g.id == flag).unwrap();
+            match reason {
+                "absolute" => g.backing = MirGlobalBacking::Absolute(0xD20A),
+                "alias" => {
+                    g.backing = MirGlobalBacking::Alias {
+                        target: number,
+                        offset: 0,
+                    }
+                }
+                _ => {}
+            }
+            let r = p.routines.iter_mut().find(|r| r.id == owner).unwrap();
+            let b = r
+                .blocks
+                .iter_mut()
+                .find(|b| {
+                    b.ops.iter().any(|op| {
+                        matches!(op,
+                MirOp::Load { src: MirAddr::Direct(MirMem::Global { id, .. }), .. } if *id == flag)
+                    })
+                })
+                .unwrap();
+            let at = b
+                .ops
+                .iter()
+                .position(|op| {
+                    matches!(op,
+                MirOp::Load { src: MirAddr::Direct(MirMem::Global { id, .. }), .. } if *id == flag)
+                })
+                .unwrap();
+            let MirOp::Load { src, .. } = &mut b.ops[at] else {
+                unreachable!()
+            };
+            match reason {
+                "missing" => {
+                    *src = MirAddr::Direct(MirMem::Global {
+                        id: crate::nir::SymbolId(900),
+                        offset: 0,
+                    })
+                }
+                "out of bounds" => {
+                    *src = MirAddr::Direct(MirMem::Global {
+                        id: flag,
+                        offset: 1,
+                    })
+                }
+                "overflow" => {
+                    *src = MirAddr::Direct(MirMem::Global {
+                        id: flag,
+                        offset: u16::MAX,
+                    })
+                }
+                "pointer" => {
+                    *src = MirAddr::Deref {
+                        ptr: MirValue::ConstU16(0x9000),
+                        offset: 0,
+                    }
+                }
+                "write" => b.ops.insert(
+                    at,
+                    MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::Global {
+                            id: flag,
+                            offset: 0,
+                        }),
+                        src: MirValue::ConstU8(7),
+                        width: MirWidth::Byte,
+                    },
+                ),
+                "word overrun" => {
+                    r.temps.push(MirTemp { id: MirTempId(900) });
+                    b.ops.insert(
+                        at,
+                        MirOp::Load {
+                            dst: MirDef::VTemp(MirTempId(900)),
+                            src: MirAddr::Direct(MirMem::Global {
+                                id: flag,
+                                offset: 0,
+                            }),
+                            width: MirWidth::Word,
+                        },
+                    );
+                }
+                "redefinition" => {
+                    let dst = b
+                        .ops
+                        .iter()
+                        .find_map(|op| match op {
+                            MirOp::Store {
+                                dst: MirAddr::Direct(MirMem::Local { id, .. }),
+                                src: MirValue::Def(dst),
+                                ..
+                            } if *id == local => Some(dst.clone()),
+                            _ => None,
+                        })
+                        .unwrap();
+                    b.ops.insert(
+                        at,
+                        MirOp::Load {
+                            dst,
+                            src: MirAddr::Direct(MirMem::Global {
+                                id: number,
+                                offset: 0,
+                            }),
+                            width: MirWidth::Word,
+                        },
+                    );
+                }
+                _ => {}
+            }
+            forward_loads(&mut p, &Mir6502Config::default());
+            let r = p.routines.iter().find(|r| r.id == owner).unwrap();
+            assert!(r.blocks.iter().flat_map(|b| &b.ops).any(|op| matches!(op,
+                MirOp::Load { src: MirAddr::Direct(MirMem::Local { id, offset: 0 }), .. } if *id == local)), "{reason}");
+        }
+    }
 
     #[test]
     fn scalar_captures_forward_immutable_address_operands() {
