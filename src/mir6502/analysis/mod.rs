@@ -1,5 +1,6 @@
 pub(super) mod address_uses;
 pub(super) mod address_values;
+pub(super) mod bounded_pointers;
 pub(super) mod call_predicates;
 pub(super) mod cfg;
 pub(super) mod counted_loops;

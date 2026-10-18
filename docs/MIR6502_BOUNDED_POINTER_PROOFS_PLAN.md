@@ -97,3 +97,14 @@ compiler. Require a real optimized-MIR size improvement in the focused case;
 report TN results even if unchanged. Do not expand this task into variable
 scan bounds, general interprocedural alias analysis, capture allocation
 removal, or new NIR facts to chase a TN saving.
+
+## Slice 1 results
+
+Added an internal object/offset fact and same-block value tracker. Local and
+parameter identities include their owning routine; global/static extents come
+from MIR storage facts. Checked constant indices and offsets permit a one-past
+address but never a nonempty access there. Numeric addresses, routine addresses,
+partial relocation lanes, pointer-cell operands, and cross-block or multiply
+defined pointer temps are unsupported. Three focused analysis tests pass,
+covering these cases and byte/word bounds. No emission path consumes the facts
+yet, and no IR contracts or fixtures changed.
