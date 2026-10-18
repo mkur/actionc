@@ -10855,7 +10855,7 @@ mod tests {
             vec![10, 16, 32, 40, 47, 47, 130, 130, 1171, 1171],
             "TN should defer every eligible uninitialized global and local array backing range"
         );
-        // The active and saved panels each retain the eight-byte layout.
+        // The active and saved panels include their own tagged-file count.
         for name in ["active", "leftPanel", "rightPanel"] {
             let symbol = output
                 .map
@@ -10863,7 +10863,7 @@ mod tests {
                 .iter()
                 .find(|symbol| symbol.name == name)
                 .unwrap_or_else(|| panic!("missing TN panel record {name}"));
-            assert_eq!(symbol.size, 8, "{name} must preserve the panel layout");
+            assert_eq!(symbol.size, 9, "{name} must preserve the panel layout");
             assert!(symbol.array.is_none(), "{name} should be a record value");
             assert!(symbol.address >= output.origin);
             assert!(symbol.address + symbol.size <= emitted_end);

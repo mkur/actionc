@@ -16,9 +16,10 @@ The [source modernization audit](../../surveys/tn/source-modernization-audit-202
 identifies refactors using current language features without changing TN's
 functionality.
 
-The maintained sources are restored to `8ccdc683`, immediately before the
-large-directory refactor began at `06cef61f`. They retain the modernization
-checkpoint: typed constants, `ORG`, CASE dispatch and eight-byte `PanelState`.
+The maintained sources use the directory implementation from `8ccdc683`,
+immediately before the large-directory refactor began at `06cef61f`. They retain
+typed constants, `ORG`, CASE dispatch and `PanelState`. The subsequent small
+state/typing cleanup is measured in the [current modernization review](../../surveys/tn/source-modernization-audit-2026-09-15.md#current-review-2026-10-18).
 The batch cache, wide directory ordinals, independent tag bitmap and paging work
 are preserved on **`tn-ng`**, initially at `4baaac89`. Continue that work there.
 The [directory migration plan](../../surveys/tn/directory-handling-implementation-plan.md)
@@ -32,7 +33,7 @@ the copy buffer after generated code and deferred storage.
 
 Typed constants name the existing CIO/MyDOS commands, open modes, status bytes,
 screen dimensions, tag/marker encodings and buffer capacities. The packed panel
-state remains eight bytes; directory reads remain 19 bytes with an 18-byte
+state is nine bytes; directory reads remain 19 bytes with an 18-byte
 stride and 1,171 bytes per panel. These constants document the current layout,
 not configurable limits: the screen templates and packed storage still depend
 on those dimensions.
@@ -43,29 +44,42 @@ constants in those positions. The constants/ORG slice alone preserved the
 original cartridge load files byte for byte in both modes, verified with LF and
 CRLF source copies.
 
-`MakeJmp` now uses `CASE` to call each command directly. `Handle` retains its
-key strings, command indexes, empty-directory restrictions and Copy's inner-loop
-exit. TNDBG keeps its additional G/Dbg command before Q/Quit.
+`MakeJmp` takes a `CommandKind` enum and dispatches with named CASE labels.
+`Handle` converts the existing key-string lookup into that type and retains
+empty-directory restrictions and Copy's inner-loop exit. TNDBG keeps its
+additional G/Dbg command before Q/Quit. `GetAnyKey` explicitly declares its
+POKEY keyboard-status cell `VOLATILE`. These typing changes add no binary bytes.
 
 `PanelState` groups the active file count, directory depth, drive, tag mask,
-selection, screen row and directory sector. Both saved panels are records too;
-each state remains eight bytes. Consumers use named `active` fields, while
-tagged-file counters and MyDOS drive/current-directory bindings remain separate.
+selection, screen row, directory sector and tagged-file count. Both saved panels
+are records too; each state is nine bytes. The tagged count at byte offset eight
+replaces the separate `tagged(2)` array, so it travels with the rest of the state.
+MyDOS drive/current-directory bindings remain separate live OS cells.
 SetWin preserves the existing save-before-restore order, including same-panel
 switches and refreshes.
 
 The two copies use `MovePage` with `SIZEOF(PanelState)`. Ordinary whole-record
 assignment currently introduces classic compiler scratch storage before the
 legacy allocation `SET`s, causing a [backlogged placement conflict](../../docs/BACKLOG.md#classic-record-copy-scratch-placement-with-set);
-the size-based copies avoid that existing compiler issue. The saved records
-now live in the load segment instead of two deferred byte arrays, with the same
-16-byte payload.
+the size-based copies avoid that existing compiler issue. The two saved records
+occupy 18 bytes in the load segment. A switch copies one extra byte in each
+direction, while direct tagged-count accesses make the programs smaller overall.
 
-With compiler `4baaac89`, the restored sources produce 10,549/9,943 load-file
-bytes for TN and 13,794/13,048 for TNDBG in classic/MIR6502 respectively. Counts
-include load headers and INITAD, not runtime memory. LF and CRLF source copies
-produce identical XEX images in all four configurations. Compiler improvements
-since the pre-refactor checkpoint remain enabled.
+Measured with the compiler implementation at `4baaac89`, against the restored
+source baseline `1bfb8ea7`:
+
+| Program/backend | Load-file bytes | Change | Reserved bytes from `$2C00` | Copy buffer |
+| --- | ---: | ---: | ---: | --- |
+| TN classic | 10,534 | -15 | 13,166 | `$5F6E` |
+| TN MIR6502 | 9,929 | -14 | 12,711 | `$5DA7` |
+| TNDBG classic | 13,781 | -13 | 16,413 | `$6C1D` |
+| TNDBG MIR6502 | 13,034 | -14 | 15,816 | `$69C8` |
+
+Counts include load headers and INITAD. Reserved memory also includes static
+homes and deferred arrays; it shrinks by the same amount as the load file in
+each build. LF and CRLF source copies produce identical XEX images in all four
+configurations. Reproduce current memory totals with
+`python3 surveys/tn/measure-directory.py --out-dir target/tn-state-review`.
 
 The [dispatch VM test](../../tools/vm-runtime-tests/tests/tn_dispatch.rs) compiles
 both full programs in their two advertised cartridge modes and runs 96 scenarios.

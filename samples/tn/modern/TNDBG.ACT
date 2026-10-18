@@ -44,9 +44,12 @@ BYTE fnamelen = fname
 
 CARD linebuf
 
+; Active and saved panels share one compact state record.
+; Keep the tagged count with the selection it describes.
 TYPE PanelState=[
   BYTE files,nestLevel,drive,tagMask,selected,row
   CARD directory
+  BYTE taggedCount
 ]
 PanelState active
 CARD dummy
@@ -118,7 +121,7 @@ RETURN
 
 PROC GetAnyKey=*()
 
- BYTE skstat=$D20F
+ VOLATILE BYTE skstat=$D20F
 
   WHILE skstat&$04 DO OD 
 RETURN
@@ -340,11 +343,8 @@ RETURN
 
 MODULE
 
-BYTE ARRAY tagged(2)
-
-
 BYTE FUNC TaggedFiles()      
-RETURN(tagged(winnum))
+RETURN(active.taggedCount)
 
 
 BYTE FUNC IsTagged( BYTE i )
@@ -376,9 +376,9 @@ PROC Tag(BYTE i)
   a = IsTagged( i )
 
   IF a THEN
-    tagged(winnum) ==- 1
+    active.taggedCount ==- 1
   ELSE
-    tagged(winnum) ==+ 1
+    active.taggedCount ==+ 1
   FI
 
   Store( v(i), a!TAG_MASK )
@@ -396,10 +396,10 @@ PROC TagAll=*()
 
   IF active.tagMask THEN
     active.tagMask = 0
-    tagged(winnum) = 0
+    active.taggedCount = 0
   ELSE 
     active.tagMask = TAG_MASK
-    tagged(winnum) = active.files
+    active.taggedCount = active.files
   FI
 
   FOR i = 1 TO active.files DO
@@ -1270,29 +1270,34 @@ PROC Quit=*()
 RETURN
 
 
-; Command indexes follow the key string in Handle.
-PROC MakeJmp(BYTE command)
+; Zero means no matching key; later values follow Handle's key string.
+TYPE CommandKind=ENUM [
+  NONE VIEW ATTRIB DELETE RENAME TAG_ALL COPY MKDIR FORMAT
+  DEBUG QUIT
+]
+
+PROC MakeJmp(CommandKind command)
 
   CASE command OF
-  WHEN 1 THEN
+  WHEN CommandKind.VIEW THEN
     View()
-  WHEN 2 THEN
+  WHEN CommandKind.ATTRIB THEN
     Attrib()
-  WHEN 3 THEN
+  WHEN CommandKind.DELETE THEN
     Delete()
-  WHEN 4 THEN
+  WHEN CommandKind.RENAME THEN
     Rename()
-  WHEN 5 THEN
+  WHEN CommandKind.TAG_ALL THEN
     TagAll()
-  WHEN 6 THEN
+  WHEN CommandKind.COPY THEN
     Copy()
-  WHEN 7 THEN
+  WHEN CommandKind.MKDIR THEN
     MkDir()
-  WHEN 8 THEN
+  WHEN CommandKind.FORMAT THEN
     Format()
-  WHEN 9 THEN
+  WHEN CommandKind.DEBUG THEN
     Dbg()
-  WHEN 10 THEN
+  WHEN CommandKind.QUIT THEN
     Quit()
   ESAC
 RETURN
@@ -1300,7 +1305,8 @@ RETURN
 PROC Handle()
 
  CHAR ch
- BYTE a,d
+ CommandKind command
+ BYTE d
  CARD dosvec=$0A,r=$86,icbufa=$354
  CARD POINTER p
 
@@ -1314,13 +1320,13 @@ PROC Handle()
 
       ch = Range( "-=\{$1C}\{$1D}", active.files-1, @active.selected )
 
-      a = Instr("VADRSCMFGQ", ch)
+      command = CommandKind(Instr("VADRSCMFGQ", ch))
 
       IF active.files THEN
 
-        IF a THEN 
+        IF command#CommandKind.NONE THEN
 
-          MakeJmp( a ) 
+          MakeJmp(command)
 
           IF ch = 'C THEN
             EXIT 
@@ -1412,8 +1418,9 @@ PROC Handle()
 
       ELSE  ; the directory is empty
 
-        IF a > 6 THEN
-          MakeJmp( a )
+        ; Commands through COPY need a file; MKDIR and later do not.
+        IF BYTE(command)>BYTE(CommandKind.COPY) THEN
+          MakeJmp(command)
         FI
 
       FI

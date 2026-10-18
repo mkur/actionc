@@ -103,7 +103,7 @@ fn call(mut vm: CompilerVm, hooks: &mut Directory, address: u16, a: u8, x: u8) -
 }
 
 fn state(vm: &CompilerVm, active: u16) -> Vec<u8> {
-    (0..8)
+    (0..9)
         .map(|offset| vm.bus().ram().read(active + offset))
         .collect()
 }
@@ -114,7 +114,7 @@ pub(super) fn check(compiled: &CompiledProgram, debug: bool) {
     let routine = |name| routine_address(&listing, name);
     let active = global("active");
     let current_dir = global("currentdir");
-    let tagged = global("tagged");
+    let tagged = active + 8;
     let dirsectors = global("dirsectors");
     let v = global("v");
     let winnum = global("winnum");
@@ -176,15 +176,14 @@ pub(super) fn check(compiled: &CompiledProgram, debug: bool) {
         vm = call(vm, &mut hooks, routine("InitPanels"), 0, 0);
         assert_eq!(vm.bus().ram().read_word(current_dir), directory);
         assert_eq!(hooks.opens, [(2, 0x169), (other_drive, 0x169)]);
-        assert_eq!(state(&vm, active), [1, 0, 2, 0, 0, 0, 0x69, 1]);
+        assert_eq!(state(&vm, active), [1, 0, 2, 0, 0, 0, 0x69, 1, 0]);
         assert_eq!(vm.bus().ram().read(winnum), 0);
         let right_path = vm.bus().ram().read_word(dirsectors);
         let right_table = vm.bus().ram().read_word(v);
         let right_row = vm.bus().ram().read_word(right_table);
         assert_eq!(vm.bus().ram().read(tagged), 0);
-        assert_eq!(vm.bus().ram().read(tagged + 1), 0);
 
-        // Tagging operates on this panel's directory data and separate count.
+        // Tagging updates the current panel's directory data and record count.
         vm = call(vm, &mut hooks, routine("Tag"), 0, 0);
         assert_eq!(vm.bus().ram().read(right_row), 0x7F);
         assert_eq!(vm.bus().ram().read(tagged), 1);
@@ -202,7 +201,7 @@ pub(super) fn check(compiled: &CompiledProgram, debug: bool) {
         ram.write_word(right_path, 0x2345);
 
         vm = call(vm, &mut hooks, routine("SwapWin"), 0, 0);
-        assert_eq!(state(&vm, active), [1, 0, other_drive, 0, 0, 0, 0x69, 1]);
+        assert_eq!(state(&vm, active), [1, 0, other_drive, 0, 0, 0, 0x69, 1, 0]);
         assert_eq!(vm.bus().ram().read(winnum), 1);
         assert_eq!(vm.bus().ram().read(0x5A), 21);
         let left_path = vm.bus().ram().read_word(dirsectors);
@@ -210,9 +209,9 @@ pub(super) fn check(compiled: &CompiledProgram, debug: bool) {
         assert_ne!(left_path, right_path);
         assert_ne!(left_table, right_table);
         assert_eq!(vm.bus().ram().read(vm.bus().ram().read_word(left_table)), 0);
-        assert_eq!(vm.bus().ram().read(tagged + 1), 0);
+        assert_eq!(vm.bus().ram().read(tagged), 0);
         let ram = vm.bus_mut().ram_mut();
-        ram.map(active, &[17, 2, 0xFE, 0, 7, 7, 0xFF, 0xFF])
+        ram.map(active, &[17, 2, 0xFE, 0, 7, 7, 0xFF, 0xFF, 0])
             .unwrap();
         ram.write(DRIVE, 5);
         ram.write_word(directory, 0x6543);
@@ -220,9 +219,9 @@ pub(super) fn check(compiled: &CompiledProgram, debug: bool) {
 
         // Saving and restoring the same panel must capture the live OS values.
         vm = call(vm, &mut hooks, routine("SetWin"), 1, 0);
-        assert_eq!(state(&vm, active), [17, 2, 5, 0, 7, 7, 0x43, 0x65]);
+        assert_eq!(state(&vm, active), [17, 2, 5, 0, 7, 7, 0x43, 0x65, 0]);
         vm = call(vm, &mut hooks, routine("SwapWin"), 0, 0);
-        assert_eq!(state(&vm, active), [24, 4, 3, 0x7F, 19, 15, 0x21, 0x43]);
+        assert_eq!(state(&vm, active), [24, 4, 3, 0x7F, 19, 15, 0x21, 0x43, 1]);
         assert_eq!(vm.bus().ram().read(DRIVE), 3);
         assert_eq!(vm.bus().ram().read_word(directory), 0x4321);
         assert_eq!(vm.bus().ram().read_word(dirsectors), right_path);
@@ -238,23 +237,23 @@ pub(super) fn check(compiled: &CompiledProgram, debug: bool) {
 
         // Reload keeps the depth and live directory, but resets selection/tags.
         vm = call(vm, &mut hooks, routine("Dir"), 0, 0);
-        assert_eq!(state(&vm, active), [1, 4, 3, 0, 0, 0, 0x21, 0x43]);
+        assert_eq!(state(&vm, active), [1, 4, 3, 0, 0, 0, 0x21, 0x43, 0]);
         assert_eq!(vm.bus().ram().read(tagged), 0);
         assert_eq!(vm.bus().ram().read(right_row), 0);
         assert_eq!(hooks.opens.last(), Some(&(3, 0x4321)));
         // Selecting another drive resets depth and selects its root directory.
         vm = call(vm, &mut hooks, routine("SetWin"), 0, 8);
-        assert_eq!(state(&vm, active), [1, 0, 8, 0, 0, 0, 0x69, 1]);
+        assert_eq!(state(&vm, active), [1, 0, 8, 0, 0, 0, 0x69, 1, 0]);
         assert_eq!(hooks.opens.last(), Some(&(8, 0x169)));
         vm = call(vm, &mut hooks, routine("SwapWin"), 0, 0);
-        assert_eq!(state(&vm, active), [17, 2, 5, 0, 7, 7, 0x43, 0x65]);
+        assert_eq!(state(&vm, active), [17, 2, 5, 0, 7, 7, 0x43, 0x65, 0]);
         assert_eq!(vm.bus().ram().read_word(v), left_table);
         assert_eq!(vm.bus().ram().read_word(dirsectors), left_path);
         assert_eq!(vm.bus().ram().read(DRIVE), 5);
         assert_eq!(vm.bus().ram().read_word(directory), 0x6543);
         // InitPanels' persistent initialization guard must still work.
         vm = call(vm, &mut hooks, routine("InitPanels"), 0, 0);
-        assert_eq!(state(&vm, active), [17, 2, 5, 0, 7, 7, 0x43, 0x65]);
+        assert_eq!(state(&vm, active), [17, 2, 5, 0, 7, 7, 0x43, 0x65, 0]);
         assert_eq!(hooks.opens.len(), 4);
         assert_eq!(vm.bus().ram().read_word(dummy), 0xADDE);
         if debug {

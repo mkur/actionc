@@ -206,13 +206,13 @@ pub fn check(compiled: &CompiledProgram, _debug: bool) {
                 ("TagAll", vec![], if count == 1 { 0 } else { count }),
             ] {
                 vm = machine::call(vm, &mut hooks, routine(routine_name), &arguments);
-                assert_eq!(vm.bus().ram().read(global("tagged")), selected as u8);
+                assert_eq!(vm.bus().ram().read(global("active") + 8), selected as u8);
             }
             if count > 1 {
                 vm = machine::call(vm, &mut hooks, routine("Tag"), &[0]);
-                assert_eq!(vm.bus().ram().read(global("tagged")), count as u8 - 1);
+                assert_eq!(vm.bus().ram().read(global("active") + 8), count as u8 - 1);
                 vm = machine::call(vm, &mut hooks, routine("TagAll"), &[]);
-                assert_eq!(vm.bus().ram().read(global("tagged")), 0);
+                assert_eq!(vm.bus().ram().read(global("active") + 8), 0);
             }
         }
     }

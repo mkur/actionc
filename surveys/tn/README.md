@@ -1,7 +1,8 @@
 # TN Stability Check
 
-TN's maintained sources on `main` are restored to the pre-directory-refactor
-checkpoint `8ccdc683`. The newer batch/paging implementation is preserved on
+TN's maintained directory implementation on `main` comes from the pre-refactor
+checkpoint `8ccdc683`, with the small state/typing cleanup described in the
+[current source review](source-modernization-audit-2026-09-15.md#current-review-2026-10-18). The newer batch/paging implementation is preserved on
 `tn-ng` at `4baaac89`. Directory migration, bitmap, size-reduction and later
 profiling reports below describe that newer source. Run their batch-specific
 measurement scripts and profiling commands from `tn-ng`; their recorded results

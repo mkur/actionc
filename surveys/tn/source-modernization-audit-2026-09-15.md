@@ -1,9 +1,79 @@
 # TOMS Navigator source modernization audit
 
-Branch scope: the directory batch migration and its qualification described
-here are preserved on `tn-ng` (checkpoint `4baaac89`). On `main`, maintained TN
-is restored to `8ccdc683`, before that migration. Paths and completion statements
-below refer to the migration branch unless explicitly described as pre-migration.
+## Current review: 2026-10-18
+
+Scope: the small-directory implementation restored on `main` at `1bfb8ea7`.
+The compiler implementation is `4baaac89`; the intervening rollback changed
+samples and tests. The larger directory architecture remains on `tn-ng`.
+The September findings below are historical; this section records the current
+measurement and acceptance decisions.
+
+`PanelState` was already retained by the rollback. Its eight-byte layout costs
+16 extra load-file bytes versus an isolated flat-declaration/byte-array version
+of TN. Total reserved memory grows by 16 bytes in classic and is unchanged in
+MIR6502. The record makes the save/restore boundary explicit at modest cost.
+
+The adopted extension puts `taggedCount` at byte offset eight and removes the
+parallel `tagged(2)` array. `active`, `leftPanel` and `rightPanel` are now nine-byte
+records, copied using `SIZEOF(PanelState)`. Switching panels saves/restores the
+count automatically; refresh clears it through the existing TagAll path.
+The copies transfer one additional byte each, but eliminating indexed count
+accesses saves code and reserved memory overall. The existing VM checks validate
+count isolation across switches, same-panel saves, refresh, tagging, directory
+rendering and copy continuation, with a guard immediately after active state.
+
+Both roots also use a byte-sized `CommandKind` enum for command dispatch and
+mark the keyboard-status cell `VOLATILE`. NONE preserves lookup result zero;
+member order preserves the existing key strings, including TNDBG's DEBUG slot.
+The empty-directory gate is expressed using `CommandKind.COPY`. These two changes
+produce byte-identical images to the panel-count change alone in all four builds.
+
+Isolated full-TN experiments, relative to `1bfb8ea7`, in cartridge mode:
+
+| Source change | Classic load delta | MIR6502 load delta | Decision |
+| --- | ---: | ---: | --- |
+| Put tagged count in PanelState | -15 | -14 | Adopted in TN and TNDBG |
+| Typed command enum | 0 | 0 | Adopted; byte-identical output |
+| VOLATILE keyboard status | 0 | 0 | Adopted; byte-identical output |
+| Record views in IsTagged/IsProtected/IsDirectory | +51 | +38 | Keep as an optional readability tradeoff |
+| CopyChunk record array replacing parallel tables | +209 | +229 | Defer; indexing cost is too large for this cleanup |
+| One scoped LET snapshot of FindItem in PopUp | +6 | +1 | Candidate for a later menu-focused change |
+| Whole-record panel assignment | Rejected by classic placement | +158 | Keep SIZEOF-based MovePage |
+
+The row-view probe changes only the three predicate consumers, preserving the
+18-byte layout and CARD address table. CopyChunk keeps the same 48-byte payload,
+but total reserved memory grows by 225/229 bytes in classic/MIR6502. The LET
+probe uses an explicit BEGIN/END block inside the loop; it removes the second
+FindItem call on a match. No cycle or menu-behavior claim is made for that probe.
+Unadopted probes received compile/size checks, not full behavioral qualification.
+
+The final TNDBG deltas are -13 classic / -14 MIR6502. Exact final sizes and copy
+buffer locations are in the [sample notes](../../samples/tn/README.md). The code
+retains MyDOS's 64-file limit, packed path buffers, row encodings, I/O ordering,
+original copy algorithm and persistent-local initialization rules.
+
+Further useful language work should stay narrow. Typed path fields could name
+the existing sector/name layout, but require focused depth and eight-character
+name tests before disturbing its packed buffers. Small shared declarations can
+reduce normal/debug duplication; extracting whole modules should first account
+for TNDBG's instrumentation and fixed-address assembly. A variant for refresh
+requests or search results needs a separate cost and behavior comparison.
+
+Validation performed for the adopted changes:
+
+```sh
+cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml --test tn_dispatch
+cargo test --locked --test nir_storage_analysis --lib tn_
+```
+
+All four full-root cartridge configurations also compile from LF and CRLF
+copies with identical XEX bytes. The VM test exercises both roots in classic
+and MIR6502. Current totals can be rebuilt with
+`python3 surveys/tn/measure-directory.py --out-dir target/tn-state-review`.
+The isolated source copies, listings, comparison scripts and JSON measurements
+from this review are under ignored `target/tn-modernization-review/`.
+
+## September audit context
 
 Audit baseline: `1514c41`, 2026-09-15. Scope: existing TN behavior only.
 No application, library or compiler source was changed by this audit.
