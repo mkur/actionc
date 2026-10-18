@@ -88,3 +88,11 @@ and zero-page usage. Do not special-case TN or change its source for this pass.
 
 Related contract: [MIR6502 copies](MIR6502_PSEUDO_MACHINE_CONTRACT.md#forwarding-captured-copy-values).
 Existing input facts: [NIR aggregate boundaries](NIR_TARGET_SHAPE.md#aggregate-call-boundaries).
+
+## Progress
+
+- Slice 1 complete: `MirStoragePurpose` retains all existing scalar purposes and
+  adds `AggregateCapture`. No executable NIR or ABI contract changes. The two NIR
+  test assertions using the MIR API were updated mechanically. Validation:
+  1,107 MIR6502 unit tests passed (two ignored), plus MIR fixture and call-ABI
+  integration targets. Printed MIR snapshots are unchanged.

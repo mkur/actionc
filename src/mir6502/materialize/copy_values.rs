@@ -369,6 +369,50 @@ mod tests {
     const RECORD: &str = "TYPE Data=[BYTE a,b,c] Data FUNC Make(BYTE n) Data piece piece.a=n piece.b=22 piece.c=33 RETURN(piece) PROC Main() RETURN";
 
     #[test]
+    fn aggregate_capture_provenance_is_verified_and_independent_of_names() {
+        for optimized in [false, true] {
+            let mut program = lower(CHOICE, optimized);
+            let routine = program
+                .routines
+                .iter()
+                .position(|r| r.name == "Make")
+                .unwrap();
+            let local = program.routines[routine]
+                .frame
+                .locals
+                .iter()
+                .position(|s| s.purpose == MirStoragePurpose::AggregateCapture)
+                .unwrap();
+            program.routines[routine].frame.locals[local].name = Some("ordinary_name".into());
+            crate::mir6502::verify_program(&program, MirPhase::PreMaterialization).unwrap();
+            for malformed in 0..5 {
+                let mut invalid = program.clone();
+                let slot = &mut invalid.routines[routine].frame.locals[local];
+                match malformed {
+                    0 => slot.storage = MirStorageClass::Scalar,
+                    1 => slot.offset = 1,
+                    2 => slot.scalar_width = Some(MirWidth::Byte),
+                    3 => slot.base = MirStorageBase::Absolute(0x9000),
+                    _ => {
+                        slot.init = Some(MirStorageInit::ZeroFill {
+                            bytes: slot.storage_size,
+                            mutable: true,
+                            section: "data".into(),
+                        })
+                    }
+                }
+                let errors = crate::mir6502::verify_program(&invalid, MirPhase::PreMaterialization)
+                    .unwrap_err();
+                assert!(
+                    errors
+                        .iter()
+                        .any(|e| e.message.contains("aggregate capture"))
+                );
+            }
+        }
+    }
+
+    #[test]
     fn copy_values_forward_complete_snapshots_and_keep_constructor_writes() {
         for optimized in [false, true] {
             let mut program = lower(CHOICE, optimized);

@@ -1,4 +1,4 @@
-use super::ir::MirScalarPurpose;
+use super::ir::MirStoragePurpose;
 use std::collections::{BTreeMap, BTreeSet};
 
 mod wide;
@@ -762,7 +762,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                         .map(|(index, param)| {
                             let scalar_width = mir_width(&param.ty);
                             MirStorageSlot {
-                                scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+                                purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
                                 id: MirStorageId(index as u32),
                                 name: Some(param.name.clone()),
                                 storage: lower_storage_class(param.storage),
@@ -796,10 +796,11 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                                 &routine.locals,
                             );
                             MirStorageSlot {
-                                scalar_purpose: match local.purpose {
-                                    NirLocalPurpose::ArgumentCapture => MirScalarPurpose::ArgumentCapture,
-                                    NirLocalPurpose::PatternBinding => MirScalarPurpose::PatternBinding,
-                                    _ => MirScalarPurpose::Storage,
+                                purpose: match local.purpose {
+                                    NirLocalPurpose::ArgumentCapture => MirStoragePurpose::ArgumentCapture,
+                                    NirLocalPurpose::PatternBinding => MirStoragePurpose::PatternBinding,
+                                    NirLocalPurpose::AggregateCapture => MirStoragePurpose::AggregateCapture,
+                                    _ => MirStoragePurpose::Storage,
                                 },
                                 id: MirStorageId(index as u32),
                                 name: Some(local.name.clone()),
@@ -841,7 +842,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                         })
                         .chain(generated_locals.into_iter().enumerate().map(
                             |(generated_index, (id, name))| MirStorageSlot {
-                                scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+                                purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
                                 id: MirStorageId(
                                     retained_source_local_count as u32 + generated_index as u32,
                                 ),

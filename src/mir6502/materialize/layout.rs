@@ -494,7 +494,7 @@ mod tests {
     #[test]
     fn address_only_slots_reserve_their_full_size_and_bound_aliases() {
         let real = MirStorageSlot {
-            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+            purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
             id: MirStorageId(0),
             name: Some("real".to_string()),
             storage: MirStorageClass::Scalar,
@@ -506,7 +506,7 @@ mod tests {
             init: None,
         };
         let tail = MirStorageSlot {
-            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+            purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
             id: MirStorageId(4),
             name: Some("tail".to_string()),
             storage: MirStorageClass::Scalar,
@@ -518,7 +518,7 @@ mod tests {
             init: None,
         };
         let record = MirStorageSlot {
-            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+            purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
             id: MirStorageId(1),
             name: Some("record".to_string()),
             storage: MirStorageClass::Record,
@@ -534,7 +534,7 @@ mod tests {
             }),
         };
         let array = MirStorageSlot {
-            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+            purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
             id: MirStorageId(2),
             name: Some("array".to_string()),
             storage: MirStorageClass::Array,
@@ -554,7 +554,7 @@ mod tests {
             }),
         };
         let word = MirStorageSlot {
-            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+            purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
             id: MirStorageId(3),
             name: Some("word".to_string()),
             storage: MirStorageClass::Scalar,
@@ -566,7 +566,7 @@ mod tests {
             init: None,
         };
         let high_word_alias = MirStorageSlot {
-            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+            purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
             id: MirStorageId(5),
             name: Some("high_word".to_string()),
             storage: MirStorageClass::Scalar,

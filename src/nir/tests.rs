@@ -4897,8 +4897,8 @@ fn scalar_capture_and_pattern_provenance_survives_lowering() {
     }
     let mir = crate::mir6502::lower_program(&renamed).unwrap();
     let main = mir.routines.iter().find(|r| r.name == "Main").unwrap();
-    assert!(main.frame.locals.iter().any(|s| s.scalar_purpose == crate::mir6502::MirScalarPurpose::ArgumentCapture));
-    assert!(main.frame.locals.iter().any(|s| s.scalar_purpose == crate::mir6502::MirScalarPurpose::PatternBinding));
+    assert!(main.frame.locals.iter().any(|s| s.purpose == crate::mir6502::MirStoragePurpose::ArgumentCapture));
+    assert!(main.frame.locals.iter().any(|s| s.purpose == crate::mir6502::MirStoragePurpose::PatternBinding));
     let optimized = optimize_program(&raw).unwrap();
     verify_program(&optimized).unwrap();
 }

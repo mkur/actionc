@@ -692,7 +692,7 @@ pub struct MirFrame {
 }
 
 pub struct MirStorageSlot {
-    pub scalar_purpose: MirScalarPurpose,
+    pub purpose: MirStoragePurpose,
     pub id: MirStorageId,
     pub width: MirWidth,
     pub base: MirStorageBase,
@@ -1600,7 +1600,7 @@ Rules:
 
 ## Scalar argument captures and pattern bindings
 
-`MirStorageSlot::scalar_purpose` preserves verified NIR argument-capture and
+`MirStorageSlot::purpose` preserves verified NIR argument-capture and
 pattern-binding provenance by local ID. It does not imply privacy, freshness,
 single assignment, or freedom from reentry. The verifier requires ordinary,
 uninitialized scalar local storage for either purpose. Names are debug data.
@@ -1673,6 +1673,12 @@ facts prove the ranges disjoint or establish a safe direction, but emission
 must not infer aggregate semantics or alias facts on its own.
 
 ### Forwarding captured copy values
+
+`MirStoragePurpose::AggregateCapture` preserves the verified NIR capture
+provenance by local ID. The MIR verifier requires ordinary record local storage,
+zero base offset, no scalar width and no load-time initializer. This purpose is
+not a no-alias or invocation-private lifetime promise. It distinguishes generated
+value captures from addressable source objects without consulting source names.
 
 For nonvolatile copies of one through eight bytes from an ordinary local
 object, MIR6502 may reuse the values of the most recent covering stores.

@@ -25,7 +25,7 @@ pub use ir::{
     MirMemoryEffect, MirMemoryRegion, MirMemoryRegionKind, MirOp, MirOpRef, MirPhase,
     MirPointerPair, MirProgram, MirReg, MirRegisterSet, MirResultHome, MirRoutine, MirRoutineAbi,
     MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirSpillId, MirStatic,
-    MirScalarPurpose, MirStorageBase, MirStorageClass, MirStorageId, MirStorageSlot, MirTemp, MirTempId,
+    MirStoragePurpose, MirStorageBase, MirStorageClass, MirStorageId, MirStorageSlot, MirTemp, MirTempId,
     MirTerminator, MirUnaryOp, MirUpdateOp, MirValue, MirWidth, MirZpAllocation, MirZpSlot,
     RoutineId,
 };
@@ -2271,7 +2271,7 @@ mod tests {
                     abi: MirRoutineAbi::Action,
                     frame: MirFrame {
                         params: vec![MirStorageSlot {
-                            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+                            purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
                             id: MirStorageId(0),
                             name: Some("p".to_string()),
                             storage: MirStorageClass::Scalar,
@@ -6485,7 +6485,7 @@ mod tests {
                 abi: MirRoutineAbi::Action,
                 frame: MirFrame {
                     locals: vec![MirStorageSlot {
-                        scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+                        purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
                         id: MirStorageId(0),
                         name: Some("local".to_string()),
                         storage: MirStorageClass::Scalar,
@@ -9928,7 +9928,7 @@ mod tests {
                 frame: MirFrame {
                     fixed_zero_page: vec![MirFixedZpSlot(0x5C), MirFixedZpSlot(0x5D)],
                     locals: vec![MirStorageSlot {
-                        scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+                        purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
                         id: MirStorageId(0),
                         name: Some("local".to_string()),
                         storage: MirStorageClass::Scalar,

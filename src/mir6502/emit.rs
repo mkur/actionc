@@ -772,7 +772,7 @@ impl MirObjectLayout {
                     &mut layout.plan,
                     routine.id,
                     &MirStorageSlot {
-                        scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+                        purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
                         id: MirStorageId(spill.0),
                         name: None,
                         storage: MirStorageClass::Scalar,
@@ -1065,7 +1065,7 @@ impl MirObjectLayout {
             }
             for spill in &routine.frame.spills {
                 let slot = MirStorageSlot {
-                    scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+                    purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
                     id: MirStorageId(spill.0),
                     name: None,
                     storage: MirStorageClass::Scalar,

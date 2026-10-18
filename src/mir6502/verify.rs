@@ -739,7 +739,7 @@ impl MirVerifier {
     }
 
     fn verify_storage_slot(&mut self, routine: &str, name: &str, slot: &MirStorageSlot) {
-        if slot.scalar_purpose != super::ir::MirScalarPurpose::Storage
+        if matches!(slot.purpose, super::ir::MirStoragePurpose::ArgumentCapture | super::ir::MirStoragePurpose::PatternBinding)
             && (slot.storage != super::ir::MirStorageClass::Scalar
                 || !matches!(slot.base, MirStorageBase::Local(_))
                 || slot.offset != 0 || slot.init.is_some()
@@ -747,6 +747,14 @@ impl MirVerifier {
         {
             self.diagnostics.push(MirDiagnostic::routine(routine,
                 format!("scalar value storage `{name}` must be ordinary, uninitialized scalar local storage")));
+        }
+        if slot.purpose == super::ir::MirStoragePurpose::AggregateCapture
+            && (slot.storage != super::ir::MirStorageClass::Record
+                || !matches!(slot.base, MirStorageBase::Local(_))
+                || slot.offset != 0 || slot.init.is_some() || slot.scalar_width.is_some())
+        {
+            self.diagnostics.push(MirDiagnostic::routine(routine,
+                format!("aggregate capture `{name}` must be ordinary, uninitialized aggregate local storage")));
         }
         if slot.storage_size == 0 {
             self.diagnostics.push(MirDiagnostic::routine(
@@ -4658,7 +4666,7 @@ mod tests {
             vec![block(MirBlockId(0), "bb0", MirTerminator::Return)],
         );
         routine.frame.params.push(MirStorageSlot {
-            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+            purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
             id: crate::mir6502::MirStorageId(0),
             name: Some("wide".to_string()),
             storage: crate::mir6502::MirStorageClass::Scalar,
@@ -4670,7 +4678,7 @@ mod tests {
             init: None,
         });
         routine.frame.locals.push(MirStorageSlot {
-            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+            purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
             id: crate::mir6502::MirStorageId(0),
             name: Some("base".to_string()),
             storage: crate::mir6502::MirStorageClass::Record,
@@ -4686,7 +4694,7 @@ mod tests {
             }),
         });
         routine.frame.locals.push(MirStorageSlot {
-            scalar_purpose: crate::mir6502::ir::MirScalarPurpose::Storage,
+            purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
             id: crate::mir6502::MirStorageId(1),
             name: Some("undersized".to_string()),
             storage: crate::mir6502::MirStorageClass::Scalar,

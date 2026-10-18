@@ -23,10 +23,10 @@ fn enabled(slot: &MirStorageSlot, config: &Mir6502Config) -> bool {
     if !matches!(slot.storage_size, 1 | 2) || slot.scalar_width.is_none() {
         return false;
     }
-    match slot.scalar_purpose {
-        MirScalarPurpose::ArgumentCapture => config.enable_argument_capture_forwarding,
-        MirScalarPurpose::PatternBinding => config.enable_pattern_binding_forwarding,
-        MirScalarPurpose::Storage => false,
+    match slot.purpose {
+        MirStoragePurpose::ArgumentCapture => config.enable_argument_capture_forwarding,
+        MirStoragePurpose::PatternBinding => config.enable_pattern_binding_forwarding,
+        MirStoragePurpose::Storage | MirStoragePurpose::AggregateCapture => false,
     }
 }
 
@@ -467,7 +467,7 @@ mod tests {
                 .frame
                 .locals
                 .iter()
-                .find(|s| s.scalar_purpose == MirScalarPurpose::PatternBinding)
+                .find(|s| s.purpose == MirStoragePurpose::PatternBinding)
                 .unwrap()
                 .clone();
             let MirStorageBase::Local(id) = slot.base else {
@@ -530,7 +530,7 @@ mod tests {
                 }
                 "alias" => r.frame.locals.push(MirStorageSlot {
                     id: MirStorageId(900),
-                    scalar_purpose: MirScalarPurpose::Storage,
+                    purpose: MirStoragePurpose::Storage,
                     base: MirStorageBase::LocalAlias {
                         id: crate::nir::LocalId(900),
                         target: id,
@@ -572,7 +572,7 @@ mod tests {
                 .frame
                 .locals
                 .iter()
-                .find(|s| s.scalar_purpose == MirScalarPurpose::PatternBinding)
+                .find(|s| s.purpose == MirStoragePurpose::PatternBinding)
                 .unwrap();
             let MirStorageBase::Local(id) = slot.base else {
                 unreachable!()
@@ -642,7 +642,7 @@ mod tests {
                 .iter()
                 .find_map(|s| match s.base {
                     MirStorageBase::Local(id)
-                        if s.scalar_purpose == MirScalarPurpose::PatternBinding =>
+                        if s.purpose == MirStoragePurpose::PatternBinding =>
                     {
                         Some(id)
                     }
@@ -681,7 +681,7 @@ mod tests {
                     .clone();
                 p.routines[0].frame.locals.push(MirStorageSlot {
                     id: MirStorageId(900),
-                    scalar_purpose: MirScalarPurpose::Storage,
+                    purpose: MirStoragePurpose::Storage,
                     base: MirStorageBase::LocalAlias {
                         id: crate::nir::LocalId(900),
                         target: other,
@@ -798,7 +798,7 @@ mod tests {
                 .iter()
                 .find_map(|s| match s.base {
                     MirStorageBase::Local(id)
-                        if s.scalar_purpose == MirScalarPurpose::PatternBinding =>
+                        if s.purpose == MirStoragePurpose::PatternBinding =>
                     {
                         Some(id)
                     }
