@@ -41,6 +41,27 @@ fn compile_options(
     across_calls: bool,
     origin: u16,
 ) -> codegen::CodegenOutput {
+    compile_pointer_options(
+        source,
+        runtime,
+        optimized,
+        arguments,
+        bindings,
+        across_calls,
+        true,
+        origin,
+    )
+}
+fn compile_pointer_options(
+    source: &str,
+    runtime: Runtime,
+    optimized: bool,
+    arguments: bool,
+    bindings: bool,
+    across_calls: bool,
+    pointers: bool,
+    origin: u16,
+) -> codegen::CodegenOutput {
     let file = support::Source::new(source);
     let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
     let model = actionc::semantic::analyze_with_options(
@@ -65,6 +86,7 @@ fn compile_options(
     config.enable_argument_capture_forwarding = arguments;
     config.enable_pattern_binding_forwarding = bindings;
     config.enable_scalar_capture_call_elision = across_calls;
+    config.enable_scalar_capture_pointer_elision = pointers;
     mir6502::generate_output_with_config_and_runtime(&nir, origin, &config, runtime).unwrap()
 }
 fn storage(output: &codegen::CodegenOutput, name: &str) -> u16 {
@@ -386,6 +408,119 @@ fn argument_captures_preserve_static_frame_reentry_behavior() {
                     assert_eq!(&observed, expected);
                 } else {
                     expected = Some(observed);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn bounded_pointer_calls_preserve_reads_writes_results_and_neighboring_bytes() {
+    let source = "TYPE Data=[BYTE n BYTE b]\nData result\nBYTE first,second\nPROC Put(BYTE ARRAY p)\np(0)=first\np(1)=second\nRETURN\nData FUNC Make(BYTE ARRAY p)\nData item\nitem.n=p(0)\nitem.b=p(1)\nRETURN(item)\nPROC Run()\nBYTE ARRAY local(4)\nlocal(2)=165\nlocal(3)=90\nPut(local)\nresult=Make(local)\nRETURN\nPROC Main()\nRETURN\n";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for (optimized, origin) in [(false, 0x3000), (true, 0x32F0)] {
+            let before = compile_pointer_options(
+                source, runtime, optimized, true, true, true, false, origin,
+            );
+            let after =
+                compile_pointer_options(source, runtime, optimized, true, true, true, true, origin);
+            assert!(
+                after.bytes.len() < before.bytes.len(),
+                "{runtime:?}, optimized={optimized}: {} -> {}",
+                before.bytes.len(),
+                after.bytes.len()
+            );
+            let crlf = compile_pointer_options(
+                &source.replace('\n', "\r\n"),
+                runtime,
+                optimized,
+                true,
+                true,
+                true,
+                true,
+                origin,
+            );
+            assert_eq!(
+                codegen::format_load_file(&after),
+                codegen::format_load_file(&crlf)
+            );
+            for output in [before, after] {
+                let mut vm = load(&output, runtime);
+                for (first, second) in [(0, 255), (128, 127), (255, 0), (17, 29), (0, 0)] {
+                    vm.bus_mut()
+                        .ram_mut()
+                        .map(storage(&output, "first"), &[first])
+                        .unwrap();
+                    vm.bus_mut()
+                        .ram_mut()
+                        .map(storage(&output, "second"), &[second])
+                        .unwrap();
+                    vm.bus_mut()
+                        .ram_mut()
+                        .map(storage(&output, "result"), &[0xCC; 2])
+                        .unwrap();
+                    vm = machine::call(vm, &mut NoHooks, routine(&output, "Run"), &[]);
+                    assert_eq!(
+                        machine::bytes(&vm, storage(&output, "result"), 2),
+                        [first, second]
+                    );
+                    assert_eq!(
+                        machine::bytes(&vm, storage(&output, "local"), 4),
+                        [first, second, 165, 90]
+                    );
+                    assert_eq!(vm.bus().ram().read(storage(&output, "first")), first);
+                    assert_eq!(vm.bus().ram().read(storage(&output, "second")), second);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn bounded_scalar_results_preserve_numeric_capture_bytes() {
+    let source = "TYPE Data=[CARD n BYTE b]\nData result\nCARD number\nBYTE ARRAY buffer(2)\nBYTE FUNC Peek()\nBYTE POINTER p\np=buffer\nRETURN(p^)\nData FUNC Make(CARD n)\nData item\nitem.n=n\nitem.b=Peek()\nRETURN(item)\nPROC Run()\nresult=Make(number)\nRETURN\nPROC Main()\nRETURN\n";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for (optimized, origin) in [(false, 0x3000), (true, 0x32F0)] {
+            let before = compile_pointer_options(
+                source, runtime, optimized, true, true, true, false, origin,
+            );
+            let after =
+                compile_pointer_options(source, runtime, optimized, true, true, true, true, origin);
+            assert!(after.bytes.len() <= before.bytes.len());
+            if optimized {
+                assert!(after.bytes.len() < before.bytes.len());
+            }
+            for output in [before, after] {
+                let mut vm = load(&output, runtime);
+                for (number, byte) in [
+                    (0u16, 255),
+                    (0x12FF, 0),
+                    (0xFF00, 128),
+                    (0xFFFF, 127),
+                    (1, 1),
+                ] {
+                    vm.bus_mut()
+                        .ram_mut()
+                        .map(storage(&output, "number"), &number.to_le_bytes())
+                        .unwrap();
+                    vm.bus_mut()
+                        .ram_mut()
+                        .map(storage(&output, "buffer"), &[byte, 0xA5])
+                        .unwrap();
+                    vm.bus_mut()
+                        .ram_mut()
+                        .map(storage(&output, "result"), &[0xCC; 3])
+                        .unwrap();
+                    vm = machine::call(vm, &mut NoHooks, routine(&output, "Run"), &[]);
+                    assert_eq!(
+                        machine::bytes(&vm, storage(&output, "result"), 3),
+                        [number as u8, (number >> 8) as u8, byte]
+                    );
+                    assert_eq!(vm.bus().ram().read_word(storage(&output, "number")), number);
+                    assert_eq!(
+                        machine::bytes(&vm, storage(&output, "buffer"), 2),
+                        [byte, 0xA5]
+                    );
                 }
             }
         }

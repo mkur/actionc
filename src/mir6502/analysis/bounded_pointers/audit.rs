@@ -24,6 +24,9 @@ pub(in crate::mir6502) struct Summary {
     /// Objects whose addresses participate in the proof. Final layout must
     /// establish their physical extents and separation from deleted cells.
     pub borrowed: BTreeMap<Object, u16>,
+    /// Retained pointer homes, including static parameter cells. Their
+    /// logical privacy also needs physical alias exclusion after allocation.
+    pub private_homes: BTreeSet<Object>,
 }
 
 pub(in crate::mir6502) fn summarize(program: &MirProgram, routine: &MirRoutine) -> Option<Summary> {
@@ -45,6 +48,7 @@ pub(in crate::mir6502) fn summarize(program: &MirProgram, routine: &MirRoutine) 
     {
         return None;
     }
+    audit.summary.private_homes = audit.protected;
     Some(audit.summary)
 }
 
@@ -94,7 +98,11 @@ impl Audit<'_> {
         }
         Some(())
     }
-    fn routine(&mut self, r: &MirRoutine, params: &BTreeMap<ParamId, Value>) -> Option<()> {
+    fn routine(
+        &mut self,
+        r: &MirRoutine,
+        params: &BTreeMap<ParamId, Value>,
+    ) -> Option<BTreeSet<u8>> {
         if self.active.len() == MAX_DEPTH
             || !self.active.insert(r.id)
             || !matches!(r.abi, MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry)
@@ -120,12 +128,14 @@ impl Audit<'_> {
             }
         }
         let defs = MirTempUseDefIndex::from_routine(r);
+        let mut returned: Option<BTreeSet<u8>> = None;
         for b in &r.blocks {
             self.tick()?;
             // No value facts cross a CFG edge. Private pointer-home reads in
             // another block are caught by the complete uncovered-read census.
             let mut values = Values::new(self.program, r, b.id, &defs);
             let mut homes = BTreeMap::<Object, Pointer>::new();
+            let mut result_bytes = BTreeSet::new();
             for (i, op) in b.ops.iter().enumerate() {
                 self.tick()?;
                 match op {
@@ -196,6 +206,7 @@ impl Audit<'_> {
                             {
                                 return None;
                             }
+                            result_bytes.extend((0..bytes(*width)).map(|n| slot.0 + n as u8));
                             continue;
                         }
                         let pointer = values.address(dst)?;
@@ -372,7 +383,18 @@ impl Audit<'_> {
                         // be narrowed only by auditing the entire actual body,
                         // including its ABI and every transitive effect.
                         let first_write = self.summary.writes.len();
-                        self.routine(callee, &inputs)?;
+                        let returned = self.routine(callee, &inputs)?;
+                        result_bytes.clear();
+                        for value in result.iter().chain(additional_results) {
+                            let MirResultHome::ReturnSlot { offset } = value.home else {
+                                return None;
+                            };
+                            if !(0..bytes(value.width))
+                                .all(|n| returned.contains(&(0xA0 + offset as u8 + n as u8)))
+                            {
+                                return None;
+                            }
+                        }
                         for write in &self.summary.writes[first_write..] {
                             homes.remove(&write.pointer.object);
                         }
@@ -395,7 +417,13 @@ impl Audit<'_> {
                 return None;
             }
             match &b.terminator {
-                MirTerminator::Return | MirTerminator::Exit => {}
+                MirTerminator::Return => {
+                    returned = Some(match returned {
+                        None => result_bytes,
+                        Some(previous) => previous.intersection(&result_bytes).copied().collect(),
+                    });
+                }
+                MirTerminator::Exit => {}
                 MirTerminator::Jump(edge) if edge.args.is_empty() => {}
                 MirTerminator::Branch {
                     cond,
@@ -410,7 +438,7 @@ impl Audit<'_> {
             }
         }
         self.active.remove(&r.id);
-        Some(())
+        Some(returned.unwrap_or_default())
     }
 }
 

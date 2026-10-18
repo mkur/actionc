@@ -1,7 +1,6 @@
 //! Small, fail-closed object provenance facts for pre-home observation proofs.
 //! This is not a general alias analysis: offsets are singleton ranges, and
 //! pointer-valued temps must be complete, preceding same-block definitions.
-#![allow(dead_code)] // The following slice adds the observation-proof consumer.
 use super::{
     sites::MirSite,
     use_def::{MirTempLane, MirTempRequirement, MirTempUseDefIndex},
@@ -13,7 +12,6 @@ use crate::{
 use std::collections::BTreeMap;
 
 mod audit;
-#[allow(unused_imports)] // Consumed by scalar cleanup in the next slice.
 pub(in crate::mir6502) use audit::{Summary, summarize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]

@@ -579,3 +579,56 @@ fn deeper_call_graphs_and_runtime_argument_capture_stay_bounded() {
         "five argument bytes require the runtime SArgs prologue"
     );
 }
+
+#[test]
+fn call_results_require_scalar_return_bytes_and_canonical_argument_homes() {
+    for reason in [
+        "missing return write",
+        "wrong result width",
+        "register result",
+        "noncanonical argument",
+    ] {
+        let mut p = lower(BORROW, true);
+        if reason == "missing return write" {
+            let r = p.routines.iter_mut().find(|r| r.name == "Read").unwrap();
+            r.blocks[0].ops.retain(|op| {
+                !matches!(
+                    op,
+                    MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::FixedZeroPage(_)),
+                        ..
+                    }
+                )
+            });
+        } else {
+            let r = p.routines.iter_mut().find(|r| r.name == "Relay").unwrap();
+            let MirOp::Call {
+                abi, args, result, ..
+            } = r
+                .blocks
+                .iter_mut()
+                .flat_map(|b| &mut b.ops)
+                .find(|op| matches!(op, MirOp::Call { .. }))
+                .unwrap()
+            else {
+                panic!()
+            };
+            match reason {
+                "wrong result width" => result.as_mut().unwrap().width = MirWidth::Word,
+                "register result" => {
+                    abi.result = Some(MirResultHome::Reg(MirReg::A));
+                    result.as_mut().unwrap().home = MirResultHome::Reg(MirReg::A);
+                }
+                "noncanonical argument" => {
+                    abi.params[0] = MirArgHome::RegisterPair {
+                        lo: MirReg::X,
+                        hi: MirReg::Y,
+                    };
+                    args[0].home = abi.params[0].clone();
+                }
+                _ => unreachable!(),
+            }
+        }
+        assert!(run_summary(&p).is_none(), "{reason}");
+    }
+}

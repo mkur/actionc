@@ -24,6 +24,8 @@ pub struct Mir6502Config {
     pub enable_pattern_binding_forwarding: bool,
     /// Elide unread scalar captures across bounded, exact direct-callee effects.
     pub enable_scalar_capture_call_elision: bool,
+    /// Remove unread capture stores using bounded pointer and non-escape proofs.
+    pub enable_scalar_capture_pointer_elision: bool,
     pub enable_word_inc_update: bool,
     pub enable_direct_byte_word_update: bool,
     /// Allow bounded code growth for exact small counted loops. The selector
@@ -82,6 +84,7 @@ impl Default for Mir6502Config {
             enable_argument_capture_forwarding: true,
             enable_pattern_binding_forwarding: true,
             enable_scalar_capture_call_elision: true,
+            enable_scalar_capture_pointer_elision: true,
             enable_word_inc_update: true,
             enable_direct_byte_word_update: false,
             enable_small_loop_unrolling: false,

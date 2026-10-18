@@ -13,6 +13,7 @@ use crate::mir6502::{
 use std::collections::{BTreeMap, BTreeSet};
 
 mod observations;
+mod pointers;
 
 #[derive(Default)]
 struct Selection {
@@ -163,6 +164,12 @@ fn finish(
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
     if config.enable_scalar_capture_call_elision {
         let stats = observations::improve(&mut selected, &mut emitted, config, origin, runtime);
+        if report {
+            super::maybe_report_peepholes(&selected, &stats, config);
+        }
+    }
+    if config.enable_scalar_capture_pointer_elision {
+        let stats = pointers::improve(&mut selected, &mut emitted, config, origin, runtime);
         if report {
             super::maybe_report_peepholes(&selected, &stats, config);
         }

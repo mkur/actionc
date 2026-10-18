@@ -131,3 +131,55 @@ calls, bounded writes and copies, hidden parameter ordering, constant offsets,
 escapes, parameter mutation, stale/partial reads, frame data exposure, recursion,
 depth/operation budgets, and runtime argument-prologue rejection. The analysis
 still has no optimization consumer in this slice.
+
+## Slice 3 results
+
+Enabled an independent store-only transaction after existing scalar cleanup.
+It retries existing forwarding, tentatively deletes unread capture stores,
+audits each changed routine against accepted callees, and rechecks the combined
+proposal. Capture slots remain allocated. Rejected proofs, materialization,
+costs or physical layouts retain all earlier accepted optimizations.
+
+Physical exclusion covers both capture cells and retained pointer homes,
+including parameter homes: a separately declared absolute alias must not make
+an ostensibly private saved pointer observable. Both baseline and proposed
+layouts are checked, with non-wrapping borrowed object extents and hardware
+exclusion. Scalar call results additionally require a scalar definition of
+each consumed public return byte in every returning block after its last call.
+
+Two focused examples improve through the normal optimized-NIR cartridge MIR
+CLI, compared with the saved starting compiler:
+
+| Example | Before XEX | After XEX | Saving |
+| --- | ---: | ---: | ---: |
+| Bounded local-array input and aggregate result | 179 | 163 | 16 |
+| Numeric capture with a bounded read in a nested callee | 220 | 211 | 9 |
+
+The first example's raw-NIR proposal would save five emitted bytes but add a
+zero-page scratch byte, so it is rejected unchanged. Its optimized-NIR version
+saves 16 bytes and uses fewer occupied zero-page bytes. The runtime regression
+also initializes the local array through a bounded pointer-writing callee;
+that version improves in both modes. Repeated calls preserve complete results,
+input values and neighboring bytes across both runtimes and relocated origins.
+LF and CRLF forms pass through the actual parser and emit identical images.
+
+| TN build | Before XEX | After XEX | Byte-identical |
+| --- | ---: | ---: | --- |
+| Maintained TN | 9,968 | 9,968 | Yes |
+| Maintained TNDBG | 13,073 | 13,073 | Yes |
+| Menu-variant experiment | 10,120 | 10,120 | Yes |
+
+There is no TN saving in this bounded slice; its remaining variant overhead is
+152 bytes. Variable menu scans, routine-address data extents and OS/fixed-memory
+effects remain unsupported. No source-specific exception or broader scan proof
+was added.
+
+Validation passed: the full 1,136-test MIR6502 unit run (two existing ignored
+tests), followed by the new hardware-placement regression and all three
+store-removal regressions; 96 tests across all 11 MIR6502 integration targets;
+all 169 emission-sweep fixtures; and 54 distinct VM tests across scalar
+captures, constructor storage, direct/indirect aggregates, fresh initialization,
+copy values, variant construction/initialization/validation and TN dispatch.
+The final two focused VM tests also cover the final hardware guard. Both CLI
+examples were rechecked with the final compiler. Formatting and diff checks
+pass. No fixture outputs, shared IR contracts, ABI rules or TN sources changed.

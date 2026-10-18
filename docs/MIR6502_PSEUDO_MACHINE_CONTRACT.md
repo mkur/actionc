@@ -1649,6 +1649,38 @@ destination contract. Thus copies and static-frame layout retain their
 storage, and reentry cannot introduce an unenumerated read. This does
 not assume that a routine-static capture is private to an invocation.
 
+The bounded pointer extension (`enable_scalar_capture_pointer_elision`)
+independently removes capture stores while retaining their slots. It audits
+complete routines and direct callees with actual bounded pointer arguments.
+Object identities include the owning routine for locals and parameters;
+checked singleton offsets and access widths must fit ordinary named objects.
+Numeric/routine addresses, variable offsets, partial address lanes and
+cross-block pointer values do not establish bounds. Pointer values require
+complete preceding same-block definitions. Private pointer homes require
+complete same-block transfers and a census excluding all other reads and
+address exposure; their physical aliases must also be excluded.
+
+Incoming pointer parameters are immutable facts, and all audited parameter
+writes are unsupported. Canonical Action argument placement is mandatory;
+more than four argument bytes are excluded because they require an SArgs
+prologue. Scalar call results require proved scalar writes of every consumed
+public return byte in each returning block after its last call. Coarse
+unknown/opaque effects of complete direct Action calls may be narrowed by this
+body audit; explicit OS/all-memory/region effects, unknown or indirect calls,
+helpers, machine blocks, volatile copies, recursion, reentry, frame data
+relocations and alias slots remain barriers. The complete audit has a shared
+512-operation budget and at most 16 active routine frames.
+
+This proof applies to the tentative program with the candidate stores removed;
+no remaining read or write may touch those cells. Other routines retain their
+previously accepted bodies during each initial proof, and the combined proposal
+is audited again. Final physical checks in both layouts cover retained captures
+and pointer homes, non-wrapping borrowed object extents outside the Atari
+hardware window, and their separation from the candidate cells. Failure of any
+proof or cost gate preserves earlier scalar optimizations. No effect annotations,
+ABI transfers, source evaluation points, validation or allocations are changed
+by this extension.
+
 All deletion proofs require final physical exclusion of absolute addresses,
 global aliases and local alias views, including views into a neighboring home.
 Retained allocations are checked in both baseline and proposed
