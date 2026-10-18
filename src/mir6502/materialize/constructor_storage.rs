@@ -1,5 +1,5 @@
 //! Deleting a constructor store requires more than forwarding its value.
-//! Initial scope: complete small captures in terminal blocks, closed direct
+//! Initial scope: complete small captures in terminal regions, closed direct
 //! callers with exact result buffers, and independently checked physical aliases.
 use super::{MirPeepholeStats, address_values::Cost, copy_values, temp_widths};
 use crate::mir6502::{
@@ -693,6 +693,19 @@ pub(super) fn improve(
             && private_cells::physical_cells_unaliased(emitted, origin, &protected)
             && private_cells::physical_cells_unaliased(new, origin, &protected)
     });
+    let removed = if accepted && config.enable_constructor_home_elision {
+        elide_homes(
+            &selected,
+            proposed.as_ref().unwrap(),
+            &applied,
+            &protected,
+            config,
+            origin,
+            runtime,
+        )
+    } else {
+        None
+    };
     for c in &applied {
         if accepted {
             stats.record_many(
@@ -702,7 +715,14 @@ pub(super) fn improve(
             );
             stats.record_many(
                 c.routine,
-                "constructor-home-bytes-retained",
+                if removed
+                    .as_ref()
+                    .is_some_and(|(_, _, ids)| ids.contains(&(c.routine, c.local)))
+                {
+                    "constructor-home-bytes-removed"
+                } else {
+                    "constructor-home-bytes-retained"
+                },
                 usize::from(c.bytes),
             );
         } else {
@@ -710,10 +730,93 @@ pub(super) fn improve(
         }
     }
     if accepted {
-        *forwarded = selected;
-        *emitted = proposed.unwrap();
+        if let Some((small, materialized, _)) = removed {
+            *forwarded = small;
+            *emitted = materialized;
+        } else {
+            *forwarded = selected;
+            *emitted = proposed.unwrap();
+        }
     }
     stats
+}
+
+// Home deletion is an additional transaction against store-only output. It
+// never makes store elimination depend on a stronger allocation/layout proof.
+fn elide_homes(
+    stores: &MirProgram,
+    emitted: &MirProgram,
+    candidates: &[Candidate],
+    protected: &BTreeMap<RoutineId, Vec<MirMem>>,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+) -> Option<(MirProgram, MirProgram, BTreeSet<(RoutineId, LocalId)>)> {
+    let mut selected = stores.clone();
+    let mut removed = BTreeSet::new();
+    for c in candidates {
+        let r = selected.routines.iter().find(|r| r.id == c.routine)?;
+        if frame_exposed(&selected, r)
+            || r.blocks.iter().any(|b| {
+                b.ops
+                    .iter()
+                    .map(|op| classify_op(op).memory)
+                    .chain(std::iter::once(classify_terminator(&b.terminator).memory))
+                    .any(|e| {
+                        mentions(&e.direct_references, c.local)
+                            || mentions(&e.address_references, c.local)
+                            || e.direct_reads
+                                .iter()
+                                .chain(&e.direct_writes)
+                                .any(|a| is_local(&a.base, c.local))
+                    })
+            })
+        {
+            continue;
+        }
+        let r = selected.routines.iter_mut().find(|r| r.id == c.routine)?;
+        let slot = r
+            .frame
+            .locals
+            .iter()
+            .find(|s| s.base == MirStorageBase::Local(c.local))?;
+        if slot.purpose != MirStoragePurpose::AggregateCapture
+            || slot.init.is_some()
+            || slot.offset != 0
+            || slot.storage_size != c.bytes
+        {
+            continue;
+        }
+        r.frame
+            .locals
+            .retain(|s| s.base != MirStorageBase::Local(c.local));
+        removed.insert((c.routine, c.local));
+    }
+    if removed.is_empty() {
+        return None;
+    }
+    crate::mir6502::verify_program(&selected, MirPhase::PreMaterialization).ok()?;
+    let proposed = crate::mir6502::materialize_resolved_program_without_copy_costing(
+        selected.clone(),
+        config,
+        origin,
+        runtime,
+        false,
+    )
+    .ok()?;
+    let old = Cost::measure(emitted, origin)?;
+    let new = Cost::measure(&proposed, origin)?;
+    let remaining = protected.iter().filter_map(|(&id, mems)| {
+        let mems = mems.iter().filter(|m| !matches!(m, MirMem::Local { id: local, .. } if removed.contains(&(id, *local))))
+            .cloned().collect::<Vec<_>>();
+        (!mems.is_empty()).then_some((id, mems))
+    }).collect();
+    (new.bytes < old.bytes
+        && removed.iter().all(|&(id, _)| new.does_not_grow(&old, id))
+        && occupied(&proposed).is_subset(&occupied(emitted))
+        && private_cells::physical_cells_unaliased(emitted, origin, protected)
+        && private_cells::physical_cells_unaliased(&proposed, origin, &remaining))
+    .then_some((selected, proposed, removed))
 }
 
 fn occupied(p: &MirProgram) -> BTreeSet<u8> {
@@ -761,12 +864,9 @@ mod tests {
             off.enable_constructor_store_elision = false;
             let baseline =
                 crate::mir6502::materialize_program_with_origin(p.clone(), &off, 0x3000).unwrap();
-            let after = crate::mir6502::materialize_program_with_origin(
-                p,
-                &Mir6502Config::default(),
-                0x3000,
-            )
-            .unwrap();
+            let mut on = Mir6502Config::default();
+            on.enable_constructor_home_elision = false;
+            let after = crate::mir6502::materialize_program_with_origin(p, &on, 0x3000).unwrap();
             let old = Cost::measure(&baseline, 0x3000).unwrap();
             let new = Cost::measure(&after, 0x3000).unwrap();
             assert!(new.bytes < old.bytes, "{} -> {}", old.bytes, new.bytes);
@@ -899,6 +999,86 @@ mod tests {
                     .iter()
                     .any(|n| n.local == c.local && n.routine == rid),
                 "{reason}"
+            );
+        }
+    }
+
+    #[test]
+    fn constructor_storage_removes_dead_allocations_and_keeps_store_only_fallback() {
+        for optimized in [false, true] {
+            let source = SOURCE.replace(
+                "PROC Main()",
+                "PROC Main() BYTE ARRAY padding(16) padding(0)=1",
+            );
+            let mut p = lower(&source, optimized);
+            let mut keep = Mir6502Config::default();
+            keep.enable_constructor_home_elision = false;
+            let stores =
+                crate::mir6502::materialize_program_with_origin(p.clone(), &keep, 0x3000).unwrap();
+            let homes = crate::mir6502::materialize_program_with_origin(
+                p.clone(),
+                &Mir6502Config::default(),
+                0x3000,
+            )
+            .unwrap();
+            let old = Cost::measure(&stores, 0x3000).unwrap();
+            let new = Cost::measure(&homes, 0x3000).unwrap();
+            assert_eq!(old.bytes - new.bytes, 6, "two complete three-byte captures");
+            let make = homes.routines.iter().find(|r| r.name == "Make").unwrap();
+            assert!(
+                !make
+                    .frame
+                    .locals
+                    .iter()
+                    .any(|s| s.purpose == MirStoragePurpose::AggregateCapture)
+            );
+
+            let caller = p.routines.iter().find(|r| r.name == "Main").unwrap().id;
+            let d = discover(&p, &keep);
+            let mem = &d.candidates[0].protected[&caller][0];
+            let new_address = super::super::MaterializeLayout::new(&homes, 0x3000)
+                .mem_address(caller, mem)
+                .unwrap();
+            let old_layout = super::super::MaterializeLayout::new(&stores, 0x3000);
+            assert!(
+                !d.candidates
+                    .iter()
+                    .flat_map(|c| c.protected.iter())
+                    .any(|(&r, mems)| mems
+                        .iter()
+                        .any(|m| old_layout.mem_address(r, m) == Some(new_address))),
+                "alias must affect only the proposed allocation layout"
+            );
+            let mut alias = p
+                .globals
+                .iter()
+                .find(|g| g.storage_size > 0)
+                .unwrap()
+                .clone();
+            alias.id = crate::nir::SymbolId(900);
+            alias.name = "layout_observer".into();
+            alias.storage_size = 1;
+            alias.width = Some(MirWidth::Byte);
+            alias.backing = MirGlobalBacking::Absolute(new_address);
+            alias.init = None;
+            p.globals.push(alias);
+            let retained =
+                crate::mir6502::materialize_program_with_origin(p.clone(), &keep, 0x3000).unwrap();
+            let after = crate::mir6502::materialize_program_with_origin(
+                p.clone(),
+                &Mir6502Config::default(),
+                0x3000,
+            )
+            .unwrap();
+            assert!(
+                after == retained,
+                "failed home deletion must retain store-only savings"
+            );
+            keep.enable_constructor_store_elision = false;
+            let off = crate::mir6502::materialize_program_with_origin(p, &keep, 0x3000).unwrap();
+            assert!(
+                Cost::measure(&after, 0x3000).unwrap().bytes
+                    < Cost::measure(&off, 0x3000).unwrap().bytes
             );
         }
     }

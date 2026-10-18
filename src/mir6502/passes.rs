@@ -15,6 +15,7 @@ pub struct Mir6502Config {
     /// Forward captured bytes into small copies, subject to final size costing.
     pub enable_copy_value_forwarding: bool,
     pub enable_constructor_store_elision: bool,
+    pub enable_constructor_home_elision: bool,
     /// Forward ordered scalar argument captures, with independent store proofs.
     pub enable_argument_capture_forwarding: bool,
     /// Forward scalar pattern bindings and remove proven unobservable homes.
@@ -72,6 +73,7 @@ impl Default for Mir6502Config {
             enable_tiny_constant_fills: true,
             enable_copy_value_forwarding: true,
             enable_constructor_store_elision: true,
+            enable_constructor_home_elision: true,
             enable_argument_capture_forwarding: true,
             enable_pattern_binding_forwarding: true,
             enable_word_inc_update: true,

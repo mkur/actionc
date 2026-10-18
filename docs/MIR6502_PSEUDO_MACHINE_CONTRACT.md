@@ -1725,7 +1725,7 @@ summaries and bounded checks of their writes in each owning routine; unknown,
 recursive, pointer-writing or machine-code callees remain barriers. Every
 removed store and admitted named read/write has checked in-object byte bounds.
 
-Store elision retains allocated homes. Captures, incoming pointer homes and
+Store elision initially retains allocated homes. Captures, incoming pointer homes and
 caller result buffers undergo final absolute/global/local-alias exclusion in
 both layouts. The fully emitted proposal must beat forwarding alone, without
 affected-routine code/home growth or additional occupied zero page. Failure
@@ -1733,6 +1733,17 @@ restores the forwarding-only program. Reports distinguish observation and
 destination proof rejection, removed stored bytes, retained home bytes, and
 final cost/alias rejection. Existing overlap-safe forwarding remains available
 when this stronger proof fails.
+
+`enable_constructor_home_elision` adds a separate transaction after successful
+store removal. It rechecks capture provenance, extent, executable/effect
+references, local alias views and whole-frame address/data exposure before
+removing any allocation. The original layout checks all protected bytes;
+the proposed layout checks surviving incoming-pointer and caller-buffer homes.
+The proposal must shrink the fully emitted store-only image, without increasing
+affected routine code/homes or occupied zero page. A failed home proof or cost
+check retains store-only savings. Reports distinguish removed and retained home
+bytes. Both switches default on with copy-value forwarding and peepholes;
+home elision depends on successful store elision.
 
 ## Runtime Helpers
 

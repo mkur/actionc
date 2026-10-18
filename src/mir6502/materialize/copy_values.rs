@@ -1,7 +1,7 @@
 //! Reuse already captured bytes instead of reading and staging a small copy.
-//! Constructor stores remain observable; no lifetime or no-alias assumption is
-//! made about the destination. Final emission must prove that the trade saves
-//! space without increasing routine homes or zero-page demand.
+//! Forwarding itself keeps constructor stores and makes no lifetime/no-alias
+//! assumption. Constructor storage elision is a separately proved refinement.
+//! Final emission must save space without increasing homes or zero-page demand.
 use super::{address_values::Cost, copies, tiny_fills};
 use crate::mir6502::{
     Mir6502Config, MirDiagnostic,

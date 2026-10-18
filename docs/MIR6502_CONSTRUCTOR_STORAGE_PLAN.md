@@ -106,3 +106,37 @@ Existing input facts: [NIR aggregate boundaries](NIR_TARGET_SHAPE.md#aggregate-c
   focused proof/cost tests and 14 VM tests passed across constructor storage,
   copy forwarding, direct aggregate calls and indirect aggregate calls. New VM
   cases cover raw/optimized NIR, both runtimes and LF/CRLF input.
+- Slice 2 measurement: variant TN shrank from 10,164 to 10,134 XEX bytes
+  (30 code bytes); its two three-byte captures remained allocated. Maintained
+  TN and TNDBG stayed byte-identical to the baseline.
+- Slice 3 complete: independent home-elision flag and transaction against the
+  store-only output. Both three-byte `FindItem` captures disappear. A regression
+  places an absolute alias in only the proposed layout and verifies rollback to
+  the smaller store-only output. No shared NIR, semantic or ABI contract changed.
+
+## Final qualification
+
+Backend-scoped checks passed: 1,112 MIR6502 library tests (two ignored), all 96
+tests in the 11 `mir6502_*` integration targets, and 169 fixtures through
+`actionc-mir6502-sweep --emit-load fixtures/mir6502`.
+
+All 48 tests passed in the VM targets `constructor_storage`, `copy_values`,
+`scalar_captures`, `aggregate_calls`, `aggregate_indirect`, `tn_dispatch`,
+`aggregate_fresh_initialization`, `variant_case_validation`,
+`variant_initialization`, and `variants`. These include both runtime modes,
+raw/optimized NIR, LF/CRLF parsing, invalid tags, overlapping copies, complete
+payload initialization, callbacks and static-frame reentry. MIR snapshots did
+not change. Formatting, patch whitespace and plan links were checked.
+
+| Cartridge MIR6502 program | Before XEX | After XEX | Difference |
+| --- | ---: | ---: | ---: |
+| Maintained TN | 9,968 | 9,968 | byte-identical |
+| Maintained TNDBG | 13,073 | 13,073 | byte-identical |
+| Existing menu-variant TN experiment | 10,164 | 10,128 | -36 bytes |
+
+The variant's `FindItem` code shrank from 148 to 118 bytes, and six emitted
+capture-storage bytes disappeared. Its deferred storage remains 2,794 bytes;
+the final buffer moved from `$5E92` to `$5E6E`. Final emitted size is 10,116
+bytes, total reserved size 12,910 bytes. The final cost gates reject additional
+zero-page demand. The remaining variant overhead versus maintained TN is 160
+bytes. TN source and unrelated workspace changes were preserved.
