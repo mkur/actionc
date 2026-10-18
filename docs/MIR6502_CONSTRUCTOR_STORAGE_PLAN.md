@@ -96,3 +96,13 @@ Existing input facts: [NIR aggregate boundaries](NIR_TARGET_SHAPE.md#aggregate-c
   test assertions using the MIR API were updated mechanically. Validation:
   1,107 MIR6502 unit tests passed (two ignored), plus MIR fixture and call-ABI
   integration targets. Printed MIR snapshots are unchanged.
+- Slice 2 implementation refinement: tiny-fill selection leaves the empty arm's
+  stores in an unconditional predecessor. The proof therefore uses the existing
+  forwarding bounds (four blocks / 64 operations) across unique unconditional
+  edges, without CFG merging or admitting joins, loops or block arguments.
+- Slice 2 complete: independent store-elision flag, closed caller/result-buffer
+  proof, incoming-pointer protection using exact bounded callee writes, and
+  final physical-alias and emission checks. Allocations remain intact. Four
+  focused proof/cost tests and 14 VM tests passed across constructor storage,
+  copy forwarding, direct aggregate calls and indirect aggregate calls. New VM
+  cases cover raw/optimized NIR, both runtimes and LF/CRLF input.

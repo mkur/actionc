@@ -59,13 +59,14 @@ pub(in crate::mir6502) fn materialize_costed(
     } else {
         Vec::new()
     };
+    let constructors = super::constructor_storage::discover(&selected, config);
     let candidates = select(&mut selected);
     if candidates.is_empty() {
         return fallback(original, report);
     }
     crate::mir6502::verify_program(&selected, MirPhase::PreMaterialization)?;
     let baseline = fallback(original.clone(), false)?;
-    let Ok(proposed) = fallback(selected.clone(), false) else {
+    let Ok(mut proposed) = fallback(selected.clone(), false) else {
         return fallback(original, report);
     };
     let accepted = match (
@@ -78,6 +79,13 @@ pub(in crate::mir6502) fn materialize_costed(
                 && occupied_zero_page(&proposed).is_subset(&occupied_zero_page(&baseline))
         }
         _ => false,
+    };
+    let constructor_stats = if accepted {
+        super::constructor_storage::improve(
+            &mut selected, &mut proposed, constructors, config, origin, runtime,
+        )
+    } else {
+        super::MirPeepholeStats::default()
     };
     if report {
         let mut stats = super::MirPeepholeStats::default();
@@ -98,6 +106,7 @@ pub(in crate::mir6502) fn materialize_costed(
             );
         }
         super::maybe_report_peepholes(&original, &stats, config);
+        super::maybe_report_peepholes(&original, &constructor_stats, config);
     }
     if report && super::stats::reporting_enabled(config) {
         fallback(if accepted { selected } else { original }, true)
@@ -206,7 +215,7 @@ fn select(program: &mut MirProgram) -> BTreeMap<RoutineId, usize> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn captured_bytes(
+pub(super) fn captured_bytes(
     routine: &MirRoutine,
     cfg: &MirCfg,
     definitions: &MirTempUseDefIndex,
@@ -305,7 +314,7 @@ fn captured_bytes(
     }
 }
 
-fn captured_lane(
+pub(super) fn captured_lane(
     value: &MirValue,
     lane: u8,
     width: u16,

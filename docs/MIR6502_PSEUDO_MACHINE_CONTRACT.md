@@ -1706,6 +1706,34 @@ occupied zero-page bytes. Otherwise the original copies are materialized.
 The report records `aggregate-copy-values-forwarded` or
 `aggregate-copy-values-declined-final-cost`.
 
+### Unobserved constructor stores
+
+`enable_constructor_store_elision` enables an independent costed refinement
+after captured-copy forwarding. A complete one-to-eight-byte aggregate capture
+must have only bounded constant/virtual-value stores and one terminal, nonvolatile
+whole-value transfer. The region may follow at most four unconditional unique
+predecessors and 64 operations, accommodating selected tiny fills. Joins, loops,
+block arguments, observable reads, calls and faults in the region reject it.
+The original evaluations and destination writes retain their order and position.
+
+The transfer must use an unchanged first word parameter whose complete direct
+caller census supplies distinct, complete ordinary aggregate buffers. Escaped
+or observable routine entries, unknown callers, frame-address/data exposure and
+local alias views reject the proof. A hidden result pointer is not itself a
+no-alias fact. Calls elsewhere in the producer require exact existing write
+summaries and bounded checks of their writes in each owning routine; unknown,
+recursive, pointer-writing or machine-code callees remain barriers. Every
+removed store and admitted named read/write has checked in-object byte bounds.
+
+Store elision retains allocated homes. Captures, incoming pointer homes and
+caller result buffers undergo final absolute/global/local-alias exclusion in
+both layouts. The fully emitted proposal must beat forwarding alone, without
+affected-routine code/home growth or additional occupied zero page. Failure
+restores the forwarding-only program. Reports distinguish observation and
+destination proof rejection, removed stored bytes, retained home bytes, and
+final cost/alias rejection. Existing overlap-safe forwarding remains available
+when this stronger proof fails.
+
 ## Runtime Helpers
 
 Known runtime helpers should be represented explicitly before emission.
