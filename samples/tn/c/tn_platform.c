@@ -54,8 +54,15 @@ void CalcAdr(void) {
 }
 void Position(u8 x,u8 y) { kx=x; ky=y; }
 void Relpos(u8 x,u8 y) {
-    u16 sum=(u16)x+zx;
-    kx=(u8)sum; ky=(u8)((u16)y+zy+(sum>>8));
+    __asm {
+        lda x
+        clc
+        adc 0x5A
+        sta 0xFF
+        lda y
+        adc 0x5B
+        sta 0xFE
+    }
 }
 u8 Internal(u8 ch) {
     return __asm {

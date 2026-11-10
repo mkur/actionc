@@ -576,3 +576,193 @@ fn c_and_action_string_kernels_match_independent_buffers_and_results() {
         }
     }
 }
+
+struct DirectoryC {
+    files: Vec<directory::File>,
+    row: usize,
+    opens: Vec<(u8, u16, Vec<u8>)>,
+    current_dir: u16,
+}
+impl actionc_vm::VmRunHooks for DirectoryC {
+    type Error = String;
+    fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {
+        if vm.cpu().registers().pc != 0xE456 {
+            return Ok(());
+        }
+        let index = u16::from(vm.cpu().registers().x);
+        let base = 0x340 + index;
+        let command = vm.bus().ram().read(base + 2);
+        let mut status = 1;
+        match command {
+            3 => {
+                assert_eq!(vm.bus().ram().read(base + 10), 6);
+                let p = vm.bus().ram().read_word(base + 4);
+                let mut name = vec![];
+                for i in 0..40 {
+                    let byte = vm.bus().ram().read(p + i);
+                    if byte == 155 {
+                        break;
+                    }
+                    name.push(byte);
+                }
+                assert_eq!(name, b"D:*.*");
+                self.opens.push((
+                    vm.bus().ram().read(0x70B),
+                    vm.bus().ram().read_word(self.current_dir),
+                    name,
+                ));
+                self.row = 0;
+            }
+            5 => {
+                assert_eq!(vm.bus().ram().read_word(base + 8), 19);
+                let p = vm.bus().ram().read_word(base + 4);
+                let data = if self.row < self.files.len() {
+                    Some(self.files[self.row].input())
+                } else if self.row == self.files.len() {
+                    let mut row = b"999 FREE SECTORS\x9B".to_vec();
+                    row.resize(19, 155);
+                    Some(row)
+                } else {
+                    None
+                };
+                if let Some(data) = data {
+                    vm.bus_mut().ram_mut().map(p, &data).unwrap();
+                } else {
+                    status = 136;
+                }
+                self.row += 1;
+            }
+            12 => {}
+            _ => return Err(format!("unexpected directory CIO command {command}")),
+        }
+        vm.bus_mut().ram_mut().write(base + 3, status);
+        vm.bus_mut()
+            .ram_mut()
+            .map(0x0680, &[0xA9, 0, 0xA0, status, 0x60])
+            .unwrap();
+        vm.set_pc(0x0680);
+        Ok(())
+    }
+}
+fn panel_run(vm: CompilerVm, hooks: &mut DirectoryC, ready: u16) -> CompilerVm {
+    let run = VmRunner::new(vm)
+        .run_with_hooks(
+            RunRequest {
+                max_steps: 2_000_000,
+                stop_after_pc: Some(ready),
+                history_len: 12,
+            },
+            hooks,
+        )
+        .unwrap();
+    assert_eq!(
+        run.stop_reason(),
+        StopReason::PcReached { pc: ready },
+        "{:?}",
+        run.report
+    );
+    run.into_vm()
+}
+fn panel_command(
+    mut vm: CompilerVm,
+    hooks: &mut DirectoryC,
+    ready: u16,
+    command: u8,
+    arg: u8,
+) -> CompilerVm {
+    vm.bus_mut().ram_mut().write(0x600, command);
+    vm.bus_mut().ram_mut().write(0x601, arg);
+    vm.step_cpu().unwrap();
+    panel_run(vm, hooks, ready)
+}
+#[test]
+fn c_complete_panel_and_directory_flow_preserves_rows_tags_and_transitions() {
+    for profile in ["Os", "O3"] {
+        for count in [0usize, 1, 63, 64] {
+            for (binding, revision) in [(0x7B8u16, 0xA9u8), (0x7BB, 0)] {
+                let stem = format!("panels-{profile}");
+                let mut vm = c_image(&stem);
+                for (p, b) in [(0x700, b'M'), (0x76F, revision), (0x70A, 4), (0x70B, 2)] {
+                    vm.bus_mut().ram_mut().write(p, b);
+                }
+                vm.bus_mut().ram_mut().write_word(0x58, 0x7800);
+                let ready = symbol(&stem, "panel_ready");
+                let files = directory::files(count);
+                let mut sorted = files.clone();
+                sorted.sort_by_key(|f| (!f.directory, f.name.clone(), f.extension.clone()));
+                let mut hooks = DirectoryC {
+                    files,
+                    row: 0,
+                    opens: vec![],
+                    current_dir: binding,
+                };
+                vm = panel_run(vm, &mut hooks, ready);
+                assert_eq!(
+                    hooks.opens.iter().map(|x| (x.0, x.1)).collect::<Vec<_>>(),
+                    [(2, 0x169), (4, 0x169)]
+                );
+                let active = vm.bus().ram().read_word(0x602);
+                assert_eq!(vm.bus().ram().read(active), count as u8);
+                assert_eq!(vm.bus().ram().read(active + 8), 0);
+                assert_eq!(vm.bus().ram().read(0x60C), 2);
+                assert_eq!(vm.bus().ram().read(0x60D), 0);
+                assert_eq!(vm.bus().ram().read_word(0x60A), 0x169);
+                let table = vm.bus().ram().read_word(0x604);
+                for (i, file) in sorted.iter().enumerate() {
+                    let row = vm.bus().ram().read_word(table + i as u16 * 2);
+                    assert_eq!(
+                        machine::bytes(&vm, row, 18),
+                        file.row(false),
+                        "{profile}/{count}/{i}"
+                    );
+                    if i < 16 {
+                        assert_eq!(
+                            machine::bytes(&vm, 0x7800 + 4 * 40 + 1 + i as u16 * 40, 18),
+                            file.row(false)
+                        );
+                    }
+                }
+                let path = vm.bus().ram().read_word(0x606);
+                let names = vm.bus().ram().read_word(0x608);
+                assert_eq!(vm.bus().ram().read_word(names), path + 10);
+                for i in 1..5 {
+                    assert_eq!(
+                        vm.bus().ram().read_word(names + i * 2),
+                        path + 11 + (i - 1) * 9
+                    );
+                }
+                let cpu = vm.cpu().registers().sp;
+                let software = vm.bus().ram().read_word(0xA1);
+                let opens = hooks.opens.len();
+                vm = panel_command(vm, &mut hooks, ready, 7, 0);
+                assert_eq!(hooks.opens.len(), opens, "persistent InitPanels restarted");
+                if count > 0 {
+                    vm = panel_command(vm, &mut hooks, ready, 3, 0);
+                    assert_eq!(vm.bus().ram().read(active + 8), 1);
+                    assert_eq!(vm.bus().ram().read(vm.bus().ram().read_word(table)), 0x7F);
+                }
+                vm = panel_command(vm, &mut hooks, ready, 1, 0);
+                assert_eq!(vm.bus().ram().read(0x60C), 4);
+                assert_eq!(vm.bus().ram().read(0x60D), 1);
+                assert_eq!(vm.bus().ram().read(active + 8), 0);
+                vm = panel_command(vm, &mut hooks, ready, 1, 0);
+                assert_eq!(vm.bus().ram().read(0x60C), 2);
+                assert_eq!(vm.bus().ram().read(active + 8), u8::from(count > 0));
+                vm = panel_command(vm, &mut hooks, ready, 2, 0);
+                assert_eq!(vm.bus().ram().read(active + 8), u8::from(count > 0));
+                vm = panel_command(vm, &mut hooks, ready, 4, 0);
+                assert_eq!(
+                    vm.bus().ram().read(active + 8),
+                    if count == 1 { 0 } else { count as u8 }
+                );
+                vm = panel_command(vm, &mut hooks, ready, 4, 0);
+                assert_eq!(vm.bus().ram().read(active + 8), u8::from(count == 1));
+                vm = panel_command(vm, &mut hooks, ready, 5, 0);
+                assert_eq!(hooks.opens.len(), opens + 1);
+                assert_eq!(vm.cpu().registers().sp, cpu);
+                assert_eq!(vm.bus().ram().read_word(0xA1), software);
+                assert_eq!(vm.bus().ram().read_word(0x60E), 0x2000);
+            }
+        }
+    }
+}

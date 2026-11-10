@@ -158,27 +158,33 @@
     "line": 247,
     "routine": "Block",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_graphics.c",
+    "qualification": [
+      "slice3: real rendering in 16 directory/panel scenarios"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 303,
     "routine": "GetImage",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_graphics.c",
+    "qualification": [
+      "slice3: real rendering in 16 directory/panel scenarios"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 342,
     "routine": "PutImage",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_graphics.c",
+    "qualification": [
+      "slice3: real rendering in 16 directory/panel scenarios"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
@@ -450,9 +456,11 @@
     "line": 876,
     "routine": "Init",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice3: real rendering in 16 directory/panel scenarios"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
@@ -565,45 +573,55 @@
     "line": 196,
     "routine": "Path",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 209,
     "routine": "Draw",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 242,
     "routine": "Inv",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 253,
     "routine": "UpdDis",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 259,
     "routine": "DrawWinFrame",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
@@ -621,90 +639,110 @@
     "line": 318,
     "routine": "TaggedFiles",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 334,
     "routine": "IsTagged",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 342,
     "routine": "IsProtected",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 355,
     "routine": "IsDirectory",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 368,
     "routine": "Tag",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 391,
     "routine": "TagAll",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 408,
     "routine": "FindNext",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 415,
     "routine": "SetWin",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 527,
     "routine": "SwapWin",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 534,
     "routine": "Dir",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
@@ -900,9 +938,11 @@
     "line": 1241,
     "routine": "InitPanels",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-panel",
+    "implementation": "samples/tn/c/tn_panels.c",
+    "qualification": [
+      "slice3: complete directory/panel flow with mocked CIO and real graphics"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
@@ -927,7 +967,7 @@
     "line": 91,
     "routine": "Strcpy",
     "kind": "high-level",
-    "status": "qualified-kernel",
+    "status": "shared implementation; debug qualification pending",
     "implementation": "samples/tn/c/tn_core.c",
     "qualification": [
       "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
@@ -938,7 +978,7 @@
     "line": 97,
     "routine": "Strcat",
     "kind": "high-level",
-    "status": "qualified-kernel",
+    "status": "shared implementation; debug qualification pending",
     "implementation": "samples/tn/c/tn_core.c",
     "qualification": [
       "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
@@ -949,7 +989,7 @@
     "line": 104,
     "routine": "Instr",
     "kind": "high-level",
-    "status": "qualified-kernel",
+    "status": "shared implementation; debug qualification pending",
     "implementation": "samples/tn/c/tn_core.c",
     "qualification": [
       "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
@@ -960,7 +1000,7 @@
     "line": 112,
     "routine": "PrintFname",
     "kind": "high-level",
-    "status": "qualified-kernel",
+    "status": "shared implementation; debug qualification pending",
     "implementation": "samples/tn/c/tn_core.c",
     "qualification": [
       "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
@@ -971,7 +1011,7 @@
     "line": 122,
     "routine": "GetAnyKey",
     "kind": "machine/data",
-    "status": "implemented",
+    "status": "shared implementation; debug qualification pending",
     "implementation": "samples/tn/c/tn_platform.c",
     "qualification": []
   },
@@ -980,7 +1020,7 @@
     "line": 133,
     "routine": "Store",
     "kind": "machine/data",
-    "status": "implemented",
+    "status": "shared implementation; debug qualification pending",
     "implementation": "samples/tn/c/tn_platform.c",
     "qualification": [
       "slice1: platform probe with mocked OS vectors"
@@ -991,7 +1031,7 @@
     "line": 147,
     "routine": "Value",
     "kind": "high-level",
-    "status": "implemented",
+    "status": "shared implementation; debug qualification pending",
     "implementation": "samples/tn/c/tn_platform.c",
     "qualification": [
       "slice1: platform probe with mocked OS vectors"
@@ -1011,7 +1051,7 @@
     "line": 166,
     "routine": "Fnamecmp",
     "kind": "high-level",
-    "status": "qualified-kernel",
+    "status": "shared implementation; debug qualification pending",
     "implementation": "samples/tn/c/tn_core.c",
     "qualification": [
       "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
@@ -1022,7 +1062,7 @@
     "line": 185,
     "routine": "Sort",
     "kind": "high-level",
-    "status": "qualified-kernel",
+    "status": "shared implementation; debug qualification pending",
     "implementation": "samples/tn/c/tn_core.c",
     "qualification": [
       "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
@@ -1078,7 +1118,7 @@
     "line": 330,
     "routine": "Convert",
     "kind": "high-level",
-    "status": "qualified-kernel",
+    "status": "shared implementation; debug qualification pending",
     "implementation": "samples/tn/c/tn_core.c",
     "qualification": [
       "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"

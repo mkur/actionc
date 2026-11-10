@@ -1,7 +1,7 @@
 # TN C reference port
 
 Implementation follows the [translation plan](../../../docs/TN_C_OSCAR64_TRANSLATION_PLAN.md).
-Slices 0–2 are qualified. Full panel/UI integration follows.
+Slices 0–3 are qualified. Remaining UI/command integration follows.
 
 The target is Atari native 6502 with Oscar64 pinned by
 [the build driver](../../../tools/compare6502/tn/build.py). Bootstrap tools and
@@ -13,6 +13,8 @@ python3 tools/compare6502/tn/build.py freeze
 python3 tools/compare6502/tn/build.py probe
 python3 tools/compare6502/tn/build.py platform
 python3 tools/compare6502/tn/build.py kernels
+python3 tools/compare6502/tn/literals.py --check
+python3 tools/compare6502/tn/build.py panels
 cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml --features tn-c-reference --test tn_c_reference
 ```
 

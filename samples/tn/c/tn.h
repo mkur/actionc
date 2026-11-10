@@ -55,5 +55,26 @@ Bytes FindItem(Bytes menu,u8 ch);
 void DrawMenu(Bytes menu);
 Bytes MoveMenuBar(Bytes menu,u8 choice);
 u8 PopUp(Bytes menu,u8 choice,u8 spacing);
+#ifdef TN_WITH_PANELS
+TN_API void Path(void);
+TN_API void Draw(u8 count);
+TN_API void Inv(u8 count);
+TN_API void UpdDis(void);
+TN_API void DrawWinFrame(void);
+TN_API u8 TaggedFiles(void);
+TN_API u8 IsTagged(u8 i);
+TN_API u8 IsProtected(u8 i);
+TN_API u8 IsDirectory(u8 i);
+TN_API void Tag(u8 i);
+TN_API void TagAll(void);
+TN_API u8 FindNext(u8 start);
+TN_API void SetWin(u8 panel,u8 drive);
+TN_API void SwapWin(void);
+TN_API void Dir(void);
+TN_API void InitPanels(void);
+#pragma compile("tn_graphics.c")
+#pragma compile("tn_panels.c")
+#pragma compile("tn_lib.c")
+#endif
 #pragma compile("tn_core.c")
 #endif

@@ -1,7 +1,7 @@
 # TN / Oscar64 C reference qualification
 
 The [implementation plan](../../../docs/TN_C_OSCAR64_TRANSLATION_PLAN.md) defines
-all eight slices. Slices 0–2 are complete. The full port is not yet implemented.
+all eight slices. Slices 0–3 are complete. The full port is not yet implemented.
 
 [baseline.json](baseline.json) freezes entry/include hashes, Action!/Oscar64
 compiler revisions and binary hashes, ROM/MyDOS inputs and four Action! images.
@@ -51,3 +51,18 @@ include their nested calls in timing, while caller argument setup is excluded.
 They expose ABI/placement and semantic differences, not a completed full-TN
 performance result. Regenerate the report with `score_kernels.py` and a freshly
 qualified `TN_C_METRICS=1` test log.
+
+Slice 3 executes complete directory loading, sorting, conversion, rendering,
+tagging and panel transitions. Sixteen scenarios cover both profiles, both
+MyDOS directory bindings and 0/1/63/64-file inputs. Actual graphics routines
+render the first viewport's rows; only the OS CIO vector is mocked. Repeated
+initialization, same-panel saves, other-panel switches, persistent tag counts,
+tag-all direction, refresh, directory/path extents, drive restoration and both
+stacks are checked. Five focused tests pass. Actual CRLF application copies
+compile byte-identically in both profiles.
+
+Relpos retains its inherited ADC carry chain directly in assembly. This also
+avoids a native O3 carry-fold assertion observed when representing that inherited
+machine routine as C arithmetic. Frame storage includes the following spaces
+byte read by Init. Counted literals are generated as exact byte initializers;
+`literals.py --check` verifies checked-in output and LF/CRLF input paths.

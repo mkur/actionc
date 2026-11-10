@@ -1,6 +1,6 @@
 # TN C translation and Oscar64 comparison plan
 
-Status: implementation in progress, prepared 2026-11-10. Slices 0–2 are qualified;
+Status: implementation in progress, prepared 2026-11-10. Slices 0–3 are qualified;
 application translation follows. Translate the maintained TN application into C, produce a
 working Atari program with Oscar64, and use verified output to guide actionc
 optimization. Implement in vertical slices and commit each qualified slice.
@@ -352,3 +352,9 @@ frozen standalone Action! image. The initial [kernel scorecard](../surveys/tn/c-
 separates diagnostic callable-control bytes/cycles from production and whole-TN
 claims. Both Oscar64 profiles pass and actual CRLF sources compile identically.
 The full application and real OS integration remain required.
+
+Slice 3 integrates complete panels/directories with real inherited graphics
+and mocked CIO. Sixteen scenarios cover both native profiles, both MyDOS
+bindings, all four directory sizes and repeated state transitions. Source
+frame/space adjacency and relative-position carry remain explicit. The counted
+literal generator has a check mode and equivalent LF/CRLF input paths.

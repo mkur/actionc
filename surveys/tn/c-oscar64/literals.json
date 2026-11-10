@@ -1,0 +1,1130 @@
+[
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 596,
+    "text": "\\{$11}\\{$12}\\{$05}||\\{$1A}\\{$12}\\{$03}",
+    "symbol": "text_bytes"
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 849,
+    "text": "+*\\{$1E}\\{$1F}",
+    "symbol": "text_bytes_49a12d9f"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 17,
+    "text": "D:LIB.ACT",
+    "symbol": "text_d_lib_act"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 264,
+    "text": "\\{$16}   D",
+    "symbol": "text_d"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 266,
+    "text": ">            \\{$02}",
+    "symbol": "text_bytes_3b5b5b6c"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 290,
+    "text": "\\{$11}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$17}\\{$12}\\{$12}\\{$12}\\{$17}\\{$12}\\{$12}\\{$12}\\{$05}",
+    "symbol": "text_bytes_d66c6879"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 292,
+    "text": "|          |   |   |",
+    "symbol": "text_bytes_2811c21d"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 294,
+    "text": "\\{$01}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$18}\\{$12}\\{$12}\\{$12}\\{$18}\\{$12}\\{$12}\\{$12}\\{$04}",
+    "symbol": "text_bytes_5ffc6671"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 295,
+    "text": "|                  |",
+    "symbol": "text_bytes_fbfd3b63"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 296,
+    "text": "\\{$1A}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$03}",
+    "symbol": "text_bytes_73fce786"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 458,
+    "text": "D:*.*",
+    "symbol": "text_d_bee2597f"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 555,
+    "text": "R",
+    "symbol": "text_r"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 556,
+    "text": "1",
+    "symbol": "text_1"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 556,
+    "text": "2",
+    "symbol": "text_2"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 557,
+    "text": "3",
+    "symbol": "text_3"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 557,
+    "text": "4",
+    "symbol": "text_4"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 558,
+    "text": "5",
+    "symbol": "text_5"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 558,
+    "text": "6",
+    "symbol": "text_6"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 559,
+    "text": "7",
+    "symbol": "text_7"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 560,
+    "text": "8",
+    "symbol": "text_8"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 560,
+    "text": "9",
+    "symbol": "text_9"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 561,
+    "text": "Frm",
+    "symbol": "text_frm"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 564,
+    "text": "Delete",
+    "symbol": "text_delete"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 565,
+    "text": "Cancel",
+    "symbol": "text_cancel"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 568,
+    "text": "Single",
+    "symbol": "text_single"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 569,
+    "text": "Medium",
+    "symbol": "text_medium"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 570,
+    "text": "Double",
+    "symbol": "text_double"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 571,
+    "text": "360K",
+    "symbol": "text_360k"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 572,
+    "text": "720K",
+    "symbol": "text_720k"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 576,
+    "text": "Yes",
+    "symbol": "text_yes"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 577,
+    "text": "Abort",
+    "symbol": "text_abort"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 580,
+    "text": "Lock",
+    "symbol": "text_lock"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 581,
+    "text": "Unlock",
+    "symbol": "text_unlock"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 584,
+    "text": "Yes",
+    "symbol": "text_yes"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 585,
+    "text": "Cancel",
+    "symbol": "text_cancel"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 608,
+    "text": "D:*.*",
+    "symbol": "text_d_bee2597f"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 636,
+    "text": " Delete ",
+    "symbol": "text_delete_8a1c1e67"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 638,
+    "text": " file(s)",
+    "symbol": "text_file_s"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 641,
+    "text": "\\{INV:   Delete  file   }",
+    "symbol": "text_delete_file"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 659,
+    "text": "D1:",
+    "symbol": "text_d1"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 664,
+    "text": "Select density",
+    "symbol": "text_select_density"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 684,
+    "text": " Format ",
+    "symbol": "text_format"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 684,
+    "text": " ?",
+    "symbol": "text_bytes_81d6591c"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 705,
+    "text": "Choose drive",
+    "symbol": "text_choose_drive"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 707,
+    "text": "to  format !",
+    "symbol": "text_to_format"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 819,
+    "text": "\\{INV:  Subdirectory  }",
+    "symbol": "text_subdirectory"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 824,
+    "text": "D:",
+    "symbol": "text_d_4eac8087"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 835,
+    "text": "\\{INV:     Rename     }",
+    "symbol": "text_rename"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 840,
+    "text": ",",
+    "symbol": "text_bytes_d03502c4"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 842,
+    "text": "\\{INV:       to       }",
+    "symbol": "text_to"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 844,
+    "text": "            ",
+    "symbol": "text_bytes_05a8475f"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 883,
+    "text": "Source disk !",
+    "symbol": "text_source_disk"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 925,
+    "text": "Destination disk !",
+    "symbol": "text_destination_disk"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 989,
+    "text": " Quit    TN ?",
+    "symbol": "text_quit_tn"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 1072,
+    "text": "-=\\{$1C}\\{$1D}",
+    "symbol": "text_bytes_a16a24cd"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 1074,
+    "text": "VADRSCMFQ",
+    "symbol": "text_vadrscmfq"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 1291,
+    "text": "I/O error ",
+    "symbol": "text_i_o_error"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 1327,
+    "text": "TN requires MyDOS 4.50 or 4.53",
+    "symbol": "text_tn_requires_mydos_4_50_or_4_53"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 1339,
+    "text": "\\{INV:Toms Navigator 1.25 (c) 2026 M.Kurcewicz}",
+    "symbol": "text_toms_navigator_1_25_c_2026_m_kurcewicz"
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 1341,
+    "text": "\\{INV:New Copy Del Ren Atr View Mkdir Fmt Quit}",
+    "symbol": "text_new_copy_del_ren_atr_view_mkdir_fmt_quit"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 17,
+    "text": "D:LIB.ACT",
+    "symbol": "text_d_lib_act"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 292,
+    "text": "\\{$16}   D",
+    "symbol": "text_d"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 294,
+    "text": ">            \\{$02}",
+    "symbol": "text_bytes_3b5b5b6c"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 318,
+    "text": "\\{$11}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$17}\\{$12}\\{$12}\\{$12}\\{$17}\\{$12}\\{$12}\\{$12}\\{$05}",
+    "symbol": "text_bytes_d66c6879"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 320,
+    "text": "|          |   |   |",
+    "symbol": "text_bytes_2811c21d"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 322,
+    "text": "\\{$01}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$18}\\{$12}\\{$12}\\{$12}\\{$18}\\{$12}\\{$12}\\{$12}\\{$04}",
+    "symbol": "text_bytes_5ffc6671"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 323,
+    "text": "|                  |",
+    "symbol": "text_bytes_fbfd3b63"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 324,
+    "text": "\\{$1A}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$12}\\{$03}",
+    "symbol": "text_bytes_73fce786"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 489,
+    "text": "D:*.*",
+    "symbol": "text_d_bee2597f"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 610,
+    "text": "=$",
+    "symbol": "text_bytes_d29ffb78"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 611,
+    "text": " ",
+    "symbol": "text_bytes_36a9e7f1"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 618,
+    "text": "=$",
+    "symbol": "text_bytes_d29ffb78"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 653,
+    "text": "entry=",
+    "symbol": "text_entry"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 672,
+    "text": "\\{INV: TN debug }",
+    "symbol": "text_tn_debug"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 681,
+    "text": "win",
+    "symbol": "text_win"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 682,
+    "text": " ",
+    "symbol": "text_bytes_36a9e7f1"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 682,
+    "text": "drv",
+    "symbol": "text_drv"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 683,
+    "text": " ",
+    "symbol": "text_bytes_36a9e7f1"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 683,
+    "text": "nest",
+    "symbol": "text_nest"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 686,
+    "text": "files",
+    "symbol": "text_files"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 687,
+    "text": " ",
+    "symbol": "text_bytes_36a9e7f1"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 687,
+    "text": "c",
+    "symbol": "text_c"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 688,
+    "text": " ",
+    "symbol": "text_bytes_36a9e7f1"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 688,
+    "text": "cnt",
+    "symbol": "text_cnt"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 691,
+    "text": "valid",
+    "symbol": "text_valid"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 692,
+    "text": " ",
+    "symbol": "text_bytes_36a9e7f1"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 692,
+    "text": "io",
+    "symbol": "text_io"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 693,
+    "text": " ",
+    "symbol": "text_bytes_36a9e7f1"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 693,
+    "text": "dos",
+    "symbol": "text_dos"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 696,
+    "text": "currentDir",
+    "symbol": "text_currentdir"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 697,
+    "text": " ^=",
+    "symbol": "text_bytes_f35dbad2"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 700,
+    "text": "dsec=$",
+    "symbol": "text_dsec"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 701,
+    "text": " p=$",
+    "symbol": "text_p"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 702,
+    "text": " n=$",
+    "symbol": "text_n"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 705,
+    "text": "dn=$",
+    "symbol": "text_dn"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 706,
+    "text": " p=$",
+    "symbol": "text_p"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 707,
+    "text": " n=$",
+    "symbol": "text_n"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 712,
+    "text": "dirname",
+    "symbol": "text_dirname"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 713,
+    "text": " len=$",
+    "symbol": "text_len"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 714,
+    "text": " sptr=$",
+    "symbol": "text_sptr"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 717,
+    "text": "dirname='",
+    "symbol": "text_dirname_6c7e616f"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 720,
+    "text": "hits p/f/d/s=",
+    "symbol": "text_hits_p_f_d_s"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 727,
+    "text": "path n=",
+    "symbol": "text_path_n"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 728,
+    "text": " ptr=$",
+    "symbol": "text_ptr"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 729,
+    "text": " len=$",
+    "symbol": "text_len"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 730,
+    "text": " cell=",
+    "symbol": "text_cell"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 733,
+    "text": "fram n=",
+    "symbol": "text_fram_n"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 734,
+    "text": " ptr=$",
+    "symbol": "text_ptr"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 735,
+    "text": " len=$",
+    "symbol": "text_len"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 736,
+    "text": " cell=",
+    "symbol": "text_cell"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 742,
+    "text": "cur ",
+    "symbol": "text_cur"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 742,
+    "text": "c",
+    "symbol": "text_c"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 743,
+    "text": " v=$",
+    "symbol": "text_v"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 749,
+    "text": "fname='",
+    "symbol": "text_fname"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 750,
+    "text": " len=",
+    "symbol": "text_len_3e908fc0"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 752,
+    "text": " dot=",
+    "symbol": "text_dot"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 755,
+    "text": "copy j=",
+    "symbol": "text_copy_j"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 756,
+    "text": " ep=$",
+    "symbol": "text_ep"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 758,
+    "text": " v=$",
+    "symbol": "text_v"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 760,
+    "text": " v=-",
+    "symbol": "text_v_ebb28ede"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 764,
+    "text": "saved=",
+    "symbol": "text_saved"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 768,
+    "text": "centry=",
+    "symbol": "text_centry"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 772,
+    "text": "-",
+    "symbol": "text_bytes_3973e022"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 776,
+    "text": "No files in current panel",
+    "symbol": "text_no_files_in_current_panel"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 780,
+    "text": "copy st=",
+    "symbol": "text_copy_st"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 781,
+    "text": " io=",
+    "symbol": "text_io_1c810bc7"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 782,
+    "text": " f=",
+    "symbol": "text_f"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 783,
+    "text": " j=",
+    "symbol": "text_j"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 784,
+    "text": " k=",
+    "symbol": "text_k"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 787,
+    "text": "buf=$",
+    "symbol": "text_buf"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 788,
+    "text": " top=$",
+    "symbol": "text_top"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 789,
+    "text": " mem=$",
+    "symbol": "text_mem"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 790,
+    "text": " len=$",
+    "symbol": "text_len"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 793,
+    "text": "tr1=$",
+    "symbol": "text_tr1"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 794,
+    "text": " tr2=$",
+    "symbol": "text_tr2"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 795,
+    "text": " flag=",
+    "symbol": "text_flag"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 796,
+    "text": " open=",
+    "symbol": "text_open"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 799,
+    "text": "cfname='",
+    "symbol": "text_cfname"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 800,
+    "text": " clen=",
+    "symbol": "text_clen"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 815,
+    "text": "R",
+    "symbol": "text_r"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 816,
+    "text": "1",
+    "symbol": "text_1"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 816,
+    "text": "2",
+    "symbol": "text_2"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 817,
+    "text": "3",
+    "symbol": "text_3"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 817,
+    "text": "4",
+    "symbol": "text_4"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 818,
+    "text": "5",
+    "symbol": "text_5"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 818,
+    "text": "6",
+    "symbol": "text_6"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 819,
+    "text": "7",
+    "symbol": "text_7"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 820,
+    "text": "8",
+    "symbol": "text_8"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 820,
+    "text": "9",
+    "symbol": "text_9"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 821,
+    "text": "Frm",
+    "symbol": "text_frm"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 824,
+    "text": "Delete",
+    "symbol": "text_delete"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 825,
+    "text": "Cancel",
+    "symbol": "text_cancel"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 828,
+    "text": "Single",
+    "symbol": "text_single"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 829,
+    "text": "Medium",
+    "symbol": "text_medium"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 830,
+    "text": "Double",
+    "symbol": "text_double"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 831,
+    "text": "360K",
+    "symbol": "text_360k"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 832,
+    "text": "720K",
+    "symbol": "text_720k"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 836,
+    "text": "Yes",
+    "symbol": "text_yes"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 837,
+    "text": "Abort",
+    "symbol": "text_abort"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 840,
+    "text": "Lock",
+    "symbol": "text_lock"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 841,
+    "text": "Unlock",
+    "symbol": "text_unlock"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 844,
+    "text": "Yes",
+    "symbol": "text_yes"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 845,
+    "text": "Cancel",
+    "symbol": "text_cancel"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 868,
+    "text": "D:*.*",
+    "symbol": "text_d_bee2597f"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 896,
+    "text": " Delete ",
+    "symbol": "text_delete_8a1c1e67"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 898,
+    "text": " file(s)",
+    "symbol": "text_file_s"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 901,
+    "text": "\\{INV:   Delete  file   }",
+    "symbol": "text_delete_file"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 919,
+    "text": "D1:",
+    "symbol": "text_d1"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 924,
+    "text": "Select density",
+    "symbol": "text_select_density"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 944,
+    "text": " Format ",
+    "symbol": "text_format"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 944,
+    "text": " ?",
+    "symbol": "text_bytes_81d6591c"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 965,
+    "text": "Choose drive",
+    "symbol": "text_choose_drive"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 967,
+    "text": "to  format !",
+    "symbol": "text_to_format"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1079,
+    "text": "\\{INV:  Subdirectory  }",
+    "symbol": "text_subdirectory"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1084,
+    "text": "D:",
+    "symbol": "text_d_4eac8087"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1095,
+    "text": "\\{INV:     Rename     }",
+    "symbol": "text_rename"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1100,
+    "text": ",",
+    "symbol": "text_bytes_d03502c4"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1102,
+    "text": "\\{INV:       to       }",
+    "symbol": "text_to"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1104,
+    "text": "            ",
+    "symbol": "text_bytes_05a8475f"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1144,
+    "text": "Source disk !",
+    "symbol": "text_source_disk"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1191,
+    "text": "Destination disk !",
+    "symbol": "text_destination_disk"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1260,
+    "text": " Quit    TN ?",
+    "symbol": "text_quit_tn"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1345,
+    "text": "-=\\{$1C}\\{$1D}",
+    "symbol": "text_bytes_a16a24cd"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1347,
+    "text": "VADRSCMFGQ",
+    "symbol": "text_vadrscmfgq"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1566,
+    "text": "I/O error ",
+    "symbol": "text_i_o_error"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1602,
+    "text": "TN requires MyDOS 4.50 or 4.53",
+    "symbol": "text_tn_requires_mydos_4_50_or_4_53"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1614,
+    "text": "\\{INV:Toms Navigator 1.23 (c) 2010 M.Kurcewicz}",
+    "symbol": "text_toms_navigator_1_23_c_2010_m_kurcewicz"
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1616,
+    "text": "\\{INV:New Copy Del Ren Atr View Mkdir Dbg Quit}",
+    "symbol": "text_new_copy_del_ren_atr_view_mkdir_dbg_quit"
+  }
+]

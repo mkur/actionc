@@ -9,7 +9,6 @@ import re
 import subprocess
 import tarfile
 import tempfile
-import shutil
 
 ROOT = Path(__file__).resolve().parents[3]
 OUT = ROOT / 'build/tn-c-oscar64'
@@ -140,7 +139,7 @@ def inventory():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('task', choices=['bootstrap', 'probe', 'platform', 'kernels', 'freeze'])
+    parser.add_argument('task', choices=['bootstrap', 'probe', 'platform', 'kernels', 'panels', 'freeze'])
     parser.add_argument('--oscar', type=Path, default=Path(os.environ.get(
         'OSCAR64', OUT/'oscar64/bin/oscar64')))
     args = parser.parse_args()
@@ -148,6 +147,11 @@ def main():
     compiler = args.oscar.resolve()
     if args.task == 'bootstrap':
         bootstrap()
+        return
+    if args.task == 'panels':
+        rows=[compile_c(compiler,'tools/compare6502/tn/panel_probe.c',
+                        OUT/f'panels-{profile}',profile,['-dTN_DIAGNOSTIC=1','-dTN_WITH_PANELS=1']) for profile in ['Os','O3']]
+        (OUT/'panels.json').write_text(json.dumps(rows,indent=2)+'\n')
         return
     if args.task == 'kernels':
         rows=[compile_c(compiler,'tools/compare6502/tn/kernel_probe.c',
@@ -200,7 +204,9 @@ def main():
                         oscar_revision=OSCAR_REV, oscar_binary_sha256=digest(compiler),
                         inputs={p:digest(ROOT/p) for p in paths}, artifacts=rows)
         (ROOT/'surveys/tn/c-oscar64/baseline.json').write_text(json.dumps(manifest,indent=2)+'\n')
-        (ROOT/'surveys/tn/c-oscar64/inventory.json').write_text(json.dumps(inventory(),indent=2)+'\n')
+        inventory_path=ROOT/'surveys/tn/c-oscar64/inventory.json'
+        if not inventory_path.exists():
+            inventory_path.write_text(json.dumps(inventory(),indent=2)+'\n')
         print(json.dumps(rows,indent=2))
 
 
