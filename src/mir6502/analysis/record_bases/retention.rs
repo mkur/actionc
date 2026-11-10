@@ -8,11 +8,15 @@ use std::collections::BTreeSet;
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct CallWrites {
     routines: BTreeMap<RoutineId, Option<BTreeSet<u16>>>,
+    known: MirKnownCalleeSummaries,
 }
 impl CallWrites {
     pub fn analyze(program: &MirProgram, memory: &MirPhysicalMemory) -> Self {
         let known = MirKnownCalleeSummaries::analyze_for_rewriting(program);
-        let mut result = Self::default();
+        let mut result = Self {
+            known: known.clone(),
+            ..Self::default()
+        };
         for r in &program.routines {
             result.collect(r.id, program, memory, &known, &mut BTreeSet::new());
         }
@@ -171,8 +175,13 @@ fn observe_retained(
             for address in writes {
                 state.write(address, 1);
             }
-            // Call-result/register precision remains owned by machine_values.
-            state.registers = [None; 3];
+            for reg_value in [MirReg::A, MirReg::X, MirReg::Y] {
+                let preserved = extended
+                    && matches!(op,MirOp::Call{target,..} if calls.known.for_target(target).is_some_and(|s|s.preserves_register(reg_value)));
+                if !preserved {
+                    state.registers[reg(reg_value)] = None;
+                }
+            }
         } else {
             *state = State::default();
         }
@@ -379,11 +388,190 @@ impl<'routine> ResidentFacts<'routine> {
     }
 }
 
+impl ResidentFacts<'_> {
+    pub fn matches_pair(
+        &self,
+        r: &MirRoutine,
+        site: MirSite,
+        pair: u8,
+        base: &MirValue,
+        memory: &MirPhysicalMemory,
+        calls: &CallWrites,
+    ) -> bool {
+        let Some(state) = self.at(r, site, memory, calls) else {
+            return false;
+        };
+        let MirValue::Word { lo, hi } = base else {
+            return false;
+        };
+        for value in [lo.as_ref(), hi.as_ref()] {
+            match value {
+                MirValue::PointerCell(mem)
+                    if memory.ordinary(r.id, mem)
+                        && memory
+                            .address(r.id, mem)
+                            .is_some_and(|a| a != u16::from(pair) && a != u16::from(pair) + 1) => {}
+                MirValue::ConstU8(_)
+                | MirValue::ConstU16(0..=255)
+                | MirValue::StorageAddrByte { byte: 0..=1, .. } => {}
+                _ => return false,
+            }
+        }
+        let options = RecordBaseOptions {
+            writes: true,
+            parameter_origins: true,
+        };
+        let Some(low) = state.value(lo, r.id, memory, options) else {
+            return false;
+        };
+        let Some(high) = state.value(hi, r.id, memory, options) else {
+            return false;
+        };
+        [
+            state.pairs.get(&pair).map(|v| v.0),
+            state.pairs.get(&(pair + 1)).map(|v| v.0),
+        ] == [Some(low), Some(high)]
+    }
+}
+
 struct ResidentProblem<'a> {
     r: &'a MirRoutine,
     memory: &'a MirPhysicalMemory,
     calls: &'a CallWrites,
     entry: Option<MirBlockId>,
+}
+
+#[derive(Clone, Debug)]
+pub(in crate::mir6502) struct EnteredLoop {
+    pub preheader: MirBlockId,
+    pub body: MirBlockId,
+    pub guard: MirBlockId,
+    pub exit: MirBlockId,
+    pub counter: MirMem,
+    pub iterations: u16,
+}
+
+/// A small entered byte loop: zero initialization, one increment and `< N`.
+/// This proves the actual backedge/entry and rejects aliases of its counter.
+pub(in crate::mir6502) fn entered_loops(
+    r: &MirRoutine,
+    map: &MirPhysicalMemory,
+    calls: &CallWrites,
+) -> Vec<EnteredLoop> {
+    let Ok(cfg) = MirCfg::from_routine(r) else {
+        return vec![];
+    };
+    let dominance = crate::mir6502::analysis::dominance::MirDominance::from_cfg(&cfg);
+    let mut result = vec![];
+    for guard in &r.blocks {
+        let [
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(counter),
+                width: MirWidth::Byte,
+            },
+            MirOp::Compare {
+                op: MirCompareOp::Lt,
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right,
+                width: MirWidth::Byte,
+                signed: false,
+                ..
+            },
+        ] = guard.ops.as_slice()
+        else {
+            continue;
+        };
+        let bound = match right {
+            MirValue::ConstU8(n) => u16::from(*n),
+            MirValue::ConstU16(1..=255) => {
+                if let MirValue::ConstU16(n) = right {
+                    *n
+                } else {
+                    unreachable!()
+                }
+            }
+            _ => continue,
+        };
+        if bound == 0 || !map.ordinary(r.id, counter) {
+            continue;
+        }
+        let MirTerminator::Branch {
+            cond,
+            then_edge,
+            else_edge,
+        } = &guard.terminator
+        else {
+            continue;
+        };
+        if !matches!(
+            cond,
+            MirCond::FlagTest(MirFlagTest::CClear)
+                | MirCond::FusedCompare {
+                    flag_test: MirFlagTest::CClear,
+                    ..
+                }
+        ) || !then_edge.args.is_empty()
+            || !else_edge.args.is_empty()
+        {
+            continue;
+        }
+        let Some(body) = r.blocks.iter().find(|b| b.id == then_edge.target) else {
+            continue;
+        };
+        if !matches!(&body.terminator,MirTerminator::Jump(e) if e.target==guard.id && e.args.is_empty())
+            || cfg.predecessors(guard.id) != &BTreeSet::from([body.id])
+        {
+            continue;
+        }
+        let outside: Vec<_> = cfg
+            .predecessors(body.id)
+            .iter()
+            .copied()
+            .filter(|id| *id != guard.id)
+            .collect();
+        let [pre] = outside.as_slice() else {
+            continue;
+        };
+        let Some(preheader) = r.blocks.iter().find(|b| b.id == *pre) else {
+            continue;
+        };
+        if !dominance.block_dominates(*pre, body.id) {
+            continue;
+        }
+        if !matches!(&preheader.terminator,MirTerminator::Jump(e) if e.target==body.id && e.args.is_empty())
+            || cfg.predecessors(body.id).len() != 2
+        {
+            continue;
+        }
+        if !matches!(preheader.ops.as_slice(),[..,MirOp::LoadImm {dst:MirDef::Reg(MirReg::A),value:0,width:MirWidth::Byte},MirOp::Store {dst:MirAddr::Direct(m),src:MirValue::Def(MirDef::Reg(MirReg::A)),width:MirWidth::Byte}] if m==counter)
+        {
+            continue;
+        }
+        let Some(address) = map.address(r.id, counter) else {
+            continue;
+        };
+        let mut increments = 0;
+        let safe=body.ops.iter().all(|op| {
+            if matches!(op,MirOp::UpdateMem {op:MirUpdateOp::Inc,mem,width:MirWidth::Byte} if mem==counter) {increments+=1;return true;}
+            if matches!(op,MirOp::Call {..}) {return calls.for_call(op,r.id,map).is_some_and(|writes|!writes.contains(&address));}
+            if matches!(op,MirOp::MachineBlock {..} | MirOp::RuntimeHelper {..} | MirOp::Barrier {..}) {return false;}
+            let e=classify_op(op);
+            if e.memory.indirect_writes || e.memory.may_write_any || e.memory.opaque || e.homes.unknown_writes {return false;}
+            e.memory.direct_writes.iter().all(|w|map.address(r.id,&w.base).is_some_and(|a|address.wrapping_sub(a)>=w.bytes))
+        });
+        if safe && increments == 1 {
+            result.push(EnteredLoop {
+                preheader: *pre,
+                body: body.id,
+                guard: guard.id,
+                exit: else_edge.target,
+                counter: counter.clone(),
+                iterations: bound,
+            });
+        }
+    }
+    result
 }
 impl DataflowProblem<MirCfg> for ResidentProblem<'_> {
     type State = Option<State>;
@@ -425,7 +613,6 @@ impl DataflowProblem<MirCfg> for ResidentProblem<'_> {
         for (i, op) in block.ops.iter().enumerate() {
             observe_retained(&mut state, op, i, self.r.id, self.memory, self.calls, true);
         }
-        state.registers = [None; 3];
         if matches!(
             block.terminator,
             MirTerminator::Branch {
@@ -439,6 +626,101 @@ impl DataflowProblem<MirCfg> for ResidentProblem<'_> {
             *definition = 0;
         }
         Some(state)
+    }
+}
+
+pub(in crate::mir6502) struct RedundantSetup {
+    pub proof: RetentionProof,
+    pub len: usize,
+    pub loads: Vec<MirOp>,
+}
+impl ResidentFacts<'_> {
+    /// Two complete stores, with up to two ordinary accumulator producers.
+    /// This admits existing A/X/Y placement without requiring four LDA/STA ops.
+    pub fn redundant_setup(
+        &self,
+        r: &MirRoutine,
+        generation: MirRoutineGeneration,
+        site: MirSite,
+        memory: &MirPhysicalMemory,
+        calls: &CallWrites,
+    ) -> Option<RedundantSetup> {
+        let MirSite::Op { block, op_index } = site else {
+            return None;
+        };
+        let before = self.at(r, site, memory, calls)?;
+        let mut after = before.clone();
+        let b = r.blocks.iter().find(|b| b.id == block)?;
+        let mut low = None;
+        let mut loads = vec![];
+        for (offset, op) in b.ops.get(op_index..)?.iter().take(4).enumerate() {
+            match op {
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+                    src: MirValue::Def(MirDef::Reg(_)),
+                    width: MirWidth::Byte,
+                } => {
+                    if low.is_none() && [0xAA, 0xAC, 0xAE].contains(&slot.0) {
+                        low = Some(slot.0);
+                    } else if low.is_some_and(|lo| slot.0 == lo + 1) {
+                        observe_retained(&mut after, op, offset, r.id, memory, calls, true);
+                        let pair = low?;
+                        let values = [before.pairs.get(&pair)?.0, before.pairs.get(&(pair + 1))?.0];
+                        if [after.pairs.get(&pair)?.0, after.pairs.get(&(pair + 1))?.0] != values {
+                            return None;
+                        }
+                        return Some(RedundantSetup {
+                            proof: RetentionProof {
+                                routine: r.id,
+                                generation,
+                                site,
+                                pair,
+                                values,
+                            },
+                            len: offset + 1,
+                            loads,
+                        });
+                    } else {
+                        return None;
+                    }
+                }
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(mem),
+                    width: MirWidth::Byte,
+                } if memory.ordinary(r.id, mem) => {
+                    loads.push(op.clone());
+                }
+                MirOp::Move {
+                    dst: MirDef::Reg(MirReg::A),
+                    src,
+                    width: MirWidth::Byte,
+                } if after
+                    .value(
+                        src,
+                        r.id,
+                        memory,
+                        RecordBaseOptions {
+                            writes: true,
+                            parameter_origins: true,
+                        },
+                    )
+                    .is_some() =>
+                {
+                    loads.push(op.clone());
+                }
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::A),
+                    width: MirWidth::Byte,
+                    ..
+                } => {
+                    loads.push(op.clone());
+                }
+                _ => return None,
+            }
+            observe_retained(&mut after, op, offset, r.id, memory, calls, true);
+        }
+        None
     }
 }
 

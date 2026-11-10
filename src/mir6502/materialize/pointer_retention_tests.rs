@@ -28,7 +28,7 @@ fn probe(body: &str) -> MirProgram {
 }
 fn changed(p: &MirProgram) -> bool {
     let map = memory(p, p, 0x3000).unwrap();
-    apply(p, p, &map).unwrap().0 != *p
+    apply(p, p, &map, false).unwrap().0 != *p
 }
 #[test]
 fn pointer_retention_calls_preserve_exact_pairs_and_reject_each_clobbered_lane() {
@@ -302,4 +302,212 @@ fn pointer_retention_cfg_rejects_excessive_graphs() {
     let calls = CallWrites::analyze(&p, &map);
     let r = p.routines.iter().find(|r| r.name == "Probe").unwrap();
     assert!(retention::ResidentFacts::analyze(r, &map, &calls).is_none());
+}
+
+#[test]
+fn pointer_retention_selects_entered_loop_seeding_and_keeps_both_reads() {
+    let p = fixture(
+        &include_str!("../../../fixtures/runtime/pointer_invariant_loop.act").replace("\r\n", "\n"),
+    );
+    let map = memory(&p, &p, 0x3000).unwrap();
+    let calls = CallWrites::analyze(&p, &map);
+    let r = p.routines.iter().find(|r| r.name == "ReadFixed").unwrap();
+    assert!(!retention::entered_loops(r, &map, &calls).is_empty());
+    let seeded = seed_loop(
+        r,
+        &map,
+        &calls,
+        &MirKnownCalleeSummaries::analyze_for_rewriting(&p),
+    )
+    .expect("safe entered loop");
+    assert!(seeded.blocks[0].ops.len() > r.blocks[0].ops.len());
+    let selected = select_costed(p.clone(), &Mir6502Config::optimized(), 0x3000, false).unwrap();
+    assert_ne!(selected, p);
+    let indirect_reads = |p: &MirProgram| {
+        p.routines
+            .iter()
+            .flat_map(|r| &r.blocks)
+            .flat_map(|b| &b.ops)
+            .filter(|op| {
+                matches!(
+                    op,
+                    MirOp::Load {
+                        src: MirAddr::FixedIndirectIndexedY { .. },
+                        ..
+                    } | MirOp::LoadIndirect { .. }
+                )
+            })
+            .count()
+    };
+    assert_eq!(indirect_reads(&p), indirect_reads(&selected));
+}
+
+#[test]
+fn pointer_retention_indexed_store_requires_dead_pair_y_and_flags() {
+    let p = fixture(
+        &include_str!("../../../fixtures/runtime/pointer_retention.act").replace("\r\n", "\n"),
+    );
+    let map = memory(&p, &p, 0x3000).unwrap();
+    let (trial, _, _) = apply(&p, &p, &map, true).unwrap();
+    let count = |p: &MirProgram| {
+        p.routines
+            .iter()
+            .flat_map(|r| &r.blocks)
+            .flat_map(|b| &b.ops)
+            .filter(|op| matches!(op, MirOp::MaterializeIndexedAddress { .. }))
+            .count()
+    };
+    assert!(count(&trial) < count(&p));
+    for flag in [
+        MirFlagTest::CSet,
+        MirFlagTest::VSet,
+        MirFlagTest::NSet,
+        MirFlagTest::ZSet,
+    ] {
+        let mut negative = p.clone();
+        let r = negative
+            .routines
+            .iter_mut()
+            .find(|r| r.name == "ConvertSpan")
+            .unwrap();
+        let exit = r.blocks.last().unwrap().id;
+        let b = r
+            .blocks
+            .iter_mut()
+            .find(|b| {
+                b.ops
+                    .iter()
+                    .any(|op| matches!(op, MirOp::MaterializeIndexedAddress { .. }))
+            })
+            .unwrap();
+        let last = b
+            .ops
+            .iter()
+            .position(|op| matches!(op, MirOp::StoreIndirect { .. }))
+            .unwrap();
+        b.ops.truncate(last + 1);
+        b.terminator = MirTerminator::Branch {
+            cond: MirCond::FlagTest(flag),
+            then_edge: MirEdge::plain(exit),
+            else_edge: MirEdge::plain(exit),
+        };
+        let map = memory(&negative, &negative, 0x3000).unwrap();
+        let (selected, _, _) = apply(&negative, &negative, &map, true).unwrap();
+        assert_eq!(count(&negative), count(&selected));
+    }
+}
+
+#[test]
+fn pointer_retention_indexed_store_keeps_live_y_pair_and_aliased_result_reads() {
+    let original = fixture(
+        &include_str!("../../../fixtures/runtime/pointer_retention.act").replace("\r\n", "\n"),
+    );
+    for kind in 0..3 {
+        let mut p = original.clone();
+        let observed = p.globals.iter().find(|g| g.name == "observed").unwrap().id;
+        let r = p
+            .routines
+            .iter_mut()
+            .find(|r| r.name == "ConvertSpan")
+            .unwrap();
+        let b = r
+            .blocks
+            .iter_mut()
+            .find(|b| {
+                b.ops
+                    .iter()
+                    .any(|op| matches!(op, MirOp::MaterializeIndexedAddress { .. }))
+            })
+            .unwrap();
+        let index = b
+            .ops
+            .iter()
+            .position(|op| matches!(op, MirOp::MaterializeIndexedAddress { .. }))
+            .unwrap();
+        match kind {
+            0 => b.ops.insert(
+                index + 3,
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::Global {
+                        id: observed,
+                        offset: 0,
+                    }),
+                    src: MirValue::Def(MirDef::Reg(MirReg::Y)),
+                    width: MirWidth::Byte,
+                },
+            ),
+            1 => b.ops.insert(
+                index + 3,
+                MirOp::LoadIndirect {
+                    consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                        lo: MirFixedZpSlot(0xAC),
+                    }),
+                    dst: MirDef::Reg(MirReg::A),
+                    offset: 0,
+                },
+            ),
+            _ => {
+                b.ops[index + 1] = MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xAC))),
+                    width: MirWidth::Byte,
+                }
+            }
+        }
+        let map = memory(&p, &p, 0x3000).unwrap();
+        let (trial, _, _) = apply(&p, &p, &map, true).unwrap();
+        assert!(
+            trial
+                .routines
+                .iter()
+                .find(|r| r.name == "ConvertSpan")
+                .unwrap()
+                .blocks
+                .iter()
+                .flat_map(|b| &b.ops)
+                .any(|op| matches!(op, MirOp::MaterializeIndexedAddress { .. })),
+            "kind={kind}"
+        );
+    }
+}
+
+#[test]
+fn pointer_retention_indexed_store_rejects_stale_generation_and_window() {
+    use crate::mir6502::analysis::{
+        posthome::PostHomeAnalysisSnapshot, sites::MirRoutineGeneration,
+    };
+    let p = fixture(
+        &include_str!("../../../fixtures/runtime/pointer_retention.act").replace("\r\n", "\n"),
+    );
+    let map = memory(&p, &p, 0x3000).unwrap();
+    let calls = CallWrites::analyze(&p, &map);
+    let known = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+    for changed_window in [false, true] {
+        let r = p.routines.iter().find(|r| r.name == "ConvertSpan").unwrap();
+        let generation = MirRoutineGeneration::initial();
+        let s = PostHomeAnalysisSnapshot::new_with_known_callees(r, generation, &known).unwrap();
+        let facts = retention::ResidentFacts::analyze(r, &map, &calls).unwrap();
+        let plan =
+            indexed_store_plan(r, &PostHomeRewriteContext::new(&s), &facts, &map, &calls).unwrap();
+        let mut r = r.clone();
+        if changed_window {
+            r.blocks
+                .iter_mut()
+                .find(|b| b.id == plan.block)
+                .unwrap()
+                .ops[plan.index + 1] = MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: 42,
+                width: MirWidth::Byte,
+            };
+        }
+        assert!(!plan.apply(
+            &mut r,
+            if changed_window {
+                generation
+            } else {
+                generation.next()
+            }
+        ));
+    }
 }

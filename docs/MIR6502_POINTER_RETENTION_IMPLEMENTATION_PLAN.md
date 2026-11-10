@@ -1,7 +1,7 @@
 # MIR6502 pointer retention implementation
 
 Starting revision: `97a60fa6`. Implements the contracts in the
-[design note](MIR6502_POINTER_RETENTION_PLAN.md). Status: slices 0–2 complete.
+[design note](MIR6502_POINTER_RETENTION_PLAN.md). Status: slices 0–3 complete.
 
 Each numbered slice is a separate commit with its focused checks completed.
 All selection is MIR6502-only, optimized-only and independently switchable.
@@ -95,3 +95,27 @@ Seven focused tests pass, including first-entry/backedge and disagreeing-edge
 guards, bounded/foreign/wrapping indexed writes, 256-block/4,096-operation input
 limits, and all four call transaction regressions. The new CFG query is not yet
 an optimization consumer; the slice-1 selector retains its block-local policy.
+
+Slice 3 selects CFG retention and prepares a pair once before a proven-entered
+constant byte loop when entry state, pair deadness and source invariance permit.
+It handles existing A/X/Y setup placement (two stores with zero, one or two
+ordinary accumulator producers). Matching pair values authorize removed stores;
+live A/N/Z retain the original producers. Unknown/zero-trip setup movement is
+declined; existing dominating definitions can still be reused.
+
+Indexed-store retention has a separate exact-window proof: the original pair
+held `base+index`, whereas the selected pair holds `base` and Y holds the index.
+The proof checks the original complete base, equivalent modulo-65536 effective
+address, unchanged result reload, dead changed pair/Y/flags, generation and
+original window. It rejects base/result reads aliased with the pair. This is
+an explicit representation-changing region plan, not a relaxation of the shared
+driver's removed-definition dependency check. Combined final-layout replay and
+published callee contracts remain mandatory.
+
+Eleven focused proof/transaction tests and four integration cases pass. Two VM
+tests qualify both fixtures across the complete raw/optimized, runtime, origin
+and LF/CRLF matrix. The fixed-loop case preserves all 64 indirect reads in order,
+decreases pair stores from 128 to 2 and takes 1,696 rather than 2,578 cycles.
+The bounded conversion case saves 18 cycles and two pair stores per iteration;
+its zero-count path stays at 60 cycles. The one-call case now takes 78 cycles
+versus 92 at baseline. Changing-home promotion remains independently disabled.

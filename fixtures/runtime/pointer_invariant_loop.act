@@ -1,0 +1,22 @@
+BYTE ARRAY buffer(512)
+BYTE observed
+
+PROC Touch=*()
+ASM
+  ldx #$55
+  rts
+ENDASM
+
+PROC ReadFixed(BYTE POINTER p)
+  BYTE index
+  Touch()
+  FOR index=0 TO 31 DO
+    observed=p(index)
+    Touch()
+    observed=p(index)
+  OD
+RETURN
+
+PROC Main()
+  ReadFixed(buffer)
+RETURN

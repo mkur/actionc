@@ -1,11 +1,14 @@
 //! Costed complete-base retention after all earlier home/placement decisions.
 use super::*;
+use crate::mir6502::MirRoutine;
+use crate::mir6502::analysis::effects::{MirFlagSet, MirHomeByte};
 use crate::mir6502::analysis::record_bases::{
     self, MirPhysicalMemory,
     retention::{self, CallWrites},
 };
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::rewrite::context::MirExitStateChange;
+use crate::mir6502::rewrite::context::{MirProof, PostHomeRewriteContext};
 use crate::mir6502::rewrite::plan::{MirChangeSet, MirPostHomeRewritePlan};
 use crate::mir6502::rewrite::posthome::estimated_6502_cost;
 
@@ -23,10 +26,23 @@ fn memory(program: &MirProgram, references: &MirProgram, origin: u16) -> Option<
     Some(summary.physical_memory)
 }
 
+fn has_setup(r: &MirRoutine) -> bool {
+    r.blocks.iter().flat_map(|b| &b.ops).any(|op| {
+        matches!(
+            op,
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xAA | 0xAC | 0xAE))),
+                ..
+            }
+        )
+    })
+}
+
 fn apply(
     baseline: &MirProgram,
     proofs: &MirProgram,
     map: &MirPhysicalMemory,
+    cfg: bool,
 ) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
     let calls = CallWrites::analyze(proofs, map);
     let known = MirKnownCalleeSummaries::analyze_for_rewriting(proofs);
@@ -34,16 +50,97 @@ fn apply(
     let mut stats = MirPeepholeStats::default();
     let mut affected = BTreeSet::new();
     for r in &mut proposed.routines {
-        if !r.blocks.iter().any(|b| {
-            b.ops
-                .windows(4)
-                .any(|w| record_bases::setup_pair(w).is_some())
-        }) {
+        if !has_setup(r) {
             continue;
+        }
+        if cfg {
+            let mut generation = crate::mir6502::analysis::sites::MirRoutineGeneration::initial();
+            loop {
+                let snapshot=crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot::new_with_known_callees(r,generation,&known).ok()?;
+                let context = PostHomeRewriteContext::new(&snapshot);
+                let facts = retention::ResidentFacts::analyze(r, map, &calls)?;
+                let plan = indexed_store_plan(r, &context, &facts, map, &calls);
+                drop(facts);
+                drop(snapshot);
+                let Some(plan) = plan else {
+                    break;
+                };
+                if !plan.apply(r, generation) {
+                    return None;
+                }
+                generation = generation.next();
+                affected.insert(r.id);
+                stats.record(r.id, "pointer-retention-indexed-store");
+            }
+        }
+        if cfg && let Some(seeded) = seed_loop(r, map, &calls, &known) {
+            *r = seeded;
+            affected.insert(r.id);
+            stats.record(r.id, "pointer-retention-entry-setup");
         }
         let rounds = r.blocks.iter().map(|b| b.ops.len()).sum::<usize>() + 1;
         let result = MirPostHomeRewriteDriver::with_max_rounds(rounds)
             .run_fixed_point_with_known_callees(r, &known, |r, c| {
+                let facts = cfg
+                    .then(|| retention::ResidentFacts::analyze(r, map, &calls))
+                    .flatten();
+                if let Some(facts) = &facts {
+                    for b in &r.blocks {
+                        for index in 0..b.ops.len() {
+                            let site = MirSite::Op {
+                                block: b.id,
+                                op_index: index,
+                            };
+                            let Some(setup) =
+                                facts.redundant_setup(r, c.generation(), site, map, &calls)
+                            else {
+                                continue;
+                            };
+                            if setup.proof.site != site || setup.proof.generation != c.generation()
+                            {
+                                continue;
+                            }
+                            let end = c.point(MirSite::Op {
+                                block: b.id,
+                                op_index: index + setup.len - 1,
+                            });
+                            let replacement = if matches!(
+                                c.register_dead_after(MirReg::A, end),
+                                MirProof::Proven(())
+                            ) && matches!(
+                                c.flags_dead_after(
+                                    MirFlagSet {
+                                        n: true,
+                                        z: true,
+                                        ..Default::default()
+                                    },
+                                    end
+                                ),
+                                MirProof::Proven(())
+                            ) {
+                                vec![]
+                            } else {
+                                setup.loads
+                            };
+                            let old = estimated_6502_cost(&b.ops[index..index + setup.len]);
+                            let new = estimated_6502_cost(&replacement);
+                            return vec![MirPostHomeRewritePlan {
+                                generation: c.generation(),
+                                block: b.id,
+                                range: index..index + setup.len,
+                                replacement,
+                                removed_homes: vec![],
+                                exit_state_change: MirExitStateChange::default(),
+                                change_set: MirChangeSet::posthome_operation_change(),
+                                stat: "pointer-retention-setup",
+                                observations: vec![],
+                                family_priority: 0,
+                                estimated_byte_saving: old.0.saturating_sub(new.0),
+                                estimated_cycle_saving: old.1.saturating_sub(new.1),
+                            }];
+                        }
+                    }
+                }
                 for b in &r.blocks {
                     for (index, window) in b.ops.windows(4).enumerate() {
                         if record_bases::setup_pair(window).is_none() {
@@ -53,19 +150,46 @@ fn apply(
                             block: b.id,
                             op_index: index,
                         };
-                        let Some(proof) = retention::prove(r, c.generation(), site, map, &calls)
-                        else {
+                        let proof = if let Some(facts) = &facts {
+                            facts.prove(r, c.generation(), site, map, &calls)
+                        } else {
+                            retention::prove(r, c.generation(), site, map, &calls)
+                        };
+                        let Some(proof) = proof else {
                             stats.record(r.id, retention::blocker(r, site, map, &calls));
                             continue;
                         };
-                        if retention::prove(r, c.generation(), site, map, &calls).as_ref()
-                            != Some(&proof)
-                        {
+                        let replay = if let Some(facts) = &facts {
+                            facts.prove(r, c.generation(), site, map, &calls)
+                        } else {
+                            retention::prove(r, c.generation(), site, map, &calls)
+                        };
+                        if replay.as_ref() != Some(&proof) {
                             continue;
                         }
                         // The complete-pair equality proof authorizes these removed
                         // home writes. Keep the exact high load to preserve A/N/Z.
-                        let replacement = vec![window[2].clone()];
+                        let end = c.point(MirSite::Op {
+                            block: b.id,
+                            op_index: index + 3,
+                        });
+                        let replacement = if cfg
+                            && matches!(c.register_dead_after(MirReg::A, end), MirProof::Proven(()))
+                            && matches!(
+                                c.flags_dead_after(
+                                    MirFlagSet {
+                                        n: true,
+                                        z: true,
+                                        ..Default::default()
+                                    },
+                                    end
+                                ),
+                                MirProof::Proven(())
+                            ) {
+                            vec![]
+                        } else {
+                            vec![window[2].clone()]
+                        };
                         let old = estimated_6502_cost(window);
                         let new = estimated_6502_cost(&replacement);
                         return vec![MirPostHomeRewritePlan {
@@ -95,23 +219,238 @@ fn apply(
     Some((proposed, stats, affected))
 }
 
+fn seed_loop(
+    r: &MirRoutine,
+    map: &MirPhysicalMemory,
+    calls: &CallWrites,
+    known: &MirKnownCalleeSummaries,
+) -> Option<MirRoutine> {
+    use crate::mir6502::analysis::{
+        posthome::PostHomeAnalysisSnapshot, sites::MirRoutineGeneration,
+    };
+    let snapshot =
+        PostHomeAnalysisSnapshot::new_with_known_callees(r, MirRoutineGeneration::initial(), known)
+            .ok()?;
+    let c = PostHomeRewriteContext::new(&snapshot);
+    for region in retention::entered_loops(r, map, calls) {
+        let b = r.blocks.iter().find(|b| b.id == region.body)?;
+        let Some(window) = b.ops.get(..4) else {
+            continue;
+        };
+        let Some(pair) = record_bases::setup_pair(window) else {
+            continue;
+        };
+        let end = c.point(MirSite::Op {
+            block: b.id,
+            op_index: 3,
+        });
+        let entry = c.point(MirSite::Terminator {
+            block: region.preheader,
+        });
+        if ![entry, end].into_iter().all(|point| {
+            matches!(
+                c.register_dead_after(MirReg::A, point),
+                MirProof::Proven(())
+            ) && matches!(
+                c.flags_dead_after(
+                    MirFlagSet {
+                        n: true,
+                        z: true,
+                        ..Default::default()
+                    },
+                    point
+                ),
+                MirProof::Proven(())
+            )
+        }) {
+            continue;
+        }
+        if !matches!(
+            c.pointer_pair_dead_after(
+                MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                    lo: MirFixedZpSlot(pair)
+                }),
+                entry
+            ),
+            MirProof::Proven(())
+        ) {
+            continue;
+        }
+        let mut trial = r.clone();
+        trial
+            .blocks
+            .iter_mut()
+            .find(|b| b.id == region.preheader)?
+            .ops
+            .extend_from_slice(window);
+        let facts = retention::ResidentFacts::analyze(&trial, map, calls)?;
+        if facts
+            .prove(
+                &trial,
+                MirRoutineGeneration::initial(),
+                MirSite::Op {
+                    block: b.id,
+                    op_index: 0,
+                },
+                map,
+                calls,
+            )
+            .is_some()
+        {
+            return Some(trial);
+        }
+    }
+    None
+}
+
+/// A representation change: old pair = base+index, new pair = base and Y=index.
+/// Generic removed-definition checks cannot certify that effective-address
+/// equivalence. This proof owns the exact window and all changed exit state;
+/// the whole transaction independently replays it against final placement.
+struct IndexedStorePlan {
+    generation: crate::mir6502::analysis::sites::MirRoutineGeneration,
+    block: MirBlockId,
+    index: usize,
+    original: Vec<MirOp>,
+    replacement: Vec<MirOp>,
+}
+impl IndexedStorePlan {
+    fn apply(
+        self,
+        r: &mut MirRoutine,
+        generation: crate::mir6502::analysis::sites::MirRoutineGeneration,
+    ) -> bool {
+        if self.generation != generation {
+            return false;
+        }
+        let Some(b) = r.blocks.iter_mut().find(|b| b.id == self.block) else {
+            return false;
+        };
+        if b.ops.get(self.index..self.index + 3) != Some(self.original.as_slice()) {
+            return false;
+        }
+        b.ops.splice(self.index..self.index + 3, self.replacement);
+        true
+    }
+}
+
+fn indexed_store_plan(
+    r: &MirRoutine,
+    c: &PostHomeRewriteContext<'_, '_>,
+    facts: &retention::ResidentFacts<'_>,
+    map: &MirPhysicalMemory,
+    calls: &CallWrites,
+) -> Option<IndexedStorePlan> {
+    for b in &r.blocks {
+        for (index, window) in b.ops.windows(3).enumerate() {
+            let [
+                MirOp::MaterializeIndexedAddress {
+                    consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo }),
+                    base,
+                    index: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    scale: 1,
+                },
+                reload,
+                MirOp::StoreIndirect {
+                    consumer,
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    offset: 0,
+                },
+            ] = window
+            else {
+                continue;
+            };
+            if *consumer != MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: *lo })
+                || !matches!(
+                    reload,
+                    MirOp::Load {
+                        dst: MirDef::Reg(MirReg::A),
+                        src: MirAddr::Direct(_),
+                        width: MirWidth::Byte
+                    }
+                )
+            {
+                continue;
+            }
+            let site = MirSite::Op {
+                block: b.id,
+                op_index: index,
+            };
+            if !facts.matches_pair(r, site, lo.0, base, map, calls) {
+                continue;
+            }
+            let MirOp::Load {
+                src: MirAddr::Direct(source),
+                ..
+            } = reload
+            else {
+                continue;
+            };
+            if map
+                .address(r.id, source)
+                .is_none_or(|a| a == u16::from(lo.0) || a == u16::from(lo.0) + 1)
+            {
+                continue;
+            }
+            let end = c.point(MirSite::Op {
+                block: b.id,
+                op_index: index + 2,
+            });
+            let mut exit = MirExitStateChange::default();
+            exit.registers.y = true;
+            exit.flags = MirFlagSet::all();
+            exit.homes.insert(MirHomeByte::FixedZeroPage(*lo));
+            exit.homes
+                .insert(MirHomeByte::FixedZeroPage(MirFixedZpSlot(lo.0 + 1)));
+            if !matches!(
+                c.exit_state_change_is_unobservable(&exit, end),
+                MirProof::Proven(())
+            ) {
+                continue;
+            }
+            let replacement = vec![
+                MirOp::Move {
+                    dst: MirDef::Reg(MirReg::Y),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+                reload.clone(),
+                MirOp::Store {
+                    dst: MirAddr::FixedIndirectIndexedY { zp: *lo },
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+            ];
+            return Some(IndexedStorePlan {
+                generation: c.generation(),
+                block: b.id,
+                index,
+                original: window.to_vec(),
+                replacement,
+            });
+        }
+    }
+    None
+}
+
 pub(in crate::mir6502) fn select_costed(
     baseline: MirProgram,
     config: &Mir6502Config,
     origin: u16,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    if !baseline.routines.iter().flat_map(|r| &r.blocks).any(|b| {
-        b.ops
-            .windows(4)
-            .any(|w| record_bases::setup_pair(w).is_some())
-    }) {
+    if !baseline.routines.iter().any(has_setup) {
         return Ok(baseline);
     }
     let Some(map) = memory(&baseline, &baseline, origin) else {
         return Ok(baseline);
     };
-    let Some((proposed, mut stats, affected)) = apply(&baseline, &baseline, &map) else {
+    let Some((proposed, mut stats, affected)) = apply(
+        &baseline,
+        &baseline,
+        &map,
+        config.enable_pointer_loop_retention,
+    ) else {
         return Ok(baseline);
     };
     let old_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&baseline);
@@ -123,7 +462,14 @@ pub(in crate::mir6502) fn select_costed(
     });
     let replay = !affected.is_empty()
         && memory(&proposed, &baseline, origin)
-            .and_then(|map| apply(&baseline, &proposed, &map))
+            .and_then(|map| {
+                apply(
+                    &baseline,
+                    &proposed,
+                    &map,
+                    config.enable_pointer_loop_retention,
+                )
+            })
             .is_some_and(|(p, _, _)| p == proposed);
     let accepted = exits
         && replay
