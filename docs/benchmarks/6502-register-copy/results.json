@@ -1,0 +1,199 @@
+{
+  "compiler": "5aaf9d34",
+  "baseline_compiler": "f0524524",
+  "mode": "mir6502",
+  "runtime": "cart",
+  "records": [
+    {
+      "name": "TN",
+      "source": "samples/tn/modern/TN.ACT",
+      "source_sha256": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+      "baseline_xex_bytes": 9974,
+      "xex_bytes": 9959,
+      "sha256": "ce146b1d286135cd133da25f1de933a6f7d412e9084b71fa3b5952f9343b2b13",
+      "routines": [
+        {
+          "name": "Strcpy",
+          "baseline_bytes": 53,
+          "bytes": 41,
+          "start": "3852",
+          "end": "387B"
+        },
+        {
+          "name": "Copy",
+          "baseline_bytes": 676,
+          "bytes": 673,
+          "start": "4ADB",
+          "end": "4D7C"
+        }
+      ],
+      "private_zp_lanes": 33,
+      "private_zp_lanes_unchanged": true,
+      "private_zp_addresses": [
+        "E2",
+        "E3",
+        "E4",
+        "E5",
+        "EA"
+      ]
+    },
+    {
+      "name": "TNDBG",
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "source_sha256": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+      "baseline_xex_bytes": 13079,
+      "xex_bytes": 13055,
+      "sha256": "666b978fa5584e8f1bf5854bfb338c3ef603ae3980b802acfd5a4471604b6136",
+      "routines": [
+        {
+          "name": "Strcpy",
+          "baseline_bytes": 53,
+          "bytes": 41,
+          "start": "3A69",
+          "end": "3A92"
+        },
+        {
+          "name": "Copy",
+          "baseline_bytes": 1195,
+          "bytes": 1183,
+          "start": "54EB",
+          "end": "598A"
+        }
+      ],
+      "private_zp_lanes": 37,
+      "private_zp_lanes_unchanged": true,
+      "private_zp_addresses": [
+        "E2",
+        "E3",
+        "E4",
+        "E5",
+        "EA",
+        "EB"
+      ]
+    },
+    {
+      "name": "neutral",
+      "source": "fixtures/runtime/register_copy_forwarding.act",
+      "source_sha256": "35ff38b71a4f5429403723575d97b155d1a2d9f020f66ca5df77f30a00cdd216",
+      "baseline_xex_bytes": 214,
+      "xex_bytes": 186,
+      "sha256": "383588bb465efd898b397c70064ac6bb892df343131ece0f00b488c4f9bbb6f4",
+      "routines": [
+        {
+          "name": "CopyCounted",
+          "baseline_bytes": 53,
+          "bytes": 41,
+          "start": "3026",
+          "end": "304F"
+        },
+        {
+          "name": "SendString",
+          "baseline_bytes": 53,
+          "bytes": 41,
+          "start": "304F",
+          "end": "3078"
+        },
+        {
+          "name": "SaveBytes",
+          "baseline_bytes": 23,
+          "bytes": 19,
+          "start": "3078",
+          "end": "308B"
+        }
+      ],
+      "private_zp_lanes": 4,
+      "private_zp_lanes_unchanged": true,
+      "private_zp_addresses": [
+        "E0",
+        "E1"
+      ]
+    }
+  ],
+  "execution": {
+    "programs": [
+      "TN",
+      "TNDBG"
+    ],
+    "routine": "Strcpy",
+    "scope": "Full baseline/final XEX, real MovePage, repeated direct calls; totals include identical test entry trampoline.",
+    "source_address": "70FE",
+    "destination_address": "74FE",
+    "lengths": [
+      0,
+      1,
+      127,
+      128,
+      254,
+      255
+    ],
+    "baseline_cycles": [
+      129,
+      147,
+      2415,
+      2433,
+      4701,
+      4719
+    ],
+    "cycles": [
+      111,
+      129,
+      2397,
+      2415,
+      4683,
+      4701
+    ],
+    "baseline_private_reads": 2,
+    "private_reads": 0,
+    "baseline_private_writes": 2,
+    "private_writes": 0
+  },
+  "neutral_execution": {
+    "runtimes": [
+      "cart",
+      "standalone"
+    ],
+    "routines": [
+      "CopyCounted",
+      "SendString"
+    ],
+    "origin": "3000",
+    "nir": "optimized",
+    "lengths": [
+      0,
+      255
+    ],
+    "baseline_cycles": [
+      129,
+      4719
+    ],
+    "cycles": [
+      111,
+      4701
+    ],
+    "baseline_private_reads": 2,
+    "private_reads": 0,
+    "baseline_private_writes": 2,
+    "private_writes": 0,
+    "save_bytes_baseline_cycles": 53,
+    "save_bytes_cycles": 47
+  },
+  "qualification": {
+    "mir6502_unit_passed": 1147,
+    "mir6502_unit_ignored": 2,
+    "tracked_emitter_passed": 15,
+    "mir6502_integration_targets": 12,
+    "mir6502_integration_passed": 98,
+    "emission_sweep_passed": 169,
+    "mads_compiler_cases": 55,
+    "mads_assembled_listings": 212,
+    "vm_targets": 8,
+    "vm_tests_passed": 15,
+    "full_tn_mads_origins": [
+      "2C00",
+      "3C00"
+    ],
+    "full_tndbg_mads_origins": [
+      "2C00"
+    ]
+  }
+}

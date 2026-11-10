@@ -1,7 +1,8 @@
 # MIR6502 Pseudo-Machine Contract
 
 Snapshot date: 2026-06-01. Updated for direct indexed byte arithmetic and
-full-range byte-loop carriers on 2026-09-01.
+full-range byte-loop carriers on 2026-09-01, and available-register direct
+stores on 2026-11-10.
 
 This note defines the intended contract for the first MIR6502 layer after
 verifier-clean NIR. It incorporates the review items captured in
@@ -828,6 +829,46 @@ result is dead and the source is safe to reread. Absolute hardware reads still
 have a value identity so register-to-register copies can share the value, but
 the reads themselves are never removed. Aliasing writes, unknown calls,
 machine blocks, barriers, or disagreement at a CFG join invalidate the fact.
+
+### Available-register direct stores
+
+After home selection, MIR6502 may replace an adjacent byte `Move A <- X/Y;
+Store direct <- A` or `Load A <- direct; Store direct <- A` with a single
+direct store from A/X/Y. A load replacement requires an exact available byte
+identity from shared machine-value analysis. Unknown incoming values are not
+equal. The store retains its address, width, value and original position.
+No source names, source syntax, pointer-pair template or emission-state cache
+participates in selection.
+
+Removing a load also requires independent permission to remove the read:
+the source must be an ordinary compiler-controlled home with proven ordinary
+RAM backing in the final physical map. Raw absolute, absolute-backed, hardware,
+volatile, indirect and indexed reads remain observable. Logical identities do
+not override physical aliases; writes invalidate overlapping facts and unknown
+placement remains conservative. Calls, machine blocks and barriers keep their
+existing invalidation and ordering rules.
+
+The rewrite must preserve the final A and N/Z values by exact byte provenance,
+or explicitly declare them changed and prove them dead with shared liveness.
+C/V, X and Y are preserved. Dependencies, live exit state and verification are
+checked through structural rewrite plans. Only one shrinking rewrite is applied
+per immutable snapshot; facts and physical mappings are rebuilt before the next
+decision. The initial operation count bounds this fixed point.
+
+Newly dead private scratch definitions may be removed only with routine-wide
+reaching-definition proofs and exclusion of separately named physical readers.
+Successor, address, argument and terminator uses retain their definitions.
+Source-visible parameter/local stores and ABI/pointer destinations remain.
+Frame objects and zero-page reservations are retained.
+
+This family runs as a final optimized-only transaction, controlled by
+`enable_register_copy_forwarding` under `enable_peepholes`. Earlier placement
+and inlining trials use the feature-off configuration. Acceptance requires
+pre-emission verification, preserved published callee A results, unchanged
+frames, a strictly smaller emitted image, and no growth in affected routines
+or homes. All proofs are replayed from the complete baseline against the
+proposed emitted layout, including reference identities removed by the trial.
+Failure retains the complete baseline. No new NIR form or ABI rule is introduced.
 
 ### Counted-loop facts and latch selection
 

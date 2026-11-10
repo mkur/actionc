@@ -1,6 +1,6 @@
 # MIR6502 Register-to-Store Copy Forwarding Plan
 
-Status: Slices 0-2 complete; final qualification pending. Created 2026-11-10.
+Status: All slices implemented and qualified. Created 2026-11-10.
 
 Implement a post-home copy rewrite that stores already available byte
 values directly from A, X, or Y instead of routing them through private scratch.
@@ -298,7 +298,7 @@ then compile both LF and CRLF through the actual parser.
 ## Validation and acceptance
 
 During development run focused analysis, rewrite, emitter, and new VM cases.
-For final qualification run the full MIR6502 unit filter, all 11 current
+For final qualification run the full MIR6502 unit filter, all 12 current
 `mir6502_*` integration targets, and the emission sweep:
 
 ```sh
@@ -421,3 +421,67 @@ rewrite-driver tests, both feature-control integration tests, and four tests
 across the forwarding/absolute-readback VM targets. The integration cases cover
 raw/optimized NIR, both runtimes and two origins; VM inputs also cover LF/CRLF.
 No NIR contracts or existing fixture snapshots changed.
+
+## Slice 3 results
+
+Final emitted measurements and hashes are recorded in
+[results.json](benchmarks/6502-register-copy/results.json), using compiler
+`5aaf9d34` and the same sources as the frozen baseline. Regeneration confirms
+TN at 9,959 bytes, TNDBG at 13,055 bytes and the neutral fixture at 186 bytes.
+`Strcpy` and both renamed wrappers are 41 bytes. The additional direct-byte
+case, `SaveBytes`, decreases from 23 to 19 bytes. The distinct occupied private
+zero-page addresses and per-routine reservations are unchanged in all three
+workloads; this slice removes traffic, not allocations.
+
+The maintained TN and TNDBG XEX files were also executed directly in the VM,
+calling their actual `Strcpy` and `MovePage` routines with source `$70FE` and
+destination `$74FE`. Repeated boundary-length calls preserve copied data,
+guards and stack balance. Both programs have identical measured totals:
+
+| Counted length | Baseline cycles | Final cycles | Saving |
+| --- | ---: | ---: | ---: |
+| 0 | 129 | 111 | 18 |
+| 1 | 147 | 129 | 18 |
+| 127 | 2,415 | 2,397 | 18 |
+| 128 | 2,433 | 2,415 | 18 |
+| 254 | 4,701 | 4,683 | 18 |
+| 255 | 4,719 | 4,701 | 18 |
+
+These totals include the same test entry trampoline and the real copy loop.
+Each call decreases private scratch traffic from two reads/two writes to zero.
+They are whole-call measurements, not sums of candidate estimates. The artifact
+probe and output are retained locally in `build/register-copy/artifact_probe.rs`
+and `build/register-copy/final-tn-cycles.log`.
+
+The maintained neutral VM regression now exercises feature-off/on configurations
+over both runtimes, raw/optimized NIR, origins `$3000`/`$41C7`, and actual LF/CRLF
+parsing. It verifies identical LF/CRLF images, unchanged private reservations,
+boundary bytes, repeated calls, page-crossing pointers, source bytes, guards
+and balanced stacks. Optimized-NIR counted wrappers save exactly 18 cycles and
+four private accesses per call in every case; raw NIR already avoids some
+staging and still improves. `SaveBytes` saves six measured cycles. This test
+does not assume that every lowering path starts with the same staging pattern.
+
+Final qualification passed:
+
+- MIR6502 library filter: 1,147 passed, two existing ignored tests.
+- Tracked emitter: all 15 tests.
+- All 12 `mir6502_*` integration targets: 98 tests.
+- MIR6502 emission/load sweep: all 169 fixtures.
+- MADS oracle: 55 compiler cases and 212 assembled listings, including the
+  new fixture in plain/source variants, both runtimes and edited origins.
+- Eight VM targets: 15 tests across `register_copy_forwarding`,
+  `absolute_readback`, `tn_dispatch`, `tn_codegen_reproducers`,
+  `record_base_reuse`, `indirect_bitwise`, `static_table_pointer_copy` and
+  `copy_values`. TN/TNDBG run with their existing complete dispatcher, panel,
+  directory, menu and copy regressions.
+- Full TN MADS output matches direct compilation at `$2C00` and `$3C00`;
+  TNDBG and the neutral fixture also reassemble identically at their origins.
+- Rust formatting for new implementation/test files, shell syntax and
+  `git diff --check`.
+
+The pseudo-machine contract documents admitted pairs, observable-read
+exclusions, exact live-state proofs, private-definition cleanup and final-layout
+rollback. No NIR/printer contract, existing snapshot or shared frontend changed;
+validation stayed within MIR6502 and its emission/runtime consumers. The updated
+requested TN assembly is available locally at `build/tn-mir6502/TN.asm`.
