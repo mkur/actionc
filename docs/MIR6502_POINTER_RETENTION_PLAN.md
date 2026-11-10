@@ -1,6 +1,8 @@
 # MIR6502 pointer retention through calls and loops
 
-Status: proposed design; implementation has not started. Created 2026-11-10.
+Status: implementation in progress. Created 2026-11-10.
+See the [implementation plan](MIR6502_POINTER_RETENTION_IMPLEMENTATION_PLAN.md)
+for concrete slices and qualification results.
 Baseline: `66f42d1a`, after qualified register-copy forwarding. Commit each
 implementation slice separately and record its measurements here.
 

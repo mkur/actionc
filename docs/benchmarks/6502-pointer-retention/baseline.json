@@ -1,0 +1,165 @@
+{
+  "compiler": "97a60fa6",
+  "runtime": "cart",
+  "records": [
+    {
+      "name": "neutral",
+      "source": "fixtures/runtime/pointer_retention.act",
+      "source_sha256": "60b01a2d46e30d66b0629e79bddb743764b62dbded67e1fa405bd472744cc3f6",
+      "xex_bytes": 245,
+      "sha256": "c2c652c5ada3cf85047db02603a10c4662695ed243d6917600a7b1a54e2a35d2",
+      "routines": {
+        "ReadAcrossCall": 40,
+        "ConvertSpan": 94,
+        "ScanFixed": 63
+      },
+      "private_zp_lanes": 0
+    },
+    {
+      "name": "TN",
+      "source": "samples/tn/modern/TN.ACT",
+      "source_sha256": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+      "xex_bytes": 9959,
+      "sha256": "ce146b1d286135cd133da25f1de933a6f7d412e9084b71fa3b5952f9343b2b13",
+      "routines": {
+        "SetWin": 1093,
+        "Fnamecmp": 185,
+        "Print": 58,
+        "PrintFname": 58,
+        "Instr": 66,
+        "Convert": 131
+      },
+      "private_zp_lanes": 33
+    },
+    {
+      "name": "TNDBG",
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "source_sha256": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+      "xex_bytes": 13055,
+      "sha256": "666b978fa5584e8f1bf5854bfb338c3ef603ae3980b802acfd5a4471604b6136",
+      "routines": {
+        "SetWin": 1096,
+        "Fnamecmp": 185,
+        "Print": 58,
+        "PrintFname": 58,
+        "Instr": 66,
+        "Convert": 131
+      },
+      "private_zp_lanes": 37
+    }
+  ],
+  "execution": [
+    {
+      "runtime": "ActionCart",
+      "routine": "ReadAcrossCall",
+      "count": 0,
+      "cycles": 92,
+      "pair_stores": 4
+    },
+    {
+      "runtime": "ActionCart",
+      "routine": "ConvertSpan",
+      "count": 0,
+      "cycles": 60,
+      "pair_stores": 0
+    },
+    {
+      "runtime": "ActionCart",
+      "routine": "ConvertSpan",
+      "count": 1,
+      "cycles": 176,
+      "pair_stores": 4
+    },
+    {
+      "runtime": "ActionCart",
+      "routine": "ConvertSpan",
+      "count": 127,
+      "cycles": 14792,
+      "pair_stores": 508
+    },
+    {
+      "runtime": "ActionCart",
+      "routine": "ConvertSpan",
+      "count": 128,
+      "cycles": 14908,
+      "pair_stores": 512
+    },
+    {
+      "runtime": "ActionCart",
+      "routine": "ConvertSpan",
+      "count": 254,
+      "cycles": 29524,
+      "pair_stores": 1016
+    },
+    {
+      "runtime": "ActionCart",
+      "routine": "ConvertSpan",
+      "count": 255,
+      "cycles": 29640,
+      "pair_stores": 1020
+    },
+    {
+      "runtime": "ActionCart",
+      "routine": "ScanFixed",
+      "count": 0,
+      "cycles": 1629,
+      "pair_stores": 64
+    },
+    {
+      "runtime": "Standalone",
+      "routine": "ReadAcrossCall",
+      "count": 0,
+      "cycles": 92,
+      "pair_stores": 4
+    },
+    {
+      "runtime": "Standalone",
+      "routine": "ConvertSpan",
+      "count": 0,
+      "cycles": 60,
+      "pair_stores": 0
+    },
+    {
+      "runtime": "Standalone",
+      "routine": "ConvertSpan",
+      "count": 1,
+      "cycles": 176,
+      "pair_stores": 4
+    },
+    {
+      "runtime": "Standalone",
+      "routine": "ConvertSpan",
+      "count": 127,
+      "cycles": 14792,
+      "pair_stores": 508
+    },
+    {
+      "runtime": "Standalone",
+      "routine": "ConvertSpan",
+      "count": 128,
+      "cycles": 14908,
+      "pair_stores": 512
+    },
+    {
+      "runtime": "Standalone",
+      "routine": "ConvertSpan",
+      "count": 254,
+      "cycles": 29524,
+      "pair_stores": 1016
+    },
+    {
+      "runtime": "Standalone",
+      "routine": "ConvertSpan",
+      "count": 255,
+      "cycles": 29640,
+      "pair_stores": 1020
+    },
+    {
+      "runtime": "Standalone",
+      "routine": "ScanFixed",
+      "count": 0,
+      "cycles": 1629,
+      "pair_stores": 64
+    }
+  ]
+}

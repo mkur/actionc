@@ -1,0 +1,46 @@
+; Neutral call, invariant-loop and changing-pointer workloads.
+BYTE ARRAY buffer(512)
+CARD finalPointer
+BYTE observed
+BYTE position
+
+BYTE FUNC Transform=*(BYTE value)
+ASM
+  eor #$5A
+  sta.z $A0
+  rts
+ENDASM
+
+PROC ReadAcrossCall(BYTE POINTER p)
+  observed=p(1)
+  Transform(0)
+  observed=p(2)
+RETURN
+
+PROC ConvertSpan(BYTE count)
+  BYTE POINTER cursor
+  cursor=buffer
+  cursor(0)=0
+  position=0
+  WHILE position<count DO
+    cursor(position)=Transform(cursor(position))
+    position==+1
+  OD
+RETURN
+
+PROC ScanFixed()
+  BYTE POINTER cursor
+  BYTE index
+  cursor=buffer
+  FOR index=0 TO 31 DO
+    observed=cursor^
+    cursor==+1
+  OD
+  finalPointer=CARD(cursor)
+RETURN
+
+PROC Main()
+  ReadAcrossCall(buffer)
+  ConvertSpan(8)
+  ScanFixed()
+RETURN
