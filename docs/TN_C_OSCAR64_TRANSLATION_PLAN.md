@@ -1,6 +1,6 @@
 # TN C translation and Oscar64 comparison plan
 
-Status: implementation in progress, prepared 2026-11-10. Slice 0 is qualified;
+Status: implementation in progress, prepared 2026-11-10. Slices 0–1 are qualified;
 application translation follows. Translate the maintained TN application into C, produce a
 working Atari program with Oscar64, and use verified output to guide actionc
 optimization. Implement in vertical slices and commit each qualified slice.
@@ -338,3 +338,11 @@ Oscar64 RUNAD `$02E0` explicitly; the pinned VM convenience helper expects the
 Action! `$02E2` INITAD convention. Source fixed-cell guards pass with the reduced
 compiler temporary bank. Application-wide footprint and recovery proofs remain
 slice 1 obligations. Reproduction is in the [port README](../samples/tn/c/README.md).
+
+Slice 1 qualifies the platform/ABI bridge with ten VM executions, both profiles,
+all conversion bytes, page-crossing block copies, CIO/keyboard traces and eight
+nested nonlocal recoveries per execution. An explicit volatile pending flag
+controls post-setjmp recovery; the pinned compiler's constant ordinary return
+is not used to select reentry. Source CPU-stack reset is mapped to a stable C
+CPU/software-stack checkpoint. Mocked OS validation does not qualify disk/UI
+behavior, interrupt interference or complete application temporary footprints.

@@ -4,99 +4,121 @@
     "line": 55,
     "routine": "MovePage",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 72,
     "routine": "Alloc",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 78,
     "routine": "Free",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 84,
     "routine": "Push",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 91,
     "routine": "Pull",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 109,
     "routine": "CalcAdr",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 131,
     "routine": "Position",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 141,
     "routine": "Relpos",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 158,
     "routine": "Internal",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 177,
     "routine": "Ascii",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 195,
     "routine": "Getchar",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
@@ -175,99 +197,121 @@
     "line": 390,
     "routine": "_Cio",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 402,
     "routine": "_LodChn",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c: channel << 4 in IOCB adapters",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 415,
     "routine": "_StrNam",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 445,
     "routine": "GetD",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 461,
     "routine": "PutD",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 477,
     "routine": "Open",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 495,
     "routine": "Close",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 506,
     "routine": "Input",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 526,
     "routine": "Bget",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 546,
     "routine": "Bput",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 566,
     "routine": "Xio",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
@@ -445,8 +489,8 @@
     "line": 112,
     "routine": "GetAnyKey",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
     "qualification": []
   },
   {
@@ -454,18 +498,22 @@
     "line": 123,
     "routine": "Store",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 137,
     "routine": "Value",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
@@ -895,8 +943,8 @@
     "line": 122,
     "routine": "GetAnyKey",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
     "qualification": []
   },
   {
@@ -904,18 +952,22 @@
     "line": 133,
     "routine": "Store",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/TNDBG.ACT",
     "line": 147,
     "routine": "Value",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented",
+    "implementation": "samples/tn/c/tn_platform.c",
+    "qualification": [
+      "slice1: platform probe with mocked OS vectors"
+    ]
   },
   {
     "source": "samples/tn/modern/TNDBG.ACT",

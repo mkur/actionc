@@ -126,7 +126,7 @@ def inventory():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('task', choices=['bootstrap', 'probe', 'freeze'])
+    parser.add_argument('task', choices=['bootstrap', 'probe', 'platform', 'freeze'])
     parser.add_argument('--oscar', type=Path, default=Path(os.environ.get(
         'OSCAR64', OUT/'oscar64/bin/oscar64')))
     args = parser.parse_args()
@@ -134,6 +134,11 @@ def main():
     compiler = args.oscar.resolve()
     if args.task == 'bootstrap':
         bootstrap()
+        return
+    if args.task == 'platform':
+        rows=[compile_c(compiler,'tools/compare6502/tn/platform_probe.c',
+                        OUT/f'platform-{profile}',profile) for profile in ['Os','O3']]
+        (OUT/'platform.json').write_text(json.dumps(rows,indent=2)+'\n')
         return
     if args.task == 'probe':
         rows = [compile_c(compiler, 'tools/compare6502/tn/probe.c',
