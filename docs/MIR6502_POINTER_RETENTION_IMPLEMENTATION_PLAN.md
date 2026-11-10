@@ -1,9 +1,11 @@
 # MIR6502 pointer retention implementation
 
 Starting revision: `97a60fa6`. Implements the contracts in the
-[design note](MIR6502_POINTER_RETENTION_PLAN.md). Status: slices 0–4 complete.
+[design note](MIR6502_POINTER_RETENTION_PLAN.md). Status: slices 0–5 complete, including exact-result composition.
 
-Each numbered slice is a separate commit with its focused checks completed.
+Each numbered slice is a separate commit with its focused checks completed:
+`dbce199d` (0), `90cf8dad` (1), `a46685d8` (2), `b44f84bc` (3),
+`d69682ed` (4), `b4e55b66` (qualification), and `0a9c3fe1` (result composition).
 All selection is MIR6502-only, optimized-only and independently switchable.
 Keep the previous accepted program on proof, layout, verifier or cost failure.
 
@@ -152,3 +154,102 @@ Raw absolute readbacks and live N/Z remain barriers. Variable-length indexed
 plans preserve fused-compare producer sites. Sixteen focused unit tests and
 three pointer VM tests pass, including the flag/readback negatives. The neutral
 conversion now saves 23 cycles per iteration; its zero-count path is unchanged.
+
+## Final qualification
+
+Code revision: `0a9c3fe1`; frozen baseline: `97a60fa6`. The
+[scorecard](benchmarks/6502-pointer-retention/results.json) contains entry-source,
+compiler-binary and image hashes, routine sizes, occupied private zero-page
+lanes, feature-off/on VM measurements and compiler cost samples. Full local
+assembly, XEX, map and materialized MIR artifacts are under
+`build/pointer-retention/final/`; compiler-generated TN listings are also copied
+to `build/tn-mir6502/TN.asm` and `TNDBG.asm`.
+
+| Artifact | Baseline bytes | Final bytes | Saved |
+| --- | ---: | ---: | ---: |
+| TN XEX | 9,959 | 9,891 | 68 |
+| TNDBG XEX | 13,055 | 12,987 | 68 |
+| TN `SetWin` | 1,093 | 1,025 | 68 |
+| TNDBG `SetWin` | 1,096 | 1,028 | 68 |
+| Neutral XEX | 245 | 214 | 31 |
+| `ReadAcrossCall` | 40 | 30 | 10 |
+| `ConvertSpan` | 94 | 77 | 17 |
+| `ScanFixed` | 63 | 59 | 4 |
+| Invariant fixture XEX | 87 | 77 | 10 |
+| `ReadFixed` | 61 | 51 | 10 |
+
+Private zero-page occupancy stays at 33 lanes for TN, 37 for TNDBG and zero
+for both neutral fixtures. Frames and reservations are identical. `Strcpy`
+stays at 41 bytes. `Fnamecmp`/`Print`/`PrintFname`/`Instr`/`Convert` stay at
+185/58/58/66/131 bytes in both TN variants. Saved pointer spill stores remain
+unless a separate observation proof permits their removal.
+
+| Executed region | Baseline cycles | Final cycles | Direct pair setup stores |
+| --- | ---: | ---: | ---: |
+| `ReadAcrossCall` | 92 | 78 | 4 → 2 |
+| `ConvertSpan`, zero elements | 60 | 60 | 0 → 0 |
+| `ConvertSpan`, one element | 176 | 153 | 4 → 2 |
+| `ConvertSpan`, 255 elements | 29,640 | 23,775 | 1,020 → 510 |
+| `ReadFixed`, 32 iterations/two reads | 2,578 | 1,696 | 128 → 2 |
+| Promoted `ScanFixed`, 32 iterations | 1,629 | 1,156 | 64 → 2 |
+| Actual TN/TNDBG eight-character `SetWin` loop | 963 | 827 | 32 → 16 |
+
+These are VM-reported cycles including executed callees. Direct setup counts
+exclude required RMW pointer increments. The actual TN region shrinks from 57
+to 45 bytes. Saved-image execution checks both variants, origins `$7000` and
+`$70FE`, six byte patterns, all buffer guards, final index and stack state.
+The neutral loop retains all 64 pointee reads in their original order. The
+review's proposed 19-byte loop remains a future target.
+
+Single sequential debug CLI samples (including source listings) take TN
+14.994 → 16.511 seconds and TNDBG 46.883 → 49.808 seconds, increases of about
+10.1% and 6.2%. These samples use the pinned baseline/final compiler binaries
+without concurrent compiler jobs; they are measurements rather than a timing
+threshold. Maximum resident bytes and binary hashes are recorded in the
+scorecard. The additional analysis cost is a tradeoff of the final proof/layout
+transactions.
+
+Final checks pass:
+
+- 1,163 MIR6502 library tests (two existing ignored) and 15 tracked-emitter tests.
+- All 13 `mir6502_*` integration targets: 100 passing tests.
+- All 169 MIR6502 emission/load fixtures.
+- MADS oracle: 59 compiler cases and 228 assembled listings, including both new
+  fixtures, both runtimes, plain/source listings and re-origining.
+- Nine affected VM targets: 18 passing tests, covering pointer retention,
+  absolute readbacks, register forwarding, record-base reuse, indirect bitwise
+  access, static pointer copies, value copies and TN behavior/reproducers.
+- Complete TN/TNDBG listings reassemble byte-identically; changing only TN's
+  origin from `$2C00` to `$3C00` matches direct compilation at the new origin.
+
+The pointer VM matrix independently compares feature-off/calls/loops/promotion,
+raw/optimized NIR, cartridge/standalone runtimes, three code origins, repeated
+boundary inputs and actual LF/CRLF parsing. Incoming-pointer fallback executes
+both full word wrap and a pointer into its own parameter home. Hardware/bank
+reads and writes, unknown/unowned writes, partial/clobbered lanes, source
+mutation, CFG disagreement, stale plans, live flags/Y/pair, escapes, competing
+pointers and unsupported bounds have focused negative coverage. No shared
+frontend/NIR contract changed, so qualification is scoped to MIR6502.
+
+## Remaining TN proof obligations
+
+- `SetWin`: the destination base comes through directory-buffer and `v`/`j`
+  flow. A complete owned bound for every indexed write is still unavailable.
+  The write can therefore alias the pair or source cells on the backedge;
+  call retention succeeds, while full loop hoisting declines.
+- `Fnamecmp`: two changing incoming parameter pointers need joint placement and
+  an entry/observation contract. A pointer can address its own parameter homes;
+  non-escape and a direct-call census cannot justify delaying their updates.
+- `Print`/`PrintFname`: `Putchar` writes indirectly through the screen pointer.
+  The call chain needs a bounded transitive write footprint proving disjointness
+  from the retained pair and source cells.
+- `Instr`: dynamic length, partial-lane setup and absolute-backed index writes
+  remain outside complete-pair and owned-write proofs.
+- `Convert`: destination writes need narrower proven index/range footprints to
+  retain an unknown incoming base through them.
+
+The next vertical slice should add the smallest typed range/origin proof needed
+for one of these boundaries, with a neutral positive case and physical-alias
+negatives. Broader incoming-pointer promotion or a new NIR entry contract needs
+its own design and shared-contract qualification. The current implementation
+makes no closed-entry assumption and adds no TN-specific selectors.

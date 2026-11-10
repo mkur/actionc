@@ -1,6 +1,6 @@
 # MIR6502 pointer retention through calls and loops
 
-Status: implementation in progress. Created 2026-11-10.
+Status: initial bounded subsets implemented and qualified on 2026-11-10.
 See the [implementation plan](MIR6502_POINTER_RETENTION_IMPLEMENTATION_PLAN.md)
 for concrete slices and qualification results.
 Baseline: `66f42d1a`, after qualified register-copy forwarding. Commit each
@@ -16,8 +16,8 @@ TN supplies application evidence; neutral programs define general behavior.
 
 The [external review](TN_6502_CODEGEN_REVIEW_2026-11-10.md#3-keep-pointers-live-across-calls-and-loop-iterations)
 identifies `SetWin`, `Fnamecmp`, `Print`, `PrintFname`, `Instr` and `Convert`.
-The current qualified cartridge images are TN 9,959 XEX bytes and TNDBG 13,055.
-Current emitted routine sizes are:
+The frozen baseline cartridge images are TN 9,959 XEX bytes and TNDBG 13,055.
+Baseline emitted routine sizes are:
 
 | Routine | TN bytes | TNDBG bytes | Main opportunity |
 | --- | ---: | ---: | --- |
@@ -236,3 +236,19 @@ NIR checks only if a shared contract changes, as specified in
 Do not claim the full finding solved merely because one call-site setup folds.
 Record call retention, invariant-loop retention and changing-pointer promotion
 separately, with blockers and measured coverage for each.
+
+## Implemented boundary
+
+The [implementation results](MIR6502_POINTER_RETENTION_IMPLEMENTATION_PLAN.md#final-qualification)
+record the completed slices, exact artifacts and validation. Direct-call
+retention, must-agree CFG residence, owned indexed-store retention, safe entered
+loop setup and one private changing-pointer scan are enabled independently.
+Frames remain unchanged and every accepted family passes final-layout replay
+and strict emitted-size checks. Exact ABI-result reuse composes through the
+existing accumulator/flag proofs.
+
+The admitted promotion subset deliberately excludes incoming parameter pointers
+and competing changing pointers. TN's `Fnamecmp`, the `Putchar` chain and
+unbounded destination-write loops retain their conservative code. Their next
+proof obligations are documented with the results; no shared NIR or source
+entry contract was added by this implementation.

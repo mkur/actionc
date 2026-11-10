@@ -380,6 +380,11 @@ address is preserved modulo 65536. Its exact-window proof checks source/result
 aliases, the original operations and generation, and dead changed pair/Y/flags.
 This representation change has a dedicated region plan; it does not weaken the
 shared driver's removed-definition checks. All original pointee accesses remain.
+Loading a direct byte index into Y may preserve the conversion result in A.
+After a successful retention rewrite, a typed ABI-result reload is removable
+only when the shared machine-value query proves exact A equality and the
+structural exit-state proof establishes dead N/Z. Raw absolute readbacks retain
+their original reads.
 
 Changing-home promotion is independently costed after accepted retention.
 Initially it admits one unexposed ordinary local word, initialized to owned

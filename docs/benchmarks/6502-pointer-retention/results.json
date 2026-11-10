@@ -1,0 +1,610 @@
+{
+  "date": "2026-11-10",
+  "baseline_compiler": "97a60fa6",
+  "final_compiler": "0a9c3fe17b0ddd7a7ca144c5e4c65651a2925199",
+  "compiler_binary_sha256": "537a905c8535ca1278059b08b475d4e112162c3746ae65cf8974c2589187f9a9",
+  "runtime": "cart",
+  "origins": {
+    "neutral": "3000",
+    "invariant": "3000",
+    "TN": "2C00",
+    "TNDBG": "2C00"
+  },
+  "baseline": [
+    {
+      "name": "neutral",
+      "source": "fixtures/runtime/pointer_retention.act",
+      "source_sha256": "60b01a2d46e30d66b0629e79bddb743764b62dbded67e1fa405bd472744cc3f6",
+      "xex_bytes": 245,
+      "sha256": "c2c652c5ada3cf85047db02603a10c4662695ed243d6917600a7b1a54e2a35d2",
+      "routines": {
+        "ReadAcrossCall": 40,
+        "ConvertSpan": 94,
+        "ScanFixed": 63
+      },
+      "private_zp_lanes": 0
+    },
+    {
+      "name": "TN",
+      "source": "samples/tn/modern/TN.ACT",
+      "source_sha256": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+      "xex_bytes": 9959,
+      "sha256": "ce146b1d286135cd133da25f1de933a6f7d412e9084b71fa3b5952f9343b2b13",
+      "routines": {
+        "SetWin": 1093,
+        "Fnamecmp": 185,
+        "Print": 58,
+        "PrintFname": 58,
+        "Instr": 66,
+        "Convert": 131
+      },
+      "private_zp_lanes": 33
+    },
+    {
+      "name": "TNDBG",
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "source_sha256": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+      "xex_bytes": 13055,
+      "sha256": "666b978fa5584e8f1bf5854bfb338c3ef603ae3980b802acfd5a4471604b6136",
+      "routines": {
+        "SetWin": 1096,
+        "Fnamecmp": 185,
+        "Print": 58,
+        "PrintFname": 58,
+        "Instr": 66,
+        "Convert": 131
+      },
+      "private_zp_lanes": 37
+    },
+    {
+      "name": "invariant",
+      "source": "fixtures/runtime/pointer_invariant_loop.act",
+      "source_sha256": "0508ad8bf6152cdade795ffd1e85b6adaf694b6cd25c02f4a4011485e93d7aa7",
+      "xex_bytes": 87,
+      "sha256": "db7a76027665af6a474e70c6085cd642277dab536022a5f28e1bc9b5de49c579",
+      "routines": {
+        "ReadFixed": 61
+      },
+      "private_zp_lanes": 0
+    }
+  ],
+  "final": [
+    {
+      "name": "neutral",
+      "source": "fixtures/runtime/pointer_retention.act",
+      "source_sha256": "60b01a2d46e30d66b0629e79bddb743764b62dbded67e1fa405bd472744cc3f6",
+      "xex_bytes": 214,
+      "sha256": "2a654483dc3180eb8a8d703e6b3c12b5cfd13464aa86386a5c0cfcabccef8129",
+      "routines": {
+        "ReadAcrossCall": 30,
+        "ConvertSpan": 77,
+        "ScanFixed": 59
+      },
+      "private_zp_lanes": 0
+    },
+    {
+      "name": "invariant",
+      "source": "fixtures/runtime/pointer_invariant_loop.act",
+      "source_sha256": "0508ad8bf6152cdade795ffd1e85b6adaf694b6cd25c02f4a4011485e93d7aa7",
+      "xex_bytes": 77,
+      "sha256": "7ed326bb9d7342bf7381e69b551df3eb00767cf6ef526bf91568097e0767e45d",
+      "routines": {
+        "ReadFixed": 51
+      },
+      "private_zp_lanes": 0
+    },
+    {
+      "name": "TN",
+      "source": "samples/tn/modern/TN.ACT",
+      "source_sha256": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+      "xex_bytes": 9891,
+      "sha256": "89455e97a18285ff561ba9720ff3724df4aefe60a303b896c79bcf3e0614b6e1",
+      "routines": {
+        "Strcpy": 41,
+        "SetWin": 1025,
+        "Fnamecmp": 185,
+        "Print": 58,
+        "PrintFname": 58,
+        "Instr": 66,
+        "Convert": 131
+      },
+      "private_zp_lanes": 33
+    },
+    {
+      "name": "TNDBG",
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "source_sha256": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+      "xex_bytes": 12987,
+      "sha256": "af975e4ef4f1ac6e62c2904e285ae6aa48eb7d64304f41ec1e1c7e4223acafae",
+      "routines": {
+        "Strcpy": 41,
+        "SetWin": 1028,
+        "Fnamecmp": 185,
+        "Print": 58,
+        "PrintFname": 58,
+        "Instr": 66,
+        "Convert": 131
+      },
+      "private_zp_lanes": 37
+    }
+  ],
+  "execution": [
+    {
+      "runtime": "ActionCart",
+      "stage": "before",
+      "routine": "ReadFixed",
+      "count": 0,
+      "cycles": 2578,
+      "pair_setup_stores": 128
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "final",
+      "routine": "ReadFixed",
+      "count": 0,
+      "cycles": 1696,
+      "pair_setup_stores": 2
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "before",
+      "routine": "ReadFixed",
+      "count": 0,
+      "cycles": 2578,
+      "pair_setup_stores": 128
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "final",
+      "routine": "ReadFixed",
+      "count": 0,
+      "cycles": 1696,
+      "pair_setup_stores": 2
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "before",
+      "routine": "ReadAcrossCall",
+      "count": 0,
+      "cycles": 92,
+      "pair_setup_stores": 4
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "before",
+      "routine": "ConvertSpan",
+      "count": 0,
+      "cycles": 60,
+      "pair_setup_stores": 0
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "before",
+      "routine": "ConvertSpan",
+      "count": 1,
+      "cycles": 176,
+      "pair_setup_stores": 4
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "before",
+      "routine": "ConvertSpan",
+      "count": 127,
+      "cycles": 14792,
+      "pair_setup_stores": 508
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "before",
+      "routine": "ConvertSpan",
+      "count": 128,
+      "cycles": 14908,
+      "pair_setup_stores": 512
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "before",
+      "routine": "ConvertSpan",
+      "count": 254,
+      "cycles": 29524,
+      "pair_setup_stores": 1016
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "before",
+      "routine": "ConvertSpan",
+      "count": 255,
+      "cycles": 29640,
+      "pair_setup_stores": 1020
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "before",
+      "routine": "ScanFixed",
+      "count": 0,
+      "cycles": 1629,
+      "pair_setup_stores": 64
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "final",
+      "routine": "ReadAcrossCall",
+      "count": 0,
+      "cycles": 78,
+      "pair_setup_stores": 2
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "final",
+      "routine": "ConvertSpan",
+      "count": 0,
+      "cycles": 60,
+      "pair_setup_stores": 0
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "final",
+      "routine": "ConvertSpan",
+      "count": 1,
+      "cycles": 153,
+      "pair_setup_stores": 2
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "final",
+      "routine": "ConvertSpan",
+      "count": 127,
+      "cycles": 11871,
+      "pair_setup_stores": 254
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "final",
+      "routine": "ConvertSpan",
+      "count": 128,
+      "cycles": 11964,
+      "pair_setup_stores": 256
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "final",
+      "routine": "ConvertSpan",
+      "count": 254,
+      "cycles": 23682,
+      "pair_setup_stores": 508
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "final",
+      "routine": "ConvertSpan",
+      "count": 255,
+      "cycles": 23775,
+      "pair_setup_stores": 510
+    },
+    {
+      "runtime": "ActionCart",
+      "stage": "final",
+      "routine": "ScanFixed",
+      "count": 0,
+      "cycles": 1156,
+      "pair_setup_stores": 2
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "before",
+      "routine": "ReadAcrossCall",
+      "count": 0,
+      "cycles": 92,
+      "pair_setup_stores": 4
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "before",
+      "routine": "ConvertSpan",
+      "count": 0,
+      "cycles": 60,
+      "pair_setup_stores": 0
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "before",
+      "routine": "ConvertSpan",
+      "count": 1,
+      "cycles": 176,
+      "pair_setup_stores": 4
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "before",
+      "routine": "ConvertSpan",
+      "count": 127,
+      "cycles": 14792,
+      "pair_setup_stores": 508
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "before",
+      "routine": "ConvertSpan",
+      "count": 128,
+      "cycles": 14908,
+      "pair_setup_stores": 512
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "before",
+      "routine": "ConvertSpan",
+      "count": 254,
+      "cycles": 29524,
+      "pair_setup_stores": 1016
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "before",
+      "routine": "ConvertSpan",
+      "count": 255,
+      "cycles": 29640,
+      "pair_setup_stores": 1020
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "before",
+      "routine": "ScanFixed",
+      "count": 0,
+      "cycles": 1629,
+      "pair_setup_stores": 64
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "final",
+      "routine": "ReadAcrossCall",
+      "count": 0,
+      "cycles": 78,
+      "pair_setup_stores": 2
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "final",
+      "routine": "ConvertSpan",
+      "count": 0,
+      "cycles": 60,
+      "pair_setup_stores": 0
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "final",
+      "routine": "ConvertSpan",
+      "count": 1,
+      "cycles": 153,
+      "pair_setup_stores": 2
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "final",
+      "routine": "ConvertSpan",
+      "count": 127,
+      "cycles": 11871,
+      "pair_setup_stores": 254
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "final",
+      "routine": "ConvertSpan",
+      "count": 128,
+      "cycles": 11964,
+      "pair_setup_stores": 256
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "final",
+      "routine": "ConvertSpan",
+      "count": 254,
+      "cycles": 23682,
+      "pair_setup_stores": 508
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "final",
+      "routine": "ConvertSpan",
+      "count": 255,
+      "cycles": 23775,
+      "pair_setup_stores": 510
+    },
+    {
+      "runtime": "Standalone",
+      "stage": "final",
+      "routine": "ScanFixed",
+      "count": 0,
+      "cycles": 1156,
+      "pair_setup_stores": 2
+    }
+  ],
+  "tn_eight_character_loop": [
+    {
+      "program": "TN",
+      "stage": "before",
+      "bytes": 57,
+      "cycles": 963,
+      "pair_setup_stores": 32,
+      "buffer_origins": [
+        "7000",
+        "70FE"
+      ],
+      "data_seeds": [
+        0,
+        1,
+        127,
+        128,
+        254,
+        255
+      ]
+    },
+    {
+      "program": "TN",
+      "stage": "final",
+      "bytes": 45,
+      "cycles": 827,
+      "pair_setup_stores": 16,
+      "buffer_origins": [
+        "7000",
+        "70FE"
+      ],
+      "data_seeds": [
+        0,
+        1,
+        127,
+        128,
+        254,
+        255
+      ]
+    },
+    {
+      "program": "TNDBG",
+      "stage": "before",
+      "bytes": 57,
+      "cycles": 963,
+      "pair_setup_stores": 32,
+      "buffer_origins": [
+        "7000",
+        "70FE"
+      ],
+      "data_seeds": [
+        0,
+        1,
+        127,
+        128,
+        254,
+        255
+      ]
+    },
+    {
+      "program": "TNDBG",
+      "stage": "final",
+      "bytes": 45,
+      "cycles": 827,
+      "pair_setup_stores": 16,
+      "buffer_origins": [
+        "7000",
+        "70FE"
+      ],
+      "data_seeds": [
+        0,
+        1,
+        127,
+        128,
+        254,
+        255
+      ]
+    }
+  ],
+  "measurement_notes": [
+    "XEX bytes include load records and RUNAD, not only instructions.",
+    "Entry-source hashes and emitted XEX hashes are SHA-256.",
+    "The invariant fixture was added later and compiled with the pinned 97a60fa6 baseline binary.",
+    "VM cycles include called routines; direct pair setup stores count STA/STX/STY to $AA-$AF and exclude required RMW pointer increments.",
+    "Execution rows use optimized NIR at $3000; tests additionally cover raw NIR, both runtimes, relocation and actual LF/CRLF parsing.",
+    "TN loop probes execute the saved emitted images across two buffer origins and six data seeds."
+  ],
+  "checks": {
+    "unit": {
+      "passed": 1163,
+      "targets": 1,
+      "log": "build/pointer-retention/final-unit-v3.log",
+      "ignored": 2
+    },
+    "tracked-emitter": {
+      "passed": 15,
+      "targets": 1,
+      "log": "build/pointer-retention/final-tracked-emitter-v3.log"
+    },
+    "integration": {
+      "passed": 100,
+      "targets": 13,
+      "log": "build/pointer-retention/final-integration-v3.log"
+    },
+    "vm": {
+      "passed": 18,
+      "targets": 9,
+      "log": "build/pointer-retention/final-vm-v3.log"
+    },
+    "emission_load_sweep": {
+      "passed": 169,
+      "log": "build/pointer-retention/final-sweep-v3.log"
+    },
+    "mads": {
+      "compiler_cases": 59,
+      "assembled_listings": 228,
+      "log": "build/pointer-retention/final-mads-v3.log"
+    },
+    "full_tn_listings": {
+      "equal_to_xex": [
+        "TN",
+        "TNDBG"
+      ],
+      "edited_origin": "TN $2C00->$3C00 equals direct compilation"
+    }
+  },
+  "compiler_cost": {
+    "configuration": "Single sequential debug CLI compilation with source listing, cartridge runtime and $2C00 origin; same pinned baseline/final binaries as saved artifacts.",
+    "samples": [
+      {
+        "name": "TN",
+        "stage": "baseline",
+        "wall_seconds": 14.994,
+        "max_resident_bytes": 92504064,
+        "compiler_binary_sha256": "a9f940b28ca6f402cd639cc631a9581cd417f10a306b75f84f23e40d1ad792ed"
+      },
+      {
+        "name": "TNDBG",
+        "stage": "baseline",
+        "wall_seconds": 46.883,
+        "max_resident_bytes": 105529344,
+        "compiler_binary_sha256": "a9f940b28ca6f402cd639cc631a9581cd417f10a306b75f84f23e40d1ad792ed"
+      },
+      {
+        "name": "TN",
+        "stage": "final",
+        "wall_seconds": 16.511,
+        "max_resident_bytes": 90685440,
+        "compiler_binary_sha256": "537a905c8535ca1278059b08b475d4e112162c3746ae65cf8974c2589187f9a9"
+      },
+      {
+        "name": "TNDBG",
+        "stage": "final",
+        "wall_seconds": 49.808,
+        "max_resident_bytes": 108806144,
+        "compiler_binary_sha256": "537a905c8535ca1278059b08b475d4e112162c3746ae65cf8974c2589187f9a9"
+      }
+    ],
+    "notes": "Single samples, not a performance threshold. Baseline samples are reused from the frozen binary; final samples were run with no concurrent qualification or compiler jobs."
+  },
+  "commits": [
+    {
+      "slice": "0: baseline and plan",
+      "commit": "dbce199d"
+    },
+    {
+      "slice": "1: direct calls",
+      "commit": "90cf8dad"
+    },
+    {
+      "slice": "2: CFG facts",
+      "commit": "a46685d8"
+    },
+    {
+      "slice": "3: invariant loops",
+      "commit": "b44f84bc"
+    },
+    {
+      "slice": "4: private pointer promotion",
+      "commit": "d69682ed"
+    },
+    {
+      "slice": "5: hardware barriers and qualification",
+      "commit": "b4e55b66"
+    },
+    {
+      "slice": "exact-result composition",
+      "commit": "0a9c3fe1"
+    }
+  ]
+}
