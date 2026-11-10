@@ -9,6 +9,7 @@ import re
 import subprocess
 import tarfile
 import tempfile
+import shutil
 
 ROOT = Path(__file__).resolve().parents[3]
 OUT = ROOT / 'build/tn-c-oscar64'
@@ -108,6 +109,19 @@ def compile_c(compiler, source, stem, profile, defines=()):
     command(args, stem.with_suffix('.log'))
     row = collect(stem)
     row['command'] = portable(args)
+    with tempfile.TemporaryDirectory(dir=OUT,prefix='c-crlf-') as temp:
+        temp=Path(temp)
+        for file in (ROOT/'samples/tn/c').iterdir():
+            if file.suffix in ['.c','.h']:
+                text=file.read_text().replace('\r\n','\n')
+                (temp/file.name).write_bytes(text.replace('\n','\r\n').encode())
+        text=(ROOT/source).read_text().replace('\r\n','\n')
+        (temp/Path(source).name).write_bytes(text.replace('\n','\r\n').encode())
+        crlf=temp/'check.xex'
+        command([compiler,'-n','-tm=atari','-'+profile,'-g','-i='+str(temp),*defines,
+                 '-o='+str(crlf),temp/Path(source).name],temp/'check.log')
+        assert digest(crlf)==row['sha256'], f'actual CRLF image differs for {source}/{profile}'
+    row['actual_crlf_equal']=True
     return row
 
 
@@ -126,7 +140,7 @@ def inventory():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('task', choices=['bootstrap', 'probe', 'platform', 'freeze'])
+    parser.add_argument('task', choices=['bootstrap', 'probe', 'platform', 'kernels', 'freeze'])
     parser.add_argument('--oscar', type=Path, default=Path(os.environ.get(
         'OSCAR64', OUT/'oscar64/bin/oscar64')))
     args = parser.parse_args()
@@ -134,6 +148,11 @@ def main():
     compiler = args.oscar.resolve()
     if args.task == 'bootstrap':
         bootstrap()
+        return
+    if args.task == 'kernels':
+        rows=[compile_c(compiler,'tools/compare6502/tn/kernel_probe.c',
+                        OUT/f'kernels-{profile}',profile,['-dTN_DIAGNOSTIC=1']) for profile in ['Os','O3']]
+        (OUT/'kernels.json').write_text(json.dumps(rows,indent=2)+'\n')
         return
     if args.task == 'platform':
         rows=[compile_c(compiler,'tools/compare6502/tn/platform_probe.c',

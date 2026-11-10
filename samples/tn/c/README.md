@@ -1,7 +1,7 @@
 # TN C reference port
 
 Implementation follows the [translation plan](../../../docs/TN_C_OSCAR64_TRANSLATION_PLAN.md).
-Slices 0–1 are qualified. Computation/UI translation follows.
+Slices 0–2 are qualified. Full panel/UI integration follows.
 
 The target is Atari native 6502 with Oscar64 pinned by
 [the build driver](../../../tools/compare6502/tn/build.py). Bootstrap tools and
@@ -12,6 +12,7 @@ python3 tools/compare6502/tn/build.py bootstrap
 python3 tools/compare6502/tn/build.py freeze
 python3 tools/compare6502/tn/build.py probe
 python3 tools/compare6502/tn/build.py platform
+python3 tools/compare6502/tn/build.py kernels
 cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml --features tn-c-reference --test tn_c_reference
 ```
 
@@ -38,3 +39,10 @@ Mocked OS vectors inject eight nested nonlocal errors per execution; both CPU
 and software stack return to their original checkpoint. The explicit volatile
 recovery flag avoids relying on the pinned compiler retaining a varying setjmp
 return. The ordinary source error/UI behavior is integrated in later slices.
+
+`TN_DIAGNOSTIC` preserves callable kernel entries for controlled measurements.
+Production builds leave normal reachability and inlining enabled. The
+[kernel scorecard](../../../surveys/tn/c-oscar64/kernels.json) reports callee
+bytes/cycles including nested calls, excluding caller argument placement. It
+is not a whole-image comparison; ABI and C automatic-storage differences remain
+part of these diagnostic controls.

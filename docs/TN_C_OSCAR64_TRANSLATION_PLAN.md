@@ -1,6 +1,6 @@
 # TN C translation and Oscar64 comparison plan
 
-Status: implementation in progress, prepared 2026-11-10. Slices 0–1 are qualified;
+Status: implementation in progress, prepared 2026-11-10. Slices 0–2 are qualified;
 application translation follows. Translate the maintained TN application into C, produce a
 working Atari program with Oscar64, and use verified output to guide actionc
 optimization. Implement in vertical slices and commit each qualified slice.
@@ -346,3 +346,9 @@ controls post-setjmp recovery; the pinned compiler's constant ordinary return
 is not used to select reentry. Source CPU-stack reset is mapped to a stable C
 CPU/software-stack checkpoint. Mocked OS validation does not qualify disk/UI
 behavior, interrupt interference or complete application temporary footprints.
+
+Slice 2 qualifies the computation kernels against independent data and the
+frozen standalone Action! image. The initial [kernel scorecard](../surveys/tn/c-oscar64/kernels.json)
+separates diagnostic callable-control bytes/cycles from production and whole-TN
+claims. Both Oscar64 profiles pass and actual CRLF sources compile identically.
+The full application and real OS integration remain required.

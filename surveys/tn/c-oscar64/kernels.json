@@ -1,0 +1,195 @@
+{
+  "scope": "Diagnostic C TN_DIAGNOSTIC callable/no-inline controls versus intact standalone Action! TN; not whole-program production sizes. Callee cycles include nested callees and return, exclude caller argument placement and harness. ABI and stronger C automatic-storage guarantees remain part of these results.",
+  "input_manifest": "baseline.json",
+  "raw_metric_log": "build/tn-c-oscar64/slice2-qualified-v2.log",
+  "raw_metric_sha256": "525418fd3c481ece5f93ebbe94563a3d4d52fb4fd8f23490ff7977a6d9dfe5d9",
+  "artifacts": {
+    "kernels-Os.xex": "55ff56a3a1bcd9602166d4a263557a9e7ed35961d44736f897e44fd9372bfc3f",
+    "kernels-O3.xex": "29ccaa389f0061f1c836b10da23bee3d6950f78fd3d4d5489c0b217e974fc0ea"
+  },
+  "routines": [
+    {
+      "routine": "Strcpy",
+      "callee_bytes": {
+        "Action": 41,
+        "Os": 8,
+        "O3": 8
+      },
+      "matched_cases": 6,
+      "sample_callee_cycles": [
+        {
+          "case": "E5EDAE2A0861EE5F",
+          "cycles": {
+            "Os": 42,
+            "Action": 94,
+            "O3": 42
+          }
+        },
+        {
+          "case": "165DFDA1BD1092EE",
+          "cycles": {
+            "Os": 4632,
+            "Action": 4684,
+            "O3": 4632
+          }
+        }
+      ]
+    },
+    {
+      "routine": "Strcat",
+      "callee_bytes": {
+        "Action": 125,
+        "Os": 51,
+        "O3": 51
+      },
+      "matched_cases": 5,
+      "sample_callee_cycles": [
+        {
+          "case": "7441B22E94BA85CC",
+          "cycles": {
+            "Os": 116,
+            "Action": 227,
+            "O3": 116
+          }
+        },
+        {
+          "case": "8755E9E24CC781EC",
+          "cycles": {
+            "Os": 4706,
+            "Action": 4817,
+            "O3": 4706
+          }
+        }
+      ]
+    },
+    {
+      "routine": "Instr",
+      "callee_bytes": {
+        "Action": 66,
+        "Os": 34,
+        "O3": 34
+      },
+      "matched_cases": 11,
+      "sample_callee_cycles": [
+        {
+          "case": "05D0CD8221759871",
+          "cycles": {
+            "Os": 32,
+            "Action": 59,
+            "O3": 32
+          }
+        },
+        {
+          "case": "EE08BDECE9881C4F",
+          "cycles": {
+            "Os": 8683,
+            "Action": 15832,
+            "O3": 8683
+          }
+        }
+      ]
+    },
+    {
+      "routine": "Fnamecmp",
+      "callee_bytes": {
+        "Action": 185,
+        "Os": 77,
+        "O3": 77
+      },
+      "matched_cases": 5,
+      "sample_callee_cycles": [
+        {
+          "case": "72569B21C980C37D",
+          "cycles": {
+            "Os": 26,
+            "Action": 115,
+            "O3": 26
+          }
+        },
+        {
+          "case": "FB12BEF0E20E192F",
+          "cycles": {
+            "Os": 11419,
+            "Action": 16043,
+            "O3": 11419
+          }
+        }
+      ]
+    },
+    {
+      "routine": "Sort",
+      "callee_bytes": {
+        "Action": 250,
+        "Os": 141,
+        "O3": 137
+      },
+      "matched_cases": 0,
+      "sample_callee_cycles": []
+    },
+    {
+      "routine": "Convert",
+      "callee_bytes": {
+        "Action": 131,
+        "Os": 91,
+        "O3": 87
+      },
+      "matched_cases": 64,
+      "sample_callee_cycles": [
+        {
+          "case": "6863C710FD2AB13C",
+          "cycles": {
+            "Os": 163,
+            "Action": 229,
+            "O3": 148
+          }
+        },
+        {
+          "case": "9F12F8F3C26DD5CA",
+          "cycles": {
+            "Os": 903,
+            "Action": 1070,
+            "O3": 765
+          }
+        }
+      ]
+    },
+    {
+      "routine": "Print",
+      "callee_bytes": {
+        "Action": 58,
+        "Os": 31,
+        "O3": 31
+      },
+      "matched_cases": 1,
+      "sample_callee_cycles": [
+        {
+          "case": "BEEC6341CBEB05F7",
+          "cycles": {
+            "Os": 1395,
+            "Action": 1457,
+            "O3": 1299
+          }
+        }
+      ]
+    },
+    {
+      "routine": "PrintFname",
+      "callee_bytes": {
+        "Action": 58,
+        "Os": 31,
+        "O3": 31
+      },
+      "matched_cases": 1,
+      "sample_callee_cycles": [
+        {
+          "case": "1F696B9EBB6ABC3A",
+          "cycles": {
+            "Os": 1053,
+            "Action": 1107,
+            "O3": 981
+          }
+        }
+      ]
+    }
+  ]
+}

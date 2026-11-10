@@ -125,27 +125,33 @@
     "line": 219,
     "routine": "Putchar",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 227,
     "routine": "Print",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 237,
     "routine": "PrintE",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
@@ -453,36 +459,44 @@
     "line": 81,
     "routine": "Strcpy",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 87,
     "routine": "Strcat",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 94,
     "routine": "Instr",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 102,
     "routine": "PrintFname",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
@@ -529,18 +543,22 @@
     "line": 156,
     "routine": "Fnamecmp",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 173,
     "routine": "Sort",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
@@ -592,9 +610,11 @@
     "line": 302,
     "routine": "Convert",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
@@ -907,36 +927,44 @@
     "line": 91,
     "routine": "Strcpy",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/TNDBG.ACT",
     "line": 97,
     "routine": "Strcat",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/TNDBG.ACT",
     "line": 104,
     "routine": "Instr",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/TNDBG.ACT",
     "line": 112,
     "routine": "PrintFname",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/TNDBG.ACT",
@@ -983,18 +1011,22 @@
     "line": 166,
     "routine": "Fnamecmp",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/TNDBG.ACT",
     "line": 185,
     "routine": "Sort",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/TNDBG.ACT",
@@ -1046,9 +1078,11 @@
     "line": 330,
     "routine": "Convert",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-kernel",
+    "implementation": "samples/tn/c/tn_core.c",
+    "qualification": [
+      "slice2: independent buffer/result/counter oracles with frozen standalone Action! control"
+    ]
   },
   {
     "source": "samples/tn/modern/TNDBG.ACT",

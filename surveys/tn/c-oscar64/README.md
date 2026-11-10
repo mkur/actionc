@@ -1,7 +1,7 @@
 # TN / Oscar64 C reference qualification
 
 The [implementation plan](../../../docs/TN_C_OSCAR64_TRANSLATION_PLAN.md) defines
-all eight slices. Slices 0–1 are complete. The full port is not yet implemented.
+all eight slices. Slices 0–2 are complete. The full port is not yet implemented.
 
 [baseline.json](baseline.json) freezes entry/include hashes, Action!/Oscar64
 compiler revisions and binary hashes, ROM/MyDOS inputs and four Action! images.
@@ -34,3 +34,20 @@ stack and saved registers. Indirect terminal transfers use an actual global
 vector; an inline-assembly parameter address is not assumed to be its value.
 The library's `_LodChn` operation is folded into typed IOCB offset calculations,
 without retaining a no-op implementation. No compiler or VM changes were made.
+
+Slice 2 qualifies the string/comparison/sorting/conversion/printing kernels and
+a test-only copy of the SetWin conversion region. Independent buffer, filename,
+ordering, counter and screen-byte oracles cover byte bounds, copy/append behavior,
+0/1/17/64-entry sorting, 64 filename conversions, terminating comparison prefixes
+and both compiler profiles. The intact frozen standalone TN image executes the
+same kernel cases; the extracted SetWin region has its own independent oracle.
+All four focused tests pass. New C sources/headers also compile from actual CRLF
+copies with identical images.
+
+[kernels.json](kernels.json) records early callable-control sizes and selected
+matched-input callee cycle samples. Oscar64 Fnamecmp is 77 bytes versus 185;
+Convert is 87/91 versus 131. These controls preserve callable C routines and
+include their nested calls in timing, while caller argument setup is excluded.
+They expose ABI/placement and semantic differences, not a completed full-TN
+performance result. Regenerate the report with `score_kernels.py` and a freshly
+qualified `TN_C_METRICS=1` test log.
