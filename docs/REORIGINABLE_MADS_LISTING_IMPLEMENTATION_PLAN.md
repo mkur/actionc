@@ -79,6 +79,20 @@ Generated address/byte comments describe the original actionc artifact. They
 may become stale after editing `ACTIONC_ORIGIN` and are not assembler input.
 The header must state this explicitly.
 
+Literal-bearing Action! machine byte streams carry a `MachineData` source-map
+range into listing emission. Both classic and MIR6502 preserve those ranges
+through linking, including when runtime source locations are suppressed. They
+are rendered as bytes and relocation directives, without inventing instruction
+boundaries inside counted strings, embedded addresses, or character markers.
+This is display metadata; it does not decide whether the bytes are executable.
+Numeric machine code and assembled instruction blocks retain instruction listings.
+
+Every symbolic reference must have a definition. A symbol inside an instruction
+operand or a multi-byte relocation uses an `ACTIONC_ORIGIN`-relative equate,
+since a label line cannot be emitted at that byte boundary. Regression coverage
+includes plain and source-annotated listings, LF/CRLF input, and MADS reassembly
+at both the original and a changed origin.
+
 ## Non-goals
 
 - Do not introduce a linker, object-file format, or runtime relocation loader.

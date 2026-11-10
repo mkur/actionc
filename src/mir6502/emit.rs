@@ -3134,7 +3134,13 @@ fn emit_op(
                     summary: format!("{} structured item(s)", machine_block.items.len()),
                 });
             ctx.summary.source_ranges.push(CodegenSourceRange {
-                kind: CodegenSourceRangeKind::MachineBlock,
+                kind: if machine_block.items.iter().any(|item| {
+                    matches!(item, MirMachineItem::StringLiteral(_) | MirMachineItem::CharLiteral(_))
+                }) {
+                    CodegenSourceRangeKind::MachineData
+                } else {
+                    CodegenSourceRangeKind::MachineBlock
+                },
                 name: Some(format!("m{}", id.0)),
                 source_span: machine_block.source_span.unwrap_or(SYNTHETIC_SPAN),
                 start: address,

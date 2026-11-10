@@ -1263,6 +1263,7 @@ impl From<CodegenSourceRangeKind> for SourceRangeKindKey {
             CodegenSourceRangeKind::Declaration => Self::Declaration,
             CodegenSourceRangeKind::StorageInitializer => Self::StorageInitializer,
             CodegenSourceRangeKind::MachineBlock => Self::MachineBlock,
+            CodegenSourceRangeKind::MachineData => Self::MachineBlock,
         }
     }
 }

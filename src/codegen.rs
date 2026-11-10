@@ -215,6 +215,9 @@ pub enum CodegenSourceRangeKind {
     Declaration,
     StorageInitializer,
     MachineBlock,
+    /// Literal-bearing Action! byte streams have no instruction boundaries.
+    /// Listing metadata only; their bytes may still be executable.
+    MachineData,
 }
 
 // Reserved identities used by linked runtime providers and generated helpers.
@@ -247,7 +250,12 @@ pub(crate) fn suppress_source_ranges_for_routines(
         let suppressed = suppressed_ranges
             .iter()
             .any(|&(start, end)| source.start < end && start < source.end);
-        if suppressed && source.kind == CodegenSourceRangeKind::StorageInitializer {
+        if suppressed
+            && matches!(
+                source.kind,
+                CodegenSourceRangeKind::StorageInitializer | CodegenSourceRangeKind::MachineData
+            )
+        {
             // Keep the code/data boundary, but this span belongs to a separate
             // runtime source file, not the application's expanded source.
             source.source_span = Span::new(0, 0);
@@ -1597,6 +1605,13 @@ fn stmt_span(stmt: &Stmt) -> Span {
 
 fn stmt_source_range_kind(stmt: &Stmt) -> CodegenSourceRangeKind {
     match stmt {
+        Stmt::MachineBlock { items, .. }
+            if items.iter().any(|item| {
+                matches!(item, MachineItem::StringLiteral(_) | MachineItem::CharLiteral(_))
+            }) =>
+        {
+            CodegenSourceRangeKind::MachineData
+        }
         Stmt::MachineBlock { .. } | Stmt::InlineAsm { .. } => CodegenSourceRangeKind::MachineBlock,
         _ => CodegenSourceRangeKind::Statement,
     }

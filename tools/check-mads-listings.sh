@@ -237,6 +237,11 @@ run_reorigin_case "arithmetic-mir6502" "mir6502" "modern" "mir6502" \
   "fixtures/listing/mads_arithmetic_helpers.act" '$3000' '$41C7'
 
 for runtime in cart standalone; do
+  for selection in 'compatibility:legacy:classic' 'optimized:modern:classic' 'mir6502:modern:mir6502'; do
+    IFS=: read -r mode profile backend <<<"$selection"
+    run_reorigin_case "machine-data-$mode-$runtime" "$mode" "$profile" "$backend" \
+      "fixtures/listing/mads_machine_data.act" '$3000' '$41C7' ast "$runtime"
+  done
   run_reorigin_case "storage-runtime-compatibility-$runtime" "compatibility" "legacy" "classic" \
     "fixtures/listing/mads_storage_runtime.act" '$3000' '$41C7' ast "$runtime"
   run_reorigin_case "storage-runtime-optimized-$runtime" "optimized" "modern" "classic" \

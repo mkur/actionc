@@ -353,6 +353,9 @@ struct MadsDisplaySymbols {
     origin_equates: Vec<(String, u16)>,
     output_origin: u16,
     output_len: usize,
+    /// An instruction operand or relocation lane cannot receive a label line.
+    /// Use an origin-relative equate for symbols at these byte addresses.
+    interior_addresses: BTreeSet<u16>,
 }
 
 #[derive(Debug)]
@@ -387,6 +390,18 @@ impl MadsDisplaySymbols {
                 .collect(),
             output_origin: output.origin,
             output_len: output.bytes.len(),
+            interior_addresses: instructions
+                .iter()
+                .flat_map(|instruction| {
+                    instruction.address.saturating_add(1)
+                        ..instruction.address.saturating_add(instruction.bytes.len() as u16)
+                })
+                .chain(output.relocations.iter().flat_map(|relocation| {
+                    let address = output.origin.saturating_add(relocation.value_offset);
+                    address.saturating_add(1)
+                        ..address.saturating_add(u16::from(relocation.kind.width()))
+                }))
+                .collect(),
             ..Self::default()
         };
 
@@ -661,6 +676,7 @@ impl MadsDisplaySymbols {
         address
             .checked_sub(self.output_origin)
             .is_some_and(|offset| usize::from(offset) <= self.output_len)
+            && !self.interior_addresses.contains(&address)
     }
 
     fn next_definition_after(&self, address: u16, end: u16) -> Option<u16> {
@@ -1014,7 +1030,12 @@ fn storage_source_listing_ranges(output: &CodegenOutput) -> Vec<StorageListingRa
         .map
         .source_ranges
         .iter()
-        .filter(|range| range.kind == CodegenSourceRangeKind::StorageInitializer)
+        .filter(|range| {
+            matches!(
+                range.kind,
+                CodegenSourceRangeKind::StorageInitializer | CodegenSourceRangeKind::MachineData
+            )
+        })
         .filter_map(|range| {
             let start = output_offset(output, range.start)?;
             let end = output_end_offset(output, range.end)?;
@@ -1620,6 +1641,7 @@ fn format_source_range_kind(kind: CodegenSourceRangeKind) -> &'static str {
         CodegenSourceRangeKind::Declaration => "declaration",
         CodegenSourceRangeKind::StorageInitializer => "storage",
         CodegenSourceRangeKind::MachineBlock => "machine",
+        CodegenSourceRangeKind::MachineData => "machine-data",
     }
 }
 
