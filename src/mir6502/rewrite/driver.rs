@@ -6,6 +6,7 @@ use crate::mir6502::analysis::effects::{
     MirFlagSet, MirHomeByte, MirMemoryRange, MirTempAccess, classify_op,
 };
 use crate::mir6502::analysis::known_callees::MirKnownCalleeSummaries;
+use crate::mir6502::analysis::machine_values::MirMachineMemoryMap;
 use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
@@ -289,19 +290,38 @@ impl MirPostHomeRewriteDriver {
         &mut self,
         routine: &mut MirRoutine,
         known_callees: &MirKnownCalleeSummaries,
-        mut discover: Discover,
+        discover: Discover,
     ) -> Result<MirRewriteRunResult, MirRewriteError>
     where
         Discover:
             FnMut(&MirRoutine, &PostHomeRewriteContext<'_, '_>) -> Vec<MirPostHomeRewritePlan>,
     {
+        self.run_fixed_point_with_memory_map(routine, known_callees,
+            |_| MirMachineMemoryMap::default(), discover)
+    }
+
+    /// Layout-aware clients rebuild the physical map with each immutable
+    /// snapshot. Existing clients retain their conservative empty-map policy.
+    pub(in crate::mir6502) fn run_fixed_point_with_memory_map<Discover, MemoryMap>(
+        &mut self,
+        routine: &mut MirRoutine,
+        known_callees: &MirKnownCalleeSummaries,
+        mut memory_map: MemoryMap,
+        mut discover: Discover,
+    ) -> Result<MirRewriteRunResult, MirRewriteError>
+    where
+        Discover: FnMut(&MirRoutine, &PostHomeRewriteContext<'_, '_>) -> Vec<MirPostHomeRewritePlan>,
+        MemoryMap: FnMut(&MirRoutine) -> MirMachineMemoryMap,
+    {
         let mut result = MirRewriteRunResult::default();
         for _ in 0..self.max_rounds {
             result.rounds += 1;
-            let snapshot = PostHomeAnalysisSnapshot::new_with_known_callees(
+            let map = memory_map(routine);
+            let snapshot = PostHomeAnalysisSnapshot::new_with_known_callees_and_memory_map(
                 routine,
                 self.generation,
                 known_callees,
+                &map,
             )
             .map_err(|_| MirRewriteError::InvalidCfg)?;
             result.analysis_builds += 1;

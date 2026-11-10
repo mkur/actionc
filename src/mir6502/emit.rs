@@ -58,6 +58,19 @@ pub(super) fn emit_program_with_physical_memory(
     emitter: &mut TrackedEmitter,
     physical_memory: bool,
 ) -> Result<MirEmissionSummary, Vec<MirDiagnostic>> {
+    emit_program_with_physical_references(mir, origin, emitter, physical_memory, mir)
+}
+
+/// Resolve proof identities from an unchanged reference program in the actual
+/// emitted layout. Removed scratch reads still need addresses during replay;
+/// the reference operations do not contribute bytes or placement decisions.
+pub(super) fn emit_program_with_physical_references(
+    mir: &MirProgram,
+    origin: u16,
+    emitter: &mut TrackedEmitter,
+    physical_memory: bool,
+    references: &MirProgram,
+) -> Result<MirEmissionSummary, Vec<MirDiagnostic>> {
     verify::verify_program(mir, MirPhase::PreEmission)?;
     let mut layout_diagnostics = Vec::new();
     let inline_probe = MirObjectLayout::new(mir, origin, Some(origin), &mut layout_diagnostics);
@@ -119,7 +132,7 @@ pub(super) fn emit_program_with_physical_memory(
                 }
             }
         }
-        for routine in &mir.routines {
+        for routine in &references.routines {
             for op in routine.blocks.iter().flat_map(|b| &b.ops) {
                 let effects = super::analysis::effects::classify_op(op);
                 for mem in effects

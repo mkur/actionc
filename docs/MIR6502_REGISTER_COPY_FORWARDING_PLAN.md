@@ -1,6 +1,6 @@
 # MIR6502 Register-to-Store Copy Forwarding Plan
 
-Status: Slices 0-1 complete; implementation proceeding in slices. Created 2026-11-10.
+Status: Slices 0-2 complete; final qualification pending. Created 2026-11-10.
 
 Implement a post-home copy rewrite that stores already available byte
 values directly from A, X, or Y instead of routing them through private scratch.
@@ -214,9 +214,10 @@ negative live-A/live-flag cases. Remeasure before adding a broader selector.
 Add the direct-load/store form using snapshot value equality and the physical
 map. Preserve original A/N/Z when proven equal, otherwise use existing deadness
 requirements. Run this family and the register-move/store family to a bounded
-fixed point, rebuilding facts after accepted batches. Follow with existing
+fixed point, rebuilding facts after accepted changes. Follow with existing
 dead-register/private-store cleanup; repeat only while a strictly decreasing
-operation/byte metric shows progress. Retain the driver's convergence budget.
+operation/byte metric shows progress. Retain the driver's bounded convergence
+mechanism; the initial operation count plus one bounds a single-plan fixed point.
 
 In the motivating region, this should allow the following sequence of general
 steps, each justified independently:
@@ -380,3 +381,43 @@ and live N/Z guards), all three legacy TXA tests, two integration tests with
 feature-on/off comparisons over raw/optimized NIR, both runtimes and origins,
 and the forwarding/readback VM targets (four tests). No fixture snapshots or
 shared IR contracts changed.
+
+## Slice 2 results
+
+Added direct byte load/store forwarding from available A/X/Y, using the existing
+machine-value and N/Z queries, the final emitted physical map, and structural
+deadness checks. The driver has an optional map-building entry point; existing
+callers retain their empty-map conservative policy. Private scratch cleanup
+uses the existing reaching-definition proof plus exclusion of separately named
+physical reads. Raw/absolute-backed reads remain ineligible.
+
+Only one rewrite is applied per snapshot: disjoint operation ranges can still
+have dependent register assumptions. Each rewrite strictly removes an operation,
+so the initial routine operation count plus one bounds convergence. An exhaustive
+two-lane execution regression also includes consecutive dependent load/store
+pairs to detect stale batch assumptions.
+
+The final transaction replays from the complete baseline against the proposed
+emitted layout. A proof-only emission hook resolves baseline reference identities
+in that layout, including scratch reads that the proposal removed. Reference
+operations do not emit bytes or affect placement. Published callee A facts,
+unchanged frames, verifier cleanliness and exact final cost remain mandatory.
+
+| Cartridge workload | Baseline XEX | Slice 2 XEX | Saving |
+| --- | ---: | ---: | ---: |
+| TN | 9,974 | 9,959 | 15 |
+| TNDBG | 13,079 | 13,055 | 24 |
+| Neutral fixture | 214 | 186 | 28 |
+
+`Strcpy` and both neutral wrappers reach 41 bytes, removing the full 12-byte
+staging sequence. TN's `Copy` decreases from 676 to 673 bytes; TNDBG's `Copy`
+decreases from 1,195 to 1,183. These are emitted sizes, not additive telemetry
+estimates. Final backend qualification and cycle measurements follow in Slice 3.
+
+Focused validation passed: ten register-copy proof/execution tests (including
+all 65,536 low/high pairs, RAM spills, alias/successor preservation, live A/N/Z,
+absolute reads, equal-cost rollback and published callee results), all 18 shared
+rewrite-driver tests, both feature-control integration tests, and four tests
+across the forwarding/absolute-readback VM targets. The integration cases cover
+raw/optimized NIR, both runtimes and two origins; VM inputs also cover LF/CRLF.
+No NIR contracts or existing fixture snapshots changed.

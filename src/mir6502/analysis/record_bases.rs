@@ -50,7 +50,7 @@ impl MirPhysicalMemory {
                 .find_map(|(r, m, a, _)| (*r == routine && m == mem).then_some(*a)),
         }
     }
-    fn ordinary(&self, routine: RoutineId, mem: &MirMem) -> bool {
+    pub(in crate::mir6502) fn ordinary(&self, routine: RoutineId, mem: &MirMem) -> bool {
         self.entries.iter().any(|(r, m, a, normal)| {
             *r == routine
                 && m == mem
