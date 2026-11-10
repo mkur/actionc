@@ -1,7 +1,7 @@
 # TN C reference port
 
 Implementation follows the [translation plan](../../../docs/TN_C_OSCAR64_TRANSLATION_PLAN.md).
-Slices 0–3 are qualified. Remaining UI/command integration follows.
+Slices 0–4 are qualified. Real file-operation and full-application integration follows.
 
 The target is Atari native 6502 with Oscar64 pinned by
 [the build driver](../../../tools/compare6502/tn/build.py). Bootstrap tools and
@@ -15,6 +15,9 @@ python3 tools/compare6502/tn/build.py platform
 python3 tools/compare6502/tn/build.py kernels
 python3 tools/compare6502/tn/literals.py --check
 python3 tools/compare6502/tn/build.py panels
+python3 tools/compare6502/tn/menus.py --check
+python3 tools/compare6502/tn/build.py ui
+python3 tools/compare6502/tn/build.py dispatch
 cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml --features tn-c-reference --test tn_c_reference
 ```
 
@@ -48,3 +51,9 @@ Production builds leave normal reachability and inlining enabled. The
 bytes/cycles including nested calls, excluding caller argument placement. It
 is not a whole-image comparison; ABI and C automatic-storage differences remain
 part of these diagnostic controls.
+
+The [toolchain notes](../../../surveys/tn/c-oscar64/toolchain-notes.md) document
+the fixed Range scratch cells, relocated compiler stack/address bank and narrow
+workarounds required by the pinned compiler. Menu self references remain typed
+relocations. Dispatch controls intercept unported commands only in their test
+input; these intercepts are not production command implementations.

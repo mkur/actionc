@@ -1,11 +1,11 @@
 {
   "scope": "Diagnostic C TN_DIAGNOSTIC callable/no-inline controls versus intact standalone Action! TN; not whole-program production sizes. Callee cycles include nested callees and return, exclude caller argument placement and harness. ABI and stronger C automatic-storage guarantees remain part of these results.",
   "input_manifest": "baseline.json",
-  "raw_metric_log": "build/tn-c-oscar64/slice2-qualified-v2.log",
-  "raw_metric_sha256": "525418fd3c481ece5f93ebbe94563a3d4d52fb4fd8f23490ff7977a6d9dfe5d9",
+  "raw_metric_log": "build/tn-c-oscar64/slice4-qualified.log",
+  "raw_metric_sha256": "80765e9440b63a1cc32d072348c4504c8f869c1f41ab9b7dadd6791a64413681",
   "artifacts": {
-    "kernels-Os.xex": "55ff56a3a1bcd9602166d4a263557a9e7ed35961d44736f897e44fd9372bfc3f",
-    "kernels-O3.xex": "29ccaa389f0061f1c836b10da23bee3d6950f78fd3d4d5489c0b217e974fc0ea"
+    "kernels-Os.xex": "57d21ec47a2d4a50dc325b96c1ccf36f4efb7f435266562af4f5c8e37ada066f",
+    "kernels-O3.xex": "35cf062000fc0581c77d39b70269d6a354970bba88ba3c15ed6e7d0396a649a6"
   },
   "routines": [
     {

@@ -1,6 +1,6 @@
 # TN C translation and Oscar64 comparison plan
 
-Status: implementation in progress, prepared 2026-11-10. Slices 0–3 are qualified;
+Status: implementation in progress, prepared 2026-11-10. Slices 0–4 are qualified;
 application translation follows. Translate the maintained TN application into C, produce a
 working Atari program with Oscar64, and use verified output to guide actionc
 optimization. Implement in vertical slices and commit each qualified slice.
@@ -358,3 +358,11 @@ and mocked CIO. Sixteen scenarios cover both native profiles, both MyDOS
 bindings, all four directory sizes and repeated state transitions. Source
 frame/space adjacency and relative-position carry remain explicit. The counted
 literal generator has a check mode and equivalent LF/CRLF input paths.
+
+Slice 4 qualifies the shared UI and full command-loop control flow. Twenty-four
+menu/editor/window cases and 84 intercepted-command key events pass, along with
+all preceding checks. Source Range scratch cells remain fixed; the compiler
+address/SP/FP bank moves to `$D5..$DC`, and generated temporary extents/branch
+targets are audited. The [toolchain notes](../surveys/tn/c-oscar64/toolchain-notes.md)
+document narrow source workarounds, including an observed incorrect native copy
+loop. Production command bodies and real MyDOS execution remain slice 5 gates.

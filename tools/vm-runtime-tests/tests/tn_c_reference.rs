@@ -82,7 +82,7 @@ impl actionc_vm::VmRunHooks for CioProbe {
                 (0..32)
                     .map(|i| vm.bus().ram().read(0x600 + i))
                     .collect::<Vec<_>>(),
-                vm.bus().ram().read_word(0xA1),
+                vm.bus().ram().read_word(0xD9),
                 vm.bus().ram().read_word(0x62a)
             ));
         }
@@ -140,6 +140,7 @@ fn c_platform_recovers_nested_calls_and_preserves_machine_algorithms() {
                 .unwrap();
             vm.bus_mut().ram_mut().write(0x0610, length);
             vm.bus_mut().ram_mut().write_word(0x0620, 0x0760);
+            vm.bus_mut().ram_mut().write(0x0760, 0xEA);
             vm.bus_mut().ram_mut().write(0x060E, 0);
             vm.bus_mut().ram_mut().write_word(0xE424, 0x073F);
             vm.bus_mut()
@@ -732,7 +733,7 @@ fn c_complete_panel_and_directory_flow_preserves_rows_tags_and_transitions() {
                     );
                 }
                 let cpu = vm.cpu().registers().sp;
-                let software = vm.bus().ram().read_word(0xA1);
+                let software = vm.bus().ram().read_word(0xD9);
                 let opens = hooks.opens.len();
                 vm = panel_command(vm, &mut hooks, ready, 7, 0);
                 assert_eq!(hooks.opens.len(), opens, "persistent InitPanels restarted");
@@ -760,8 +761,285 @@ fn c_complete_panel_and_directory_flow_preserves_rows_tags_and_transitions() {
                 vm = panel_command(vm, &mut hooks, ready, 5, 0);
                 assert_eq!(hooks.opens.len(), opens + 1);
                 assert_eq!(vm.cpu().registers().sp, cpu);
-                assert_eq!(vm.bus().ram().read_word(0xA1), software);
+                assert_eq!(vm.bus().ram().read_word(0xD9), software);
                 assert_eq!(vm.bus().ram().read_word(0x60E), 0x2000);
+            }
+        }
+    }
+}
+
+struct UiKeys {
+    keys: std::collections::VecDeque<u8>,
+    reads: usize,
+    find: u16,
+    lookups: usize,
+    lookup_return: Option<u16>,
+}
+impl actionc_vm::VmRunHooks for UiKeys {
+    type Error = String;
+    fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {
+        let pc = vm.cpu().registers().pc;
+        if self.lookup_return == Some(pc) {
+            self.lookup_return = None;
+        }
+        if pc == self.find && self.lookup_return.is_none() {
+            self.lookups += 1;
+            let stack = 0x100 + u16::from(vm.cpu().registers().sp);
+            self.lookup_return = Some(vm.bus().ram().read_word(stack + 1).wrapping_add(1));
+        }
+        if pc == 0x0740 {
+            let key = self.keys.pop_front().ok_or("unexpected keyboard request")?;
+            self.reads += 1;
+            vm.bus_mut()
+                .ram_mut()
+                .map(0x0740, &[0xA9, key, 0x60])
+                .unwrap();
+        }
+        Ok(())
+    }
+}
+#[test]
+fn c_menus_editor_and_nested_windows_preserve_data_and_arena() {
+    for profile in ["Os", "O3"] {
+        let stem = format!("ui-{profile}");
+        let mut vm = c_image(&stem);
+        let end = symbol(&stem, "ui_done");
+        vm.bus_mut().ram_mut().write_word(0xE424, 0x073F);
+        let screen: Vec<_> = (0..960)
+            .map(|i| (i as u8).wrapping_mul(37).wrapping_add(5))
+            .collect();
+        let mut first = true;
+        for (command, initial, keys, result, lookups) in [
+            (1, 4, vec![b'S'], b'S', 1),
+            (1, 2, vec![155], b'D', 1),
+            (1, 0, vec![27], 27, 1),
+            (1, 0, vec![b'Z', b'*', 155], b'M', 3),
+            (2, 1, vec![b'Y'], b'Y', 1),
+            (1, 0, vec![b'+', b'S'], b'S', 1),
+            (1, 4, vec![b'*', 155], b'7', 1),
+            (3, 0, vec![b'A', b'B', 126, b'C', 155], 1, 0),
+            (3, 0, vec![b'A', 156, b'Z', 155], 1, 0),
+            (3, 0, vec![b'A', 27], 0, 0),
+            (3, 0, vec![155], 0, 0),
+            (4, 0, vec![], 0, 0),
+        ] {
+            vm.bus_mut().ram_mut().map(0x7800, &screen).unwrap();
+            vm.bus_mut().ram_mut().write(0x600, command);
+            vm.bus_mut().ram_mut().write(0x602, initial);
+            vm.bus_mut().ram_mut().map(0x0FFF, &vec![0xCC; 16]).unwrap();
+            let expected_text = if keys == [b'A', b'B', 126, b'C', 155] {
+                Some(b"AC".to_vec())
+            } else if keys == [b'A', 156, b'Z', 155] {
+                Some(b"Z".to_vec())
+            } else if keys == [b'A', 27] {
+                Some(b"A".to_vec())
+            } else if command == 3 {
+                Some(vec![])
+            } else {
+                None
+            };
+            let reads = keys.len();
+            let mut hooks = UiKeys {
+                keys: keys.into(),
+                reads: 0,
+                find: symbol(&stem, "FindItem"),
+                lookups: 0,
+                lookup_return: None,
+            };
+            if !first {
+                vm.step_cpu().unwrap();
+            }
+            first = false;
+            let run = VmRunner::new(vm)
+                .run_with_hooks(
+                    RunRequest {
+                        max_steps: 1_000_000,
+                        stop_after_pc: Some(end),
+                        history_len: 12,
+                    },
+                    &mut hooks,
+                )
+                .unwrap();
+            assert_eq!(
+                run.stop_reason(),
+                StopReason::PcReached { pc: end },
+                "{:?}",
+                run.report
+            );
+            vm = run.into_vm();
+            if command != 4 {
+                assert_eq!(vm.bus().ram().read(0x601), result);
+            }
+            assert_eq!(hooks.reads, reads);
+            assert!(hooks.keys.is_empty());
+            assert_eq!(hooks.lookups, lookups);
+            assert_eq!(vm.bus().ram().read_word(0x604), 0x2000);
+            assert_eq!(vm.bus().ram().read(0x606), 0);
+            assert_eq!(machine::bytes(&vm, 0x608, 4), [3, 5, 12, 7]);
+            if let Some(text) = expected_text {
+                assert_eq!(vm.bus().ram().read(0x1000), text.len() as u8);
+                assert_eq!(machine::bytes(&vm, 0x1001, text.len()), text);
+                assert_eq!(vm.bus().ram().read(0xFFF), 0xCC);
+                assert_eq!(vm.bus().ram().read(0x100D), 0xCC);
+            }
+            if command == 4 {
+                assert_eq!(
+                    machine::bytes(&vm, 0x7800, 960),
+                    screen,
+                    "nested windows did not restore screen"
+                );
+            }
+            let mut entry = vm.bus().ram().read_word(0x60C);
+            for (text, key) in [
+                (b"Single".as_slice(), b'S'),
+                (b"Medium", b'M'),
+                (b"Double", b'D'),
+                (b"360K", b'3'),
+                (b"720K", b'7'),
+            ] {
+                let n = text.len() as u16;
+                assert_eq!(vm.bus().ram().read(entry), n as u8);
+                assert_eq!(machine::bytes(&vm, entry + 1, n as usize), text);
+                assert_eq!(vm.bus().ram().read_word(entry + n + 1), entry);
+                assert_eq!(vm.bus().ram().read(entry + n + 3), key);
+                assert_eq!(vm.bus().ram().read(entry + n + 4), 0x9A);
+                entry += n + 5;
+            }
+            assert_eq!(vm.bus().ram().read(entry), 0);
+        }
+    }
+}
+
+struct DispatchIo {
+    close_all: u16,
+    active_return: Option<u16>,
+    cleanups: usize,
+    trace: std::collections::VecDeque<(u16, u8)>,
+}
+impl actionc_vm::VmRunHooks for DispatchIo {
+    type Error = String;
+    fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {
+        let pc = vm.cpu().registers().pc;
+        if pc == 0 {
+            return Err(format!(
+                "dispatch pc=0 trace={:?}; kvec={:04X}",
+                self.trace,
+                vm.bus().ram().read_word(0xE424)
+            ));
+        }
+        self.trace.push_back((pc, vm.cpu().registers().sp));
+        if self.trace.len() > 24 {
+            self.trace.pop_front();
+        }
+        if pc == 0x0740 {
+            vm.bus_mut()
+                .ram_mut()
+                .map(0x0740, &[0x4C, 0x40, 0x07])
+                .unwrap();
+        }
+        if self.active_return == Some(pc) {
+            self.active_return = None;
+        }
+        if pc == self.close_all && self.active_return.is_none() {
+            self.cleanups += 1;
+            let stack = 0x100 + u16::from(vm.cpu().registers().sp);
+            self.active_return = Some(vm.bus().ram().read_word(stack + 1).wrapping_add(1));
+        }
+        if pc == 0xE456 {
+            assert_eq!(
+                vm.bus()
+                    .ram()
+                    .read(0x342 + u16::from(vm.cpu().registers().x)),
+                12
+            );
+            vm.bus_mut()
+                .ram_mut()
+                .map(0x0680, &[0xA9, 0, 0xA0, 1, 0x60])
+                .unwrap();
+            vm.set_pc(0x0680);
+        }
+        Ok(())
+    }
+}
+fn dispatch_wait(vm: CompilerVm, hooks: &mut DispatchIo) -> CompilerVm {
+    let run = VmRunner::new(vm)
+        .run_with_hooks(
+            RunRequest {
+                max_steps: 500000,
+                stop_after_pc: Some(0x0740),
+                history_len: 12,
+            },
+            hooks,
+        )
+        .unwrap();
+    assert_eq!(
+        run.stop_reason(),
+        StopReason::PcReached { pc: 0x0740 },
+        "{:?}",
+        run.report
+    );
+    run.into_vm()
+}
+#[test]
+fn c_dispatch_preserves_commands_empty_gates_and_copy_exit_order() {
+    for profile in ["Os", "O3"] {
+        for debug in [false, true] {
+            for count in [0u8, 2] {
+                let stem = format!("dispatch-{profile}{}", if debug { "-debug" } else { "" });
+                let mut vm = c_image(&stem);
+                vm.bus_mut().ram_mut().write(0x600, count);
+                vm.bus_mut().ram_mut().write_word(0xE424, 0x073F);
+                let mut hooks = DispatchIo {
+                    close_all: symbol(&stem, "CloseAll"),
+                    active_return: None,
+                    cleanups: 0,
+                    trace: Default::default(),
+                };
+                vm = dispatch_wait(vm, &mut hooks);
+                let cpu = vm.cpu().registers().sp;
+                let software = vm.bus().ram().read_word(0xD9);
+                let mut keys = vec![
+                    (b'V', 1),
+                    (b'A', 2),
+                    (b'D', 3),
+                    (b'R', 4),
+                    (b'S', 5),
+                    (b'C', 6),
+                    (b'M', 7),
+                    (b'F', 8),
+                ];
+                if debug {
+                    keys.push((b'G', 9));
+                    keys.push((b'Q', 10));
+                } else {
+                    keys.push((b'Q', 9));
+                }
+                keys.push((b'Z', 0));
+                for (key, command) in keys {
+                    let cleanup = hooks.cleanups;
+                    vm.bus_mut()
+                        .ram_mut()
+                        .map(0x0740, &[0xA9, key, 0x60])
+                        .unwrap();
+                    vm.step_cpu().unwrap(); // fake K: LDA key
+                    vm.step_cpu().unwrap(); // fake K: RTS
+                    vm = dispatch_wait(vm, &mut hooks);
+                    let admitted = count != 0 || command > 6;
+                    if command != 0 && command != 5 {
+                        assert_eq!(
+                            vm.bus().ram().read(0xB00 + command),
+                            u8::from(admitted),
+                            "{profile}/{debug}/{count}/{key}"
+                        );
+                    }
+                    assert_eq!(
+                        hooks.cleanups - cleanup,
+                        usize::from(!(count != 0 && key == b'C')),
+                        "Copy must exit before CloseAll"
+                    );
+                    assert_eq!(vm.cpu().registers().sp, cpu);
+                    assert_eq!(vm.bus().ram().read_word(0xD9), software);
+                }
             }
         }
     }

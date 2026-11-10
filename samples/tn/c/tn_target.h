@@ -4,6 +4,9 @@
    globals at $EA-$FD and shorten the volatile temporary bank to 16 bytes.
    Oscar's saved register bank starts at $B5; setjmp uses 32 saved bytes. */
 #pragma register(__sregs, 0xB5)
+#pragma register(__addr, 0xD5)
+#pragma register(__sp, 0xD9)
+#pragma register(__fp, 0xDB)
 #pragma region(zeropage, 0xEA, 0xFE, , , {zeropage})
 #pragma section(startup, 0)
 #pragma region(startup, 0x2C00, 0x2C80, , , {startup})

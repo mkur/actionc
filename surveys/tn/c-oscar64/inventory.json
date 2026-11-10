@@ -330,126 +330,154 @@
     "line": 599,
     "routine": "SavePos",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: actual menu/editor/window cases with keyboard vector adapter"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 608,
     "routine": "RestorePos",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: actual menu/editor/window cases with keyboard vector adapter"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 616,
     "routine": "Window",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: actual menu/editor/window cases with keyboard vector adapter"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 673,
     "routine": "CloseWindow",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: actual menu/editor/window cases with keyboard vector adapter"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 689,
     "routine": "Range",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: actual menu/editor/window cases with keyboard vector adapter"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 709,
     "routine": "InputLine",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: actual menu/editor/window cases with keyboard vector adapter"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 749,
     "routine": "Key",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: actual menu/editor/window cases with keyboard vector adapter"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 756,
     "routine": "Next",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: actual menu/editor/window cases with keyboard vector adapter"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 761,
     "routine": "Ord",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: actual menu/editor/window cases with keyboard vector adapter"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 778,
     "routine": "Items",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: actual menu/editor/window cases with keyboard vector adapter"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 791,
     "routine": "FindItem",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: actual menu/editor/window cases with keyboard vector adapter"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 800,
     "routine": "DrawMenu",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: actual menu/editor/window cases with keyboard vector adapter"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 813,
     "routine": "MoveMenuBar",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: actual menu/editor/window cases with keyboard vector adapter"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
     "line": 833,
     "routine": "PopUp",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: actual menu/editor/window cases with keyboard vector adapter"
+    ]
   },
   {
     "source": "samples/tn/modern/LIB.ACT",
@@ -542,9 +570,11 @@
     "line": 148,
     "routine": "CloseAll",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-ui",
+    "implementation": "samples/tn/c/tn_lib.c",
+    "qualification": [
+      "slice4: nested windows and cleanup ordering"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
@@ -758,54 +788,66 @@
     "line": 554,
     "routine": "drives",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented-data",
+    "implementation": "samples/tn/c/tn_menus.c",
+    "qualification": [
+      "slice4: generated menu format and executed density/yescancel traversal"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 563,
     "routine": "delcancel",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented-data",
+    "implementation": "samples/tn/c/tn_menus.c",
+    "qualification": [
+      "slice4: generated menu format and executed density/yescancel traversal"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 567,
     "routine": "density",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented-data",
+    "implementation": "samples/tn/c/tn_menus.c",
+    "qualification": [
+      "slice4: generated menu format and executed density/yescancel traversal"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 575,
     "routine": "yesabort",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented-data",
+    "implementation": "samples/tn/c/tn_menus.c",
+    "qualification": [
+      "slice4: generated menu format and executed density/yescancel traversal"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 579,
     "routine": "lockunlock",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented-data",
+    "implementation": "samples/tn/c/tn_menus.c",
+    "qualification": [
+      "slice4: generated menu format and executed density/yescancel traversal"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 583,
     "routine": "yescancel",
     "kind": "machine/data",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "implemented-data",
+    "implementation": "samples/tn/c/tn_menus.c",
+    "qualification": [
+      "slice4: generated menu format and executed density/yescancel traversal"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
@@ -920,18 +962,22 @@
     "line": 1032,
     "routine": "MakeJmp",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-dispatch-control",
+    "implementation": "samples/tn/c/tn_dispatch.c",
+    "qualification": [
+      "slice4: actual dispatcher; external command bodies intercepted by test-only functions"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",
     "line": 1056,
     "routine": "Handle",
     "kind": "high-level",
-    "status": "pending",
-    "implementation": null,
-    "qualification": []
+    "status": "qualified-dispatch-control",
+    "implementation": "samples/tn/c/tn_dispatch.c",
+    "qualification": [
+      "slice4: actual dispatcher; external command bodies intercepted by test-only functions"
+    ]
   },
   {
     "source": "samples/tn/modern/TN.ACT",

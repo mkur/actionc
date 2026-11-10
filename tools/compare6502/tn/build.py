@@ -79,11 +79,30 @@ def xex_segments(path):
 
 def collect(stem):
     image = stem.with_suffix('.xex')
+    # Audit the compiler-generated listing, without disassembling the image.
+    instructions={int(m[1],16):m[2].split() for m in re.finditer(
+        r'^([0-9a-f]{4}) : (.*)',stem.with_suffix('.asm').read_text(),re.M)
+        if re.match(r'[0-9a-f]{2} ',m[2])}
+    for pc,tokens in instructions.items():
+        if tokens[0] in ['10','30','50','70','90','b0','d0','f0']:
+            displacement=int(tokens[1],16)
+            target=(pc+2+(displacement if displacement<128 else displacement-256))&65535
+            assert target in instructions, f'{stem}: branch at ${pc:04X} enters non-instruction ${target:04X}'
+
     debug = json.loads(stem.with_suffix('.dbj').read_text())
     symbols = {r['name']: r for r in debug['memory']}
     stem.with_suffix('.symbols.tsv').write_text(''.join(
         f"{name}\t{r['start']}\t{r['end']}\t{r['type']}\n"
         for name, r in sorted(symbols.items())))
+    # IR headers carry allocated temporary byte offsets. Keep all temporary
+    # lanes below the fixed address/stack bank at $D5; assembly's 32-byte
+    # saved-register restore uses $B5..$D4 independently.
+    maximum=0
+    for offset,kind in re.findall(r'\$([0-9a-fA-F]+) R\d+\(([A-Z])\)',stem.with_suffix('.int').read_text()):
+        width={'C':1,'B':1,'I':2,'P':2,'L':4,'F':4}.get(kind)
+        if width is None:raise ValueError(f'unknown IR temporary width {kind}')
+        maximum=max(maximum,int(offset,16)+width)
+    assert 0xA5+maximum<=0xD5, f'compiler temporary bank overlaps fixed registers: {maximum}'
     segments = xex_segments(image)
     assert any(a == 0x2E0 and len(b) == 2 for a, b in segments), 'XEX needs RUNAD'
     occupied = set()
@@ -97,7 +116,7 @@ def collect(stem):
                 segments=[dict(start=a, bytes=len(b)) for a, b in segments],
                 code_bytes=sum(r['end']-r['start'] for r in debug['memory']
                                if r['type'] == 'NATIVE_CODE'),
-                bss_end=symbols['BSSEnd']['start'], stack_end=symbols['StackEnd']['start'])
+                bss_end=symbols['BSSEnd']['start'], stack_end=symbols['StackEnd']['start'],temporary_bytes=maximum,compiler_sp=0xD9)
 
 
 def compile_c(compiler, source, stem, profile, defines=()):
@@ -139,7 +158,7 @@ def inventory():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('task', choices=['bootstrap', 'probe', 'platform', 'kernels', 'panels', 'freeze'])
+    parser.add_argument('task', choices=['bootstrap', 'probe', 'platform', 'kernels', 'panels', 'ui', 'dispatch', 'freeze'])
     parser.add_argument('--oscar', type=Path, default=Path(os.environ.get(
         'OSCAR64', OUT/'oscar64/bin/oscar64')))
     args = parser.parse_args()
@@ -147,6 +166,21 @@ def main():
     compiler = args.oscar.resolve()
     if args.task == 'bootstrap':
         bootstrap()
+        return
+    if args.task == 'dispatch':
+        rows=[]
+        for profile in ['Os','O3']:
+            for debug in [False,True]:
+                defines=['-dTN_DIAGNOSTIC=1','-dTN_WITH_PANELS=1','-dTN_WITH_UI=1','-dTN_WITH_DISPATCH=1']
+                if debug:defines+=['-dTN_DEBUG=1']
+                rows.append(compile_c(compiler,'tools/compare6502/tn/dispatch_probe.c',
+                                     OUT/(f'dispatch-{profile}'+('-debug' if debug else '')),profile,defines))
+        (OUT/'dispatch.json').write_text(json.dumps(rows,indent=2)+'\n')
+        return
+    if args.task == 'ui':
+        rows=[compile_c(compiler,'tools/compare6502/tn/ui_probe.c',
+                        OUT/f'ui-{profile}',profile,['-dTN_DIAGNOSTIC=1','-dTN_WITH_PANELS=1','-dTN_WITH_UI=1']) for profile in ['Os','O3']]
+        (OUT/'ui.json').write_text(json.dumps(rows,indent=2)+'\n')
         return
     if args.task == 'panels':
         rows=[compile_c(compiler,'tools/compare6502/tn/panel_probe.c',

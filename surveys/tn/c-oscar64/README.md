@@ -1,7 +1,7 @@
 # TN / Oscar64 C reference qualification
 
 The [implementation plan](../../../docs/TN_C_OSCAR64_TRANSLATION_PLAN.md) defines
-all eight slices. Slices 0–3 are complete. The full port is not yet implemented.
+all eight slices. Slices 0–4 are complete. The full port is not yet implemented.
 
 [baseline.json](baseline.json) freezes entry/include hashes, Action!/Oscar64
 compiler revisions and binary hashes, ROM/MyDOS inputs and four Action! images.
@@ -66,3 +66,17 @@ avoids a native O3 carry-fold assertion observed when representing that inherite
 machine routine as C arithmetic. Frame storage includes the following spaces
 byte read by Init. Counted literals are generated as exact byte initializers;
 `literals.py --check` verifies checked-in output and LF/CRLF input paths.
+
+Slice 4 qualifies 24 actual menu/editor/window scenarios and 84 scripted command
+keys across TN/TNDBG controls, both profiles and empty/nonempty directories. It
+checks single lookup per accepted key, counted editing, shortcut/navigation and
+Escape/Return behavior, exact menu self relocations, full nested-window screen
+restoration, arena balance, empty-directory gates and Copy's exit before cleanup.
+Command bodies are explicitly intercepted only in the dispatch fixture. The
+complete Handle control flow is translated; file operations remain slice 5.
+
+All seven focused tests pass after rebuilding earlier probes with the revised
+zero-page map; both generators check their output and actual LF/CRLF input paths.
+[Toolchain observations](toolchain-notes.md) explain compiler-specific integration
+constraints and source workarounds. The build audits allocated temporary extents
+and relative branch destinations directly from generated IR/assembly listings.
