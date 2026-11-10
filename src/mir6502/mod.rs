@@ -171,8 +171,13 @@ pub fn materialize_program_with_origin_and_runtime(
     } else {
         baseline
     };
-    if config.enable_peepholes && (config.enable_pointer_call_retention || config.enable_pointer_loop_retention) {
-        materialize::pointer_retention::select_costed(baseline, config, origin, true)
+    let baseline = if config.enable_peepholes && (config.enable_pointer_call_retention || config.enable_pointer_loop_retention) {
+        materialize::pointer_retention::select_costed(baseline, config, origin, true)?
+    } else {
+        baseline
+    };
+    if config.enable_peepholes && config.enable_pointer_promotion {
+        materialize::pointer_retention::select_promotion_costed(baseline,config,origin,true)
     } else {
         Ok(baseline)
     }

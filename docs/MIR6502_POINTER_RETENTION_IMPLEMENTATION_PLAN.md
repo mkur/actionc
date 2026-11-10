@@ -1,7 +1,7 @@
 # MIR6502 pointer retention implementation
 
 Starting revision: `97a60fa6`. Implements the contracts in the
-[design note](MIR6502_POINTER_RETENTION_PLAN.md). Status: slices 0–3 complete.
+[design note](MIR6502_POINTER_RETENTION_PLAN.md). Status: slices 0–4 complete.
 
 Each numbered slice is a separate commit with its focused checks completed.
 All selection is MIR6502-only, optimized-only and independently switchable.
@@ -119,3 +119,27 @@ decreases pair stores from 128 to 2 and takes 1,696 rather than 2,578 cycles.
 The bounded conversion case saves 18 cycles and two pair stores per iteration;
 its zero-count path stays at 60 cycles. The one-call case now takes 78 cycles
 versus 92 at baseline. Changing-home promotion remains independently disabled.
+
+Slice 4 enables a separate costed changing-home transaction after accepted
+call/loop retention. It admits one ordinary unexposed local word in an entered
+constant-bound scan, with complete owned-buffer bounds, unit updates, exclusive
+existing-pair use and one audited exit. Initial home stores become pair stores
+at their original point; no observer may intervene. Loop setup copies disappear,
+word updates target the pair, and the original home is reconstructed before
+exit consumers. Entry/exit A/N/Z, pair liveness, physical aliases, frame exposure
+and source-memory observations are checked; frames remain allocated.
+
+This initial subset declines incoming parameter pointers, unknown/zero-trip
+regions and competing changing pointers that need joint placement. In particular
+it does not infer a closed-entry contract for `Fnamecmp` or silently defer its
+observable parameter updates. Broader admission needs separately proved bounds,
+entry/observation contracts or joint placement, as described in the design note.
+
+Fourteen focused proof/transaction tests pass, plus the 13 pointer/ABI integration
+cases. Five tests pass across the pointer-retention and absolute-readback VM
+targets. Feature-off/calls/loops/promotion execution covers raw/optimized NIR,
+both runtimes, three origins, actual LF/CRLF parsing and a promoted low-byte
+carry. Incoming scans also execute a full word wrap and a pointer into their
+own parameter home; their feature-off/on images remain identical. `ScanFixed`+takes 1,156 cycles versus 1,629 at baseline and replaces 64 repeated direct
+setup stores with two initial setup stores; required pointer increments remain.
+All buffer bytes and published final pointers are checked independently.

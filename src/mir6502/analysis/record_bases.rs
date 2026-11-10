@@ -19,7 +19,7 @@ impl MirPhysicalMemory {
             self.owned_data.push((address, bytes));
         }
     }
-    fn contains_write(&self, address: u16, bytes: u16) -> bool {
+    pub(in crate::mir6502) fn contains_write(&self, address: u16, bytes: u16) -> bool {
         // The initial proof uses RAM common to both Atari execution profiles;
         // cartridge and hardware windows cannot certify mutable data.
         (0..bytes).all(|n| (0x400..0x8000).contains(&address.wrapping_add(n)))

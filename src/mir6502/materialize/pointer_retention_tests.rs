@@ -28,7 +28,7 @@ fn probe(body: &str) -> MirProgram {
 }
 fn changed(p: &MirProgram) -> bool {
     let map = memory(p, p, 0x3000).unwrap();
-    apply(p, p, &map, false).unwrap().0 != *p
+    apply(p, p, &map, false, false).unwrap().0 != *p
 }
 #[test]
 fn pointer_retention_calls_preserve_exact_pairs_and_reject_each_clobbered_lane() {
@@ -348,7 +348,7 @@ fn pointer_retention_indexed_store_requires_dead_pair_y_and_flags() {
         &include_str!("../../../fixtures/runtime/pointer_retention.act").replace("\r\n", "\n"),
     );
     let map = memory(&p, &p, 0x3000).unwrap();
-    let (trial, _, _) = apply(&p, &p, &map, true).unwrap();
+    let (trial, _, _) = apply(&p, &p, &map, true, false).unwrap();
     let count = |p: &MirProgram| {
         p.routines
             .iter()
@@ -392,7 +392,7 @@ fn pointer_retention_indexed_store_requires_dead_pair_y_and_flags() {
             else_edge: MirEdge::plain(exit),
         };
         let map = memory(&negative, &negative, 0x3000).unwrap();
-        let (selected, _, _) = apply(&negative, &negative, &map, true).unwrap();
+        let (selected, _, _) = apply(&negative, &negative, &map, true, false).unwrap();
         assert_eq!(count(&negative), count(&selected));
     }
 }
@@ -455,7 +455,7 @@ fn pointer_retention_indexed_store_keeps_live_y_pair_and_aliased_result_reads() 
             }
         }
         let map = memory(&p, &p, 0x3000).unwrap();
-        let (trial, _, _) = apply(&p, &p, &map, true).unwrap();
+        let (trial, _, _) = apply(&p, &p, &map, true, false).unwrap();
         assert!(
             trial
                 .routines
@@ -509,5 +509,143 @@ fn pointer_retention_indexed_store_rejects_stale_generation_and_window() {
                 generation.next()
             }
         ));
+    }
+}
+
+#[test]
+fn pointer_promotion_reconstructs_exits_without_growing_frames() {
+    let p = fixture(
+        &include_str!("../../../fixtures/runtime/pointer_retention.act").replace("\r\n", "\n"),
+    );
+    let selected =
+        select_promotion_costed(p.clone(), &Mir6502Config::optimized(), 0x3000, false).unwrap();
+    assert_ne!(selected, p);
+    assert!(
+        address_values::Cost::measure(&selected, 0x3000)
+            .unwrap()
+            .bytes
+            < address_values::Cost::measure(&p, 0x3000).unwrap().bytes
+    );
+    for (a, b) in selected.routines.iter().zip(&p.routines) {
+        assert_eq!(a.frame, b.frame);
+    }
+    let r = selected
+        .routines
+        .iter()
+        .find(|r| r.name == "ScanFixed")
+        .unwrap();
+    assert!(r.blocks.iter().flat_map(|b| &b.ops).any(|op| matches!(
+        op,
+        MirOp::UpdateMem {
+            op: MirUpdateOp::Inc,
+            mem: MirMem::FixedZeroPage(_),
+            width: MirWidth::Word
+        }
+    )));
+    crate::mir6502::verify_program(&selected, MirPhase::PreEmission).unwrap();
+}
+
+#[test]
+fn pointer_promotion_rejects_observation_escape_interference_and_live_exit_a() {
+    let original = fixture(
+        &include_str!("../../../fixtures/runtime/pointer_retention.act").replace("\r\n", "\n"),
+    );
+    for kind in 0..5 {
+        let mut p = original.clone();
+        let map = memory(&p, &p, 0x3000).unwrap();
+        let observed = p.globals.iter().find(|g| g.name == "observed").unwrap().id;
+        let r = p
+            .routines
+            .iter_mut()
+            .find(|r| r.name == "ScanFixed")
+            .unwrap();
+        let (pointer, word_index, body_id) = r
+            .blocks
+            .iter()
+            .find_map(|b| {
+                b.ops.iter().enumerate().find_map(|(i, op)| match op {
+                    MirOp::UpdateMem {
+                        op: MirUpdateOp::Inc,
+                        mem,
+                        width: MirWidth::Word,
+                    } => Some((mem.clone(), i, b.id)),
+                    _ => None,
+                })
+            })
+            .unwrap();
+        let address = map.address(r.id, &pointer).unwrap();
+        let b = r.blocks.iter_mut().find(|b| b.id == body_id).unwrap();
+        match kind {
+            0 => b.ops.insert(
+                word_index + 1,
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(pointer.clone()),
+                    width: MirWidth::Byte,
+                },
+            ),
+            1 => b.ops.insert(
+                word_index + 1,
+                MirOp::Move {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirValue::StorageAddrByte {
+                        mem: pointer.clone(),
+                        byte: 0,
+                    },
+                    width: MirWidth::Byte,
+                },
+            ),
+            2 => b.ops.insert(
+                word_index + 1,
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xAC))),
+                    width: MirWidth::Byte,
+                },
+            ),
+            3 => b.ops.insert(
+                word_index + 1,
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(MirMem::Absolute(address)),
+                    width: MirWidth::Byte,
+                },
+            ),
+            _ => r.blocks.last_mut().unwrap().ops.insert(
+                0,
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::Global {
+                        id: observed,
+                        offset: 0,
+                    }),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+            ),
+        }
+        let map = memory(&p, &p, 0x3000).unwrap();
+        let calls = CallWrites::analyze(&p, &map);
+        let known = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+        let r = p.routines.iter().find(|r| r.name == "ScanFixed").unwrap();
+        assert!(
+            promotion::try_promote(&p, r, &map, &calls, &known).is_none(),
+            "kind={kind}"
+        );
+    }
+}
+
+#[test]
+fn pointer_promotion_keeps_incoming_and_competing_pointer_scans() {
+    for source in [
+        "BYTE ARRAY buffer(512)\nBYTE observed\nPROC Scan(BYTE POINTER p)\nBYTE i\nFOR i=0 TO 31 DO\nobserved=p^\np==+1\nOD\nRETURN\nPROC Main()\nScan(buffer)\nRETURN\n",
+        "BYTE ARRAY buffer(512)\nBYTE observed\nPROC Scan()\nBYTE POINTER p,q\nBYTE i\np=buffer q=buffer\nFOR i=0 TO 31 DO\nobserved=p^\nobserved=q^\np==+1 q==+1\nOD\nRETURN\nPROC Main()\nScan()\nRETURN\n",
+        "BYTE ARRAY buffer(512)\nBYTE observed\nPROC Scan(BYTE count)\nBYTE POINTER p\nBYTE i\np=buffer i=0\nWHILE i<count DO\nobserved=p^\np==+1 i==+1\nOD\nRETURN\nPROC Main()\nScan(0)\nRETURN\n",
+    ] {
+        let p = fixture(source);
+        let map = memory(&p, &p, 0x3000).unwrap();
+        let calls = CallWrites::analyze(&p, &map);
+        let known = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+        let r = p.routines.iter().find(|r| r.name == "Scan").unwrap();
+        assert!(promotion::try_promote(&p, r, &map, &calls, &known).is_none());
     }
 }

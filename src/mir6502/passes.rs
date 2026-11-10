@@ -123,6 +123,7 @@ impl Mir6502Config {
             enable_register_copy_forwarding: true,
             enable_pointer_call_retention: true,
             enable_pointer_loop_retention: true,
+            enable_pointer_promotion: true,
             enable_record_base_writes: true,
             enable_record_base_parameter_origins: true,
             enable_word_inc_update: true,

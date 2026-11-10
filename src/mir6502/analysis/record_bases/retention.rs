@@ -82,6 +82,7 @@ impl CallWrites {
                     || effect.memory.may_write_any
                     || effect.memory.has_unknown_effects
                     || effect.homes.unknown_writes
+                    || !matches!(effect.memory.structured_writes, MirMemoryEffect::None)
                 {
                     return None;
                 }
@@ -133,11 +134,34 @@ fn argument_writes(
     owner: RoutineId,
     memory: &MirPhysicalMemory,
 ) -> Option<BTreeSet<u16>> {
-    let MirOp::Call { args, .. } = op else {
+    let MirOp::Call {
+        args,
+        result,
+        additional_results,
+        ..
+    } = op
+    else {
         return None;
     };
+    if result.is_some() || !additional_results.is_empty() {
+        return None;
+    }
+    fn safe_value(value: &MirValue, owner: RoutineId, memory: &MirPhysicalMemory) -> bool {
+        match value {
+            MirValue::Word { lo, hi } => {
+                safe_value(lo, owner, memory) && safe_value(hi, owner, memory)
+            }
+            MirValue::PointerCell(mem) => {
+                memory.ordinary(owner, mem) || memory.address(owner, mem).is_some_and(|a| a < 0x100)
+            }
+            _ => true,
+        }
+    }
     let mut writes = BTreeSet::new();
     for arg in args {
+        if !safe_value(&arg.value, owner, memory) {
+            return None;
+        }
         let address = match arg.home {
             MirArgHome::Reg(_) | MirArgHome::RegisterPair { .. } => continue,
             MirArgHome::FixedZeroPage(slot) => u16::from(slot.0),
@@ -360,11 +384,14 @@ impl<'routine> ResidentFacts<'routine> {
         if !std::ptr::eq(self.source, r) {
             return None;
         }
-        let MirSite::Op { block, op_index } = site else {
-            return None;
+        let block = site.block();
+        let b = r.blocks.iter().find(|b| b.id == block)?;
+        let op_index = match site {
+            MirSite::Op { op_index, .. } => op_index,
+            MirSite::BlockEntry { .. } => 0,
+            MirSite::Terminator { .. } => b.ops.len(),
         };
         let mut state = self.entries.get(&block)?.clone()?;
-        let b = r.blocks.iter().find(|b| b.id == block)?;
         for (i, op) in b.ops.get(..op_index)?.iter().enumerate() {
             observe_retained(&mut state, op, i, r.id, memory, calls, true);
         }
@@ -389,6 +416,30 @@ impl<'routine> ResidentFacts<'routine> {
 }
 
 impl ResidentFacts<'_> {
+    pub fn constant_word(
+        &self,
+        r: &MirRoutine,
+        site: MirSite,
+        low: &MirMem,
+        high: &MirMem,
+        memory: &MirPhysicalMemory,
+        calls: &CallWrites,
+    ) -> Option<u16> {
+        let state = self.at(r, site, memory, calls)?;
+        let options = RecordBaseOptions {
+            writes: true,
+            parameter_origins: true,
+        };
+        match (
+            state.value(&MirValue::PointerCell(low.clone()), r.id, memory, options)?,
+            state.value(&MirValue::PointerCell(high.clone()), r.id, memory, options)?,
+        ) {
+            (ByteValue::Constant(lo), ByteValue::Constant(hi)) => {
+                Some(u16::from_le_bytes([lo, hi]))
+            }
+            _ => None,
+        }
+    }
     pub fn matches_pair(
         &self,
         r: &MirRoutine,

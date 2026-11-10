@@ -125,6 +125,7 @@ fn qualify(name: &str) {
         .unwrap()
         .replace("\r\n", "\n");
     let mut lf_images = std::collections::BTreeMap::new();
+    let mut promoted_carry_seen = false;
     for crlf in [false, true] {
         let file = support::Source::new(&if crlf {
             source.replace('\n', "\r\n")
@@ -148,14 +149,14 @@ fn qualify(name: &str) {
                 raw.clone()
             };
             for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-                for origin in [0x3000, 0x41C7] {
+                for origin in [0x3000, 0x3023, 0x41C7] {
                     let mut controls = None;
                     let mut baseline_size = None;
-                    for stage in 0..=2 {
+                    for stage in 0..=3 {
                         let mut config = mir6502::Mir6502Config::optimized();
                         config.enable_pointer_call_retention = stage > 0;
                         config.enable_pointer_loop_retention = stage > 1;
-                        config.enable_pointer_promotion = false;
+                        config.enable_pointer_promotion = stage > 2;
                         let output = mir6502::generate_output_with_config_and_runtime(
                             &nir, origin, &config, runtime,
                         )
@@ -168,6 +169,19 @@ fn qualify(name: &str) {
                             lf_images.insert(key, image);
                         }
                         let measured = exercise(&output);
+                        if stage == 3
+                            && name == "pointer_retention.act"
+                            && output
+                                .map
+                                .storage_symbols
+                                .iter()
+                                .find(|s| s.name == "buffer")
+                                .unwrap()
+                                .address as u8
+                                > 223
+                        {
+                            promoted_carry_seen = true;
+                        }
                         if let Some(old) = &controls {
                             let old: &Vec<(String, u8, u64, usize)> = old;
                             assert!(output.bytes.len() <= baseline_size.unwrap());
@@ -175,6 +189,12 @@ fn qualify(name: &str) {
                             assert!(measured[0].3 < old[0].3);
                             if stage == 2 && name == "pointer_invariant_loop.act" {
                                 assert_eq!(measured[0].3, 2);
+                            }
+                            if stage == 3 && name == "pointer_retention.act" {
+                                let scan = measured.iter().find(|m| m.0 == "ScanFixed").unwrap();
+                                let original = old.iter().find(|m| m.0 == "ScanFixed").unwrap();
+                                assert!(scan.2 < original.2);
+                                assert_eq!(scan.3, 2);
                             }
                         } else {
                             baseline_size = Some(output.bytes.len());
@@ -188,6 +208,79 @@ fn qualify(name: &str) {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+    if name == "pointer_retention.act" {
+        assert!(
+            promoted_carry_seen,
+            "promotion must execute a low-byte carry"
+        );
+    }
+}
+
+#[test]
+fn incoming_pointer_scans_keep_self_alias_and_full_word_wrap() {
+    let file = support::Source::new(
+        "CARD finalPointer\nBYTE observed\nPROC ParamScan(BYTE POINTER cursor)\nBYTE i\nFOR i=0 TO 31 DO\nobserved=cursor^\ncursor==+1\nOD\nfinalPointer=CARD(cursor)\nRETURN\nPROC Main()\nParamScan(BYTE POINTER(0))\nRETURN\n",
+    );
+    let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+    let model = actionc::semantic::analyze_with_options(
+        &loaded.program,
+        actionc::semantic::SemanticOptions::modern(),
+    )
+    .unwrap();
+    let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
+        &actionc::semantic::ir::lower_program(&loaded.program, &model),
+    ))
+    .unwrap();
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for origin in [0x3000, 0x41C7] {
+            let mut baseline = None;
+            for enabled in [false, true] {
+                let mut config = mir6502::Mir6502Config::optimized();
+                config.enable_pointer_call_retention = enabled;
+                config.enable_pointer_loop_retention = enabled;
+                config.enable_pointer_promotion = enabled;
+                let output = mir6502::generate_output_with_config_and_runtime(
+                    &nir, origin, &config, runtime,
+                )
+                .unwrap();
+                let image = codegen::format_load_file(&output);
+                if let Some(old) = &baseline {
+                    assert_eq!(&image, old);
+                } else {
+                    baseline = Some(image.clone());
+                }
+                let symbol = |name: &str| {
+                    output
+                        .map
+                        .storage_symbols
+                        .iter()
+                        .find(|s| s.name == name)
+                        .unwrap()
+                        .address
+                };
+                let entry = output
+                    .map
+                    .routine_addresses
+                    .iter()
+                    .find(|r| r.name == "ParamScan")
+                    .unwrap()
+                    .address;
+                let parameter = symbol("cursor");
+                for base in [parameter, 0xFFF0] {
+                    let (mut vm, profile) = support::vm_for(runtime);
+                    vm.load_atari_object_for_execution(profile, &image).unwrap();
+                    vm.bus_mut().ram_mut().write(0x000F, 0xC7);
+                    let final_byte = vm.bus().ram().read(base.wrapping_add(31));
+                    vm = machine::call(vm, &mut Traffic::default(), entry, &base.to_le_bytes());
+                    assert_eq!(
+                        vm.bus().ram().read_word(symbol("finalPointer")),
+                        base.wrapping_add(32)
+                    );
+                    assert_eq!(vm.bus().ram().read(symbol("observed")), final_byte);
                 }
             }
         }

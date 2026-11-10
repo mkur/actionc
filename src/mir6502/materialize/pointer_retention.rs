@@ -1,5 +1,6 @@
 //! Costed complete-base retention after all earlier home/placement decisions.
 use super::*;
+mod promotion;
 use crate::mir6502::MirRoutine;
 use crate::mir6502::analysis::effects::{MirFlagSet, MirHomeByte};
 use crate::mir6502::analysis::record_bases::{
@@ -43,6 +44,7 @@ fn apply(
     proofs: &MirProgram,
     map: &MirPhysicalMemory,
     cfg: bool,
+    promote: bool,
 ) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
     let calls = CallWrites::analyze(proofs, map);
     let known = MirKnownCalleeSummaries::analyze_for_rewriting(proofs);
@@ -53,12 +55,22 @@ fn apply(
         if !has_setup(r) {
             continue;
         }
+        if promote {
+            if let Some(selected) = promotion::try_promote(baseline, r, map, &calls, &known) {
+                *r = selected;
+                affected.insert(r.id);
+                stats.record(r.id, "pointer-retention-promoted-home");
+            }
+            continue;
+        }
         if cfg {
             let mut generation = crate::mir6502::analysis::sites::MirRoutineGeneration::initial();
             loop {
                 let snapshot=crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot::new_with_known_callees(r,generation,&known).ok()?;
                 let context = PostHomeRewriteContext::new(&snapshot);
-                let facts = retention::ResidentFacts::analyze(r, map, &calls)?;
+                let Some(facts) = retention::ResidentFacts::analyze(r, map, &calls) else {
+                    break;
+                };
                 let plan = indexed_store_plan(r, &context, &facts, map, &calls);
                 drop(facts);
                 drop(snapshot);
@@ -439,6 +451,25 @@ pub(in crate::mir6502) fn select_costed(
     origin: u16,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    select(baseline, config, origin, report, false)
+}
+
+pub(in crate::mir6502) fn select_promotion_costed(
+    baseline: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    report: bool,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    select(baseline, config, origin, report, true)
+}
+
+fn select(
+    baseline: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    report: bool,
+    promote: bool,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
     if !baseline.routines.iter().any(has_setup) {
         return Ok(baseline);
     }
@@ -450,9 +481,16 @@ pub(in crate::mir6502) fn select_costed(
         &baseline,
         &map,
         config.enable_pointer_loop_retention,
+        promote,
     ) else {
         return Ok(baseline);
     };
+    if affected.is_empty() {
+        if report {
+            maybe_report_peepholes(&baseline, &stats, config);
+        }
+        return Ok(baseline);
+    }
     let old_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&baseline);
     let new_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&proposed);
     let exits = baseline.routines.iter().all(|r| {
@@ -468,6 +506,7 @@ pub(in crate::mir6502) fn select_costed(
                     &proposed,
                     &map,
                     config.enable_pointer_loop_retention,
+                    promote,
                 )
             })
             .is_some_and(|(p, _, _)| p == proposed);
