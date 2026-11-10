@@ -1,0 +1,89 @@
+{
+  "actionc_revision": "d11fe9ca20edfc1975489453d39bf0364c3795ff",
+  "actionc_binary_sha256": "b8060899413bef1f5d44ad55128f56a868c1fb8e47ef41c0b7d1c23ba4eb4b76",
+  "oscar_revision": "4da3147c1f53bfa543382a7e3febd113ceaec48f",
+  "oscar_binary_sha256": "0c3fa4716e9f97a717ca7bc9b549da7333c0b8a4395426bb63d98dfce5c84e52",
+  "inputs": {
+    "samples/tn/modern/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "samples/tn/modern/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+    "samples/tn/modern/LIB.ACT": "b8cd4c48b9b2d9c96fc86d24e94ea3dc6e9dfb706c636c2b7fb7fc6c58015c53",
+    "roms/altirraos-xl.rom": "9de5a313fe3946f04fe236a8d3ceacb471fbed4ec5fc5db009732e1169946ccf",
+    "roms/action.rom": "b4a3a399f4f1e8c20f4b1cbc3f6e2fbcef342c36d2c252f903938e93a502c166",
+    "atr/mydos.atr": "88c0c6cf080fce8d356d1108c0c78747fff7a4eb6520455e835fe8a17697bbc9",
+    "tools/vm-runtime-tests/Cargo.lock": "c525f876386f1c5f5c1f590ac7d5dd8f6f5146c8e75425616cb1020760d53953"
+  },
+  "artifacts": [
+    {
+      "name": "TN",
+      "runtime": "cart",
+      "command": [
+        "build/tn-c-oscar64/actionc-target/release/actionc",
+        "--mode",
+        "mir6502",
+        "--runtime",
+        "cart",
+        "--listing",
+        "build/tn-c-oscar64/reference/TN-cart.asm",
+        "-o",
+        "build/tn-c-oscar64/reference/TN-cart.xex",
+        "build/tn-c-oscar64/actionc-reference/samples/tn/modern/TN.ACT"
+      ],
+      "bytes": 9891,
+      "sha256": "89455e97a18285ff561ba9720ff3724df4aefe60a303b896c79bcf3e0614b6e1"
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "cart",
+      "command": [
+        "build/tn-c-oscar64/actionc-target/release/actionc",
+        "--mode",
+        "mir6502",
+        "--runtime",
+        "cart",
+        "--listing",
+        "build/tn-c-oscar64/reference/TNDBG-cart.asm",
+        "-o",
+        "build/tn-c-oscar64/reference/TNDBG-cart.xex",
+        "build/tn-c-oscar64/actionc-reference/samples/tn/modern/TNDBG.ACT"
+      ],
+      "bytes": 12987,
+      "sha256": "af975e4ef4f1ac6e62c2904e285ae6aa48eb7d64304f41ec1e1c7e4223acafae"
+    },
+    {
+      "name": "TN",
+      "runtime": "standalone",
+      "command": [
+        "build/tn-c-oscar64/actionc-target/release/actionc",
+        "--mode",
+        "mir6502",
+        "--runtime",
+        "standalone",
+        "--listing",
+        "build/tn-c-oscar64/reference/TN-standalone.asm",
+        "-o",
+        "build/tn-c-oscar64/reference/TN-standalone.xex",
+        "build/tn-c-oscar64/actionc-reference/samples/tn/modern/TN.ACT"
+      ],
+      "bytes": 10016,
+      "sha256": "8b08426d942fc8a2942d3e68a0a9cc09f00283723536c10f459bf64f423dd4bb"
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "standalone",
+      "command": [
+        "build/tn-c-oscar64/actionc-target/release/actionc",
+        "--mode",
+        "mir6502",
+        "--runtime",
+        "standalone",
+        "--listing",
+        "build/tn-c-oscar64/reference/TNDBG-standalone.asm",
+        "-o",
+        "build/tn-c-oscar64/reference/TNDBG-standalone.xex",
+        "build/tn-c-oscar64/actionc-reference/samples/tn/modern/TNDBG.ACT"
+      ],
+      "bytes": 13112,
+      "sha256": "eae7cf2a544667a3f926a489df9a1b3d00f95cd60023c737b8182811ed5d1ae2"
+    }
+  ]
+}

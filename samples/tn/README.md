@@ -10,8 +10,8 @@ modern/
 
 The [C translation and Oscar64 comparison plan](../../docs/TN_C_OSCAR64_TRANSLATION_PLAN.md)
 describes a proposed faithful C port of these maintained sources, with staged
-Atari/runtime qualification and code-generation measurements. The port is not
-implemented yet.
+Atari/runtime qualification and code-generation measurements. The
+[C port work](c/README.md) has qualified its initial toolchain/startup slice.
 
 The original TN ATR, extracted archived sources, and prebuilt `TN.COM` live
 under `corpora/tn/`. Stability scripts, fixtures, and original compiler symbol

@@ -9,3 +9,11 @@ actionc-vm = { git = "https://github.com/mkur/actionc-vm.git", rev = "7ec0cc454e
 actionc = { path = "../.." }
 
 [workspace]
+
+[features]
+tn-c-reference = []
+
+[[test]]
+name = "tn_c_reference"
+path = "tests/tn_c_reference.rs"
+required-features = ["tn-c-reference"]

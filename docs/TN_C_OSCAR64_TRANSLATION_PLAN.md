@@ -1,7 +1,7 @@
 # TN C translation and Oscar64 comparison plan
 
-Status: proposed implementation, prepared 2026-11-10. No C port is implemented
-by this document. Translate the maintained TN application into C, produce a
+Status: implementation in progress, prepared 2026-11-10. Slice 0 is qualified;
+application translation follows. Translate the maintained TN application into C, produce a
 working Atari program with Oscar64, and use verified output to guide actionc
 optimization. Implement in vertical slices and commit each qualified slice.
 
@@ -327,3 +327,14 @@ Continue toward the full port without treating early wins as completion.
 Checkpoint after slice 5: verify that the actual TN application works on MyDOS.
 Final checkpoint: both variants qualified, compact comparison evidence tracked,
 large artifacts reproducible, and the next compiler work ranked by measured value.
+
+## Implementation evidence
+
+Slice 0 freezes the pinned toolchain/source baseline and routine inventory in
+[the qualification directory](../surveys/tn/c-oscar64/README.md). Both native
+Oscar64 profiles pass actual-startup ABI/layout checks, six runtime-input VM
+executions and actual LF/CRLF compilation equality. The loader adapter handles
+Oscar64 RUNAD `$02E0` explicitly; the pinned VM convenience helper expects the
+Action! `$02E2` INITAD convention. Source fixed-cell guards pass with the reduced
+compiler temporary bank. Application-wide footprint and recovery proofs remain
+slice 1 obligations. Reproduction is in the [port README](../samples/tn/c/README.md).

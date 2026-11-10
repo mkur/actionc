@@ -1,0 +1,1379 @@
+[
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 55,
+    "routine": "MovePage",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 72,
+    "routine": "Alloc",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 78,
+    "routine": "Free",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 84,
+    "routine": "Push",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 91,
+    "routine": "Pull",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 109,
+    "routine": "CalcAdr",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 131,
+    "routine": "Position",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 141,
+    "routine": "Relpos",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 158,
+    "routine": "Internal",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 177,
+    "routine": "Ascii",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 195,
+    "routine": "Getchar",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 219,
+    "routine": "Putchar",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 227,
+    "routine": "Print",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 237,
+    "routine": "PrintE",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 247,
+    "routine": "Block",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 303,
+    "routine": "GetImage",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 342,
+    "routine": "PutImage",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 385,
+    "routine": "POINTER",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 387,
+    "routine": "Error",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 390,
+    "routine": "_Cio",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 402,
+    "routine": "_LodChn",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 415,
+    "routine": "_StrNam",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 445,
+    "routine": "GetD",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 461,
+    "routine": "PutD",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 477,
+    "routine": "Open",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 495,
+    "routine": "Close",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 506,
+    "routine": "Input",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 526,
+    "routine": "Bget",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 546,
+    "routine": "Bput",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 566,
+    "routine": "Xio",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 599,
+    "routine": "SavePos",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 608,
+    "routine": "RestorePos",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 616,
+    "routine": "Window",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 673,
+    "routine": "CloseWindow",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 689,
+    "routine": "Range",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 709,
+    "routine": "InputLine",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 749,
+    "routine": "Key",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 756,
+    "routine": "Next",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 761,
+    "routine": "Ord",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 778,
+    "routine": "Items",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 791,
+    "routine": "FindItem",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 800,
+    "routine": "DrawMenu",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 813,
+    "routine": "MoveMenuBar",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 833,
+    "routine": "PopUp",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/LIB.ACT",
+    "line": 876,
+    "routine": "Init",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 81,
+    "routine": "Strcpy",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 87,
+    "routine": "Strcat",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 94,
+    "routine": "Instr",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 102,
+    "routine": "PrintFname",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 112,
+    "routine": "GetAnyKey",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 123,
+    "routine": "Store",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 137,
+    "routine": "Value",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 148,
+    "routine": "CloseAll",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 156,
+    "routine": "Fnamecmp",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 173,
+    "routine": "Sort",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 196,
+    "routine": "Path",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 209,
+    "routine": "Draw",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 242,
+    "routine": "Inv",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 253,
+    "routine": "UpdDis",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 259,
+    "routine": "DrawWinFrame",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 302,
+    "routine": "Convert",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 318,
+    "routine": "TaggedFiles",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 334,
+    "routine": "IsTagged",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 342,
+    "routine": "IsProtected",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 355,
+    "routine": "IsDirectory",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 368,
+    "routine": "Tag",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 391,
+    "routine": "TagAll",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 408,
+    "routine": "FindNext",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 415,
+    "routine": "SetWin",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 527,
+    "routine": "SwapWin",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 534,
+    "routine": "Dir",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 540,
+    "routine": "PrintB",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 554,
+    "routine": "drives",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 563,
+    "routine": "delcancel",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 567,
+    "routine": "density",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 575,
+    "routine": "yesabort",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 579,
+    "routine": "lockunlock",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 583,
+    "routine": "yescancel",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 588,
+    "routine": "GoTo",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 600,
+    "routine": "Xloop",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 631,
+    "routine": "Delete",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 655,
+    "routine": "Format",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 694,
+    "routine": "NewDrive",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 738,
+    "routine": "Attrib",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 765,
+    "routine": "SwapScr",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 796,
+    "routine": "View",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 816,
+    "routine": "MkDir",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 832,
+    "routine": "Rename",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 852,
+    "routine": "Copy",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 980,
+    "routine": "Quit",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 1032,
+    "routine": "MakeJmp",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 1056,
+    "routine": "Handle",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 1241,
+    "routine": "InitPanels",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 1276,
+    "routine": "NavError",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TN.ACT",
+    "line": 1316,
+    "routine": "NavInit",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 91,
+    "routine": "Strcpy",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 97,
+    "routine": "Strcat",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 104,
+    "routine": "Instr",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 112,
+    "routine": "PrintFname",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 122,
+    "routine": "GetAnyKey",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 133,
+    "routine": "Store",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 147,
+    "routine": "Value",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 158,
+    "routine": "CloseAll",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 166,
+    "routine": "Fnamecmp",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 185,
+    "routine": "Sort",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 208,
+    "routine": "Path",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 229,
+    "routine": "Draw",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 262,
+    "routine": "Inv",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 273,
+    "routine": "UpdDis",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 279,
+    "routine": "DrawWinFrame",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 330,
+    "routine": "Convert",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 346,
+    "routine": "TaggedFiles",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 362,
+    "routine": "IsTagged",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 370,
+    "routine": "IsProtected",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 383,
+    "routine": "IsDirectory",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 396,
+    "routine": "Tag",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 419,
+    "routine": "TagAll",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 436,
+    "routine": "FindNext",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 445,
+    "routine": "SetWin",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 558,
+    "routine": "SwapWin",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 565,
+    "routine": "Dir",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 572,
+    "routine": "PrintB",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 582,
+    "routine": "HexDigit",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 591,
+    "routine": "PrintHexB",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 600,
+    "routine": "PrintHexC",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 607,
+    "routine": "PrintDbgByte",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 615,
+    "routine": "PrintDbgCard",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 622,
+    "routine": "MarkCopy",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 651,
+    "routine": "PrintRawEntry",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 665,
+    "routine": "Dbg",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 814,
+    "routine": "drives",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 823,
+    "routine": "delcancel",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 827,
+    "routine": "density",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 835,
+    "routine": "yesabort",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 839,
+    "routine": "lockunlock",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 843,
+    "routine": "yescancel",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 848,
+    "routine": "GoTo",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 860,
+    "routine": "Xloop",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 891,
+    "routine": "Delete",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 915,
+    "routine": "Format",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 954,
+    "routine": "NewDrive",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 998,
+    "routine": "Attrib",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1025,
+    "routine": "SwapScr",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1056,
+    "routine": "View",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1076,
+    "routine": "MkDir",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1092,
+    "routine": "Rename",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1113,
+    "routine": "Copy",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1251,
+    "routine": "Quit",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1303,
+    "routine": "MakeJmp",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1329,
+    "routine": "Handle",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1514,
+    "routine": "InitPanels",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1549,
+    "routine": "NavError",
+    "kind": "machine/data",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  },
+  {
+    "source": "samples/tn/modern/TNDBG.ACT",
+    "line": 1591,
+    "routine": "NavInit",
+    "kind": "high-level",
+    "status": "pending",
+    "implementation": null,
+    "qualification": []
+  }
+]
