@@ -534,6 +534,85 @@ fn pointer_retention_indexed_store_rejects_stale_generation_and_window() {
 }
 
 #[test]
+fn pointer_retention_result_forwarding_keeps_live_flags_and_raw_readbacks() {
+    use crate::mir6502::analysis::{
+        posthome::PostHomeAnalysisSnapshot, sites::MirRoutineGeneration,
+    };
+    let p = fixture(
+        &include_str!("../../../fixtures/runtime/pointer_retention.act").replace("\r\n", "\n"),
+    );
+    let map = memory(&p, &p, 0x3000).unwrap();
+    let calls = CallWrites::analyze(&p, &map);
+    let known = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+    let original = p.routines.iter().find(|r| r.name == "ConvertSpan").unwrap();
+    let generation = MirRoutineGeneration::initial();
+    let snapshot =
+        PostHomeAnalysisSnapshot::new_with_known_callees(original, generation, &known).unwrap();
+    let facts = retention::ResidentFacts::analyze(original, &map, &calls).unwrap();
+    let plan = indexed_store_plan(
+        original,
+        &PostHomeRewriteContext::new(&snapshot),
+        &facts,
+        &map,
+        &calls,
+    )
+    .unwrap();
+    let mut selected = original.clone();
+    assert!(plan.apply(&mut selected, generation));
+    for kind in 0..3 {
+        let mut r = selected.clone();
+        let exit = r.blocks.last().unwrap().id;
+        let b = r
+            .blocks
+            .iter_mut()
+            .find(|b| {
+                b.ops.iter().any(|op| {
+                    matches!(
+                        op,
+                        MirOp::Load {
+                            src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+                            ..
+                        }
+                    )
+                })
+            })
+            .unwrap();
+        let reload = b
+            .ops
+            .iter()
+            .position(|op| {
+                matches!(
+                    op,
+                    MirOp::Load {
+                        src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+                        ..
+                    }
+                )
+            })
+            .unwrap();
+        if kind == 1 {
+            b.ops.truncate(reload + 1);
+            b.terminator = MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::ZSet),
+                then_edge: MirEdge::plain(exit),
+                else_edge: MirEdge::plain(exit),
+            };
+        }
+        if kind == 2 {
+            if let MirOp::Load { src, .. } = &mut b.ops[reload] {
+                *src = MirAddr::Direct(MirMem::Absolute(0xA0));
+            }
+        }
+        let snapshot =
+            PostHomeAnalysisSnapshot::new_with_known_callees(&r, generation, &known).unwrap();
+        assert_eq!(
+            result_reload_plan(&r, &PostHomeRewriteContext::new(&snapshot)).is_some(),
+            kind == 0
+        );
+    }
+}
+
+#[test]
 fn pointer_promotion_reconstructs_exits_without_growing_frames() {
     let p = fixture(
         &include_str!("../../../fixtures/runtime/pointer_retention.act").replace("\r\n", "\n"),

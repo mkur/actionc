@@ -91,6 +91,7 @@ fn apply(
             stats.record(r.id, "pointer-retention-entry-setup");
         }
         let rounds = r.blocks.iter().map(|b| b.ops.len()).sum::<usize>() + 1;
+        let mut retained = affected.contains(&r.id);
         let result = MirPostHomeRewriteDriver::with_max_rounds(rounds)
             .run_fixed_point_with_known_callees(r, &known, |r, c| {
                 let facts = cfg
@@ -136,6 +137,7 @@ fn apply(
                             };
                             let old = estimated_6502_cost(&b.ops[index..index + setup.len]);
                             let new = estimated_6502_cost(&replacement);
+                            retained = true;
                             return vec![MirPostHomeRewritePlan {
                                 generation: c.generation(),
                                 block: b.id,
@@ -204,6 +206,7 @@ fn apply(
                         };
                         let old = estimated_6502_cost(window);
                         let new = estimated_6502_cost(&replacement);
+                        retained = true;
                         return vec![MirPostHomeRewritePlan {
                             generation: c.generation(),
                             block: b.id,
@@ -220,6 +223,9 @@ fn apply(
                         }];
                     }
                 }
+                if retained && let Some(plan) = result_reload_plan(r, c) {
+                    return vec![plan];
+                }
                 vec![]
             })
             .ok()?;
@@ -229,6 +235,54 @@ fn apply(
         record_prehome_rewrite_result(r.id, result, &mut stats);
     }
     Some((proposed, stats, affected))
+}
+
+fn result_reload_plan(
+    r: &MirRoutine,
+    c: &PostHomeRewriteContext<'_, '_>,
+) -> Option<MirPostHomeRewritePlan> {
+    for b in &r.blocks {
+        for (index, op) in b.ops.iter().enumerate() {
+            let MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(mem @ MirMem::FixedZeroPage(MirFixedZpSlot(0xA0..=0xA1))),
+                width: MirWidth::Byte,
+            } = op
+            else {
+                continue;
+            };
+            let point = c.point(MirSite::Op {
+                block: b.id,
+                op_index: index,
+            });
+            if !matches!(c.accumulator_value_at(point),MirProof::Proven(ref value) if *value==crate::mir6502::analysis::machine_values::MirMachineValue::DirectMem(mem.clone()))
+            {
+                continue;
+            }
+            // Typed compiler ABI result slots are RAM. Raw absolute/named
+            // readbacks never match; N/Z changes need the normal deadness proof.
+            if let Some(plan) = crate::mir6502::rewrite::posthome::structural_plan(
+                r,
+                c,
+                b.id,
+                index..index + 1,
+                vec![],
+                MirExitStateChange {
+                    flags: MirFlagSet {
+                        n: true,
+                        z: true,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                "pointer-retention-result-reload",
+                0,
+            ) {
+                return Some(plan);
+            }
+        }
+    }
+    None
 }
 
 fn seed_loop(
@@ -338,10 +392,22 @@ impl IndexedStorePlan {
         let Some(b) = r.blocks.iter_mut().find(|b| b.id == self.block) else {
             return false;
         };
-        if b.ops.get(self.index..self.index + 3) != Some(self.original.as_slice()) {
+        let end = self.index + self.original.len();
+        if b.ops.get(self.index..end) != Some(self.original.as_slice()) {
             return false;
         }
-        b.ops.splice(self.index..self.index + 3, self.replacement);
+        let replacement_len = self.replacement.len();
+        let removed_len = self.original.len();
+        b.ops.splice(self.index..end, self.replacement);
+        if let MirTerminator::Branch {
+            cond: MirCond::FusedCompare { producer, .. },
+            ..
+        } = &mut b.terminator
+        {
+            if producer.block == b.id && producer.op_index >= end {
+                producer.op_index = producer.op_index - removed_len + replacement_len;
+            }
+        }
         true
     }
 }
@@ -420,12 +486,29 @@ fn indexed_store_plan(
             ) {
                 continue;
             }
-            let replacement = vec![
+            let mut start = index;
+            let index_in_y = if index > 0
+                && let MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(mem),
+                    width: MirWidth::Byte,
+                } = &b.ops[index - 1]
+            {
+                start = index - 1;
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::Y),
+                    src: MirAddr::Direct(mem.clone()),
+                    width: MirWidth::Byte,
+                }
+            } else {
                 MirOp::Move {
                     dst: MirDef::Reg(MirReg::Y),
                     src: MirValue::Def(MirDef::Reg(MirReg::A)),
                     width: MirWidth::Byte,
-                },
+                }
+            };
+            let replacement = vec![
+                index_in_y,
                 reload.clone(),
                 MirOp::Store {
                     dst: MirAddr::FixedIndirectIndexedY { zp: *lo },
@@ -436,8 +519,8 @@ fn indexed_store_plan(
             return Some(IndexedStorePlan {
                 generation: c.generation(),
                 block: b.id,
-                index,
-                original: window.to_vec(),
+                index: start,
+                original: b.ops[start..index + 3].to_vec(),
                 replacement,
             });
         }

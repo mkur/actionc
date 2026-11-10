@@ -140,6 +140,15 @@ cases. Five tests pass across the pointer-retention and absolute-readback VM
 targets. Feature-off/calls/loops/promotion execution covers raw/optimized NIR,
 both runtimes, three origins, actual LF/CRLF parsing and a promoted low-byte
 carry. Incoming scans also execute a full word wrap and a pointer into their
-own parameter home; their feature-off/on images remain identical. `ScanFixed`+takes 1,156 cycles versus 1,629 at baseline and replaces 64 repeated direct
+own parameter home; their feature-off/on images remain identical. `ScanFixed` takes 1,156 cycles versus 1,629 at baseline and replaces 64 repeated direct
 setup stores with two initial setup stores; required pointer increments remain.
 All buffer bytes and published final pointers are checked independently.
+
+The result-composition slice finishes the planned exact-result reuse. An indexed
+store can load its index directly into Y, preserving the call result in A.
+After a successful pointer rewrite, the shared accumulator equality query and
+structural exit-state proof can remove a redundant typed ABI-result reload.
+Raw absolute readbacks and live N/Z remain barriers. Variable-length indexed
+plans preserve fused-compare producer sites. Sixteen focused unit tests and
+three pointer VM tests pass, including the flag/readback negatives. The neutral
+conversion now saves 23 cycles per iteration; its zero-count path is unchanged.
