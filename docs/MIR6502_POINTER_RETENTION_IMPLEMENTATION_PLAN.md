@@ -1,7 +1,7 @@
 # MIR6502 pointer retention implementation
 
 Starting revision: `97a60fa6`. Implements the contracts in the
-[design note](MIR6502_POINTER_RETENTION_PLAN.md). Status: slices 0–1 complete.
+[design note](MIR6502_POINTER_RETENTION_PLAN.md). Status: slices 0–2 complete.
 
 Each numbered slice is a separate commit with its focused checks completed.
 All selection is MIR6502-only, optimized-only and independently switchable.
@@ -78,3 +78,20 @@ seven bytes. Focused checks pass: four new proof/transaction tests, nine existin
 resident-base tests, two integration cases, and the pointer/readback VM targets
 (three tests). Feature-off/on execution covers raw/optimized NIR, both runtimes,
 two origins and actual LF/CRLF input. Full TN measurements follow separately.
+
+Fresh slice-1 TN/TNDBG images are 9,945/13,041 bytes, each 14 bytes smaller
+than baseline; only `SetWin` changes (1,079/1,082 routine bytes).
+
+Slice 2 adds immutable-source CFG facts through the shared forward solver.
+Reachable unknown entry is distinct from unreachable, and every join/backedge
+must agree on both bytes. There is no assumed loop-entry residence. Constant
+owned bases can survive an indexed store only when its full possible Y range
+is contained in an owned ordinary allocation; unknown, foreign-RAM and wrapping
+footprints remain barriers. Zero-page reads still execute and do not become
+removable reads merely because other resident facts survive them. Hardware and
+opaque barriers retain conservative handling.
+
+Seven focused tests pass, including first-entry/backedge and disagreeing-edge
+guards, bounded/foreign/wrapping indexed writes, 256-block/4,096-operation input
+limits, and all four call transaction regressions. The new CFG query is not yet
+an optimization consumer; the slice-1 selector retains its block-local policy.
