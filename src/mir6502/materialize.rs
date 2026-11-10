@@ -59,6 +59,7 @@ mod narrowing;
 mod peepholes;
 mod pointers;
 mod regs;
+mod register_copies;
 mod runtime;
 mod small_loops;
 mod spills;
@@ -1743,6 +1744,9 @@ pub(super) fn materialize_program_with_reporting(
         }
     }
     materialize_remaining_pointer_cell_values(&mut program);
+    if stats::reporting_enabled(config) {
+        register_copies::record_candidates(&program, &final_layout, &mut peephole_stats);
+    }
     fold_redundant_register_reloads(&mut program, &final_layout, &mut peephole_stats);
     for routine in &mut program.routines {
         if config.enable_peepholes {

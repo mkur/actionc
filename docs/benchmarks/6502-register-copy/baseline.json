@@ -1,0 +1,79 @@
+{
+  "compiler": "f0524524",
+  "mode": "mir6502",
+  "runtime": "cart",
+  "records": [
+    {
+      "name": "TN",
+      "source": "samples/tn/modern/TN.ACT",
+      "xex_bytes": 9974,
+      "sha256": "c1d8b354a78d6347e8c6fa1723b970257649258e4d8d7c3bc96834f8a7020676",
+      "source_sha256": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+      "routines": [
+        {
+          "name": "Strcpy",
+          "start": "3852",
+          "end": "3887",
+          "bytes": 53
+        },
+        {
+          "name": "Copy",
+          "start": "4AE7",
+          "end": "4D8B",
+          "bytes": 676
+        }
+      ],
+      "private_zp_lanes": 33
+    },
+    {
+      "name": "TNDBG",
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "xex_bytes": 13079,
+      "sha256": "7d0a2491fbf0e869849d433a427ac1417e0e08c2b2c2cd198d7f37e2ebec8cb0",
+      "source_sha256": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+      "routines": [
+        {
+          "name": "Strcpy",
+          "start": "3A69",
+          "end": "3A9E",
+          "bytes": 53
+        },
+        {
+          "name": "Copy",
+          "start": "54F7",
+          "end": "59A2",
+          "bytes": 1195
+        }
+      ],
+      "private_zp_lanes": 37
+    },
+    {
+      "name": "neutral",
+      "source": "fixtures/runtime/register_copy_forwarding.act",
+      "xex_bytes": 214,
+      "sha256": "c89cce51c0ed58404e62abbb18e358e95ac918e0165f7d5de9027dbc6f649d3c",
+      "source_sha256": "35ff38b71a4f5429403723575d97b155d1a2d9f020f66ca5df77f30a00cdd216",
+      "routines": [
+        {
+          "name": "CopyCounted",
+          "start": "3026",
+          "end": "305B",
+          "bytes": 53
+        },
+        {
+          "name": "SendString",
+          "start": "305B",
+          "end": "3090",
+          "bytes": 53
+        },
+        {
+          "name": "SaveBytes",
+          "start": "3090",
+          "end": "30A7",
+          "bytes": 23
+        }
+      ],
+      "private_zp_lanes": 4
+    }
+  ]
+}

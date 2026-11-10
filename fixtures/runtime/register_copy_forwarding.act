@@ -1,0 +1,39 @@
+; Neutral direct byte and counted-pointer copies. No compiler matcher may use
+; these names, declarations, addresses, or the two-byte pointer width.
+BYTE ARRAY observed(3)
+
+PROC Transfer=*(CARD destination, source BYTE length)
+ASM
+  sta.z $A0
+  stx.z $A1
+  sty.z $A2
+  ldy.z $A4
+  dey
+copy:
+  lda ($A2),y
+  sta ($A0),y
+  dey
+  cpy #$FF
+  bne copy
+  rts
+ENDASM
+
+PROC CopyCounted(CHAR POINTER output, input)
+  Transfer(output, input, input^+1)
+RETURN
+
+PROC SendString(CHAR POINTER target, text)
+  Transfer(target, text, text^+1)
+RETURN
+
+PROC SaveBytes(BYTE first, second, third)
+  observed(0)=third
+  observed(1)=first
+  observed(2)=second
+RETURN
+
+PROC Main()
+  CopyCounted(CHAR POINTER($5300), CHAR POINTER($5000))
+  SendString(CHAR POINTER($5400), CHAR POINTER($5100))
+  SaveBytes(1, 2, 3)
+RETURN
