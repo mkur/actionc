@@ -195,6 +195,9 @@ crowding the active reference set.
 - [TN 6502 code-generation review (2026-11-10)](TN_6502_CODEGEN_REVIEW_2026-11-10.md)
   - static review of a supplied TN assembly listing, with concrete size/cycle
     improvements, optimization preconditions, and separate correctness observations.
+- [MIR6502 pointer retention through calls and loops](MIR6502_POINTER_RETENTION_PLAN.md)
+  - proposed staged extension for call preservation, invariant loop bases and
+    changing-pointer promotion, with alias and entry-contract requirements.
 - [MIR6502_COMPARE_BRANCH_FUSION_PLAN.md](MIR6502_COMPARE_BRANCH_FUSION_PLAN.md)
   - implemented comparison-result copy elimination before branch selection, with
   shared use proofs, numeric-result fallbacks, and measured Mandelbrot validation.
