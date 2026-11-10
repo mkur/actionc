@@ -40,6 +40,27 @@ fn pointer_retention_calls_preserve_exact_pairs_and_reject_each_clobbered_lane()
     }
     assert!(!changed(&probe("lda ($A0),y\nsta ($A2),y\nrts")));
 }
+
+#[test]
+fn pointer_retention_calls_keep_hardware_mapping_and_unowned_access_barriers() {
+    for body in [
+        "lda.a $BFFA\nrts",
+        "lda.a $D20F\nrts",
+        "sta.a $D301\nrts",
+        "sta.a $6000\nrts",
+        "lda ($A0),y\nrts",
+    ] {
+        assert!(!changed(&probe(body)), "{body}");
+    }
+    assert!(changed(&probe("lda.z $E0\nrts")));
+    let p = fixture(
+        "BYTE ARRAY table(4)\nBYTE observed\nPROC Touch=*()\nASM\nldx #1\nlda.a table,x\nsta.z $A0\nrts\nENDASM\nPROC Probe(BYTE POINTER p)\nobserved=p(1)\nTouch()\nobserved=p(2)\nRETURN\nPROC Main()\nProbe(BYTE POINTER($6000))\nRETURN\n",
+    );
+    assert!(
+        changed(&p),
+        "an inspectable indexed RAM table read must stay usable"
+    );
+}
 #[test]
 fn pointer_retention_calls_keep_source_mutations_and_opaque_barriers() {
     let mut p = probe("rts");

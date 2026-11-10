@@ -114,6 +114,9 @@ pub(super) fn emit_program_with_physical_references(
         // pointer type. Numeric pointers into code or foreign RAM are not
         // certificates for retaining memory-dependent machine facts.
         for global in &mir.globals {
+            if let Some(MirStoragePlacement::Absolute {address,size,..})=ctx.layout.globals.get(&global.id) {
+                ctx.summary.physical_memory.global(global.id,*address,*size,matches!(global.backing,MirGlobalBacking::Ordinary{..}));
+            }
             if matches!(global.backing,MirGlobalBacking::Ordinary {..}) {
                 if let Some(MirStoragePlacement::Absolute {address,size,..})=ctx.layout.globals.get(&global.id) {
                     ctx.summary.physical_memory.own_data(*address,*size);

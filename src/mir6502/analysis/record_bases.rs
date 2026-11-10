@@ -12,8 +12,18 @@ pub(in crate::mir6502) mod retention;
 pub(in crate::mir6502) struct MirPhysicalMemory {
     entries: Vec<(RoutineId, MirMem, u16, bool)>,
     owned_data: Vec<(u16, u16)>,
+    globals: BTreeMap<crate::nir::SymbolId, (u16, u16, bool)>,
 }
 impl MirPhysicalMemory {
+    pub(in crate::mir6502) fn global(
+        &mut self,
+        id: crate::nir::SymbolId,
+        address: u16,
+        size: u16,
+        ordinary: bool,
+    ) {
+        self.globals.insert(id, (address, size, ordinary));
+    }
     pub(in crate::mir6502) fn own_data(&mut self, address: u16, bytes: u16) {
         if bytes > 0 && !self.owned_data.contains(&(address, bytes)) {
             self.owned_data.push((address, bytes));
@@ -46,6 +56,10 @@ impl MirPhysicalMemory {
         match mem {
             MirMem::FixedZeroPage(s) => Some(u16::from(s.0)),
             MirMem::Absolute(a) => Some(*a),
+            MirMem::Global { id, offset } if self.globals.contains_key(id) => self
+                .globals
+                .get(id)
+                .and_then(|(base, size, _)| (*offset <= *size).then(|| base.wrapping_add(*offset))),
             _ => self
                 .entries
                 .iter()
@@ -53,6 +67,11 @@ impl MirPhysicalMemory {
         }
     }
     pub(in crate::mir6502) fn ordinary(&self, routine: RoutineId, mem: &MirMem) -> bool {
+        if let MirMem::Global { id, offset } = mem
+            && let Some((address, size, true)) = self.globals.get(id)
+        {
+            return *offset < *size && (0x400..0x8000).contains(&address.wrapping_add(*offset));
+        }
         self.entries.iter().any(|(r, m, a, normal)| {
             *r == routine
                 && m == mem

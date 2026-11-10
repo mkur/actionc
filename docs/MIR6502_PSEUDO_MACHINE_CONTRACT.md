@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-06-01. Updated for direct indexed byte arithmetic and
 full-range byte-loop carriers on 2026-09-01, and available-register direct
-stores on 2026-11-10.
+stores and pointer retention on 2026-11-10.
 
 This note defines the intended contract for the first MIR6502 layer after
 verifier-clean NIR. It incorporates the review items captured in
@@ -344,6 +344,58 @@ when block-local capture, register availability and intervening physical write
 ranges prove the bytes still equal their parameter homes. The high byte must
 survive low-byte computation. Canonical stores and public result homes remain
 part of the ABI; this proof never licenses repeating an indirect field read.
+
+A separate final pointer-retention family extends residence across direct calls
+and CFG edges. A pair holding a captured value and a later reevaluation of its
+source cells are distinct facts. Complete low/high equality is required before
+removing two setup stores; the original ordinary producers remain whenever A
+or N/Z is live. Existing A/X/Y placement can supply either byte. Unknown values
+do not establish equality. Hardware/volatile reads remain observable; retained
+zero-page reads do not become permission to delete absolute reads.
+
+Call preservation uses complete owner-qualified physical write footprints,
+including transitive direct bodies, bounded machine summaries, ABI argument
+placement and callee scratch. Unsupported results/arguments, recursion, helpers,
+opaque bodies and unknown writes retain fallback. Preserving the pair does not
+prove that source cells are unchanged, or that a saved private store is unread.
+Unknown callee reads cannot justify removing observable captures.
+Hardware/bank-switch accesses and unowned writes remain barriers even when an
+instruction walk lists only their direct ISA effects. Flat indexed-read bases
+are checked with the complete possible byte-index displacement in final RAM;
+typed global bases are resolved even when only machine code references them.
+
+CFG retention is forward must-agree dataflow over an immutable routine. Reachable
+unknown entry is distinct from unreachable, and every predecessor must agree.
+A backedge never proves initial residence. Indexed writes preserve facts only
+when the entire possible Y footprint is inside one owned RAM allocation and
+disjoint from their dependencies. Source/physical aliases and implicit pair
+clobbers invalidate facts. Analysis rejects graphs beyond its admitted bounds.
+One-time setup movement initially requires an entered constant-bound byte loop,
+unchanged source values and dead changed entry state; unknown/zero-trip paths
+retain their setup. Loop bounds, pointee accesses and final counters are unchanged.
+
+An indexed-store region may replace a pair containing `base + byte_index` with
+the same complete resident base and the index in Y. The original effective
+address is preserved modulo 65536. Its exact-window proof checks source/result
+aliases, the original operations and generation, and dead changed pair/Y/flags.
+This representation change has a dedicated region plan; it does not weaken the
+shared driver's removed-definition checks. All original pointee accesses remain.
+
+Changing-home promotion is independently costed after accepted retention.
+Initially it admits one unexposed ordinary local word, initialized to owned
+storage, in an entered bounded scan with unit updates and exclusive pair use.
+Initial stores target the pair at their original point, updates advance the
+pair, and the source home is reconstructed before every admitted exit consumer.
+Physical aliases, frame exposure, intervening observers, competing pointers,
+live changed exit state and incoming/self-aliasing parameter pointers retain
+fallback. No closed-entry fact is inferred from a direct-call census.
+
+These selectors run after earlier placement decisions with independent optimized
+controls. Whole-program verification, published callee A facts, identical frames,
+final code/home/image budgets and baseline-reference layout replay are mandatory.
+Promotion failure retains accepted call/loop retention. All proofs are rebuilt
+against the combined proposed callees and final physical layout. No allocation,
+source-language rule, NIR form or public ABI is changed by these families.
 
 The target analysis distinguishes an already captured pointer value from a
 mutable pointer cell read at an access. Folding pure address arithmetic may

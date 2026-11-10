@@ -175,6 +175,13 @@ pub(in crate::mir6502) fn select_costed(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn isolated_config() -> Mir6502Config {
+        let mut config = Mir6502Config::optimized();
+        config.enable_pointer_call_retention = false;
+        config.enable_pointer_loop_retention = false;
+        config.enable_pointer_promotion = false;
+        config
+    }
     fn fixture(raw: bool) -> MirProgram {
         let text = include_str!("../../../surveys/tn/reproducers/record-base-reuse.act")
             .replace("\r\n", "\n");
@@ -199,7 +206,7 @@ mod tests {
                 crate::runtime::Runtime::Standalone,
             ] {
                 let input = fixture(raw);
-                let mut off = Mir6502Config::optimized();
+                let mut off = isolated_config();
                 off.enable_record_base_reuse = false;
                 off.enable_record_base_writes = false;
                 off.enable_record_base_parameter_origins = false;
@@ -251,7 +258,7 @@ mod tests {
             crate::runtime::Runtime::Standalone,
         ] {
             let input = fixture(false);
-            let mut reads = Mir6502Config::optimized();
+            let mut reads = isolated_config();
             reads.enable_record_base_reuse = true;
             reads.enable_record_base_writes = false;
             reads.enable_record_base_parameter_origins = false;
@@ -293,7 +300,7 @@ mod tests {
                 crate::runtime::Runtime::Standalone,
             ] {
                 let input = fixture(raw);
-                let mut writes = Mir6502Config::optimized();
+                let mut writes = isolated_config();
                 writes.enable_record_base_reuse = true;
                 writes.enable_record_base_writes = true;
                 writes.enable_record_base_parameter_origins = false;

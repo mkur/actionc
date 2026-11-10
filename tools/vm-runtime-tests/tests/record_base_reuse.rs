@@ -102,6 +102,9 @@ fn record_sequences_keep_fields_snapshots_and_mutable_source_cells() {
                     (true, true, true),
                 ] {
                     let mut config = actionc::mir6502::Mir6502Config::optimized();
+                    config.enable_pointer_call_retention = false;
+                    config.enable_pointer_loop_retention = false;
+                    config.enable_pointer_promotion = false;
                     config.enable_record_base_reuse = enabled;
                     config.enable_record_base_writes = writes;
                     config.enable_record_base_parameter_origins = origins;

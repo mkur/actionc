@@ -2,7 +2,9 @@
 use super::*;
 use crate::analysis::dataflow::{DataflowDirection, DataflowProblem, solve_dataflow};
 use crate::mir6502::analysis::cfg::MirCfg;
-use crate::mir6502::analysis::known_callees::{MirKnownCalleeSummaries, MirKnownMemoryWrites};
+use crate::mir6502::analysis::known_callees::{
+    MirKnownCalleeSummaries, MirKnownMemoryReads, MirKnownMemoryWrites,
+};
 use std::collections::BTreeSet;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -48,8 +50,21 @@ impl CallWrites {
                 let MirKnownMemoryWrites::Exact(bytes) = known.get(id)?.writes() else {
                     return None;
                 };
+                let MirKnownMemoryReads::Exact(reads) = known.get(id)?.reads() else {
+                    return None;
+                };
+                // An indexed base in the flat summary can read any byte index.
+                // Over-approximate every listed read by 256 bytes; no bank or
+                // hardware read may masquerade as a pure ISA memory access.
+                if reads.iter().any(|m| !safe_read(id, m, memory)) {
+                    return None;
+                }
                 for byte in bytes {
-                    writes.insert(memory.address(id, byte)?);
+                    let address = memory.address(id, byte)?;
+                    if !safe_write(id, byte, address, 1, memory) {
+                        return None;
+                    }
+                    writes.insert(address);
                 }
                 return Some(writes);
             }
@@ -77,6 +92,14 @@ impl CallWrites {
                     return None;
                 }
                 let effect = classify_op(op);
+                if effect
+                    .memory
+                    .direct_reads
+                    .iter()
+                    .any(|read| !safe_read(id, &read.base, memory))
+                {
+                    return None;
+                }
                 if effect.memory.indirect_writes
                     || effect.memory.opaque
                     || effect.memory.may_write_any
@@ -88,6 +111,9 @@ impl CallWrites {
                 }
                 for range in &effect.memory.direct_writes {
                     let start = memory.address(id, &range.base)?;
+                    if !safe_write(id, &range.base, start, range.bytes, memory) {
+                        return None;
+                    }
                     writes.extend((0..range.bytes).map(|n| start.wrapping_add(n)));
                 }
                 for home in &effect.addresses.pair_writes {
@@ -127,6 +153,23 @@ impl CallWrites {
         writes.extend(argument_writes(op, owner, memory)?);
         Some(writes)
     }
+}
+
+fn safe_read(owner: RoutineId, mem: &MirMem, memory: &MirPhysicalMemory) -> bool {
+    memory
+        .address(owner, mem)
+        .is_some_and(|a| u32::from(a) + 255 < 0x8000)
+}
+fn safe_write(
+    owner: RoutineId,
+    mem: &MirMem,
+    address: u16,
+    bytes: u16,
+    memory: &MirPhysicalMemory,
+) -> bool {
+    (0..bytes).all(|n| address.wrapping_add(n) < 0x100)
+        || ((0..bytes).all(|n| (0x400..0x8000).contains(&address.wrapping_add(n)))
+            && (memory.ordinary(owner, mem) || memory.contains_write(address, bytes)))
 }
 
 fn argument_writes(
