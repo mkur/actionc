@@ -36,6 +36,13 @@ unless effects prove it is safe. Calls, OS/runtime interactions, raw data,
 machine blocks, hardware registers, and unknown absolute memory are conservative
 barriers by default.
 
+Final emission must preserve raw absolute reads retained by materialized MIR,
+including a read after a store to the same numeric address. Such a store may
+target ROM or hardware and does not prove the subsequent value. The emitter's
+late accumulator reload elimination requires compiler-owned, output-relative
+storage; relocation provenance must not be discarded before that decision.
+Explicit volatile barriers remain effective independently of this rule.
+
 **Pre-materialization MIR** is the first lowering target from NIR. It may contain
 virtual temps, abstract storage homes, word pseudo ops, and compare results in
 bool temps.

@@ -210,7 +210,13 @@ impl TrackedEmitter {
     pub(crate) fn emit_lda_abs(&mut self, address: impl Into<Absolute>) {
         let address = address.into();
         let raw_address = address.address();
-        if self.state.can_skip_load_a_memory(raw_address) && self.state.flags_match_a_value() {
+        // Only compiler-owned image storage proves an ordinary memory read.
+        // A raw absolute store may address ROM or hardware and need not write
+        // the value back; it cannot justify suppressing a subsequent read.
+        if address.is_output_relative()
+            && self.state.can_skip_load_a_memory(raw_address)
+            && self.state.flags_match_a_value()
+        {
             return;
         }
         if !address.is_output_relative()
@@ -220,7 +226,11 @@ impl TrackedEmitter {
             return;
         }
         self.emitter.emit_lda_absolute(address);
-        self.state.load_a_memory(raw_address);
+        if address.is_output_relative() {
+            self.state.load_a_memory(raw_address);
+        } else {
+            self.state.load_a_unknown();
+        }
     }
 
     pub(crate) fn emit_lda_abs_x(&mut self, address: impl Into<AbsoluteX>) {
@@ -758,8 +768,8 @@ mod tests {
         let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emitter.emit_lda_imm(0x44);
-        emitter.emit_sta_absolute(Absolute::new(0x3100));
-        emitter.emit_lda_abs(0x3100);
+        emitter.emit_sta_absolute(Absolute::output_relative(0x3100));
+        emitter.emit_lda_abs(Absolute::output_relative(0x3100));
 
         assert_eq!(emitter.state().a(), NativeValue::Immediate(0x44));
         assert_eq!(
@@ -770,6 +780,30 @@ mod tests {
             emitter.finish().unwrap(),
             [opcode::LDA_IMM, 0x44, opcode::STA_ABS, 0x00, 0x31]
         );
+    }
+
+    #[test]
+    fn tracked_emitter_preserves_raw_absolute_readback_and_repeated_reads() {
+        for address in [0x00E0, 0x3100, 0xBFFA, 0xD20F] {
+            let mut emitter = TrackedEmitter::with_origin(0x3000);
+            emitter.emit_lda_imm(0x44);
+            emitter.emit_sta_absolute(Absolute::new(address));
+            emitter.emit_lda_abs(address);
+            emitter.emit_lda_abs(address);
+            let mut expected = vec![opcode::LDA_IMM, 0x44];
+            if address <= 0xFF {
+                expected.extend([opcode::STA_ZP, address as u8]);
+                expected.extend([opcode::LDA_ZP, address as u8]);
+                expected.extend([opcode::LDA_ZP, address as u8]);
+            } else {
+                let [lo, hi] = address.to_le_bytes();
+                expected.extend([opcode::STA_ABS, lo, hi]);
+                expected.extend([opcode::LDA_ABS, lo, hi]);
+                expected.extend([opcode::LDA_ABS, lo, hi]);
+                assert_ne!(emitter.state().a(), NativeValue::Immediate(0x44));
+            }
+            assert_eq!(emitter.finish().unwrap(), expected, "${address:04X}");
+        }
     }
 
     #[test]
@@ -820,8 +854,8 @@ mod tests {
         let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emitter.emit_lda_abs(0x3100);
-        emitter.emit_sta_absolute(Absolute::new(0x3101));
-        emitter.emit_lda_abs(0x3101);
+        emitter.emit_sta_absolute(Absolute::output_relative(0x3101));
+        emitter.emit_lda_abs(Absolute::output_relative(0x3101));
 
         assert_eq!(
             emitter.finish().unwrap(),
