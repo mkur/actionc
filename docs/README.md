@@ -195,6 +195,9 @@ crowding the active reference set.
 - [TN 6502 code-generation review (2026-11-10)](TN_6502_CODEGEN_REVIEW_2026-11-10.md)
   - static review of a supplied TN assembly listing, with concrete size/cycle
     improvements, optimization preconditions, and separate correctness observations.
+- [TN C translation and Oscar64 comparison plan](TN_C_OSCAR64_TRANSLATION_PLAN.md)
+  - staged faithful C port, Atari runtime and ABI qualification, shared behavior
+    checks, and measured code-generation comparison.
 - [MIR6502 pointer retention through calls and loops](MIR6502_POINTER_RETENTION_PLAN.md)
   - design for call preservation, invariant loop bases and changing-pointer
     promotion, with alias and entry-contract requirements.

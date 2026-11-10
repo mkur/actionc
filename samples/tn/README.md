@@ -8,6 +8,11 @@ modern/
   maintained source copies for the modern profile and MIR6502 backend work
 ```
 
+The [C translation and Oscar64 comparison plan](../../docs/TN_C_OSCAR64_TRANSLATION_PLAN.md)
+describes a proposed faithful C port of these maintained sources, with staged
+Atari/runtime qualification and code-generation measurements. The port is not
+implemented yet.
+
 The original TN ATR, extracted archived sources, and prebuilt `TN.COM` live
 under `corpora/tn/`. Stability scripts, fixtures, and original compiler symbol
 dumps live under `surveys/tn/`.
