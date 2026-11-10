@@ -59,7 +59,7 @@ mod narrowing;
 mod peepholes;
 mod pointers;
 mod regs;
-mod register_copies;
+pub(super) mod register_copies;
 mod runtime;
 mod small_loops;
 mod spills;

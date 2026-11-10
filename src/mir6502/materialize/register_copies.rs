@@ -7,6 +7,76 @@ use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
 use crate::mir6502::ir::*;
 use crate::mir6502::rewrite::context::{MirProof, PostHomeRewriteContext};
+use crate::mir6502::rewrite::driver::MirPostHomeRewriteDriver;
+use std::collections::BTreeSet;
+
+/// Final transaction: home selection/inlining and all previous savings survive
+/// a failed proof, verifier or exact emission-cost comparison.
+pub(in crate::mir6502) fn select_costed(
+    baseline: MirProgram,
+    config: &crate::mir6502::Mir6502Config,
+    origin: u16,
+    report: bool,
+) -> Result<MirProgram, Vec<crate::mir6502::MirDiagnostic>> {
+    let callees = MirKnownCalleeSummaries::analyze_for_rewriting(&baseline);
+    let mut proposed = baseline.clone();
+    let mut affected = BTreeSet::new();
+    let mut stats = MirPeepholeStats::default();
+    for routine in &mut proposed.routines {
+        let result = MirPostHomeRewriteDriver::default().run_fixed_point_with_known_callees(
+            routine,
+            &callees,
+            |r, c| super::peepholes::discover_register_direct_store_folds(r, c, true),
+        );
+        let Ok(result) = result else {
+            return Ok(baseline);
+        };
+        if result.applied > 0 {
+            affected.insert(routine.id);
+        }
+        super::record_prehome_rewrite_result(routine.id, result, &mut stats);
+    }
+    if affected.is_empty() {
+        return Ok(baseline);
+    }
+    let new_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&proposed);
+    // Earlier caller rewrites can already rely on a callee's incidental A
+    // result. Preserve those published exit values as well as the public ABI.
+    let exits_preserved = baseline.routines.iter().all(|r| {
+        !callees.accumulator_summary_is_observable(r.id)
+            || callees.get(r.id).and_then(|s| s.accumulator())
+                == new_callees.get(r.id).and_then(|s| s.accumulator())
+    });
+    let accepted = exits_preserved
+        && crate::mir6502::verify_program(&proposed, MirPhase::PreEmission).is_ok()
+        && proposed
+            .routines
+            .iter()
+            .zip(&baseline.routines)
+            .all(|(a, b)| a.frame == b.frame)
+        && match (
+            super::address_values::Cost::measure(&baseline, origin),
+            super::address_values::Cost::measure(&proposed, origin),
+        ) {
+            (Some(old), Some(new)) => {
+                new.bytes < old.bytes && affected.iter().all(|id| new.does_not_grow(&old, *id))
+            }
+            _ => false,
+        };
+    if !accepted {
+        for id in affected {
+            stats.record(id, "register-copy-declined-final-proof-or-cost");
+        }
+    }
+    if report {
+        super::stats::maybe_report_peepholes(
+            if accepted { &proposed } else { &baseline },
+            &stats,
+            config,
+        );
+    }
+    Ok(if accepted { proposed } else { baseline })
+}
 
 pub(super) fn memory_map(routine: &MirRoutine, layout: &MaterializeLayout) -> MirMachineMemoryMap {
     MirMachineMemoryMap::from_routine(routine, |mem| match mem {

@@ -144,6 +144,7 @@ pub fn materialize_program_with_origin_and_runtime(
     // feature-off pipeline. Record reuse is a final transaction over that
     // complete materialized result, with its own final placement/image gate.
     materialize_config.enable_record_base_reuse = false;
+    materialize_config.enable_register_copy_forwarding = false;
     materialize_config.select_widening_byte_multiply =
         runtime == crate::runtime::Runtime::Standalone;
     let baseline = if let Some(census) = inline_census {
@@ -157,8 +158,13 @@ pub fn materialize_program_with_origin_and_runtime(
     } else {
         materialize_resolved_program(program, &materialize_config, origin, runtime, true)?
     };
-    if config.enable_peepholes && config.enable_record_base_reuse {
-        materialize::record_bases::select_costed(baseline, config, origin, true)
+    let baseline = if config.enable_peepholes && config.enable_record_base_reuse {
+        materialize::record_bases::select_costed(baseline, config, origin, true)?
+    } else {
+        baseline
+    };
+    if config.enable_peepholes && config.enable_register_copy_forwarding {
+        materialize::register_copies::select_costed(baseline, config, origin, true)
     } else {
         Ok(baseline)
     }

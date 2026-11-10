@@ -1,6 +1,6 @@
 # MIR6502 Register-to-Store Copy Forwarding Plan
 
-Status: Slice 0 complete; implementation proceeding in slices. Created 2026-11-10.
+Status: Slices 0-1 complete; implementation proceeding in slices. Created 2026-11-10.
 
 Implement a post-home copy rewrite that stores already available byte
 values directly from A, X, or Y instead of routing them through private scratch.
@@ -350,3 +350,33 @@ new VM target (two tests, including its symbol helper). Both runtimes and
 LF/CRLF input execute byte stores, counted lengths 0/1/127/128/254/255, repeated
 calls and page-crossing pointers with independent data and guard expectations.
 No NIR contracts or existing fixture outputs changed.
+
+## Slice 1 results
+
+Generalized the existing transfer/store matcher to X/Y while retaining the
+legacy X-only entry point. New Y behavior is optimized-only under
+`enable_register_copy_forwarding`. It runs as a final transaction after the
+previous materialization/placement choices; exact emission must be smaller,
+affected routines/homes cannot grow, and frames/zero-page reservations remain
+identical. Rejection restores the complete baseline. The transaction also
+checks published callee A results because earlier caller rewrites may already
+depend on them.
+
+The small Y fold preserves the incoming high byte in A, allowing the emitter's
+existing compiler-owned reload elimination to remove one additional ordinary
+parameter load. No raw absolute read is removed.
+
+| Cartridge workload | Baseline XEX | Slice 1 XEX | Saving |
+| --- | ---: | ---: | ---: |
+| TN | 9,974 | 9,970 | 4 |
+| TNDBG | 13,079 | 13,075 | 4 |
+| Neutral fixture | 214 | 205 | 9 |
+
+`Strcpy` and both renamed neutral wrappers decrease from 53 to 49 bytes.
+TN's `Copy` is unchanged at 676 bytes; its load/store case belongs to Slice 2.
+
+Validation passed: two new X/Y move-store proof tests (including successor A
+and live N/Z guards), all three legacy TXA tests, two integration tests with
+feature-on/off comparisons over raw/optimized NIR, both runtimes and origins,
+and the forwarding/readback VM targets (four tests). No fixture snapshots or
+shared IR contracts changed.

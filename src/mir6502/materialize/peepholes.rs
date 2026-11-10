@@ -240,13 +240,21 @@ pub(in crate::mir6502) fn discover_txa_direct_store_folds(
     routine: &MirRoutine,
     context: &PostHomeRewriteContext<'_, '_>,
 ) -> Vec<MirPostHomeRewritePlan> {
+    discover_register_direct_store_folds(routine, context, false)
+}
+
+pub(in crate::mir6502) fn discover_register_direct_store_folds(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    include_y: bool,
+) -> Vec<MirPostHomeRewritePlan> {
     let mut plans = Vec::new();
     for block in &routine.blocks {
         for index in 0..block.ops.len().saturating_sub(1) {
             let (
                 MirOp::Move {
                     dst: MirDef::Reg(MirReg::A),
-                    src: MirValue::Def(MirDef::Reg(MirReg::X)),
+                    src: MirValue::Def(MirDef::Reg(reg @ (MirReg::X | MirReg::Y))),
                     width: MirWidth::Byte,
                 },
                 MirOp::Store {
@@ -258,9 +266,12 @@ pub(in crate::mir6502) fn discover_txa_direct_store_folds(
             else {
                 continue;
             };
+            if *reg == MirReg::Y && !include_y {
+                continue;
+            }
             let replacement = vec![MirOp::Store {
                 dst: MirAddr::Direct(dst.clone()),
-                src: MirValue::Def(MirDef::Reg(MirReg::X)),
+                src: MirValue::Def(MirDef::Reg(*reg)),
                 width: MirWidth::Byte,
             }];
             if let Some(plan) = structural_plan(
@@ -270,7 +281,7 @@ pub(in crate::mir6502) fn discover_txa_direct_store_folds(
                 index..index + 2,
                 replacement,
                 register_zn_exit_change(MirReg::A),
-                "txa-direct-store-to-stx",
+                if *reg == MirReg::X { "txa-direct-store-to-stx" } else { "tya-direct-store-to-sty" },
                 0,
             ) {
                 plans.push(plan);

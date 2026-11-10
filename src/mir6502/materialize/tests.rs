@@ -239,6 +239,50 @@ fn txa_direct_store_fold_keeps_txa_when_accumulator_is_live() {
 }
 
 #[test]
+fn register_copy_move_stores_generalize_to_y_with_live_state_guards() {
+    for reg in [MirReg::X, MirReg::Y] {
+        for live_a in [false, true] {
+            let trailing = if live_a { vec![MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Absolute(0x4001)),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte,
+            }] } else { vec![] };
+            let mut r = txa_direct_store_routine(trailing, MirTerminator::Return, vec![]);
+            if let MirOp::Move { src, .. } = &mut r.blocks[0].ops[0] {
+                *src = MirValue::Def(MirDef::Reg(reg));
+            }
+            let s = PostHomeAnalysisSnapshot::new(&r, MirRoutineGeneration::initial()).unwrap();
+            let c = PostHomeRewriteContext::new(&s);
+            let plans = peepholes::discover_register_direct_store_folds(&r, &c, true);
+            assert_eq!(plans.len(), usize::from(!live_a));
+            if !live_a {
+                assert!(matches!(&plans[0].replacement[0], MirOp::Store { src: MirValue::Def(MirDef::Reg(source)), .. } if *source == reg));
+            }
+            assert_eq!(peepholes::discover_register_direct_store_folds(&r, &c, false).len(), usize::from(!live_a && reg == MirReg::X));
+        }
+    }
+}
+
+#[test]
+fn register_copy_move_store_keeps_live_nz_and_successor_accumulator() {
+    for reg in [MirReg::X, MirReg::Y] {
+        for flags in [false, true] {
+            let mut r = txa_direct_store_routine(vec![], if flags {
+                MirTerminator::Branch { cond: MirCond::FlagTest(MirFlagTest::ZSet),
+                    then_edge: MirEdge::plain(MirBlockId(1)), else_edge: MirEdge::plain(MirBlockId(1)) }
+            } else { MirTerminator::Jump(MirEdge::plain(MirBlockId(1))) }, vec![MirBlock {
+                id: MirBlockId(1), label: "later".into(), params: vec![],
+                ops: if flags { vec![] } else { vec![MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::Absolute(0x4001)), src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte,
+                }] }, terminator: MirTerminator::Return,
+            }]);
+            if let MirOp::Move { src, .. } = &mut r.blocks[0].ops[0] { *src = MirValue::Def(MirDef::Reg(reg)); }
+            let s = PostHomeAnalysisSnapshot::new(&r, MirRoutineGeneration::initial()).unwrap();
+            assert!(peepholes::discover_register_direct_store_folds(&r, &PostHomeRewriteContext::new(&s), true).is_empty());
+        }
+    }
+}
+
+#[test]
 fn known_call_result_pair_reuses_dead_private_zero_page() {
     let mut program = known_call_result_reuse_program(false, false);
     let summaries = MirKnownCalleeSummaries::analyze(&program);

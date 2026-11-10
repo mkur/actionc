@@ -14,6 +14,8 @@ pub struct Mir6502Config {
     pub enable_tiny_constant_fills: bool,
     /// Forward captured bytes into small copies, subject to final size costing.
     pub enable_copy_value_forwarding: bool,
+    /// Forward direct byte copies from available registers after materialization.
+    pub enable_register_copy_forwarding: bool,
     pub enable_constructor_store_elision: bool,
     pub enable_constructor_home_elision: bool,
     /// Delay private payload loads into proven disjoint constructor result stores.
@@ -78,6 +80,7 @@ impl Default for Mir6502Config {
             enable_peepholes: true,
             enable_tiny_constant_fills: true,
             enable_copy_value_forwarding: true,
+            enable_register_copy_forwarding: false,
             enable_constructor_store_elision: true,
             enable_constructor_home_elision: true,
             enable_constructor_payload_forwarding: true,
@@ -108,6 +111,7 @@ impl Mir6502Config {
     pub fn optimized() -> Self {
         Self {
             enable_record_base_reuse: true,
+            enable_register_copy_forwarding: true,
             enable_record_base_writes: true,
             enable_record_base_parameter_origins: true,
             enable_word_inc_update: true,
