@@ -1,7 +1,7 @@
 # MIR6502 pointer retention implementation
 
 Starting revision: `97a60fa6`. Implements the contracts in the
-[design note](MIR6502_POINTER_RETENTION_PLAN.md). Status: slice 0 complete.
+[design note](MIR6502_POINTER_RETENTION_PLAN.md). Status: slices 0–1 complete.
 
 Each numbered slice is a separate commit with its focused checks completed.
 All selection is MIR6502-only, optimized-only and independently switchable.
@@ -62,3 +62,19 @@ buffer guards and final-pointer checks pass with both runtimes, raw/optimized
 NIR, two origins and actual LF/CRLF input. Setup traffic and cycles are frozen
 in the scorecard. Proof-specific blocker diagnostics arrive with their first
 consumer in slice 1 rather than adding a temporary second analysis in slice 0.
+
+Slice 1 connects complete-base equality to owner-qualified physical callee
+writes, including transitive bodies, ABI argument placement and existing bounded
+machine summaries. Exact result/register facts remain in their existing shared
+analysis. Selection applies one validated pair rewrite per snapshot and retains
+the high-byte load for exact A/N/Z. Final baseline-reference layout replay,
+callee A contracts, identical frames and strict final emission cost are checked.
+The independently controlled call pass runs after earlier placement choices.
+Blocker counters describe attempts, not additive savings.
+
+The neutral `ReadAcrossCall` executes with two rather than four pair writes and
+takes 82 rather than 92 cycles in both runtimes. Its image/routine shrink by
+seven bytes. Focused checks pass: four new proof/transaction tests, nine existing
+resident-base tests, two integration cases, and the pointer/readback VM targets
+(three tests). Feature-off/on execution covers raw/optimized NIR, both runtimes,
+two origins and actual LF/CRLF input. Full TN measurements follow separately.

@@ -60,6 +60,7 @@ mod peepholes;
 mod pointers;
 mod regs;
 pub(super) mod register_copies;
+pub(super) mod pointer_retention;
 mod runtime;
 mod small_loops;
 mod spills;

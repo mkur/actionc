@@ -6,6 +6,8 @@ use super::{
 use crate::mir6502::ir::*;
 use std::collections::BTreeMap;
 
+pub(in crate::mir6502) mod retention;
+
 #[derive(Debug, Clone, Default)]
 pub(in crate::mir6502) struct MirPhysicalMemory {
     entries: Vec<(RoutineId, MirMem, u16, bool)>,
@@ -89,7 +91,7 @@ pub(in crate::mir6502) struct RecordBaseProof {
     pub options: RecordBaseOptions,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default, PartialEq, Eq)]
 struct State {
     registers: [Option<ByteValue>; 3],
     pairs: BTreeMap<u8, (ByteValue, usize)>,

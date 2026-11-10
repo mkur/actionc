@@ -16,6 +16,12 @@ pub struct Mir6502Config {
     pub enable_copy_value_forwarding: bool,
     /// Forward direct byte copies from available registers after materialization.
     pub enable_register_copy_forwarding: bool,
+    /// Retain complete resident bases through physically audited direct calls.
+    pub enable_pointer_call_retention: bool,
+    /// Extend retention to CFG edges and invariant loops.
+    pub enable_pointer_loop_retention: bool,
+    /// Promote auditable changing local pointer homes into existing pairs.
+    pub enable_pointer_promotion: bool,
     pub enable_constructor_store_elision: bool,
     pub enable_constructor_home_elision: bool,
     /// Delay private payload loads into proven disjoint constructor result stores.
@@ -81,6 +87,9 @@ impl Default for Mir6502Config {
             enable_tiny_constant_fills: true,
             enable_copy_value_forwarding: true,
             enable_register_copy_forwarding: false,
+            enable_pointer_call_retention: false,
+            enable_pointer_loop_retention: false,
+            enable_pointer_promotion: false,
             enable_constructor_store_elision: true,
             enable_constructor_home_elision: true,
             enable_constructor_payload_forwarding: true,
@@ -112,6 +121,7 @@ impl Mir6502Config {
         Self {
             enable_record_base_reuse: true,
             enable_register_copy_forwarding: true,
+            enable_pointer_call_retention: true,
             enable_record_base_writes: true,
             enable_record_base_parameter_origins: true,
             enable_word_inc_update: true,

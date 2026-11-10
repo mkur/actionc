@@ -123,24 +123,40 @@ fn pointer_calls_loops_and_scans_preserve_data_and_final_state() {
             };
             for runtime in [Runtime::ActionCart, Runtime::Standalone] {
                 for origin in [0x3000, 0x41C7] {
-                    let config = mir6502::Mir6502Config::optimized();
-                    let output = mir6502::generate_output_with_config_and_runtime(
-                        &nir, origin, &config, runtime,
-                    )
-                    .unwrap();
-                    let image = codegen::format_load_file(&output);
-                    let key = format!("{runtime:?}/{optimized_nir}/{origin}");
-                    if crlf {
-                        assert_eq!(&image, &lf_images[&key]);
-                    } else {
-                        lf_images.insert(key, image);
-                    }
-                    let measured = exercise(&output);
-                    if !crlf && optimized_nir && origin == 0x3000 {
-                        for (name, count, cycles, stores) in measured {
-                            println!(
-                                "pointer-retention,{runtime:?},{name},count={count},cycles={cycles},pair-stores={stores}"
-                            );
+                    let mut controls = None;
+                    let mut baseline_size = None;
+                    for enabled in [false, true] {
+                        let mut config = mir6502::Mir6502Config::optimized();
+                        config.enable_pointer_call_retention = enabled;
+                        config.enable_pointer_loop_retention = false;
+                        config.enable_pointer_promotion = false;
+                        let output = mir6502::generate_output_with_config_and_runtime(
+                            &nir, origin, &config, runtime,
+                        )
+                        .unwrap();
+                        let image = codegen::format_load_file(&output);
+                        let key = format!("{runtime:?}/{optimized_nir}/{origin}/{enabled}");
+                        if crlf {
+                            assert_eq!(&image, &lf_images[&key]);
+                        } else {
+                            lf_images.insert(key, image);
+                        }
+                        let measured = exercise(&output);
+                        if let Some(old) = &controls {
+                            let old: &Vec<(String, u8, u64, usize)> = old;
+                            assert!(output.bytes.len() < baseline_size.unwrap());
+                            assert!(measured[0].2 < old[0].2);
+                            assert_eq!(measured[0].3 + 2, old[0].3);
+                        } else {
+                            baseline_size = Some(output.bytes.len());
+                            controls = Some(measured.clone());
+                        }
+                        if !crlf && optimized_nir && origin == 0x3000 {
+                            for (name, count, cycles, stores) in measured {
+                                println!(
+                                    "pointer-retention,{runtime:?},{enabled},{name},count={count},cycles={cycles},pair-stores={stores}"
+                                );
+                            }
                         }
                     }
                 }

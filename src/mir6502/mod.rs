@@ -145,6 +145,9 @@ pub fn materialize_program_with_origin_and_runtime(
     // complete materialized result, with its own final placement/image gate.
     materialize_config.enable_record_base_reuse = false;
     materialize_config.enable_register_copy_forwarding = false;
+    materialize_config.enable_pointer_call_retention = false;
+    materialize_config.enable_pointer_loop_retention = false;
+    materialize_config.enable_pointer_promotion = false;
     materialize_config.select_widening_byte_multiply =
         runtime == crate::runtime::Runtime::Standalone;
     let baseline = if let Some(census) = inline_census {
@@ -163,8 +166,13 @@ pub fn materialize_program_with_origin_and_runtime(
     } else {
         baseline
     };
-    if config.enable_peepholes && config.enable_register_copy_forwarding {
-        materialize::register_copies::select_costed(baseline, config, origin, true)
+    let baseline = if config.enable_peepholes && config.enable_register_copy_forwarding {
+        materialize::register_copies::select_costed(baseline, config, origin, true)?
+    } else {
+        baseline
+    };
+    if config.enable_peepholes && config.enable_pointer_call_retention {
+        materialize::pointer_retention::select_costed(baseline, config, origin, true)
     } else {
         Ok(baseline)
     }
