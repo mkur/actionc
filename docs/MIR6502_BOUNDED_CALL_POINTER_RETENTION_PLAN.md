@@ -62,7 +62,7 @@ machine decoding, loop footprints, count zero, unknown inputs, physical
 ownership, hardware/wrap exclusions and malformed/unsupported instructions.
 LF/CRLF Action sources lower to identical machine facts.
 
-Slice 2 adds the separately controlled context query to the existing costed
+Slice 2 is committed as `60d456f8`. It adds the separately controlled context query to the existing costed
 transaction. A normally lowered owned-buffer copy removes ten bytes and two
 setup stores; its sample call saves fourteen cycles. The same helper with an
 unknown destination retains the old setup. Unit cases reject an explicit
@@ -74,4 +74,19 @@ The focused integration matrix passes raw/optimized NIR, both runtimes and
 both origins. VM execution passes 2,952 calls across those modes and actual
 LF/CRLF files, including every byte count, pointer aliases, a pointer into its
 own home, and a copy that overwrites the pointer home and changes the following
-dereference. Full qualification and optimized defaults follow in slice 3.
+dereference.
+
+Slice 3 completes qualification and enables the optimized default. Two more
+fact tests reject incoming-flag observation across all eight branch conditions
+and incomplete relocation projections. Nonzero relocation addends, high-byte
+relocations and byte-address operands naming larger physical addresses retain
+the previous barrier; the existing flat decoder cannot certify those cases.
+
+Final validation passes 1,242 MIR6502 unit tests, 108 integration tests in 21
+targets, all 169 emission/load fixtures, and 38 tests in 13 affected VM targets.
+Eight MADS LF/CRLF assemblies reproduce the optimized default. Four fresh
+TN/TNDBG cartridge/standalone images match the preceding qualified images;
+their string/parameter-alias and dispatch/panel VM checks also pass. The
+[scorecard](benchmarks/6502-bounded-call-retention/README.md) records exact
+hashes, unchanged storage, sizes and sample cycles. TN's `Strcat` remains 113
+bytes because its destination bounds and entry provenance are still unknown.

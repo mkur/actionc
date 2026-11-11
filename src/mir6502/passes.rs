@@ -153,7 +153,7 @@ impl Mir6502Config {
             enable_record_base_reuse: true,
             enable_register_copy_forwarding: true,
             enable_pointer_call_retention: true,
-            enable_bounded_call_pointer_retention: false,
+            enable_bounded_call_pointer_retention: true,
             enable_pointer_loop_retention: true,
             enable_pointer_promotion: true,
             enable_record_base_writes: true,

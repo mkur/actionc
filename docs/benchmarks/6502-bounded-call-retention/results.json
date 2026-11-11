@@ -1,0 +1,454 @@
+{
+  "date": "2026-11-12",
+  "implementation_revision": "60d456f8",
+  "qualification": "Optimized default enabled; incoming flag observation rejected",
+  "source_sha256": "708e4eb21852549de66519bb50d90a9e33b4110e61b566b5bcbcce7d9af0d794",
+  "neutral": [
+    {
+      "name": "neutral-false-ActionCart-3000",
+      "image_bytes": [
+        192,
+        182
+      ],
+      "image_sha256": [
+        "f26da04514c8f5d346299d4884eb3227a6644c83c2517e2a891f4e4132d93e25",
+        "42b40e8bbfb1385d9b3c945f70b8d2e0c522b3abf1f343d3b2e79fffb3feccc1"
+      ],
+      "routine_bytes": [
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 56,
+          "UnknownCopy": 69,
+          "Main": 22
+        },
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 46,
+          "UnknownCopy": 69,
+          "Main": 22
+        }
+      ],
+      "storage_capacities_unchanged": true,
+      "frames_unchanged": true,
+      "reservation_lengths_unchanged": true
+    },
+    {
+      "name": "neutral-false-ActionCart-41C7",
+      "image_bytes": [
+        192,
+        182
+      ],
+      "image_sha256": [
+        "0d1c1820043442a631eb827857879b4ec0282c96bf71acd1168925295ebd018f",
+        "2c502767fba1031abb13939d5d4b0d6e82f226d3b9c70c4c35cf130532412daa"
+      ],
+      "routine_bytes": [
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 56,
+          "UnknownCopy": 69,
+          "Main": 22
+        },
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 46,
+          "UnknownCopy": 69,
+          "Main": 22
+        }
+      ],
+      "storage_capacities_unchanged": true,
+      "frames_unchanged": true,
+      "reservation_lengths_unchanged": true
+    },
+    {
+      "name": "neutral-false-Standalone-3000",
+      "image_bytes": [
+        192,
+        182
+      ],
+      "image_sha256": [
+        "f26da04514c8f5d346299d4884eb3227a6644c83c2517e2a891f4e4132d93e25",
+        "42b40e8bbfb1385d9b3c945f70b8d2e0c522b3abf1f343d3b2e79fffb3feccc1"
+      ],
+      "routine_bytes": [
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 56,
+          "UnknownCopy": 69,
+          "Main": 22
+        },
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 46,
+          "UnknownCopy": 69,
+          "Main": 22
+        }
+      ],
+      "storage_capacities_unchanged": true,
+      "frames_unchanged": true,
+      "reservation_lengths_unchanged": true
+    },
+    {
+      "name": "neutral-false-Standalone-41C7",
+      "image_bytes": [
+        192,
+        182
+      ],
+      "image_sha256": [
+        "0d1c1820043442a631eb827857879b4ec0282c96bf71acd1168925295ebd018f",
+        "2c502767fba1031abb13939d5d4b0d6e82f226d3b9c70c4c35cf130532412daa"
+      ],
+      "routine_bytes": [
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 56,
+          "UnknownCopy": 69,
+          "Main": 22
+        },
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 46,
+          "UnknownCopy": 69,
+          "Main": 22
+        }
+      ],
+      "storage_capacities_unchanged": true,
+      "frames_unchanged": true,
+      "reservation_lengths_unchanged": true
+    },
+    {
+      "name": "neutral-true-ActionCart-3000",
+      "image_bytes": [
+        192,
+        182
+      ],
+      "image_sha256": [
+        "f26da04514c8f5d346299d4884eb3227a6644c83c2517e2a891f4e4132d93e25",
+        "42b40e8bbfb1385d9b3c945f70b8d2e0c522b3abf1f343d3b2e79fffb3feccc1"
+      ],
+      "routine_bytes": [
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 56,
+          "UnknownCopy": 69,
+          "Main": 22
+        },
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 46,
+          "UnknownCopy": 69,
+          "Main": 22
+        }
+      ],
+      "storage_capacities_unchanged": true,
+      "frames_unchanged": true,
+      "reservation_lengths_unchanged": true
+    },
+    {
+      "name": "neutral-true-ActionCart-41C7",
+      "image_bytes": [
+        192,
+        182
+      ],
+      "image_sha256": [
+        "0d1c1820043442a631eb827857879b4ec0282c96bf71acd1168925295ebd018f",
+        "2c502767fba1031abb13939d5d4b0d6e82f226d3b9c70c4c35cf130532412daa"
+      ],
+      "routine_bytes": [
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 56,
+          "UnknownCopy": 69,
+          "Main": 22
+        },
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 46,
+          "UnknownCopy": 69,
+          "Main": 22
+        }
+      ],
+      "storage_capacities_unchanged": true,
+      "frames_unchanged": true,
+      "reservation_lengths_unchanged": true
+    },
+    {
+      "name": "neutral-true-Standalone-3000",
+      "image_bytes": [
+        192,
+        182
+      ],
+      "image_sha256": [
+        "f26da04514c8f5d346299d4884eb3227a6644c83c2517e2a891f4e4132d93e25",
+        "42b40e8bbfb1385d9b3c945f70b8d2e0c522b3abf1f343d3b2e79fffb3feccc1"
+      ],
+      "routine_bytes": [
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 56,
+          "UnknownCopy": 69,
+          "Main": 22
+        },
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 46,
+          "UnknownCopy": 69,
+          "Main": 22
+        }
+      ],
+      "storage_capacities_unchanged": true,
+      "frames_unchanged": true,
+      "reservation_lengths_unchanged": true
+    },
+    {
+      "name": "neutral-true-Standalone-41C7",
+      "image_bytes": [
+        192,
+        182
+      ],
+      "image_sha256": [
+        "0d1c1820043442a631eb827857879b4ec0282c96bf71acd1168925295ebd018f",
+        "2c502767fba1031abb13939d5d4b0d6e82f226d3b9c70c4c35cf130532412daa"
+      ],
+      "routine_bytes": [
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 56,
+          "UnknownCopy": 69,
+          "Main": 22
+        },
+        {
+          "CopyBytes": 19,
+          "ReadAcrossCopy": 46,
+          "UnknownCopy": 69,
+          "Main": 22
+        }
+      ],
+      "storage_capacities_unchanged": true,
+      "frames_unchanged": true,
+      "reservation_lengths_unchanged": true
+    }
+  ],
+  "tn": [
+    {
+      "name": "TN-ActionCart-true",
+      "image_bytes": 9857,
+      "image_sha256": "35cc798aea05495a8ef1b9b0a57d1590120fd0a635b5ba7294d7959a0faeb366",
+      "unchanged": true,
+      "strcat_bytes": 113
+    },
+    {
+      "name": "TNDBG-ActionCart-true",
+      "image_bytes": 12952,
+      "image_sha256": "7abc260d58816e3f784d0d613516a73944d5bf7a13c6588efbb7dba03119936c",
+      "unchanged": true,
+      "strcat_bytes": 113
+    },
+    {
+      "name": "TN-Standalone-true",
+      "image_bytes": 9982,
+      "image_sha256": "7329593c6ec368dd194858e9b9b19c3715b9e7dd70582c31d5ed26bd506ad039",
+      "unchanged": true,
+      "strcat_bytes": 113
+    },
+    {
+      "name": "TNDBG-Standalone-true",
+      "image_bytes": 13077,
+      "image_sha256": "befe05f0c3eb0ff7926be3810e6e64bcf9aa5c2f6faad50baa837118a0b0fc26",
+      "unchanged": true,
+      "strcat_bytes": 113
+    }
+  ],
+  "checks": {
+    "backend-unit": {
+      "targets": 1,
+      "passed": 1242,
+      "ignored": 10
+    },
+    "backend-integration": {
+      "targets": 21,
+      "passed": 108,
+      "ignored": 7
+    },
+    "backend-vm": {
+      "targets": 13,
+      "passed": 38,
+      "ignored": 0
+    },
+    "tn-and-mads": {
+      "targets": 1,
+      "passed": 2,
+      "ignored": 0
+    },
+    "tn-alias-vm": {
+      "targets": 1,
+      "passed": 2,
+      "ignored": 0
+    },
+    "tn-dispatch-vm": {
+      "targets": 1,
+      "passed": 2,
+      "ignored": 0
+    },
+    "emission_load_fixtures": 169,
+    "mads_lf_crlf_relocations": 8,
+    "frozen_neutral_assembly_matches": 4,
+    "new_vm_calls": 2952
+  },
+  "vm_samples": [
+    {
+      "optimized_nir": false,
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "enabled": false,
+      "emitted_bytes": 180,
+      "sample_cycles": 156,
+      "pair_stores": 4
+    },
+    {
+      "optimized_nir": false,
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "enabled": true,
+      "emitted_bytes": 170,
+      "sample_cycles": 142,
+      "pair_stores": 2
+    },
+    {
+      "optimized_nir": false,
+      "runtime": "ActionCart",
+      "origin": 16839,
+      "enabled": false,
+      "emitted_bytes": 180,
+      "sample_cycles": 156,
+      "pair_stores": 4
+    },
+    {
+      "optimized_nir": false,
+      "runtime": "ActionCart",
+      "origin": 16839,
+      "enabled": true,
+      "emitted_bytes": 170,
+      "sample_cycles": 142,
+      "pair_stores": 2
+    },
+    {
+      "optimized_nir": false,
+      "runtime": "Standalone",
+      "origin": 12288,
+      "enabled": false,
+      "emitted_bytes": 180,
+      "sample_cycles": 156,
+      "pair_stores": 4
+    },
+    {
+      "optimized_nir": false,
+      "runtime": "Standalone",
+      "origin": 12288,
+      "enabled": true,
+      "emitted_bytes": 170,
+      "sample_cycles": 142,
+      "pair_stores": 2
+    },
+    {
+      "optimized_nir": false,
+      "runtime": "Standalone",
+      "origin": 16839,
+      "enabled": false,
+      "emitted_bytes": 180,
+      "sample_cycles": 156,
+      "pair_stores": 4
+    },
+    {
+      "optimized_nir": false,
+      "runtime": "Standalone",
+      "origin": 16839,
+      "enabled": true,
+      "emitted_bytes": 170,
+      "sample_cycles": 142,
+      "pair_stores": 2
+    },
+    {
+      "optimized_nir": true,
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "enabled": false,
+      "emitted_bytes": 180,
+      "sample_cycles": 156,
+      "pair_stores": 4
+    },
+    {
+      "optimized_nir": true,
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "enabled": true,
+      "emitted_bytes": 170,
+      "sample_cycles": 142,
+      "pair_stores": 2
+    },
+    {
+      "optimized_nir": true,
+      "runtime": "ActionCart",
+      "origin": 16839,
+      "enabled": false,
+      "emitted_bytes": 180,
+      "sample_cycles": 156,
+      "pair_stores": 4
+    },
+    {
+      "optimized_nir": true,
+      "runtime": "ActionCart",
+      "origin": 16839,
+      "enabled": true,
+      "emitted_bytes": 170,
+      "sample_cycles": 142,
+      "pair_stores": 2
+    },
+    {
+      "optimized_nir": true,
+      "runtime": "Standalone",
+      "origin": 12288,
+      "enabled": false,
+      "emitted_bytes": 180,
+      "sample_cycles": 156,
+      "pair_stores": 4
+    },
+    {
+      "optimized_nir": true,
+      "runtime": "Standalone",
+      "origin": 12288,
+      "enabled": true,
+      "emitted_bytes": 170,
+      "sample_cycles": 142,
+      "pair_stores": 2
+    },
+    {
+      "optimized_nir": true,
+      "runtime": "Standalone",
+      "origin": 16839,
+      "enabled": false,
+      "emitted_bytes": 180,
+      "sample_cycles": 156,
+      "pair_stores": 4
+    },
+    {
+      "optimized_nir": true,
+      "runtime": "Standalone",
+      "origin": 16839,
+      "enabled": true,
+      "emitted_bytes": 170,
+      "sample_cycles": 142,
+      "pair_stores": 2
+    }
+  ],
+  "vm_revision": "7ec0cc454ebf43b088b7bcd11515533085ea1964",
+  "implementation_sha256": {
+    "fixtures/runtime/bounded_call_pointer_retention.act": "708e4eb21852549de66519bb50d90a9e33b4110e61b566b5bcbcce7d9af0d794",
+    "src/mir6502/analysis/known_callees/bounded_memory.rs": "49810bbfb8b896532b1bbf92a9911c6e0c27881bb5acf028ffeecc333d4297c4",
+    "src/mir6502/analysis/record_bases/retention.rs": "beaa47e8546b437d8259ebbfd1f5136f247b8a965cbfa08994d3d45ebbae48b3",
+    "src/mir6502/materialize/pointer_retention.rs": "e3f1d5bd7d739e7eefddc94ad7c05163ef20634e1da6f38135e8090f8badee52",
+    "src/mir6502/passes.rs": "09d79c84fd0abc2c519238422151becf886772f65f73311310e456b72d18d985",
+    "tests/mir6502_bounded_call_pointer_retention.rs": "8f7ba86692367aaa3fc3e1ea8d78303d54d40aa9cda921f8087b68701ae8565c",
+    "tools/vm-runtime-tests/tests/bounded_call_pointer_retention.rs": "d2073784b4b70c5c960e1019630e6174d543e355e7629a7ab007001dea918d93"
+  }
+}

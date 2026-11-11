@@ -6,6 +6,8 @@ use std::path::Path;
 
 #[test]
 fn bounded_call_pointer_retention_saves_ten_bytes_with_unchanged_unknown_calls() {
+    assert!(!Mir6502Config::default().enable_bounded_call_pointer_retention);
+    assert!(Mir6502Config::optimized().enable_bounded_call_pointer_retention);
     let source = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures/runtime/bounded_call_pointer_retention.act");
     let loaded = actionc::includes::load_program_with_expanded_source(&source).unwrap();
@@ -146,4 +148,34 @@ fn bounded_call_pointer_retention_mads_relocation_with_lf_and_crlf() {
         }
     }
     std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+#[ignore = "requires the qualified argument-x-bitwise TN images"]
+fn bounded_call_pointer_retention_keeps_unknown_tn_destinations_unchanged() {
+    use actionc::compiler::{CompileMode, CompileOptions, compile_file};
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let output = root.join("build/bounded-call/tn-qualified");
+    std::fs::create_dir_all(&output).unwrap();
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for name in ["TN", "TNDBG"] {
+            let compiled = compile_file(
+                root.join(format!("samples/tn/modern/{name}.ACT")),
+                &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+            )
+            .unwrap();
+            let stem = format!("{name}-{runtime:?}-true");
+            assert_eq!(
+                compiled.object_bytes(),
+                std::fs::read(root.join(format!("build/argument-x-bitwise/measured/{stem}.xex")))
+                    .unwrap()
+            );
+            std::fs::write(output.join(format!("{stem}.xex")), compiled.object_bytes()).unwrap();
+            std::fs::write(
+                output.join(format!("{stem}.asm")),
+                compiled.source_listing(),
+            )
+            .unwrap();
+        }
+    }
 }

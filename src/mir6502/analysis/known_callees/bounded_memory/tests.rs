@@ -155,3 +155,51 @@ fn bounded_machine_copy_declines_unsupported_and_malformed_control_flow() {
     r.effects.opaque = true;
     assert!(BoundedMachine::analyze(&r, &p).is_none());
 }
+
+#[test]
+fn bounded_machine_copy_rejects_incoming_flag_observation_before_any_definition() {
+    let source = include_str!("../../../../../fixtures/runtime/bounded_call_pointer_retention.act")
+        .replace("\r\n", "\n");
+    for branch in ["bcc", "bcs", "beq", "bne", "bmi", "bpl", "bvc", "bvs"] {
+        let text = source
+            .replace("  sta $A0", &format!("  {branch} done\n  sta $A0"))
+            .replace("  rts", "done:\n  rts");
+        let p = lower(&text);
+        assert!(
+            machine(&p)
+                .writes([Some(0), Some(0x70), Some(0)], cells(None), &memory())
+                .is_none(),
+            "{branch}"
+        );
+    }
+}
+
+#[test]
+fn bounded_machine_copy_rejects_unresolved_relocation_addends_and_byte_selectors() {
+    let original = program();
+    for high in [false, true] {
+        let mut p = original.clone();
+        let relocation = p.machine_blocks[0]
+            .items
+            .iter_mut()
+            .find(|item| matches!(item, MirMachineItem::Relocation { .. }))
+            .unwrap();
+        let MirMachineItem::Relocation { addend, kind, .. } = relocation else {
+            unreachable!()
+        };
+        if high {
+            *kind = crate::asm6502::InlineAsmRelocationKind::High8;
+        } else {
+            *addend = 1;
+        }
+        let r = p.routines.iter().find(|r| r.name == "CopyBytes").unwrap();
+        assert!(BoundedMachine::analyze(r, &p).is_none());
+    }
+    let mut code = machine(&original);
+    code.bytes[1].memory = Some(MirMem::Absolute(0x70AC));
+    code.bytes[1].value = Some(0xAC);
+    assert!(
+        code.writes([Some(0), Some(0x70), Some(0)], cells(None), &memory())
+            .is_none()
+    );
+}

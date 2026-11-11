@@ -20,6 +20,9 @@ struct State {
     cells: BTreeMap<u16, u8>,
     // C/N/Z/V, independently known or unknown.
     flags: [Option<bool>; 4],
+    // A memory footprint alone is not an incoming-flag observation proof.
+    // Admit branches only after a definite ISA definition on every path.
+    defined_flags: [bool; 4],
 }
 impl State {
     fn join(&mut self, other: &Self) -> bool {
@@ -36,11 +39,16 @@ impl State {
                 *value = None;
             }
         }
+        for (value, incoming) in self.defined_flags.iter_mut().zip(other.defined_flags) {
+            *value &= incoming;
+        }
         *self != old
     }
     fn nz(&mut self, value: Option<u8>) {
         self.flags[1] = value.map(|v| v & 128 != 0);
         self.flags[2] = value.map(|v| v == 0);
+        self.defined_flags[1] = true;
+        self.defined_flags[2] = true;
     }
 }
 
@@ -73,7 +81,8 @@ impl BoundedMachine {
                     }
                     | MirMachineItem::AddressByte { .. }
                     | MirMachineItem::StringLiteral(_)
-            )
+            ) || matches!(item, MirMachineItem::Relocation { addend, kind, .. }
+                    if *addend != 0 || *kind == crate::asm6502::InlineAsmRelocationKind::High8)
         }) {
             return None;
         }
@@ -101,6 +110,7 @@ impl BoundedMachine {
                 registers,
                 cells,
                 flags: [None; 4],
+                defined_flags: [false; 4],
             },
         )]);
         let mut pending = VecDeque::from([0usize]);
@@ -117,7 +127,10 @@ impl BoundedMachine {
             let address = || {
                 let low = self.bytes.get(pc + 1)?;
                 if let Some(mem) = &low.memory {
-                    return memory.address(self.owner, mem);
+                    let address = memory.address(self.owner, mem)?;
+                    // A byte relocation can name only the low byte of a
+                    // larger address. Never mistake it for a full ZP address.
+                    return (len != 2 || address < 256).then_some(address);
                 }
                 let lo = low.value?;
                 if len == 2 {
@@ -227,6 +240,7 @@ impl BoundedMachine {
                     };
                     let rhs = byte()?;
                     state.flags[0] = state.registers[r].map(|v| v >= rhs);
+                    state.defined_flags[0] = true;
                     let result = state.registers[r].map(|v| v.wrapping_sub(rhs));
                     state.nz(result);
                 }
@@ -247,15 +261,23 @@ impl BoundedMachine {
                         0xD0 => (2, false),
                         _ => (2, true),
                     };
+                    if !state.defined_flags[flag] {
+                        return None;
+                    }
                     successors = match state.flags[flag] {
                         Some(v) if v == expected => vec![target],
                         Some(_) => vec![next],
                         None => vec![target, next],
                     };
                 }
-                0x18 => state.flags[0] = Some(false),
-                0x38 => state.flags[0] = Some(true),
-                0xB8 => state.flags[3] = Some(false),
+                0x18 | 0x38 => {
+                    state.flags[0] = Some(opcode == 0x38);
+                    state.defined_flags[0] = true;
+                }
+                0xB8 => {
+                    state.flags[3] = Some(false);
+                    state.defined_flags[3] = true;
+                }
                 0xEA => {}
                 // Calls, stack operations, decimal-mode changes, arithmetic,
                 // indexed-X, unknown encodings and early returns fail closed.

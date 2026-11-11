@@ -725,10 +725,15 @@ availability even when the scratch pair itself is untouched.
 The initial ISA subset admits leaf loads/stores, register transfers,
 increments/decrements, immediate comparisons, flag branches, CLC/SEC/CLV,
 NOP and one terminal RTS. Calls, stack-manipulation instructions, unknown
-operands, arithmetic and indexed-X addressing retain the fallback. The
+operands, arithmetic and indexed-X addressing retain the fallback. A branch
+must have a definite prior definition of its input flag on every path;
+helpers observing incoming flags retain the previous call barrier. The
 analysis is bounded to 512 bytes and 4,096 worklist steps. It uses the existing
 decoder and rejects unresolved machine names rather than interpreting source
-strings. Ordinary JSR/RTS stack traffic remains part of the call ABI; this
+strings. Nonzero relocation addends, high-byte relocations and byte operands
+whose full storage address is outside zero page also retain the fallback;
+the older flat decoder cannot certify those address projections. Ordinary
+JSR/RTS stack traffic remains part of the call ABI; this
 proof cannot certify stack-backed source homes or indirect destinations.
 
 Existing resident-value, source-home, machine-state, transaction and final

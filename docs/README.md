@@ -240,6 +240,10 @@ crowding the active reference set.
   - measured 113-byte compiler output against a 97-byte version retaining the
   ABI and parameter homes, and a 52-byte private-pointer control; identifies
   carry-input folding, direct capture and Y reuse as local opportunities.
+- [MIR6502 bounded call pointer retention](MIR6502_BOUNDED_CALL_POINTER_RETENTION_PLAN.md)
+  - context-specific machine write footprints prove pointer homes unchanged
+  across bounded owned-buffer copies; [results](benchmarks/6502-bounded-call-retention/README.md)
+  save ten bytes in the neutral case and retain TN's unknown-pointer fallback.
 - [MIR6502_WIDE_SHIFT_COPY_REDUCTION.md](MIR6502_WIDE_SHIFT_COPY_REDUCTION.md)
   - byte and nibble projections for constant wide shifts, preserving captured
   operands while reducing staging for narrow results.

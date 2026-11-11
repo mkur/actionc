@@ -1,0 +1,46 @@
+{
+  "compiler_revision": "c7cf44c9",
+  "source_sha256": "708e4eb21852549de66519bb50d90a9e33b4110e61b566b5bcbcce7d9af0d794",
+  "records": [
+    {
+      "name": "neutral-cart-3000",
+      "routine_bytes": {
+        "CopyBytes": 19,
+        "ReadAcrossCopy": 56,
+        "UnknownCopy": 69,
+        "Main": 22
+      },
+      "listing_sha256": "ae7a147b391dd87b1dba620d93490b8c0c87a8953d052a7160a192b1fb46525d"
+    },
+    {
+      "name": "neutral-cart-41C7",
+      "routine_bytes": {
+        "CopyBytes": 19,
+        "ReadAcrossCopy": 56,
+        "UnknownCopy": 69,
+        "Main": 22
+      },
+      "listing_sha256": "e220440c4c803be3ca6c9ed2d702c765a3a0978da404e96d418fe226244b78ef"
+    },
+    {
+      "name": "neutral-standalone-3000",
+      "routine_bytes": {
+        "CopyBytes": 19,
+        "ReadAcrossCopy": 56,
+        "UnknownCopy": 69,
+        "Main": 22
+      },
+      "listing_sha256": "d828cde16c984a1d3eb549abba4e255381408386718b6bb3b790d457791f1cb0"
+    },
+    {
+      "name": "neutral-standalone-41C7",
+      "routine_bytes": {
+        "CopyBytes": 19,
+        "ReadAcrossCopy": 56,
+        "UnknownCopy": 69,
+        "Main": 22
+      },
+      "listing_sha256": "3b9723dba5f260a4aca6941f6f4dd6bbc75550d56ad7d14d79204a8f588646b0"
+    }
+  ]
+}
