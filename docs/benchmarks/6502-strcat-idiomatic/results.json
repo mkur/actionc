@@ -1,0 +1,1593 @@
+{
+  "compiler_revision": "d0c947cd2a668a6f3a17204d2a93c6f840501482",
+  "qualified_measurement": "docs/benchmarks/6502-argument-x-bitwise/results.json",
+  "vm_revision": "7ec0cc454ebf43b088b7bcd11515533085ea1964",
+  "source_sha256": {
+    "samples/tn/modern/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "samples/tn/modern/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+    "samples/tn/modern/LIB.ACT": "b8cd4c48b9b2d9c96fc86d24e94ea3dc6e9dfb706c636c2b7fb7fc6c58015c53"
+  },
+  "body_bytes": {
+    "compiler": 113,
+    "carry-only": 107,
+    "direct-destination": 99,
+    "same-abi": 97,
+    "private-pointers": 52
+  },
+  "controls": [
+    {
+      "name": "TN-ActionCart-true",
+      "image_sha256": "35cc798aea05495a8ef1b9b0a57d1590120fd0a635b5ba7294d7959a0faeb366",
+      "strcat_start": 14452,
+      "strcat_bytes": 113,
+      "move_page": 12072,
+      "s_home": 11964,
+      "t_home": 11966
+    },
+    {
+      "name": "TN-Standalone-true",
+      "image_sha256": "7329593c6ec368dd194858e9b9b19c3715b9e7dd70582c31d5ed26bd506ad039",
+      "strcat_start": 14452,
+      "strcat_bytes": 113,
+      "move_page": 12074,
+      "s_home": 11964,
+      "t_home": 11966
+    },
+    {
+      "name": "TNDBG-ActionCart-true",
+      "image_sha256": "7abc260d58816e3f784d0d613516a73944d5bf7a13c6588efbb7dba03119936c",
+      "strcat_start": 14987,
+      "strcat_bytes": 113,
+      "move_page": 12607,
+      "s_home": 12460,
+      "t_home": 12462
+    },
+    {
+      "name": "TNDBG-Standalone-true",
+      "image_sha256": "befe05f0c3eb0ff7926be3810e6e64bcf9aa5c2f6faad50baa837118a0b0fc26",
+      "strcat_start": 14987,
+      "strcat_bytes": 113,
+      "move_page": 12609,
+      "s_home": 12460,
+      "t_home": 12462
+    }
+  ],
+  "assemblies": [
+    {
+      "name": "TN-ActionCart-0800-compiler",
+      "bytes": 113,
+      "image_sha256": "92ad26bc3ebfebb1919716482deed8807a135de1db4eff66e3a18cccd124a7c2"
+    },
+    {
+      "name": "TN-ActionCart-0800-carry-only",
+      "bytes": 107,
+      "image_sha256": "080810378d358253d9300721f1e75247efe4d3d78d92c9263826c4560bacb404"
+    },
+    {
+      "name": "TN-ActionCart-0800-direct-destination",
+      "bytes": 99,
+      "image_sha256": "e4ae27fe3ee3645223c28728d389f20f9701a9097bc4f72db3caf5ccb124aa46"
+    },
+    {
+      "name": "TN-ActionCart-0800-same-abi",
+      "bytes": 97,
+      "image_sha256": "77cbe11df295bd002c0ccd4b894c0f38afc457a52728b576d62c0a4a46ff934d"
+    },
+    {
+      "name": "TN-ActionCart-0800-private-pointers",
+      "bytes": 52,
+      "image_sha256": "749fd3f3564b6aba396158bea6e653d4f1cd07ecdc95c89fac506d15d74f529c"
+    },
+    {
+      "name": "TN-ActionCart-09C7-compiler",
+      "bytes": 113,
+      "image_sha256": "900a57a2821da252de6befe39b1a9387586798ea43a7fcb5d40a884c89fe4249"
+    },
+    {
+      "name": "TN-ActionCart-09C7-carry-only",
+      "bytes": 107,
+      "image_sha256": "7a5c886ff4aceaeef3c4b319d358389aba0a2168c2b4e845821a519315405176"
+    },
+    {
+      "name": "TN-ActionCart-09C7-direct-destination",
+      "bytes": 99,
+      "image_sha256": "8b85944de33444572b47dd130937188edea7e3dd7623327549a7c2fb55fffb39"
+    },
+    {
+      "name": "TN-ActionCart-09C7-same-abi",
+      "bytes": 97,
+      "image_sha256": "f1e9a3205b665a1f7d489139f3026b3e0beef58ac212a6ab86dfb5b0666f5415"
+    },
+    {
+      "name": "TN-ActionCart-09C7-private-pointers",
+      "bytes": 52,
+      "image_sha256": "f3073316d983be957050b00597c5ae925ac6aaa210b2c9f72dd91a4768be9424"
+    },
+    {
+      "name": "TN-Standalone-0800-compiler",
+      "bytes": 113,
+      "image_sha256": "e78a3f71dbeb6d80d2e97333716a7afc5d43a297a23cee8ee98374ddc19e4e01"
+    },
+    {
+      "name": "TN-Standalone-0800-carry-only",
+      "bytes": 107,
+      "image_sha256": "17b957365b298f93dd522a9861fe3b6f7f329964a806a6f48db42a5a29bcd61d"
+    },
+    {
+      "name": "TN-Standalone-0800-direct-destination",
+      "bytes": 99,
+      "image_sha256": "18660eeb92c157b40eabadbb428aa2dc81a61633f6142108e48633b82cc4b071"
+    },
+    {
+      "name": "TN-Standalone-0800-same-abi",
+      "bytes": 97,
+      "image_sha256": "a94633e1afc6bd717893d4f1dd38140ceb3b79b319873f264b0dd5f6c8acb47a"
+    },
+    {
+      "name": "TN-Standalone-0800-private-pointers",
+      "bytes": 52,
+      "image_sha256": "fca399eed7edddd5e23bd8e94ba7cbabed70a4e1528a15c5d9871ca35d17552a"
+    },
+    {
+      "name": "TN-Standalone-09C7-compiler",
+      "bytes": 113,
+      "image_sha256": "f522b5cbb18c67f46ae73d8988b1fa200fa0ce3c8b0da191b7de685bb7795b8a"
+    },
+    {
+      "name": "TN-Standalone-09C7-carry-only",
+      "bytes": 107,
+      "image_sha256": "486e4759d63e1a6da4a9ecf209d135756c02c433474b07076a2f15e29d7bcabb"
+    },
+    {
+      "name": "TN-Standalone-09C7-direct-destination",
+      "bytes": 99,
+      "image_sha256": "7511ca1f51ba7c7707787c247f3c037babe89f656346752557210a1af8d371db"
+    },
+    {
+      "name": "TN-Standalone-09C7-same-abi",
+      "bytes": 97,
+      "image_sha256": "696ca0edff04ba68381562e530002798098d2f23bbebb36281a30b3d1a271273"
+    },
+    {
+      "name": "TN-Standalone-09C7-private-pointers",
+      "bytes": 52,
+      "image_sha256": "a5acb2c86a5400fe60bd889ebebb85d691324037e98110db64de2ffd84439bc1"
+    },
+    {
+      "name": "TNDBG-ActionCart-0800-compiler",
+      "bytes": 113,
+      "image_sha256": "ac3c59c5c410ad48039aede04824639f8a255cbf1f708b317460980aec50298d"
+    },
+    {
+      "name": "TNDBG-ActionCart-0800-carry-only",
+      "bytes": 107,
+      "image_sha256": "4fbecd14d6de8254642f4de73bf643c9236925cdc2ae2d27e7726868c074f928"
+    },
+    {
+      "name": "TNDBG-ActionCart-0800-direct-destination",
+      "bytes": 99,
+      "image_sha256": "2ae0e725bca24f8b74492ace0fad28b6864b3bcb36264128c5ae0d7188ad5b60"
+    },
+    {
+      "name": "TNDBG-ActionCart-0800-same-abi",
+      "bytes": 97,
+      "image_sha256": "78f366b42d9645dc0a3066c6a4b5cb61d5d24090d74d803d01882e92f6c03873"
+    },
+    {
+      "name": "TNDBG-ActionCart-0800-private-pointers",
+      "bytes": 52,
+      "image_sha256": "512350bd6c3bde5cbfe7023df3e7dc24692a7dacded2851ba2facbe8db6b4161"
+    },
+    {
+      "name": "TNDBG-ActionCart-09C7-compiler",
+      "bytes": 113,
+      "image_sha256": "00cb5b4c0e2f97dae14997c528ce1ed47cf9da82bf66a1379843f64b71bc7619"
+    },
+    {
+      "name": "TNDBG-ActionCart-09C7-carry-only",
+      "bytes": 107,
+      "image_sha256": "6fb1353cac183ff5e58c2542ca136524e633ba1531b488c5a7bed78d174898c5"
+    },
+    {
+      "name": "TNDBG-ActionCart-09C7-direct-destination",
+      "bytes": 99,
+      "image_sha256": "48a7f26aca726062290dde69c8eca257f7698a87a9a4677a806622abcd7a8994"
+    },
+    {
+      "name": "TNDBG-ActionCart-09C7-same-abi",
+      "bytes": 97,
+      "image_sha256": "130040a05c842730a6969b482d909f73b1e267b2f17cfa569b9ee59543e37f70"
+    },
+    {
+      "name": "TNDBG-ActionCart-09C7-private-pointers",
+      "bytes": 52,
+      "image_sha256": "4491d59217386f368301c5895e5b470ff53e1f32a1cac47da2410e7d3a9592e5"
+    },
+    {
+      "name": "TNDBG-Standalone-0800-compiler",
+      "bytes": 113,
+      "image_sha256": "71aaef068a982a24bf9bea75304db67ab9195f6fe6bf5778487dad9c2989fd9e"
+    },
+    {
+      "name": "TNDBG-Standalone-0800-carry-only",
+      "bytes": 107,
+      "image_sha256": "a51887f4c19666c28e5a80d99f5e334a41120206d64e820ee2d749c807c0fdd1"
+    },
+    {
+      "name": "TNDBG-Standalone-0800-direct-destination",
+      "bytes": 99,
+      "image_sha256": "e516c00b664ec73fc5452405b224855766d5b9994e6fd0d6c50a3c32e234cfd5"
+    },
+    {
+      "name": "TNDBG-Standalone-0800-same-abi",
+      "bytes": 97,
+      "image_sha256": "d814594d0d297943f54797b4ec0cdbb6872cc235fa412ac9874839d28d4fafce"
+    },
+    {
+      "name": "TNDBG-Standalone-0800-private-pointers",
+      "bytes": 52,
+      "image_sha256": "03f6373110cc2e5adb49e68f5199188f75d9c1c07cbda7c45fb0ee4e9f3c7ebb"
+    },
+    {
+      "name": "TNDBG-Standalone-09C7-compiler",
+      "bytes": 113,
+      "image_sha256": "9bb879bf9084f6cbd06903f8f3993be1ae34bcdcfda6f1f7fe5bb0f790f7c3b1"
+    },
+    {
+      "name": "TNDBG-Standalone-09C7-carry-only",
+      "bytes": 107,
+      "image_sha256": "81b21f8942fa65ea150674b14253845e04f0122600c77cb614c4b45d68fffdd3"
+    },
+    {
+      "name": "TNDBG-Standalone-09C7-direct-destination",
+      "bytes": 99,
+      "image_sha256": "fd96050254258a1f28bcb94bf0d1cd3c483dd4c081036d9a386c12faef0dfbee"
+    },
+    {
+      "name": "TNDBG-Standalone-09C7-same-abi",
+      "bytes": 97,
+      "image_sha256": "7b81302ddc37a28d7bbef045128df1ae5640ca72fd3ae7a299a21e4d7a7f16df"
+    },
+    {
+      "name": "TNDBG-Standalone-09C7-private-pointers",
+      "bytes": 52,
+      "image_sha256": "3950c54ba8a35a2d2462228e5264ff6ec4e3aec4b25959641c127f70ad0544b7"
+    }
+  ],
+  "audit_source_sha256": {
+    "docs/benchmarks/6502-strcat-idiomatic/compiler.asm": "e8eb3e518e968284ce584369e03585a0505127bf8b664e9d6d22c4d451c43965",
+    "docs/benchmarks/6502-strcat-idiomatic/same-abi.asm": "78628cf5140e86940c488283f60e71edc13d2516efc908584ec8b10ca8cddf69",
+    "docs/benchmarks/6502-strcat-idiomatic/private-pointers.asm": "319af3b3600774be73be008fda81d0f3053f90004bd229bbf3d5119100c6107c",
+    "tools/compare6502/tn/strcat_idiomatic.py": "2f8dbd2bafa3cf805d241beeed336f42129e6d0d41b08234daba193b257bceef",
+    "tools/vm-runtime-tests/tests/strcat_idiomatic.rs": "3b7efb8653ddc646e715e2589832b49b60ef8f59f82fd97e19ec0307807f843b"
+  },
+  "vm_samples": [
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "compiler",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 175,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 355
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "compiler",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 179,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 233
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "compiler",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 175,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4819
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "carry-only",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 168,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 348
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "carry-only",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 168,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 222
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "carry-only",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 168,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4812
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "direct-destination",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 156,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 336
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "direct-destination",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 156,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 210
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "direct-destination",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 156,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4800
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "same-abi",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 154,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 334
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "same-abi",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 154,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 208
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "same-abi",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 154,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4798
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "private-pointers",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 95,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 275
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "private-pointers",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 99,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 153
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "private-pointers",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 95,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4739
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "compiler",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 175,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 355
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "compiler",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 179,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 233
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "compiler",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 175,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4819
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "carry-only",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 168,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 348
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "carry-only",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 168,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 222
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "carry-only",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 168,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4812
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "direct-destination",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 156,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 336
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "direct-destination",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 156,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 210
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "direct-destination",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 156,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4800
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "same-abi",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 154,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 334
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "same-abi",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 154,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 208
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "same-abi",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 154,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4798
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "private-pointers",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 95,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 275
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "private-pointers",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 99,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 153
+    },
+    {
+      "name": "TN",
+      "runtime": "ActionCart",
+      "variant": "private-pointers",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 95,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4739
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "compiler",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 175,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 355
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "compiler",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 179,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 233
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "compiler",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 175,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4819
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "carry-only",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 168,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 348
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "carry-only",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 168,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 222
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "carry-only",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 168,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4812
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "direct-destination",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 156,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 336
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "direct-destination",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 156,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 210
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "direct-destination",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 156,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4800
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "same-abi",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 154,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 334
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "same-abi",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 154,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 208
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "same-abi",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 154,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4798
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "private-pointers",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 95,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 275
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "private-pointers",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 99,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 153
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "private-pointers",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 95,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4739
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "compiler",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 175,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 355
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "compiler",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 179,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 233
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "compiler",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 175,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4819
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "carry-only",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 168,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 348
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "carry-only",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 168,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 222
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "carry-only",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 168,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4812
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "direct-destination",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 156,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 336
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "direct-destination",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 156,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 210
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "direct-destination",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 156,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4800
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "same-abi",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 154,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 334
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "same-abi",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 154,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 208
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "same-abi",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 154,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4798
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "private-pointers",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 95,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 275
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "private-pointers",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 99,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 153
+    },
+    {
+      "name": "TN",
+      "runtime": "Standalone",
+      "variant": "private-pointers",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 95,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4739
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "compiler",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 175,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 355
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "compiler",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 179,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 233
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "compiler",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 175,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4819
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "carry-only",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 168,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 348
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "carry-only",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 168,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 222
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "carry-only",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 168,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4812
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "direct-destination",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 156,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 336
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "direct-destination",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 156,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 210
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "direct-destination",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 156,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4800
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "same-abi",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 154,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 334
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "same-abi",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 154,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 208
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "same-abi",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 154,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4798
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "private-pointers",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 95,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 275
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "private-pointers",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 99,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 153
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "private-pointers",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 95,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4739
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "compiler",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 175,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 355
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "compiler",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 179,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 233
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "compiler",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 175,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4819
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "carry-only",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 168,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 348
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "carry-only",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 168,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 222
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "carry-only",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 168,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4812
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "direct-destination",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 156,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 336
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "direct-destination",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 156,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 210
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "direct-destination",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 156,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4800
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "same-abi",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 154,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 334
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "same-abi",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 154,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 208
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "same-abi",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 154,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4798
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "private-pointers",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 95,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 275
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "private-pointers",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 99,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 153
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "ActionCart",
+      "variant": "private-pointers",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 95,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4739
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "compiler",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 175,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 355
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "compiler",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 179,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 233
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "compiler",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 175,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4819
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "carry-only",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 168,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 348
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "carry-only",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 168,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 222
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "carry-only",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 168,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4812
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "direct-destination",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 156,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 336
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "direct-destination",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 156,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 210
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "direct-destination",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 156,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4800
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "same-abi",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 154,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 334
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "same-abi",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 154,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 208
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "same-abi",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 154,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4798
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "private-pointers",
+      "origin": 2048,
+      "scenario": "3+8",
+      "body_cycles": 95,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 275
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "private-pointers",
+      "origin": 2048,
+      "scenario": "low-carry",
+      "body_cycles": 99,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 153
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "private-pointers",
+      "origin": 2048,
+      "scenario": "zero-means-256",
+      "body_cycles": 95,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4739
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "compiler",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 175,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 355
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "compiler",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 179,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 233
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "compiler",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 175,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4819
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "carry-only",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 168,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 348
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "carry-only",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 168,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 222
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "carry-only",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 168,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4812
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "direct-destination",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 156,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 336
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "direct-destination",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 156,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 210
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "direct-destination",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 156,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4800
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "same-abi",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 154,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 334
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "same-abi",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 154,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 208
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "same-abi",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 154,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4798
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "private-pointers",
+      "origin": 2503,
+      "scenario": "3+8",
+      "body_cycles": 95,
+      "helper_cycles": 163,
+      "wrapper_cycles": 17,
+      "total_cycles": 275
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "private-pointers",
+      "origin": 2503,
+      "scenario": "low-carry",
+      "body_cycles": 99,
+      "helper_cycles": 37,
+      "wrapper_cycles": 17,
+      "total_cycles": 153
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "Standalone",
+      "variant": "private-pointers",
+      "origin": 2503,
+      "scenario": "zero-means-256",
+      "body_cycles": 95,
+      "helper_cycles": 4627,
+      "wrapper_cycles": 17,
+      "total_cycles": 4739
+    }
+  ],
+  "vm_checks": {
+    "normal_calls": 9600,
+    "parameter_alias_calls": 64,
+    "private_counterexamples": 16,
+    "scratch_alias_calls": 96
+  },
+  "lf_crlf_assemblies": 80
+}

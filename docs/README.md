@@ -236,6 +236,10 @@ crowding the active reference set.
   - implemented AND/OR/XOR gap admission with retained stores and explicit
   proof policy; [measured results](benchmarks/6502-argument-x-bitwise/README.md)
   save one byte/cycle per admitted site, including `Tag` in both TN variants.
+- [Strcat handwritten 6502 comparison](benchmarks/6502-strcat-idiomatic/README.md)
+  - measured 113-byte compiler output against a 97-byte version retaining the
+  ABI and parameter homes, and a 52-byte private-pointer control; identifies
+  carry-input folding, direct capture and Y reuse as local opportunities.
 - [MIR6502_WIDE_SHIFT_COPY_REDUCTION.md](MIR6502_WIDE_SHIFT_COPY_REDUCTION.md)
   - byte and nibble projections for constant wide shifts, preserving captured
   operands while reducing staging for narrow results.
