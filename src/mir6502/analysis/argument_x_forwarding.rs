@@ -102,6 +102,10 @@ pub(in crate::mir6502) fn shape(r: &MirRoutine, site: MirSite) -> Result<Shape, 
     })
 }
 fn simple(op: &MirOp) -> bool {
+    if matches!(op,MirOp::LoadIndirect {consumer:MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {lo}),..} if lo.0==255)
+    {
+        return false;
+    }
     matches!(
         op,
         MirOp::Load {
@@ -250,7 +254,11 @@ pub(in crate::mir6502) fn prove(
         e.machine.flag_writes.n && e.machine.flag_writes.z
     });
     if !restored
-        && (effects.opaque || effects.reads.flags || !c.scalar_entry_ignores_flags(*target))
+        && (effects.opaque
+            || effects.preserves.flags
+            || abi.preserves.flags
+            || effects.reads.flags
+            || !c.scalar_entry_ignores_flags(*target))
     {
         return Err(Blocker::CallFlags);
     }

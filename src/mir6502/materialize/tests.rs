@@ -11,6 +11,8 @@ mod captured_compare_tests;
 mod captured_compare_measurements;
 #[path = "argument_staging_measurements.rs"]
 mod argument_staging_measurements;
+#[path="argument_x_forwarding_measurements.rs"]
+mod argument_x_forwarding_measurements;
 #[path = "pointer_byte_plus_one_measurements.rs"]
 mod pointer_byte_plus_one_measurements;
 #[path = "pointer_load_sharing_measurements.rs"]

@@ -231,7 +231,7 @@ impl MirKnownCalleeSummaries {
             .collect::<BTreeMap<_, _>>();
         let mut summaries = Self {
             scalar_entries_ignoring_flags: program.routines.iter().filter(|r|
-                r.scalar_signature.is_some() && !r.effects.opaque && !r.effects.reads.flags
+                r.scalar_signature.is_some() && !r.effects.opaque && !r.effects.reads.flags && !r.effects.preserves.flags
                     && !r.blocks.iter().flat_map(|b|&b.ops).any(|o|matches!(o,MirOp::MachineBlock {..}))
             ).map(|r|r.id).collect(),
             routines: program

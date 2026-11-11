@@ -1,6 +1,6 @@
 # MIR6502 argument setup A to X forwarding plan
 
-Prepared 2026-11-11. Status: slices 1–2 implemented; optimized default remains off.
+Prepared 2026-11-11. Status: slices 1–3 implemented; optimized default remains off.
 Compiler baseline: `1122b42c`.
 Implement in four vertical slices, committing each after its checks pass.
 This plan includes the bounded scheduling contract; no new executable MIR
@@ -348,8 +348,8 @@ Explain materialized-MIR changes as target scheduling; raw NIR stays unchanged.
 | Slice | Status | Evidence |
 | --- | --- | --- |
 | 1 Baselines and proof | Complete, `8fe02793` | [Frozen controls](benchmarks/6502-argument-x-forwarding/baseline.json), three neutral home classes and four inert proof tests |
-| 2 Selection and costing | Implemented | Late selector, shared typed witnesses, physical replay and exact final costing |
-| 3 Flags aliases and ABI | Planned | |
+| 2 Selection and costing | Complete, `99fb571d` | Late selector, shared typed witnesses, physical replay and exact final costing |
+| 3 Flags aliases and ABI | Implemented | Boundary oracle, alias observations, feature matrix and exact TN execution |
 | 4 Corpus and defaults | Planned | |
 
 The neutral fixture confirms fixed staging, ordinary BYTE parameter and private
@@ -383,3 +383,20 @@ Images shrink 360→356 / 442→438 bytes. Sample calls improve 342→341,
 291→289 and 444→443 cycles; the control remains 429. Retained writes,
 indirect reads and observed callee state agree. Both configuration defaults
 remain off pending boundary and corpus qualification.
+
+Slice 3 checks all 256 forwarded byte values in 24,576 emitted executions,
+including both incoming carry states, word boundaries, source/capture/pointer
+aliases and exact restored A/X/Y/C/N/Z/V/SP. Ten focused tests pass, including
+64-operation and tail limits, implicit indexed-X inputs and wrapping pointer
+consumers. Three VM tests cover the 1,536-call matrix, 104 alias calls and 64
+calls across all eight preceding-feature combinations. Retained parameter,
+private and ABI writes agree; indirect reads remain ordered and single.
+
+The corpus exporter was added to supply exact images for boundary execution.
+It exports source listings as well as MIR/maps; all eight frozen controls
+match and their TN listings have been archived. Eight measured TN/TNDBG images
+pass 80 string and 16 post-call parameter-alias cases. `Strcat` is 114→113
+bytes and sampled calls are 356→355 cycles. Four TN sites qualify; `Inv` and
+`Copy`/`Dbg` retain their reloads because call-entry flag facts are unavailable.
+Additional typed candidates retain fallback for unsupported setup operations.
+The optimized default remains off until slice 4 qualification.
