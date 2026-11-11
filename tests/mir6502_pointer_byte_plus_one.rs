@@ -26,6 +26,7 @@ fn pointer_byte_plus_one_baseline_verifies_both_nir_modes_runtimes_and_origins()
                 let mir = mir6502::materialize_program_with_origin_and_runtime(
                     mir6502::lower_program(nir).unwrap(),
                     &Mir6502Config {
+                        enable_pointer_load_sharing: false,
                         enable_pointer_byte_plus_one_fusion: false,
                         ..Mir6502Config::optimized()
                     },
@@ -46,6 +47,7 @@ fn pointer_byte_plus_one_baseline_verifies_both_nir_modes_runtimes_and_origins()
                     nir,
                     origin,
                     &Mir6502Config {
+                        enable_pointer_load_sharing: false,
                         enable_pointer_byte_plus_one_fusion: false,
                         ..Mir6502Config::optimized()
                     },
@@ -57,6 +59,7 @@ fn pointer_byte_plus_one_baseline_verifies_both_nir_modes_runtimes_and_origins()
                     nir,
                     origin,
                     &Mir6502Config {
+                        enable_pointer_load_sharing: false,
                         enable_pointer_byte_plus_one_fusion: true,
                         ..Mir6502Config::optimized()
                     },

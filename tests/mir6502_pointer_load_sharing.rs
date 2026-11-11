@@ -5,6 +5,8 @@ use actionc::{
 
 #[test]
 fn pointer_load_sharing_baseline_preserves_nir_modes_runtimes_and_origins() {
+    assert!(!Mir6502Config::default().enable_pointer_load_sharing);
+    assert!(Mir6502Config::optimized().enable_pointer_load_sharing);
     let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures/runtime/pointer_load_sharing.act");
     let loaded = actionc::includes::load_program_with_expanded_source(source).unwrap();

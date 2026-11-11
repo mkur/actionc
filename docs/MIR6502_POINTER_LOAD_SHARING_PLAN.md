@@ -1,6 +1,7 @@
 # MIR6502 pointer load sharing implementation plan
 
-Prepared 2026-11-11. Status: slices 1–3 implemented; optimized default remains off.
+Prepared 2026-11-11. Status: all four slices implemented and qualified;
+optimized default enabled.
 Compiler baseline: `9488d269`.
 Implement in four vertical slices and commit each after its checks pass.
 This plan contains the bounded rewrite contract; no new executable MIR form
@@ -343,8 +344,8 @@ and its printed contract remain unchanged.
 | --- | --- | --- |
 | 1 Baseline and proof | Complete, `f68f5834` | [Frozen controls](benchmarks/6502-pointer-load-sharing/baseline.json), exact typed query and independent neutral execution |
 | 2 Selection and costing | Complete, `a2eb822f` | Typed driver witness, layout replay, bounded final costing and explicit feature control |
-| 3 Boundary qualification | Implemented | Complete-state emitted oracle, entry aliases, feature composition and exact measured TN execution |
-| 4 Corpus and optimized default | Planned | |
+| 3 Boundary qualification | Complete, `0adb9da7` | Complete-state emitted oracle, entry aliases, feature composition and exact measured TN execution |
+| 4 Corpus and optimized default | Complete | [Results and reproduction](benchmarks/6502-pointer-load-sharing/README.md), historical controls and full MIR6502 qualification |
 
 The neutral fixture exposes the exact 11-operation window in optimized NIR.
 `Forward` is 90 bytes; cartridge/standalone images are 716/798 bytes at both
@@ -383,3 +384,25 @@ finish in slice 4. All eight TN images pass 80 string and 16 parameter-home
 alias calls. `Strcat` is 120→114 bytes, sampled calls are 364→356 cycles, and
 TN cartridge is 9,868→9,862 bytes. Optimized default remains off until final
 backend qualification.
+
+Slice 4 enables the optimized default after boundary/measurement checks;
+conservative/default remains off. Historical corpus exporters and size/image
+helpers explicitly pin the new feature off. All eight frozen hashes match.
+Across 24 runtime/origin pairs, ten images improve and fourteen remain
+byte-identical. Sixteen site applications remove two direct loads each with
+no store, frame, capacity or zero-page growth. The preceding pointer fixture
+has four admitted sites and saves 24 bytes; the new neutral and TN/TNDBG save
+six bytes per image. Compact hashes, extents, counts and timing limits are in
+the [results manifest](benchmarks/6502-pointer-load-sharing/results.json).
+
+Final qualification passes 1,206 MIR6502 unit tests, 104 integration tests
+across 17 targets and all 169 emission/load fixtures. Eight LF/CRLF MADS
+assemblies reconstruct and relocate the new listing. Nine affected VM targets
+pass 30 tests, plus two TN dispatch tests, exact measured-image execution and
+the frozen static/VM Strcat audits. Three scoped runtime-library assertions
+and direct-word/indirect-field selection assertions pass. The existing
+indexed-byte selection-count discrepancy remains documented separately from
+its passing execution assertion. Fresh default TN images and both settings
+of the new neutral VM match the measured files exactly; the default CLI
+matches its 710-byte measured neutral image. No shared NIR or semantic
+contract changed.

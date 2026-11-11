@@ -134,6 +134,7 @@ impl Mir6502Config {
             enable_captured_byte_comparisons: true,
             enable_argument_staging_reduction: true,
             enable_pointer_byte_plus_one_fusion: true,
+            enable_pointer_load_sharing: true,
             enable_record_base_reuse: true,
             enable_register_copy_forwarding: true,
             enable_pointer_call_retention: true,

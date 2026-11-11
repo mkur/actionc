@@ -76,6 +76,7 @@ fn argument_staging_measure_corpus() {
                 eprintln!("MEASURE {stem}");
                 let config = Mir6502Config {
                     enable_argument_staging_reduction: enabled,
+                    enable_pointer_load_sharing: false,
                     enable_pointer_byte_plus_one_fusion: false,
                     peephole_report: MirPeepholeReportMode::PerRoutine,
                     ..Mir6502Config::optimized()

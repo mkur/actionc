@@ -150,6 +150,19 @@ fn pointer_load_sharing_observes_runtime_arguments_and_reads_with_lf_and_crlf() 
                         } else {
                             lf_image = Some(image.clone());
                         }
+                        if optimized && !crlf {
+                            if let Some(dir) =
+                                std::env::var_os("ACTIONC_POINTER_LOAD_MEASURED_IMAGES")
+                            {
+                                assert_eq!(
+                                    image,
+                                    std::fs::read(PathBuf::from(dir).join(format!(
+                                        "neutral-{origin:04X}-{runtime:?}-{enabled}.xex"
+                                    )))
+                                    .unwrap()
+                                );
+                            }
+                        }
                         if optimized && !crlf && !enabled {
                             if let Some(dir) = std::env::var_os("ACTIONC_POINTER_LOAD_BASELINE") {
                                 let rt = if runtime == Runtime::ActionCart {

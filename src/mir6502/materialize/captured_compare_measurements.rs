@@ -57,6 +57,7 @@ fn captured_compare_measure_corpus() {
                 eprintln!("MEASURE {stem}");
                 let config = Mir6502Config {
                     enable_captured_byte_comparisons: enabled,
+                    enable_pointer_load_sharing: false,
                     enable_pointer_byte_plus_one_fusion: false,
                     peephole_report: MirPeepholeReportMode::PerRoutine,
                     ..Mir6502Config::optimized()

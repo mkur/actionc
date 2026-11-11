@@ -129,15 +129,15 @@ code/storage metrics under ignored `build/argument-staging/measured/`:
 cargo test --release --locked --lib argument_staging_measure_corpus -- --ignored --nocapture
 ```
 
-The historical corpus exporter explicitly disables the later pointer-byte
-increment fusion, keeping these frozen controls reproducible. After measuring,
+The historical corpus exporter explicitly disables later pointer-byte increment
+fusion and pointer load sharing, keeping these frozen controls reproducible. After measuring,
 set `ACTIONC_ARGUMENT_MEASURED_IMAGES` to that directory's absolute path when
 running the VM `argument_staging` target. Its independent execution test also
 requires exact agreement with the measured neutral images. The opt-in string
 oracle below and `strcat_cost_breakdown` execute the frozen TN images directly.
 Current default TN execution uses the
-[pointer-byte increment measurements](../6502-pointer-byte-plus-one/README.md)
-and `ACTIONC_POINTER_MEASURED_IMAGES` for `tn_dispatch`. The plan lists the
+[pointer load sharing measurements](../6502-pointer-load-sharing/README.md)
+and `ACTIONC_POINTER_LOAD_MEASURED_IMAGES` for `tn_dispatch`. The plan lists the
 full affected-backend qualification commands.
 
 ```sh

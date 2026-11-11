@@ -182,7 +182,8 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
             )
             .unwrap_or_else(|error| panic!("{source}/{mode:?}: {error}"));
             if mode == CompileMode::Mir6502 {
-                if let Some(dir) = std::env::var_os("ACTIONC_POINTER_MEASURED_IMAGES")
+                if let Some(dir) = std::env::var_os("ACTIONC_POINTER_LOAD_MEASURED_IMAGES")
+                    .or_else(|| std::env::var_os("ACTIONC_POINTER_MEASURED_IMAGES"))
                     .or_else(|| std::env::var_os("ACTIONC_ARGUMENT_MEASURED_IMAGES"))
                 {
                     let path = PathBuf::from(dir).join(format!(

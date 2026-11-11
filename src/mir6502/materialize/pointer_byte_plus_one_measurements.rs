@@ -75,6 +75,7 @@ fn pointer_byte_plus_one_measure_corpus() {
                 let stem = format!("{name}-{runtime:?}-{enabled}");
                 eprintln!("MEASURE {stem}");
                 let config = Mir6502Config {
+                    enable_pointer_load_sharing: false,
                     enable_pointer_byte_plus_one_fusion: enabled,
                     peephole_report: MirPeepholeReportMode::PerRoutine,
                     ..Mir6502Config::optimized()

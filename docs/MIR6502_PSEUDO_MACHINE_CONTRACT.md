@@ -722,9 +722,10 @@ exact old/new operations. Equal write counts alone do not prove store motion.
 Final selection replays the proof against proposed layout, preserves published
 callee exit facts and requires a strictly smaller XEX without routine/home or
 storage growth. No executable MIR form or emission heuristic is added.
-`enable_pointer_load_sharing` controls this schedule independently and stays
-off until qualification completes. See the
-[implementation plan](MIR6502_POINTER_LOAD_SHARING_PLAN.md).
+`enable_pointer_load_sharing` controls this schedule independently. Qualified
+optimized configuration enables it; conservative/default remains off. See the
+[implementation plan](MIR6502_POINTER_LOAD_SHARING_PLAN.md) and
+[measured applicability](benchmarks/6502-pointer-load-sharing/README.md).
 
 ### Post-home private-byte definitions
 
