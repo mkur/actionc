@@ -755,6 +755,23 @@ is enabled by `Mir6502Config::optimized()` and disabled by the conservative
 default. See the [implementation plan](MIR6502_ARGUMENT_X_FORWARDING_PLAN.md)
 and [measured results](benchmarks/6502-argument-x-forwarding/README.md).
 
+### Callee entry flag requirements
+
+MIR6502 analysis metadata can describe incoming C/N/Z/V observations as a
+known mask or unknown. Entry proofs use certified definitions; conservative
+flag clobbers do not kill an incoming dependency. Every nested call, helper
+or barrier observes all flags, and machine-block eligibility stays closed.
+Incoming masks establish neither incidental output flag values nor a weaker
+ABI preservation contract.
+
+`enable_precise_callee_entry_flags` permits additional late argument-X
+admissions when only N/Z are unobserved. It is currently off in both config
+constructors. The coarse all-flags path retains its existing policy. A typed
+witness records the target, requested bits and immutable callee body; driver
+reconstruction checks the supplied snapshot and final replay uses proposed
+callee facts. Consumed input bits and published output facts must survive the
+combined proposal. See the [implementation plan](MIR6502_CALLEE_ENTRY_FLAG_SUMMARIES_PLAN.md).
+
 ### Post-home private-byte definitions
 
 At the post-home and pre-emission boundaries, every reachable read of a

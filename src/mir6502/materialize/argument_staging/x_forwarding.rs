@@ -38,6 +38,16 @@ fn discover(
                         facts::Blocker::InsertedNz => "argument-x-forwarding-blocked-inserted-nz",
                         facts::Blocker::RemovedNz => "argument-x-forwarding-blocked-removed-nz",
                         facts::Blocker::CallFlags => "argument-x-forwarding-blocked-call-flags",
+                        facts::Blocker::EntryFlagsUnknown => "callee-entry-flags-blocked-unknown",
+                        facts::Blocker::EntryFlagsLive(flags) => {
+                            if flags.n {
+                                seen.insert((key, "callee-entry-flags-blocked-live-n"));
+                            }
+                            if flags.z {
+                                seen.insert((key, "callee-entry-flags-blocked-live-z"));
+                            }
+                            "callee-entry-flags-blocked-live"
+                        }
                         facts::Blocker::Gap => "argument-x-forwarding-blocked-gap",
                         facts::Blocker::Call => "argument-x-forwarding-blocked-call",
                         _ => "argument-x-forwarding-blocked-shape",
@@ -64,6 +74,9 @@ fn discover(
                 "argument-x-forwarding-selected",
                 43,
             ) {
+                if proof.entry_flags.is_some() {
+                    seen.insert((key, "callee-entry-flags-selected"));
+                }
                 p.witness = Some(MirPostHomeWitness::ArgumentXForwarding(proof));
                 return vec![p];
             }
@@ -88,12 +101,72 @@ fn has_candidate(p: &MirProgram) -> bool {
         })
     })
 }
+fn prepare_summaries(
+    p: &MirProgram,
+    precise: bool,
+) -> (MirKnownCalleeSummaries, BTreeSet<RoutineId>) {
+    let summaries = MirKnownCalleeSummaries::analyze_for_rewriting(p);
+    let mut targets = BTreeSet::new();
+    if precise {
+        for r in &p.routines {
+            for b in &r.blocks {
+                for i in 0..b.ops.len() {
+                    let Ok(s) = facts::shape(
+                        r,
+                        MirSite::Op {
+                            block: b.id,
+                            op_index: i,
+                        },
+                    ) else {
+                        continue;
+                    };
+                    let MirSite::Op { op_index: call, .. } = s.call else {
+                        continue;
+                    };
+                    if b.ops[s.range().end..call].iter().any(|o| {
+                        let f = crate::mir6502::analysis::effects::classify_op(o)
+                            .machine
+                            .flag_writes;
+                        f.n && f.z
+                    }) {
+                        continue;
+                    }
+                    if let MirOp::Call {
+                        target: MirCallTarget::Routine(id),
+                        ..
+                    } = &b.ops[call]
+                    {
+                        if !summaries.scalar_entry_ignores_flags(*id) {
+                            targets.insert(*id);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    (
+        if precise {
+            summaries.with_precise_entry_flags(p, &targets)
+        } else {
+            summaries
+        },
+        targets,
+    )
+}
+#[cfg(test)]
 fn apply(
     baseline: &MirProgram,
     m: &MirPhysicalMemory,
     eligible: Option<&BTreeSet<RoutineId>>,
 ) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
-    let summaries = MirKnownCalleeSummaries::analyze_for_rewriting(baseline);
+    apply_with_summaries(baseline, m, eligible, &prepare_summaries(baseline, false).0)
+}
+fn apply_with_summaries(
+    baseline: &MirProgram,
+    m: &MirPhysicalMemory,
+    eligible: Option<&BTreeSet<RoutineId>>,
+    summaries: &MirKnownCalleeSummaries,
+) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
     let mut p = baseline.clone();
     let mut stats = MirPeepholeStats::default();
     let mut affected = BTreeSet::new();
@@ -137,7 +210,7 @@ fn apply(
             .count()
             + 1;
         let result = MirPostHomeRewriteDriver::with_max_rounds(rounds)
-            .run_fixed_point_with_physical_memory(r, &summaries, m, |r, c| {
+            .run_fixed_point_with_physical_memory(r, summaries, m, |r, c| {
                 let plans = discover(r, c, m, &ids, &mut seen);
                 for plan in &plans {
                     let positions = ids.get_mut(&plan.block).unwrap();
@@ -185,10 +258,14 @@ pub(in crate::mir6502) fn select_costed(
     if !has_candidate(&baseline) {
         return Ok(baseline);
     }
+    let (summaries, entry_targets) =
+        prepare_summaries(&baseline, config.enable_precise_callee_entry_flags);
     let Some(m) = register_copies::physical_memory(&baseline, &baseline, origin) else {
         return Ok(baseline);
     };
-    let Some((mut proposed, mut stats, affected)) = apply(&baseline, &m, None) else {
+    let Some((mut proposed, mut stats, affected)) =
+        apply_with_summaries(&baseline, &m, None, &summaries)
+    else {
         return Ok(baseline);
     };
     if affected.is_empty() {
@@ -197,7 +274,7 @@ pub(in crate::mir6502) fn select_costed(
     }
     let old = address_values::Cost::measure(&baseline, origin);
     let cost = address_values::Cost::measure(&proposed, origin);
-    let old_exits = MirKnownCalleeSummaries::analyze_for_rewriting(&baseline);
+    let old_exits = summaries;
     let new_exits = MirKnownCalleeSummaries::analyze_for_rewriting(&proposed);
     let mut accepted = affected
         .iter()
@@ -220,11 +297,16 @@ pub(in crate::mir6502) fn select_costed(
         }
     }
     if !accepted.is_empty() {
+        let replay_summaries = old_exits
+            .clone()
+            .with_precise_entry_flags(&proposed, &entry_targets);
         let replay = register_copies::physical_memory(&proposed, &baseline, origin)
-            .and_then(|m| apply(&baseline, &m, Some(&accepted)))
+            .and_then(|m| apply_with_summaries(&baseline, &m, Some(&accepted), &replay_summaries))
             .is_some_and(|(p, _, _)| p == proposed);
         let exits = MirKnownCalleeSummaries::analyze_for_rewriting(&proposed);
         let good = replay
+            && (!config.enable_precise_callee_entry_flags
+                || old_exits.entry_inputs_preserved_by(&proposed, &exits))
             && crate::mir6502::verify_program(&proposed, MirPhase::PreEmission).is_ok()
             && baseline
                 .routines
@@ -258,6 +340,22 @@ pub(in crate::mir6502) fn select_costed(
             stats.count_for(id, "argument-x-forwarding-selected"),
         );
     }
+    if config.enable_precise_callee_entry_flags {
+        for r in &baseline.routines {
+            let count = stats.count_for(r.id, "callee-entry-flags-selected");
+            if count > 0 {
+                stats.record_many(
+                    r.id,
+                    if accepted.contains(&r.id) {
+                        "callee-entry-flags-applied"
+                    } else {
+                        "callee-entry-flags-declined"
+                    },
+                    count,
+                );
+            }
+        }
+    }
     let p = if accepted.is_empty() {
         baseline
     } else {
@@ -268,3 +366,5 @@ pub(in crate::mir6502) fn select_costed(
 }
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod entry_flags_tests;

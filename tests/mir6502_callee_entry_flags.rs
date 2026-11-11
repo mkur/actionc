@@ -20,7 +20,10 @@ fn callee_entry_flags_baseline_matches_modes_runtimes_and_origins() {
     for (optimized, nir) in [(false, &raw), (true, &opt)] {
         for rt in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41C7] {
-                let config = Mir6502Config::optimized();
+                let config = Mir6502Config {
+                    enable_precise_callee_entry_flags: false,
+                    ..Mir6502Config::optimized()
+                };
                 let p = mir6502::materialize_program_with_origin_and_runtime(
                     mir6502::lower_program(nir).unwrap(),
                     &config,
@@ -32,6 +35,30 @@ fn callee_entry_flags_baseline_matches_modes_runtimes_and_origins() {
                 let out =
                     mir6502::generate_output_with_config_and_runtime(nir, origin, &config, rt)
                         .unwrap();
+                let enabled = Mir6502Config {
+                    enable_precise_callee_entry_flags: true,
+                    ..config.clone()
+                };
+                let after =
+                    mir6502::generate_output_with_config_and_runtime(nir, origin, &enabled, rt)
+                        .unwrap();
+                assert_eq!(
+                    actionc::codegen::format_load_file(&out).len()
+                        - actionc::codegen::format_load_file(&after).len(),
+                    2
+                );
+                for old in &out.map.routine_ranges {
+                    let new = after
+                        .map
+                        .routine_ranges
+                        .iter()
+                        .find(|r| r.name == old.name)
+                        .unwrap();
+                    assert_eq!(
+                        (old.end - old.start) - (new.end - new.start),
+                        if old.name == "Forward" { 2 } else { 0 }
+                    );
+                }
                 if optimized {
                     if let Some(dir) = std::env::var_os("ACTIONC_CALLEE_ENTRY_FLAGS_BASELINE") {
                         let name = if rt == Runtime::ActionCart {

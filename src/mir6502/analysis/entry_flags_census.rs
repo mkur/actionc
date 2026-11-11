@@ -5,7 +5,6 @@ use crate::mir6502::{
         argument_x_forwarding as x, known_callees::MirKnownCalleeSummaries,
         posthome::PostHomeAnalysisSnapshot, sites::*,
     },
-    ir::*,
     rewrite::context::PostHomeRewriteContext,
 };
 #[test]

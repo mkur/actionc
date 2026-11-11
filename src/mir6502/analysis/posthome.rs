@@ -22,6 +22,7 @@ pub(in crate::mir6502) struct PostHomeAnalysisSnapshot<'a> {
     machine_values: MirMachineValueAvailability,
     param_availability: MirParamRegisterAvailability,
     scalar_entries_ignoring_flags: BTreeSet<RoutineId>,
+    entry_flags: std::collections::BTreeMap<RoutineId, super::entry_flags::MirCalleeEntryFlagFact>,
 }
 
 impl<'a> PostHomeAnalysisSnapshot<'a> {
@@ -55,6 +56,10 @@ impl<'a> PostHomeAnalysisSnapshot<'a> {
         let cfg = routine_snapshot.cfg();
         Ok(Self {
             source: routine,
+            entry_flags: routine.blocks.iter().flat_map(|b| &b.ops).filter_map(|op| match op {
+                MirOp::Call { target: MirCallTarget::Routine(id), .. } => known_callees.entry_flag_fact(*id).cloned().map(|f| (*id, f)),
+                _ => None,
+            }).collect(),
             scalar_entries_ignoring_flags: routine.blocks.iter().flat_map(|b|&b.ops).filter_map(|o|match o {
                 MirOp::Call {target:MirCallTarget::Routine(id),..} if known_callees.scalar_entry_ignores_flags(*id)=>Some(*id),_=>None
             }).collect(),
@@ -81,6 +86,8 @@ impl<'a> PostHomeAnalysisSnapshot<'a> {
     }
 
     pub(in crate::mir6502) fn scalar_entry_ignores_flags(&self,id:RoutineId)->bool {self.scalar_entries_ignoring_flags.contains(&id)}
+
+    pub(in crate::mir6502) fn entry_flag_fact(&self, id: RoutineId) -> Option<&super::entry_flags::MirCalleeEntryFlagFact> { self.entry_flags.get(&id) }
 
     pub(in crate::mir6502) fn source(&self) -> &MirRoutine { self.source }
 

@@ -24,6 +24,8 @@ pub(in crate::mir6502) enum Blocker {
     InsertedNz,
     RemovedNz,
     CallFlags,
+    EntryFlagsUnknown,
+    EntryFlagsLive(MirFlagSet),
     Call,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -151,6 +153,7 @@ pub(in crate::mir6502) struct Proof {
     pub shape: Shape,
     pub address: u16,
     pub tail_restores_nz: bool,
+    pub entry_flags: Option<super::entry_flags::MirCalleeEntryFlagWitness>,
 }
 
 pub(in crate::mir6502) fn prove(
@@ -257,11 +260,20 @@ pub(in crate::mir6502) fn prove(
         && (effects.opaque
             || effects.preserves.flags
             || abi.preserves.flags
-            || effects.reads.flags
-            || !c.scalar_entry_ignores_flags(*target))
+            || effects.reads.flags)
     {
         return Err(Blocker::CallFlags);
     }
+    let entry_flags = if !restored && !c.scalar_entry_ignores_flags(*target) {
+        match c.entry_flag_fact(*target) {
+            None => return Err(Blocker::CallFlags),
+            Some(f) => match f.summary {
+                super::entry_flags::MirKnownCalleeEntryFlags::Unknown => return Err(Blocker::EntryFlagsUnknown),
+                super::entry_flags::MirKnownCalleeEntryFlags::Known { may_observe } if !f.summary.unobserved(nz) => return Err(Blocker::EntryFlagsLive(may_observe)),
+                _ => c.entry_flags_unobserved(*target, nz),
+            },
+        }
+    } else { None };
     if !c.flags_dead_after(nz, c.point(s.reload)).is_proven() {
         return Err(Blocker::RemovedNz);
     }
@@ -271,6 +283,7 @@ pub(in crate::mir6502) fn prove(
         shape: s,
         address,
         tail_restores_nz: restored,
+        entry_flags,
     })
 }
 pub(in crate::mir6502) fn replacement(r: &MirRoutine, s: &Shape) -> Option<Vec<MirOp>> {

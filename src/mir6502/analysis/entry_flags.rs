@@ -42,6 +42,32 @@ impl MirKnownCalleeEntryFlags {
         }
     }
 }
+/// Body identity is part of a proof: equal masks do not validate stale bodies.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct MirCalleeEntryFlagFact {
+    pub source: std::sync::Arc<MirRoutine>,
+    pub summary: MirKnownCalleeEntryFlags,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct MirCalleeEntryFlagWitness {
+    pub target: crate::mir6502::ir::RoutineId,
+    pub changed: MirFlagSet,
+    pub fact: MirCalleeEntryFlagFact,
+}
+impl MirCalleeEntryFlagFact {
+    pub(in crate::mir6502) fn witness(
+        &self,
+        changed: MirFlagSet,
+    ) -> Option<MirCalleeEntryFlagWitness> {
+        self.summary
+            .unobserved(changed)
+            .then(|| MirCalleeEntryFlagWitness {
+                target: self.source.id,
+                changed,
+                fact: self.clone(),
+            })
+    }
+}
 #[cfg(test)]
 #[path = "entry_flags_tests.rs"]
 mod tests;

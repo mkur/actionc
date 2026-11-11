@@ -1,6 +1,6 @@
 # MIR6502 callee entry flag summaries plan
 
-Prepared 2026-11-11. Status: slice 1 complete; selection remains unchanged. Compiler baseline: `82ada38f`.
+Prepared 2026-11-11. Status: slices 1–2 complete; the new control remains off. Compiler baseline: `82ada38f`.
 Implement in four vertical slices and commit each after its checks pass.
 This refines the existing MIR6502 flag proof contract; a separate design note
 or new executable IR form is unnecessary.
@@ -339,8 +339,8 @@ checks, with no compiler test run.
 
 | Slice | Status | Evidence |
 | --- | --- | --- |
-| 1 Baselines and incoming masks | Complete | Frozen images/facts, typed blocker census, inert flag analysis and neutral execution controls |
-| 2 Forwarding integration | Planned | |
+| 1 Baselines and incoming masks | Complete, `6ff44406` | Frozen images/facts, typed blocker census, inert flag analysis and neutral execution controls |
+| 2 Forwarding integration | Complete | Opt-in N/Z proofs, callee body witnesses and final input-contract replay |
 | 3 Flag and snapshot qualification | Planned | |
 | 4 Corpus and default | Planned | |
 
@@ -355,3 +355,13 @@ calls pass, including raw/optimized NIR and actual LF/CRLF source parsing.
 Both runtimes/origins match the frozen neutral images. The entry-proof mode
 uses certified definitions while the existing liveness policy and selector
 stay unchanged.
+
+Slice 2 adds opt-in precise facts only for candidate targets that need them.
+The earlier coarse path and default settings retain their frozen behavior.
+The neutral `Forward` shrinks by two bytes (69→67-byte images) while
+`UnsafeForward` retains its reload. Six focused tests pass, including wrong
+masks/targets, stale callee bodies with unchanged masks and weakened final
+input contracts. Integration and 6,144 VM calls pass across feature settings,
+raw/optimized NIR, runtimes/origins and LF/CRLF input. Existing argument-X,
+argument-staging and rewrite-driver controls also pass. Proofs carry immutable
+callee bodies; final replay rebuilds their facts from the combined proposal.

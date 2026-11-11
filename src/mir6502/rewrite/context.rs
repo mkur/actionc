@@ -605,6 +605,12 @@ impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
     pub(in crate::mir6502) fn argument_x_forwarding(&self,point:MirProgramPoint,memory:&crate::mir6502::analysis::record_bases::MirPhysicalMemory)->Result<crate::mir6502::analysis::argument_x_forwarding::Proof,crate::mir6502::analysis::argument_x_forwarding::Blocker> {
         crate::mir6502::analysis::argument_x_forwarding::prove(self.snapshot.source(),self,point,memory)
     }
+    pub(in crate::mir6502) fn entry_flag_fact(&self, id: crate::mir6502::ir::RoutineId) -> Option<&crate::mir6502::analysis::entry_flags::MirCalleeEntryFlagFact> {
+        self.snapshot.entry_flag_fact(id)
+    }
+    pub(in crate::mir6502) fn entry_flags_unobserved(&self, id: crate::mir6502::ir::RoutineId, changed: MirFlagSet) -> Option<crate::mir6502::analysis::entry_flags::MirCalleeEntryFlagWitness> {
+        self.entry_flag_fact(id)?.witness(changed)
+    }
     pub(in crate::mir6502) fn scalar_entry_ignores_flags(&self,id:crate::mir6502::ir::RoutineId)->bool {self.snapshot.scalar_entry_ignores_flags(id)}
 
     pub(in crate::mir6502) fn pointer_load_sharing(

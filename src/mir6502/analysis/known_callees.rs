@@ -232,6 +232,7 @@ pub(in crate::mir6502) struct MirKnownCalleeSummaries {
     routines: BTreeMap<RoutineId, MirKnownCalleeExitSummary>,
     direct_call_targets: BTreeSet<RoutineId>,
     scalar_entries_ignoring_flags: BTreeSet<RoutineId>,
+    entry_flags: BTreeMap<RoutineId, super::entry_flags::MirCalleeEntryFlagFact>,
 }
 
 impl MirKnownCalleeSummaries {
@@ -268,6 +269,7 @@ impl MirKnownCalleeSummaries {
             })
             .collect::<BTreeMap<_, _>>();
         let mut summaries = Self {
+            entry_flags: BTreeMap::new(),
             scalar_entries_ignoring_flags: program
                 .routines
                 .iter()
@@ -313,6 +315,30 @@ impl MirKnownCalleeSummaries {
             }
         }
         summaries
+    }
+
+    /// Opt-in facts for the immutable bodies supplied by the selector. Other
+    /// summary clients pay no additional entry-analysis cost.
+    pub(in crate::mir6502) fn with_precise_entry_flags(
+        mut self, program: &MirProgram, targets: &BTreeSet<RoutineId>,
+    ) -> Self {
+        self.entry_flags.clear();
+        for r in program.routines.iter().filter(|r| targets.contains(&r.id)) {
+            self.entry_flags.insert(r.id, super::entry_flags::MirCalleeEntryFlagFact {
+                source: std::sync::Arc::new(r.clone()),
+                summary: super::entry_flags::MirKnownCalleeEntryFlags::analyze(r),
+            });
+        }
+        self
+    }
+    pub(in crate::mir6502) fn entry_flag_fact(&self, id: RoutineId) -> Option<&super::entry_flags::MirCalleeEntryFlagFact> {
+        self.entry_flags.get(&id)
+    }
+    pub(in crate::mir6502) fn entry_inputs_preserved_by(&self, proposed: &MirProgram, exits: &Self) -> bool {
+        if !self.scalar_entries_ignoring_flags.is_subset(&exits.scalar_entries_ignoring_flags) { return false; }
+        let nz = super::effects::MirFlagSet { n: true, z: true, ..super::effects::MirFlagSet::default() };
+        self.entry_flags.iter().all(|(id, fact)| !fact.summary.unobserved(nz) || proposed.routines.iter()
+            .find(|r| r.id == *id).is_some_and(|r| super::entry_flags::MirKnownCalleeEntryFlags::analyze(r).unobserved(nz)))
     }
 
     pub(in crate::mir6502) fn scalar_entry_ignores_flags(&self, routine: RoutineId) -> bool {
