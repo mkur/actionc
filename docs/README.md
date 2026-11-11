@@ -213,6 +213,9 @@ crowding the active reference set.
 - [MIR6502 argument staging reduction](MIR6502_ARGUMENT_STAGING_DESIGN.md)
   - proposed call-setup design preserving captured values, ordered reads and
   canonical ABI homes, with physical alias proofs and final cost qualification.
+- [MIR6502 argument staging implementation](MIR6502_ARGUMENT_STAGING_IMPLEMENTATION_PLAN.md)
+  - four planned slices covering baseline/proofs, one bounded schedule with
+  costing, alias/effect qualification, and final application measurements.
 - [MIR6502_WIDE_SHIFT_COPY_REDUCTION.md](MIR6502_WIDE_SHIFT_COPY_REDUCTION.md)
   - byte and nibble projections for constant wide shifts, preserving captured
   operands while reducing staging for narrow results.

@@ -3,6 +3,8 @@
 Status: proposed design, 2026-11-11. Starting compiler: `476cfecf`, after
 qualified direct comparisons and carry reuse. This note defines the contract
 for extending existing call-argument selection; implementation remains separate.
+The [implementation plan](MIR6502_ARGUMENT_STAGING_IMPLEMENTATION_PLAN.md)
+defines four commit-sized slices and their acceptance checks.
 
 Prepare call arguments in their final ABI locations when a proven schedule
 can preserve them there. Retain protective captures whenever later evaluation,
