@@ -1,3 +1,4 @@
+use super::offset_mem;
 use crate::mir6502::ir::{
     MirAddr, MirAddressConsumer, MirCallTarget, MirFixedZpSlot, MirGlobalBacking, MirMem,
     MirMemoryEffect, MirMemoryRegionKind, MirOp, MirPointerPair, MirProgram, MirRoutine, MirValue,
@@ -80,6 +81,7 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
             | MirOp::CopyIndirectBytesToFixedZp { .. }
             | MirOp::AbsoluteWordSubToIndirect { .. }
             | MirOp::OffsetPointerByIndirectByte { .. }
+            | MirOp::OffsetPointerByIndirectBytePlusOne { .. }
             | MirOp::IndirectByteCompound { .. }
             | MirOp::IndirectWordCompound { .. } => true,
             MirOp::MaterializeAddress { .. }
@@ -202,8 +204,12 @@ fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
             collect_mem_fixed_zero_page(mem, slots);
             collect_value_fixed_zero_page(value, slots);
         }
-        MirOp::OffsetPointerByIndirectByte { dst, source, .. } => {
+        MirOp::OffsetPointerByIndirectByte { dst, source, .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { dst, source, .. } => {
             collect_mem_fixed_zero_page(dst, slots);
+            if matches!(op, MirOp::OffsetPointerByIndirectBytePlusOne { .. }) {
+                collect_mem_fixed_zero_page(&offset_mem(dst, 1), slots);
+            }
             collect_consumer_fixed_zero_page(*source, slots);
         }
         MirOp::MaterializeAddress { consumer, value } => {
@@ -474,6 +480,7 @@ fn resolve_op_consumers(
         | MirOp::LoadIndirect { consumer, .. }
         | MirOp::StoreIndirect { consumer, .. } => resolve_consumer(consumer, allocations),
         MirOp::OffsetPointerByIndirectByte { source, .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { source, .. }
         | MirOp::CopyIndirectBytesToFixedZp { source, .. } => resolve_consumer(source, allocations),
         MirOp::CopyIndirectWord {
             source,

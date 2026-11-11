@@ -131,4 +131,4 @@ pub(in crate::mir6502) fn prove(
 
 #[cfg(test)]
 #[path = "pointer_byte_plus_one_tests.rs"]
-mod tests;
+pub(in crate::mir6502) mod tests;

@@ -576,6 +576,10 @@ fn op_summary(op: &MirOp) -> String {
             address_consumer_summary(source),
             offset
         ),
+        MirOp::OffsetPointerByIndirectBytePlusOne { dst, source, offset } => format!(
+            "offset_pointer_by_indirect_byte_plus_one.w {} {} +{}",
+            mem_summary(dst), address_consumer_summary(source), offset
+        ),
         MirOp::CopyIndirectWord {
             source,
             destination,

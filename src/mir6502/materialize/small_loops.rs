@@ -1042,6 +1042,7 @@ fn remap_op_temp(op: &mut MirOp, old: MirTempId, new: MirTempId) {
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::BinaryDirectIndexedByte { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }

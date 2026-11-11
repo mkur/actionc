@@ -999,7 +999,8 @@ fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> boo
             MirOp::LoadIndirect { consumer, .. } | MirOp::StoreIndirect { consumer, .. } => {
                 vec![*consumer]
             }
-            MirOp::OffsetPointerByIndirectByte { source, .. } => vec![*source],
+            MirOp::OffsetPointerByIndirectByte { source, .. }
+            | MirOp::OffsetPointerByIndirectBytePlusOne { source, .. } => vec![*source],
             MirOp::CopyIndirectWord {
                 source,
                 destination,
@@ -1198,7 +1199,8 @@ fn store_materialization_address_keys(ops: &[MirOp]) -> (BTreeSet<String>, BTree
             MirOp::LoadIndirect { consumer, .. } | MirOp::StoreIndirect { consumer, .. } => {
                 collect_consumer_keys(*consumer, &mut reads);
             }
-            MirOp::OffsetPointerByIndirectByte { dst, source, .. } => {
+            MirOp::OffsetPointerByIndirectByte { dst, source, .. }
+            | MirOp::OffsetPointerByIndirectBytePlusOne { dst, source, .. } => {
                 collect_consumer_keys(*source, &mut reads);
                 collect_mem_range_keys(dst, 2, &mut writes);
             }

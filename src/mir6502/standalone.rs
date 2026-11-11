@@ -443,6 +443,7 @@ fn visit_op_storage(
             visit_value_storage(value, globals, statics);
         }
         MirOp::OffsetPointerByIndirectByte { dst, .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { dst, .. }
         | MirOp::CopyDirectWordToIndirect { source: dst, .. } => {
             record_mem_storage(dst, globals, statics)
         }
@@ -698,6 +699,7 @@ fn rebase_op(
             rebase_value(value, routines, globals, statics)?;
         }
         MirOp::OffsetPointerByIndirectByte { dst, .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { dst, .. }
         | MirOp::CopyDirectWordToIndirect { source: dst, .. } => rebase_mem(dst, globals, statics)?,
         MirOp::AbsoluteWordSubToIndirect { source, rhs, .. } => {
             rebase_mem(source, globals, statics)?;
@@ -1677,6 +1679,7 @@ pub(in crate::mir6502) fn visit_op_routines(op: &MirOp, routines: &mut BTreeSet<
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::BinaryDirectIndexedByte { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::AbsoluteWordSubToIndirect { .. }
         | MirOp::RuntimeHelper { .. }

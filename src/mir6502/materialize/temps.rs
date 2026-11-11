@@ -299,6 +299,7 @@ fn op_is_sinkable_temp_producer(op: &MirOp) -> bool {
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { .. }
         | MirOp::Compare { .. }
         | MirOp::CompareDirectIndexedBytes { .. }
         | MirOp::CompareIndirectBytes { .. }
@@ -542,7 +543,8 @@ pub(in crate::mir6502) fn replace_op_temp_values(
         | MirOp::BinaryDirectIndexedByte { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. } => {}
-        MirOp::OffsetPointerByIndirectByte { .. } => {}
+        MirOp::OffsetPointerByIndirectByte { .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { .. } => {}
         MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. } => {}
@@ -1048,7 +1050,8 @@ fn invalidate_staged_address_for_op(
                 || value_depends_on_mem(value, mem)
                 || value_depends_on_mem(value, &offset_mem(mem, 1))
         }
-        MirOp::OffsetPointerByIndirectByte { dst, .. } => {
+        MirOp::OffsetPointerByIndirectByte { dst, .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { dst, .. } => {
             direct_mem_may_alias_staged_address(dst)
                 || direct_mem_writes_consumer(*consumer, dst)
                 || direct_mem_writes_consumer(*consumer, &offset_mem(dst, 1))

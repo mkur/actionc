@@ -21,6 +21,9 @@ mod abi;
 mod address_consumer_tests;
 pub(super) mod address_values;
 pub(super) mod argument_staging;
+#[cfg(test)]
+#[path="materialize/pointer_byte_plus_one_tests.rs"]
+mod pointer_byte_plus_one_tests;
 pub(super) mod record_bases;
 pub(super) mod call_predicates;
 pub(super) mod comparison_loops;

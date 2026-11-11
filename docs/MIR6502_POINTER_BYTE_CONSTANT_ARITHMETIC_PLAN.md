@@ -1,6 +1,6 @@
 # MIR6502 pointer byte constant arithmetic implementation
 
-Prepared 2026-11-11. Status: slice 1 implemented; selection remains inert. Starting revision `553f8074`, with compiler
+Prepared 2026-11-11. Status: slices 1 and 2 implemented; selection remains inert. Starting revision `553f8074`, with compiler
 code at `6311c110`. Implement in four vertical slices, committing each after
 its checks pass. This plan includes the proposed MIR contract; no separate
 design note is needed for the bounded form below.
@@ -338,8 +338,8 @@ fixture updates as target selection changes; raw NIR remains unchanged.
 
 | Slice | Status | Evidence |
 | --- | --- | --- |
-| 1 Baseline and proofs | Implemented | Frozen images and source/compiler identities; inert two-operation proof; neutral entry/read oracle |
-| 2 Target form and emission | Planned | Add typed operation and qualify emitted arithmetic |
+| 1 Baseline and proofs | Complete, `935c8c44` | Frozen images and source/compiler identities; four inert proof tests; 155 analysis tests and neutral integration/VM checks |
+| 2 Target form and emission | Implemented | Typed operation, verifier/effects/visitor support and emitted arithmetic oracle |
 | 3 Selection and costing | Planned | Commit shared proof transactions with exact final qualification |
 | 4 Boundary and corpus qualification | Planned | Enable optimized default after full scoped checks and measurements |
 
@@ -369,3 +369,21 @@ arguments/results and exactly-once ordered source reads, and matches the
 frozen optimized-NIR images byte for byte. The sampled forward call takes
 356 cycles including wrapper and actual callee; all dumps/logs stay under
 ignored `build/pointer-byte-plus-one/`.
+
+### Slice 2 evidence
+
+`OffsetPointerByIndirectBytePlusOne` is a post-home target operation with the
+documented complete-word, fixed-pair and ordered-read contract. Its verifier
+rejects overlap, wrap, non-fixed destinations, offsets above 255 and pre-home
+use. Effects declare both destination lanes, an unknown indirect read and all
+actual A/X/Y/flag changes. Value availability invalidates the previous X
+carrier. All exhaustive visitors, zero-page reservations, storage rebasing,
+printers and cost classifiers consume the new form.
+
+The emitted body is 21 bytes. The arithmetic oracle executes 131,576 fragments:
+all 65,536 low-byte/addend pairs with the old/new forms, followed by high-byte,
+word-wrap, offset and entry-alias cases at the other origin. The incoming read
+may point to source/destination scratch or ABI cells; the oracle respects
+aliases that constrain its value. These checks preserve source-pair bytes and
+output guards. Production discovery is still disabled, retaining existing
+images and call/parameter behavior.

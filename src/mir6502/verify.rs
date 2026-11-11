@@ -1248,6 +1248,16 @@ impl MirVerifier {
                     }
                 }
             }
+            MirOp::OffsetPointerByIndirectBytePlusOne { dst, source, offset } => {
+                self.verify_op(routine, block, &MirOp::OffsetPointerByIndirectByte {
+                    op: MirBinaryOp::Add, dst: dst.clone(), source: *source, offset: *offset,
+                }, static_ids, global_ids, routine_ids, machine_ids);
+                if !self.physical_homes_required() || !matches!(dst, MirMem::FixedZeroPage(lo)
+                    if super::analysis::pointer_byte_plus_one::valid_pairs(*lo,*source,*offset)) {
+                    self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                        "pointer byte plus one requires post-home disjoint non-wrapping fixed pairs and a byte Y offset"));
+                }
+            }
             MirOp::CopyIndirectWord {
                 source,
                 destination,

@@ -826,7 +826,8 @@ pub(super) fn can_remove_spill_reload_at(
         | Some(MirOp::UpdateIndexedMem { .. })
         | Some(MirOp::AddByteToWordMem { .. })
         | Some(MirOp::SubByteFromWordMem { .. })
-        | Some(MirOp::OffsetPointerByIndirectByte { .. })
+        | Some(MirOp::OffsetPointerByIndirectByte { .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { .. })
         | Some(MirOp::IndirectByteCompound { .. })
         | Some(MirOp::MaterializeAddress { .. })
         | Some(MirOp::MaterializeIndexedAddress { .. })
@@ -971,6 +972,7 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {
             *a_value = None;
@@ -2305,7 +2307,8 @@ fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
             remap_mem_spills(mem, remap);
             remap_value_spills(value, remap);
         }
-        MirOp::OffsetPointerByIndirectByte { dst, .. } => remap_mem_spills(dst, remap),
+        MirOp::OffsetPointerByIndirectByte { dst, .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { dst, .. } => remap_mem_spills(dst, remap),
         MirOp::CopyDirectWordToIndirect { source, .. } => remap_mem_spills(source, remap),
         MirOp::AbsoluteWordSubToIndirect { rhs, .. } => remap_mem_spills(rhs, remap),
         MirOp::Move { src, .. }
@@ -2458,7 +2461,8 @@ fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, Mir
             remap_mem_spills_to_zero_page(mem, remap);
             remap_value_spills_to_zero_page(value, remap);
         }
-        MirOp::OffsetPointerByIndirectByte { dst, .. } => remap_mem_spills_to_zero_page(dst, remap),
+        MirOp::OffsetPointerByIndirectByte { dst, .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { dst, .. } => remap_mem_spills_to_zero_page(dst, remap),
         MirOp::CopyDirectWordToIndirect { source, .. } => {
             remap_mem_spills_to_zero_page(source, remap)
         }
@@ -2617,7 +2621,8 @@ where
             visitor(mem);
             visit_value_mems(value, visitor);
         }
-        MirOp::OffsetPointerByIndirectByte { dst, .. } => visitor(dst),
+        MirOp::OffsetPointerByIndirectByte { dst, .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { dst, .. } => visitor(dst),
         MirOp::CopyDirectWordToIndirect { source, .. } => visitor(source),
         MirOp::AbsoluteWordSubToIndirect { rhs, .. } => visitor(rhs),
         MirOp::Move { src, .. }
@@ -2754,7 +2759,8 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
             collect_mem_spills(mem, spills);
             collect_value_spills(value, spills);
         }
-        MirOp::OffsetPointerByIndirectByte { dst, .. } => collect_mem_spills(dst, spills),
+        MirOp::OffsetPointerByIndirectByte { dst, .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { dst, .. } => collect_mem_spills(dst, spills),
         MirOp::CopyDirectWordToIndirect { source, .. } => collect_mem_spills(source, spills),
         MirOp::AbsoluteWordSubToIndirect { rhs, .. } => collect_mem_spills(rhs, spills),
         MirOp::Move { dst, src, .. }

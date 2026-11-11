@@ -715,6 +715,7 @@ fn op_kind(op: &MirOp) -> &'static str {
         MirOp::AddByteToWordMem { .. } => "add-byte-to-word",
         MirOp::SubByteFromWordMem { .. } => "sub-byte-from-word",
         MirOp::OffsetPointerByIndirectByte { .. } => "offset-pointer-by-indirect-byte",
+        MirOp::OffsetPointerByIndirectBytePlusOne { .. } => "offset-pointer-by-indirect-byte-plus-one",
         MirOp::Barrier { .. } => "barrier",
         MirOp::MachineBlock { .. } => "machine-block",
     }
@@ -1550,6 +1551,7 @@ fn record_op_uses(
         | MirOp::CompareIndirectWords { .. }
         | MirOp::PackedRealCompare { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { .. }
         | MirOp::LeaAddr { .. }
         | MirOp::UpdateMem { .. }
         | MirOp::UpdateReg { .. }

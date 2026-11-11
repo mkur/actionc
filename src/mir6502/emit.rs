@@ -2248,6 +2248,14 @@ fn emit_op(
             }
             emit_offset_pointer_by_indirect_byte(*op, dst, source_slot, *offset, emitter);
         }
+        MirOp::OffsetPointerByIndirectBytePlusOne { dst, source, offset } => {
+            if let (MirMem::FixedZeroPage(dst), MirPointerPair::Fixed { lo }) = (dst, source.pointer_pair())
+                && super::analysis::pointer_byte_plus_one::valid_pairs(*dst,*source,*offset) {
+                emit_pointer_byte_plus_one(ctx,routine,block,dst.0,lo.0,*offset as u8,emitter);
+            } else {
+                unsupported(ctx,routine,block,"pointer byte plus one operands are not emit-ready");
+            }
+        }
         MirOp::CopyIndirectWord {
             source,
             destination,
@@ -5001,6 +5009,26 @@ fn emit_offset_pointer_by_indirect_byte(
         _ => unreachable!(),
     }
     emit_sta_mem(offset_resolved_mem(dst, 1), emitter);
+}
+
+fn emit_pointer_byte_plus_one(
+    ctx: &mut MirEmitContext<'_>, routine: RoutineId, block: MirBlockId,
+    dst: u8, source: u8, offset: u8, emitter: &mut TrackedEmitter,
+) {
+    let done=format!("__mir6502_pointer_byte_plus_one_{}_{}_{}",routine.0,block.0,emitter.position());
+    emitter.emit_ldy_imm(offset);
+    emitter.emit_lda_zero_page(ZeroPage::new(source));
+    emitter.emit_clc();
+    emitter.emit_adc_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(source)));
+    emitter.emit_tax();
+    emitter.emit_lda_zero_page(ZeroPage::new(source+1));
+    emitter.emit_adc_imm(0);
+    emitter.emit_inx();
+    emitter.emit_stx_zero_page(ZeroPage::new(dst));
+    emitter.emit_sta_zero_page(ZeroPage::new(dst+1));
+    emitter.emit_branch_label(opcode::BNE_REL,done.clone(),SYNTHETIC_SPAN);
+    emitter.emit_inc_zero_page(ZeroPage::new(dst+1));
+    bind_label(ctx,emitter,routine,Some(block),done);
 }
 
 fn emit_copy_indirect_word(

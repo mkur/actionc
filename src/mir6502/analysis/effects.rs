@@ -106,6 +106,7 @@ pub(in crate::mir6502) enum MirOpKind {
     AddByteToWordMem,
     SubByteFromWordMem,
     OffsetPointerByIndirectByte,
+    OffsetPointerByIndirectBytePlusOne,
     CopyIndirectWord,
     CopyDirectWordToIndirect,
     CopyIndirectBytesToFixedZp,
@@ -341,6 +342,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::AddByteToWordMem { .. } => MirOpKind::AddByteToWordMem,
         MirOp::SubByteFromWordMem { .. } => MirOpKind::SubByteFromWordMem,
         MirOp::OffsetPointerByIndirectByte { .. } => MirOpKind::OffsetPointerByIndirectByte,
+        MirOp::OffsetPointerByIndirectBytePlusOne { .. } => MirOpKind::OffsetPointerByIndirectBytePlusOne,
         MirOp::CopyIndirectWord { .. } => MirOpKind::CopyIndirectWord,
         MirOp::CopyDirectWordToIndirect { .. } => MirOpKind::CopyDirectWordToIndirect,
         MirOp::CopyIndirectBytesToFixedZp { .. } => MirOpKind::CopyIndirectBytesToFixedZp,
@@ -553,7 +555,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             source,
             offset,
             ..
-        } => {
+        } | MirOp::OffsetPointerByIndirectBytePlusOne { dst, source, offset } => {
             let high = offset_mem(dst, 1);
             record_consumer_read(*source, &mut summary);
             record_indirect_y_access(*source, *offset, &mut summary);
@@ -562,6 +564,9 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.memory.indirect_reads = true;
             summary.memory.has_unknown_effects = true;
             summary.machine.conservative_register_clobbers.a = true;
+            if matches!(op, MirOp::OffsetPointerByIndirectBytePlusOne { .. }) {
+                summary.machine.conservative_register_clobbers.x = true;
+            }
             summary.machine.flag_clobbers = MirFlagSet::all();
             summary.machine.writes_any_flags_compat = true;
         }

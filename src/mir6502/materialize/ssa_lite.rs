@@ -297,7 +297,9 @@ impl SsaLiteValueEnv {
                 self.kill_mem(&hi);
                 self.kill_value(&SsaLiteValueKey::DirectMem(hi));
             }
-            MirOp::OffsetPointerByIndirectByte { dst, .. } => {
+            MirOp::OffsetPointerByIndirectByte { dst, .. }
+            | MirOp::OffsetPointerByIndirectBytePlusOne { dst, .. } => {
+                if matches!(op, MirOp::OffsetPointerByIndirectBytePlusOne { .. }) { self.kill_reg(MirReg::X); }
                 self.kill_reg(MirReg::A);
                 self.kill_reg(MirReg::Y);
                 self.kill_mem(dst);
@@ -581,7 +583,9 @@ impl SsaLiteV2ObserveEnv {
                     SsaLiteV2KillReason::Store,
                 );
             }
-            MirOp::OffsetPointerByIndirectByte { dst, .. } => {
+            MirOp::OffsetPointerByIndirectByte { dst, .. }
+            | MirOp::OffsetPointerByIndirectBytePlusOne { dst, .. } => {
+                if matches!(op, MirOp::OffsetPointerByIndirectBytePlusOne { .. }) { self.kill_def(&MirDef::Reg(MirReg::X), SsaLiteV2KillReason::Unknown); }
                 self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
                 self.kill_def(&MirDef::Reg(MirReg::Y), SsaLiteV2KillReason::Unknown);
                 self.kill_mem_and_dependents(dst, routine_id, layout, SsaLiteV2KillReason::Store);
@@ -1350,6 +1354,7 @@ fn op_values(op: &MirOp) -> Vec<&MirValue> {
         | MirOp::CompareIndirectWords { .. }
         | MirOp::PackedRealCompare { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
+        | MirOp::OffsetPointerByIndirectBytePlusOne { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
@@ -2025,6 +2030,7 @@ impl LiveTempByteLanes {
             | MirOp::CompareIndirectWords { .. }
             | MirOp::PackedRealCompare { .. }
             | MirOp::OffsetPointerByIndirectByte { .. }
+            | MirOp::OffsetPointerByIndirectBytePlusOne { .. }
             | MirOp::CopyIndirectWord { .. }
             | MirOp::CopyDirectWordToIndirect { .. }
             | MirOp::CopyIndirectBytesToFixedZp { .. }

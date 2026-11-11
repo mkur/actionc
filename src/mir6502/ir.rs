@@ -538,6 +538,14 @@ pub enum MirOp {
         source: MirAddressConsumer,
         offset: u16,
     },
+    /// Post-home fusion of pointer + indirect byte + 1, modulo 65536.
+    /// Reads the byte before either destination write. Source/destination
+    /// must be distinct non-wrapping fixed pairs. Clobbers A/X/flags; sets Y.
+    OffsetPointerByIndirectBytePlusOne {
+        dst: MirMem,
+        source: MirAddressConsumer,
+        offset: u16,
+    },
     /// Copy a word between two prepared pointer pairs.
     ///
     /// Emission reads both source bytes before either destination write, then

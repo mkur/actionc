@@ -665,6 +665,29 @@ carry-out, corresponding to `CLC` followed by `ADC absolute,X`,
 `ADC absolute,Y`, or `ADC ($zp),Y`; other arithmetic and carry contracts stay
 in the ordinary MIR form until they have their own verified lowering.
 
+### Pointer byte increment fusion
+
+`OffsetPointerByIndirectBytePlusOne` is a selected post-home MIR6502 operation
+for `(P + BYTE[P+offset] + 1) mod 65536`. Source and destination must be
+disjoint, non-wrapping fixed zero-page pairs; the immediate Y offset fits a
+byte and the consumer cannot retain a scaled index in Y. The verifier rejects
+other placements and pre-home use. Existing unfused operations remain valid.
+
+The operation establishes Y, reads source-low, performs one indirect byte read,
+then reads source-high. It writes the complete destination and may repair its
+high byte after incrementing the low byte in X. Its destination has no incoming
+arithmetic dependency; an indirect alias can still observe its entry contents.
+Effects retain that unknown read, both pointer-lane inputs, both destination
+writes, A/X clobbers, the Y definition and C/N/Z/V clobbers. There is no stack
+effect. Ordinary arithmetic uses the existing decimal-mode-clear invariant.
+
+Selection must independently prove A/X and arithmetic flags dead, preserve
+the incoming indirect-read prefix and account for removed intermediate scratch
+definitions. Fixed pair preservation cannot justify removing parameter-home
+reloads across a call. Emission receives this typed strategy and only writes
+its carry chain and local repair branch. See the
+[implementation plan](MIR6502_POINTER_BYTE_CONSTANT_ARITHMETIC_PLAN.md).
+
 ### Post-home private-byte definitions
 
 At the post-home and pre-emission boundaries, every reachable read of a
