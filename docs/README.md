@@ -210,6 +210,9 @@ crowding the active reference set.
   - implemented unsigned BYTE comparison selection from indirect loads, preserving
   captured operands and read order while feeding existing carry branches, with
   final cost qualification and measured TN results.
+- [MIR6502 argument staging reduction](MIR6502_ARGUMENT_STAGING_DESIGN.md)
+  - proposed call-setup design preserving captured values, ordered reads and
+  canonical ABI homes, with physical alias proofs and final cost qualification.
 - [MIR6502_WIDE_SHIFT_COPY_REDUCTION.md](MIR6502_WIDE_SHIFT_COPY_REDUCTION.md)
   - byte and nibble projections for constant wide shifts, preserving captured
   operands while reducing staging for narrow results.
