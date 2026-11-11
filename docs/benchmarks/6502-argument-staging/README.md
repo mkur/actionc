@@ -129,11 +129,16 @@ code/storage metrics under ignored `build/argument-staging/measured/`:
 cargo test --release --locked --lib argument_staging_measure_corpus -- --ignored --nocapture
 ```
 
-After measuring, set `ACTIONC_ARGUMENT_MEASURED_IMAGES` to the absolute path
-of that directory when running the VM `argument_staging` and `tn_dispatch`
-targets. Their normal independent execution tests then also require the
-executed neutral and TN cartridge images to match the measured files exactly.
-The plan lists the full affected-backend qualification commands.
+The historical corpus exporter explicitly disables the later pointer-byte
+increment fusion, keeping these frozen controls reproducible. After measuring,
+set `ACTIONC_ARGUMENT_MEASURED_IMAGES` to that directory's absolute path when
+running the VM `argument_staging` target. Its independent execution test also
+requires exact agreement with the measured neutral images. The opt-in string
+oracle below and `strcat_cost_breakdown` execute the frozen TN images directly.
+Current default TN execution uses the
+[pointer-byte increment measurements](../6502-pointer-byte-plus-one/README.md)
+and `ACTIONC_POINTER_MEASURED_IMAGES` for `tn_dispatch`. The plan lists the
+full affected-backend qualification commands.
 
 ```sh
 cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml \

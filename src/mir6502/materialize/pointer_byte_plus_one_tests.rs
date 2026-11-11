@@ -252,4 +252,31 @@ fn pointer_byte_plus_one_emission_exhausts_low_bytes_and_preserves_entry_alias_r
         INDEX_POINTER_PAIR,
         255
     ));
+    // Place the repair branch's fallthrough and target on opposite pages.
+    // Exercise both its taken path and the increment-wrap repair path.
+    let (_, entry) = fragment(true, 0, 0x3000);
+    let entry_offset = entry - 0x3000;
+    for desired_entry in [0x41EBusize, 0x41EC, 0x41ED] {
+        let origin = (desired_entry - entry_offset) as u16;
+        for fused in [false, true] {
+            let (bytes, entry) = fragment(fused, 0, origin);
+            assert_eq!(entry, desired_entry);
+            for p in [0x7000u16, 0x70FF, 0xFFFF] {
+                for b in [0u8, 1, 127, 128, 254, 255] {
+                    let mut memory = [0xD6; 65536];
+                    let at = usize::from(origin);
+                    memory[at..at + bytes.len()].copy_from_slice(&bytes);
+                    memory[usize::from(p)] = b;
+                    memory[0xAE..=0xAF].copy_from_slice(&p.to_le_bytes());
+                    leaf_test_cpu::run_memory(&mut memory, entry);
+                    assert_eq!(
+                        u16::from_le_bytes([memory[0x800], memory[0x801]]),
+                        p.wrapping_add(u16::from(b)).wrapping_add(1),
+                        "{entry:04X}/{p:04X}/{b}/{fused}"
+                    );
+                    assert_eq!(&memory[0xAE..=0xAF], &p.to_le_bytes());
+                }
+            }
+        }
+    }
 }

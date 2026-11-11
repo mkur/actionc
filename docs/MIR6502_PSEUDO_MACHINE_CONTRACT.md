@@ -697,6 +697,14 @@ callee A results and X/Y preservation facts, so local liveness cannot break
 earlier caller rewrites. Literal fixed pairs make physical alias replay
 independent of ordinary code/data relocation; frames must remain identical.
 
+`enable_pointer_byte_plus_one_fusion` enables final selection in the optimized
+configuration and remains off in the conservative/default configuration.
+Selection runs after preceding final selectors, preserves their published
+callee facts and accepts only a strict final XEX saving without routine/home
+growth. Missing proofs or unknown emission costs retain the baseline. The
+[measured results](benchmarks/6502-pointer-byte-plus-one/README.md) qualify this
+bounded `+1` form; other constants and consumers retain their existing paths.
+
 ### Post-home private-byte definitions
 
 At the post-home and pre-emission boundaries, every reachable read of a

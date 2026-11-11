@@ -11,6 +11,8 @@ mod captured_compare_tests;
 mod captured_compare_measurements;
 #[path = "argument_staging_measurements.rs"]
 mod argument_staging_measurements;
+#[path = "pointer_byte_plus_one_measurements.rs"]
+mod pointer_byte_plus_one_measurements;
 use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::MirRoutineGeneration;
 use crate::mir6502::ir::{

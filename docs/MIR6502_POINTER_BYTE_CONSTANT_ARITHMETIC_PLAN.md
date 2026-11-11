@@ -1,6 +1,7 @@
 # MIR6502 pointer byte constant arithmetic implementation
 
-Prepared 2026-11-11. Status: slices 1–3 implemented; optimized default awaits final qualification. Starting revision `553f8074`, with compiler
+Prepared 2026-11-11. Status: all four slices implemented and qualified;
+optimized default enabled. Starting revision `553f8074`, with compiler
 code at `6311c110`. Implement in four vertical slices, committing each after
 its checks pass. This plan includes the proposed MIR contract; no separate
 design note is needed for the bounded form below.
@@ -147,7 +148,8 @@ uses may qualify whenever existing materialization exposes the same typed pair.
 
 Introduce `enable_pointer_byte_plus_one_fusion`: false in conservative/default
 configuration, independently controlled within peepholes, and initially false
-in optimized configuration until qualification completes.
+in optimized configuration until qualification completes. Qualification is now
+complete and optimized configuration enables it.
 
 Apply one transaction per rebuilt snapshot with the shared post-home driver.
 Each fusion removes one operation, so the original operation count plus one
@@ -340,8 +342,8 @@ fixture updates as target selection changes; raw NIR remains unchanged.
 | --- | --- | --- |
 | 1 Baseline and proofs | Complete, `935c8c44` | Frozen images and source/compiler identities; four inert proof tests; 155 analysis tests and neutral integration/VM checks |
 | 2 Target form and emission | Complete, `45bfa3af` | Typed operation, verifier/effects/visitor support and emitted arithmetic oracle |
-| 3 Selection and costing | Implemented | Shared typed read certificate, final costing, preserved published exits and explicit feature control |
-| 4 Boundary and corpus qualification | Planned | Enable optimized default after full scoped checks and measurements |
+| 3 Selection and costing | Complete, `d07e4588` | Shared typed read certificate, final costing, preserved published exits and explicit feature control |
+| 4 Boundary and corpus qualification | Complete | Optimized default enabled; [measurements and qualification](benchmarks/6502-pointer-byte-plus-one/README.md) |
 
 ### Slice 1 evidence
 
@@ -416,3 +418,36 @@ neutral images are 668→663 / 750→745 bytes, and the sampled calls improve
 356→350 cycles. All controls retain their prior sizes and cycles. The feature
 remains explicitly enabled in these checks; optimized default stays off until
 slice 4 qualification.
+
+### Slice 4 evidence
+
+Optimized configuration now enables the feature; conservative/default remains
+off. Fourteen focused tests cover stale/invalidated driver plans, live flags
+across successors, neighboring candidates and all prior proof/emission/cost
+boundaries. The emitted arithmetic oracle adds 108 executions with the repair
+branch straddling page boundaries, bringing its total to 131,684. The neutral
+VM adds 104 entry-alias calls and checks source-pair read order, scratch access
+counts and outgoing ABI write traces. Eight actual MADS assemblies reproduce
+and relocate the selected listing with both LF and CRLF text.
+
+All 22 measured feature pairs preserve frames, storage capacities and zero
+page. Eight images save five bytes each; the other 14 are byte-identical.
+All eight feature-off frozen hashes match. TN/TNDBG `Strcat` is 125→120 bytes;
+TN cartridge is 9,873→9,868 XEX bytes. Sample `Strcat` calls improve 370→364
+cycles in both runtimes/variants, with post-call parameter reconstruction
+retained. Exact measured images pass 80 string and 16 parameter-alias calls;
+fresh default TN cartridge images match them and pass panel/dispatch execution.
+Historical exporters pin the new feature off, and the original static/VM
+Strcat audits remain green.
+
+Final MIR6502 qualification passes 1,196 unit tests, 103 integration tests
+across 16 targets and all 169 emission/load fixtures. Seven existing affected
+VM targets pass 25 tests, alongside the new VM, TN, frozen audit and three
+focused runtime-library checks. Direct-word/indirect-field script assertions
+pass with six/two selections. Their broad Cargo wrappers exhausted generated
+artifact disk space; equivalent scoped invocations passed after package
+cleanup. The existing indexed-byte selection-count discrepancy remains
+documented, with its independent execution check passing. The
+[results report](benchmarks/6502-pointer-byte-plus-one/README.md) records exact
+sizes, hashes, timing limits and reproduction commands. No shared NIR or
+semantic contract changed.

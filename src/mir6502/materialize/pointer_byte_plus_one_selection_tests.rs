@@ -169,3 +169,122 @@ fn pointer_byte_plus_one_unknown_cost_keeps_the_entire_baseline() {
     assert!(image_size(&old, 0x3000, crate::compiler::Runtime::ActionCart).is_none());
     assert_eq!(selected(old.clone()), old);
 }
+
+#[test]
+fn pointer_byte_plus_one_selection_blocks_each_live_flag_across_successors() {
+    use crate::mir6502::{
+        analysis::{posthome::PostHomeAnalysisSnapshot, sites::MirRoutineGeneration},
+        ir::{MirCond, MirEdge, MirFlagTest},
+    };
+    for flag in [
+        MirFlagTest::CSet,
+        MirFlagTest::ZSet,
+        MirFlagTest::NSet,
+        MirFlagTest::VSet,
+    ] {
+        let mut p = baseline();
+        let r = forward(&mut p);
+        let i = start(r);
+        let tail = r.blocks[0].ops.split_off(i + 2);
+        let block = r.blocks[0].clone();
+        r.blocks[0].terminator = MirTerminator::Branch {
+            cond: MirCond::FlagTest(flag),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
+        };
+        for id in [1, 2] {
+            r.blocks.push(crate::mir6502::ir::MirBlock {
+                id: MirBlockId(id),
+                ops: tail.clone(),
+                terminator: MirTerminator::Return,
+                ..block.clone()
+            });
+        }
+        let snapshot = PostHomeAnalysisSnapshot::new(r, MirRoutineGeneration::initial()).unwrap();
+        let context = PostHomeRewriteContext::new(&snapshot);
+        assert_eq!(
+            context.pointer_byte_plus_one(context.point(MirSite::Op {
+                block: r.blocks[0].id,
+                op_index: i
+            })),
+            Err(facts::Blocker::MachineState)
+        );
+    }
+}
+
+#[test]
+fn pointer_byte_plus_one_selection_rebuilds_neighboring_plans_and_counts_each_once() {
+    let mut p = baseline();
+    let r = forward(&mut p);
+    let id = r.id;
+    let i = start(r);
+    let pair = r.blocks[0].ops[i..i + 2].to_vec();
+    r.blocks[0].ops.splice(i + 2..i + 2, pair);
+    let summaries = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+    let (new, stats, affected) = apply(&p, &summaries, None).unwrap();
+    assert!(affected.contains(&id));
+    assert_eq!(stats.count_for(id, "pointer-byte-plus-one-candidate"), 2);
+    assert_eq!(stats.count_for(id, "pointer-byte-plus-one-selected"), 2);
+    assert_eq!(selected(p.clone()), new);
+    assert_eq!(
+        image_size(&p, 0x3000, crate::compiler::Runtime::ActionCart).unwrap()
+            - image_size(&new, 0x3000, crate::compiler::Runtime::ActionCart).unwrap(),
+        10
+    );
+}
+
+#[test]
+fn pointer_byte_plus_one_driver_rejects_stale_and_invalidated_region_proofs() {
+    use crate::mir6502::{
+        analysis::{posthome::PostHomeAnalysisSnapshot, sites::MirRoutineGeneration},
+        rewrite::driver::MirRewriteError,
+    };
+    let mut p = baseline();
+    let summaries = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+    let mut r = forward(&mut p).clone();
+    let mut saved: Option<MirPostHomeRewritePlan> = None;
+    let result = MirPostHomeRewriteDriver::default().run_fixed_point_with_known_callees(
+        &mut r,
+        &summaries,
+        |r, c| {
+            if let Some(plan) = &saved {
+                return vec![plan.clone()];
+            }
+            let plans = discover(r, c, &mut BTreeSet::new());
+            saved = plans.first().cloned();
+            plans
+        },
+    );
+    assert!(matches!(result, Err(MirRewriteError::StalePlan { .. })));
+    let mut r = forward(&mut p).clone();
+    let i = start(&r);
+    let snapshot = PostHomeAnalysisSnapshot::new_with_known_callees(
+        &r,
+        MirRoutineGeneration::initial(),
+        &summaries,
+    )
+    .unwrap();
+    let plan = discover(
+        &r,
+        &PostHomeRewriteContext::new(&snapshot),
+        &mut BTreeSet::new(),
+    )
+    .remove(0);
+    r.blocks[0].ops.insert(
+        i + 2,
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x685)),
+            src: MirValue::Def(MirDef::Reg(MirReg::X)),
+            width: MirWidth::Byte,
+        },
+    );
+    let result = MirPostHomeRewriteDriver::default().run_fixed_point_with_known_callees(
+        &mut r,
+        &summaries,
+        |_, _| vec![plan.clone()],
+    );
+    assert!(matches!(
+        result,
+        Err(MirRewriteError::InvalidDeclaration { .. })
+    ));
+}
