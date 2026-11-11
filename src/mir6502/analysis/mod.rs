@@ -14,6 +14,7 @@ pub(super) mod live_y;
 pub(super) mod private_cells;
 pub(super) mod dominance;
 pub(super) mod effects;
+pub(super) mod entry_flags;
 pub(super) mod home_definitions;
 pub(super) mod home_liveness;
 pub(super) mod known_callees;

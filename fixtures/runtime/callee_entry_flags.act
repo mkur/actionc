@@ -1,0 +1,30 @@
+MODULE
+
+BYTE observedFirst=$0680,observedSecond=$0681,observedFlags=$0682
+BYTE inputTag=$0690
+
+PROC Flags()
+  [$08 $68 $8D $82 $06]
+RETURN
+
+PROC Observe(BYTE first,second)
+  observedFirst=first observedSecond=second & $7F
+  Flags()
+RETURN
+
+PROC Unrestored(BYTE first,second)
+  Flags()
+RETURN
+
+PROC Forward(BYTE tag)
+  Observe(0,tag)
+RETURN
+
+PROC UnsafeForward(BYTE tag)
+  Unrestored(0,tag)
+RETURN
+
+PROC Main()
+  Forward(inputTag)
+  UnsafeForward(inputTag)
+RETURN

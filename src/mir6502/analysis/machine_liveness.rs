@@ -149,6 +149,21 @@ impl MirMachineLiveness {
         return_registers: MirRegisterSet,
         known_callees: &MirKnownCalleeSummaries,
     ) -> Self {
+        Self::analyze_with_policy(routine, cfg, return_registers, known_callees, false)
+    }
+
+    /// Incoming flags observed before certified definitions. Calls/helpers and
+    /// barriers always observe all flags, independently of callee declarations.
+    pub(in crate::mir6502) fn entry_flag_inputs(routine: &MirRoutine, cfg: &MirCfg) -> Option<MirFlagSet> {
+        let entry = cfg.entry()?;
+        Self::analyze_with_policy(routine, cfg, MirRegisterSet::default(),
+            &MirKnownCalleeSummaries::default(), true).live_in(entry).map(|live| live.flags)
+    }
+
+    fn analyze_with_policy(
+        routine: &MirRoutine, cfg: &MirCfg, return_registers: MirRegisterSet,
+        known_callees: &MirKnownCalleeSummaries, entry_flags: bool,
+    ) -> Self {
         let transfers = routine
             .blocks
             .iter()
@@ -156,7 +171,7 @@ impl MirMachineLiveness {
                 let ops = block
                     .ops
                     .iter()
-                    .map(|op| op_transfer(op, known_callees))
+                    .map(|op| if entry_flags { entry_flag_transfer(op) } else { op_transfer(op, known_callees) })
                     .collect();
                 let terminator = terminator_transfer(&classify_terminator(&block.terminator));
                 (block.id, MirMachineBlockTransfers { ops, terminator })
@@ -368,6 +383,20 @@ fn op_transfer(op: &MirOp, known_callees: &MirKnownCalleeSummaries) -> MirMachin
         reads.union_with(MirMachineLiveSet::all());
     }
     MirMachineTransfer { reads, writes }
+}
+
+// May-clobbers are not certified definitions for incoming flag proofs.
+fn entry_flag_transfer(op: &MirOp) -> MirMachineTransfer {
+    let effects = classify_op(op);
+    let mut transfer = op_transfer(op, &MirKnownCalleeSummaries::default());
+    transfer.writes.flags = effects.machine.flag_writes;
+    if effects.machine.unknown_flag_or_a_effects
+        || effects.machine.opaque_flag_or_a_effects
+        || matches!(op, MirOp::Call {..} | MirOp::RuntimeHelper {..} | MirOp::Barrier {..} | MirOp::MachineBlock {..})
+    {
+        transfer.reads.flags = MirFlagSet::all();
+    }
+    transfer
 }
 
 fn terminator_transfer(effects: &MirTerminatorEffectSummary) -> MirMachineTransfer {

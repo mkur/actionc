@@ -1,6 +1,6 @@
 # MIR6502 callee entry flag summaries plan
 
-Prepared 2026-11-11. Status: planned. Compiler baseline: `82ada38f`.
+Prepared 2026-11-11. Status: slice 1 complete; selection remains unchanged. Compiler baseline: `82ada38f`.
 Implement in four vertical slices and commit each after its checks pass.
 This refines the existing MIR6502 flag proof contract; a separate design note
 or new executable IR form is unnecessary.
@@ -339,7 +339,19 @@ checks, with no compiler test run.
 
 | Slice | Status | Evidence |
 | --- | --- | --- |
-| 1 Baselines and incoming masks | Planned | |
+| 1 Baselines and incoming masks | Complete | Frozen images/facts, typed blocker census, inert flag analysis and neutral execution controls |
 | 2 Forwarding integration | Planned | |
 | 3 Flag and snapshot qualification | Planned | |
 | 4 Corpus and default | Planned | |
+
+Slice 1 freezes eight image controls in
+[baseline.json](benchmarks/6502-callee-entry-flags/baseline.json) and records
+all ten flag blockers in the [typed census](benchmarks/6502-callee-entry-flags/census.json).
+The neutral fixture is 69 bytes in either runtime/origin. Its positive callee
+masks a parameter before observing flags, defining N/Z while preserving C/V;
+the immediate observer sibling retains the negative case. Three focused
+analysis tests, nine MIR6502 machine-liveness tests, integration and 3,072 VM
+calls pass, including raw/optimized NIR and actual LF/CRLF source parsing.
+Both runtimes/origins match the frozen neutral images. The entry-proof mode
+uses certified definitions while the existing liveness policy and selector
+stay unchanged.
