@@ -602,6 +602,14 @@ pub(in crate::mir6502) struct PostHomeRewriteContext<'snapshot, 'routine> {
 }
 
 impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
+    pub(in crate::mir6502) fn pointer_load_sharing(
+        &self, point: MirProgramPoint,
+        memory: &crate::mir6502::analysis::record_bases::MirPhysicalMemory,
+    ) -> Result<crate::mir6502::analysis::pointer_load_sharing::Proof,
+                crate::mir6502::analysis::pointer_load_sharing::Blocker> {
+        crate::mir6502::analysis::pointer_load_sharing::prove(self.snapshot.source(), self.generation(), point, memory)
+    }
+
     pub(in crate::mir6502) fn pointer_byte_plus_one(
         &self, point: MirProgramPoint,
     ) -> Result<crate::mir6502::analysis::pointer_byte_plus_one::Proof,

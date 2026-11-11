@@ -1,6 +1,7 @@
 # MIR6502 pointer load sharing implementation plan
 
-Prepared 2026-11-11. Status: planned. Compiler baseline: `9488d269`.
+Prepared 2026-11-11. Status: slice 1 implemented; selection remains disabled.
+Compiler baseline: `9488d269`.
 Implement in four vertical slices and commit each after its checks pass.
 This plan contains the bounded rewrite contract; no new executable MIR form
 or separate design note is required for this first schedule.
@@ -335,3 +336,23 @@ contracts, also run `cargo test nir_fixtures_match_snapshots`,
 `cargo run --bin actionc-nir-sweep -- fixtures/nir` and `cargo test` as required.
 Explain any materialized-MIR expectation change as target scheduling; raw NIR
 and its printed contract remain unchanged.
+
+## Completion record
+
+| Slice | Status | Evidence |
+| --- | --- | --- |
+| 1 Baseline and proof | Implemented | [Frozen controls](benchmarks/6502-pointer-load-sharing/baseline.json), exact typed query and independent neutral execution |
+| 2 Selection and costing | Planned | |
+| 3 Boundary qualification | Planned | |
+| 4 Corpus and optimized default | Planned | |
+
+The neutral fixture exposes the exact 11-operation window in optimized NIR.
+`Forward` is 90 bytes; cartridge/standalone images are 716/798 bytes at both
+origins. The sampled call takes 350 cycles. The five controls expose different
+templates and retain their existing paths. Four inert proof tests cover final
+physical aliases, ordinary storage, carry/consumer shape, partial words and
+stale/changed witnesses. Integration and VM checks cover raw/optimized NIR,
+both runtimes/origins and actual LF/CRLF parsing; all eight optimized baseline
+images agree with the frozen controls. The VM executes 1,152 runtime calls,
+including callee-entry arguments, ordered source-home reads and guards.
+No production selector has been enabled.

@@ -2,6 +2,7 @@ pub(super) mod address_uses;
 pub(super) mod address_values;
 pub(super) mod argument_staging;
 pub(super) mod pointer_byte_plus_one;
+pub(super) mod pointer_load_sharing;
 pub(super) mod bounded_pointers;
 pub(super) mod call_predicates;
 pub(super) mod cfg;

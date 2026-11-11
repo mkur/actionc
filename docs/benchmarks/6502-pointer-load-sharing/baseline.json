@@ -1,0 +1,133 @@
+{
+  "compiler_revision": "3ec7abdd",
+  "compiler_code_revision": "9488d269",
+  "compiler_sha256": "b0828fed26b6f5e8c30a8490ae2e19aae34909d22c4641b467b99f33ad5720c6",
+  "mode": "mir6502",
+  "profile": "modern",
+  "nir": "optimized",
+  "vm_revision": "7ec0cc454ebf43b088b7bcd11515533085ea1964",
+  "inputs_sha256": {
+    "fixtures/runtime/pointer_load_sharing.act": "fdd3cdee33f196812e13a1e92799aca0827ee3e6c792142ef0bb91ab193fe2cf",
+    "samples/tn/modern/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "samples/tn/modern/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+    "samples/tn/modern/LIB.ACT": "b8cd4c48b9b2d9c96fc86d24e94ea3dc6e9dfb706c636c2b7fb7fc6c58015c53"
+  },
+  "artifacts": [
+    {
+      "source": "fixtures/runtime/pointer_load_sharing.act",
+      "runtime": "cart",
+      "origin": 12288,
+      "image_bytes": 716,
+      "sha256": "f8bff91568599d48da7c7eb3efb1d1d0d77a439c5bd6c3cfa9135234e4eb0b05",
+      "routine_bytes": {
+        "Forward": 90,
+        "PlusZero": 90,
+        "PlusTwo": 90,
+        "Subtract": 90,
+        "Offset": 100,
+        "Plain": 76
+      },
+      "compile_seconds": 0.3817,
+      "facts_sha256": "73b62c01687e8145e2bd46d79c28c7f09f6db6342ca7b7d476838f96a5d6c557"
+    },
+    {
+      "source": "fixtures/runtime/pointer_load_sharing.act",
+      "runtime": "cart",
+      "origin": 16839,
+      "image_bytes": 716,
+      "sha256": "18927473441c32d60345fb7f705f04ff2ce2a294683e2b685303153d9d5b4269",
+      "routine_bytes": {
+        "Forward": 90,
+        "PlusZero": 90,
+        "PlusTwo": 90,
+        "Subtract": 90,
+        "Offset": 100,
+        "Plain": 76
+      },
+      "compile_seconds": 0.0905,
+      "facts_sha256": "3684fb8bf70846ef0b52bfb4ba2d026668243e75244284d851529726b51f2f1f"
+    },
+    {
+      "source": "fixtures/runtime/pointer_load_sharing.act",
+      "runtime": "standalone",
+      "origin": 12288,
+      "image_bytes": 798,
+      "sha256": "ed8c219271fc38605c2e8b5909e5c6b37e1ec0955489cdad2935cf81be083f4c",
+      "routine_bytes": {
+        "Forward": 90,
+        "PlusZero": 90,
+        "PlusTwo": 90,
+        "Subtract": 90,
+        "Offset": 100,
+        "Plain": 76
+      },
+      "compile_seconds": 0.0953,
+      "facts_sha256": "3d31f5f5102b159d8e69285c0caab482c2521ec5ac134a79241c16852f93581e"
+    },
+    {
+      "source": "fixtures/runtime/pointer_load_sharing.act",
+      "runtime": "standalone",
+      "origin": 16839,
+      "image_bytes": 798,
+      "sha256": "5486ac03daf274477fe9ae7e0a5f4226b2e62a5ba2f1823c7ee1066770e18487",
+      "routine_bytes": {
+        "Forward": 90,
+        "PlusZero": 90,
+        "PlusTwo": 90,
+        "Subtract": 90,
+        "Offset": 100,
+        "Plain": 76
+      },
+      "compile_seconds": 0.0961,
+      "facts_sha256": "950e58f695da75c9a6c4e896ebd5e9ba5c6662f660e68d84920f083f9b36517d"
+    },
+    {
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "cart",
+      "origin": 11264,
+      "image_bytes": 9868,
+      "sha256": "31f00888ab952cfb6949de380c4086092deb218ad2ae4c6d1a7c6a8202d4135f",
+      "routine_bytes": {
+        "Strcat": 120
+      },
+      "compile_seconds": 6.7884,
+      "facts_sha256": "470fc7c5623e62ac0d5c77ea426c9c7052cafbb74f464a2e9803ca5902122a0c"
+    },
+    {
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "standalone",
+      "origin": 11264,
+      "image_bytes": 9993,
+      "sha256": "648104b3cf762091f430e8dd2c0c794cf2bf51012e92c7b5abc72ed7cebeeb0b",
+      "routine_bytes": {
+        "Strcat": 120
+      },
+      "compile_seconds": 6.5048,
+      "facts_sha256": "9bd92a99076a77594bcf9928aa667fca7b73a2f0f336733545765edda49658ac"
+    },
+    {
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "cart",
+      "origin": 11264,
+      "image_bytes": 12964,
+      "sha256": "2a08bd67b8bfefb32473cf2119ad86853a907aaa375199d58469b955bf2c168c",
+      "routine_bytes": {
+        "Strcat": 120
+      },
+      "compile_seconds": 21.4286,
+      "facts_sha256": "6a90f81e449ecc41af4071a4f48f254f877ed8185ac6273ed30a14a1a00d5b31"
+    },
+    {
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "standalone",
+      "origin": 11264,
+      "image_bytes": 13089,
+      "sha256": "066e8cf67e6c9d9497b26b256fc8e1ee4d44994178cee48aa1203678ab5c3b38",
+      "routine_bytes": {
+        "Strcat": 120
+      },
+      "compile_seconds": 21.1223,
+      "facts_sha256": "673e62d184114d10226c18868951ae6288166065d6623c7eff84c32f785535b3"
+    }
+  ]
+}
