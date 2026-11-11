@@ -220,6 +220,9 @@ crowding the active reference set.
   - implemented local `+1` fusion with typed machine effects, ordered-read
   proofs and final cost checks; [measured TN savings](benchmarks/6502-pointer-byte-plus-one/README.md)
   are five bytes per image and six cycles per sampled `Strcat` call.
+- [MIR6502 pointer load sharing](MIR6502_POINTER_LOAD_SHARING_PLAN.md)
+  - planned reuse of pointer bytes during arithmetic and indirect-read setup,
+  with four implementation slices, physical alias proofs and final cost checks.
 - [MIR6502_WIDE_SHIFT_COPY_REDUCTION.md](MIR6502_WIDE_SHIFT_COPY_REDUCTION.md)
   - byte and nibble projections for constant wide shifts, preserving captured
   operands while reducing staging for narrow results.
