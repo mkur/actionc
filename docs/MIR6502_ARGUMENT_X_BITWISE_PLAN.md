@@ -1,6 +1,6 @@
 # MIR6502 argument X forwarding through immediate bitwise setup
 
-Prepared 2026-11-11. Baseline: `9a43c963`. Status: planned.
+Prepared 2026-11-11. Baseline: `9a43c963`. Status: slice 1 complete; selection remains unchanged.
 Implement three vertical slices and commit each after its checks pass.
 This extends the existing target scheduling contract; no separate design
 note or executable IR form is needed.
@@ -149,6 +149,15 @@ Suggested commit: `Qualify immediate bitwise forwarding and enable defaults`.
 
 | Slice | Status | Evidence |
 | --- | --- | --- |
-| 1 Baselines and typed forms | Planned | |
+| 1 Baselines and typed forms | Complete | Frozen controls, typed classification, integration and independent execution |
 | 2 Selection and boundary checks | Planned | |
 | 3 Corpus and default | Planned | |
+
+Slice 1 freezes eight controls in
+[baseline.json](benchmarks/6502-argument-x-bitwise/baseline.json).
+The neutral images are 205 bytes in either runtime/origin. Two focused tests
+confirm all three immediate forms and reject unsupported shapes while the
+normal proof still rejects their gaps. Integration and 1,152 VM calls pass,
+including raw/optimized NIR, both runtimes/origins and actual LF/CRLF source
+parsing. Each source word read remain ordered, once per byte, with
+independent bitwise results and preserved C/V.

@@ -103,6 +103,16 @@ pub(in crate::mir6502) fn shape(r: &MirRoutine, site: MirSite) -> Result<Shape, 
         Blocker::Shape
     })
 }
+/// Closed byte-immediate family; selection remains separately controlled.
+#[allow(dead_code)]
+pub(in crate::mir6502) fn immediate_bitwise(op: &MirOp) -> bool {
+    matches!(op, MirOp::Binary {
+        op: MirBinaryOp::And | MirBinaryOp::Or | MirBinaryOp::Xor,
+        dst: MirDef::Reg(MirReg::A), left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8(_), width: MirWidth::Byte,
+        carry_in: None, carry_out: MirCarryOut::Ignore,
+    })
+}
 fn simple(op: &MirOp) -> bool {
     if matches!(op,MirOp::LoadIndirect {consumer:MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {lo}),..} if lo.0==255)
     {
@@ -316,3 +326,7 @@ pub(in crate::mir6502) fn validate(
 #[cfg(test)]
 #[path = "argument_x_forwarding_tests.rs"]
 pub(in crate::mir6502) mod tests;
+
+#[cfg(test)]
+#[path = "argument_x_bitwise_tests.rs"]
+pub(in crate::mir6502) mod bitwise_tests;

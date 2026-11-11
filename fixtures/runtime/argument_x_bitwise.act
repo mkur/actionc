@@ -1,0 +1,29 @@
+MODULE
+
+CARD observedDst=$0680
+BYTE observedTag=$0682,observedFlags=$0683
+CARD inputPointer=$0690
+BYTE inputTag=$0692
+
+PROC Observe(CARD dst BYTE tag)
+  observedDst=dst observedTag=tag
+  [$08 $68 $8D $83 $06]
+RETURN
+
+PROC ForwardAnd(CARD POINTER p BYTE tag)
+  Observe(p^,tag & $7F)
+RETURN
+
+PROC ForwardOr(CARD POINTER p BYTE tag)
+  Observe(p^,tag % $80)
+RETURN
+
+PROC ForwardXor(CARD POINTER p BYTE tag)
+  Observe(p^,tag ! $7F)
+RETURN
+
+PROC Main()
+  ForwardAnd(inputPointer,inputTag)
+  ForwardOr(inputPointer,inputTag)
+  ForwardXor(inputPointer,inputTag)
+RETURN
