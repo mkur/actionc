@@ -1,6 +1,6 @@
 # MIR6502 pointer load sharing implementation plan
 
-Prepared 2026-11-11. Status: slices 1–2 implemented; optimized default remains off.
+Prepared 2026-11-11. Status: slices 1–3 implemented; optimized default remains off.
 Compiler baseline: `9488d269`.
 Implement in four vertical slices and commit each after its checks pass.
 This plan contains the bounded rewrite contract; no new executable MIR form
@@ -342,8 +342,8 @@ and its printed contract remain unchanged.
 | Slice | Status | Evidence |
 | --- | --- | --- |
 | 1 Baseline and proof | Complete, `f68f5834` | [Frozen controls](benchmarks/6502-pointer-load-sharing/baseline.json), exact typed query and independent neutral execution |
-| 2 Selection and costing | Implemented | Typed driver witness, layout replay, bounded final costing and explicit feature control |
-| 3 Boundary qualification | Planned | |
+| 2 Selection and costing | Complete, `a2eb822f` | Typed driver witness, layout replay, bounded final costing and explicit feature control |
+| 3 Boundary qualification | Implemented | Complete-state emitted oracle, entry aliases, feature composition and exact measured TN execution |
 | 4 Corpus and optimized default | Planned | |
 
 The neutral fixture exposes the exact 11-operation window in optimized NIR.
@@ -369,3 +369,17 @@ pass. `Forward` is 90→84 bytes, neutral images are 716→710 / 798→792 bytes
 and sampled calls improve 350→342 cycles. The controls retain their sizes,
 cycles and source-read traces; source-home reads fall from four to two only
 at the admitted site. Pointer stores, ABI writes and entry flags/stack agree.
+
+Slice 3 executes 13,104 emitted fragments against an independent host oracle.
+It checks all low-byte values, high/word wrap, both incoming carry values,
+source/capture/pointer/ABI aliases and exact A/X/Y/C/N/Z/V/SP results at two
+origins. Ten focused tests pass, including live exit users, unsupported
+consumers and intervening operations. Three VM tests cover the 2,304-call
+matrix, 104 alias calls and eight calls with independent pointer-increment
+fusion settings. Indirect read count/order and ABI/pointer store traces are
+preserved. The measured-image exporter was added in this slice to supply
+current TN artifacts for execution; its corpus and default qualification
+finish in slice 4. All eight TN images pass 80 string and 16 parameter-home
+alias calls. `Strcat` is 120→114 bytes, sampled calls are 364→356 cycles, and
+TN cartridge is 9,868→9,862 bytes. Optimized default remains off until final
+backend qualification.

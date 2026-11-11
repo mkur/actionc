@@ -26,6 +26,16 @@ fn compile(
     origin: u16,
     enabled: bool,
 ) -> CodegenOutput {
+    compile_with_fusion(text, optimized, runtime, origin, enabled, true)
+}
+fn compile_with_fusion(
+    text: &str,
+    optimized: bool,
+    runtime: Runtime,
+    origin: u16,
+    enabled: bool,
+    fusion: bool,
+) -> CodegenOutput {
     let source = support::Source::new(text);
     let loaded = actionc::includes::load_program_with_expanded_source(&source.0).unwrap();
     let model = actionc::semantic::analyze_with_options(
@@ -48,6 +58,7 @@ fn compile(
         origin,
         &Mir6502Config {
             enable_pointer_load_sharing: enabled,
+            enable_pointer_byte_plus_one_fusion: fusion,
             ..Mir6502Config::optimized()
         },
         runtime,
@@ -56,6 +67,8 @@ fn compile(
 }
 #[derive(Default)]
 struct Observe {
+    targets: Vec<u16>,
+    indirect: Vec<Vec<u16>>,
     entry: u16,
     source_home: u16,
     args: Vec<Vec<u8>>,
@@ -78,6 +91,13 @@ impl VmRunHooks for Observe {
             ]);
             self.states.push((r.sp, r.status));
             let events = vm.bus().events();
+            self.indirect.push(
+                events
+                    .iter()
+                    .filter(|e| e.access == BusAccess::Read && self.targets.contains(&e.address))
+                    .map(|e| e.address)
+                    .collect(),
+            );
             self.reads.push(
                 events
                     .iter()
@@ -176,6 +196,9 @@ fn pointer_load_sharing_observes_runtime_arguments_and_reads_with_lf_and_crlf() 
                         {
                             vm.bus_mut().add_watchpoint(address);
                         }
+                        for address in [0x7000, 0x7200, 0x7201, 0x72FF, 0x7300] {
+                            vm.bus_mut().add_watchpoint(address);
+                        }
                         for q in [0x7200u16, 0x72FF] {
                             for b in [0u8, 1, 127, 128, 254, 255] {
                                 for name in [
@@ -207,6 +230,7 @@ fn pointer_load_sharing_observes_runtime_arguments_and_reads_with_lf_and_crlf() 
                                     let mut hooks = Observe {
                                         entry: entry("Observe"),
                                         source_home: homes[name],
+                                        targets: vec![p, q, q + 1],
                                         ..Observe::default()
                                     };
                                     vm.bus_mut().clear_events();
@@ -218,6 +242,16 @@ fn pointer_load_sharing_observes_runtime_arguments_and_reads_with_lf_and_crlf() 
                                         "{name}/{q:04X}/{b}"
                                     );
                                     assert_eq!(machine::bytes(&vm, 0x680, 5), expected);
+                                    assert_eq!(
+                                        hooks.indirect,
+                                        vec![if name == "Plain" {
+                                            vec![q]
+                                        } else if name == "Offset" {
+                                            vec![p, q + 1]
+                                        } else {
+                                            vec![p, q]
+                                        }]
+                                    );
                                     assert_eq!(vm.bus().ram().read(0x685), 0xD6);
                                     assert_eq!(vm.bus().ram().read(p), b);
                                     assert_eq!(vm.bus().ram().read(q), tag);
@@ -275,6 +309,156 @@ fn pointer_load_sharing_observes_runtime_arguments_and_reads_with_lf_and_crlf() 
                     }
                 }
             }
+        }
+    }
+}
+
+#[test]
+fn pointer_load_sharing_preserves_indirect_aliases_of_abi_scratch_and_parameters() {
+    let text =
+        include_str!("../../../fixtures/runtime/pointer_load_sharing.act").replace("\r\n", "\n");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for origin in [0x3000, 0x41C7] {
+            let mut baseline: BTreeMap<
+                usize,
+                (Vec<(u8, u8)>, Vec<Vec<(u16, u8)>>, Vec<Vec<(u16, u8)>>),
+            > = BTreeMap::new();
+            for enabled in [false, true] {
+                let output = compile(&text, true, runtime, origin, enabled);
+                let entry = |name: &str| {
+                    output
+                        .routine_addresses
+                        .iter()
+                        .find(|r| r.name == name)
+                        .unwrap()
+                        .address
+                };
+                let home = |name: &str| {
+                    output
+                        .map
+                        .storage_symbols
+                        .iter()
+                        .find(|s| {
+                            s.name == name
+                                && s.scope == CodegenSymbolScope::Routine("Forward".into())
+                        })
+                        .unwrap()
+                        .address
+                };
+                let ph = home("p");
+                let qh = home("q");
+                for (case, q) in [
+                    0xA0u16,
+                    0xA1,
+                    0xA2,
+                    0xA3,
+                    0xA4,
+                    0xAC,
+                    0xAD,
+                    0xAE,
+                    0xAF,
+                    ph,
+                    ph + 1,
+                    qh,
+                    qh + 1,
+                ]
+                .into_iter()
+                .enumerate()
+                {
+                    let p = 0x7000u16;
+                    let first = p + 4;
+                    let second = q.wrapping_add(1);
+                    let mut expected_memory = BTreeMap::from([
+                        (q, 0xD6),
+                        (ph, p as u8),
+                        (ph + 1, (p >> 8) as u8),
+                        (qh, q as u8),
+                        (qh + 1, (q >> 8) as u8),
+                        (0xAE, p as u8),
+                        (0xAF, (p >> 8) as u8),
+                        (0xA0, first as u8),
+                        (0xA1, (first >> 8) as u8),
+                        (0xA2, second as u8),
+                        (0xA3, (second >> 8) as u8),
+                        (0xAC, q as u8),
+                        (0xAD, (q >> 8) as u8),
+                    ]);
+                    let tag = expected_memory.remove(&q).unwrap();
+                    let mut expected = first.to_le_bytes().to_vec();
+                    expected.extend(second.to_le_bytes());
+                    expected.push(tag);
+                    let (mut vm, profile) = support::vm_for(runtime);
+                    vm.load_atari_object_for_execution(
+                        profile,
+                        &actionc::codegen::format_load_file(&output),
+                    )
+                    .unwrap();
+                    for a in 0xA0..=0xAF {
+                        vm.bus_mut().ram_mut().write(a, 0xD6);
+                        vm.bus_mut().add_watchpoint(a);
+                    }
+                    vm.bus_mut().ram_mut().write(q, 0xD6);
+                    vm.bus_mut().ram_mut().write(p, 3);
+                    let mut args = p.to_le_bytes().to_vec();
+                    args.extend(q.to_le_bytes());
+                    let mut hooks = Observe {
+                        entry: entry("Observe"),
+                        source_home: qh,
+                        ..Observe::default()
+                    };
+                    vm = machine::call(vm, &mut hooks, entry("Forward"), &args);
+                    assert_eq!(
+                        hooks.args,
+                        vec![expected.clone()],
+                        "{case}/{q:04X}/{enabled}/{runtime:?}"
+                    );
+                    assert_eq!(machine::bytes(&vm, 0x680, 5), expected);
+                    if enabled {
+                        let old = &baseline[&case];
+                        assert_eq!(
+                            (&hooks.states, &hooks.abi, &hooks.pointer),
+                            (&old.0, &old.1, &old.2)
+                        );
+                    } else {
+                        baseline.insert(case, (hooks.states, hooks.abi, hooks.pointer));
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn pointer_load_sharing_composes_with_pointer_increment_fusion() {
+    let text =
+        include_str!("../../../fixtures/runtime/pointer_load_sharing.act").replace("\r\n", "\n");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let mut sizes = BTreeMap::new();
+        for fusion in [false, true] {
+            for sharing in [false, true] {
+                let output = compile_with_fusion(&text, true, runtime, 0x3000, sharing, fusion);
+                let image = actionc::codegen::format_load_file(&output);
+                sizes.insert((fusion, sharing), image.len());
+                let entry = |name: &str| {
+                    output
+                        .routine_addresses
+                        .iter()
+                        .find(|r| r.name == name)
+                        .unwrap()
+                        .address
+                };
+                let (mut vm, profile) = support::vm_for(runtime);
+                vm.load_atari_object_for_execution(profile, &image).unwrap();
+                vm.bus_mut().ram_mut().write(0x7000, 1);
+                vm.bus_mut().ram_mut().write(0x72FF, 255);
+                let mut hooks = Observe {
+                    entry: entry("Observe"),
+                    ..Observe::default()
+                };
+                vm = machine::call(vm, &mut hooks, entry("Forward"), &[0, 0x70, 0xFF, 0x72]);
+                assert_eq!(machine::bytes(&vm, 0x680, 5), vec![2, 0x70, 0, 0x73, 255]);
+            }
+            assert_eq!(sizes[&(fusion, false)] - sizes[&(fusion, true)], 6);
         }
     }
 }
