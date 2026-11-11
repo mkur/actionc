@@ -49,6 +49,10 @@ rejects the producer shape before proposing a schedule. Supporting those
 indirect reads and machine-call setup requires a separate extension. This
 change does not close the historical 125-versus-51-byte whole-body gap.
 
+The [Strcat byte and cycle breakdown](STRCAT_BYTE_BREAKDOWN.md) accounts for
+all 125 bytes and the 74-byte C-control difference. It also executes parameter
+aliases that explain why post-call pointer reloads need stronger proofs.
+
 ## Applicability and cost
 
 The corpus includes neutral arithmetic, TN/TNDBG, existing direct word
