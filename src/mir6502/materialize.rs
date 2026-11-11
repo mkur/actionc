@@ -23,6 +23,7 @@ pub(super) mod address_values;
 pub(super) mod record_bases;
 pub(super) mod call_predicates;
 pub(super) mod comparison_loops;
+pub(super) mod captured_comparisons;
 mod comparison_fusion;
 mod comparison_index;
 mod block_args;
@@ -2715,9 +2716,6 @@ fn run_prehome_canonicalization_group(
             loops.blocked_observable_induction,
         );
         verify_cfg_after_transform(routine, "small counted-loop unrolling")?;
-    }
-    if config.enable_peepholes && config.enable_captured_byte_comparisons {
-        run_analyzed_captured_byte_comparisons(routine, peephole_stats)?;
     }
     run_analyzed_compare_producer_rewrites(routine, peephole_stats)?;
     run_analyzed_inclusive_compare_reversals(routine, layout, peephole_stats)?;

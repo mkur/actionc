@@ -10,7 +10,7 @@ pub struct Mir6502Config {
     #[doc(hidden)]
     pub select_widening_byte_multiply: bool,
     pub enable_peepholes: bool,
-    /// Feed captured unsigned BYTE comparisons from an addressed load in A.
+    /// Feed captured BYTE comparisons from A, with final code/home/image costing.
     pub enable_captured_byte_comparisons: bool,
     /// Replace proven small constant fill loops with direct byte stores.
     pub enable_tiny_constant_fills: bool,

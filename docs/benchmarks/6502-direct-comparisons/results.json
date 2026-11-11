@@ -1,0 +1,797 @@
+{
+  "date": "2026-11-11",
+  "baseline_revision": "1eadf8f14cae7177f0b5e8c483502769415783fb",
+  "selector_revision": "61c2a403",
+  "qualification_revision": "containing commit (slice 4)",
+  "measurement_binary_sha256": "07b7cfc1668f903598fd2e391145c9cfa57f7318f74f6d648a54fda4977eb257",
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "vm_revision": "7ec0cc454ebf43b088b7bcd11515533085ea1964",
+  "mode": "mir6502",
+  "profile": "modern",
+  "nir": "optimized",
+  "feature_toggle": "enable_captured_byte_comparisons",
+  "notes": [
+    "Ranges are half-open and addresses are decimal.",
+    "Zero-page ranges are hexadecimal; union of declared fixed cells, allocated homes and mapped source storage. Implicit runtime/emitter scratch is not a separate allocation census.",
+    "Final image hash/size includes XEX framing. image_span_bytes is the emitter byte span; reserved ranges are reported separately and retain their sizes while moving with code.",
+    "Cycles include the common call wrapper. Print cycles use deterministic RTS output stubs; no screen or disk I/O timing is included.",
+    "All six feature-off baseline images match the frozen manifest byte for byte.",
+    "Samples without candidate sites keep their prior lowering; this extension covers unsigned BYTE <= and > with an adjacent indirect RHS load."
+  ],
+  "inputs_sha256": {
+    "samples/tn/modern/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "samples/tn/modern/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+    "fixtures/runtime/comparison_values.act": "6e5c250c3c0b241a727cd812318039d0383e1c6a4d8124df251335642f6e2907",
+    "samples/graphics/fedora.act": "1b10fa0fd2d7b82b97585a7c314081fb48009751b12a08b4693e7d7aee5fd1c0",
+    "fixtures/runtime/direct_comparisons.act": "6ade5a7f34ba33f2d83cc8f4519a73ced5ee83229e897231031b069553d9870c",
+    "fixtures/runtime/pointer_invariant_loop.act": "0508ad8bf6152cdade795ffd1e85b6adaf694b6cd25c02f4a4011485e93d7aa7",
+    "fixtures/mir6502/array_param_string_length_loop.act": "653c4410511bd65ccb9e3e20437077ad302d0ba771ca2cde1c1f9ea8f11a1b58",
+    "fixtures/runtime/standalone_sys_strings_runtime.act": "da9d2d5597b16585e566ab604067b83f9ef0af7f91ceee1d628e1ddec5515660",
+    "samples/tn/modern/LIB.ACT": "b8cd4c48b9b2d9c96fc86d24e94ea3dc6e9dfb706c636c2b7fb7fc6c58015c53"
+  },
+  "artifacts": [
+    {
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "ActionCart",
+      "origin": 11264,
+      "before": {
+        "image_bytes": 9891,
+        "sha256": "89455e97a18285ff561ba9720ff3724df4aefe60a303b896c79bcf3e0614b6e1",
+        "image_span_bytes": 9879,
+        "routine_code_bytes": 9071,
+        "code_range": [
+          12072,
+          21143
+        ],
+        "reserved_bytes": 2794,
+        "reserved_range": [
+          21143,
+          23937
+        ],
+        "declared_and_allocated_zp": "5A-5D,70,82-87,A0-A5,AA-AF,C0-C2,C6-C7,D3,E0-EA,FE-FF"
+      },
+      "after": {
+        "image_bytes": 9873,
+        "sha256": "228db010fcf9aa4392a42900d9dc34bea85e9fe88339b3406d54092dbd659f28",
+        "image_span_bytes": 9861,
+        "routine_code_bytes": 9053,
+        "code_range": [
+          12072,
+          21125
+        ],
+        "reserved_bytes": 2794,
+        "reserved_range": [
+          21125,
+          23919
+        ],
+        "declared_and_allocated_zp": "5A-5D,70,82-87,A0-A5,AA-AF,C0-C2,C6-C7,D3,E0-EA,FE-FF"
+      },
+      "candidate_sites": 4,
+      "legal_sites": 4,
+      "applied_sites": 3,
+      "blocked": {
+        "declined-final-cost": 1
+      },
+      "routine_bytes": {
+        "Instr": [
+          66,
+          60
+        ],
+        "Print": [
+          58,
+          52
+        ],
+        "PrintFname": [
+          58,
+          52
+        ],
+        "Fnamecmp": [
+          185,
+          185
+        ]
+      }
+    },
+    {
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "Standalone",
+      "origin": 11264,
+      "before": {
+        "image_bytes": 10016,
+        "sha256": "8b08426d942fc8a2942d3e68a0a9cc09f00283723536c10f459bf64f423dd4bb",
+        "image_span_bytes": 10004,
+        "routine_code_bytes": 9177,
+        "code_range": [
+          12074,
+          21268
+        ],
+        "reserved_bytes": 2794,
+        "reserved_range": [
+          21268,
+          24062
+        ],
+        "declared_and_allocated_zp": "5A-5D,70,82-87,A0-A5,AA-AF,E0-EA,FE-FF"
+      },
+      "after": {
+        "image_bytes": 9998,
+        "sha256": "6d9c5312c4ba53c30e5a838603387c2d0ad849d8be5b33ff4a15c7b6963e954b",
+        "image_span_bytes": 9986,
+        "routine_code_bytes": 9159,
+        "code_range": [
+          12074,
+          21250
+        ],
+        "reserved_bytes": 2794,
+        "reserved_range": [
+          21250,
+          24044
+        ],
+        "declared_and_allocated_zp": "5A-5D,70,82-87,A0-A5,AA-AF,E0-EA,FE-FF"
+      },
+      "candidate_sites": 4,
+      "legal_sites": 4,
+      "applied_sites": 3,
+      "blocked": {
+        "declined-final-cost": 1
+      },
+      "routine_bytes": {
+        "Instr": [
+          66,
+          60
+        ],
+        "Print": [
+          58,
+          52
+        ],
+        "PrintFname": [
+          58,
+          52
+        ],
+        "Fnamecmp": [
+          185,
+          185
+        ]
+      }
+    },
+    {
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "ActionCart",
+      "origin": 11264,
+      "before": {
+        "image_bytes": 12987,
+        "sha256": "af975e4ef4f1ac6e62c2904e285ae6aa48eb7d64304f41ec1e1c7e4223acafae",
+        "image_span_bytes": 12975,
+        "routine_code_bytes": 11632,
+        "code_range": [
+          12607,
+          24239
+        ],
+        "reserved_bytes": 2794,
+        "reserved_range": [
+          24239,
+          27033
+        ],
+        "declared_and_allocated_zp": "5A-5D,70,82-87,A0-AF,C0-C2,C6-C7,D3,E0-EB,FE-FF"
+      },
+      "after": {
+        "image_bytes": 12969,
+        "sha256": "aed6b81dea59387b7dd2e7fb73f0073d66140f1614e0ff45e25ab4e2a467e74f",
+        "image_span_bytes": 12957,
+        "routine_code_bytes": 11614,
+        "code_range": [
+          12607,
+          24221
+        ],
+        "reserved_bytes": 2794,
+        "reserved_range": [
+          24221,
+          27015
+        ],
+        "declared_and_allocated_zp": "5A-5D,70,82-87,A0-AF,C0-C2,C6-C7,D3,E0-EB,FE-FF"
+      },
+      "candidate_sites": 4,
+      "legal_sites": 4,
+      "applied_sites": 3,
+      "blocked": {
+        "declined-final-cost": 1
+      },
+      "routine_bytes": {
+        "Instr": [
+          66,
+          60
+        ],
+        "Print": [
+          58,
+          52
+        ],
+        "PrintFname": [
+          58,
+          52
+        ],
+        "Fnamecmp": [
+          185,
+          185
+        ]
+      }
+    },
+    {
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "Standalone",
+      "origin": 11264,
+      "before": {
+        "image_bytes": 13112,
+        "sha256": "eae7cf2a544667a3f926a489df9a1b3d00f95cd60023c737b8182811ed5d1ae2",
+        "image_span_bytes": 13100,
+        "routine_code_bytes": 11738,
+        "code_range": [
+          12609,
+          24364
+        ],
+        "reserved_bytes": 2794,
+        "reserved_range": [
+          24364,
+          27158
+        ],
+        "declared_and_allocated_zp": "5A-5D,70,82-87,A0-AF,E0-EB,FE-FF"
+      },
+      "after": {
+        "image_bytes": 13094,
+        "sha256": "4052132592b2fc3cc39fbe0adb6c4ae0437d40a0c21a1fbd5cdb80c600d98465",
+        "image_span_bytes": 13082,
+        "routine_code_bytes": 11720,
+        "code_range": [
+          12609,
+          24346
+        ],
+        "reserved_bytes": 2794,
+        "reserved_range": [
+          24346,
+          27140
+        ],
+        "declared_and_allocated_zp": "5A-5D,70,82-87,A0-AF,E0-EB,FE-FF"
+      },
+      "candidate_sites": 4,
+      "legal_sites": 4,
+      "applied_sites": 3,
+      "blocked": {
+        "declined-final-cost": 1
+      },
+      "routine_bytes": {
+        "Instr": [
+          66,
+          60
+        ],
+        "Print": [
+          58,
+          52
+        ],
+        "PrintFname": [
+          58,
+          52
+        ],
+        "Fnamecmp": [
+          185,
+          185
+        ]
+      }
+    },
+    {
+      "source": "fixtures/runtime/comparison_values.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "before": {
+        "image_bytes": 1625,
+        "sha256": "02b9e375b4fe6639e513a64a095767de806e0b2fc638931543f45d2059bd4a31",
+        "image_span_bytes": 1613,
+        "routine_code_bytes": 1594,
+        "code_range": [
+          12307,
+          13901
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "82-87,A0-A1,AC-AD,C0-C2,C6-C7,D3,E0-E4"
+      },
+      "after": {
+        "image_bytes": 1625,
+        "sha256": "02b9e375b4fe6639e513a64a095767de806e0b2fc638931543f45d2059bd4a31",
+        "image_span_bytes": 1613,
+        "routine_code_bytes": 1594,
+        "code_range": [
+          12307,
+          13901
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "82-87,A0-A1,AC-AD,C0-C2,C6-C7,D3,E0-E4"
+      },
+      "candidate_sites": 0,
+      "legal_sites": 0,
+      "applied_sites": 0,
+      "blocked": {},
+      "routine_bytes": {}
+    },
+    {
+      "source": "fixtures/runtime/comparison_values.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "before": {
+        "image_bytes": 1608,
+        "sha256": "78ee0279cb2f4131bac010722c12cea76c9194640fddc54c7ce7971c0650c5cc",
+        "image_span_bytes": 1596,
+        "routine_code_bytes": 1577,
+        "code_range": [
+          12307,
+          13884
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "82-87,A0-A1,AC-AD,E0-E4"
+      },
+      "after": {
+        "image_bytes": 1608,
+        "sha256": "78ee0279cb2f4131bac010722c12cea76c9194640fddc54c7ce7971c0650c5cc",
+        "image_span_bytes": 1596,
+        "routine_code_bytes": 1577,
+        "code_range": [
+          12307,
+          13884
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "82-87,A0-A1,AC-AD,E0-E4"
+      },
+      "candidate_sites": 0,
+      "legal_sites": 0,
+      "applied_sites": 0,
+      "blocked": {},
+      "routine_bytes": {}
+    },
+    {
+      "source": "samples/graphics/fedora.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "before": {
+        "image_bytes": 5586,
+        "sha256": "af2ef7efe3c33700da9313a018a25a26cc21ba636c8b022c00bd5e201592b1ab",
+        "image_span_bytes": 5574,
+        "routine_code_bytes": 4988,
+        "code_range": [
+          12874,
+          17862
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "4D,82-87,A0,A3-A5,AA-AD,C0-C2,C6-C7,D3-FF"
+      },
+      "after": {
+        "image_bytes": 5586,
+        "sha256": "af2ef7efe3c33700da9313a018a25a26cc21ba636c8b022c00bd5e201592b1ab",
+        "image_span_bytes": 5574,
+        "routine_code_bytes": 4988,
+        "code_range": [
+          12874,
+          17862
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "4D,82-87,A0,A3-A5,AA-AD,C0-C2,C6-C7,D3-FF"
+      },
+      "candidate_sites": 0,
+      "legal_sites": 0,
+      "applied_sites": 0,
+      "blocked": {},
+      "routine_bytes": {}
+    },
+    {
+      "source": "samples/graphics/fedora.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "before": {
+        "image_bytes": 6227,
+        "sha256": "7a2cc0939463f4e457632ee3d985748b2c94b85011edd5dca6e280fdca464e22",
+        "image_span_bytes": 6215,
+        "routine_code_bytes": 5560,
+        "code_range": [
+          12943,
+          18503
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "4D,82-87,A0,A3-A5,AA-AD,C0-C2,C6-C7,D3-FF"
+      },
+      "after": {
+        "image_bytes": 6227,
+        "sha256": "7a2cc0939463f4e457632ee3d985748b2c94b85011edd5dca6e280fdca464e22",
+        "image_span_bytes": 6215,
+        "routine_code_bytes": 5560,
+        "code_range": [
+          12943,
+          18503
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "4D,82-87,A0,A3-A5,AA-AD,C0-C2,C6-C7,D3-FF"
+      },
+      "candidate_sites": 0,
+      "legal_sites": 0,
+      "applied_sites": 0,
+      "blocked": {},
+      "routine_bytes": {}
+    },
+    {
+      "source": "fixtures/runtime/direct_comparisons.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "before": {
+        "image_bytes": 131,
+        "sha256": "cf6c254fe4f1155475c7a70670a543ea4b763cd376e53e305c72ff6dd8da62cc",
+        "image_span_bytes": 119,
+        "routine_code_bytes": 118,
+        "code_range": [
+          12289,
+          12407
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "AC-AD,E0-E1"
+      },
+      "after": {
+        "image_bytes": 113,
+        "sha256": "54423501dc5e75389cd3b01f3cc027305f27f456cd0d93a56a2ed4ce69173d3b",
+        "image_span_bytes": 101,
+        "routine_code_bytes": 100,
+        "code_range": [
+          12289,
+          12389
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "AC-AD,E0"
+      },
+      "candidate_sites": 3,
+      "legal_sites": 3,
+      "applied_sites": 3,
+      "blocked": {},
+      "routine_bytes": {
+        "AtMost": [
+          30,
+          24
+        ],
+        "Greater": [
+          30,
+          24
+        ],
+        "NamedAtMost": [
+          31,
+          25
+        ]
+      }
+    },
+    {
+      "source": "fixtures/runtime/direct_comparisons.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "before": {
+        "image_bytes": 131,
+        "sha256": "cf6c254fe4f1155475c7a70670a543ea4b763cd376e53e305c72ff6dd8da62cc",
+        "image_span_bytes": 119,
+        "routine_code_bytes": 118,
+        "code_range": [
+          12289,
+          12407
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "AC-AD,E0-E1"
+      },
+      "after": {
+        "image_bytes": 113,
+        "sha256": "54423501dc5e75389cd3b01f3cc027305f27f456cd0d93a56a2ed4ce69173d3b",
+        "image_span_bytes": 101,
+        "routine_code_bytes": 100,
+        "code_range": [
+          12289,
+          12389
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "AC-AD,E0"
+      },
+      "candidate_sites": 3,
+      "legal_sites": 3,
+      "applied_sites": 3,
+      "blocked": {},
+      "routine_bytes": {
+        "AtMost": [
+          30,
+          24
+        ],
+        "Greater": [
+          30,
+          24
+        ],
+        "NamedAtMost": [
+          31,
+          25
+        ]
+      }
+    },
+    {
+      "source": "fixtures/runtime/pointer_invariant_loop.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "before": {
+        "image_bytes": 77,
+        "sha256": "7ed326bb9d7342bf7381e69b551df3eb00767cf6ef526bf91568097e0767e45d",
+        "image_span_bytes": 65,
+        "routine_code_bytes": 61,
+        "code_range": [
+          12292,
+          12353
+        ],
+        "reserved_bytes": 512,
+        "reserved_range": [
+          12353,
+          12865
+        ],
+        "declared_and_allocated_zp": "AC-AD"
+      },
+      "after": {
+        "image_bytes": 77,
+        "sha256": "7ed326bb9d7342bf7381e69b551df3eb00767cf6ef526bf91568097e0767e45d",
+        "image_span_bytes": 65,
+        "routine_code_bytes": 61,
+        "code_range": [
+          12292,
+          12353
+        ],
+        "reserved_bytes": 512,
+        "reserved_range": [
+          12353,
+          12865
+        ],
+        "declared_and_allocated_zp": "AC-AD"
+      },
+      "candidate_sites": 0,
+      "legal_sites": 0,
+      "applied_sites": 0,
+      "blocked": {},
+      "routine_bytes": {}
+    },
+    {
+      "source": "fixtures/runtime/pointer_invariant_loop.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "before": {
+        "image_bytes": 77,
+        "sha256": "7ed326bb9d7342bf7381e69b551df3eb00767cf6ef526bf91568097e0767e45d",
+        "image_span_bytes": 65,
+        "routine_code_bytes": 61,
+        "code_range": [
+          12292,
+          12353
+        ],
+        "reserved_bytes": 512,
+        "reserved_range": [
+          12353,
+          12865
+        ],
+        "declared_and_allocated_zp": "AC-AD"
+      },
+      "after": {
+        "image_bytes": 77,
+        "sha256": "7ed326bb9d7342bf7381e69b551df3eb00767cf6ef526bf91568097e0767e45d",
+        "image_span_bytes": 65,
+        "routine_code_bytes": 61,
+        "code_range": [
+          12292,
+          12353
+        ],
+        "reserved_bytes": 512,
+        "reserved_range": [
+          12353,
+          12865
+        ],
+        "declared_and_allocated_zp": "AC-AD"
+      },
+      "candidate_sites": 0,
+      "legal_sites": 0,
+      "applied_sites": 0,
+      "blocked": {},
+      "routine_bytes": {}
+    },
+    {
+      "source": "fixtures/mir6502/array_param_string_length_loop.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "before": {
+        "image_bytes": 78,
+        "sha256": "84bf2e38f57b544d47e67a514dba2d252e3e3c1f20628cc57fd83344e5b9fff3",
+        "image_span_bytes": 66,
+        "routine_code_bytes": 54,
+        "code_range": [
+          12300,
+          12354
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "AC-AD,E0"
+      },
+      "after": {
+        "image_bytes": 75,
+        "sha256": "61795c2cc5107185521d6378a82586c4f6e5ba5b514ff5d1ffbd3fba69212c87",
+        "image_span_bytes": 63,
+        "routine_code_bytes": 51,
+        "code_range": [
+          12300,
+          12351
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "AC-AD"
+      },
+      "candidate_sites": 1,
+      "legal_sites": 1,
+      "applied_sites": 1,
+      "blocked": {},
+      "routine_bytes": {
+        "Print": [
+          47,
+          44
+        ]
+      }
+    },
+    {
+      "source": "fixtures/mir6502/array_param_string_length_loop.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "before": {
+        "image_bytes": 78,
+        "sha256": "84bf2e38f57b544d47e67a514dba2d252e3e3c1f20628cc57fd83344e5b9fff3",
+        "image_span_bytes": 66,
+        "routine_code_bytes": 54,
+        "code_range": [
+          12300,
+          12354
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "AC-AD,E0"
+      },
+      "after": {
+        "image_bytes": 75,
+        "sha256": "61795c2cc5107185521d6378a82586c4f6e5ba5b514ff5d1ffbd3fba69212c87",
+        "image_span_bytes": 63,
+        "routine_code_bytes": 51,
+        "code_range": [
+          12300,
+          12351
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "AC-AD"
+      },
+      "candidate_sites": 1,
+      "legal_sites": 1,
+      "applied_sites": 1,
+      "blocked": {},
+      "routine_bytes": {
+        "Print": [
+          47,
+          44
+        ]
+      }
+    },
+    {
+      "source": "fixtures/runtime/standalone_sys_strings_runtime.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "before": {
+        "image_bytes": 87,
+        "sha256": "b763511c6d4016d8f98e2a612bee0ebb1750a9987dce04dc2de3d0fd8af682e4",
+        "image_span_bytes": 75,
+        "routine_code_bytes": 67,
+        "code_range": [
+          12296,
+          12363
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "A1,A3-A5"
+      },
+      "after": {
+        "image_bytes": 87,
+        "sha256": "b763511c6d4016d8f98e2a612bee0ebb1750a9987dce04dc2de3d0fd8af682e4",
+        "image_span_bytes": 75,
+        "routine_code_bytes": 67,
+        "code_range": [
+          12296,
+          12363
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "A1,A3-A5"
+      },
+      "candidate_sites": 0,
+      "legal_sites": 0,
+      "applied_sites": 0,
+      "blocked": {},
+      "routine_bytes": {}
+    },
+    {
+      "source": "fixtures/runtime/standalone_sys_strings_runtime.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "before": {
+        "image_bytes": 217,
+        "sha256": "d401c385e34034522d18eb985c8521c84007098bd52626a3c531e7a59b57d464",
+        "image_span_bytes": 205,
+        "routine_code_bytes": 183,
+        "code_range": [
+          12310,
+          12493
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "A1,A3-A5"
+      },
+      "after": {
+        "image_bytes": 217,
+        "sha256": "d401c385e34034522d18eb985c8521c84007098bd52626a3c531e7a59b57d464",
+        "image_span_bytes": 205,
+        "routine_code_bytes": 183,
+        "code_range": [
+          12310,
+          12493
+        ],
+        "reserved_bytes": 0,
+        "reserved_range": null,
+        "declared_and_allocated_zp": "A1,A3-A5"
+      },
+      "candidate_sites": 0,
+      "legal_sites": 0,
+      "applied_sites": 0,
+      "blocked": {},
+      "routine_bytes": {}
+    }
+  ],
+  "tn_cycles": [
+    {
+      "routine": "Instr",
+      "length": 200,
+      "workload": "absent byte in counted string",
+      "before": 12477,
+      "after": 11068
+    },
+    {
+      "routine": "Print",
+      "length": 8,
+      "workload": "Putchar entry replaced by RTS",
+      "before": 650,
+      "after": 585
+    },
+    {
+      "routine": "PrintFname",
+      "length": 8,
+      "workload": "Putchar entry replaced by RTS",
+      "before": 506,
+      "after": 455
+    }
+  ],
+  "page_comparison_cycle_savings": {
+    "cases": 80,
+    "minimum": 6,
+    "maximum": 8
+  },
+  "validation": {
+    "mir6502_unit_passed": 1171,
+    "mir6502_unit_ignored": 3,
+    "integration_targets": 14,
+    "sweep_fixtures": 169,
+    "exhaustive_calls": 262144,
+    "integration_passed": 101,
+    "affected_vm_passed": 15,
+    "corpus_pairs": 16,
+    "exact_image_vm_passed": 1
+  }
+}

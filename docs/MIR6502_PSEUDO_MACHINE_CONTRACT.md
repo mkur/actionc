@@ -536,7 +536,16 @@ machine liveness requires changed register and flag state dead on successors.
 The normal branch selector consumes the resulting carry condition. Selection
 is controlled by `enable_captured_byte_comparisons` together with
 `enable_peepholes`; the optimized configuration enables it.
-See [the implementation and validation](MIR6502_COMPARE_BRANCH_FUSION_PLAN.md).
+Selection runs through the shared pre-home transaction driver before final
+home and branch layout. Final costing compares each changed routine's code
+and ordinary homes against its fallback, then checks the combined image and
+occupied zero page. Growing routines are restored and the combined result is
+costed again. Unknown cost or a failed trial retains the valid fallback. This
+preserves profitable existing dual-indirect selection when retaining a capture
+would instead add pointer setup or a temporary home.
+See [comparison-result fusion](MIR6502_COMPARE_BRANCH_FUSION_PLAN.md) and
+[captured comparisons](MIR6502_DIRECT_COMPARISONS_AND_FLAG_REUSE_PLAN.md)
+for implementation and validation.
 
 Emission owns concrete bytes and output mechanics:
 

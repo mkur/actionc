@@ -1,6 +1,6 @@
 # MIR6502 direct comparisons and flag reuse
 
-Prepared 2026-11-11. Slices 1 through 3 are implemented. The starting compiler is
+Prepared 2026-11-11. All four slices are implemented and qualified. The starting compiler is
 `1eadf8f14cae7177f0b5e8c483502769415783fb`, whose compiler sources match the
 frozen TN comparison revision `d11fe9ca`.
 
@@ -400,3 +400,78 @@ snapshot obligation independently of aggregate effect matching.
 cargo test --locked --lib captured_compare_
 cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml --test direct_comparisons
 ```
+
+### Slice 4 profitability qualification
+
+Whole-image costing exposed competition with the existing dual-indirect
+selector. The initial extension saved six bytes in each of TN's `Instr`,
+`Print` and `PrintFname`, but added 26 bytes to `Fnamecmp`, growing the complete
+image by eight bytes. `Fnamecmp` compares two indirect reads; retaining the
+first capture replaced an existing prepared-pair comparison with another
+pointer preparation and a private temporary. This is a general target-selection
+interaction, independent of routine names.
+
+The extension now uses the existing final `address_values::Cost` machinery.
+It selects proven candidates before the remaining materialization passes,
+compares final routine code and ordinary homes against the feature-off path,
+restores growing routines, and rechecks the combined image and occupied zero
+page. Failed trials and unknown costs retain the valid fallback. A focused
+two-routine regression confirms that a profitable single-addressed comparison
+survives while the dual-indirect routine keeps its existing materialization,
+in both runtimes and at both tested origins.
+
+Reporting distinguishes legal pre-home `captured-byte-compare-selected` sites
+from final `captured-byte-compare-applied` and
+`captured-byte-compare-declined-final-cost` sites. Candidate and proof-blocker
+counters remain available. Local byte/cycle estimates rank candidates; the
+final code/home/image check decides acceptance.
+
+The opt-in corpus measurement uses the normal module-aware semantic lowering
+and entry-reachable linking policy, optimized NIR, and both runtimes. It writes
+feature-off/on XEX files, materialized MIR, entry addresses and map-derived
+metrics under ignored `build/direct-comparisons/measured/`. The matching
+opt-in VM test executes those exact TN/TNDBG images against an independent
+unsigned-search oracle. Ordinary regression tests require no saved artifacts.
+
+```sh
+cargo test --release --locked --lib captured_compare_measure_corpus -- --ignored --nocapture
+cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml --test direct_comparison_measurements -- --ignored --nocapture
+```
+
+### Final results and validation
+
+The [measured results](benchmarks/6502-direct-comparisons/README.md) and
+[machine-readable manifest](benchmarks/6502-direct-comparisons/results.json)
+record the complete corpus, source/image identities, code/storage extents,
+declared/allocated zero-page usage, candidate/blocked counts and target cycles.
+All six feature-off control images exactly match the frozen baseline.
+
+TN and TNDBG each save 18 bytes in either runtime. `Instr` shrinks from
+66 to 60 bytes; `Print` and `PrintFname` each shrink from 58 to 52.
+`Fnamecmp` retains its existing 185-byte dual-indirect implementation. Each
+program has four candidates, three final applications and one final-cost
+decline. A 200-byte unsuccessful `Instr` search improves from 12,477 to
+11,068 cycles, including the shared call wrapper. The exact-image VM target
+also validates both print loops with a deterministic output stub and covers
+search/print lengths through 255 in both variants and runtimes.
+
+The neutral image shrinks from 131 to 113 bytes. The existing array-parameter
+string-loop fixture saves three bytes. Numeric-comparison, invariant-pointer,
+graphics and resident-string corpus controls have no new suffix candidates
+and retain their prior sizes. None of the 16 program/runtime pairs grows.
+Initialized storage, reserved BSS sizes and occupied declared/allocated zero
+page remain unchanged in TN/TNDBG. All 80 neutral offset-one cycle comparisons
+improve by 6–8 cycles across both outcomes, equality, two code origins and
+pointer page crossing.
+
+Final checks pass: 1,171 MIR6502 unit tests; 101 tests across all 14 MIR6502
+integration targets; the 169-fixture emission/load sweep; and 15 tests across
+the comparison-values, comparison-loops, TN reproducers, TN dispatch and
+direct-comparison VM targets. The optional corpus and exact-image VM checks
+also pass. No existing snapshots change. A focused check additionally verifies
+that enabling reporting preserves final selection and placement after partial
+rollback. No shared frontend/NIR contract or other backend changes were needed.
+
+This completes same-comparison carry reuse for the qualified unsigned BYTE
+subset. Signed/word comparisons and general flag reuse across joins, calls or
+independent comparisons continue through their existing paths.

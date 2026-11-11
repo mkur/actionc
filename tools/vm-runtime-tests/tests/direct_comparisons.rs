@@ -17,6 +17,16 @@ fn root() -> PathBuf {
 }
 
 fn compile(text: &str, optimized_nir: bool, runtime: Runtime, enabled: bool) -> CodegenOutput {
+    compile_at(text, optimized_nir, runtime, enabled, 0x3000)
+}
+
+fn compile_at(
+    text: &str,
+    optimized_nir: bool,
+    runtime: Runtime,
+    enabled: bool,
+    origin: u16,
+) -> CodegenOutput {
     let source = support::Source::new(text);
     let loaded = actionc::includes::load_program_with_expanded_source(&source.0).unwrap();
     let model = actionc::semantic::analyze_with_options(
@@ -36,7 +46,7 @@ fn compile(text: &str, optimized_nir: bool, runtime: Runtime, enabled: bool) -> 
         enable_captured_byte_comparisons: enabled,
         ..Mir6502Config::optimized()
     };
-    mir6502::generate_output_with_config_and_runtime(&nir, 0x3000, &config, runtime).unwrap()
+    mir6502::generate_output_with_config_and_runtime(&nir, origin, &config, runtime).unwrap()
 }
 
 struct Hooks;
@@ -123,6 +133,66 @@ fn captured_byte_comparisons_match_unsigned_oracle_with_lf_and_crlf() {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn captured_comparison_cycles_cover_both_outcomes_and_page_crossing() {
+    let text = "MODULE\nBYTE comparisonIndex=$E0\nBYTE result=$0680\n\
+        PROC PageAtMost(BYTE POINTER base)\n\
+          IF comparisonIndex <= base(1) THEN result=17 ELSE result=29 FI\n\
+        RETURN\n\
+        PROC PageGreater(BYTE POINTER base)\n\
+          IF comparisonIndex > base(1) THEN result=17 ELSE result=29 FI\n\
+        RETURN\nPROC Main()\nRETURN\n";
+    for origin in [0x3000, 0x41C7] {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let mut baseline = Vec::new();
+            for enabled in [false, true] {
+                let output = compile_at(text, true, runtime, enabled, origin);
+                let mut vm = load(&output, runtime);
+                let mut observations = Vec::new();
+                for name in ["PageAtMost", "PageGreater"] {
+                    let entry = output
+                        .routine_addresses
+                        .iter()
+                        .find(|r| r.name.eq_ignore_ascii_case(name))
+                        .unwrap()
+                        .address;
+                    for pointer in [0x7000u16, 0x70FF] {
+                        for (left, right) in [(0, 0), (0, 255), (255, 0), (128, 128), (128, 254)] {
+                            vm.bus_mut().ram_mut().write(0xE0, left);
+                            vm.bus_mut().ram_mut().write(pointer + 1, right);
+                            let start = vm.cpu().cycles();
+                            vm = machine::call(vm, &mut Hooks, entry, &pointer.to_le_bytes());
+                            let cycles = vm.cpu().cycles() - start;
+                            let truth = if name == "PageGreater" {
+                                left > right
+                            } else {
+                                left <= right
+                            };
+                            assert_eq!(vm.bus().ram().read(0x680), if truth { 17 } else { 29 });
+                            observations.push(cycles);
+                            if std::env::var_os("ACTIONC_COMPARE_METRICS").is_some() {
+                                eprintln!(
+                                    "page-comparison,{name},{runtime:?},origin={origin:04X},enabled={enabled},pointer={pointer:04X},left={left},right={right},cycles={cycles}"
+                                );
+                            }
+                        }
+                    }
+                }
+                if enabled {
+                    for (before, after) in baseline.iter().zip(observations) {
+                        assert!(
+                            after < *before,
+                            "{runtime:?}/{origin:04X}: {before} -> {after}"
+                        );
+                    }
+                } else {
+                    baseline = observations;
                 }
             }
         }
