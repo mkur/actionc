@@ -755,6 +755,14 @@ is enabled by `Mir6502Config::optimized()` and disabled by the conservative
 default. See the [implementation plan](MIR6502_ARGUMENT_X_FORWARDING_PLAN.md)
 and [measured results](benchmarks/6502-argument-x-forwarding/README.md).
 
+The optional `enable_argument_x_bitwise_forwarding` admits BYTE A AND/OR/XOR
+with `ConstU8` in the unchanged gap, no carry input and ignored carry output.
+Its typed witness records the basic or immediate-bitwise policy and driver
+validation reconstructs that policy against current operations. Memory/WORD
+operands and the tail vocabulary retain their previous paths. The earlier
+restricted staging selector keeps its basic policy. Both defaults currently
+leave this extension off. See the [implementation plan](MIR6502_ARGUMENT_X_BITWISE_PLAN.md).
+
 ### Callee entry flag requirements
 
 MIR6502 analysis metadata can describe incoming C/N/Z/V observations as a

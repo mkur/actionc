@@ -16,6 +16,8 @@ pub struct Mir6502Config {
     pub enable_argument_staging_reduction: bool,
     /// Retain stored bytes in X through qualified direct argument setup.
     pub enable_argument_x_forwarding: bool,
+    /// Admit byte-immediate AND/OR/XOR in retained-store argument setup gaps.
+    pub enable_argument_x_bitwise_forwarding: bool,
     /// Permit N/Z-only callee entry proofs in late argument X forwarding.
     pub enable_precise_callee_entry_flags: bool,
     /// Fuse a proven fixed-pair pointer-plus-indirect-byte increment.
@@ -99,6 +101,7 @@ impl Default for Mir6502Config {
             enable_captured_byte_comparisons: false,
             enable_argument_staging_reduction: false,
             enable_argument_x_forwarding: false,
+            enable_argument_x_bitwise_forwarding: false,
             enable_precise_callee_entry_flags: false,
             enable_pointer_byte_plus_one_fusion: false,
             enable_pointer_load_sharing: false,

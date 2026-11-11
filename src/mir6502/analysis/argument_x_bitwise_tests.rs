@@ -18,7 +18,7 @@ pub(in crate::mir6502) fn baseline() -> MirProgram {
         .unwrap();
         crate::mir6502::materialize_program_with_origin(
             crate::mir6502::lower_program(&nir).unwrap(),
-            &crate::mir6502::Mir6502Config::optimized(),
+            &crate::mir6502::Mir6502Config { enable_argument_x_bitwise_forwarding:false, ..crate::mir6502::Mir6502Config::optimized() },
             0x3000,
         )
         .unwrap()

@@ -1,6 +1,6 @@
 # MIR6502 argument X forwarding through immediate bitwise setup
 
-Prepared 2026-11-11. Baseline: `9a43c963`. Status: slice 1 complete; selection remains unchanged.
+Prepared 2026-11-11. Baseline: `9a43c963`. Status: slices 1–2 complete; the new control remains off.
 Implement three vertical slices and commit each after its checks pass.
 This extends the existing target scheduling contract; no separate design
 note or executable IR form is needed.
@@ -149,8 +149,8 @@ Suggested commit: `Qualify immediate bitwise forwarding and enable defaults`.
 
 | Slice | Status | Evidence |
 | --- | --- | --- |
-| 1 Baselines and typed forms | Complete | Frozen controls, typed classification, integration and independent execution |
-| 2 Selection and boundary checks | Planned | |
+| 1 Baselines and typed forms | Complete, `d177f0d2` | Frozen controls, typed classification, integration and independent execution |
+| 2 Selection and boundary checks | Complete | Explicit gap policy, final costing, emitted and alias/feature execution |
 | 3 Corpus and default | Planned | |
 
 Slice 1 freezes eight controls in
@@ -161,3 +161,15 @@ normal proof still rejects their gaps. Integration and 1,152 VM calls pass,
 including raw/optimized NIR, both runtimes/origins and actual LF/CRLF source
 parsing. Each source word read remain ordered, once per byte, with
 independent bitwise results and preserved C/V.
+
+Slice 2 makes the gap policy explicit in proofs and driver reconstruction.
+The basic path remains unchanged. With the opt-in control enabled, neutral
+images shrink 205→202 bytes; each forwarding routine saves one byte and its
+sampled call improves 142→141 cycles. Six focused tests pass, including
+73,728 emitted executions across all input/forwarded bytes, six immediate
+boundaries, all C/V combinations and both origins. Identity masks emit their
+actual immediate instruction. X uses/clobbers, H aliases, unsupported tails
+and malformed/wrong-policy witnesses reject. Integration and two VM tests
+pass, including 8,304 value/flag matrix calls and alias/feature composition
+cases. All retained write traces and restored return states agree; ordered
+word reads remain single. Existing argument-X, staging and driver checks pass.

@@ -23,7 +23,17 @@ fn compile(
     opt: bool,
     rt: Runtime,
     origin: u16,
-    _enabled: bool,
+    enabled: bool,
+) -> actionc::codegen::CodegenOutput {
+    compile_flags(text, opt, rt, origin, enabled, [true; 3])
+}
+fn compile_flags(
+    text: &str,
+    opt: bool,
+    rt: Runtime,
+    origin: u16,
+    enabled: bool,
+    predecessors: [bool; 3],
 ) -> actionc::codegen::CodegenOutput {
     let source = support::Source::new(text);
     let loaded = actionc::includes::load_program_with_expanded_source(&source.0).unwrap();
@@ -42,8 +52,19 @@ fn compile(
     } else {
         raw
     };
-    mir6502::generate_output_with_config_and_runtime(&nir, origin, &Mir6502Config::optimized(), rt)
-        .unwrap()
+    mir6502::generate_output_with_config_and_runtime(
+        &nir,
+        origin,
+        &Mir6502Config {
+            enable_argument_x_bitwise_forwarding: enabled,
+            enable_argument_staging_reduction: predecessors[0],
+            enable_pointer_byte_plus_one_fusion: predecessors[1],
+            enable_pointer_load_sharing: predecessors[2],
+            ..Mir6502Config::optimized()
+        },
+        rt,
+    )
+    .unwrap()
 }
 #[test]
 fn argument_x_bitwise_values_flags_and_images_with_lf_and_crlf() {
@@ -52,7 +73,7 @@ fn argument_x_bitwise_values_flags_and_images_with_lf_and_crlf() {
         for rt in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41C7] {
                 let mut baseline = std::collections::BTreeMap::new();
-                for enabled in [false] {
+                for enabled in [false, true] {
                     let mut lf_image = None;
                     for crlf in [false, true] {
                         let text = if crlf {
@@ -106,7 +127,13 @@ fn argument_x_bitwise_values_flags_and_images_with_lf_and_crlf() {
                             vm.bus_mut().add_watchpoint(a);
                         }
                         for flags in [0, 1, 0x40, 0x41u8] {
-                            for tag in [0u8, 1, 127, 128, 254, 255] {
+                            for tag in
+                                if opt && rt == Runtime::ActionCart && origin == 0x3000 && !crlf {
+                                    (0..=255).collect::<Vec<u8>>()
+                                } else {
+                                    vec![0u8, 1, 127, 128, 254, 255]
+                                }
+                            {
                                 for name in ["ForwardAnd", "ForwardOr", "ForwardXor"] {
                                     let address = out
                                         .routine_addresses
@@ -201,6 +228,131 @@ fn argument_x_bitwise_values_flags_and_images_with_lf_and_crlf() {
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn argument_x_bitwise_preserves_alias_reads_and_feature_composition() {
+    let source =
+        include_str!("../../../fixtures/runtime/argument_x_bitwise.act").replace("\r\n", "\n");
+    for rt in [Runtime::ActionCart, Runtime::Standalone] {
+        for enabled in [false, true] {
+            for bits in 0..8 {
+                let out = compile_flags(
+                    &source,
+                    true,
+                    rt,
+                    0x3000,
+                    enabled,
+                    [bits & 1 != 0, bits & 2 != 0, bits & 4 != 0],
+                );
+                let (mut vm, profile) = support::vm_for(rt);
+                vm.load_atari_object_for_execution(
+                    profile,
+                    &actionc::codegen::format_load_file(&out),
+                )
+                .unwrap();
+                for name in ["ForwardAnd", "ForwardOr", "ForwardXor"] {
+                    let entry = out
+                        .routine_addresses
+                        .iter()
+                        .find(|r| r.name == name)
+                        .unwrap()
+                        .address;
+                    let home = |name_: &str| {
+                        out.map
+                            .storage_symbols
+                            .iter()
+                            .find(|s| {
+                                s.name == name_
+                                    && s.scope
+                                        == actionc::codegen::CodegenSymbolScope::Routine(
+                                            name.into(),
+                                        )
+                            })
+                            .unwrap()
+                            .address
+                    };
+                    let ph = home("p");
+                    let th = home("tag");
+                    let mut pointers = vec![0x70FFu16];
+                    if bits == 7 {
+                        pointers.extend([0xDF, 0xE0, 0xE1, 0xE2, 0xAC, 0xAD, ph]);
+                        if ph + 2 == th {
+                            pointers.push(ph + 1);
+                        }
+                    }
+                    for pointer in pointers {
+                        if pointer < 0x100 || pointer == 0x70FF {
+                            vm.bus_mut().ram_mut().map(pointer, &[0x34, 0x12]).unwrap();
+                        }
+                        let mut state = std::collections::BTreeMap::new();
+                        for a in [
+                            pointer,
+                            pointer.wrapping_add(1),
+                            0xE0,
+                            0xE1,
+                            0xE2,
+                            0xAC,
+                            0xAD,
+                            ph,
+                            ph + 1,
+                            th,
+                        ] {
+                            state.insert(a, vm.bus().ram().read(a));
+                        }
+                        let tag = 0xA5u8;
+                        let [lo, hi] = pointer.to_le_bytes();
+                        state.insert(ph, lo);
+                        state.insert(ph + 1, hi);
+                        state.insert(th, tag);
+                        state.insert(0xAC, lo);
+                        state.insert(0xAD, hi);
+                        let first = state[&pointer];
+                        state.insert(0xE0, first);
+                        let second = state[&pointer.wrapping_add(1)];
+                        state.insert(0xE1, second);
+                        let tag = state[&th];
+                        let expected = match name {
+                            "ForwardAnd" => tag & 127,
+                            "ForwardOr" => tag | 128,
+                            _ => tag ^ 127,
+                        };
+                        vm.bus_mut()
+                            .ram_mut()
+                            .map(
+                                0x740,
+                                &[
+                                    0xA9,
+                                    0x61,
+                                    0x48,
+                                    0xA9,
+                                    lo,
+                                    0x28,
+                                    0x20,
+                                    entry as u8,
+                                    (entry >> 8) as u8,
+                                    0x60,
+                                ],
+                            )
+                            .unwrap();
+                        vm.bus_mut().add_watchpoint(pointer);
+                        vm.bus_mut().add_watchpoint(pointer.wrapping_add(1));
+                        vm.bus_mut().clear_events();
+                        vm = machine::call(vm, &mut Hooks, 0x740, &[lo, hi, 0xA5]);
+                        assert_eq!(
+                            machine::bytes(&vm, 0x680, 3),
+                            [first, second, expected],
+                            "{rt:?}/{enabled}/{bits}/{name}/{pointer:04X}"
+                        );
+                        assert_eq!(
+                            vm.bus().ram().read(0x683) & 0xC3,
+                            0x41 | (expected & 128) | u8::from(expected == 0) * 2
+                        );
                     }
                 }
             }

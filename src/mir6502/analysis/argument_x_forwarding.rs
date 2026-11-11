@@ -1,7 +1,7 @@
 //! Retained-store byte forwarding through a bounded, unchanged argument gap.
 use super::{
     call_predicates::ordinary_source,
-    effects::{MirFlagSet, classify_op},
+    effects::{classify_op, MirFlagSet},
     record_bases::MirPhysicalMemory,
     sites::*,
 };
@@ -104,14 +104,19 @@ pub(in crate::mir6502) fn shape(r: &MirRoutine, site: MirSite) -> Result<Shape, 
     })
 }
 /// Closed byte-immediate family; selection remains separately controlled.
-#[allow(dead_code)]
 pub(in crate::mir6502) fn immediate_bitwise(op: &MirOp) -> bool {
-    matches!(op, MirOp::Binary {
-        op: MirBinaryOp::And | MirBinaryOp::Or | MirBinaryOp::Xor,
-        dst: MirDef::Reg(MirReg::A), left: MirValue::Def(MirDef::Reg(MirReg::A)),
-        right: MirValue::ConstU8(_), width: MirWidth::Byte,
-        carry_in: None, carry_out: MirCarryOut::Ignore,
-    })
+    matches!(
+        op,
+        MirOp::Binary {
+            op: MirBinaryOp::And | MirBinaryOp::Or | MirBinaryOp::Xor,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(_),
+            width: MirWidth::Byte,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        }
+    )
 }
 fn simple(op: &MirOp) -> bool {
     if matches!(op,MirOp::LoadIndirect {consumer:MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {lo}),..} if lo.0==255)
@@ -156,9 +161,15 @@ fn ordinary(r: &MirRoutine, h: &MirMem, m: &MirPhysicalMemory) -> bool {
         _ => false,
     }
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::mir6502) enum GapPolicy {
+    Basic,
+    ImmediateBitwise,
+}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::mir6502) struct Proof {
     pub routine: RoutineId,
+    pub gap_policy: GapPolicy,
     pub point: MirProgramPoint,
     pub shape: Shape,
     pub address: u16,
@@ -171,6 +182,15 @@ pub(in crate::mir6502) fn prove(
     c: &PostHomeRewriteContext<'_, '_>,
     point: MirProgramPoint,
     m: &MirPhysicalMemory,
+) -> Result<Proof, Blocker> {
+    prove_with_policy(r, c, point, m, GapPolicy::Basic)
+}
+pub(in crate::mir6502) fn prove_with_policy(
+    r: &MirRoutine,
+    c: &PostHomeRewriteContext<'_, '_>,
+    point: MirProgramPoint,
+    m: &MirPhysicalMemory,
+    gap_policy: GapPolicy,
 ) -> Result<Proof, Blocker> {
     if point.generation != c.generation() {
         return Err(Blocker::Site);
@@ -217,7 +237,7 @@ pub(in crate::mir6502) fn prove(
         if e.may_clobber_reg_compat(MirReg::X) {
             return Err(Blocker::XClobber);
         }
-        if !simple(op)
+        if !(simple(op) || gap_policy == GapPolicy::ImmediateBitwise && immediate_bitwise(op))
             || e.memory.may_write_any
             || e.memory.indirect_writes
             || e.memory.opaque
@@ -267,10 +287,7 @@ pub(in crate::mir6502) fn prove(
         e.machine.flag_writes.n && e.machine.flag_writes.z
     });
     if !restored
-        && (effects.opaque
-            || effects.preserves.flags
-            || abi.preserves.flags
-            || effects.reads.flags)
+        && (effects.opaque || effects.preserves.flags || abi.preserves.flags || effects.reads.flags)
     {
         return Err(Blocker::CallFlags);
     }
@@ -278,17 +295,26 @@ pub(in crate::mir6502) fn prove(
         match c.entry_flag_fact(*target) {
             None => return Err(Blocker::CallFlags),
             Some(f) => match f.summary {
-                super::entry_flags::MirKnownCalleeEntryFlags::Unknown => return Err(Blocker::EntryFlagsUnknown),
-                super::entry_flags::MirKnownCalleeEntryFlags::Known { may_observe } if !f.summary.unobserved(nz) => return Err(Blocker::EntryFlagsLive(may_observe)),
+                super::entry_flags::MirKnownCalleeEntryFlags::Unknown => {
+                    return Err(Blocker::EntryFlagsUnknown)
+                }
+                super::entry_flags::MirKnownCalleeEntryFlags::Known { may_observe }
+                    if !f.summary.unobserved(nz) =>
+                {
+                    return Err(Blocker::EntryFlagsLive(may_observe))
+                }
                 _ => c.entry_flags_unobserved(*target, nz),
             },
         }
-    } else { None };
+    } else {
+        None
+    };
     if !c.flags_dead_after(nz, c.point(s.reload)).is_proven() {
         return Err(Blocker::RemovedNz);
     }
     Ok(Proof {
         routine: r.id,
+        gap_policy,
         point,
         shape: s,
         address,
@@ -320,7 +346,7 @@ pub(in crate::mir6502) fn validate(
 ) -> bool {
     p.routine == r.id
         && p.shape.range() == range
-        && prove(r, c, p.point, m).as_ref() == Ok(p)
+        && prove_with_policy(r, c, p.point, m, p.gap_policy).as_ref() == Ok(p)
         && replacement(r, &p.shape).as_deref() == Some(selected)
 }
 #[cfg(test)]

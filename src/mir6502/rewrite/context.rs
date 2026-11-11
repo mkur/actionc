@@ -602,6 +602,9 @@ pub(in crate::mir6502) struct PostHomeRewriteContext<'snapshot, 'routine> {
 }
 
 impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
+    pub(in crate::mir6502) fn argument_x_forwarding_with_policy(&self,point:MirProgramPoint,memory:&crate::mir6502::analysis::record_bases::MirPhysicalMemory,policy:crate::mir6502::analysis::argument_x_forwarding::GapPolicy)->Result<crate::mir6502::analysis::argument_x_forwarding::Proof,crate::mir6502::analysis::argument_x_forwarding::Blocker> {
+        crate::mir6502::analysis::argument_x_forwarding::prove_with_policy(self.snapshot.source(),self,point,memory,policy)
+    }
     pub(in crate::mir6502) fn argument_x_forwarding(&self,point:MirProgramPoint,memory:&crate::mir6502::analysis::record_bases::MirPhysicalMemory)->Result<crate::mir6502::analysis::argument_x_forwarding::Proof,crate::mir6502::analysis::argument_x_forwarding::Blocker> {
         crate::mir6502::analysis::argument_x_forwarding::prove(self.snapshot.source(),self,point,memory)
     }

@@ -4,12 +4,13 @@ use crate::mir6502::analysis::argument_x_forwarding as facts;
 use crate::mir6502::rewrite::plan::MirPostHomeWitness;
 use std::collections::BTreeMap;
 
-fn discover(
+fn discover_with_policy(
     r: &MirRoutine,
     c: &PostHomeRewriteContext<'_, '_>,
     m: &MirPhysicalMemory,
     ids: &BTreeMap<MirBlockId, Vec<usize>>,
     seen: &mut BTreeSet<(MirSite, &'static str)>,
+    policy: facts::GapPolicy,
 ) -> Vec<MirPostHomeRewritePlan> {
     for b in &r.blocks {
         for i in 0..b.ops.len() {
@@ -25,7 +26,7 @@ fn discover(
                 op_index: ids[&b.id][i],
             };
             seen.insert((key, "argument-x-forwarding-candidate"));
-            let proof = match c.argument_x_forwarding(point, m) {
+            let proof = match c.argument_x_forwarding_with_policy(point, m, policy) {
                 Ok(p) => p,
                 Err(e) => {
                     let stat = match e {
@@ -74,6 +75,16 @@ fn discover(
                 "argument-x-forwarding-selected",
                 43,
             ) {
+                if r.blocks
+                    .iter()
+                    .find(|b| b.id == proof.shape.store.block())
+                    .unwrap()
+                    .ops[proof.shape.range()]
+                .iter()
+                .any(facts::immediate_bitwise)
+                {
+                    seen.insert((key, "argument-x-bitwise-selected"));
+                }
                 if proof.entry_flags.is_some() {
                     seen.insert((key, "callee-entry-flags-selected"));
                 }
@@ -84,6 +95,16 @@ fn discover(
         }
     }
     vec![]
+}
+#[cfg(test)]
+fn discover(
+    r: &MirRoutine,
+    c: &PostHomeRewriteContext<'_, '_>,
+    m: &MirPhysicalMemory,
+    ids: &BTreeMap<MirBlockId, Vec<usize>>,
+    seen: &mut BTreeSet<(MirSite, &'static str)>,
+) -> Vec<MirPostHomeRewritePlan> {
+    discover_with_policy(r, c, m, ids, seen, facts::GapPolicy::Basic)
 }
 fn has_candidate(p: &MirProgram) -> bool {
     p.routines.iter().any(|r| {
@@ -161,11 +182,21 @@ fn apply(
 ) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
     apply_with_summaries(baseline, m, eligible, &prepare_summaries(baseline, false).0)
 }
+#[cfg(test)]
 fn apply_with_summaries(
     baseline: &MirProgram,
     m: &MirPhysicalMemory,
     eligible: Option<&BTreeSet<RoutineId>>,
     summaries: &MirKnownCalleeSummaries,
+) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
+    apply_with_policy(baseline, m, eligible, summaries, facts::GapPolicy::Basic)
+}
+fn apply_with_policy(
+    baseline: &MirProgram,
+    m: &MirPhysicalMemory,
+    eligible: Option<&BTreeSet<RoutineId>>,
+    summaries: &MirKnownCalleeSummaries,
+    policy: facts::GapPolicy,
 ) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
     let mut p = baseline.clone();
     let mut stats = MirPeepholeStats::default();
@@ -211,7 +242,7 @@ fn apply_with_summaries(
             + 1;
         let result = MirPostHomeRewriteDriver::with_max_rounds(rounds)
             .run_fixed_point_with_physical_memory(r, summaries, m, |r, c| {
-                let plans = discover(r, c, m, &ids, &mut seen);
+                let plans = discover_with_policy(r, c, m, &ids, &mut seen, policy);
                 for plan in &plans {
                     let positions = ids.get_mut(&plan.block).unwrap();
                     let old = positions[plan.range.clone()].to_vec();
@@ -258,13 +289,18 @@ pub(in crate::mir6502) fn select_costed(
     if !has_candidate(&baseline) {
         return Ok(baseline);
     }
+    let policy = if config.enable_argument_x_bitwise_forwarding {
+        facts::GapPolicy::ImmediateBitwise
+    } else {
+        facts::GapPolicy::Basic
+    };
     let (summaries, entry_targets) =
         prepare_summaries(&baseline, config.enable_precise_callee_entry_flags);
     let Some(m) = register_copies::physical_memory(&baseline, &baseline, origin) else {
         return Ok(baseline);
     };
     let Some((mut proposed, mut stats, affected)) =
-        apply_with_summaries(&baseline, &m, None, &summaries)
+        apply_with_policy(&baseline, &m, None, &summaries, policy)
     else {
         return Ok(baseline);
     };
@@ -301,7 +337,9 @@ pub(in crate::mir6502) fn select_costed(
             .clone()
             .with_precise_entry_flags(&proposed, &entry_targets);
         let replay = register_copies::physical_memory(&proposed, &baseline, origin)
-            .and_then(|m| apply_with_summaries(&baseline, &m, Some(&accepted), &replay_summaries))
+            .and_then(|m| {
+                apply_with_policy(&baseline, &m, Some(&accepted), &replay_summaries, policy)
+            })
             .is_some_and(|(p, _, _)| p == proposed);
         let exits = MirKnownCalleeSummaries::analyze_for_rewriting(&proposed);
         let good = replay
@@ -356,6 +394,20 @@ pub(in crate::mir6502) fn select_costed(
             }
         }
     }
+    for r in &baseline.routines {
+        let count = stats.count_for(r.id, "argument-x-bitwise-selected");
+        if count > 0 {
+            stats.record_many(
+                r.id,
+                if accepted.contains(&r.id) {
+                    "argument-x-bitwise-applied"
+                } else {
+                    "argument-x-bitwise-declined"
+                },
+                count,
+            );
+        }
+    }
     let p = if accepted.is_empty() {
         baseline
     } else {
@@ -365,6 +417,8 @@ pub(in crate::mir6502) fn select_costed(
     Ok(p)
 }
 #[cfg(test)]
+mod entry_flags_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
-mod entry_flags_tests;
+mod bitwise_tests;

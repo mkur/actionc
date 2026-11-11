@@ -25277,3 +25277,6 @@ fn param_address_consumer_preserves_public_homes_and_barriers() {
 
 #[path = "callee_entry_flags_measurements.rs"]
 mod callee_entry_flags_measurements;
+
+#[path = "argument_x_bitwise_measurements.rs"]
+mod argument_x_bitwise_measurements;
