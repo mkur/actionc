@@ -1,6 +1,6 @@
 # MIR6502 argument X forwarding through immediate bitwise setup
 
-Prepared 2026-11-11. Baseline: `9a43c963`. Status: slices 1–2 complete; the new control remains off.
+Prepared 2026-11-11. Baseline: `9a43c963`. Status: all three slices implemented and qualified.
 Implement three vertical slices and commit each after its checks pass.
 This extends the existing target scheduling contract; no separate design
 note or executable IR form is needed.
@@ -150,8 +150,8 @@ Suggested commit: `Qualify immediate bitwise forwarding and enable defaults`.
 | Slice | Status | Evidence |
 | --- | --- | --- |
 | 1 Baselines and typed forms | Complete, `d177f0d2` | Frozen controls, typed classification, integration and independent execution |
-| 2 Selection and boundary checks | Complete | Explicit gap policy, final costing, emitted and alias/feature execution |
-| 3 Corpus and default | Planned | |
+| 2 Selection and boundary checks | Complete, `e4c53d06` | Explicit gap policy, final costing, emitted and alias/feature execution |
+| 3 Corpus and default | Complete | Optimized default, historical pins and [measured qualification](benchmarks/6502-argument-x-bitwise/README.md) |
 
 Slice 1 freezes eight controls in
 [baseline.json](benchmarks/6502-argument-x-bitwise/baseline.json).
@@ -159,7 +159,7 @@ The neutral images are 205 bytes in either runtime/origin. Two focused tests
 confirm all three immediate forms and reject unsupported shapes while the
 normal proof still rejects their gaps. Integration and 1,152 VM calls pass,
 including raw/optimized NIR, both runtimes/origins and actual LF/CRLF source
-parsing. Each source word read remain ordered, once per byte, with
+parsing. Source word bytes retain their order and are read once per lane, with
 independent bitwise results and preserved C/V.
 
 Slice 2 makes the gap policy explicit in proofs and driver reconstruction.
@@ -173,3 +173,18 @@ and malformed/wrong-policy witnesses reject. Integration and two VM tests
 pass, including 8,304 value/flag matrix calls and alias/feature composition
 cases. All retained write traces and restored return states agree; ordered
 word reads remain single. Existing argument-X, staging and driver checks pass.
+
+Slice 3 enables the optimized default and pins historical controls off. Eight
+of 36 runtime/origin pairs shrink; 28 are identical. Sixteen new applications
+save sixteen bytes across measured images. TN/TNDBG cartridge images are
+9,858→9,857 / 12,953→12,952 bytes. `Tag` is 91→90 bytes and its sampled real
+call takes 241→240 cycles, with 64 exact-image state/cycle cases passing.
+`Strcat` remains 113 bytes/355 cycles; its 80 string and 16 parameter-alias
+cases pass. Eight frozen controls and the previous 32 corpus outputs match.
+Frames, capacities, reservation lengths and zero page remain equal.
+
+Final backend unit, integration, fixture, runtime/ABI, MADS and historical
+audit checks pass. Fresh default compilation matches measured neutral and TN
+images; the report records exact counts, hashes, costs and timings. The basic
+policy, tail vocabulary, Sort blocker and unavailable entry facts remain as
+specified.

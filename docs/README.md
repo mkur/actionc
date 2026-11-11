@@ -233,8 +233,9 @@ crowding the active reference set.
   and final validation against proposed callees; [measured results](benchmarks/6502-callee-entry-flags/README.md)
   save two bytes in the neutral fixture and one additional byte in TNDBG.
 - [MIR6502 argument X forwarding through immediate bitwise setup](MIR6502_ARGUMENT_X_BITWISE_PLAN.md)
-  - planned AND/OR/XOR gap admission with retained stores, explicit proof policy
-  and final corpus/ABI qualification.
+  - implemented AND/OR/XOR gap admission with retained stores and explicit
+  proof policy; [measured results](benchmarks/6502-argument-x-bitwise/README.md)
+  save one byte/cycle per admitted site, including `Tag` in both TN variants.
 - [MIR6502_WIDE_SHIFT_COPY_REDUCTION.md](MIR6502_WIDE_SHIFT_COPY_REDUCTION.md)
   - byte and nibble projections for constant wide shifts, preserving captured
   operands while reducing staging for narrow results.

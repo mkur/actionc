@@ -100,6 +100,7 @@ fn callee_entry_flags_measure_corpus() {
                 let stem = format!("{name}-{runtime:?}-{enabled}");
                 eprintln!("MEASURE {stem}");
                 let config = Mir6502Config {
+                    enable_argument_x_bitwise_forwarding: false,
                     enable_precise_callee_entry_flags: enabled,
                     peephole_report: MirPeepholeReportMode::PerRoutine,
                     ..Mir6502Config::optimized()

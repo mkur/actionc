@@ -760,8 +760,10 @@ with `ConstU8` in the unchanged gap, no carry input and ignored carry output.
 Its typed witness records the basic or immediate-bitwise policy and driver
 validation reconstructs that policy against current operations. Memory/WORD
 operands and the tail vocabulary retain their previous paths. The earlier
-restricted staging selector keeps its basic policy. Both defaults currently
-leave this extension off. See the [implementation plan](MIR6502_ARGUMENT_X_BITWISE_PLAN.md).
+restricted staging selector keeps its basic policy. The optimized default
+enables this extension; the conservative default keeps it off. See the
+[implementation plan](MIR6502_ARGUMENT_X_BITWISE_PLAN.md) and
+[measured results](benchmarks/6502-argument-x-bitwise/README.md).
 
 ### Callee entry flag requirements
 

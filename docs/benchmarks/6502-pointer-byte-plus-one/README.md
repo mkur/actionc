@@ -137,8 +137,8 @@ The exporter and baseline-sensitive helpers pin later pointer load sharing and
 argument X forwarding off. Set `ACTIONC_POINTER_MEASURED_IMAGES` to that
 directory's absolute path when running `pointer_byte_plus_one` to require exact agreement with
 these historical neutral images. Current default TN execution uses the
-[callee entry flag measurements](../6502-callee-entry-flags/README.md)
-and `ACTIONC_CALLEE_ENTRY_FLAGS_MEASURED_IMAGES` for `tn_dispatch`. The measured TN
+[immediate bitwise forwarding measurements](../6502-argument-x-bitwise/README.md)
+and `ACTIONC_ARGUMENT_X_BITWISE_MEASURED_IMAGES` for `tn_dispatch`. The measured TN
 oracle below consumes the historical files directly and resolves parameter
 homes from their owner-qualified maps:
 

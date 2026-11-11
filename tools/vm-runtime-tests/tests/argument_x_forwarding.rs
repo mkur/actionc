@@ -50,6 +50,7 @@ fn compile_flags(
         &nir,
         origin,
         &Mir6502Config {
+            enable_argument_x_bitwise_forwarding: false,
             enable_precise_callee_entry_flags: false,
             enable_argument_x_forwarding: enabled,
             enable_argument_staging_reduction: predecessors[0],

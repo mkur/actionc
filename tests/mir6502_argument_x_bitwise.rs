@@ -4,6 +4,8 @@ use actionc::{
 };
 #[test]
 fn argument_x_bitwise_baseline_matches_modes_runtimes_and_origins() {
+    assert!(!Mir6502Config::default().enable_argument_x_bitwise_forwarding);
+    assert!(Mir6502Config::optimized().enable_argument_x_bitwise_forwarding);
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures/runtime/argument_x_bitwise.act");
     let loaded = actionc::includes::load_program_with_expanded_source(path).unwrap();

@@ -132,7 +132,7 @@ Eight exact TN/TNDBG images pass 80 counted-string and 16 post-call parameter
 alias cases, including same-buffer and overlapping copies. Positive source
 lengths retain the existing string oracle's scope. At qualification the default
 TN/TNDBG images reproduced these files and passed panel/dispatch execution.
-Current default images include the later [callee entry flag refinement](../6502-callee-entry-flags/README.md).
+Current default images include the later [immediate bitwise forwarding](../6502-argument-x-bitwise/README.md).
 
 Backend qualification passes 1,217 MIR6502 unit tests, 105 integration tests
 in 18 targets, 169 emission/load fixtures and 33 tests in ten affected VM
@@ -158,7 +158,7 @@ The last command requires MADS on PATH or `ACTIONC_MADS`. Set
 `ACTIONC_ARGUMENT_X_MEASURED_IMAGES` to the measured directory's absolute path
 when running `argument_x_forwarding` to require historical neutral image
 equality. Current default `tn_dispatch` uses
-`ACTIONC_CALLEE_ENTRY_FLAGS_MEASURED_IMAGES` and the later report. Set `ACTIONC_ARGUMENT_X_BASELINE` to the frozen `before` directory
+`ACTIONC_ARGUMENT_X_BITWISE_MEASURED_IMAGES` and the later report. Set `ACTIONC_ARGUMENT_X_BASELINE` to the frozen `before` directory
 for the neutral baseline check. Earlier exporters and baseline-sensitive
 helpers explicitly disable later features, including precise entry flags;
 their manifests and byte-role

@@ -23,6 +23,7 @@ fn callee_entry_flags_baseline_matches_modes_runtimes_and_origins() {
         for rt in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41C7] {
                 let config = Mir6502Config {
+                    enable_argument_x_bitwise_forwarding: false,
                     enable_precise_callee_entry_flags: false,
                     ..Mir6502Config::optimized()
                 };
@@ -38,6 +39,7 @@ fn callee_entry_flags_baseline_matches_modes_runtimes_and_origins() {
                     mir6502::generate_output_with_config_and_runtime(nir, origin, &config, rt)
                         .unwrap();
                 let enabled = Mir6502Config {
+                    enable_argument_x_bitwise_forwarding: false,
                     enable_precise_callee_entry_flags: true,
                     ..config.clone()
                 };

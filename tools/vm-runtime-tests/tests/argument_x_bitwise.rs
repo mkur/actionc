@@ -88,6 +88,19 @@ fn argument_x_bitwise_values_flags_and_images_with_lf_and_crlf() {
                         } else {
                             lf_image = Some(image.clone());
                         }
+                        if opt && !crlf {
+                            if let Some(dir) =
+                                std::env::var_os("ACTIONC_ARGUMENT_X_BITWISE_MEASURED_IMAGES")
+                            {
+                                assert_eq!(
+                                    image,
+                                    std::fs::read(PathBuf::from(dir).join(format!(
+                                        "bitwise-neutral-{origin:04X}-{rt:?}-{enabled}.xex"
+                                    )))
+                                    .unwrap()
+                                );
+                            }
+                        }
                         if opt && !crlf && !enabled {
                             if let Some(dir) =
                                 std::env::var_os("ACTIONC_ARGUMENT_X_BITWISE_BASELINE")

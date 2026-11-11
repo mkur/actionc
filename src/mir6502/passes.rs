@@ -143,6 +143,7 @@ impl Mir6502Config {
             enable_captured_byte_comparisons: true,
             enable_argument_staging_reduction: true,
             enable_argument_x_forwarding: true,
+            enable_argument_x_bitwise_forwarding: true,
             enable_precise_callee_entry_flags: true,
             enable_pointer_byte_plus_one_fusion: true,
             enable_pointer_load_sharing: true,

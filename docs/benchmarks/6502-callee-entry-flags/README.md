@@ -118,8 +118,9 @@ wrapper remains a negative control. Incoming N/Z can differ at the positive
 callee entry; exact state is checked after its retained definition restores it.
 
 The exact TN/TNDBG images pass 80 string and 16 post-call parameter-alias cases.
-Fresh default compilation matches the measured images and passes full
-panel/dispatch execution. Qualification passes 1,228 MIR6502 unit tests,
+At qualification, default compilation matched these measured images and
+passed full panel/dispatch execution. Current default TN images include the
+later [immediate bitwise forwarding](../6502-argument-x-bitwise/README.md). Qualification passes 1,228 MIR6502 unit tests,
 106 integration tests in 19 targets, 169 emission/load fixtures and 35 tests
 in 11 affected VM targets, with two TN dispatch tests separately. Eight
 LF/CRLF MADS reassemblies and relocations pass, together with scoped arithmetic/
@@ -141,7 +142,9 @@ CARGO_INCREMENTAL=0 cargo test --locked --test mir6502_callee_entry_flags -- --i
 
 MADS must be on PATH or selected by `ACTIONC_MADS`. Set
 `ACTIONC_CALLEE_ENTRY_FLAGS_MEASURED_IMAGES` to the measured directory's absolute
-path for fresh `callee_entry_flags` and `tn_dispatch` image equality checks.
+path for historical `callee_entry_flags` image equality checks. Current
+default `tn_dispatch` uses `ACTIONC_ARGUMENT_X_BITWISE_MEASURED_IMAGES` and
+the later report.
 `ACTIONC_CALLEE_ENTRY_FLAGS_BASELINE` selects frozen neutral controls.
 `ACTIONC_CALLEE_ENTRY_FLAGS_METRICS=1` reports sample neutral cycles. Historical
 argument-X exporters and helpers explicitly keep the refinement off; their
