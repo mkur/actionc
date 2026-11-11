@@ -1,6 +1,6 @@
 # MIR6502 argument staging reduction implementation
 
-Prepared 2026-11-11. Status: slice 1 complete; selection remains unchanged.
+Prepared 2026-11-11. Status: slices 1 and 2 implemented; broader qualification follows.
 Implements the [design note](MIR6502_ARGUMENT_STAGING_DESIGN.md) committed as
 `961f30e8`. The compiler baseline is `476cfecf`; freeze fresh artifacts before
 changing selection. Each slice below is a separate commit after its checks pass.
@@ -301,7 +301,7 @@ target-selection improvement or a correctness fix.
 | Slice | Status | Commit and evidence |
 | --- | --- | --- |
 | 1. Baseline and proofs | Complete | Frozen compiler/images, neutral entry oracle, three proof tests, integration and VM target; inert output is byte-identical |
-| 2. One schedule and costing | Planned | Record feature-off/on bytes/cycles, final proof/cost decisions and rollback tests |
+| 2. One schedule and costing | Implemented | Captured high-byte carrier, retained stores/homes, exact final costing and physical replay |
 | 3. Alias/effect qualification | Planned | Record admitted/rejected boundaries, oracle results and runtime/NIR/newline modes |
 | 4. Corpus and backend qualification | Planned | Record final measurements, remaining TN blockers, full scoped checks and implementation limits |
 
@@ -330,3 +330,35 @@ sources. For `$00FF` and tag 128, the sampled arithmetic calls take 430 cycles;
 the four-byte/plain-five-byte controls take 111/412, including the common
 wrapper and callee. The emitted neutral image matches the frozen compiler
 byte for byte. Large artifacts and logs are under `build/argument-staging/`.
+
+### Slice 2 implementation
+
+Slice 1 is commit `97b8b4b3`. The pre-home witness now restricts admission to
+the qualified ordinary-source, complete-word shape. It runs on an analysis
+clone; it does not move the existing call/producer passes. Its generation
+facts are never reused after materialization.
+
+The phase choice is narrower than the initial proposal. An early-X probe
+merely relocated `LDX` and changed private zero-page coloring without reducing
+code. The selected transaction instead runs through the existing post-home
+driver after normal allocation and all earlier optimizations. It reconstructs
+the complete low/high arithmetic capture, fixed ABI call and actual setup.
+It changes `STA high; ...; LDX high; LDY secondLow` into
+`STA high; TAX; ...; LDY secondLow`, preserving every capture store, home and
+source-read point. Shared liveness proves X and N/Z dead at the insertion and
+N/Z dead after the removed reload. The gap cannot read/write X or contain
+calls, indirect accesses or arbitrary effects. Final physical addresses prove
+that its explicit writes cannot overwrite the saved high byte.
+
+The call, argument bytes, required machine state, frame allocation and stores
+remain identical. Exact code/home/XEX costing, pre-emission verification and
+physical-placement replay guard the final transaction, with per-routine
+rollback and a bounded full-batch recheck. Feature-off retains the preceding
+pipeline. Reporting distinguishes candidates/selected plans from final
+applications. No capture or home deletion is introduced by this family.
+
+Both arithmetic wrappers shrink from 41 to 40 bytes. The neutral image saves
+two bytes in each runtime and at each origin, with raw/optimized NIR. The
+sampled calls improve from 430 to 429 cycles, while both existing controls
+retain their prior sizes/cycles. Independent callee-entry and host-oracle VM
+checks pass for both feature settings and actual LF/CRLF input.

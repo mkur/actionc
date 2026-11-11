@@ -132,6 +132,9 @@ pub fn materialize_program_with_origin_and_runtime(
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
     verify::verify_program(&program, MirPhase::PreMaterialization)
         .map_err(|diagnostics| phase_diagnostics("pre-materialization", diagnostics))?;
+    let staging_routines = if config.enable_peepholes && config.enable_argument_staging_reduction {
+        materialize::argument_staging::eligible_routines(&program)
+    } else { BTreeSet::new() };
     let mut program = program;
     let inline_census = (config.enable_peepholes && config.enable_small_leaf_inlining)
         .then(|| analysis::leaf_routines::analyze(&program));
@@ -176,8 +179,13 @@ pub fn materialize_program_with_origin_and_runtime(
     } else {
         baseline
     };
-    if config.enable_peepholes && config.enable_pointer_promotion {
-        materialize::pointer_retention::select_promotion_costed(baseline,config,origin,true)
+    let baseline = if config.enable_peepholes && config.enable_pointer_promotion {
+        materialize::pointer_retention::select_promotion_costed(baseline,config,origin,true)?
+    } else {
+        baseline
+    };
+    if !staging_routines.is_empty() {
+        materialize::argument_staging::select_costed(baseline, config, origin, runtime, &staging_routines)
     } else {
         Ok(baseline)
     }

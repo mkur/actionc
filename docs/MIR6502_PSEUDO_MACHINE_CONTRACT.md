@@ -1724,6 +1724,28 @@ Rules:
   retained address inputs. Absolute and arbitrary pointer-backed indexed loads,
   indirect calls, barriers, and reordered producer groups are ineligible.
 
+## Captured word argument carriers
+
+For an admitted scalar WORD/WORD/BYTE direct call, MIR6502 may retain the first
+word's high byte in X through its remaining setup. A pre-home complete-lane
+witness restricts the source shape. An independent post-home transaction
+reconstructs the arithmetic capture and canonical five-byte call; source names
+and old generation facts do not authorize the rewrite.
+
+The initial carrier replaces a private `LDX high` reload with `TAX` immediately
+after the unchanged high-byte store. Its bounded gap has only supported direct
+byte loads, constants and fixed argument stores. X cannot be used or overwritten
+there. Shared liveness checks the insertion's X/N/Z and the removed load's N/Z;
+the unchanged final Y load establishes the same N/Z at the call. Final physical
+mapping proves the captured byte survives every gap write. The low/high carry
+chain, all source reads, stores, call arguments/results and frame layout remain
+unchanged. This family does not delete capture stores or homes.
+
+`enable_argument_staging_reduction` enables this optimized-only final selection.
+Exact code/home/XEX cost, pre-emission verification and physical-placement replay
+must accept the complete result. Failure retains the previous accepted program.
+See the [argument staging plan](MIR6502_ARGUMENT_STAGING_IMPLEMENTATION_PLAN.md).
+
 ## Scalar argument captures and pattern bindings
 
 `MirStorageSlot::purpose` preserves verified NIR argument-capture and

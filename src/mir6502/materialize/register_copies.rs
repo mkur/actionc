@@ -113,7 +113,7 @@ fn has_candidate(routine: &MirRoutine) -> bool {
     })
 }
 
-fn physical_memory(
+pub(super) fn physical_memory(
     program: &MirProgram,
     references: &MirProgram,
     origin: u16,

@@ -1,6 +1,6 @@
 //! Complete captured-word facts for a bounded five-byte direct-call schedule.
 //! Keeping a value in X does not establish permission to delete its capture.
-#![allow(dead_code)] // The selection consumer is introduced in the next slice.
+#![allow(dead_code)] // Pre-home diagnostic witness; final placement has its own proofs.
 use super::call_predicates::ordinary_source;
 use super::sites::{MirProgramPoint, MirSite};
 use super::use_def::MirDefSite;

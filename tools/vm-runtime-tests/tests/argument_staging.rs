@@ -20,7 +20,13 @@ mod machine;
 #[path = "support/fixed_point.rs"]
 mod support;
 
-fn compile(source: &str, optimized: bool, runtime: Runtime, origin: u16) -> CodegenOutput {
+fn compile(
+    source: &str,
+    optimized: bool,
+    runtime: Runtime,
+    origin: u16,
+    enabled: bool,
+) -> CodegenOutput {
     let source = support::Source::new(source);
     let loaded = actionc::includes::load_program_with_expanded_source(&source.0).unwrap();
     let model = actionc::semantic::analyze_with_options(
@@ -41,7 +47,10 @@ fn compile(source: &str, optimized: bool, runtime: Runtime, origin: u16) -> Code
     mir6502::generate_output_with_config_and_runtime(
         &nir,
         origin,
-        &Mir6502Config::optimized(),
+        &Mir6502Config {
+            enable_argument_staging_reduction: enabled,
+            ..Mir6502Config::optimized()
+        },
         runtime,
     )
     .unwrap()
@@ -77,77 +86,93 @@ fn argument_staging_matches_entry_bytes_and_host_oracles_with_lf_and_crlf() {
     for optimized in [false, true] {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41C7] {
-                let mut lf = None;
-                for crlf in [false, true] {
-                    let source = if crlf {
-                        text.replace('\n', "\r\n")
-                    } else {
-                        text.clone()
-                    };
-                    let output = compile(&source, optimized, runtime, origin);
-                    if let Some(expected) = &lf {
-                        assert_eq!(&output.bytes, expected);
-                    } else {
-                        lf = Some(output.bytes.clone());
-                    }
-                    let entry = |name: &str| {
-                        output
-                            .routine_addresses
-                            .iter()
-                            .find(|r| r.name == name)
-                            .unwrap()
-                            .address
-                    };
-                    let mut hooks = Observe {
-                        callees: [(entry("Capture"), 5), (entry("CapturePair"), 4)].into(),
-                        arguments: Vec::new(),
-                    };
-                    let (mut vm, profile) = support::vm_for(runtime);
-                    vm.load_atari_object_for_execution(
-                        profile,
-                        &actionc::codegen::format_load_file(&output),
-                    )
-                    .unwrap();
-                    for name in ["ForwardAdd", "ForwardSub", "FourByte", "FivePlain"] {
-                        for (n, &first) in words.iter().enumerate() {
-                            let second = words[(n + 3) % words.len()];
-                            for tag in [0u8, 1, 127, 128, 254, 255] {
-                                for address in 0xA0..=0xA7 {
-                                    vm.bus_mut().ram_mut().write(address, 0xD6);
-                                }
-                                let mut args = first.to_le_bytes().to_vec();
-                                args.extend(second.to_le_bytes());
-                                if name != "FourByte" {
-                                    args.push(tag);
-                                }
-                                let expected_first = match name {
-                                    "ForwardAdd" | "FourByte" => first.wrapping_add(1),
-                                    "ForwardSub" => first.wrapping_sub(1),
-                                    _ => first,
-                                };
-                                let mut expected = expected_first.to_le_bytes().to_vec();
-                                expected.extend(second.to_le_bytes());
-                                if name != "FourByte" {
-                                    expected.push(tag);
-                                }
-                                hooks.arguments.clear();
-                                let start = vm.cpu().cycles();
-                                vm = machine::call(vm, &mut hooks, entry(name), &args);
-                                assert_eq!(
-                                    hooks.arguments,
-                                    vec![expected.clone()],
-                                    "{name}/{runtime:?}/{optimized}/{first:04X}/{second:04X}/{tag}"
-                                );
-                                assert_eq!(machine::bytes(&vm, 0x680, expected.len()), expected);
-                                if std::env::var_os("ACTIONC_ARGUMENT_METRICS").is_some()
-                                    && first == 0xFF
-                                    && tag == 128
-                                    && !crlf
-                                {
-                                    eprintln!(
-                                        "argument-staging,{name},{runtime:?},optimized={optimized},origin={origin:04X},cycles={}",
-                                        vm.cpu().cycles() - start
+                let mut baseline = BTreeMap::new();
+                for enabled in [false, true] {
+                    let mut lf = None;
+                    for crlf in [false, true] {
+                        let source = if crlf {
+                            text.replace('\n', "\r\n")
+                        } else {
+                            text.clone()
+                        };
+                        let output = compile(&source, optimized, runtime, origin, enabled);
+                        if let Some(expected) = &lf {
+                            assert_eq!(&output.bytes, expected);
+                        } else {
+                            lf = Some(output.bytes.clone());
+                        }
+                        let entry = |name: &str| {
+                            output
+                                .routine_addresses
+                                .iter()
+                                .find(|r| r.name == name)
+                                .unwrap()
+                                .address
+                        };
+                        let mut hooks = Observe {
+                            callees: [(entry("Capture"), 5), (entry("CapturePair"), 4)].into(),
+                            arguments: Vec::new(),
+                        };
+                        let (mut vm, profile) = support::vm_for(runtime);
+                        vm.load_atari_object_for_execution(
+                            profile,
+                            &actionc::codegen::format_load_file(&output),
+                        )
+                        .unwrap();
+                        for name in ["ForwardAdd", "ForwardSub", "FourByte", "FivePlain"] {
+                            for (n, &first) in words.iter().enumerate() {
+                                let second = words[(n + 3) % words.len()];
+                                for tag in [0u8, 1, 127, 128, 254, 255] {
+                                    for address in 0xA0..=0xA7 {
+                                        vm.bus_mut().ram_mut().write(address, 0xD6);
+                                    }
+                                    let mut args = first.to_le_bytes().to_vec();
+                                    args.extend(second.to_le_bytes());
+                                    if name != "FourByte" {
+                                        args.push(tag);
+                                    }
+                                    let expected_first = match name {
+                                        "ForwardAdd" | "FourByte" => first.wrapping_add(1),
+                                        "ForwardSub" => first.wrapping_sub(1),
+                                        _ => first,
+                                    };
+                                    let mut expected = expected_first.to_le_bytes().to_vec();
+                                    expected.extend(second.to_le_bytes());
+                                    if name != "FourByte" {
+                                        expected.push(tag);
+                                    }
+                                    hooks.arguments.clear();
+                                    let start = vm.cpu().cycles();
+                                    vm = machine::call(vm, &mut hooks, entry(name), &args);
+                                    let cycles = vm.cpu().cycles() - start;
+                                    let key = (name, n, tag);
+                                    if !crlf {
+                                        if !enabled {
+                                            baseline.insert(key, cycles);
+                                        } else if name == "ForwardAdd" || name == "ForwardSub" {
+                                            assert!(cycles < baseline[&key]);
+                                        } else {
+                                            assert_eq!(cycles, baseline[&key]);
+                                        }
+                                    }
+                                    assert_eq!(
+                                        hooks.arguments,
+                                        vec![expected.clone()],
+                                        "{name}/{runtime:?}/{optimized}/{first:04X}/{second:04X}/{tag}"
                                     );
+                                    assert_eq!(
+                                        machine::bytes(&vm, 0x680, expected.len()),
+                                        expected
+                                    );
+                                    if std::env::var_os("ACTIONC_ARGUMENT_METRICS").is_some()
+                                        && first == 0xFF
+                                        && tag == 128
+                                        && !crlf
+                                    {
+                                        eprintln!(
+                                            "argument-staging,{name},{runtime:?},optimized={optimized},origin={origin:04X},enabled={enabled},cycles={cycles}"
+                                        );
+                                    }
                                 }
                             }
                         }

@@ -12,6 +12,8 @@ pub struct Mir6502Config {
     pub enable_peepholes: bool,
     /// Feed captured BYTE comparisons from A, with final code/home/image costing.
     pub enable_captured_byte_comparisons: bool,
+    /// Retain captured argument lanes through proven direct call preparation.
+    pub enable_argument_staging_reduction: bool,
     /// Replace proven small constant fill loops with direct byte stores.
     pub enable_tiny_constant_fills: bool,
     /// Forward captured bytes into small copies, subject to final size costing.
@@ -87,6 +89,7 @@ impl Default for Mir6502Config {
             select_widening_byte_multiply: false,
             enable_peepholes: true,
             enable_captured_byte_comparisons: false,
+            enable_argument_staging_reduction: false,
             enable_tiny_constant_fills: true,
             enable_copy_value_forwarding: true,
             enable_register_copy_forwarding: false,
@@ -123,6 +126,7 @@ impl Mir6502Config {
     pub fn optimized() -> Self {
         Self {
             enable_captured_byte_comparisons: true,
+            enable_argument_staging_reduction: true,
             enable_record_base_reuse: true,
             enable_register_copy_forwarding: true,
             enable_pointer_call_retention: true,

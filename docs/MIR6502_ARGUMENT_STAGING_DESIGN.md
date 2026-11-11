@@ -1,8 +1,9 @@
 # MIR6502 argument staging reduction
 
-Status: proposed design, 2026-11-11. Starting compiler: `476cfecf`, after
+Status: bounded schedule implemented; final qualification pending, 2026-11-11.
+Starting compiler: `476cfecf`, after
 qualified direct comparisons and carry reuse. This note defines the contract
-for extending existing call-argument selection; implementation remains separate.
+for extending existing call-argument selection.
 The [implementation plan](MIR6502_ARGUMENT_STAGING_IMPLEMENTATION_PLAN.md)
 defines four commit-sized slices and their acceptance checks.
 
@@ -174,6 +175,13 @@ observation proofs for store/home deletion and the existing
 [predicate-argument proofs](../surveys/tn/call-predicate-implementation-plan.md)
 where applicable. This extension does not replace those independently qualified
 families or introduce another alias scanner in the call materializer.
+
+The initial qualified shape uses the pre-home fact only for admission. Frozen
+output showed that an early register hint merely moved a reload and changed
+coloring. Its consumer therefore reconstructs an independent post-home proof
+and selects the high-byte carrier after allocation. All captures, physical
+homes and ordered source reads stay fixed. Broader expression scheduling still
+requires the pre-home integration described above.
 
 Use the current explicit call-materialization effect contract and verify its
 requirements. That contract permits selected ABI setup; it does not waive
