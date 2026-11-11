@@ -1,5 +1,4 @@
 //! A two-operation proof, independent of source names, callers and ABI shape.
-#![allow(dead_code)] // Inert until the selected operation is introduced.
 use super::{
     effects::{MirFlagSet, MirHomeByte},
     sites::{MirProgramPoint, MirSite},
@@ -21,6 +20,32 @@ pub(in crate::mir6502) struct Shape {
     pub dst: MirFixedZpSlot,
     pub source: MirAddressConsumer,
     pub offset: u16,
+}
+
+impl Shape {
+    pub(in crate::mir6502) fn selected(self) -> MirOp {
+        MirOp::OffsetPointerByIndirectBytePlusOne {
+            dst: MirMem::FixedZeroPage(self.dst),
+            source: self.source,
+            offset: self.offset,
+        }
+    }
+}
+
+/// Bounded ordered-read certificate. Both forms establish Y, read P.low,
+/// then read [P+offset] before their first write to R. The only later external
+/// read is P.high, physically disjoint from R. An unknown read of R therefore
+/// observes the same window-entry byte, not a deleted intermediate definition.
+/// This recognizes typed operations/fields, never a rule name or escape flag.
+pub(in crate::mir6502) fn entry_read_homes(
+    original: &[MirOp],
+    replacement: &[MirOp],
+) -> Option<[MirHomeByte; 2]> {
+    let s = shape(original).ok()?;
+    (replacement == [s.selected()]).then_some([
+        MirHomeByte::FixedZeroPage(s.dst),
+        MirHomeByte::FixedZeroPage(MirFixedZpSlot(s.dst.0 + 1)),
+    ])
 }
 
 /// Fixed pairs resolve to these exact physical bytes in every final layout.

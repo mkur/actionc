@@ -23,7 +23,10 @@ pub(in crate::mir6502) fn baseline() -> MirProgram {
             .unwrap();
             crate::mir6502::materialize_program_with_origin(
                 crate::mir6502::lower_program(&nir).unwrap(),
-                &Mir6502Config::optimized(),
+                &Mir6502Config {
+                    enable_pointer_byte_plus_one_fusion: false,
+                    ..Mir6502Config::optimized()
+                },
                 0x3000,
             )
             .unwrap()
@@ -103,6 +106,33 @@ fn pointer_byte_plus_one_facts_reject_live_machine_state_and_incomplete_source()
         .unwrap();
     r.blocks[0].ops.remove(i);
     assert_eq!(fact(&r), Err(Blocker::Source));
+    r.blocks[0].ops.insert(
+        i,
+        MirOp::Barrier {
+            effects: MirEffects {
+                memory_writes: MirMemoryEffect::Regions(vec![MirMemoryRegion {
+                    kind: MirMemoryRegionKind::ZeroPage,
+                    offset: 0xAF,
+                    size: 1,
+                }]),
+                ..MirEffects::default()
+            },
+        },
+    );
+    assert_eq!(
+        fact(&r),
+        Err(Blocker::Source),
+        "a declared may-write is not initialization"
+    );
+    r.blocks[0].ops[i] = MirOp::AddByteToWordMem {
+        mem: MirMem::FixedZeroPage(MirFixedZpSlot(0xAE)),
+        value: MirValue::ConstU8(0),
+    };
+    assert_eq!(
+        fact(&r),
+        Err(Blocker::Source),
+        "conditional high-byte repair is not initialization"
+    );
 }
 
 #[test]

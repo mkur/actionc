@@ -23,7 +23,10 @@ fn pointer_byte_plus_one_baseline_verifies_both_nir_modes_runtimes_and_origins()
             for origin in [0x3000, 0x41C7] {
                 let mir = mir6502::materialize_program_with_origin_and_runtime(
                     mir6502::lower_program(nir).unwrap(),
-                    &Mir6502Config::optimized(),
+                    &Mir6502Config {
+                        enable_pointer_byte_plus_one_fusion: false,
+                        ..Mir6502Config::optimized()
+                    },
                     origin,
                     runtime,
                 )
@@ -40,11 +43,46 @@ fn pointer_byte_plus_one_baseline_verifies_both_nir_modes_runtimes_and_origins()
                 let output = mir6502::generate_output_with_config_and_runtime(
                     nir,
                     origin,
-                    &Mir6502Config::optimized(),
+                    &Mir6502Config {
+                        enable_pointer_byte_plus_one_fusion: false,
+                        ..Mir6502Config::optimized()
+                    },
                     runtime,
                 )
                 .unwrap();
                 assert!(!actionc::codegen::format_load_file(&output).is_empty());
+                let after = mir6502::generate_output_with_config_and_runtime(
+                    nir,
+                    origin,
+                    &Mir6502Config {
+                        enable_pointer_byte_plus_one_fusion: true,
+                        ..Mir6502Config::optimized()
+                    },
+                    runtime,
+                )
+                .unwrap();
+                assert_eq!(
+                    actionc::codegen::format_load_file(&output).len()
+                        - actionc::codegen::format_load_file(&after).len(),
+                    5
+                );
+                for name in [
+                    "Forward", "PlusZero", "PlusTwo", "Subtract", "Plain", "Address",
+                ] {
+                    let size = |o: &actionc::codegen::CodegenOutput| {
+                        let r = o
+                            .map
+                            .routine_ranges
+                            .iter()
+                            .find(|r| r.name == name)
+                            .unwrap();
+                        r.end - r.start
+                    };
+                    assert_eq!(
+                        size(&output) - size(&after),
+                        if name == "Forward" { 5 } else { 0 }
+                    );
+                }
             }
         }
     }

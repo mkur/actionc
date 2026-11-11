@@ -254,6 +254,7 @@ pub(in crate::mir6502) fn replacement_home_dependencies(
     replacement: &[MirOp],
 ) -> Result<(), MirProofBlocker> {
     let mut unavailable: BTreeSet<_> = removed.iter().map(|definition| definition.home).collect();
+    let entry_alias_reads = crate::mir6502::analysis::pointer_byte_plus_one::entry_read_homes(original,replacement);
     // Retain unchanged reads of the window-entry value (e.g. the input to an
     // accumulator chain whose later scratch store is removed). Match each
     // original read at most once, and only before the first original write.
@@ -301,7 +302,8 @@ pub(in crate::mir6502) fn replacement_home_dependencies(
         if effects.homes.unknown_reads {
             if let Some(home) = unavailable
                 .iter()
-                .find(|home| matches!(home, MirHomeByte::FixedZeroPage(_)))
+                .find(|home| matches!(home, MirHomeByte::FixedZeroPage(_))
+                    && !entry_alias_reads.is_some_and(|entries| entries.contains(home)))
             {
                 return Err(MirProofBlocker::ReplacementHomeRead {
                     home: *home,

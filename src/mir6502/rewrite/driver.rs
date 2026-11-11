@@ -497,6 +497,15 @@ fn validate_posthome_plan(
         &block.ops,
         &plan.replacement,
     );
+    if plan.replacement.iter().any(|op| matches!(op, MirOp::OffsetPointerByIndirectBytePlusOne { .. }))
+        && (crate::mir6502::analysis::pointer_byte_plus_one::entry_read_homes(
+            &block.ops[plan.range.clone()],&plan.replacement).is_none()
+            || context.pointer_byte_plus_one(context.point(MirSite::Op {
+                block:plan.block,op_index:plan.range.start,
+            })).is_err()) {
+        return Err(MirRewriteError::InvalidDeclaration { stat:plan.stat,
+            message:"pointer byte plus one lost its ordered-read or machine-state proof".into() });
+    }
     // Value-redundancy plans can preserve exit values without declaring a dead
     // definition. Still derive disappearing writes independently so a missing
     // declaration cannot bypass the replacement's internal dependency check.

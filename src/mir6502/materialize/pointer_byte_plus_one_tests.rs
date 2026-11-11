@@ -41,6 +41,7 @@ fn pointer_byte_plus_one_selected_form_verifies_prints_and_declares_complete_eff
     );
     let effects = classify_op(&target());
     assert!(effects.memory.indirect_reads && effects.memory.has_unknown_effects);
+    assert!(effects.homes.unknown_reads);
     assert!(!effects.memory.indirect_writes && !effects.memory.may_write_any);
     assert_eq!(effects.memory.definite_writes.len(), 2);
     assert!(effects.may_clobber_reg_compat(MirReg::A));

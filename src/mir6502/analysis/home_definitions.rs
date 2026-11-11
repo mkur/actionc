@@ -15,7 +15,7 @@ use crate::mir6502::analysis::home_liveness::{
     MirHomeBlockTransfers, action_return_home_uses, collect_home_transfers, collect_home_universe,
 };
 use crate::mir6502::analysis::sites::MirSite;
-use crate::mir6502::ir::{MirBlockId, MirRoutine, MirTerminator};
+use crate::mir6502::ir::{MirAddr, MirBlockId, MirFixedZpSlot, MirMem, MirOp, MirRoutine, MirTerminator, MirWidth};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct MirHomeDefinition {
@@ -56,7 +56,6 @@ impl MirHomeDefinitionState {
     }
 
     fn define(&mut self, home: MirHomeByte, store: MirSite) {
-        self.possibly_unwritten.remove(&home);
         self.possibly_undefined.remove(&home);
         self.definitions
             .insert(home, BTreeSet::from([MirHomeDefinition { home, store }]));
@@ -68,6 +67,7 @@ struct HomeDefinitionProblem<'a> {
     entry: Option<MirBlockId>,
     private_homes: BTreeSet<MirHomeByte>,
     all_homes: BTreeSet<MirHomeByte>,
+    explicit_writes: &'a BTreeMap<MirBlockId, Vec<BTreeSet<MirHomeByte>>>,
     private_aliases: &'a BTreeMap<MirHomeByte, BTreeSet<MirHomeByte>>,
 }
 
@@ -105,6 +105,7 @@ impl DataflowProblem<MirCfg> for HomeDefinitionProblem<'_> {
                 op_index,
             };
             apply_writes(&mut state, &transfer.writes, site);
+            for home in &self.explicit_writes[&node][op_index] { state.possibly_unwritten.remove(home); }
             define_private_aliases(&mut state, &transfer.writes, self.private_aliases);
         }
         apply_writes(
@@ -154,6 +155,7 @@ pub(in crate::mir6502) struct MirHomeDefinitions {
     uses: BTreeMap<MirHomeDefinition, BTreeSet<MirSite>>,
     reachable: BTreeSet<MirBlockId>,
     private_aliases: BTreeMap<MirHomeByte, BTreeSet<MirHomeByte>>,
+    explicit_writes: BTreeMap<MirBlockId, Vec<BTreeSet<MirHomeByte>>>,
 }
 
 impl MirHomeDefinitions {
@@ -161,12 +163,24 @@ impl MirHomeDefinitions {
         let universe = collect_home_universe(routine);
         let transfers = collect_home_transfers(routine, &universe);
         let private_aliases = allocated_private_aliases(routine, universe.iter());
+        // A may-write annotation, opaque call or conditional word-high repair
+        // cannot initialize an incoming pair. Certify only explicit fixed RAM
+        // stores for the first fusion consumer, keeping old liveness policy.
+        let explicit_writes = routine.blocks.iter().map(|b| (b.id,b.ops.iter().map(|op| {
+            let mut writes=BTreeSet::new();
+            if let MirOp::Store {dst:MirAddr::Direct(MirMem::FixedZeroPage(lo)),width,..}=op {
+                writes.insert(MirHomeByte::FixedZeroPage(*lo));
+                if *width==MirWidth::Word && lo.0<255 { writes.insert(MirHomeByte::FixedZeroPage(MirFixedZpSlot(lo.0+1))); }
+            }
+            writes
+        }).collect())).collect::<BTreeMap<_,_>>();
         let result = solve_dataflow(
             cfg,
             &HomeDefinitionProblem {
                 transfers: &transfers,
                 entry: cfg.entry(),
-                all_homes: universe.iter().collect(),
+                all_homes: universe.iter().filter(|h|matches!(h,MirHomeByte::FixedZeroPage(_))).collect(),
+                explicit_writes: &explicit_writes,
                 private_aliases: &private_aliases,
                 private_homes: universe
                     .iter()
@@ -186,6 +200,7 @@ impl MirHomeDefinitions {
             uses,
             reachable: cfg.reachable().clone(),
             private_aliases,
+            explicit_writes,
         }
     }
 
@@ -235,12 +250,14 @@ impl MirHomeDefinitions {
     /// may-writes never establish initialization. This does not prove a value
     /// identity or absence of subsequent observers.
     pub(in crate::mir6502) fn definitely_written_before(&self, home: MirHomeByte, site: MirSite) -> bool {
+        if !matches!(home,MirHomeByte::FixedZeroPage(_)) { return false; }
         let MirSite::Op { block, op_index } = site else { return false; };
         let Some(transfers) = self.transfers.get(&block) else { return false; };
         if !self.reachable.contains(&block) || op_index >= transfers.ops.len() { return false; }
         let Some(mut state) = self.result.in_state(block).cloned() else { return false; };
         for (i, transfer) in transfers.ops[..op_index].iter().enumerate() {
             apply_writes(&mut state, &transfer.writes, MirSite::Op { block, op_index: i });
+            for home in &self.explicit_writes[&block][i] { state.possibly_unwritten.remove(home); }
         }
         !state.possibly_unwritten.contains(&home)
             && state.definitions.contains_key(&home)

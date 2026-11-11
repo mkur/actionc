@@ -184,8 +184,13 @@ pub fn materialize_program_with_origin_and_runtime(
     } else {
         baseline
     };
-    if !staging_routines.is_empty() {
-        materialize::argument_staging::select_costed(baseline, config, origin, runtime, &staging_routines)
+    let baseline = if !staging_routines.is_empty() {
+        materialize::argument_staging::select_costed(baseline, config, origin, runtime, &staging_routines)?
+    } else {
+        baseline
+    };
+    if config.enable_peepholes && config.enable_pointer_byte_plus_one_fusion {
+        materialize::pointer_byte_plus_one::select_costed(baseline, config, origin, runtime)
     } else {
         Ok(baseline)
     }

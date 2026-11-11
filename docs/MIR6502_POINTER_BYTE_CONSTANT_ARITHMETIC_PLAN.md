@@ -1,6 +1,6 @@
 # MIR6502 pointer byte constant arithmetic implementation
 
-Prepared 2026-11-11. Status: slices 1 and 2 implemented; selection remains inert. Starting revision `553f8074`, with compiler
+Prepared 2026-11-11. Status: slices 1–3 implemented; optimized default awaits final qualification. Starting revision `553f8074`, with compiler
 code at `6311c110`. Implement in four vertical slices, committing each after
 its checks pass. This plan includes the proposed MIR contract; no separate
 design note is needed for the bounded form below.
@@ -339,8 +339,8 @@ fixture updates as target selection changes; raw NIR remains unchanged.
 | Slice | Status | Evidence |
 | --- | --- | --- |
 | 1 Baseline and proofs | Complete, `935c8c44` | Frozen images and source/compiler identities; four inert proof tests; 155 analysis tests and neutral integration/VM checks |
-| 2 Target form and emission | Implemented | Typed operation, verifier/effects/visitor support and emitted arithmetic oracle |
-| 3 Selection and costing | Planned | Commit shared proof transactions with exact final qualification |
+| 2 Target form and emission | Complete, `45bfa3af` | Typed operation, verifier/effects/visitor support and emitted arithmetic oracle |
+| 3 Selection and costing | Implemented | Shared typed read certificate, final costing, preserved published exits and explicit feature control |
 | 4 Boundary and corpus qualification | Planned | Enable optimized default after full scoped checks and measurements |
 
 ### Slice 1 evidence
@@ -361,8 +361,8 @@ addition remain independent controls.
 
 The inert witness checks complete source definitions on every path, fixed
 physical pair disjointness, legal offsets, discarded A/X/flags and intermediate
-definition observations. A shared must-write query tracks public as well as
-private home initialization without changing existing private-read diagnostics.
+definition observations. A shared public-home must-write query complements
+existing private initialization diagnostics without changing their policy.
 The neutral integration target passes both NIR modes/runtimes/origins. Its
 VM target executes 960 calls through actual LF/CRLF parsing, checks independent
 arguments/results and exactly-once ordered source reads, and matches the
@@ -387,3 +387,32 @@ may point to source/destination scratch or ABI cells; the oracle respects
 aliases that constrain its value. These checks preserve source-pair bytes and
 output guards. Production discovery is still disabled, retaining existing
 images and call/parameter behavior.
+
+### Slice 3 evidence
+
+The new selector runs after the complete preceding final pipeline. It replaces
+only the adjacent typed pair through a rebuilt post-home snapshot. A structural
+certificate recognizes the exact old/new operands and preserves the incoming
+indirect-read prefix. The selected operation explicitly projects unknown fixed-
+home reads; raw legacy indirect forms retain their earlier projection. The
+shared dependency check permits only this certified entry-value observation,
+and the driver independently reconstructs the full live-state/source proof.
+Mismatched operands and ordinary opaque readers keep their rejection behavior.
+The incoming-pair query certifies explicit fixed-cell stores on every path;
+may-write annotations and conditional high-byte repairs cannot initialize it.
+
+The final gate checks exact routine/home/image costs, unchanged frames, replay
+of fixed physical operands and pre-emission verification. It also preserves
+published incidental A results and incoming X/Y preservation: local deadness
+alone cannot invalidate an earlier caller's known-callee proof. A regression
+keeps a newly unprofitable-for-contract leaf unchanged while accepting an
+independent routine. Unknown emission cost restores the complete baseline.
+
+Eleven focused proof/emission/selection tests and the neutral integration
+target pass. The VM compares feature-off/on ABI bytes, entry flags/stack depth,
+results and exactly-once ordered source reads across both NIR modes, runtimes,
+origins and LF/CRLF inputs (1,920 calls). `Forward` is 95→90 bytes, complete
+neutral images are 668→663 / 750→745 bytes, and the sampled calls improve
+356→350 cycles. All controls retain their prior sizes and cycles. The feature
+remains explicitly enabled in these checks; optimized default stays off until
+slice 4 qualification.

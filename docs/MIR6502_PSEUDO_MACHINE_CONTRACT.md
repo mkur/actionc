@@ -688,6 +688,15 @@ reloads across a call. Emission receives this typed strategy and only writes
 its carry chain and local repair branch. See the
 [implementation plan](MIR6502_POINTER_BYTE_CONSTANT_ARITHMETIC_PLAN.md).
 
+Its selected effect projection includes unknown fixed-home reads. A bounded
+old/new-operation certificate permits the entry-value read before any replaced
+scratch definition; the general dependency check remains conservative for
+opaque readers and mismatched operands. The transaction driver reconstructs
+that proof at application. Final costing also preserves already-published
+callee A results and X/Y preservation facts, so local liveness cannot break
+earlier caller rewrites. Literal fixed pairs make physical alias replay
+independent of ordinary code/data relocation; frames must remain identical.
+
 ### Post-home private-byte definitions
 
 At the post-home and pre-emission boundaries, every reachable read of a

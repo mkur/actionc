@@ -566,6 +566,11 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.machine.conservative_register_clobbers.a = true;
             if matches!(op, MirOp::OffsetPointerByIndirectBytePlusOne { .. }) {
                 summary.machine.conservative_register_clobbers.x = true;
+                // The selected operation's byte read precedes its first R
+                // write and can observe any fixed incoming home. Preserve
+                // the legacy forms' policy; the fusion has a typed prefix
+                // certificate for this stricter home projection.
+                summary.homes.unknown_reads = true;
             }
             summary.machine.flag_clobbers = MirFlagSet::all();
             summary.machine.writes_any_flags_compat = true;
