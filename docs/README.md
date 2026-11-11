@@ -228,6 +228,10 @@ crowding the active reference set.
   - implemented retained-store forwarding across setup with typed X/N/Z and
   physical proofs; [measured results](benchmarks/6502-argument-x-forwarding/README.md)
   save one or two bytes per site, including four bytes in TN.
+- [MIR6502 callee entry flag summaries](MIR6502_CALLEE_ENTRY_FLAG_SUMMARIES_PLAN.md)
+  - planned per-flag incoming requirements so argument forwarding can prove
+  N/Z unused while preserving live C/V, with conservative call boundaries and
+  final validation against proposed callee bodies.
 - [MIR6502_WIDE_SHIFT_COPY_REDUCTION.md](MIR6502_WIDE_SHIFT_COPY_REDUCTION.md)
   - byte and nibble projections for constant wide shifts, preserving captured
   operands while reducing staging for narrow results.

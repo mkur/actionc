@@ -1,10 +1,12 @@
 # MIR6502 argument setup A to X forwarding plan
 
-Prepared 2026-11-11. Status: slices 1–3 implemented; optimized default remains off.
+Prepared 2026-11-11. Status: all four slices implemented and qualified in `82ada38f`.
 Compiler baseline: `1122b42c`.
 Implement in four vertical slices, committing each after its checks pass.
 This plan includes the bounded scheduling contract; no new executable MIR
 operation or separate design note is required.
+
+The next refinement is [per-flag callee entry summaries](MIR6502_CALLEE_ENTRY_FLAG_SUMMARIES_PLAN.md).
 
 Retain a byte already in A through argument preparation by copying it to X
 beside its existing store, then remove the later reload into X. Generalize
@@ -12,7 +14,7 @@ the existing argument-staging mechanism beyond arithmetic WORD producers,
 private captures and the WORD/WORD/BYTE scalar-callee gate. Keep all stores,
 homes, source evaluation and calls intact.
 
-The [current measurements](benchmarks/6502-pointer-load-sharing/README.md)
+The [preceding measurements](benchmarks/6502-pointer-load-sharing/README.md)
 put `Strcat` at 114 bytes, TN cartridge at 9,862 bytes and the sampled `Strcat`
 call at 356 cycles. Its remaining `LDX $A1` can potentially become an earlier
 `TAX`, saving one byte and one cycle. Broader applicability needs typed proofs
