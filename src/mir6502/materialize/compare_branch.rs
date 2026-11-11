@@ -2279,6 +2279,65 @@ pub(in crate::mir6502) fn addressed_byte_compare_candidate(
     })
 }
 
+pub(in crate::mir6502) struct CapturedByteCompareCandidate {
+    pub start: usize,
+    pub captured: MirTempId,
+    pub condition: MirTempId,
+    pub replacement: Vec<MirOp>,
+}
+
+pub(in crate::mir6502) fn captured_byte_compare_candidate(
+    block: &MirBlock,
+) -> Option<CapturedByteCompareCandidate> {
+    let (condition, _, _) = branch_bool_temp(block)?;
+    let start = block.ops.len().checked_sub(2)?;
+    let MirOp::Load {
+        dst: MirDef::VTemp(loaded),
+        src:
+            source @ (MirAddr::ComputedIndex { .. }
+            | MirAddr::PointerIndex { .. }
+            | MirAddr::Deref { .. }),
+        width: MirWidth::Byte,
+    } = &block.ops[start]
+    else {
+        return None;
+    };
+    let MirOp::Compare {
+        dst: MirCondDest::Temp(result),
+        op: op @ (MirCompareOp::Le | MirCompareOp::Gt),
+        left: MirValue::Def(MirDef::VTemp(captured)),
+        right: MirValue::Def(MirDef::VTemp(right)),
+        width: MirWidth::Byte,
+        signed: false,
+    } = &block.ops[start + 1]
+    else {
+        return None;
+    };
+    if *result != condition || right != loaded || captured == loaded {
+        return None;
+    }
+    Some(CapturedByteCompareCandidate {
+        start,
+        captured: *captured,
+        condition,
+        replacement: vec![
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: source.clone(),
+                width: MirWidth::Byte,
+            },
+            MirOp::Compare {
+                dst: MirCondDest::Temp(condition),
+                op: reverse_compare_operands(*op),
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: MirValue::Def(MirDef::VTemp(*captured)),
+                width: MirWidth::Byte,
+                signed: false,
+            },
+        ],
+    })
+}
+
 #[cfg(test)]
 pub(super) fn fold_compare_operand_producers_before_branches(
     blocks: &mut [MirBlock],

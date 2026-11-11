@@ -10,6 +10,8 @@ pub struct Mir6502Config {
     #[doc(hidden)]
     pub select_widening_byte_multiply: bool,
     pub enable_peepholes: bool,
+    /// Feed captured unsigned BYTE comparisons from an addressed load in A.
+    pub enable_captured_byte_comparisons: bool,
     /// Replace proven small constant fill loops with direct byte stores.
     pub enable_tiny_constant_fills: bool,
     /// Forward captured bytes into small copies, subject to final size costing.
@@ -84,6 +86,7 @@ impl Default for Mir6502Config {
             select_runtime_helpers: true,
             select_widening_byte_multiply: false,
             enable_peepholes: true,
+            enable_captured_byte_comparisons: false,
             enable_tiny_constant_fills: true,
             enable_copy_value_forwarding: true,
             enable_register_copy_forwarding: false,
@@ -119,6 +122,7 @@ impl Default for Mir6502Config {
 impl Mir6502Config {
     pub fn optimized() -> Self {
         Self {
+            enable_captured_byte_comparisons: true,
             enable_record_base_reuse: true,
             enable_register_copy_forwarding: true,
             enable_pointer_call_retention: true,

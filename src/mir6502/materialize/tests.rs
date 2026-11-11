@@ -3658,6 +3658,73 @@ fn analyzed_addressed_byte_compare_forwards_loaded_byte_to_accumulator() {
 }
 
 #[test]
+fn captured_byte_compare_preserves_capture_and_pointer_producers() {
+    use crate::mir6502::rewrite::pilots::{
+        captured_byte_compare_rank, discover_captured_byte_compares,
+    };
+    for op in [MirCompareOp::Le, MirCompareOp::Gt] {
+        let mut routine = captured_byte_compare_routine(op);
+        let prefix = routine.blocks[0].ops[..2].to_vec();
+        let source = match &routine.blocks[0].ops[2] {
+            MirOp::Load { src, .. } => src.clone(),
+            _ => unreachable!(),
+        };
+        let mut observations = BTreeSet::new();
+        let result = MirPreHomeRewriteDriver::default()
+            .run_fixed_point_by_key(
+                &mut routine,
+                |routine, context| {
+                    discover_captured_byte_compares(routine, context, &mut observations)
+                },
+                captured_byte_compare_rank,
+            )
+            .unwrap();
+        assert_eq!(result.applied, 1);
+        assert_eq!(&routine.blocks[0].ops[..2], prefix.as_slice());
+        assert!(matches!(&routine.blocks[0].ops[2], MirOp::Load {
+            dst: MirDef::Reg(MirReg::A), src, width: MirWidth::Byte,
+        } if src == &source));
+        assert!(matches!(&routine.blocks[0].ops[3], MirOp::Compare {
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::Def(MirDef::VTemp(MirTempId(1))), op: selected, ..
+        } if *selected == if op == MirCompareOp::Le { MirCompareOp::Ge } else { MirCompareOp::Lt }));
+        assert_eq!(captured_byte_compare_rank(&routine), 0);
+    }
+}
+
+fn captured_byte_compare_routine(op: MirCompareOp) -> MirRoutine {
+    let mut routine = addressed_byte_compare_routine(false);
+    routine.temps.push(MirTemp { id: MirTempId(3) });
+    let mut addressed = routine.blocks[0].ops.remove(0);
+    if let MirOp::Load { src, .. } = &mut addressed {
+        *src = MirAddr::Deref {
+            ptr: MirValue::Def(MirDef::VTemp(MirTempId(3))),
+            offset: 0,
+        };
+    }
+    routine.blocks[0].ops.insert(
+        1,
+        MirOp::LoadImm {
+            dst: MirDef::VTemp(MirTempId(3)),
+            value: 0x7000,
+            width: MirWidth::Word,
+        },
+    );
+    routine.blocks[0].ops.insert(2, addressed);
+    if let MirOp::Compare {
+        op: predicate,
+        left,
+        right,
+        ..
+    } = &mut routine.blocks[0].ops[3]
+    {
+        *predicate = op;
+        std::mem::swap(left, right);
+    }
+    routine
+}
+
+#[test]
 fn analyzed_addressed_byte_compare_keeps_value_live_in_successor() {
     let mut routine = addressed_byte_compare_routine(true);
     let result = MirPreHomeRewriteDriver::default()

@@ -1,6 +1,6 @@
 # MIR6502 direct comparisons and flag reuse
 
-Prepared 2026-11-11. Implementation is pending. The starting compiler is
+Prepared 2026-11-11. Slices 1 and 2 are implemented. The starting compiler is
 `1eadf8f14cae7177f0b5e8c483502769415783fb`, whose compiler sources match the
 frozen TN comparison revision `d11fe9ca`.
 
@@ -351,3 +351,27 @@ The resulting LF/CRLF images match byte for byte.
 ```sh
 ACTIONC_COMPARE_METRICS=1 cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml --test direct_comparisons -- --nocapture
 ```
+
+### Slice 2 implementation
+
+The new selector matches the final addressed load and unsigned comparison while
+leaving the earlier capture and pointer producers intact. Shared proofs check
+the capture's unique complete BYTE definition and availability, the condition's
+exclusive branch use, the removed value's remaining uses and outgoing machine
+state. The transaction retains the addressed-read operation and uses the
+existing result-register effect declaration. A decreasing candidate count
+drives its fixed point because the operation count remains equal.
+
+`enable_captured_byte_comparisons` provides an independent feature-off control
+inside the existing optimized peephole configuration. The applied counter is
+`captured-byte-compare-selected`. Candidate and capture, condition-use,
+machine-state and loaded-use blocker counters use the same prefix.
+
+The neutral integration target shows smaller images and all three smaller
+routine bodies in both runtimes, both NIR modes and two origins. For the
+sample operands 128 and 254, the fixed-index calls improve from 54 cycles to
+47 (`AtMost`) and 48 (`Greater`). The optimized-NIR ordinary-index call improves
+from 55 to 48. These measurements include the common VM call wrapper.
+The VM target passes feature-off/on host-oracle execution with actual LF/CRLF
+sources in both runtimes and both NIR modes. Existing addressed-load selector
+tests and the new capture/pointer preservation unit test pass.

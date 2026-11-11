@@ -16,7 +16,7 @@ fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-fn compile(text: &str, optimized_nir: bool, runtime: Runtime) -> CodegenOutput {
+fn compile(text: &str, optimized_nir: bool, runtime: Runtime, enabled: bool) -> CodegenOutput {
     let source = support::Source::new(text);
     let loaded = actionc::includes::load_program_with_expanded_source(&source.0).unwrap();
     let model = actionc::semantic::analyze_with_options(
@@ -32,13 +32,11 @@ fn compile(text: &str, optimized_nir: bool, runtime: Runtime) -> CodegenOutput {
     } else {
         raw
     };
-    mir6502::generate_output_with_config_and_runtime(
-        &nir,
-        0x3000,
-        &Mir6502Config::optimized(),
-        runtime,
-    )
-    .unwrap()
+    let config = Mir6502Config {
+        enable_captured_byte_comparisons: enabled,
+        ..Mir6502Config::optimized()
+    };
+    mir6502::generate_output_with_config_and_runtime(&nir, 0x3000, &config, runtime).unwrap()
 }
 
 struct Hooks;
@@ -60,60 +58,67 @@ fn captured_byte_comparisons_match_unsigned_oracle_with_lf_and_crlf() {
     let values = [0, 1, 127, 128, 254, 255];
     for optimized_nir in [false, true] {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-            let lf = compile(&text, optimized_nir, runtime);
-            let crlf = compile(&text.replace('\n', "\r\n"), optimized_nir, runtime);
-            assert_eq!(
-                lf.bytes, crlf.bytes,
-                "{runtime:?}/optimized_nir={optimized_nir}"
-            );
-            for output in [&lf, &crlf] {
-                let ordinary = output
-                    .map
-                    .storage_symbols
-                    .iter()
-                    .find(|s| s.name.eq_ignore_ascii_case("ordinaryIndex"))
-                    .unwrap()
-                    .address;
-                let mut vm = load(output, runtime);
-                for name in ["AtMost", "Greater", "NamedAtMost"] {
-                    let entry = output
-                        .routine_addresses
+            for enabled in [false, true] {
+                let lf = compile(&text, optimized_nir, runtime, enabled);
+                let crlf = compile(&text.replace('\n', "\r\n"), optimized_nir, runtime, enabled);
+                assert_eq!(
+                    lf.bytes, crlf.bytes,
+                    "{runtime:?}/optimized_nir={optimized_nir}"
+                );
+                for output in [&lf, &crlf] {
+                    let ordinary = output
+                        .map
+                        .storage_symbols
                         .iter()
-                        .find(|r| r.name.eq_ignore_ascii_case(name))
+                        .find(|s| s.name.eq_ignore_ascii_case("ordinaryIndex"))
                         .unwrap()
                         .address;
-                    for address in [0x7000u16, 0x70FF] {
-                        for left in values {
-                            for right in values {
-                                let ram = vm.bus_mut().ram_mut();
-                                ram.write(0xE0, left);
-                                ram.write(ordinary, left);
-                                ram.write(0x680, 0xA5);
-                                ram.write(address, right);
-                                let start = vm.cpu().cycles();
-                                vm = machine::call(vm, &mut Hooks, entry, &address.to_le_bytes());
-                                let truth = if name == "Greater" {
-                                    left > right
-                                } else {
-                                    left <= right
-                                };
-                                assert_eq!(
-                                    vm.bus().ram().read(0x680),
-                                    if truth { 17 } else { 29 },
-                                    "{name}/{runtime:?}/optimized_nir={optimized_nir}/{left}/{right}"
-                                );
-                                assert_eq!(vm.bus().ram().read(address), right);
-                                assert_eq!(vm.bus().ram().read(0xE0), left);
-                                assert_eq!(vm.bus().ram().read(ordinary), left);
-                                if std::env::var_os("ACTIONC_COMPARE_METRICS").is_some()
-                                    && address == 0x7000
-                                    && left == 128
-                                    && right == 254
-                                {
-                                    eprintln!(
-                                        "direct-comparison,{name},{runtime:?},optimized_nir={optimized_nir},cycles={}",
-                                        vm.cpu().cycles() - start
+                    let mut vm = load(output, runtime);
+                    for name in ["AtMost", "Greater", "NamedAtMost"] {
+                        let entry = output
+                            .routine_addresses
+                            .iter()
+                            .find(|r| r.name.eq_ignore_ascii_case(name))
+                            .unwrap()
+                            .address;
+                        for address in [0x7000u16, 0x70FF] {
+                            for left in values {
+                                for right in values {
+                                    let ram = vm.bus_mut().ram_mut();
+                                    ram.write(0xE0, left);
+                                    ram.write(ordinary, left);
+                                    ram.write(0x680, 0xA5);
+                                    ram.write(address, right);
+                                    let start = vm.cpu().cycles();
+                                    vm = machine::call(
+                                        vm,
+                                        &mut Hooks,
+                                        entry,
+                                        &address.to_le_bytes(),
                                     );
+                                    let truth = if name == "Greater" {
+                                        left > right
+                                    } else {
+                                        left <= right
+                                    };
+                                    assert_eq!(
+                                        vm.bus().ram().read(0x680),
+                                        if truth { 17 } else { 29 },
+                                        "{name}/{runtime:?}/optimized_nir={optimized_nir}/enabled={enabled}/{left}/{right}"
+                                    );
+                                    assert_eq!(vm.bus().ram().read(address), right);
+                                    assert_eq!(vm.bus().ram().read(0xE0), left);
+                                    assert_eq!(vm.bus().ram().read(ordinary), left);
+                                    if std::env::var_os("ACTIONC_COMPARE_METRICS").is_some()
+                                        && address == 0x7000
+                                        && left == 128
+                                        && right == 254
+                                    {
+                                        eprintln!(
+                                            "direct-comparison,{name},{runtime:?},optimized_nir={optimized_nir},enabled={enabled},cycles={}",
+                                            vm.cpu().cycles() - start
+                                        );
+                                    }
                                 }
                             }
                         }

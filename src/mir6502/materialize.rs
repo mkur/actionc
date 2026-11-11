@@ -84,8 +84,9 @@ use super::rewrite::driver::{
 #[cfg(test)]
 use super::rewrite::pilots::discover_dual_indirect_compares;
 use super::rewrite::pilots::{
-    byte_binary_compare_consumer_rank, compare_narrowing_rank, discover_affine_static_byte_indexes,
-    discover_byte_binary_compare_consumers, discover_compare_narrowing, discover_compare_producers,
+    byte_binary_compare_consumer_rank, captured_byte_compare_rank, compare_narrowing_rank,
+    discover_affine_static_byte_indexes, discover_byte_binary_compare_consumers,
+    discover_captured_byte_compares, discover_compare_narrowing, discover_compare_producers,
     discover_dual_indirect_compares_with_layout, discover_inclusive_compare_reversals,
     discover_index_rewrites, discover_pointer_rewrites, discover_unused_lea_addrs,
     inclusive_compare_reversal_rank,
@@ -134,7 +135,7 @@ use compare_branch::{
     word_arithmetic_compare_candidate,
 };
 pub(in crate::mir6502) use compare_branch::{
-    addressed_byte_compare_candidate, compare_branch_copy_candidate,
+    addressed_byte_compare_candidate, captured_byte_compare_candidate, compare_branch_copy_candidate,
     direct_indexed_byte_compare_candidate, dual_indirect_compare_candidate,
 };
 #[cfg(test)]
@@ -2715,6 +2716,9 @@ fn run_prehome_canonicalization_group(
         );
         verify_cfg_after_transform(routine, "small counted-loop unrolling")?;
     }
+    if config.enable_peepholes && config.enable_captured_byte_comparisons {
+        run_analyzed_captured_byte_comparisons(routine, peephole_stats)?;
+    }
     run_analyzed_compare_producer_rewrites(routine, peephole_stats)?;
     run_analyzed_inclusive_compare_reversals(routine, layout, peephole_stats)?;
     run_analyzed_compare_narrowing(routine, peephole_stats)?;
@@ -3614,6 +3618,30 @@ fn run_analyzed_compare_branch_copies(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("comparison-copy rewrite failed: {error:?}"),
+            )]
+        })?;
+    for (_, stat) in observations {
+        peephole_stats.record_many(routine.id, stat, 1);
+    }
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_captured_byte_comparisons(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut observations = BTreeSet::new();
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point_by_key(
+            routine,
+            |routine, context| discover_captured_byte_compares(routine, context, &mut observations),
+            captured_byte_compare_rank,
+        )
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("captured byte comparison rewrite failed: {error:?}"),
             )]
         })?;
     for (_, stat) in observations {

@@ -524,6 +524,18 @@ the proof fails or another consumer needs the value. The rewrite neither
 crosses effects nor follows memory aliases, casts, Boolean expressions, or
 cross-block copies. It uses the normal transaction/invalidation workflow and
 is disabled with `enable_peepholes`; no NIR or emitter operation is added.
+
+An unsigned BYTE comparison may also consume an adjacent addressed load in A
+when the other operand is an earlier captured BYTE. The selected suffix keeps
+that capture and all pointer producers, replaces only the loaded temp, and
+reverses `capture <= loaded` to `loaded >= capture` or `capture > loaded` to
+`loaded < capture`. The original addressed read stays at its original point.
+A unique complete captured definition must reach the suffix, the loaded temp
+must die there, and the condition must feed the branch exclusively. Shared
+machine liveness requires changed register and flag state dead on successors.
+The normal branch selector consumes the resulting carry condition. Selection
+is controlled by `enable_captured_byte_comparisons` together with
+`enable_peepholes`; the optimized configuration enables it.
 See [the implementation and validation](MIR6502_COMPARE_BRANCH_FUSION_PLAN.md).
 
 Emission owns concrete bytes and output mechanics:

@@ -97,6 +97,101 @@ pub(in crate::mir6502) fn discover_compare_branch_copies(
     plans
 }
 
+pub(in crate::mir6502) fn captured_byte_compare_rank(routine: &MirRoutine) -> usize {
+    routine
+        .blocks
+        .iter()
+        .filter(|block| {
+            crate::mir6502::materialize::captured_byte_compare_candidate(block).is_some()
+        })
+        .count()
+}
+
+pub(in crate::mir6502) fn discover_captured_byte_compares(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    observations: &mut BTreeSet<(crate::mir6502::ir::MirBlockId, &'static str)>,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        let Some(candidate) = crate::mir6502::materialize::captured_byte_compare_candidate(block)
+        else {
+            continue;
+        };
+        observations.insert((block.id, "captured-byte-compare-candidate"));
+        let load_site = MirSite::Op {
+            block: block.id,
+            op_index: candidate.start,
+        };
+        let compare_site = MirSite::Op {
+            block: block.id,
+            op_index: candidate.start + 1,
+        };
+        let definitions = context.temp_definitions(candidate.captured);
+        let uses = context.uses_at(candidate.captured, compare_site);
+        let captured_is_available = match (definitions.as_slice(), uses.as_slice()) {
+            ([definition], [usage]) if definition.lane.byte == 0 => {
+                matches!(context.unique_reaching_definition(*usage, definition.lane),
+                         MirProof::Proven(reaching) if reaching == *definition)
+                    && context
+                        .value_available_at(*definition, context.point(load_site))
+                        .is_proven()
+            }
+            _ => false,
+        };
+        if !captured_is_available {
+            observations.insert((block.id, "captured-byte-compare-blocked-capture"));
+            continue;
+        }
+        if !context
+            .exclusive_byte_temp_flow(
+                candidate.condition,
+                compare_site,
+                MirSite::Terminator { block: block.id },
+            )
+            .is_proven()
+        {
+            observations.insert((block.id, "captured-byte-compare-blocked-condition-use"));
+            continue;
+        }
+        if !context.branch_machine_state_dead(block.id).is_proven() {
+            observations.insert((block.id, "captured-byte-compare-blocked-machine-state"));
+            continue;
+        }
+        let Some(removed) = prove_removed_window_definitions(
+            block.id,
+            &block.ops,
+            candidate.start,
+            block.ops.len(),
+            &candidate.replacement,
+            context,
+        ) else {
+            observations.insert((block.id, "captured-byte-compare-blocked-loaded-use"));
+            continue;
+        };
+        plans.push(MirRewritePlan {
+            generation: context.generation(),
+            block: block.id,
+            range: candidate.start..block.ops.len(),
+            replacement: candidate.replacement,
+            removed_defs: removed
+                .into_iter()
+                .map(|definition| MirRemovedDefinition { definition })
+                .collect(),
+            exit_effect_delta: MirEffectDelta::SelectedResultRegister(
+                crate::mir6502::ir::MirReg::A,
+            ),
+            change_set: MirChangeSet::prehome_operation_change(),
+            stat: "captured-byte-compare-selected",
+            observations: Vec::new(),
+            family_priority: 25,
+            estimated_byte_saving: 2,
+            estimated_cycle_saving: 2,
+        });
+    }
+    plans
+}
+
 pub(in crate::mir6502) fn discover_prehome_pilots(
     routine: &MirRoutine,
     context: &PreHomeRewriteContext<'_, '_>,
