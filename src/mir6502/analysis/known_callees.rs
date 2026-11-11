@@ -1,5 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+#[allow(dead_code)] // Inert fact model; the next slice adds its consumer.
+mod bounded_memory;
+
 use crate::analysis::dataflow::{DataflowDirection, DataflowProblem, solve_dataflow};
 use crate::codegen::AddressingMode;
 use crate::mir6502::analysis::cfg::MirCfg;
@@ -831,7 +834,7 @@ fn summarize_machine_routine(
     summarize_bounded_machine_block(machine, routine, program)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct MachineByte {
     value: Option<u8>,
     memory: Option<MirMem>,

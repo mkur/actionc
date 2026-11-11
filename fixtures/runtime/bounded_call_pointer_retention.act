@@ -1,0 +1,35 @@
+BYTE ARRAY dstBuf(512), srcBuf(512)
+BYTE before, after
+
+PROC CopyBytes=*(CARD dst, src BYTE count)
+ASM
+  sta $A0
+  stx $A1
+  sty $A2
+  ldy $A4
+  dey
+loop:
+  lda ($A2),y
+  sta ($A0),y
+  dey
+  cpy #$FF
+  bne loop
+  rts
+ENDASM
+
+PROC ReadAcrossCopy(CHAR POINTER p BYTE count)
+  before=p^
+  CopyBytes(@dstBuf, @srcBuf, count)
+  after=p^
+RETURN
+
+PROC UnknownCopy(CHAR POINTER p, dst)
+  before=p^
+  CopyBytes(CARD(dst), @srcBuf, 1)
+  after=p^
+RETURN
+
+PROC Main()
+  ReadAcrossCopy(CHAR POINTER($7000), 2)
+  UnknownCopy(CHAR POINTER($7000), CHAR POINTER($7100))
+RETURN
