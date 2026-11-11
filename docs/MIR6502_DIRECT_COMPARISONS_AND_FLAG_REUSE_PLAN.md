@@ -1,6 +1,6 @@
 # MIR6502 direct comparisons and flag reuse
 
-Prepared 2026-11-11. Slices 1 and 2 are implemented. The starting compiler is
+Prepared 2026-11-11. Slices 1 through 3 are implemented. The starting compiler is
 `1eadf8f14cae7177f0b5e8c483502769415783fb`, whose compiler sources match the
 frozen TN comparison revision `d11fe9ca`.
 
@@ -375,3 +375,28 @@ from 55 to 48. These measurements include the common VM call wrapper.
 The VM target passes feature-off/on host-oracle execution with actual LF/CRLF
 sources in both runtimes and both NIR modes. Existing addressed-load selector
 tests and the new capture/pointer preservation unit test pass.
+
+### Slice 3 qualification
+
+Seven focused proof/instruction tests cover the indexed operand forms, both
+predicates, retained captures with extra consumers, rejected loaded/condition
+consumers, ambiguous definitions, redefinitions, backedges, edge arguments,
+live A/X/Y and C/N/Z/V, and stale transactions. Calls, machine blocks, stores
+and barriers interrupt the required adjacent suffix. Signed/word comparisons
+and the other predicates retain their existing paths. Actual emitted baseline
+and selected instructions execute all 65,536 BYTE pairs for each predicate
+against the independent unsigned host oracle: 262,144 calls in total.
+
+Three VM tests cover raw/optimized NIR, both runtimes and actual LF/CRLF input.
+They check fixed and named storage, repeated calls, page-boundary pointers,
+aliases to the index and both parameter-home bytes, fixed scratch addresses,
+and a hardware-register target. Read tracing confirms one indirect read per
+comparison. A separate hardware-input test changes the input after its capture
+but immediately before the indirect RHS read. Both feature settings retain the
+original answer, with exactly one hardware-input read. This checks the ordered
+snapshot obligation independently of aggregate effect matching.
+
+```sh
+cargo test --locked --lib captured_compare_
+cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml --test direct_comparisons
+```

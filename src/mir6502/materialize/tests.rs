@@ -5,6 +5,8 @@ mod arithmetic_tests;
 mod indexed_copy_tests;
 #[path = "compare_branch_copy_tests.rs"]
 mod compare_branch_copy_tests;
+#[path = "captured_compare_tests.rs"]
+mod captured_compare_tests;
 use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::MirRoutineGeneration;
 use crate::mir6502::ir::{
