@@ -118,8 +118,9 @@ measured neutral images; the default CLI also reproduces the measured image.
 The exact TN images pass 80 string cases and 16 parameter-home alias calls,
 including same-buffer and overlapping copies. Positive source lengths preserve
 the counted-string oracle's scope; existing zero-length `MovePage` assembly
-behavior is unchanged. Current default TN/TNDBG images match the measured
-files and pass panel/dispatch execution.
+behavior is unchanged. At qualification, the default TN/TNDBG images matched
+these measured files and passed panel/dispatch execution. Current default
+images include the later [argument X forwarding](../6502-argument-x-forwarding/README.md).
 
 Final backend checks pass 1,206 MIR6502 unit tests, 104 integration tests across
 17 targets and 169 emission/load fixtures. Eight MADS assemblies reproduce
@@ -139,9 +140,11 @@ cargo test --release --locked --lib pointer_load_sharing_measure_corpus -- --ign
 ```
 
 Set `ACTIONC_POINTER_LOAD_MEASURED_IMAGES` to that directory's absolute path
-when running `pointer_load_sharing` and `tn_dispatch` to require equality
-between freshly compiled and measured images. The measured TN oracle consumes
-the images directly and resolves current owner-qualified parameter homes:
+when running `pointer_load_sharing` to require equality between freshly
+compiled and measured historical images. Current default `tn_dispatch` uses
+`ACTIONC_ARGUMENT_X_MEASURED_IMAGES` and the later report. The measured TN
+oracle consumes the images directly and resolves current owner-qualified
+parameter homes:
 
 ```sh
 cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml \
@@ -150,6 +153,6 @@ cargo test --locked --test mir6502_pointer_load_sharing -- --ignored --nocapture
 ```
 
 The last command requires MADS on PATH or `ACTIONC_MADS`. Historical exporters
-and baseline-sensitive helpers explicitly disable this later optimization,
-preserving earlier manifests and byte-role tables. The plan lists the full
+and baseline-sensitive helpers explicitly disable later optimizations, including
+argument X forwarding, preserving earlier manifests and byte-role tables. The plan lists the full
 scoped qualification commands.

@@ -24,6 +24,7 @@ fn pointer_load_sharing_baseline_preserves_nir_modes_runtimes_and_origins() {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41C7] {
                 let config = Mir6502Config {
+                    enable_argument_x_forwarding: false,
                     enable_pointer_load_sharing: false,
                     ..Mir6502Config::optimized()
                 };
@@ -63,6 +64,7 @@ fn pointer_load_sharing_baseline_preserves_nir_modes_runtimes_and_origins() {
                     }
                 }
                 let enabled = Mir6502Config {
+                    enable_argument_x_forwarding: false,
                     enable_pointer_load_sharing: true,
                     ..config.clone()
                 };

@@ -25,6 +25,7 @@ fn argument_staging_neutral_fixture_verifies_and_emits_in_both_runtimes() {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41C7] {
                 let off = Mir6502Config {
+                    enable_argument_x_forwarding: false,
                     enable_argument_staging_reduction: false,
                     ..Mir6502Config::optimized()
                 };

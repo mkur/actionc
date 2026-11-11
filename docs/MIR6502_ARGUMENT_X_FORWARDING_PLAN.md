@@ -349,8 +349,8 @@ Explain materialized-MIR changes as target scheduling; raw NIR stays unchanged.
 | --- | --- | --- |
 | 1 Baselines and proof | Complete, `8fe02793` | [Frozen controls](benchmarks/6502-argument-x-forwarding/baseline.json), three neutral home classes and four inert proof tests |
 | 2 Selection and costing | Complete, `99fb571d` | Late selector, shared typed witnesses, physical replay and exact final costing |
-| 3 Flags aliases and ABI | Implemented | Boundary oracle, alias observations, feature matrix and exact TN execution |
-| 4 Corpus and defaults | Planned | |
+| 3 Flags aliases and ABI | Complete, `d8b0ebdf` | Boundary oracle, alias observations, feature matrix and exact TN execution |
+| 4 Corpus and defaults | Complete | Optimized default, historical pins and [measured qualification](benchmarks/6502-argument-x-forwarding/README.md) |
 
 The neutral fixture confirms fixed staging, ordinary BYTE parameter and private
 zero-page misses with normal optimized NIR/inlining. Its `Forward`,
@@ -397,6 +397,32 @@ It exports source listings as well as MIR/maps; all eight frozen controls
 match and their TN listings have been archived. Eight measured TN/TNDBG images
 pass 80 string and 16 post-call parameter-alias cases. `Strcat` is 114→113
 bytes and sampled calls are 356→355 cycles. Four TN sites qualify; `Inv` and
-`Copy`/`Dbg` retain their reloads because call-entry flag facts are unavailable.
+`Copy` retain their reloads because call-entry flag facts are unavailable.
+The final stricter entry proof also retains TNDBG `Dbg` sites.
 Additional typed candidates retain fallback for unsupported setup operations.
 The optimized default remains off until slice 4 qualification.
+
+
+Slice 4 enables the feature in the optimized configuration and pins it off in
+historical exporters and baseline-sensitive helpers. All eight frozen hashes
+match. Fourteen of 28 runtime/origin pairs shrink and fourteen are identical;
+52 applications save 58 bytes across those images. TN is 9,862→9,858 bytes,
+TNDBG 12,958→12,954 (cartridge); the predicate-snapshot control also saves
+two bytes. Frames, storage capacities, reserved lengths and zero-page use
+agree. Fresh default CLI neutral images and TN/TNDBG compilation are required
+to match the measured artifacts. Source listings and complete facts remain in
+ignored build artifacts; committed manifests hold hashes and compact results.
+
+Final scoped checks cover 1,217 MIR6502 unit tests, 105 integration tests in
+18 targets, 169 emission/load fixtures, the affected runtime/ABI targets,
+TN panel/dispatch execution, eight LF/CRLF MADS reassembly/relocation checks,
+scoped arithmetic/indexed/indirect-field runtime and selection assertions,
+and frozen static/VM audits. See the measured report for exact target counts,
+execution boundaries, final image hashes and release timing observations.
+
+Final review strengthened scalar-entry facts with CFG entry liveness, treating
+nested calls/helpers/barriers as flag observations. A scalar signature and
+routine effects alone cannot exclude a wrapper forwarding incoming flags.
+The added regression rejects that wrapper and an N/Z-only definition before
+its nested call. The full affected-backend qualification was repeated after
+this proof change; measured-image equality gates any changed selection.

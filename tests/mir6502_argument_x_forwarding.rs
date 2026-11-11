@@ -4,6 +4,8 @@ use actionc::{
 };
 #[test]
 fn argument_x_forwarding_baseline_verifies_modes_runtimes_and_origins() {
+    assert!(!Mir6502Config::default().enable_argument_x_forwarding);
+    assert!(Mir6502Config::optimized().enable_argument_x_forwarding);
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures/runtime/argument_x_forwarding.act");
     let loaded = actionc::includes::load_program_with_expanded_source(path).unwrap();
@@ -66,13 +68,11 @@ fn argument_x_forwarding_baseline_verifies_modes_runtimes_and_origins() {
                 }
                 for name in ["Forward", "ForwardByte", "ForwardPrivate"] {
                     let r = p.routines.iter().find(|r| r.name == name).unwrap();
-                    assert!(
-                        mir6502::format_program(&mir6502::MirProgram {
-                            routines: vec![r.clone()],
-                            ..p.clone()
-                        })
-                        .contains("x =.b load ")
-                    );
+                    assert!(mir6502::format_program(&mir6502::MirProgram {
+                        routines: vec![r.clone()],
+                        ..p.clone()
+                    })
+                    .contains("x =.b load "));
                 }
                 if optimized {
                     if let Some(dir) = std::env::var_os("ACTIONC_ARGUMENT_X_BASELINE") {
@@ -100,7 +100,7 @@ fn argument_x_forwarding_baseline_verifies_modes_runtimes_and_origins() {
 #[test]
 #[ignore = "requires MADS assembler on PATH or ACTIONC_MADS"]
 fn argument_x_forwarding_mads_listings_reconstruct_and_relocate_with_lf_and_crlf() {
-    use actionc::compiler::{CompileMode, CompileOptions, compile_file};
+    use actionc::compiler::{compile_file, CompileMode, CompileOptions};
     let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures/runtime/argument_x_forwarding.act");
     let dir = std::env::temp_dir().join(format!(

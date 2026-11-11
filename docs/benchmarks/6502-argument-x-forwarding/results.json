@@ -1,0 +1,2930 @@
+{
+  "date": "2026-11-11",
+  "compiler_code_revision": "d8b0ebdf",
+  "qualification_revision": "d8b0ebdf",
+  "qualification_changes": "Final slice adds CFG entry liveness with conservative nested-call observations, enables the optimized default and pins historical controls off; exact current-image checks bind the measured outputs.",
+  "profile": "modern",
+  "backend": "mir6502",
+  "nir": "optimized",
+  "link_policy": "EntryReachable",
+  "comparison": "Only enable_argument_x_forwarding changes; preceding optimized strategies stay fixed.",
+  "vm_revision": "7ec0cc454ebf43b088b7bcd11515533085ea1964",
+  "inputs_sha256": {
+    "fixtures/mir6502/array_param_string_length_loop.act": "653c4410511bd65ccb9e3e20437077ad302d0ba771ca2cde1c1f9ea8f11a1b58",
+    "fixtures/runtime/argument_staging.act": "400871bc51dca8577fa9dd16d27c121ff5173968814a1fdc1368d7e557e34c75",
+    "fixtures/runtime/argument_x_forwarding.act": "039c96ecf603cc53243d964244afc5a4d827c67e695039f8e3ad065ae2a01444",
+    "fixtures/runtime/direct_action_word_arithmetic_args.act": "342fd892775a36ff2ba53d054f25418baae6fa8d8219beb844ed42748f477c61",
+    "fixtures/runtime/indexed_byte_fixed_action_args.act": "7b91165909d2afa6fab59d851bde592cfcd741ed60a9c8497a02471ef31d023c",
+    "fixtures/runtime/pointer_byte_plus_one.act": "57f3439eec5f262d28a32415ac52f9146060cc98ca0455b8d4980031707c6823",
+    "fixtures/runtime/pointer_load_sharing.act": "fdd3cdee33f196812e13a1e92799aca0827ee3e6c792142ef0bb91ab193fe2cf",
+    "fixtures/runtime/standalone_sys_strings_runtime.act": "da9d2d5597b16585e566ab604067b83f9ef0af7f91ceee1d628e1ddec5515660",
+    "samples/graphics/fedora.act": "1b10fa0fd2d7b82b97585a7c314081fb48009751b12a08b4693e7d7aee5fd1c0",
+    "samples/tn/modern/LIB.ACT": "b8cd4c48b9b2d9c96fc86d24e94ea3dc6e9dfb706c636c2b7fb7fc6c58015c53",
+    "samples/tn/modern/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "samples/tn/modern/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+    "surveys/tn/reproducers/call-predicate-snapshots.act": "6fae2711578c9eae0455400c01bfab185e50a9b84cf7c00629ad445ba8427778",
+    "surveys/tn/reproducers/captured-call-arguments.act": "c228fe34612cd0ebade108da2a219990343d4f33d59fea7623ab87ef5b57e775"
+  },
+  "frozen_control_matches": [
+    "neutral-3000-ActionCart-false",
+    "neutral-41C7-ActionCart-false",
+    "neutral-3000-Standalone-false",
+    "neutral-41C7-Standalone-false",
+    "TN-ActionCart-false",
+    "TN-Standalone-false",
+    "TNDBG-ActionCart-false",
+    "TNDBG-Standalone-false"
+  ],
+  "measurement_notes": [
+    "Pairs are [feature-off, feature-on]; code extents are half-open; reserved ranges are [start,length].",
+    "Timings are single release-profile materialization samples under concurrent qualification load; no compiler-speed claim.",
+    "Top-level extra emissions are derived from the accepted selector control flow: two physical maps, three routine/home costs and two XEX costs per batch. Internal layout probes are not separate selector trials.",
+    "Frame and source-storage capacities are equal; code-relative addresses may relocate. Full frames and maps remain in ignored artifacts.",
+    "Mapped symbol sizes may count aliases; zero page is the union of declared, allocated and mapped cells, excluding implicit runtime-only helper scratch.",
+    "Direct operation counts exclude accesses inside other selected MIR forms. VM observations separately check retained stores and ordered indirect reads.",
+    "An empty selection_stats means no bounded typed store/reload/call shape reached discovery. Candidate counts include shapes later rejected by proof.",
+    "Transactions retain operation count: insert TAX and remove one direct byte X load. Original direct X-load count bounds fixed-point iteration.",
+    "Both measured settings explicitly override the feature flag, so enabling its optimized default does not change either measured configuration.",
+    "The corpus was remeasured after final CFG entry-flag proof hardening. Fresh neutral and TN/TNDBG compilation checks also require exact measured-image equality."
+  ],
+  "pairs": [
+    {
+      "name": "TN-ActionCart",
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "ActionCart",
+      "origin": 11264,
+      "image_bytes": [
+        9862,
+        9858
+      ],
+      "image_sha256": [
+        "847348e8721fad62b6ca8b4c9387902911fcad4e623b9e6df96b5188088aa56a",
+        "4ea92cbe4066190e35573333f4bd7552259f7d1e33823e826ec13765d8cec0cb"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        9850,
+        9846
+      ],
+      "routine_code_bytes": [
+        9042,
+        9038
+      ],
+      "code_extent": [
+        [
+          12072,
+          21114
+        ],
+        [
+          12072,
+          21110
+        ]
+      ],
+      "reserved_ranges": [
+        [
+          [
+            21114,
+            10
+          ],
+          [
+            21124,
+            40
+          ],
+          [
+            21164,
+            47
+          ],
+          [
+            21211,
+            47
+          ],
+          [
+            21258,
+            1171
+          ],
+          [
+            22429,
+            1171
+          ],
+          [
+            23600,
+            130
+          ],
+          [
+            23730,
+            130
+          ],
+          [
+            23860,
+            32
+          ],
+          [
+            23892,
+            16
+          ]
+        ],
+        [
+          [
+            21110,
+            10
+          ],
+          [
+            21120,
+            40
+          ],
+          [
+            21160,
+            47
+          ],
+          [
+            21207,
+            47
+          ],
+          [
+            21254,
+            1171
+          ],
+          [
+            22425,
+            1171
+          ],
+          [
+            23596,
+            130
+          ],
+          [
+            23726,
+            130
+          ],
+          [
+            23856,
+            32
+          ],
+          [
+            23888,
+            16
+          ]
+        ]
+      ],
+      "mapped_storage_symbol_bytes": 3638,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "edc3c36a982ab5c26e2548e319ad443c509ec22d7fa7b42f128883c101fc98b0",
+      "declared_allocated_mapped_zero_page": [
+        90,
+        91,
+        92,
+        93,
+        112,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        192,
+        193,
+        194,
+        198,
+        199,
+        211,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231,
+        232,
+        233,
+        234,
+        254,
+        255
+      ],
+      "changed_routine_bytes": {
+        "Draw": [
+          148,
+          147
+        ],
+        "MoveMenuBar": [
+          118,
+          117
+        ],
+        "Strcat": [
+          114,
+          113
+        ],
+        "TagAll": [
+          90,
+          89
+        ]
+      },
+      "direct_load_delta": -4,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        59,
+        55
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-applied": 4,
+        "argument-x-forwarding-blocked-call-flags": 3,
+        "argument-x-forwarding-blocked-gap": 2,
+        "argument-x-forwarding-candidate": 9,
+        "argument-x-forwarding-selected": 4
+      },
+      "extra_emission_passes": 7,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        11816.0,
+        8831.64
+      ]
+    },
+    {
+      "name": "TN-Standalone",
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "Standalone",
+      "origin": 11264,
+      "image_bytes": [
+        9987,
+        9983
+      ],
+      "image_sha256": [
+        "313bf6faaa3a75fbd079e3fb771772552d5e27b9df868ac67fdc5fb5bb4a1d2a",
+        "d115666eee4954772f3864b5a82ebfa7df4446d15e639ab79d0ac8927684bdb9"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        9975,
+        9971
+      ],
+      "routine_code_bytes": [
+        9148,
+        9144
+      ],
+      "code_extent": [
+        [
+          12074,
+          21239
+        ],
+        [
+          12074,
+          21235
+        ]
+      ],
+      "reserved_ranges": [
+        [
+          [
+            21239,
+            10
+          ],
+          [
+            21249,
+            40
+          ],
+          [
+            21289,
+            47
+          ],
+          [
+            21336,
+            47
+          ],
+          [
+            21383,
+            1171
+          ],
+          [
+            22554,
+            1171
+          ],
+          [
+            23725,
+            130
+          ],
+          [
+            23855,
+            130
+          ],
+          [
+            23985,
+            32
+          ],
+          [
+            24017,
+            16
+          ]
+        ],
+        [
+          [
+            21235,
+            10
+          ],
+          [
+            21245,
+            40
+          ],
+          [
+            21285,
+            47
+          ],
+          [
+            21332,
+            47
+          ],
+          [
+            21379,
+            1171
+          ],
+          [
+            22550,
+            1171
+          ],
+          [
+            23721,
+            130
+          ],
+          [
+            23851,
+            130
+          ],
+          [
+            23981,
+            32
+          ],
+          [
+            24013,
+            16
+          ]
+        ]
+      ],
+      "mapped_storage_symbol_bytes": 3640,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "1845060771aaa95af0ad93a01d163c591535c2a1671fc8a315219564930e70d6",
+      "declared_allocated_mapped_zero_page": [
+        90,
+        91,
+        92,
+        93,
+        112,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231,
+        232,
+        233,
+        234,
+        254,
+        255
+      ],
+      "changed_routine_bytes": {
+        "Draw": [
+          148,
+          147
+        ],
+        "MoveMenuBar": [
+          118,
+          117
+        ],
+        "Strcat": [
+          114,
+          113
+        ],
+        "TagAll": [
+          90,
+          89
+        ]
+      },
+      "direct_load_delta": -4,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        61,
+        57
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-applied": 4,
+        "argument-x-forwarding-blocked-call-flags": 3,
+        "argument-x-forwarding-blocked-gap": 2,
+        "argument-x-forwarding-candidate": 9,
+        "argument-x-forwarding-selected": 4
+      },
+      "extra_emission_passes": 7,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        8670.559,
+        8847.488
+      ]
+    },
+    {
+      "name": "TNDBG-ActionCart",
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "ActionCart",
+      "origin": 11264,
+      "image_bytes": [
+        12958,
+        12954
+      ],
+      "image_sha256": [
+        "65348c94adfad78010a31736431be4f026b18f788f11b200ea3b8e6d2adedadd",
+        "d1aa5f4a0cbd4f2c1950bd5a42c961b69fa8df510d734b87b83c61ea5896bab5"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        12946,
+        12942
+      ],
+      "routine_code_bytes": [
+        11603,
+        11599
+      ],
+      "code_extent": [
+        [
+          12607,
+          24210
+        ],
+        [
+          12607,
+          24206
+        ]
+      ],
+      "reserved_ranges": [
+        [
+          [
+            24210,
+            10
+          ],
+          [
+            24220,
+            40
+          ],
+          [
+            24260,
+            47
+          ],
+          [
+            24307,
+            47
+          ],
+          [
+            24354,
+            1171
+          ],
+          [
+            25525,
+            1171
+          ],
+          [
+            26696,
+            130
+          ],
+          [
+            26826,
+            130
+          ],
+          [
+            26956,
+            32
+          ],
+          [
+            26988,
+            16
+          ]
+        ],
+        [
+          [
+            24206,
+            10
+          ],
+          [
+            24216,
+            40
+          ],
+          [
+            24256,
+            47
+          ],
+          [
+            24303,
+            47
+          ],
+          [
+            24350,
+            1171
+          ],
+          [
+            25521,
+            1171
+          ],
+          [
+            26692,
+            130
+          ],
+          [
+            26822,
+            130
+          ],
+          [
+            26952,
+            32
+          ],
+          [
+            26984,
+            16
+          ]
+        ]
+      ],
+      "mapped_storage_symbol_bytes": 4173,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "eb66dec4f460393ad009c7289bcad10e47c95140446ba4026f5c357a1cb31bce",
+      "declared_allocated_mapped_zero_page": [
+        90,
+        91,
+        92,
+        93,
+        112,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        192,
+        193,
+        194,
+        198,
+        199,
+        211,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231,
+        232,
+        233,
+        234,
+        235,
+        254,
+        255
+      ],
+      "changed_routine_bytes": {
+        "Draw": [
+          148,
+          147
+        ],
+        "MoveMenuBar": [
+          118,
+          117
+        ],
+        "Strcat": [
+          114,
+          113
+        ],
+        "TagAll": [
+          90,
+          89
+        ]
+      },
+      "direct_load_delta": -4,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        87,
+        83
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-applied": 4,
+        "argument-x-forwarding-blocked-call": 1,
+        "argument-x-forwarding-blocked-call-flags": 7,
+        "argument-x-forwarding-blocked-gap": 2,
+        "argument-x-forwarding-candidate": 14,
+        "argument-x-forwarding-selected": 4
+      },
+      "extra_emission_passes": 7,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        24912.606,
+        25133.762
+      ]
+    },
+    {
+      "name": "TNDBG-Standalone",
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "Standalone",
+      "origin": 11264,
+      "image_bytes": [
+        13083,
+        13079
+      ],
+      "image_sha256": [
+        "2b7fd4850e69aefc6205eb37fc29eac918a175d68a039e5ea077f2983607e485",
+        "81f1d3b7a9f0b6209cae386284b52dddf2ebb21c29ec05773b774d502c7753a4"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        13071,
+        13067
+      ],
+      "routine_code_bytes": [
+        11709,
+        11705
+      ],
+      "code_extent": [
+        [
+          12609,
+          24335
+        ],
+        [
+          12609,
+          24331
+        ]
+      ],
+      "reserved_ranges": [
+        [
+          [
+            24335,
+            10
+          ],
+          [
+            24345,
+            40
+          ],
+          [
+            24385,
+            47
+          ],
+          [
+            24432,
+            47
+          ],
+          [
+            24479,
+            1171
+          ],
+          [
+            25650,
+            1171
+          ],
+          [
+            26821,
+            130
+          ],
+          [
+            26951,
+            130
+          ],
+          [
+            27081,
+            32
+          ],
+          [
+            27113,
+            16
+          ]
+        ],
+        [
+          [
+            24331,
+            10
+          ],
+          [
+            24341,
+            40
+          ],
+          [
+            24381,
+            47
+          ],
+          [
+            24428,
+            47
+          ],
+          [
+            24475,
+            1171
+          ],
+          [
+            25646,
+            1171
+          ],
+          [
+            26817,
+            130
+          ],
+          [
+            26947,
+            130
+          ],
+          [
+            27077,
+            32
+          ],
+          [
+            27109,
+            16
+          ]
+        ]
+      ],
+      "mapped_storage_symbol_bytes": 4175,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "84e43f054284085126784b9eb3391768ae48bb4d4c667ea57a3f094ce9796ccd",
+      "declared_allocated_mapped_zero_page": [
+        90,
+        91,
+        92,
+        93,
+        112,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231,
+        232,
+        233,
+        234,
+        235,
+        254,
+        255
+      ],
+      "changed_routine_bytes": {
+        "Draw": [
+          148,
+          147
+        ],
+        "MoveMenuBar": [
+          118,
+          117
+        ],
+        "Strcat": [
+          114,
+          113
+        ],
+        "TagAll": [
+          90,
+          89
+        ]
+      },
+      "direct_load_delta": -4,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        89,
+        85
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-applied": 4,
+        "argument-x-forwarding-blocked-call": 1,
+        "argument-x-forwarding-blocked-call-flags": 7,
+        "argument-x-forwarding-blocked-gap": 2,
+        "argument-x-forwarding-candidate": 14,
+        "argument-x-forwarding-selected": 4
+      },
+      "extra_emission_passes": 7,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        24967.166,
+        24958.993
+      ]
+    },
+    {
+      "name": "argument-staging-ActionCart",
+      "source": "fixtures/runtime/argument_staging.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        334,
+        334
+      ],
+      "image_sha256": [
+        "82342347198cfe4a858a49c26048cc18db55b36c58be827b6679309582293993",
+        "82342347198cfe4a858a49c26048cc18db55b36c58be827b6679309582293993"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        322,
+        322
+      ],
+      "routine_code_bytes": [
+        294,
+        294
+      ],
+      "code_extent": [
+        [
+          12316,
+          12610
+        ],
+        [
+          12316,
+          12610
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 38,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "a1eaf73eb9d09a09bb46539a677cd3d3fb622ba4c5b8bb4203726b695253ecb5",
+      "declared_allocated_mapped_zero_page": [
+        160,
+        163,
+        164,
+        224,
+        225
+      ],
+      "changed_routine_bytes": {},
+      "direct_load_delta": 0,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        5,
+        5
+      ],
+      "selection_stats": {},
+      "extra_emission_passes": 0,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        35.146,
+        46.675
+      ]
+    },
+    {
+      "name": "argument-staging-Standalone",
+      "source": "fixtures/runtime/argument_staging.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        416,
+        416
+      ],
+      "image_sha256": [
+        "fbd7bd9d79f6340a97482ef1868db60913e0eba4e8c818e256532636b5a2c8f1",
+        "fbd7bd9d79f6340a97482ef1868db60913e0eba4e8c818e256532636b5a2c8f1"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        404,
+        404
+      ],
+      "routine_code_bytes": [
+        375,
+        375
+      ],
+      "code_extent": [
+        [
+          12317,
+          12692
+        ],
+        [
+          12317,
+          12692
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 39,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "db73774e64a04c1a2a410bf89605f5c9772efb19b695ffc8c43b2776cbc6b720",
+      "declared_allocated_mapped_zero_page": [
+        160,
+        163,
+        164,
+        224,
+        225
+      ],
+      "changed_routine_bytes": {},
+      "direct_load_delta": 0,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        5,
+        5
+      ],
+      "selection_stats": {},
+      "extra_emission_passes": 0,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        38.685,
+        36.542
+      ]
+    },
+    {
+      "name": "graphics-ActionCart",
+      "source": "samples/graphics/fedora.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        5586,
+        5586
+      ],
+      "image_sha256": [
+        "af2ef7efe3c33700da9313a018a25a26cc21ba636c8b022c00bd5e201592b1ab",
+        "af2ef7efe3c33700da9313a018a25a26cc21ba636c8b022c00bd5e201592b1ab"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        5574,
+        5574
+      ],
+      "routine_code_bytes": [
+        4988,
+        4988
+      ],
+      "code_extent": [
+        [
+          12874,
+          17862
+        ],
+        [
+          12874,
+          17862
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 594,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "5094336b2e8e60abf0927bbb6c7cb4ecde639be868f75ac71b8cbcfecfdde6c2",
+      "declared_allocated_mapped_zero_page": [
+        77,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        163,
+        164,
+        165,
+        170,
+        171,
+        172,
+        173,
+        192,
+        193,
+        194,
+        198,
+        199,
+        211,
+        212,
+        213,
+        214,
+        215,
+        216,
+        217,
+        218,
+        219,
+        220,
+        221,
+        222,
+        223,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231,
+        232,
+        233,
+        234,
+        235,
+        236,
+        237,
+        238,
+        239,
+        240,
+        241,
+        242,
+        243,
+        244,
+        245,
+        246,
+        247,
+        248,
+        249,
+        250,
+        251,
+        252,
+        253,
+        254,
+        255
+      ],
+      "changed_routine_bytes": {},
+      "direct_load_delta": 0,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        6,
+        6
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-blocked-x-read": 1,
+        "argument-x-forwarding-candidate": 1
+      },
+      "extra_emission_passes": 1,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        1565.627,
+        1560.734
+      ]
+    },
+    {
+      "name": "graphics-Standalone",
+      "source": "samples/graphics/fedora.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        6227,
+        6227
+      ],
+      "image_sha256": [
+        "7a2cc0939463f4e457632ee3d985748b2c94b85011edd5dca6e280fdca464e22",
+        "7a2cc0939463f4e457632ee3d985748b2c94b85011edd5dca6e280fdca464e22"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        6215,
+        6215
+      ],
+      "routine_code_bytes": [
+        5560,
+        5560
+      ],
+      "code_extent": [
+        [
+          12943,
+          18503
+        ],
+        [
+          12943,
+          18503
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 659,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "1edb48f5cffede05f45649b6a18f1e70a7420be10da1d5093a8c7ee9bc49c318",
+      "declared_allocated_mapped_zero_page": [
+        77,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        163,
+        164,
+        165,
+        170,
+        171,
+        172,
+        173,
+        192,
+        193,
+        194,
+        198,
+        199,
+        211,
+        212,
+        213,
+        214,
+        215,
+        216,
+        217,
+        218,
+        219,
+        220,
+        221,
+        222,
+        223,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231,
+        232,
+        233,
+        234,
+        235,
+        236,
+        237,
+        238,
+        239,
+        240,
+        241,
+        242,
+        243,
+        244,
+        245,
+        246,
+        247,
+        248,
+        249,
+        250,
+        251,
+        252,
+        253,
+        254,
+        255
+      ],
+      "changed_routine_bytes": {},
+      "direct_load_delta": 0,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        6,
+        6
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-blocked-x-read": 1,
+        "argument-x-forwarding-candidate": 1
+      },
+      "extra_emission_passes": 1,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        1593.999,
+        1635.092
+      ]
+    },
+    {
+      "name": "indexed-byte-ActionCart",
+      "source": "fixtures/runtime/indexed_byte_fixed_action_args.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        738,
+        738
+      ],
+      "image_sha256": [
+        "19a70b2d2baed734c12c5a38950a3dc5f9799f1dd0c3dd3da6240a21a39ba503",
+        "19a70b2d2baed734c12c5a38950a3dc5f9799f1dd0c3dd3da6240a21a39ba503"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        726,
+        726
+      ],
+      "routine_code_bytes": [
+        704,
+        704
+      ],
+      "code_extent": [
+        [
+          12310,
+          13014
+        ],
+        [
+          12310,
+          13014
+        ]
+      ],
+      "reserved_ranges": [
+        [
+          [
+            13014,
+            259
+          ]
+        ],
+        [
+          [
+            13014,
+            259
+          ]
+        ]
+      ],
+      "mapped_storage_symbol_bytes": 282,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "1e803e5950f8bdf619ebe4bec26ca58c97d8664e48b9ff9ac7181da1cb83fbf8",
+      "declared_allocated_mapped_zero_page": [
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231
+      ],
+      "changed_routine_bytes": {},
+      "direct_load_delta": 0,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        0,
+        0
+      ],
+      "selection_stats": {},
+      "extra_emission_passes": 0,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        59.724,
+        59.734
+      ]
+    },
+    {
+      "name": "indexed-byte-Standalone",
+      "source": "fixtures/runtime/indexed_byte_fixed_action_args.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        820,
+        820
+      ],
+      "image_sha256": [
+        "dd48bc1ffec1247094e3f63c0f9da131123d5a3d274eff64f9a2eb7fdc0a3dc1",
+        "dd48bc1ffec1247094e3f63c0f9da131123d5a3d274eff64f9a2eb7fdc0a3dc1"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        808,
+        808
+      ],
+      "routine_code_bytes": [
+        785,
+        785
+      ],
+      "code_extent": [
+        [
+          12311,
+          13096
+        ],
+        [
+          12311,
+          13096
+        ]
+      ],
+      "reserved_ranges": [
+        [
+          [
+            13096,
+            259
+          ]
+        ],
+        [
+          [
+            13096,
+            259
+          ]
+        ]
+      ],
+      "mapped_storage_symbol_bytes": 283,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "8778b8ca5acc5705a1b6d8b2a161b2f5d5ee335ceb412f1d632a977b9123314c",
+      "declared_allocated_mapped_zero_page": [
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231
+      ],
+      "changed_routine_bytes": {},
+      "direct_load_delta": 0,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        0,
+        0
+      ],
+      "selection_stats": {},
+      "extra_emission_passes": 0,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        84.121,
+        61.565
+      ]
+    },
+    {
+      "name": "neutral-3000-ActionCart",
+      "source": "fixtures/runtime/argument_x_forwarding.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        360,
+        356
+      ],
+      "image_sha256": [
+        "64f1b4cfb276c38da99b8ecb3a81756341349f24fd5a836bf9d07b51ba41bae5",
+        "619c374d2a7f465f9604a4bb943b2356734373b1c578d22fc42a170444e2ef1f"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        348,
+        344
+      ],
+      "routine_code_bytes": [
+        326,
+        322
+      ],
+      "code_extent": [
+        [
+          12310,
+          12636
+        ],
+        [
+          12310,
+          12632
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 34,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "06b91508491777dabe40ff15610c708a6febafc2531f99f977f8c05fa5b85aa9",
+      "declared_allocated_mapped_zero_page": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        172,
+        173,
+        174,
+        175,
+        224,
+        225,
+        226
+      ],
+      "changed_routine_bytes": {
+        "Forward": [
+          84,
+          83
+        ],
+        "ForwardByte": [
+          11,
+          9
+        ],
+        "ForwardPrivate": [
+          47,
+          46
+        ]
+      },
+      "direct_load_delta": -3,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        7,
+        4
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-applied": 3,
+        "argument-x-forwarding-blocked-x-read": 1,
+        "argument-x-forwarding-candidate": 4,
+        "argument-x-forwarding-selected": 3
+      },
+      "extra_emission_passes": 7,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        56.067,
+        59.77
+      ]
+    },
+    {
+      "name": "neutral-3000-Standalone",
+      "source": "fixtures/runtime/argument_x_forwarding.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        442,
+        438
+      ],
+      "image_sha256": [
+        "e7ac4bea326b601a466de973dfaf699abc2144f1fc343e04869d494bba42970f",
+        "2c42bb161f71ed1d3f9b8119c157dee223d5bf69191903b701ec7437be4cf708"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        430,
+        426
+      ],
+      "routine_code_bytes": [
+        407,
+        403
+      ],
+      "code_extent": [
+        [
+          12311,
+          12718
+        ],
+        [
+          12311,
+          12714
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 35,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "d8459d437e3510147011157517df8494be14195467d32ec5257b602c185372b4",
+      "declared_allocated_mapped_zero_page": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        172,
+        173,
+        174,
+        175,
+        224,
+        225,
+        226
+      ],
+      "changed_routine_bytes": {
+        "Forward": [
+          84,
+          83
+        ],
+        "ForwardByte": [
+          11,
+          9
+        ],
+        "ForwardPrivate": [
+          47,
+          46
+        ]
+      },
+      "direct_load_delta": -3,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        7,
+        4
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-applied": 3,
+        "argument-x-forwarding-blocked-x-read": 1,
+        "argument-x-forwarding-candidate": 4,
+        "argument-x-forwarding-selected": 3
+      },
+      "extra_emission_passes": 7,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        56.17,
+        60.324
+      ]
+    },
+    {
+      "name": "neutral-41C7-ActionCart",
+      "source": "fixtures/runtime/argument_x_forwarding.act",
+      "runtime": "ActionCart",
+      "origin": 16839,
+      "image_bytes": [
+        360,
+        356
+      ],
+      "image_sha256": [
+        "c6ea63e621b73597226f141c17f544a4ee407389221af3c184153040311d8af9",
+        "7c86372d99c17ec402da01ad367dc11be931d00024f7ef48fe8eb1a708df2ff1"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        348,
+        344
+      ],
+      "routine_code_bytes": [
+        326,
+        322
+      ],
+      "code_extent": [
+        [
+          16861,
+          17187
+        ],
+        [
+          16861,
+          17183
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 34,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "06b91508491777dabe40ff15610c708a6febafc2531f99f977f8c05fa5b85aa9",
+      "declared_allocated_mapped_zero_page": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        172,
+        173,
+        174,
+        175,
+        224,
+        225,
+        226
+      ],
+      "changed_routine_bytes": {
+        "Forward": [
+          84,
+          83
+        ],
+        "ForwardByte": [
+          11,
+          9
+        ],
+        "ForwardPrivate": [
+          47,
+          46
+        ]
+      },
+      "direct_load_delta": -3,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        7,
+        4
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-applied": 3,
+        "argument-x-forwarding-blocked-x-read": 1,
+        "argument-x-forwarding-candidate": 4,
+        "argument-x-forwarding-selected": 3
+      },
+      "extra_emission_passes": 7,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        74.336,
+        63.685
+      ]
+    },
+    {
+      "name": "neutral-41C7-Standalone",
+      "source": "fixtures/runtime/argument_x_forwarding.act",
+      "runtime": "Standalone",
+      "origin": 16839,
+      "image_bytes": [
+        442,
+        438
+      ],
+      "image_sha256": [
+        "9a316059d883fbce0de4b31405264b1ebdf169009fbd168a6d11a5291795a80a",
+        "9e37437d062ec62a1ae58d8992208356509f4e1dc80582596c86096ddb1e1ca7"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        430,
+        426
+      ],
+      "routine_code_bytes": [
+        407,
+        403
+      ],
+      "code_extent": [
+        [
+          16862,
+          17269
+        ],
+        [
+          16862,
+          17265
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 35,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "d8459d437e3510147011157517df8494be14195467d32ec5257b602c185372b4",
+      "declared_allocated_mapped_zero_page": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        172,
+        173,
+        174,
+        175,
+        224,
+        225,
+        226
+      ],
+      "changed_routine_bytes": {
+        "Forward": [
+          84,
+          83
+        ],
+        "ForwardByte": [
+          11,
+          9
+        ],
+        "ForwardPrivate": [
+          47,
+          46
+        ]
+      },
+      "direct_load_delta": -3,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        7,
+        4
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-applied": 3,
+        "argument-x-forwarding-blocked-x-read": 1,
+        "argument-x-forwarding-candidate": 4,
+        "argument-x-forwarding-selected": 3
+      },
+      "extra_emission_passes": 7,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        56.068,
+        64.247
+      ]
+    },
+    {
+      "name": "pointer-increment-ActionCart",
+      "source": "fixtures/runtime/pointer_byte_plus_one.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        639,
+        634
+      ],
+      "image_sha256": [
+        "c615070e9791f1ee88dd26073edbd99bf1c52789cd0b8cd914519330d6fb486f",
+        "85fd7073fe7aa1441276b5b27617931972f6ce56b7f8ecbc5162a50d7a03e29d"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        627,
+        622
+      ],
+      "routine_code_bytes": [
+        602,
+        597
+      ],
+      "code_extent": [
+        [
+          12313,
+          12915
+        ],
+        [
+          12313,
+          12910
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 34,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "3d924c724c9d4574e85cb18b5395a69bcb04321fe8caef1ef0d03eb038705d63",
+      "declared_allocated_mapped_zero_page": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        172,
+        173,
+        174,
+        175,
+        224,
+        225,
+        226,
+        227
+      ],
+      "changed_routine_bytes": {
+        "Forward": [
+          84,
+          83
+        ],
+        "Plain": [
+          76,
+          75
+        ],
+        "PlusTwo": [
+          89,
+          88
+        ],
+        "PlusZero": [
+          89,
+          88
+        ],
+        "Subtract": [
+          89,
+          88
+        ]
+      },
+      "direct_load_delta": -5,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        11,
+        6
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-applied": 5,
+        "argument-x-forwarding-candidate": 5,
+        "argument-x-forwarding-selected": 5
+      },
+      "extra_emission_passes": 7,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        207.217,
+        161.129
+      ]
+    },
+    {
+      "name": "pointer-increment-Standalone",
+      "source": "fixtures/runtime/pointer_byte_plus_one.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        721,
+        716
+      ],
+      "image_sha256": [
+        "f719210ca1e0f62e4c667525fc8042c7e1237640a858103307c15eb5d2a3bdd3",
+        "3b35e2a36b5718a72458e2d2ee9eb5d729990637ebaa89abfaeb687b7ba254b2"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        709,
+        704
+      ],
+      "routine_code_bytes": [
+        683,
+        678
+      ],
+      "code_extent": [
+        [
+          12314,
+          12997
+        ],
+        [
+          12314,
+          12992
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 35,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "cbd577c99d55aa4ef1d49657983f0ff41d224b6d6e78d8a563f7823637e2f86d",
+      "declared_allocated_mapped_zero_page": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        172,
+        173,
+        174,
+        175,
+        224,
+        225,
+        226,
+        227
+      ],
+      "changed_routine_bytes": {
+        "Forward": [
+          84,
+          83
+        ],
+        "Plain": [
+          76,
+          75
+        ],
+        "PlusTwo": [
+          89,
+          88
+        ],
+        "PlusZero": [
+          89,
+          88
+        ],
+        "Subtract": [
+          89,
+          88
+        ]
+      },
+      "direct_load_delta": -5,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        11,
+        6
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-applied": 5,
+        "argument-x-forwarding-candidate": 5,
+        "argument-x-forwarding-selected": 5
+      },
+      "extra_emission_passes": 7,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        174.874,
+        226.744
+      ]
+    },
+    {
+      "name": "pointer-load-sharing-ActionCart",
+      "source": "fixtures/runtime/pointer_load_sharing.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        710,
+        704
+      ],
+      "image_sha256": [
+        "8cdecc5aed32e806224e30c122772570c793f7c4c064e821d89a286c3a0ed45d",
+        "da2d7d7a5c51dba97f5e8505077d69b5faab29b48091977a973805a8dc387017"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        698,
+        692
+      ],
+      "routine_code_bytes": [
+        669,
+        663
+      ],
+      "code_extent": [
+        [
+          12317,
+          12986
+        ],
+        [
+          12317,
+          12980
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 38,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "6284cf987456b5fffff939e542821d78178346aa394ac05a69ae57519f7cd08d",
+      "declared_allocated_mapped_zero_page": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        172,
+        173,
+        174,
+        175,
+        224,
+        225,
+        226,
+        227
+      ],
+      "changed_routine_bytes": {
+        "Forward": [
+          84,
+          83
+        ],
+        "Offset": [
+          100,
+          99
+        ],
+        "Plain": [
+          76,
+          75
+        ],
+        "PlusTwo": [
+          90,
+          89
+        ],
+        "PlusZero": [
+          90,
+          89
+        ],
+        "Subtract": [
+          90,
+          89
+        ]
+      },
+      "direct_load_delta": -6,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        12,
+        6
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-applied": 6,
+        "argument-x-forwarding-blocked-alias": 1,
+        "argument-x-forwarding-candidate": 7,
+        "argument-x-forwarding-selected": 6
+      },
+      "extra_emission_passes": 7,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        96.268,
+        118.501
+      ]
+    },
+    {
+      "name": "pointer-load-sharing-Standalone",
+      "source": "fixtures/runtime/pointer_load_sharing.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        792,
+        786
+      ],
+      "image_sha256": [
+        "08c0ed10e1c151674c05ffe334b3bc48ce9c7ca90753ae6c7862e9741543c6b5",
+        "9430e322a65b49882386bba3b5cdab66b3e76092117e46fc514ec02df31660ec"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        780,
+        774
+      ],
+      "routine_code_bytes": [
+        750,
+        744
+      ],
+      "code_extent": [
+        [
+          12318,
+          13068
+        ],
+        [
+          12318,
+          13062
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 39,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "68bd085fda4ac76e5f661e69639184051a740d116e9939793c8d62b17ae836bc",
+      "declared_allocated_mapped_zero_page": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        172,
+        173,
+        174,
+        175,
+        224,
+        225,
+        226,
+        227
+      ],
+      "changed_routine_bytes": {
+        "Forward": [
+          84,
+          83
+        ],
+        "Offset": [
+          100,
+          99
+        ],
+        "Plain": [
+          76,
+          75
+        ],
+        "PlusTwo": [
+          90,
+          89
+        ],
+        "PlusZero": [
+          90,
+          89
+        ],
+        "Subtract": [
+          90,
+          89
+        ]
+      },
+      "direct_load_delta": -6,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        12,
+        6
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-applied": 6,
+        "argument-x-forwarding-blocked-alias": 1,
+        "argument-x-forwarding-candidate": 7,
+        "argument-x-forwarding-selected": 6
+      },
+      "extra_emission_passes": 7,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        107.174,
+        162.03
+      ]
+    },
+    {
+      "name": "predicate-snapshots-ActionCart",
+      "source": "surveys/tn/reproducers/call-predicate-snapshots.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        640,
+        638
+      ],
+      "image_sha256": [
+        "e9fb996573a279d99e4c68d0d0b0f0ac7674073dbf064e76e836d3c88509cbd2",
+        "df006c9dc06d170d931207b535640380e1da59ef17f7f69344e71c195d43b199"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        628,
+        626
+      ],
+      "routine_code_bytes": [
+        584,
+        582
+      ],
+      "code_extent": [
+        [
+          12332,
+          12916
+        ],
+        [
+          12332,
+          12914
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 53,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "111c549295c474c7aad8c28791c12022ef6c7a324fae1d114b1af14f688d2ed0",
+      "declared_allocated_mapped_zero_page": [
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        161,
+        163,
+        164,
+        172,
+        173,
+        192,
+        193,
+        194,
+        198,
+        199,
+        211,
+        224,
+        225
+      ],
+      "changed_routine_bytes": {
+        "AliasLaterHigh": [
+          92,
+          90
+        ]
+      },
+      "direct_load_delta": -1,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        5,
+        4
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-applied": 1,
+        "argument-x-forwarding-candidate": 1,
+        "argument-x-forwarding-selected": 1
+      },
+      "extra_emission_passes": 7,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        192.414,
+        203.542
+      ]
+    },
+    {
+      "name": "predicate-snapshots-Standalone",
+      "source": "surveys/tn/reproducers/call-predicate-snapshots.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        741,
+        739
+      ],
+      "image_sha256": [
+        "ed7aa34b22a5504dd444b5d4d34eab371c8109f373c8fc7c046bdc9838408ea8",
+        "307177f92ef7acfdfcacd330d9b3dcd8a68cb79149f10d8c4eb761cefa561c3a"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        729,
+        727
+      ],
+      "routine_code_bytes": [
+        684,
+        682
+      ],
+      "code_extent": [
+        [
+          12333,
+          13017
+        ],
+        [
+          12333,
+          13015
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 54,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "7ca6922a17374ab617d0b473203d9f68482f3152d7d3191ec3a42549b53589d6",
+      "declared_allocated_mapped_zero_page": [
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        161,
+        163,
+        164,
+        172,
+        173,
+        224,
+        225
+      ],
+      "changed_routine_bytes": {
+        "AliasLaterHigh": [
+          92,
+          90
+        ]
+      },
+      "direct_load_delta": -1,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        5,
+        4
+      ],
+      "selection_stats": {
+        "argument-x-forwarding-applied": 1,
+        "argument-x-forwarding-candidate": 1,
+        "argument-x-forwarding-selected": 1
+      },
+      "extra_emission_passes": 7,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        183.828,
+        198.07
+      ]
+    },
+    {
+      "name": "scalar-predicate-ActionCart",
+      "source": "surveys/tn/reproducers/captured-call-arguments.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        227,
+        227
+      ],
+      "image_sha256": [
+        "bb09a93eb417c9518c0ac47b3c9d931ac1ca321f7643cb0489045779721baf37",
+        "bb09a93eb417c9518c0ac47b3c9d931ac1ca321f7643cb0489045779721baf37"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        215,
+        215
+      ],
+      "routine_code_bytes": [
+        199,
+        199
+      ],
+      "code_extent": [
+        [
+          12304,
+          12503
+        ],
+        [
+          12304,
+          12503
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 22,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "8258c8bd7ac4aae0cb8aa49abf7635759b46e1d35629e1527822a5f9f7d78314",
+      "declared_allocated_mapped_zero_page": [
+        160,
+        163,
+        164,
+        172,
+        173
+      ],
+      "changed_routine_bytes": {},
+      "direct_load_delta": 0,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        4,
+        4
+      ],
+      "selection_stats": {},
+      "extra_emission_passes": 0,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        61.472,
+        61.227
+      ]
+    },
+    {
+      "name": "scalar-predicate-Standalone",
+      "source": "surveys/tn/reproducers/captured-call-arguments.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        309,
+        309
+      ],
+      "image_sha256": [
+        "082eb7ecb4296b6001d3b1644b9e48d193a76950c437f624c5beca17cf0b6812",
+        "082eb7ecb4296b6001d3b1644b9e48d193a76950c437f624c5beca17cf0b6812"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        297,
+        297
+      ],
+      "routine_code_bytes": [
+        280,
+        280
+      ],
+      "code_extent": [
+        [
+          12305,
+          12585
+        ],
+        [
+          12305,
+          12585
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 23,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "935ee60bb5b26661ba94053dcd706773af097cf784418a909ca80897ef61e2c8",
+      "declared_allocated_mapped_zero_page": [
+        160,
+        163,
+        164,
+        172,
+        173
+      ],
+      "changed_routine_bytes": {},
+      "direct_load_delta": 0,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        4,
+        4
+      ],
+      "selection_stats": {},
+      "extra_emission_passes": 0,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        64.46,
+        65.292
+      ]
+    },
+    {
+      "name": "string-loop-ActionCart",
+      "source": "fixtures/mir6502/array_param_string_length_loop.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        75,
+        75
+      ],
+      "image_sha256": [
+        "61795c2cc5107185521d6378a82586c4f6e5ba5b514ff5d1ffbd3fba69212c87",
+        "61795c2cc5107185521d6378a82586c4f6e5ba5b514ff5d1ffbd3fba69212c87"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        63,
+        63
+      ],
+      "routine_code_bytes": [
+        51,
+        51
+      ],
+      "code_extent": [
+        [
+          12300,
+          12351
+        ],
+        [
+          12300,
+          12351
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 12,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "a80438537ceed94bdaac6fa450665fa323f30bbe5cd29d213157812502da3aa5",
+      "declared_allocated_mapped_zero_page": [
+        172,
+        173
+      ],
+      "changed_routine_bytes": {},
+      "direct_load_delta": 0,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        0,
+        0
+      ],
+      "selection_stats": {},
+      "extra_emission_passes": 0,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        24.077,
+        24.143
+      ]
+    },
+    {
+      "name": "string-loop-Standalone",
+      "source": "fixtures/mir6502/array_param_string_length_loop.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        75,
+        75
+      ],
+      "image_sha256": [
+        "61795c2cc5107185521d6378a82586c4f6e5ba5b514ff5d1ffbd3fba69212c87",
+        "61795c2cc5107185521d6378a82586c4f6e5ba5b514ff5d1ffbd3fba69212c87"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        63,
+        63
+      ],
+      "routine_code_bytes": [
+        51,
+        51
+      ],
+      "code_extent": [
+        [
+          12300,
+          12351
+        ],
+        [
+          12300,
+          12351
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 12,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "a80438537ceed94bdaac6fa450665fa323f30bbe5cd29d213157812502da3aa5",
+      "declared_allocated_mapped_zero_page": [
+        172,
+        173
+      ],
+      "changed_routine_bytes": {},
+      "direct_load_delta": 0,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        0,
+        0
+      ],
+      "selection_stats": {},
+      "extra_emission_passes": 0,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        24.164,
+        24.143
+      ]
+    },
+    {
+      "name": "strings-runtime-ActionCart",
+      "source": "fixtures/runtime/standalone_sys_strings_runtime.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        87,
+        87
+      ],
+      "image_sha256": [
+        "b763511c6d4016d8f98e2a612bee0ebb1750a9987dce04dc2de3d0fd8af682e4",
+        "b763511c6d4016d8f98e2a612bee0ebb1750a9987dce04dc2de3d0fd8af682e4"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        75,
+        75
+      ],
+      "routine_code_bytes": [
+        67,
+        67
+      ],
+      "code_extent": [
+        [
+          12296,
+          12363
+        ],
+        [
+          12296,
+          12363
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 25,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "6d6a8f19fbe197869c8783311976b9d5fe23bea810bf3ed22920f7939802e088",
+      "declared_allocated_mapped_zero_page": [
+        161,
+        163,
+        164,
+        165
+      ],
+      "changed_routine_bytes": {},
+      "direct_load_delta": 0,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        0,
+        0
+      ],
+      "selection_stats": {},
+      "extra_emission_passes": 0,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        6.671,
+        6.327
+      ]
+    },
+    {
+      "name": "strings-runtime-Standalone",
+      "source": "fixtures/runtime/standalone_sys_strings_runtime.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        217,
+        217
+      ],
+      "image_sha256": [
+        "d401c385e34034522d18eb985c8521c84007098bd52626a3c531e7a59b57d464",
+        "d401c385e34034522d18eb985c8521c84007098bd52626a3c531e7a59b57d464"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        205,
+        205
+      ],
+      "routine_code_bytes": [
+        183,
+        183
+      ],
+      "code_extent": [
+        [
+          12310,
+          12493
+        ],
+        [
+          12310,
+          12493
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 39,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "1634adae71e564b3182c64f052dbfa844ec28065feea7e2583be950800b29cd8",
+      "declared_allocated_mapped_zero_page": [
+        161,
+        163,
+        164,
+        165
+      ],
+      "changed_routine_bytes": {},
+      "direct_load_delta": 0,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        0,
+        0
+      ],
+      "selection_stats": {},
+      "extra_emission_passes": 0,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        19.201,
+        19.773
+      ]
+    },
+    {
+      "name": "word-arithmetic-ActionCart",
+      "source": "fixtures/runtime/direct_action_word_arithmetic_args.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        472,
+        472
+      ],
+      "image_sha256": [
+        "f373f205eece23f010cd55a326388226f686e9e141919702e6334c5324aada8a",
+        "f373f205eece23f010cd55a326388226f686e9e141919702e6334c5324aada8a"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        460,
+        460
+      ],
+      "routine_code_bytes": [
+        431,
+        431
+      ],
+      "code_extent": [
+        [
+          12317,
+          12748
+        ],
+        [
+          12317,
+          12748
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 32,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "0cb75c8a3aca061e068882239448719bd3f31473b9e6dd7b2f4bcd2f00ad4847",
+      "declared_allocated_mapped_zero_page": [
+        160,
+        162,
+        163,
+        172,
+        173,
+        224,
+        225,
+        226
+      ],
+      "changed_routine_bytes": {},
+      "direct_load_delta": 0,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        0,
+        0
+      ],
+      "selection_stats": {},
+      "extra_emission_passes": 0,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        30.104,
+        30.317
+      ]
+    },
+    {
+      "name": "word-arithmetic-Standalone",
+      "source": "fixtures/runtime/direct_action_word_arithmetic_args.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        472,
+        472
+      ],
+      "image_sha256": [
+        "f373f205eece23f010cd55a326388226f686e9e141919702e6334c5324aada8a",
+        "f373f205eece23f010cd55a326388226f686e9e141919702e6334c5324aada8a"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        460,
+        460
+      ],
+      "routine_code_bytes": [
+        431,
+        431
+      ],
+      "code_extent": [
+        [
+          12317,
+          12748
+        ],
+        [
+          12317,
+          12748
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbol_bytes": 32,
+      "storage_capacities_equal": true,
+      "frames_equal": true,
+      "frame_sha256": "0cb75c8a3aca061e068882239448719bd3f31473b9e6dd7b2f4bcd2f00ad4847",
+      "declared_allocated_mapped_zero_page": [
+        160,
+        162,
+        163,
+        172,
+        173,
+        224,
+        225,
+        226
+      ],
+      "changed_routine_bytes": {},
+      "direct_load_delta": 0,
+      "direct_store_delta": 0,
+      "direct_x_loads": [
+        0,
+        0
+      ],
+      "selection_stats": {},
+      "extra_emission_passes": 0,
+      "additional_materializations": 0,
+      "materialization_ms": [
+        29.864,
+        30.463
+      ]
+    }
+  ],
+  "execution": {
+    "emitted_fragments": 24576,
+    "neutral_matrix_calls": 1536,
+    "neutral_alias_calls": 104,
+    "preceding_feature_matrix_calls": 64,
+    "measured_tn_string_calls": 80,
+    "measured_tn_parameter_alias_calls": 16,
+    "neutral_sample": {
+      "p": 28672,
+      "loaded_byte": 1,
+      "q": 29184,
+      "routine_cycles": {
+        "Forward": [
+          342,
+          341
+        ],
+        "ForwardByte": [
+          291,
+          289
+        ],
+        "ForwardPrivate": [
+          444,
+          443
+        ],
+        "Plain": [
+          429,
+          429
+        ]
+      },
+      "runtimes": [
+        "ActionCart",
+        "Standalone"
+      ],
+      "origins": [
+        12288,
+        16839
+      ]
+    },
+    "strcat_sample": {
+      "s": 28672,
+      "t": 29184,
+      "first_length": 3,
+      "second_length": 8,
+      "cycles": [
+        356,
+        355
+      ],
+      "variants": [
+        "TN",
+        "TNDBG"
+      ],
+      "runtimes": [
+        "ActionCart",
+        "Standalone"
+      ]
+    },
+    "retained_store_values_and_order_equal": true,
+    "indirect_read_count_and_order_equal": true,
+    "callee_arguments_and_stack_equal": true,
+    "callee_flags": "Full state agrees after retained N/Z restoration. Flag-free scalar entry may differ only in dead N/Z; ObserveBytes is checked through its nested restored Observe call."
+  },
+  "qualification": {
+    "backend-unit.log": {
+      "targets": 1,
+      "passed": 1217,
+      "ignored": 7
+    },
+    "backend-integration.log": {
+      "targets": 18,
+      "passed": 105,
+      "ignored": 3
+    },
+    "backend-vm.log": {
+      "targets": 10,
+      "passed": 33,
+      "ignored": 0
+    },
+    "backend-tn-vm.log": {
+      "targets": 1,
+      "passed": 2,
+      "ignored": 0
+    },
+    "backend-mads.log": {
+      "targets": 1,
+      "passed": 1,
+      "ignored": 0
+    },
+    "fixture-runtime-word-indexed.log": {
+      "targets": 1,
+      "passed": 2,
+      "ignored": 0
+    },
+    "fixture-runtime-indirect.log": {
+      "targets": 1,
+      "passed": 1,
+      "ignored": 0
+    },
+    "frozen-vm-audit.log": {
+      "targets": 1,
+      "passed": 1,
+      "ignored": 0
+    },
+    "slice3-measured-tn.log": {
+      "targets": 1,
+      "passed": 1,
+      "ignored": 0
+    },
+    "emit_load_fixtures_passed": 169,
+    "mads_binary_comparisons": 8,
+    "historical_static_audit": "Eight Action images, both C controls and LF/CRLF listings pass.",
+    "selection_assertions": {
+      "direct_word": 6,
+      "indirect_fields": 2
+    },
+    "scope": "MIR6502 and affected runtime/ABI controls; no shared NIR or semantic changes.",
+    "indexed_byte_note": "Previously documented selection-count discrepancy remains separate from its passing scoped runtime assertion."
+  },
+  "compiler_sha256": "28ec26983646bc49990b3107c8d923252deacd116aa0b2c1b91aecf34b3f4357"
+}

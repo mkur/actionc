@@ -50,6 +50,7 @@ fn compile(
         &nir,
         origin,
         &Mir6502Config {
+            enable_argument_x_forwarding: false,
             enable_argument_staging_reduction: enabled,
             ..Mir6502Config::optimized()
         },

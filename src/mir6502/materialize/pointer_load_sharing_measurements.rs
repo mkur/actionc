@@ -80,6 +80,7 @@ fn pointer_load_sharing_measure_corpus() {
                 let stem = format!("{name}-{runtime:?}-{enabled}");
                 eprintln!("MEASURE {stem}");
                 let config = Mir6502Config {
+                    enable_argument_x_forwarding: false,
                     enable_pointer_load_sharing: enabled,
                     peephole_report: MirPeepholeReportMode::PerRoutine,
                     ..Mir6502Config::optimized()

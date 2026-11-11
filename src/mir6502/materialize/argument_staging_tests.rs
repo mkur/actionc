@@ -15,6 +15,7 @@ fn baseline() -> MirProgram {
         ))
         .unwrap();
         let config = Mir6502Config {
+            enable_argument_x_forwarding: false,
             enable_argument_staging_reduction: false,
             ..Mir6502Config::optimized()
         };

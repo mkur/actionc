@@ -225,8 +225,9 @@ crowding the active reference set.
   physical proofs and final costing; [measured results](benchmarks/6502-pointer-load-sharing/README.md)
   save six bytes and eight cycles per admitted site.
 - [MIR6502 argument setup A to X forwarding](MIR6502_ARGUMENT_X_FORWARDING_PLAN.md)
-  - planned retained-store forwarding across setup, generalizing beyond WORD
-  arithmetic producers with explicit X/N/Z proofs and final cost qualification.
+  - implemented retained-store forwarding across setup with typed X/N/Z and
+  physical proofs; [measured results](benchmarks/6502-argument-x-forwarding/README.md)
+  save one or two bytes per site, including four bytes in TN.
 - [MIR6502_WIDE_SHIFT_COPY_REDUCTION.md](MIR6502_WIDE_SHIFT_COPY_REDUCTION.md)
   - byte and nibble projections for constant wide shifts, preserving captured
   operands while reducing staging for narrow results.

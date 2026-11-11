@@ -57,6 +57,7 @@ fn compile_with_fusion(
         &nir,
         origin,
         &Mir6502Config {
+            enable_argument_x_forwarding: false,
             enable_pointer_load_sharing: enabled,
             enable_pointer_byte_plus_one_fusion: fusion,
             ..Mir6502Config::optimized()

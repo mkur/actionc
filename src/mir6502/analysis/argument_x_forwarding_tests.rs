@@ -188,6 +188,56 @@ fn argument_x_forwarding_proof_checks_both_nz_boundaries_and_call_facts() {
     }
     assert!(fact(&r, &m, &callees).is_ok()); // Its unchanged Y load restores N/Z before the machine input.
 }
+
+#[test]
+fn argument_x_forwarding_rejects_scalar_wrappers_with_transitive_flag_inputs() {
+    let mut p = baseline();
+    let m = memory(&p);
+    let caller = p
+        .routines
+        .iter()
+        .find(|r| r.name == "ForwardByte")
+        .unwrap()
+        .clone();
+    let s = shape(&caller, site(&caller)).unwrap();
+    let MirSite::Op { op_index, .. } = s.call else {
+        unreachable!()
+    };
+    let MirOp::Call {
+        target: MirCallTarget::Routine(target),
+        ..
+    } = caller.blocks[0].ops[op_index]
+    else {
+        unreachable!()
+    };
+    let callee = p.routines.iter_mut().find(|r| r.id == target).unwrap();
+    // Scalar signatures and default effects are not a transitive entry proof.
+    let nested = callee
+        .blocks
+        .iter()
+        .flat_map(|b| &b.ops)
+        .find(|op| matches!(op, MirOp::Call { .. }))
+        .unwrap()
+        .clone();
+    callee.blocks.truncate(1);
+    callee.blocks[0].ops = vec![nested];
+    callee.blocks[0].terminator = MirTerminator::Return;
+    let summaries = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+    assert!(!summaries.scalar_entry_ignores_flags(target));
+    assert_eq!(fact(&caller, &m, &summaries), Err(Blocker::CallFlags));
+
+    // Definite N/Z alone still leaves carry/overflow potentially observable.
+    let callee = p.routines.iter_mut().find(|r| r.id == target).unwrap();
+    callee.blocks[0].ops.insert(
+        0,
+        MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value: 0,
+            width: MirWidth::Byte,
+        },
+    );
+    assert!(!MirKnownCalleeSummaries::analyze_for_rewriting(&p).scalar_entry_ignores_flags(target));
+}
 #[test]
 fn argument_x_forwarding_proof_revalidates_owner_generation_and_replacement() {
     let p = baseline();

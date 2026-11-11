@@ -740,8 +740,10 @@ Selection proves H unchanged under complete physical write ranges, no incoming
 X use and no gap read/clobber of X, including address operands. It separately
 proves N/Z changes from inserting TAX and removing LDX unobservable. A preserved
 tail definition can restore N/Z before any machine-call input; absent that,
-complete scalar-entry facts are required. A/C/V/Y/SP stay unchanged. The call
-and its effects remain outside the mutation.
+complete scalar-entry facts are required. These include CFG liveness at entry,
+with every nested call/helper/barrier treated as a flag observation; signature
+and routine effects alone do not prove transitive inputs absent. A/C/V/Y/SP
+stay unchanged. The call and its effects remain outside the mutation.
 
 Shared typed witnesses cover both pointer load sharing and argument forwarding;
 the driver reconstructs their proofs against its snapshot and supplied map.
@@ -749,8 +751,9 @@ The original restricted argument-staging path uses the same witness while
 retaining its source/callee admission policy and final emitted sequence.
 Final selection preserves published exits and storage, replays the proposed
 layout and requires a strictly smaller XEX. `enable_argument_x_forwarding`
-remains off in both defaults pending qualification. See the
-[implementation plan](MIR6502_ARGUMENT_X_FORWARDING_PLAN.md).
+is enabled by `Mir6502Config::optimized()` and disabled by the conservative
+default. See the [implementation plan](MIR6502_ARGUMENT_X_FORWARDING_PLAN.md)
+and [measured results](benchmarks/6502-argument-x-forwarding/README.md).
 
 ### Post-home private-byte definitions
 

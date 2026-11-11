@@ -133,12 +133,12 @@ frame/storage facts under ignored `build/pointer-byte-plus-one/measured/`:
 cargo test --release --locked --lib pointer_byte_plus_one_measure_corpus -- --ignored --nocapture
 ```
 
-The exporter and baseline-sensitive helpers pin the later pointer load sharing
-feature off. Set `ACTIONC_POINTER_MEASURED_IMAGES` to that directory's absolute
-path when running `pointer_byte_plus_one` to require exact agreement with
+The exporter and baseline-sensitive helpers pin later pointer load sharing and
+argument X forwarding off. Set `ACTIONC_POINTER_MEASURED_IMAGES` to that
+directory's absolute path when running `pointer_byte_plus_one` to require exact agreement with
 these historical neutral images. Current default TN execution uses the
-[pointer load sharing measurements](../6502-pointer-load-sharing/README.md)
-and `ACTIONC_POINTER_LOAD_MEASURED_IMAGES` for `tn_dispatch`. The measured TN
+[argument X forwarding measurements](../6502-argument-x-forwarding/README.md)
+and `ACTIONC_ARGUMENT_X_MEASURED_IMAGES` for `tn_dispatch`. The measured TN
 oracle below consumes the historical files directly and resolves parameter
 homes from their owner-qualified maps:
 

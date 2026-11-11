@@ -130,6 +130,19 @@ fn argument_x_forwarding_matches_runtime_oracles_with_lf_and_crlf() {
                         } else {
                             lf_image = Some(image.clone());
                         }
+                        if opt && !crlf {
+                            if let Some(dir) =
+                                std::env::var_os("ACTIONC_ARGUMENT_X_MEASURED_IMAGES")
+                            {
+                                assert_eq!(
+                                    image,
+                                    std::fs::read(PathBuf::from(dir).join(format!(
+                                        "neutral-{origin:04X}-{rt:?}-{enabled}.xex"
+                                    )))
+                                    .unwrap()
+                                );
+                            }
+                        }
                         if opt && !crlf && !enabled {
                             if let Some(dir) = std::env::var_os("ACTIONC_ARGUMENT_X_BASELINE") {
                                 let rt = if rt == Runtime::ActionCart {

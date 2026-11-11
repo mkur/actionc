@@ -12,6 +12,44 @@ use crate::mir6502::ir::{
     MirProgram, MirReg, MirRegisterSet, MirRoutine, MirStorageBase, MirTerminator, RoutineId,
 };
 
+/// Prove incoming flags dead before any observation, including a nested call.
+/// Routine effects alone do not summarize scalar wrappers' transitive inputs.
+fn scalar_entry_ignores_flags(routine: &MirRoutine) -> bool {
+    if routine.scalar_signature.is_none()
+        || routine.effects.opaque
+        || routine.effects.reads.flags
+        || routine.effects.preserves.flags
+        || routine
+            .blocks
+            .iter()
+            .flat_map(|b| &b.ops)
+            .any(|op| matches!(op, MirOp::MachineBlock { .. }))
+    {
+        return false;
+    }
+    let Ok(cfg) = MirCfg::from_routine(routine) else {
+        return false;
+    };
+    let Some(entry) = cfg.entry() else {
+        return false;
+    };
+    // Treat every call as an entry-flag observation. This avoids depending on
+    // incomplete or recursive entry summaries, while permitting calls reached
+    // only after definite flag definitions on every path.
+    let mut probe = routine.clone();
+    for op in probe.blocks.iter_mut().flat_map(|b| &mut b.ops) {
+        match op {
+            MirOp::Call { effects, .. }
+            | MirOp::RuntimeHelper { effects, .. }
+            | MirOp::Barrier { effects } => effects.reads.flags = true,
+            _ => {}
+        }
+    }
+    crate::mir6502::analysis::machine_liveness::MirMachineLiveness::analyze(&probe, &cfg)
+        .live_in(entry)
+        .is_some_and(|live| !live.flags_live(crate::mir6502::analysis::effects::MirFlagSet::all()))
+}
+
 /// Conservative memory-write summary for a known direct callee.
 ///
 /// `Exact` contains byte identities definitely covering every write made by
@@ -230,10 +268,12 @@ impl MirKnownCalleeSummaries {
             })
             .collect::<BTreeMap<_, _>>();
         let mut summaries = Self {
-            scalar_entries_ignoring_flags: program.routines.iter().filter(|r|
-                r.scalar_signature.is_some() && !r.effects.opaque && !r.effects.reads.flags && !r.effects.preserves.flags
-                    && !r.blocks.iter().flat_map(|b|&b.ops).any(|o|matches!(o,MirOp::MachineBlock {..}))
-            ).map(|r|r.id).collect(),
+            scalar_entries_ignoring_flags: program
+                .routines
+                .iter()
+                .filter(|r| scalar_entry_ignores_flags(r))
+                .map(|r| r.id)
+                .collect(),
             routines: program
                 .routines
                 .iter()
