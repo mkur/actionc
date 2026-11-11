@@ -1,0 +1,40 @@
+MODULE
+
+CARD observedFirst=$0680,observedSecond=$0682
+BYTE observedTag=$0684
+CARD inputFirst=$0690,inputSecond=$0692
+BYTE inputTag=$0694
+
+PROC Capture(CARD first,second BYTE tag)
+  observedFirst=first
+  observedSecond=second
+  observedTag=tag
+RETURN
+
+PROC CapturePair(CARD first,second)
+  observedFirst=first
+  observedSecond=second
+RETURN
+
+PROC ForwardAdd(CARD first,second BYTE tag)
+  Capture(first+1,second,tag)
+RETURN
+
+PROC ForwardSub(CARD first,second BYTE tag)
+  Capture(first-1,second,tag)
+RETURN
+
+PROC FourByte(CARD first,second)
+  CapturePair(first+1,second)
+RETURN
+
+PROC FivePlain(CARD first,second BYTE tag)
+  Capture(first,second,tag)
+RETURN
+
+PROC Main()
+  ForwardAdd(inputFirst,inputSecond,inputTag)
+  ForwardSub(inputFirst,inputSecond,inputTag)
+  FourByte(inputFirst,inputSecond)
+  FivePlain(inputFirst,inputSecond,inputTag)
+RETURN

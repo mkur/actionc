@@ -1,6 +1,6 @@
 # MIR6502 argument staging reduction implementation
 
-Prepared 2026-11-11. Status: planned; no implementation slices completed.
+Prepared 2026-11-11. Status: slice 1 complete; selection remains unchanged.
 Implements the [design note](MIR6502_ARGUMENT_STAGING_DESIGN.md) committed as
 `961f30e8`. The compiler baseline is `476cfecf`; freeze fresh artifacts before
 changing selection. Each slice below is a separate commit after its checks pass.
@@ -300,7 +300,33 @@ target-selection improvement or a correctness fix.
 
 | Slice | Status | Commit and evidence |
 | --- | --- | --- |
-| 1. Baseline and proofs | Planned | Record missed case, frozen identities, focused checks and byte-identical output |
+| 1. Baseline and proofs | Complete | Frozen compiler/images, neutral entry oracle, three proof tests, integration and VM target; inert output is byte-identical |
 | 2. One schedule and costing | Planned | Record feature-off/on bytes/cycles, final proof/cost decisions and rollback tests |
 | 3. Alias/effect qualification | Planned | Record admitted/rejected boundaries, oracle results and runtime/NIR/newline modes |
 | 4. Corpus and backend qualification | Planned | Record final measurements, remaining TN blockers, full scoped checks and implementation limits |
+
+### Slice 1 evidence
+
+The [baseline manifest](benchmarks/6502-argument-staging/baseline.json) records
+fresh neutral and TN/TNDBG images from the frozen compiler. All four TN image
+sizes match the preceding qualified controls. `ForwardAdd` and `ForwardSub`
+in [the neutral fixture](../fixtures/runtime/argument_staging.act) each occupy
+41 bytes. The four-byte sibling is 33 and the plain five-byte sibling is 28.
+The neutral cartridge/standalone XEX sizes are 336/418 at both origins.
+
+The five-byte arithmetic form is a confirmed optimized-NIR miss. Canonical
+loaded-argument forwarding exposes an adjacent word arithmetic producer/call,
+but the direct arithmetic expression selector admits exactly two arguments.
+The generic path captures both result bytes, then reloads the high byte into X
+after the remaining setup. Those intervening direct setup operations preserve X.
+The inert shared fact checks complete reaching definitions, exclusive uses,
+canonical five-byte homes, ordinary source storage, a 64-operation limit and
+generation identity. It grants no permission to remove captures or source reads.
+
+Three new proof tests and the neutral integration target pass. The VM observes
+all argument bytes before the callee prologue and checks independent host
+results with raw/optimized NIR, both runtimes, two origins and actual LF/CRLF
+sources. For `$00FF` and tag 128, the sampled arithmetic calls take 430 cycles;
+the four-byte/plain-five-byte controls take 111/412, including the common
+wrapper and callee. The emitted neutral image matches the frozen compiler
+byte for byte. Large artifacts and logs are under `build/argument-staging/`.

@@ -226,6 +226,15 @@ impl<'snapshot, 'routine> PreHomeRewriteContext<'snapshot, 'routine> {
         crate::mir6502::analysis::comparison_loops::prove(routine, self, header)
     }
 
+    pub(in crate::mir6502) fn argument_staging(
+        &self,
+        routine: &crate::mir6502::ir::MirRoutine,
+        call: MirProgramPoint,
+    ) -> Result<crate::mir6502::analysis::argument_staging::ArgumentStaging,
+                crate::mir6502::analysis::argument_staging::Blocker> {
+        crate::mir6502::analysis::argument_staging::prove(routine, self, call)
+    }
+
     pub(in crate::mir6502) fn block_dominates(
         &self,
         dominator: MirBlockId,

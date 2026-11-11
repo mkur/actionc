@@ -1,0 +1,117 @@
+{
+  "compiler_revision": "ef4e0563",
+  "compiler_code_revision": "476cfecf",
+  "compiler_sha256": "44d469c74a3639fd56a59e4be7beddc975f5ef4d1f44db7d532736dce3712933",
+  "mode": "mir6502",
+  "profile": "modern",
+  "nir": "optimized",
+  "vm_revision": "7ec0cc454ebf43b088b7bcd11515533085ea1964",
+  "inputs_sha256": {
+    "fixtures/runtime/argument_staging.act": "400871bc51dca8577fa9dd16d27c121ff5173968814a1fdc1368d7e557e34c75",
+    "samples/tn/modern/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "samples/tn/modern/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+    "samples/tn/modern/LIB.ACT": "b8cd4c48b9b2d9c96fc86d24e94ea3dc6e9dfb706c636c2b7fb7fc6c58015c53"
+  },
+  "artifacts": [
+    {
+      "source": "fixtures/runtime/argument_staging.act",
+      "runtime": "cart",
+      "origin": 12288,
+      "image_bytes": 336,
+      "sha256": "41572ff4130373e63320e48db11f9e3b1fb1094c8ac7f4996f00312d56bebb16",
+      "routine_bytes": {
+        "ForwardAdd": 41,
+        "ForwardSub": 41,
+        "FourByte": 33,
+        "FivePlain": 28
+      },
+      "compile_seconds": 0.0409
+    },
+    {
+      "source": "fixtures/runtime/argument_staging.act",
+      "runtime": "cart",
+      "origin": 16839,
+      "image_bytes": 336,
+      "sha256": "bcfc32f4a71b2a019d7339a52b5d90798711e7699f9bbac66ec931967747641a",
+      "routine_bytes": {
+        "ForwardAdd": 41,
+        "ForwardSub": 41,
+        "FourByte": 33,
+        "FivePlain": 28
+      },
+      "compile_seconds": 0.0414
+    },
+    {
+      "source": "fixtures/runtime/argument_staging.act",
+      "runtime": "standalone",
+      "origin": 12288,
+      "image_bytes": 418,
+      "sha256": "58f086b1d362abb5ab08575da0ae33bb18cd80489fca103e1076fc82e9e3716b",
+      "routine_bytes": {
+        "ForwardAdd": 41,
+        "ForwardSub": 41,
+        "FourByte": 33,
+        "FivePlain": 28
+      },
+      "compile_seconds": 0.0374
+    },
+    {
+      "source": "fixtures/runtime/argument_staging.act",
+      "runtime": "standalone",
+      "origin": 16839,
+      "image_bytes": 418,
+      "sha256": "da0ac3ef7a854b5ca063ea73a9cf1fce84677ab3fca4f0744d94832acd0e5ecc",
+      "routine_bytes": {
+        "ForwardAdd": 41,
+        "ForwardSub": 41,
+        "FourByte": 33,
+        "FivePlain": 28
+      },
+      "compile_seconds": 0.037
+    },
+    {
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "cart",
+      "origin": 11264,
+      "image_bytes": 9873,
+      "sha256": "228db010fcf9aa4392a42900d9dc34bea85e9fe88339b3406d54092dbd659f28",
+      "routine_bytes": {
+        "Strcat": 125
+      },
+      "compile_seconds": 5.9076
+    },
+    {
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "standalone",
+      "origin": 11264,
+      "image_bytes": 9998,
+      "sha256": "6d9c5312c4ba53c30e5a838603387c2d0ad849d8be5b33ff4a15c7b6963e954b",
+      "routine_bytes": {
+        "Strcat": 125
+      },
+      "compile_seconds": 5.9062
+    },
+    {
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "cart",
+      "origin": 11264,
+      "image_bytes": 12969,
+      "sha256": "aed6b81dea59387b7dd2e7fb73f0073d66140f1614e0ff45e25ab4e2a467e74f",
+      "routine_bytes": {
+        "Strcat": 125
+      },
+      "compile_seconds": 20.3345
+    },
+    {
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "standalone",
+      "origin": 11264,
+      "image_bytes": 13094,
+      "sha256": "4052132592b2fc3cc39fbe0adb6c4ae0437d40a0c21a1fbd5cdb80c600d98465",
+      "routine_bytes": {
+        "Strcat": 125
+      },
+      "compile_seconds": 20.3176
+    }
+  ]
+}
