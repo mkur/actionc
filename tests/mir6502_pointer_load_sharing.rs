@@ -21,7 +21,10 @@ fn pointer_load_sharing_baseline_preserves_nir_modes_runtimes_and_origins() {
     for (is_optimized, nir) in [(false, &raw), (true, &optimized)] {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41C7] {
-                let config = Mir6502Config::optimized();
+                let config = Mir6502Config {
+                    enable_pointer_load_sharing: false,
+                    ..Mir6502Config::optimized()
+                };
                 let p = mir6502::materialize_program_with_origin_and_runtime(
                     mir6502::lower_program(nir).unwrap(),
                     &config,
@@ -56,6 +59,30 @@ fn pointer_load_sharing_baseline_preserves_nir_modes_runtimes_and_origins() {
                         )
                         .unwrap();
                     }
+                }
+                let enabled = Mir6502Config {
+                    enable_pointer_load_sharing: true,
+                    ..config.clone()
+                };
+                let after = mir6502::generate_output_with_config_and_runtime(
+                    nir, origin, &enabled, runtime,
+                )
+                .unwrap();
+                assert_eq!(
+                    image.len() - actionc::codegen::format_load_file(&after).len(),
+                    6
+                );
+                for before in &output.map.routine_ranges {
+                    let r = after
+                        .map
+                        .routine_ranges
+                        .iter()
+                        .find(|r| r.name == before.name)
+                        .unwrap();
+                    assert_eq!(
+                        (before.end - before.start) - (r.end - r.start),
+                        if before.name == "Forward" { 6 } else { 0 }
+                    );
                 }
                 let forward = p.routines.iter().find(|r| r.name == "Forward").unwrap();
                 let text = mir6502::format_program(&mir6502::MirProgram {

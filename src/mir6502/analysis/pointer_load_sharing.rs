@@ -1,5 +1,4 @@
 //! Exact carry-preserving store motion around two redundant ordinary reads.
-#![allow(dead_code)] // The first slice exposes an inert proof query.
 use super::{call_predicates::ordinary_source, record_bases::MirPhysicalMemory, sites::*};
 use crate::mir6502::ir::*;
 

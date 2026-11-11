@@ -705,6 +705,27 @@ growth. Missing proofs or unknown emission costs retain the baseline. The
 [measured results](benchmarks/6502-pointer-byte-plus-one/README.md) qualify this
 bounded `+1` form; other constants and consumers retain their existing paths.
 
+### Pointer load sharing
+
+An exact post-home schedule may share ordinary parameter/local pointer-byte
+loads between `S+1` capture and a following offset-zero indirect byte read.
+Retain both capture stores and both original-pointer scratch stores. Moving
+the latter beside the first source loads removes two redundant loads only
+when complete physical S/capture/pointer ranges are disjoint and ordinary RAM.
+The terminal indirect read stays after complete setup and may alias those
+cells; its address, value and single observation must remain equal.
+
+The bounded transaction includes that terminal load so A/N/Z are restored.
+The carry chain, C/V, X, Y and stack state remain equal at exit. The shared
+driver revalidates a typed witness against its supplied physical map and the
+exact old/new operations. Equal write counts alone do not prove store motion.
+Final selection replays the proof against proposed layout, preserves published
+callee exit facts and requires a strictly smaller XEX without routine/home or
+storage growth. No executable MIR form or emission heuristic is added.
+`enable_pointer_load_sharing` controls this schedule independently and stays
+off until qualification completes. See the
+[implementation plan](MIR6502_POINTER_LOAD_SHARING_PLAN.md).
+
 ### Post-home private-byte definitions
 
 At the post-home and pre-emission boundaries, every reachable read of a

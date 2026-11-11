@@ -189,8 +189,13 @@ pub fn materialize_program_with_origin_and_runtime(
     } else {
         baseline
     };
-    if config.enable_peepholes && config.enable_pointer_byte_plus_one_fusion {
-        materialize::pointer_byte_plus_one::select_costed(baseline, config, origin, runtime)
+    let baseline = if config.enable_peepholes && config.enable_pointer_byte_plus_one_fusion {
+        materialize::pointer_byte_plus_one::select_costed(baseline, config, origin, runtime)?
+    } else {
+        baseline
+    };
+    if config.enable_peepholes && config.enable_pointer_load_sharing {
+        materialize::pointer_load_sharing::select_costed(baseline, config, origin, runtime)
     } else {
         Ok(baseline)
     }

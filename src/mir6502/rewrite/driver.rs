@@ -306,7 +306,37 @@ impl MirPostHomeRewriteDriver {
         &mut self,
         routine: &mut MirRoutine,
         known_callees: &MirKnownCalleeSummaries,
+        memory_map: MemoryMap,
+        discover: Discover,
+    ) -> Result<MirRewriteRunResult, MirRewriteError>
+    where
+        Discover: FnMut(&MirRoutine, &PostHomeRewriteContext<'_, '_>) -> Vec<MirPostHomeRewritePlan>,
+        MemoryMap: FnMut(&MirRoutine) -> MirMachineMemoryMap,
+    {
+        self.run_fixed_point_with_maps(routine, known_callees, memory_map, None, discover)
+    }
+
+    pub(in crate::mir6502) fn run_fixed_point_with_physical_memory<Discover>(
+        &mut self,
+        routine: &mut MirRoutine,
+        known_callees: &MirKnownCalleeSummaries,
+        memory: &crate::mir6502::analysis::record_bases::MirPhysicalMemory,
+        discover: Discover,
+    ) -> Result<MirRewriteRunResult, MirRewriteError>
+    where
+        Discover: FnMut(&MirRoutine, &PostHomeRewriteContext<'_, '_>) -> Vec<MirPostHomeRewritePlan>,
+    {
+        self.run_fixed_point_with_maps(routine, known_callees,
+            |r| MirMachineMemoryMap::from_routine(r, |mem| memory.address(r.id, mem)),
+            Some(memory), discover)
+    }
+
+    fn run_fixed_point_with_maps<Discover, MemoryMap>(
+        &mut self,
+        routine: &mut MirRoutine,
+        known_callees: &MirKnownCalleeSummaries,
         mut memory_map: MemoryMap,
+        physical_memory: Option<&crate::mir6502::analysis::record_bases::MirPhysicalMemory>,
         mut discover: Discover,
     ) -> Result<MirRewriteRunResult, MirRewriteError>
     where
@@ -332,7 +362,7 @@ impl MirPostHomeRewriteDriver {
                 result.record_blocked_site(site);
             }
             for plan in &plans {
-                validate_posthome_plan(routine, self.generation, &context, plan)?;
+                validate_posthome_plan(routine, self.generation, &context, plan, physical_memory)?;
             }
             drop(snapshot);
             if plans.is_empty() {
@@ -461,6 +491,7 @@ fn validate_posthome_plan(
     generation: MirRoutineGeneration,
     context: &PostHomeRewriteContext<'_, '_>,
     plan: &MirPostHomeRewritePlan,
+    physical_memory: Option<&crate::mir6502::analysis::record_bases::MirPhysicalMemory>,
 ) -> Result<(), MirRewriteError> {
     if plan.generation != generation {
         return Err(MirRewriteError::StalePlan {
@@ -489,6 +520,25 @@ fn validate_posthome_plan(
             stat: plan.stat,
             message: "operation-count change omitted post-home invalidations".to_string(),
         });
+    }
+
+    let original = &block.ops[plan.range.clone()];
+    // This exact store motion needs its own value/order proof. The ordinary
+    // dependency check below cannot infer that from unchanged write counts.
+    if plan.pointer_load_sharing.is_some()
+        || crate::mir6502::analysis::pointer_load_sharing::replacement(original).as_deref()
+            == Some(plan.replacement.as_slice())
+    {
+        let valid = plan.pointer_load_sharing.as_ref().zip(physical_memory)
+            .is_some_and(|(proof, memory)| {
+                proof.point.site == MirSite::Op { block:plan.block, op_index:plan.range.start }
+                    && crate::mir6502::analysis::pointer_load_sharing::validate(
+                        proof,routine,generation,memory,original,&plan.replacement)
+            });
+        if !valid {
+            return Err(MirRewriteError::InvalidDeclaration { stat:plan.stat,
+                message:"pointer load sharing lost its physical or ordered-read proof".into() });
+        }
     }
 
     let mut removed_homes = super::posthome::removed_home_definitions(
@@ -2001,6 +2051,7 @@ mod tests {
             return Vec::new();
         }
         vec![MirPostHomeRewritePlan {
+            pointer_load_sharing: None,
             generation: context.generation(),
             block: MirBlockId(0),
             range: 0..1,
@@ -2133,13 +2184,13 @@ mod tests {
         missing.removed_homes.clear();
         missing.replacement.push(spill_load(0));
         assert!(
-            matches!(validate_posthome_plan(&input, generation, &context, &missing),
+            matches!(validate_posthome_plan(&input, generation, &context, &missing, None),
             Err(MirRewriteError::InvalidDeclaration { message, .. }) if message.contains("replacement depends"))
         );
         let mut dependent = plan;
         dependent.replacement.push(spill_load(0));
         assert!(
-            matches!(validate_posthome_plan(&input, generation, &context, &dependent),
+            matches!(validate_posthome_plan(&input, generation, &context, &dependent, None),
             Err(MirRewriteError::InvalidDeclaration { message, .. }) if message.contains("replacement depends"))
         );
     }

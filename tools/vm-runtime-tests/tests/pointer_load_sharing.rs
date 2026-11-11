@@ -19,7 +19,13 @@ mod machine;
 #[path = "support/fixed_point.rs"]
 mod support;
 
-fn compile(text: &str, optimized: bool, runtime: Runtime, origin: u16) -> CodegenOutput {
+fn compile(
+    text: &str,
+    optimized: bool,
+    runtime: Runtime,
+    origin: u16,
+    enabled: bool,
+) -> CodegenOutput {
     let source = support::Source::new(text);
     let loaded = actionc::includes::load_program_with_expanded_source(&source.0).unwrap();
     let model = actionc::semantic::analyze_with_options(
@@ -40,7 +46,10 @@ fn compile(text: &str, optimized: bool, runtime: Runtime, origin: u16) -> Codege
     mir6502::generate_output_with_config_and_runtime(
         &nir,
         origin,
-        &Mir6502Config::optimized(),
+        &Mir6502Config {
+            enable_pointer_load_sharing: enabled,
+            ..Mir6502Config::optimized()
+        },
         runtime,
     )
     .unwrap()
@@ -105,124 +114,161 @@ fn pointer_load_sharing_observes_runtime_arguments_and_reads_with_lf_and_crlf() 
     for optimized in [false, true] {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41C7] {
-                let mut lf_image = None;
-                for crlf in [false, true] {
-                    let text = if crlf {
-                        lf.replace('\n', "\r\n")
-                    } else {
-                        lf.clone()
-                    };
-                    let output = compile(&text, optimized, runtime, origin);
-                    let image = actionc::codegen::format_load_file(&output);
-                    if crlf {
-                        assert_eq!(lf_image.as_ref(), Some(&image));
-                    } else {
-                        lf_image = Some(image.clone());
-                    }
-                    if optimized && !crlf {
-                        if let Some(dir) = std::env::var_os("ACTIONC_POINTER_LOAD_BASELINE") {
-                            let rt = if runtime == Runtime::ActionCart {
-                                "cart"
-                            } else {
-                                "standalone"
-                            };
-                            assert_eq!(
-                                image,
-                                std::fs::read(
-                                    PathBuf::from(dir)
-                                        .join(format!("neutral-{rt}-{origin:04X}.xex"))
-                                )
-                                .unwrap()
-                            );
+                let mut baseline = BTreeMap::new();
+                for enabled in [false, true] {
+                    let mut lf_image = None;
+                    for crlf in [false, true] {
+                        let text = if crlf {
+                            lf.replace('\n', "\r\n")
+                        } else {
+                            lf.clone()
+                        };
+                        let output = compile(&text, optimized, runtime, origin, enabled);
+                        let image = actionc::codegen::format_load_file(&output);
+                        if crlf {
+                            assert_eq!(lf_image.as_ref(), Some(&image));
+                        } else {
+                            lf_image = Some(image.clone());
                         }
-                    }
-                    let entry = |name: &str| {
-                        output
-                            .routine_addresses
-                            .iter()
-                            .find(|r| r.name == name)
-                            .unwrap()
-                            .address
-                    };
-                    let homes = output
-                        .map
-                        .storage_symbols
-                        .iter()
-                        .filter_map(|s| match &s.scope {
-                            CodegenSymbolScope::Routine(owner) if s.name == "q" => {
-                                Some((owner.clone(), s.address))
-                            }
-                            _ => None,
-                        })
-                        .collect::<BTreeMap<_, _>>();
-                    let (mut vm, profile) = support::vm_for(runtime);
-                    vm.load_atari_object_for_execution(profile, &image).unwrap();
-                    for address in homes
-                        .values()
-                        .flat_map(|&h| [h, h + 1])
-                        .chain(0xA0..=0xA4)
-                        .chain(0xAC..=0xAD)
-                    {
-                        vm.bus_mut().add_watchpoint(address);
-                    }
-                    for q in [0x7200u16, 0x72FF] {
-                        for b in [0u8, 1, 127, 128, 254, 255] {
-                            for name in [
-                                "Forward", "PlusZero", "PlusTwo", "Subtract", "Offset", "Plain",
-                            ] {
-                                let p = 0x7000u16;
-                                let tag = b ^ 0xA5;
-                                let offset_tag = tag ^ 0x3C;
-                                vm.bus_mut().ram_mut().write(p, b);
-                                vm.bus_mut().ram_mut().write(q, tag);
-                                vm.bus_mut().ram_mut().write(q + 1, offset_tag);
-                                vm.bus_mut().ram_mut().write(0x685, 0xD6);
-                                let mut args = p.to_le_bytes().to_vec();
-                                args.extend(q.to_le_bytes());
-                                let first = if name == "Plain" {
-                                    p + 1
+                        if optimized && !crlf && !enabled {
+                            if let Some(dir) = std::env::var_os("ACTIONC_POINTER_LOAD_BASELINE") {
+                                let rt = if runtime == Runtime::ActionCart {
+                                    "cart"
                                 } else {
-                                    p + u16::from(b) + 1
+                                    "standalone"
                                 };
-                                let second = match name {
-                                    "PlusZero" => q,
-                                    "PlusTwo" => q + 2,
-                                    "Subtract" => q - 1,
-                                    _ => q + 1,
-                                };
-                                let mut expected = first.to_le_bytes().to_vec();
-                                expected.extend(second.to_le_bytes());
-                                expected.push(if name == "Offset" { offset_tag } else { tag });
-                                let mut hooks = Observe {
-                                    entry: entry("Observe"),
-                                    source_home: homes[name],
-                                    ..Observe::default()
-                                };
-                                vm.bus_mut().clear_events();
-                                let started = vm.cpu().cycles();
-                                vm = machine::call(vm, &mut hooks, entry(name), &args);
                                 assert_eq!(
-                                    hooks.args,
-                                    vec![expected.clone()],
-                                    "{name}/{q:04X}/{b}"
+                                    image,
+                                    std::fs::read(
+                                        PathBuf::from(dir)
+                                            .join(format!("neutral-{rt}-{origin:04X}.xex"))
+                                    )
+                                    .unwrap()
                                 );
-                                assert_eq!(machine::bytes(&vm, 0x680, 5), expected);
-                                assert_eq!(vm.bus().ram().read(0x685), 0xD6);
-                                assert_eq!(vm.bus().ram().read(p), b);
-                                assert_eq!(vm.bus().ram().read(q), tag);
-                                if name == "Forward" {
-                                    let h = homes[name];
-                                    assert_eq!(hooks.reads, vec![vec![h, h + 1, h, h + 1]]);
+                            }
+                        }
+                        let entry = |name: &str| {
+                            output
+                                .routine_addresses
+                                .iter()
+                                .find(|r| r.name == name)
+                                .unwrap()
+                                .address
+                        };
+                        let homes = output
+                            .map
+                            .storage_symbols
+                            .iter()
+                            .filter_map(|s| match &s.scope {
+                                CodegenSymbolScope::Routine(owner) if s.name == "q" => {
+                                    Some((owner.clone(), s.address))
                                 }
-                                if std::env::var_os("ACTIONC_POINTER_LOAD_METRICS").is_some()
-                                    && !crlf
-                                    && q == 0x7200
-                                    && b == 1
-                                {
-                                    eprintln!(
-                                        "pointer-load-sharing,{name},{runtime:?},optimized={optimized},origin={origin:04X},cycles={}",
-                                        vm.cpu().cycles() - started
+                                _ => None,
+                            })
+                            .collect::<BTreeMap<_, _>>();
+                        let (mut vm, profile) = support::vm_for(runtime);
+                        vm.load_atari_object_for_execution(profile, &image).unwrap();
+                        for address in homes
+                            .values()
+                            .flat_map(|&h| [h, h + 1])
+                            .chain(0xA0..=0xA4)
+                            .chain(0xAC..=0xAD)
+                        {
+                            vm.bus_mut().add_watchpoint(address);
+                        }
+                        for q in [0x7200u16, 0x72FF] {
+                            for b in [0u8, 1, 127, 128, 254, 255] {
+                                for name in [
+                                    "Forward", "PlusZero", "PlusTwo", "Subtract", "Offset", "Plain",
+                                ] {
+                                    let p = 0x7000u16;
+                                    let tag = b ^ 0xA5;
+                                    let offset_tag = tag ^ 0x3C;
+                                    vm.bus_mut().ram_mut().write(p, b);
+                                    vm.bus_mut().ram_mut().write(q, tag);
+                                    vm.bus_mut().ram_mut().write(q + 1, offset_tag);
+                                    vm.bus_mut().ram_mut().write(0x685, 0xD6);
+                                    let mut args = p.to_le_bytes().to_vec();
+                                    args.extend(q.to_le_bytes());
+                                    let first = if name == "Plain" {
+                                        p + 1
+                                    } else {
+                                        p + u16::from(b) + 1
+                                    };
+                                    let second = match name {
+                                        "PlusZero" => q,
+                                        "PlusTwo" => q + 2,
+                                        "Subtract" => q - 1,
+                                        _ => q + 1,
+                                    };
+                                    let mut expected = first.to_le_bytes().to_vec();
+                                    expected.extend(second.to_le_bytes());
+                                    expected.push(if name == "Offset" { offset_tag } else { tag });
+                                    let mut hooks = Observe {
+                                        entry: entry("Observe"),
+                                        source_home: homes[name],
+                                        ..Observe::default()
+                                    };
+                                    vm.bus_mut().clear_events();
+                                    let started = vm.cpu().cycles();
+                                    vm = machine::call(vm, &mut hooks, entry(name), &args);
+                                    assert_eq!(
+                                        hooks.args,
+                                        vec![expected.clone()],
+                                        "{name}/{q:04X}/{b}"
                                     );
+                                    assert_eq!(machine::bytes(&vm, 0x680, 5), expected);
+                                    assert_eq!(vm.bus().ram().read(0x685), 0xD6);
+                                    assert_eq!(vm.bus().ram().read(p), b);
+                                    assert_eq!(vm.bus().ram().read(q), tag);
+                                    if name == "Forward" {
+                                        let h = homes[name];
+                                        assert_eq!(
+                                            hooks.reads,
+                                            vec![if enabled {
+                                                vec![h, h + 1]
+                                            } else {
+                                                vec![h, h + 1, h, h + 1]
+                                            }]
+                                        );
+                                    }
+                                    let cycles = vm.cpu().cycles() - started;
+                                    if !crlf {
+                                        let key = (q, b, name);
+                                        if !enabled {
+                                            baseline.insert(
+                                                key,
+                                                (
+                                                    cycles,
+                                                    hooks.states.clone(),
+                                                    hooks.abi.clone(),
+                                                    hooks.pointer.clone(),
+                                                    hooks.reads.clone(),
+                                                ),
+                                            );
+                                        } else {
+                                            let old = &baseline[&key];
+                                            assert_eq!(hooks.states, old.1);
+                                            assert_eq!(hooks.abi, old.2);
+                                            assert_eq!(hooks.pointer, old.3);
+                                            if name == "Forward" {
+                                                assert_eq!(cycles + 8, old.0);
+                                            } else {
+                                                assert_eq!(cycles, old.0);
+                                                assert_eq!(hooks.reads, old.4);
+                                            }
+                                        }
+                                    }
+                                    if std::env::var_os("ACTIONC_POINTER_LOAD_METRICS").is_some()
+                                        && !crlf
+                                        && q == 0x7200
+                                        && b == 1
+                                    {
+                                        eprintln!(
+                                            "pointer-load-sharing,{name},{runtime:?},optimized={optimized},origin={origin:04X},enabled={enabled},cycles={}",
+                                            vm.cpu().cycles() - started
+                                        );
+                                    }
                                 }
                             }
                         }

@@ -154,6 +154,8 @@ pub(in crate::mir6502) struct MirRemovedHomeDefinition {
 /// homes. Post-home plans deliberately cannot name logical temp definitions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirPostHomeRewritePlan {
+    /// Revalidated against the supplied layout, never a permission bit.
+    pub pointer_load_sharing: Option<crate::mir6502::analysis::pointer_load_sharing::Proof>,
     pub generation: MirRoutineGeneration,
     pub block: MirBlockId,
     pub range: Range<usize>,

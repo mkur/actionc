@@ -16,6 +16,8 @@ pub struct Mir6502Config {
     pub enable_argument_staging_reduction: bool,
     /// Fuse a proven fixed-pair pointer-plus-indirect-byte increment.
     pub enable_pointer_byte_plus_one_fusion: bool,
+    /// Share original pointer loads with its following captured increment.
+    pub enable_pointer_load_sharing: bool,
     /// Replace proven small constant fill loops with direct byte stores.
     pub enable_tiny_constant_fills: bool,
     /// Forward captured bytes into small copies, subject to final size costing.
@@ -93,6 +95,7 @@ impl Default for Mir6502Config {
             enable_captured_byte_comparisons: false,
             enable_argument_staging_reduction: false,
             enable_pointer_byte_plus_one_fusion: false,
+            enable_pointer_load_sharing: false,
             enable_tiny_constant_fills: true,
             enable_copy_value_forwarding: true,
             enable_register_copy_forwarding: false,

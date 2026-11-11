@@ -1,6 +1,6 @@
 # MIR6502 pointer load sharing implementation plan
 
-Prepared 2026-11-11. Status: slice 1 implemented; selection remains disabled.
+Prepared 2026-11-11. Status: slices 1–2 implemented; optimized default remains off.
 Compiler baseline: `9488d269`.
 Implement in four vertical slices and commit each after its checks pass.
 This plan contains the bounded rewrite contract; no new executable MIR form
@@ -341,8 +341,8 @@ and its printed contract remain unchanged.
 
 | Slice | Status | Evidence |
 | --- | --- | --- |
-| 1 Baseline and proof | Implemented | [Frozen controls](benchmarks/6502-pointer-load-sharing/baseline.json), exact typed query and independent neutral execution |
-| 2 Selection and costing | Planned | |
+| 1 Baseline and proof | Complete, `f68f5834` | [Frozen controls](benchmarks/6502-pointer-load-sharing/baseline.json), exact typed query and independent neutral execution |
+| 2 Selection and costing | Implemented | Typed driver witness, layout replay, bounded final costing and explicit feature control |
 | 3 Boundary qualification | Planned | |
 | 4 Corpus and optimized default | Planned | |
 
@@ -355,4 +355,17 @@ stale/changed witnesses. Integration and VM checks cover raw/optimized NIR,
 both runtimes/origins and actual LF/CRLF parsing; all eight optimized baseline
 images agree with the frozen controls. The VM executes 1,152 runtime calls,
 including callee-entry arguments, ordered source-home reads and guards.
-No production selector has been enabled.
+No production selector was enabled in slice 1.
+
+Slice 2 adds final selection with `enable_pointer_load_sharing` explicitly on
+in tests and off in both defaults. The driver revalidates the exact typed
+witness using its supplied physical map; missing, stale and altered witnesses
+reject. The final gate preserves frames and published callee facts, replays
+physical proofs for the accepted batch and requires a strict XEX saving.
+Tests also cover unknown-emission fallback, neighboring candidates, an
+independently blocked routine, stable counts and reporting/idempotence.
+Eight focused tests, the integration target and 2,304 feature-off/on VM calls
+pass. `Forward` is 90→84 bytes, neutral images are 716→710 / 798→792 bytes,
+and sampled calls improve 350→342 cycles. The controls retain their sizes,
+cycles and source-read traces; source-home reads fall from four to two only
+at the admitted site. Pointer stores, ABI writes and entry flags/stack agree.
