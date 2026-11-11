@@ -4,7 +4,7 @@ use actionc::{
     compiler::Runtime,
     mir6502::{self, Mir6502Config},
 };
-use actionc_vm::{CompilerVm, VmRunHooks};
+use actionc_vm::{BusAccess, CompilerVm, VmRunHooks};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -19,6 +19,8 @@ mod machine;
 #[allow(dead_code)]
 #[path = "support/fixed_point.rs"]
 mod support;
+#[path = "support/argument_staging_effects.rs"]
+mod effects;
 
 fn compile(
     source: &str,
@@ -59,6 +61,7 @@ fn compile(
 struct Observe {
     callees: BTreeMap<u16, usize>,
     arguments: Vec<Vec<u8>>,
+    states: Vec<(u8, u8)>,
 }
 impl VmRunHooks for Observe {
     type Error = String;
@@ -74,6 +77,7 @@ impl VmRunHooks for Observe {
             ];
             args.truncate(bytes);
             self.arguments.push(args);
+            self.states.push((r.sp, r.status));
         }
         Ok(())
     }
@@ -112,6 +116,7 @@ fn argument_staging_matches_entry_bytes_and_host_oracles_with_lf_and_crlf() {
                         let mut hooks = Observe {
                             callees: [(entry("Capture"), 5), (entry("CapturePair"), 4)].into(),
                             arguments: Vec::new(),
+                            states: Vec::new(),
                         };
                         let (mut vm, profile) = support::vm_for(runtime);
                         vm.load_atari_object_for_execution(
@@ -119,6 +124,9 @@ fn argument_staging_matches_entry_bytes_and_host_oracles_with_lf_and_crlf() {
                             &actionc::codegen::format_load_file(&output),
                         )
                         .unwrap();
+                        for address in (0xA0..=0xA7).chain(0xE0..=0xE1).chain(0x680..=0x684) {
+                            vm.bus_mut().add_watchpoint(address);
+                        }
                         for name in ["ForwardAdd", "ForwardSub", "FourByte", "FivePlain"] {
                             for (n, &first) in words.iter().enumerate() {
                                 let second = words[(n + 3) % words.len()];
@@ -142,17 +150,33 @@ fn argument_staging_matches_entry_bytes_and_host_oracles_with_lf_and_crlf() {
                                         expected.push(tag);
                                     }
                                     hooks.arguments.clear();
+                                    hooks.states.clear();
+                                    vm.bus_mut().clear_events();
                                     let start = vm.cpu().cycles();
                                     vm = machine::call(vm, &mut hooks, entry(name), &args);
                                     let cycles = vm.cpu().cycles() - start;
                                     let key = (name, n, tag);
+                                    let writes = vm
+                                        .bus()
+                                        .events()
+                                        .iter()
+                                        .filter(|e| e.access == BusAccess::Write)
+                                        .map(|e| (e.address, e.value))
+                                        .collect::<Vec<_>>();
                                     if !crlf {
                                         if !enabled {
-                                            baseline.insert(key, cycles);
+                                            baseline.insert(
+                                                key,
+                                                (cycles, hooks.states.clone(), writes),
+                                            );
                                         } else if name == "ForwardAdd" || name == "ForwardSub" {
-                                            assert!(cycles < baseline[&key]);
+                                            assert!(cycles < baseline[&key].0);
+                                            assert_eq!(hooks.states, baseline[&key].1);
+                                            assert_eq!(writes, baseline[&key].2);
                                         } else {
-                                            assert_eq!(cycles, baseline[&key]);
+                                            assert_eq!(cycles, baseline[&key].0);
+                                            assert_eq!(hooks.states, baseline[&key].1);
+                                            assert_eq!(writes, baseline[&key].2);
                                         }
                                     }
                                     assert_eq!(

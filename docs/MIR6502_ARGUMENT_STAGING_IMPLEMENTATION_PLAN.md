@@ -1,6 +1,6 @@
 # MIR6502 argument staging reduction implementation
 
-Prepared 2026-11-11. Status: slices 1 and 2 implemented; broader qualification follows.
+Prepared 2026-11-11. Status: slices 1–3 implemented; corpus qualification follows.
 Implements the [design note](MIR6502_ARGUMENT_STAGING_DESIGN.md) committed as
 `961f30e8`. The compiler baseline is `476cfecf`; freeze fresh artifacts before
 changing selection. Each slice below is a separate commit after its checks pass.
@@ -302,7 +302,7 @@ target-selection improvement or a correctness fix.
 | --- | --- | --- |
 | 1. Baseline and proofs | Complete | Frozen compiler/images, neutral entry oracle, three proof tests, integration and VM target; inert output is byte-identical |
 | 2. One schedule and costing | Implemented | Captured high-byte carrier, retained stores/homes, exact final costing and physical replay |
-| 3. Alias/effect qualification | Planned | Record admitted/rejected boundaries, oracle results and runtime/NIR/newline modes |
+| 3. Alias/effect qualification | Complete | Eight post-home proof tests, exhaustive emitted arithmetic fragments and three independent VM tests |
 | 4. Corpus and backend qualification | Planned | Record final measurements, remaining TN blockers, full scoped checks and implementation limits |
 
 ### Slice 1 evidence
@@ -362,3 +362,24 @@ two bytes in each runtime and at each origin, with raw/optimized NIR. The
 sampled calls improve from 430 to 429 cycles, while both existing controls
 retain their prior sizes/cycles. Independent callee-entry and host-oracle VM
 checks pass for both feature settings and actual LF/CRLF input.
+
+### Slice 3 qualification
+
+Slice 2 is commit `6311c110`. Eight post-home tests now cover register/flag
+clobbers, intervening calls and opaque/indirect effects, hardware sources,
+unknown/noncanonical callees, physical aliases despite distinct logical names,
+the exact 64-operation boundary, stale generations, observed capture stores,
+independent accepted/rejected routines and complete fallback on unknown cost.
+The emitted arithmetic fragments execute all 65,536 first-word values for
+addition and subtraction with feature-off/on (262,144 executions), checking
+independent modulo-65536 results, every ABI argument byte and memory guards.
+
+Three VM tests pass. The entry observer compares A/X/Y, `$A3/$A4`, status,
+stack depth and watched ABI/private/result writes before the callee prologue;
+6,144 calls exercise boundary inputs, both feature settings, both runtimes,
+raw/optimized NIR, two origins and actual LF/CRLF parsing. A changing-input
+hook proves the first arithmetic operand stays captured when its source home
+changes during later setup. An indirect callee observer reads aliases of ABI
+cells, private captures and both source parameter bytes, including a page
+boundary; feature-off/on preserve the same observed memory. Forwarding does
+not authorize capture-store or home deletion.
