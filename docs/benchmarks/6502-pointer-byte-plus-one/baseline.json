@@ -1,0 +1,125 @@
+{
+  "compiler_revision": "8f0a1950",
+  "compiler_code_revision": "6311c110",
+  "compiler_sha256": "d78791ac29807747d66663addd85fdd009fdfac5ade46527a1ad70e8009d587f",
+  "mode": "mir6502",
+  "profile": "modern",
+  "nir": "optimized",
+  "vm_revision": "7ec0cc454ebf43b088b7bcd11515533085ea1964",
+  "inputs_sha256": {
+    "fixtures/runtime/pointer_byte_plus_one.act": "57f3439eec5f262d28a32415ac52f9146060cc98ca0455b8d4980031707c6823",
+    "samples/tn/modern/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "samples/tn/modern/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+    "samples/tn/modern/LIB.ACT": "b8cd4c48b9b2d9c96fc86d24e94ea3dc6e9dfb706c636c2b7fb7fc6c58015c53"
+  },
+  "artifacts": [
+    {
+      "source": "fixtures/runtime/pointer_byte_plus_one.act",
+      "runtime": "cart",
+      "origin": 12288,
+      "image_bytes": 668,
+      "sha256": "4590a756e9136c915dba7ca8bb8ffea8954f69af4d6218f0135dca7d5b125b16",
+      "routine_bytes": {
+        "Forward": 95,
+        "PlusZero": 95,
+        "PlusTwo": 95,
+        "Subtract": 95,
+        "Plain": 76,
+        "Address": 33
+      },
+      "compile_seconds": 0.5727
+    },
+    {
+      "source": "fixtures/runtime/pointer_byte_plus_one.act",
+      "runtime": "cart",
+      "origin": 16839,
+      "image_bytes": 668,
+      "sha256": "5381e9f9914b5c1e7979bc2c4c1a0cc417a2a37c822ba304505288566a268d3d",
+      "routine_bytes": {
+        "Forward": 95,
+        "PlusZero": 95,
+        "PlusTwo": 95,
+        "Subtract": 95,
+        "Plain": 76,
+        "Address": 33
+      },
+      "compile_seconds": 0.0668
+    },
+    {
+      "source": "fixtures/runtime/pointer_byte_plus_one.act",
+      "runtime": "standalone",
+      "origin": 12288,
+      "image_bytes": 750,
+      "sha256": "e13e6900390b2ab2c12594525b458db3e1cbd9d73cbb83731f0af23814928f87",
+      "routine_bytes": {
+        "Forward": 95,
+        "PlusZero": 95,
+        "PlusTwo": 95,
+        "Subtract": 95,
+        "Plain": 76,
+        "Address": 33
+      },
+      "compile_seconds": 0.0695
+    },
+    {
+      "source": "fixtures/runtime/pointer_byte_plus_one.act",
+      "runtime": "standalone",
+      "origin": 16839,
+      "image_bytes": 750,
+      "sha256": "a244e4e14b661e9d4f1e22e4c0c034b1ca76cb5c330a8a22c9b1815adedd5698",
+      "routine_bytes": {
+        "Forward": 95,
+        "PlusZero": 95,
+        "PlusTwo": 95,
+        "Subtract": 95,
+        "Plain": 76,
+        "Address": 33
+      },
+      "compile_seconds": 0.0696
+    },
+    {
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "cart",
+      "origin": 11264,
+      "image_bytes": 9873,
+      "sha256": "228db010fcf9aa4392a42900d9dc34bea85e9fe88339b3406d54092dbd659f28",
+      "routine_bytes": {
+        "Strcat": 125
+      },
+      "compile_seconds": 5.9076
+    },
+    {
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "standalone",
+      "origin": 11264,
+      "image_bytes": 9998,
+      "sha256": "6d9c5312c4ba53c30e5a838603387c2d0ad849d8be5b33ff4a15c7b6963e954b",
+      "routine_bytes": {
+        "Strcat": 125
+      },
+      "compile_seconds": 5.9062
+    },
+    {
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "cart",
+      "origin": 11264,
+      "image_bytes": 12969,
+      "sha256": "aed6b81dea59387b7dd2e7fb73f0073d66140f1614e0ff45e25ab4e2a467e74f",
+      "routine_bytes": {
+        "Strcat": 125
+      },
+      "compile_seconds": 20.3345
+    },
+    {
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "standalone",
+      "origin": 11264,
+      "image_bytes": 13094,
+      "sha256": "4052132592b2fc3cc39fbe0adb6c4ae0437d40a0c21a1fbd5cdb80c600d98465",
+      "routine_bytes": {
+        "Strcat": 125
+      },
+      "compile_seconds": 20.3176
+    }
+  ]
+}

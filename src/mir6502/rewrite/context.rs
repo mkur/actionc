@@ -602,6 +602,18 @@ pub(in crate::mir6502) struct PostHomeRewriteContext<'snapshot, 'routine> {
 }
 
 impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
+    pub(in crate::mir6502) fn pointer_byte_plus_one(
+        &self, point: MirProgramPoint,
+    ) -> Result<crate::mir6502::analysis::pointer_byte_plus_one::Proof,
+                crate::mir6502::analysis::pointer_byte_plus_one::Blocker> {
+        crate::mir6502::analysis::pointer_byte_plus_one::prove(self.snapshot.source(), self, point)
+    }
+
+    pub(in crate::mir6502) fn incoming_home_defined(&self, home: MirHomeByte, point: MirProgramPoint) -> bool {
+        self.snapshot.routine().validate_point(point).is_ok()
+            && self.snapshot.home_definitions().definitely_written_before(home, point.site)
+    }
+
     pub(in crate::mir6502) fn record_base_reuse(
         &self, site:MirSite, memory:&crate::mir6502::analysis::record_bases::MirPhysicalMemory,
         options:crate::mir6502::analysis::record_bases::RecordBaseOptions,

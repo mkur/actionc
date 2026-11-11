@@ -1,6 +1,6 @@
 # MIR6502 pointer byte constant arithmetic implementation
 
-Prepared 2026-11-11. Status: planned. Starting revision `553f8074`, with compiler
+Prepared 2026-11-11. Status: slice 1 implemented; selection remains inert. Starting revision `553f8074`, with compiler
 code at `6311c110`. Implement in four vertical slices, committing each after
 its checks pass. This plan includes the proposed MIR contract; no separate
 design note is needed for the bounded form below.
@@ -333,3 +333,39 @@ cargo test
 
 No such shared change is planned. Explain any intentional materialized-MIR
 fixture updates as target selection changes; raw NIR remains unchanged.
+
+## Completion record
+
+| Slice | Status | Evidence |
+| --- | --- | --- |
+| 1 Baseline and proofs | Implemented | Frozen images and source/compiler identities; inert two-operation proof; neutral entry/read oracle |
+| 2 Target form and emission | Planned | Add typed operation and qualify emitted arithmetic |
+| 3 Selection and costing | Planned | Commit shared proof transactions with exact final qualification |
+| 4 Boundary and corpus qualification | Planned | Enable optimized default after full scoped checks and measurements |
+
+### Slice 1 evidence
+
+The [baseline manifest](benchmarks/6502-pointer-byte-plus-one/baseline.json)
+records the frozen compiler and all eight neutral/TN/TNDBG image controls.
+The neutral fixture is 668 cartridge / 750 standalone XEX bytes at both
+origins. `Forward` is 95 bytes, including the confirmed adjacent 26-byte
+pointer-plus-byte and increment sequence. The ordinary `Address` return
+sibling is 33 bytes and follows a different lowering path. TN/TNDBG retain
+their preceding sizes and 125-byte `Strcat`.
+
+The five-byte neutral call with plain later arguments did not expose this
+producer path. The retained fixture uses two ordinary incoming pointers and
+later arguments `q+1,q^`, exposing the existing source-ordered expression
+consumer without changing it. Plus-zero, plus-two, subtraction and plain
+addition remain independent controls.
+
+The inert witness checks complete source definitions on every path, fixed
+physical pair disjointness, legal offsets, discarded A/X/flags and intermediate
+definition observations. A shared must-write query tracks public as well as
+private home initialization without changing existing private-read diagnostics.
+The neutral integration target passes both NIR modes/runtimes/origins. Its
+VM target executes 960 calls through actual LF/CRLF parsing, checks independent
+arguments/results and exactly-once ordered source reads, and matches the
+frozen optimized-NIR images byte for byte. The sampled forward call takes
+356 cycles including wrapper and actual callee; all dumps/logs stay under
+ignored `build/pointer-byte-plus-one/`.

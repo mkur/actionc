@@ -28,6 +28,9 @@ struct MirHomeDefinition {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct MirHomeDefinitionState {
     definitions: BTreeMap<MirHomeByte, BTreeSet<MirHomeDefinition>>,
+    /// Unlike private initialization diagnostics, this includes public homes:
+    /// an entry byte is readable, but does not certify a locally defined pair.
+    possibly_unwritten: BTreeSet<MirHomeByte>,
     /// A path from routine entry has not yet defined this private byte. This
     /// may-fact must survive a join even when another path provides a store.
     possibly_undefined: BTreeSet<MirHomeByte>,
@@ -42,6 +45,7 @@ impl MirHomeDefinitionState {
     }
 
     fn join(&mut self, other: &Self) {
+        self.possibly_unwritten.extend(&other.possibly_unwritten);
         self.possibly_undefined.extend(&other.possibly_undefined);
         for (home, definitions) in &other.definitions {
             self.definitions
@@ -52,6 +56,7 @@ impl MirHomeDefinitionState {
     }
 
     fn define(&mut self, home: MirHomeByte, store: MirSite) {
+        self.possibly_unwritten.remove(&home);
         self.possibly_undefined.remove(&home);
         self.definitions
             .insert(home, BTreeSet::from([MirHomeDefinition { home, store }]));
@@ -62,6 +67,7 @@ struct HomeDefinitionProblem<'a> {
     transfers: &'a BTreeMap<MirBlockId, MirHomeBlockTransfers>,
     entry: Option<MirBlockId>,
     private_homes: BTreeSet<MirHomeByte>,
+    all_homes: BTreeSet<MirHomeByte>,
     private_aliases: &'a BTreeMap<MirHomeByte, BTreeSet<MirHomeByte>>,
 }
 
@@ -79,6 +85,7 @@ impl DataflowProblem<MirCfg> for HomeDefinitionProblem<'_> {
     fn boundary(&self, node: MirBlockId) -> Option<Self::State> {
         (Some(node) == self.entry).then(|| MirHomeDefinitionState {
             definitions: BTreeMap::new(),
+            possibly_unwritten: self.all_homes.clone(),
             possibly_undefined: self.private_homes.clone(),
         })
     }
@@ -159,6 +166,7 @@ impl MirHomeDefinitions {
             &HomeDefinitionProblem {
                 transfers: &transfers,
                 entry: cfg.entry(),
+                all_homes: universe.iter().collect(),
                 private_aliases: &private_aliases,
                 private_homes: universe
                     .iter()
@@ -221,6 +229,21 @@ impl MirHomeDefinitions {
             }
         }
         reads
+    }
+
+    /// A concrete write reaches this point on every entry path. Unknown
+    /// may-writes never establish initialization. This does not prove a value
+    /// identity or absence of subsequent observers.
+    pub(in crate::mir6502) fn definitely_written_before(&self, home: MirHomeByte, site: MirSite) -> bool {
+        let MirSite::Op { block, op_index } = site else { return false; };
+        let Some(transfers) = self.transfers.get(&block) else { return false; };
+        if !self.reachable.contains(&block) || op_index >= transfers.ops.len() { return false; }
+        let Some(mut state) = self.result.in_state(block).cloned() else { return false; };
+        for (i, transfer) in transfers.ops[..op_index].iter().enumerate() {
+            apply_writes(&mut state, &transfer.writes, MirSite::Op { block, op_index: i });
+        }
+        !state.possibly_unwritten.contains(&home)
+            && state.definitions.contains_key(&home)
     }
 
     /// Proves that the exact definition at `store_site` has no use outside the
