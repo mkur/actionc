@@ -131,3 +131,163 @@ fn callee_entry_flags_keep_ineligible_and_invalid_routines_unknown() {
 
 #[path = "entry_flags_census.rs"]
 mod census;
+
+#[test]
+fn callee_entry_flags_track_each_flag_through_joins_loops_and_unreachable_blocks() {
+    let mut r = wrapper(vec![]);
+    let base = r.blocks[0].clone();
+    let block = |id, ops, term| {
+        let mut b = base.clone();
+        b.id = MirBlockId(id);
+        b.ops = ops;
+        b.terminator = term;
+        b
+    };
+    for both in [false, true] {
+        r.blocks = vec![
+            block(
+                0,
+                vec![],
+                MirTerminator::Branch {
+                    cond: MirCond::FlagTest(MirFlagTest::CSet),
+                    then_edge: MirEdge::plain(MirBlockId(1)),
+                    else_edge: MirEdge::plain(MirBlockId(2)),
+                },
+            ),
+            block(
+                1,
+                vec![load()],
+                MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
+            ),
+            block(
+                2,
+                if both { vec![load()] } else { vec![] },
+                MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
+            ),
+            block(3, vec![boundary()], MirTerminator::Return),
+        ];
+        assert_eq!(
+            MirKnownCalleeEntryFlags::analyze(&r),
+            MirKnownCalleeEntryFlags::Known {
+                may_observe: mask(if both { 9 } else { 15 })
+            }
+        );
+    }
+    r.blocks = vec![
+        block(
+            0,
+            vec![],
+            MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+        ),
+        block(
+            1,
+            vec![load()],
+            MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::CSet),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        ),
+        block(2, vec![boundary()], MirTerminator::Return),
+    ];
+    assert_eq!(
+        MirKnownCalleeEntryFlags::analyze(&r),
+        MirKnownCalleeEntryFlags::Known {
+            may_observe: mask(9)
+        }
+    );
+    r.blocks = vec![
+        block(0, vec![], MirTerminator::Return),
+        block(1, vec![boundary()], MirTerminator::Return),
+    ];
+    assert_eq!(
+        MirKnownCalleeEntryFlags::analyze(&r),
+        MirKnownCalleeEntryFlags::Known {
+            may_observe: mask(0)
+        }
+    );
+    for observed in 0..16u8 {
+        r.blocks.clear();
+        for (i, (bit, test)) in [
+            (1, MirFlagTest::CSet),
+            (2, MirFlagTest::ZSet),
+            (4, MirFlagTest::NSet),
+            (8, MirFlagTest::VSet),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let edge = MirEdge::plain(MirBlockId(i as u32 + 1));
+            r.blocks.push(block(
+                i as u32,
+                vec![],
+                if observed & bit != 0 {
+                    MirTerminator::Branch {
+                        cond: MirCond::FlagTest(test),
+                        then_edge: edge.clone(),
+                        else_edge: edge,
+                    }
+                } else {
+                    MirTerminator::Jump(edge)
+                },
+            ));
+        }
+        r.blocks.push(block(4, vec![], MirTerminator::Return));
+        let facts = MirKnownCalleeEntryFlags::analyze(&r);
+        assert_eq!(
+            facts,
+            MirKnownCalleeEntryFlags::Known {
+                may_observe: mask(observed)
+            }
+        );
+        for request in 0..16u8 {
+            assert_eq!(facts.unobserved(mask(request)), observed & request == 0);
+        }
+    }
+}
+#[test]
+fn callee_entry_flags_preserve_read_before_write_and_machine_eligibility() {
+    for op in [MirBinaryOp::Add, MirBinaryOp::Sub] {
+        let r = wrapper(vec![
+            load(),
+            MirOp::Binary {
+                op,
+                dst: MirDef::Reg(MirReg::A),
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: MirValue::ConstU8(1),
+                width: MirWidth::Byte,
+                carry_in: Some(MirCarryIn::FromPrevious),
+                carry_out: MirCarryOut::Ignore,
+            },
+            boundary(),
+        ]);
+        assert_eq!(
+            MirKnownCalleeEntryFlags::analyze(&r),
+            MirKnownCalleeEntryFlags::Known {
+                may_observe: mask(1)
+            }
+        );
+    }
+    let r = wrapper(vec![
+        MirOp::UpdateMem {
+            op: MirUpdateOp::Ror,
+            mem: MirMem::FixedZeroPage(MirFixedZpSlot(0xA0)),
+            width: MirWidth::Byte,
+        },
+        boundary(),
+    ]);
+    assert_eq!(
+        MirKnownCalleeEntryFlags::analyze(&r),
+        MirKnownCalleeEntryFlags::Known {
+            may_observe: mask(9)
+        }
+    );
+    let r = wrapper(vec![MirOp::MachineBlock {
+        id: MirMachineBlockId(0),
+        effects: MirEffects::default(),
+    }]);
+    assert_eq!(
+        MirKnownCalleeEntryFlags::analyze(&r),
+        MirKnownCalleeEntryFlags::Unknown
+    );
+}

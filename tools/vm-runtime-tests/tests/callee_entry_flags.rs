@@ -3,7 +3,7 @@ use actionc::{
     compiler::Runtime,
     mir6502::{self, Mir6502Config},
 };
-use actionc_vm::VmRunHooks;
+use actionc_vm::{BusAccess, VmRunHooks};
 use std::path::{Path, PathBuf};
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -24,6 +24,16 @@ fn compile(
     rt: Runtime,
     origin: u16,
     enabled: bool,
+) -> actionc::codegen::CodegenOutput {
+    compile_flags(text, opt, rt, origin, enabled, [true; 3])
+}
+fn compile_flags(
+    text: &str,
+    opt: bool,
+    rt: Runtime,
+    origin: u16,
+    enabled: bool,
+    predecessors: [bool; 3],
 ) -> actionc::codegen::CodegenOutput {
     let source = support::Source::new(text);
     let loaded = actionc::includes::load_program_with_expanded_source(&source.0).unwrap();
@@ -47,6 +57,9 @@ fn compile(
         origin,
         &Mir6502Config {
             enable_precise_callee_entry_flags: enabled,
+            enable_argument_staging_reduction: predecessors[0],
+            enable_pointer_byte_plus_one_fusion: predecessors[1],
+            enable_pointer_load_sharing: predecessors[2],
             ..Mir6502Config::optimized()
         },
         rt,
@@ -59,6 +72,7 @@ fn callee_entry_flags_observers_match_host_oracle_with_lf_and_crlf() {
     for opt in [false, true] {
         for rt in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41C7] {
+                let mut observations = std::collections::BTreeMap::new();
                 for enabled in [false, true] {
                     let mut first = None;
                     for crlf in [false, true] {
@@ -102,10 +116,37 @@ fn callee_entry_flags_observers_match_host_oracle_with_lf_and_crlf() {
                         };
                         let (mut vm, profile) = support::vm_for(rt);
                         vm.load_atari_object_for_execution(profile, &image).unwrap();
+                        let mut watched = vec![0x680u16, 0x681, 0x682];
+                        for name in ["Forward", "UnsafeForward"] {
+                            watched.push(
+                                out.map
+                                    .storage_symbols
+                                    .iter()
+                                    .find(|s| {
+                                        s.name == "tag"
+                                            && s.scope
+                                                == actionc::codegen::CodegenSymbolScope::Routine(
+                                                    name.into(),
+                                                )
+                                    })
+                                    .unwrap()
+                                    .address,
+                            );
+                        }
+                        for &a in &watched {
+                            vm.bus_mut().add_watchpoint(a);
+                        }
+
                         // Called by the common harness with tag/status in A/X. PLP sets
                         // all tracked flags after the final tag load, immediately before JSR.
                         for mask in 0..16u8 {
-                            for tag in [0u8, 1, 127, 128, 254, 255] {
+                            for tag in
+                                if opt && rt == Runtime::ActionCart && origin == 0x3000 && !crlf {
+                                    (0..=255).collect::<Vec<u8>>()
+                                } else {
+                                    vec![0u8, 1, 127, 128, 254, 255]
+                                }
+                            {
                                 for name in ["Forward", "UnsafeForward"] {
                                     let status = 0x20
                                         | (mask & 1)
@@ -136,7 +177,32 @@ fn callee_entry_flags_observers_match_host_oracle_with_lf_and_crlf() {
                                         .unwrap();
                                     vm.bus_mut().ram_mut().write(0x67F, 0xA5);
                                     vm.bus_mut().ram_mut().write(0x683, 0x5A);
+                                    vm.bus_mut().clear_events();
                                     vm = machine::call(vm, &mut Hooks, 0x740, &[tag, status]);
+                                    let writes = vm
+                                        .bus()
+                                        .events()
+                                        .iter()
+                                        .filter(|e| e.access == BusAccess::Write)
+                                        .map(|e| {
+                                            (
+                                                watched
+                                                    .iter()
+                                                    .position(|a| *a == e.address)
+                                                    .unwrap(),
+                                                e.value,
+                                            )
+                                        })
+                                        .collect::<Vec<_>>();
+                                    let r = vm.cpu().registers();
+                                    let state = (writes, (r.a, r.x, r.y, r.status, r.sp));
+                                    let key = (crlf, mask, tag, name);
+                                    if enabled {
+                                        assert_eq!(observations.get(&key), Some(&state));
+                                    } else {
+                                        observations.insert(key, state);
+                                    }
+
                                     let expected_nz = if name == "Forward" {
                                         if tag & 0x7F == 0 {
                                             2
@@ -160,6 +226,67 @@ fn callee_entry_flags_observers_match_host_oracle_with_lf_and_crlf() {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn callee_entry_flags_compose_with_preceding_feature_combinations() {
+    let source =
+        include_str!("../../../fixtures/runtime/callee_entry_flags.act").replace("\r\n", "\n");
+    for bits in 0..8 {
+        for rt in [Runtime::ActionCart, Runtime::Standalone] {
+            let mut old = None;
+            for enabled in [false, true] {
+                let out = compile_flags(
+                    &source,
+                    true,
+                    rt,
+                    0x3000,
+                    enabled,
+                    [bits & 1 != 0, bits & 2 != 0, bits & 4 != 0],
+                );
+                let image = actionc::codegen::format_load_file(&out);
+                if enabled {
+                    assert_eq!(old.unwrap() - image.len(), 2);
+                } else {
+                    old = Some(image.len());
+                }
+                let (mut vm, profile) = support::vm_for(rt);
+                vm.load_atari_object_for_execution(profile, &image).unwrap();
+                for (name, expected) in [("Forward", 0x43), ("UnsafeForward", 0xC1)] {
+                    let a = out
+                        .routine_addresses
+                        .iter()
+                        .find(|r| r.name == name)
+                        .unwrap()
+                        .address;
+                    vm.bus_mut()
+                        .ram_mut()
+                        .map(
+                            0x740,
+                            &[
+                                0xA9,
+                                0x61,
+                                0x48,
+                                0xA9,
+                                0x80,
+                                0x28,
+                                0x20,
+                                a as u8,
+                                (a >> 8) as u8,
+                                0x60,
+                            ],
+                        )
+                        .unwrap();
+                    vm = machine::call(vm, &mut Hooks, 0x740, &[]);
+                    assert_eq!(
+                        vm.bus().ram().read(0x682) & 0xC3,
+                        expected,
+                        "{bits}/{rt:?}/{enabled}/{name}"
+                    );
                 }
             }
         }

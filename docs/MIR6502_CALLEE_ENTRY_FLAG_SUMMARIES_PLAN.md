@@ -1,6 +1,6 @@
 # MIR6502 callee entry flag summaries plan
 
-Prepared 2026-11-11. Status: slices 1–2 complete; the new control remains off. Compiler baseline: `82ada38f`.
+Prepared 2026-11-11. Status: slices 1–3 complete; the new control remains off. Compiler baseline: `82ada38f`.
 Implement in four vertical slices and commit each after its checks pass.
 This refines the existing MIR6502 flag proof contract; a separate design note
 or new executable IR form is unnecessary.
@@ -340,8 +340,8 @@ checks, with no compiler test run.
 | Slice | Status | Evidence |
 | --- | --- | --- |
 | 1 Baselines and incoming masks | Complete, `6ff44406` | Frozen images/facts, typed blocker census, inert flag analysis and neutral execution controls |
-| 2 Forwarding integration | Complete | Opt-in N/Z proofs, callee body witnesses and final input-contract replay |
-| 3 Flag and snapshot qualification | Planned | |
+| 2 Forwarding integration | Complete, `0ab5a1b6` | Opt-in N/Z proofs, callee body witnesses and final input-contract replay |
+| 3 Flag and snapshot qualification | Complete | Flag/CFG truth tables, simultaneous replay, exhaustive VM observations and measured TN execution |
 | 4 Corpus and default | Planned | |
 
 Slice 1 freezes eight image controls in
@@ -365,3 +365,18 @@ input contracts. Integration and 6,144 VM calls pass across feature settings,
 raw/optimized NIR, runtimes/origins and LF/CRLF input. Existing argument-X,
 argument-staging and rewrite-driver controls also pass. Proofs carry immutable
 callee bodies; final replay rebuilds their facts from the combined proposal.
+
+Slice 3 passes ten focused tests and two VM tests. The execution matrix now
+covers 22,144 calls, including all 256 forwarded bytes and all 16 C/N/Z/V
+inputs, plus 64 calls across predecessor-feature combinations. Normalized
+parameter/output write traces and returned A/X/Y/status/SP agree between
+settings. CFG tests cover each observed/requested mask, joins, loops and
+unreachable reads; ADC/SBC/ROR keep incoming carry dependencies. Explicit
+contracts and individual N/Z inputs retain fallback. Combined caller/callee
+selection passes final replay and saves three bytes in its typed fixture.
+
+The corpus exporter supplies exact images for execution. Eight TN/TNDBG
+images pass 80 string and 16 post-call parameter-alias cases; `Strcat` remains
+113 bytes and 355 cycles. The measured neutral images are 69→67 bytes and
+TNDBG is 12,954→12,953 bytes in cartridge mode; TN remains 9,858. The new
+control remains disabled until slice 4 completes backend/default qualification.

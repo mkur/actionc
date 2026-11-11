@@ -25274,3 +25274,6 @@ fn param_address_consumer_preserves_public_homes_and_barriers() {
         0
     );
 }
+
+#[path = "callee_entry_flags_measurements.rs"]
+mod callee_entry_flags_measurements;

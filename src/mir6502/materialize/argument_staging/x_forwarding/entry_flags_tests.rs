@@ -1,4 +1,5 @@
 use super::*;
+use crate::mir6502::ir::MirEdge;
 use crate::mir6502::{
     analysis::{
         argument_x_forwarding::tests::{memory, site},
@@ -205,4 +206,156 @@ fn callee_entry_flags_final_gate_rejects_weakened_input_contracts() {
     assert!(
         matches!(c.argument_x_forwarding(c.point(site(caller)),&memory(&p)),Err(facts::Blocker::EntryFlagsLive(flags)) if flags.n&&flags.z)
     );
+}
+
+#[test]
+fn callee_entry_flags_replay_accepts_caller_and_callee_changing_together() {
+    let mut p = baseline();
+    let mut nested = p
+        .routines
+        .iter()
+        .find(|r| r.name == "Observe")
+        .unwrap()
+        .clone();
+    nested.id = RoutineId(1000);
+    nested.name = "Nested".into();
+    let nested_id = nested.id;
+    let caller = p.routines.iter().find(|r| r.name == "Forward").unwrap();
+    let call = caller
+        .blocks
+        .iter()
+        .flat_map(|b| &b.ops)
+        .find(|o| matches!(o, MirOp::Call { .. }))
+        .unwrap()
+        .clone();
+    let mut call = call;
+    let MirOp::Call { ref mut target, .. } = call else {
+        panic!()
+    };
+    *target = MirCallTarget::Routine(nested_id);
+    let mid = p.routines.iter_mut().find(|r| r.name == "Observe").unwrap();
+    mid.frame.fixed_zero_page.push(MirFixedZpSlot(0xA1));
+    mid.blocks[0].ops = vec![
+        MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value: 0,
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA1))),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value: 1,
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::X),
+            src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA1))),
+            width: MirWidth::Byte,
+        },
+        call,
+    ];
+    p.routines.push(nested);
+    crate::mir6502::verify_program(&p, MirPhase::PreEmission).unwrap();
+    let new = select_costed(
+        p.clone(),
+        &config(),
+        0x3000,
+        crate::runtime::Runtime::ActionCart,
+    )
+    .unwrap();
+    for name in ["Forward", "Observe"] {
+        assert_ne!(
+            p.routines.iter().find(|r| r.name == name),
+            new.routines.iter().find(|r| r.name == name)
+        );
+    }
+    assert_eq!(
+        image_size(&p, 0x3000, crate::runtime::Runtime::ActionCart).unwrap()
+            - image_size(&new, 0x3000, crate::runtime::Runtime::ActionCart).unwrap(),
+        3
+    );
+    let reported = select_costed(
+        p,
+        &Mir6502Config {
+            peephole_report: crate::mir6502::MirPeepholeReportMode::Sites,
+            ..config()
+        },
+        0x3000,
+        crate::runtime::Runtime::ActionCart,
+    )
+    .unwrap();
+    assert_eq!(reported, new);
+}
+
+#[test]
+fn callee_entry_flags_keep_explicit_contracts_and_individual_flag_inputs() {
+    let p = baseline();
+    let m = memory(&p);
+    let (sums, _) = prepare_summaries(&p, true);
+    let base = p.routines.iter().find(|r| r.name == "Forward").unwrap();
+    let shape = facts::shape(base, site(base)).unwrap();
+    let MirSite::Op { op_index: call, .. } = shape.call else {
+        unreachable!()
+    };
+    for contract in 0..4 {
+        let mut r = base.clone();
+        let MirOp::Call {
+            ref mut effects,
+            ref mut abi,
+            ..
+        } = r.blocks[0].ops[call]
+        else {
+            panic!()
+        };
+        match contract {
+            0 => effects.opaque = true,
+            1 => effects.reads.flags = true,
+            2 => effects.preserves.flags = true,
+            _ => abi.preserves.flags = true,
+        }
+        let snap = PostHomeAnalysisSnapshot::new_with_known_callees(
+            &r,
+            MirRoutineGeneration::initial(),
+            &sums,
+        )
+        .unwrap();
+        let c = PostHomeRewriteContext::new(&snap);
+        assert_eq!(
+            c.argument_x_forwarding(c.point(site(&r)), &m),
+            Err(facts::Blocker::CallFlags)
+        );
+    }
+    for (test, n, z) in [
+        (MirFlagTest::NSet, true, false),
+        (MirFlagTest::ZSet, false, true),
+    ] {
+        let mut p = p.clone();
+        let callee = p.routines.iter_mut().find(|r| r.name == "Observe").unwrap();
+        let mut exit = callee.blocks[0].clone();
+        exit.id = MirBlockId(2000);
+        exit.ops.clear();
+        exit.terminator = MirTerminator::Return;
+        callee.blocks[0].ops.clear();
+        callee.blocks[0].terminator = MirTerminator::Branch {
+            cond: MirCond::FlagTest(test),
+            then_edge: MirEdge::plain(exit.id),
+            else_edge: MirEdge::plain(exit.id),
+        };
+        callee.blocks.push(exit);
+        let (sums, _) = prepare_summaries(&p, true);
+        let snap = PostHomeAnalysisSnapshot::new_with_known_callees(
+            base,
+            MirRoutineGeneration::initial(),
+            &sums,
+        )
+        .unwrap();
+        let c = PostHomeRewriteContext::new(&snap);
+        assert!(
+            matches!(c.argument_x_forwarding(c.point(site(base)),&m),Err(facts::Blocker::EntryFlagsLive(f)) if f.n==n&&f.z==z)
+        );
+    }
 }
