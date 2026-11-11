@@ -181,6 +181,17 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
                 &CompileOptions::for_mode(mode).with_runtime(Runtime::ActionCart),
             )
             .unwrap_or_else(|error| panic!("{source}/{mode:?}: {error}"));
+            if mode == CompileMode::Mir6502 {
+                if let Some(dir) = std::env::var_os("ACTIONC_ARGUMENT_MEASURED_IMAGES") {
+                    let path = PathBuf::from(dir).join(format!(
+                        "{}-ActionCart-true.xex", source.trim_end_matches(".ACT")
+                    ));
+                    assert_eq!(
+                        compiled.object_bytes(), std::fs::read(&path).unwrap(),
+                        "measured image differs: {}", path.display()
+                    );
+                }
+            }
             let listing = compiled.source_listing();
             let handle = routine_address(&listing, "Handle");
             let files_address = global_address(&listing, "active");

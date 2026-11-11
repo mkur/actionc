@@ -100,6 +100,18 @@ fn argument_staging_matches_entry_bytes_and_host_oracles_with_lf_and_crlf() {
                             text.clone()
                         };
                         let output = compile(&source, optimized, runtime, origin, enabled);
+                        if optimized && !crlf {
+                            if let Some(dir) = std::env::var_os("ACTIONC_ARGUMENT_MEASURED_IMAGES") {
+                                let path = PathBuf::from(dir).join(format!(
+                                    "neutral-{origin:04X}-{runtime:?}-{enabled}.xex"
+                                ));
+                                assert_eq!(
+                                    actionc::codegen::format_load_file(&output),
+                                    std::fs::read(&path).unwrap(),
+                                    "measured image differs: {}", path.display()
+                                );
+                            }
+                        }
                         if let Some(expected) = &lf {
                             assert_eq!(&output.bytes, expected);
                         } else {

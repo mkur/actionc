@@ -1,0 +1,2837 @@
+{
+  "date": "2026-11-11",
+  "compiler_code_revision": "6311c110",
+  "qualification_revision": "ff75b768",
+  "profile": "modern",
+  "backend": "mir6502",
+  "nir": "optimized",
+  "link_policy": "EntryReachable",
+  "comparison": "Only enable_argument_staging_reduction changes; all other optimized controls stay fixed.",
+  "vm_revision": "7ec0cc454ebf43b088b7bcd11515533085ea1964",
+  "inputs_sha256": {
+    "fixtures/mir6502/array_param_string_length_loop.act": "653c4410511bd65ccb9e3e20437077ad302d0ba771ca2cde1c1f9ea8f11a1b58",
+    "fixtures/runtime/argument_staging.act": "400871bc51dca8577fa9dd16d27c121ff5173968814a1fdc1368d7e557e34c75",
+    "fixtures/runtime/direct_action_word_arithmetic_args.act": "342fd892775a36ff2ba53d054f25418baae6fa8d8219beb844ed42748f477c61",
+    "fixtures/runtime/indexed_byte_fixed_action_args.act": "7b91165909d2afa6fab59d851bde592cfcd741ed60a9c8497a02471ef31d023c",
+    "fixtures/runtime/standalone_sys_strings_runtime.act": "da9d2d5597b16585e566ab604067b83f9ef0af7f91ceee1d628e1ddec5515660",
+    "samples/graphics/fedora.act": "1b10fa0fd2d7b82b97585a7c314081fb48009751b12a08b4693e7d7aee5fd1c0",
+    "samples/tn/modern/LIB.ACT": "b8cd4c48b9b2d9c96fc86d24e94ea3dc6e9dfb706c636c2b7fb7fc6c58015c53",
+    "samples/tn/modern/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "samples/tn/modern/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+    "surveys/tn/reproducers/call-predicate-snapshots.act": "6fae2711578c9eae0455400c01bfab185e50a9b84cf7c00629ad445ba8427778",
+    "surveys/tn/reproducers/captured-call-arguments.act": "c228fe34612cd0ebade108da2a219990343d4f33d59fea7623ab87ef5b57e775"
+  },
+  "frozen_control_matches": [
+    "neutral-3000-ActionCart-false",
+    "neutral-41C7-ActionCart-false",
+    "neutral-3000-Standalone-false",
+    "neutral-41C7-Standalone-false",
+    "TN-ActionCart-false",
+    "TN-Standalone-false",
+    "TNDBG-ActionCart-false",
+    "TNDBG-Standalone-false"
+  ],
+  "measurement_notes": [
+    "Pairs are [feature-off, feature-on]; code extents are half-open; reserved ranges are [start,length].",
+    "Timings are one release-profile sample per configuration, with other qualification processes running; no speedup claim.",
+    "Extra emission passes are the selected control-flow count in the reducer; no per-site full materialization trials.",
+    "Mapped storage bytes sum symbol sizes and can include overlapping aliases; this is not a union of physical memory.",
+    "Frame hashes include all ordinary homes, spills and zero-page allocation facts; detailed frames and symbols are in ignored measurement JSON files.",
+    "Zero page covers declared/allocated/source-mapped cells and excludes implicit runtime-only helper scratch.",
+    "Pre-home admission checks every direct-call shape after existing producer forwarding; late counters describe only the reconstructed template."
+  ],
+  "pairs": [
+    {
+      "name": "TN-ActionCart",
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "ActionCart",
+      "origin": 11264,
+      "image_bytes": [
+        9873,
+        9873
+      ],
+      "image_sha256": [
+        "228db010fcf9aa4392a42900d9dc34bea85e9fe88339b3406d54092dbd659f28",
+        "228db010fcf9aa4392a42900d9dc34bea85e9fe88339b3406d54092dbd659f28"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        9861,
+        9861
+      ],
+      "routine_code_bytes": [
+        9053,
+        9053
+      ],
+      "code_extent": [
+        [
+          12072,
+          21125
+        ],
+        [
+          12072,
+          21125
+        ]
+      ],
+      "reserved_ranges": [
+        [
+          [
+            21125,
+            10
+          ],
+          [
+            21135,
+            40
+          ],
+          [
+            21175,
+            47
+          ],
+          [
+            21222,
+            47
+          ],
+          [
+            21269,
+            1171
+          ],
+          [
+            22440,
+            1171
+          ],
+          [
+            23611,
+            130
+          ],
+          [
+            23741,
+            130
+          ],
+          [
+            23871,
+            32
+          ],
+          [
+            23903,
+            16
+          ]
+        ],
+        [
+          [
+            21125,
+            10
+          ],
+          [
+            21135,
+            40
+          ],
+          [
+            21175,
+            47
+          ],
+          [
+            21222,
+            47
+          ],
+          [
+            21269,
+            1171
+          ],
+          [
+            22440,
+            1171
+          ],
+          [
+            23611,
+            130
+          ],
+          [
+            23741,
+            130
+          ],
+          [
+            23871,
+            32
+          ],
+          [
+            23903,
+            16
+          ]
+        ]
+      ],
+      "mapped_storage_symbols_bytes": 3638,
+      "frame_sha256": "08c7aa16e677f6c656bed50eda0eaccbcc7b48d7ed0bd89b2cf33c583a60b751",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        90,
+        91,
+        92,
+        93,
+        112,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        192,
+        193,
+        194,
+        198,
+        199,
+        211,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231,
+        232,
+        233,
+        234,
+        254,
+        255
+      ],
+      "interesting_routine_bytes": {
+        "Strcat": [
+          125,
+          125
+        ]
+      },
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Shape": 347
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        8616.589,
+        8294.371
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "TN-Standalone",
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "Standalone",
+      "origin": 11264,
+      "image_bytes": [
+        9998,
+        9998
+      ],
+      "image_sha256": [
+        "6d9c5312c4ba53c30e5a838603387c2d0ad849d8be5b33ff4a15c7b6963e954b",
+        "6d9c5312c4ba53c30e5a838603387c2d0ad849d8be5b33ff4a15c7b6963e954b"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        9986,
+        9986
+      ],
+      "routine_code_bytes": [
+        9159,
+        9159
+      ],
+      "code_extent": [
+        [
+          12074,
+          21250
+        ],
+        [
+          12074,
+          21250
+        ]
+      ],
+      "reserved_ranges": [
+        [
+          [
+            21250,
+            10
+          ],
+          [
+            21260,
+            40
+          ],
+          [
+            21300,
+            47
+          ],
+          [
+            21347,
+            47
+          ],
+          [
+            21394,
+            1171
+          ],
+          [
+            22565,
+            1171
+          ],
+          [
+            23736,
+            130
+          ],
+          [
+            23866,
+            130
+          ],
+          [
+            23996,
+            32
+          ],
+          [
+            24028,
+            16
+          ]
+        ],
+        [
+          [
+            21250,
+            10
+          ],
+          [
+            21260,
+            40
+          ],
+          [
+            21300,
+            47
+          ],
+          [
+            21347,
+            47
+          ],
+          [
+            21394,
+            1171
+          ],
+          [
+            22565,
+            1171
+          ],
+          [
+            23736,
+            130
+          ],
+          [
+            23866,
+            130
+          ],
+          [
+            23996,
+            32
+          ],
+          [
+            24028,
+            16
+          ]
+        ]
+      ],
+      "mapped_storage_symbols_bytes": 3640,
+      "frame_sha256": "8f65896c84ac661e55622cd5f50aa004b81c574a0266db336554745a8d2947f9",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        90,
+        91,
+        92,
+        93,
+        112,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231,
+        232,
+        233,
+        234,
+        254,
+        255
+      ],
+      "interesting_routine_bytes": {
+        "Strcat": [
+          125,
+          125
+        ]
+      },
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Shape": 347
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        7902.706,
+        7960.625
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "TNDBG-ActionCart",
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "ActionCart",
+      "origin": 11264,
+      "image_bytes": [
+        12969,
+        12969
+      ],
+      "image_sha256": [
+        "aed6b81dea59387b7dd2e7fb73f0073d66140f1614e0ff45e25ab4e2a467e74f",
+        "aed6b81dea59387b7dd2e7fb73f0073d66140f1614e0ff45e25ab4e2a467e74f"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        12957,
+        12957
+      ],
+      "routine_code_bytes": [
+        11614,
+        11614
+      ],
+      "code_extent": [
+        [
+          12607,
+          24221
+        ],
+        [
+          12607,
+          24221
+        ]
+      ],
+      "reserved_ranges": [
+        [
+          [
+            24221,
+            10
+          ],
+          [
+            24231,
+            40
+          ],
+          [
+            24271,
+            47
+          ],
+          [
+            24318,
+            47
+          ],
+          [
+            24365,
+            1171
+          ],
+          [
+            25536,
+            1171
+          ],
+          [
+            26707,
+            130
+          ],
+          [
+            26837,
+            130
+          ],
+          [
+            26967,
+            32
+          ],
+          [
+            26999,
+            16
+          ]
+        ],
+        [
+          [
+            24221,
+            10
+          ],
+          [
+            24231,
+            40
+          ],
+          [
+            24271,
+            47
+          ],
+          [
+            24318,
+            47
+          ],
+          [
+            24365,
+            1171
+          ],
+          [
+            25536,
+            1171
+          ],
+          [
+            26707,
+            130
+          ],
+          [
+            26837,
+            130
+          ],
+          [
+            26967,
+            32
+          ],
+          [
+            26999,
+            16
+          ]
+        ]
+      ],
+      "mapped_storage_symbols_bytes": 4173,
+      "frame_sha256": "ee8d941fdaa2e52c2df7da8eaef0e97c059795269422b1c81dc141f26cd74aa2",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        90,
+        91,
+        92,
+        93,
+        112,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        192,
+        193,
+        194,
+        198,
+        199,
+        211,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231,
+        232,
+        233,
+        234,
+        235,
+        254,
+        255
+      ],
+      "interesting_routine_bytes": {
+        "Strcat": [
+          125,
+          125
+        ]
+      },
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Shape": 529
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        24597.748,
+        26633.234
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "TNDBG-Standalone",
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "Standalone",
+      "origin": 11264,
+      "image_bytes": [
+        13094,
+        13094
+      ],
+      "image_sha256": [
+        "4052132592b2fc3cc39fbe0adb6c4ae0437d40a0c21a1fbd5cdb80c600d98465",
+        "4052132592b2fc3cc39fbe0adb6c4ae0437d40a0c21a1fbd5cdb80c600d98465"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        13082,
+        13082
+      ],
+      "routine_code_bytes": [
+        11720,
+        11720
+      ],
+      "code_extent": [
+        [
+          12609,
+          24346
+        ],
+        [
+          12609,
+          24346
+        ]
+      ],
+      "reserved_ranges": [
+        [
+          [
+            24346,
+            10
+          ],
+          [
+            24356,
+            40
+          ],
+          [
+            24396,
+            47
+          ],
+          [
+            24443,
+            47
+          ],
+          [
+            24490,
+            1171
+          ],
+          [
+            25661,
+            1171
+          ],
+          [
+            26832,
+            130
+          ],
+          [
+            26962,
+            130
+          ],
+          [
+            27092,
+            32
+          ],
+          [
+            27124,
+            16
+          ]
+        ],
+        [
+          [
+            24346,
+            10
+          ],
+          [
+            24356,
+            40
+          ],
+          [
+            24396,
+            47
+          ],
+          [
+            24443,
+            47
+          ],
+          [
+            24490,
+            1171
+          ],
+          [
+            25661,
+            1171
+          ],
+          [
+            26832,
+            130
+          ],
+          [
+            26962,
+            130
+          ],
+          [
+            27092,
+            32
+          ],
+          [
+            27124,
+            16
+          ]
+        ]
+      ],
+      "mapped_storage_symbols_bytes": 4175,
+      "frame_sha256": "a2ac20cc5ddaa7f5510d4f67e301c86d81683cce9c501123834c394dcc3b38bd",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        90,
+        91,
+        92,
+        93,
+        112,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231,
+        232,
+        233,
+        234,
+        235,
+        254,
+        255
+      ],
+      "interesting_routine_bytes": {
+        "Strcat": [
+          125,
+          125
+        ]
+      },
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Shape": 529
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        24640.899,
+        23898.185
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "graphics-ActionCart",
+      "source": "samples/graphics/fedora.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        5586,
+        5586
+      ],
+      "image_sha256": [
+        "af2ef7efe3c33700da9313a018a25a26cc21ba636c8b022c00bd5e201592b1ab",
+        "af2ef7efe3c33700da9313a018a25a26cc21ba636c8b022c00bd5e201592b1ab"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        5574,
+        5574
+      ],
+      "routine_code_bytes": [
+        4988,
+        4988
+      ],
+      "code_extent": [
+        [
+          12874,
+          17862
+        ],
+        [
+          12874,
+          17862
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 594,
+      "frame_sha256": "9e7b57a69212042744fa249782b33b716b5b3ed5a3e53c582ede84ae77f332b1",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        77,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        163,
+        164,
+        165,
+        170,
+        171,
+        172,
+        173,
+        192,
+        193,
+        194,
+        198,
+        199,
+        211,
+        212,
+        213,
+        214,
+        215,
+        216,
+        217,
+        218,
+        219,
+        220,
+        221,
+        222,
+        223,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231,
+        232,
+        233,
+        234,
+        235,
+        236,
+        237,
+        238,
+        239,
+        240,
+        241,
+        242,
+        243,
+        244,
+        245,
+        246,
+        247,
+        248,
+        249,
+        250,
+        251,
+        252,
+        253,
+        254,
+        255
+      ],
+      "interesting_routine_bytes": {},
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Callee": 52,
+        "Shape": 12
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        1448.427,
+        1453.477
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "graphics-Standalone",
+      "source": "samples/graphics/fedora.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        6227,
+        6227
+      ],
+      "image_sha256": [
+        "7a2cc0939463f4e457632ee3d985748b2c94b85011edd5dca6e280fdca464e22",
+        "7a2cc0939463f4e457632ee3d985748b2c94b85011edd5dca6e280fdca464e22"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        6215,
+        6215
+      ],
+      "routine_code_bytes": [
+        5560,
+        5560
+      ],
+      "code_extent": [
+        [
+          12943,
+          18503
+        ],
+        [
+          12943,
+          18503
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 659,
+      "frame_sha256": "f4463d0198711452701daab1ac6296600a73a34882989e82c4fbb2eaa2c8a935",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        77,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        163,
+        164,
+        165,
+        170,
+        171,
+        172,
+        173,
+        192,
+        193,
+        194,
+        198,
+        199,
+        211,
+        212,
+        213,
+        214,
+        215,
+        216,
+        217,
+        218,
+        219,
+        220,
+        221,
+        222,
+        223,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231,
+        232,
+        233,
+        234,
+        235,
+        236,
+        237,
+        238,
+        239,
+        240,
+        241,
+        242,
+        243,
+        244,
+        245,
+        246,
+        247,
+        248,
+        249,
+        250,
+        251,
+        252,
+        253,
+        254,
+        255
+      ],
+      "interesting_routine_bytes": {},
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Callee": 52,
+        "Shape": 12
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        1492.605,
+        1529.108
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "indexed-byte-ActionCart",
+      "source": "fixtures/runtime/indexed_byte_fixed_action_args.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        738,
+        738
+      ],
+      "image_sha256": [
+        "19a70b2d2baed734c12c5a38950a3dc5f9799f1dd0c3dd3da6240a21a39ba503",
+        "19a70b2d2baed734c12c5a38950a3dc5f9799f1dd0c3dd3da6240a21a39ba503"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        726,
+        726
+      ],
+      "routine_code_bytes": [
+        704,
+        704
+      ],
+      "code_extent": [
+        [
+          12310,
+          13014
+        ],
+        [
+          12310,
+          13014
+        ]
+      ],
+      "reserved_ranges": [
+        [
+          [
+            13014,
+            259
+          ]
+        ],
+        [
+          [
+            13014,
+            259
+          ]
+        ]
+      ],
+      "mapped_storage_symbols_bytes": 282,
+      "frame_sha256": "2fdb77ca1a59516debaf700b4ddc075a0d55a1de4558529bc01a9aa21d007dd9",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231
+      ],
+      "interesting_routine_bytes": {},
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Shape": 2
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        57.834,
+        58.521
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "indexed-byte-Standalone",
+      "source": "fixtures/runtime/indexed_byte_fixed_action_args.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        820,
+        820
+      ],
+      "image_sha256": [
+        "dd48bc1ffec1247094e3f63c0f9da131123d5a3d274eff64f9a2eb7fdc0a3dc1",
+        "dd48bc1ffec1247094e3f63c0f9da131123d5a3d274eff64f9a2eb7fdc0a3dc1"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        808,
+        808
+      ],
+      "routine_code_bytes": [
+        785,
+        785
+      ],
+      "code_extent": [
+        [
+          12311,
+          13096
+        ],
+        [
+          12311,
+          13096
+        ]
+      ],
+      "reserved_ranges": [
+        [
+          [
+            13096,
+            259
+          ]
+        ],
+        [
+          [
+            13096,
+            259
+          ]
+        ]
+      ],
+      "mapped_storage_symbols_bytes": 283,
+      "frame_sha256": "e20de499958edf1bae2bf66c7dea592d2301bf5ed06d5020150ba0cc93d0943e",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231
+      ],
+      "interesting_routine_bytes": {},
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Shape": 2
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        62.201,
+        61.852
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "neutral-3000-ActionCart",
+      "source": "fixtures/runtime/argument_staging.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        336,
+        334
+      ],
+      "image_sha256": [
+        "41572ff4130373e63320e48db11f9e3b1fb1094c8ac7f4996f00312d56bebb16",
+        "82342347198cfe4a858a49c26048cc18db55b36c58be827b6679309582293993"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        324,
+        322
+      ],
+      "routine_code_bytes": [
+        296,
+        294
+      ],
+      "code_extent": [
+        [
+          12316,
+          12612
+        ],
+        [
+          12316,
+          12610
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 38,
+      "frame_sha256": "9c5b957070df1e9a0d4f4357ab810a42af1c1f410d774b42b87fa138852bac6e",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        160,
+        163,
+        164,
+        224,
+        225
+      ],
+      "interesting_routine_bytes": {
+        "ForwardAdd": [
+          41,
+          40
+        ],
+        "ForwardSub": [
+          41,
+          40
+        ],
+        "FourByte": [
+          33,
+          33
+        ],
+        "FivePlain": [
+          28,
+          28
+        ]
+      },
+      "changed_routine_bytes": {
+        "ForwardAdd": [
+          41,
+          40
+        ],
+        "ForwardSub": [
+          41,
+          40
+        ]
+      },
+      "changed_direct_loads_stores": {
+        "ForwardAdd": [
+          [
+            7,
+            4
+          ],
+          [
+            6,
+            4
+          ]
+        ],
+        "ForwardSub": [
+          [
+            7,
+            4
+          ],
+          [
+            6,
+            4
+          ]
+        ]
+      },
+      "prehome_call_admission": {
+        "Shape": 6,
+        "eligible": 2
+      },
+      "eligible_routines": 2,
+      "late_schedule_counts": {
+        "argument-staging-applied": 2,
+        "argument-staging-candidate": 2,
+        "argument-staging-selected": 2
+      },
+      "materialization_ms": [
+        31.572,
+        33.547
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 7
+    },
+    {
+      "name": "neutral-3000-Standalone",
+      "source": "fixtures/runtime/argument_staging.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        418,
+        416
+      ],
+      "image_sha256": [
+        "58f086b1d362abb5ab08575da0ae33bb18cd80489fca103e1076fc82e9e3716b",
+        "fbd7bd9d79f6340a97482ef1868db60913e0eba4e8c818e256532636b5a2c8f1"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        406,
+        404
+      ],
+      "routine_code_bytes": [
+        377,
+        375
+      ],
+      "code_extent": [
+        [
+          12317,
+          12694
+        ],
+        [
+          12317,
+          12692
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 39,
+      "frame_sha256": "b0f3ff9a89037ad8f33ff1beea16142f5c2e3a19605f1e885b2a45cd7bbca6c2",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        160,
+        163,
+        164,
+        224,
+        225
+      ],
+      "interesting_routine_bytes": {
+        "ForwardAdd": [
+          41,
+          40
+        ],
+        "ForwardSub": [
+          41,
+          40
+        ],
+        "FourByte": [
+          33,
+          33
+        ],
+        "FivePlain": [
+          28,
+          28
+        ]
+      },
+      "changed_routine_bytes": {
+        "ForwardAdd": [
+          41,
+          40
+        ],
+        "ForwardSub": [
+          41,
+          40
+        ]
+      },
+      "changed_direct_loads_stores": {
+        "ForwardAdd": [
+          [
+            7,
+            4
+          ],
+          [
+            6,
+            4
+          ]
+        ],
+        "ForwardSub": [
+          [
+            7,
+            4
+          ],
+          [
+            6,
+            4
+          ]
+        ]
+      },
+      "prehome_call_admission": {
+        "Shape": 6,
+        "eligible": 2
+      },
+      "eligible_routines": 2,
+      "late_schedule_counts": {
+        "argument-staging-applied": 2,
+        "argument-staging-candidate": 2,
+        "argument-staging-selected": 2
+      },
+      "materialization_ms": [
+        31.525,
+        35.208
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 7
+    },
+    {
+      "name": "neutral-41C7-ActionCart",
+      "source": "fixtures/runtime/argument_staging.act",
+      "runtime": "ActionCart",
+      "origin": 16839,
+      "image_bytes": [
+        336,
+        334
+      ],
+      "image_sha256": [
+        "bcfc32f4a71b2a019d7339a52b5d90798711e7699f9bbac66ec931967747641a",
+        "29c8223863a2c53809c48fe10193898117903ac772580fce6a83e94316124f0c"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        324,
+        322
+      ],
+      "routine_code_bytes": [
+        296,
+        294
+      ],
+      "code_extent": [
+        [
+          16867,
+          17163
+        ],
+        [
+          16867,
+          17161
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 38,
+      "frame_sha256": "9c5b957070df1e9a0d4f4357ab810a42af1c1f410d774b42b87fa138852bac6e",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        160,
+        163,
+        164,
+        224,
+        225
+      ],
+      "interesting_routine_bytes": {
+        "ForwardAdd": [
+          41,
+          40
+        ],
+        "ForwardSub": [
+          41,
+          40
+        ],
+        "FourByte": [
+          33,
+          33
+        ],
+        "FivePlain": [
+          28,
+          28
+        ]
+      },
+      "changed_routine_bytes": {
+        "ForwardAdd": [
+          41,
+          40
+        ],
+        "ForwardSub": [
+          41,
+          40
+        ]
+      },
+      "changed_direct_loads_stores": {
+        "ForwardAdd": [
+          [
+            7,
+            4
+          ],
+          [
+            6,
+            4
+          ]
+        ],
+        "ForwardSub": [
+          [
+            7,
+            4
+          ],
+          [
+            6,
+            4
+          ]
+        ]
+      },
+      "prehome_call_admission": {
+        "Shape": 6,
+        "eligible": 2
+      },
+      "eligible_routines": 2,
+      "late_schedule_counts": {
+        "argument-staging-applied": 2,
+        "argument-staging-candidate": 2,
+        "argument-staging-selected": 2
+      },
+      "materialization_ms": [
+        29.702,
+        33.931
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 7
+    },
+    {
+      "name": "neutral-41C7-Standalone",
+      "source": "fixtures/runtime/argument_staging.act",
+      "runtime": "Standalone",
+      "origin": 16839,
+      "image_bytes": [
+        418,
+        416
+      ],
+      "image_sha256": [
+        "da0ac3ef7a854b5ca063ea73a9cf1fce84677ab3fca4f0744d94832acd0e5ecc",
+        "9411c77d8d560946391cee0596e53e8480273af783f1db09cbfd1a2b39852e42"
+      ],
+      "image_identical": false,
+      "emitted_span_bytes": [
+        406,
+        404
+      ],
+      "routine_code_bytes": [
+        377,
+        375
+      ],
+      "code_extent": [
+        [
+          16868,
+          17245
+        ],
+        [
+          16868,
+          17243
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 39,
+      "frame_sha256": "b0f3ff9a89037ad8f33ff1beea16142f5c2e3a19605f1e885b2a45cd7bbca6c2",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        160,
+        163,
+        164,
+        224,
+        225
+      ],
+      "interesting_routine_bytes": {
+        "ForwardAdd": [
+          41,
+          40
+        ],
+        "ForwardSub": [
+          41,
+          40
+        ],
+        "FourByte": [
+          33,
+          33
+        ],
+        "FivePlain": [
+          28,
+          28
+        ]
+      },
+      "changed_routine_bytes": {
+        "ForwardAdd": [
+          41,
+          40
+        ],
+        "ForwardSub": [
+          41,
+          40
+        ]
+      },
+      "changed_direct_loads_stores": {
+        "ForwardAdd": [
+          [
+            7,
+            4
+          ],
+          [
+            6,
+            4
+          ]
+        ],
+        "ForwardSub": [
+          [
+            7,
+            4
+          ],
+          [
+            6,
+            4
+          ]
+        ]
+      },
+      "prehome_call_admission": {
+        "Shape": 6,
+        "eligible": 2
+      },
+      "eligible_routines": 2,
+      "late_schedule_counts": {
+        "argument-staging-applied": 2,
+        "argument-staging-candidate": 2,
+        "argument-staging-selected": 2
+      },
+      "materialization_ms": [
+        33.707,
+        44.848
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 7
+    },
+    {
+      "name": "predicate-snapshots-ActionCart",
+      "source": "surveys/tn/reproducers/call-predicate-snapshots.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        640,
+        640
+      ],
+      "image_sha256": [
+        "e9fb996573a279d99e4c68d0d0b0f0ac7674073dbf064e76e836d3c88509cbd2",
+        "e9fb996573a279d99e4c68d0d0b0f0ac7674073dbf064e76e836d3c88509cbd2"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        628,
+        628
+      ],
+      "routine_code_bytes": [
+        584,
+        584
+      ],
+      "code_extent": [
+        [
+          12332,
+          12916
+        ],
+        [
+          12332,
+          12916
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 53,
+      "frame_sha256": "0f986b0b647538217f21f7e96cf9f9aa3e7ebb8a0d61fdad0877628fb6a6743d",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        161,
+        163,
+        164,
+        172,
+        173,
+        192,
+        193,
+        194,
+        198,
+        199,
+        211,
+        224,
+        225
+      ],
+      "interesting_routine_bytes": {},
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Shape": 14
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        182.984,
+        187.79
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "predicate-snapshots-Standalone",
+      "source": "surveys/tn/reproducers/call-predicate-snapshots.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        741,
+        741
+      ],
+      "image_sha256": [
+        "ed7aa34b22a5504dd444b5d4d34eab371c8109f373c8fc7c046bdc9838408ea8",
+        "ed7aa34b22a5504dd444b5d4d34eab371c8109f373c8fc7c046bdc9838408ea8"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        729,
+        729
+      ],
+      "routine_code_bytes": [
+        684,
+        684
+      ],
+      "code_extent": [
+        [
+          12333,
+          13017
+        ],
+        [
+          12333,
+          13017
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 54,
+      "frame_sha256": "ff5b24315e964903aa641af463a76638bda5e57e88a414d48180cd2d2a033d99",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        160,
+        161,
+        163,
+        164,
+        172,
+        173,
+        224,
+        225
+      ],
+      "interesting_routine_bytes": {},
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Shape": 14
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        176.354,
+        177.528
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "scalar-predicate-ActionCart",
+      "source": "surveys/tn/reproducers/captured-call-arguments.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        227,
+        227
+      ],
+      "image_sha256": [
+        "bb09a93eb417c9518c0ac47b3c9d931ac1ca321f7643cb0489045779721baf37",
+        "bb09a93eb417c9518c0ac47b3c9d931ac1ca321f7643cb0489045779721baf37"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        215,
+        215
+      ],
+      "routine_code_bytes": [
+        199,
+        199
+      ],
+      "code_extent": [
+        [
+          12304,
+          12503
+        ],
+        [
+          12304,
+          12503
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 22,
+      "frame_sha256": "d6805ebfa4b9b7a0deefb4432ff58e6e28ab4d6d8f527a216cb371b8072cf537",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        160,
+        163,
+        164,
+        172,
+        173
+      ],
+      "interesting_routine_bytes": {},
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Shape": 4
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        60.453,
+        60.925
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "scalar-predicate-Standalone",
+      "source": "surveys/tn/reproducers/captured-call-arguments.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        309,
+        309
+      ],
+      "image_sha256": [
+        "082eb7ecb4296b6001d3b1644b9e48d193a76950c437f624c5beca17cf0b6812",
+        "082eb7ecb4296b6001d3b1644b9e48d193a76950c437f624c5beca17cf0b6812"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        297,
+        297
+      ],
+      "routine_code_bytes": [
+        280,
+        280
+      ],
+      "code_extent": [
+        [
+          12305,
+          12585
+        ],
+        [
+          12305,
+          12585
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 23,
+      "frame_sha256": "61fa641f2a991d69a660d5368d9f53be130c85634e835d431b7a34e215236efc",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        160,
+        163,
+        164,
+        172,
+        173
+      ],
+      "interesting_routine_bytes": {},
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Shape": 4
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        62.189,
+        64.898
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "string-loop-ActionCart",
+      "source": "fixtures/mir6502/array_param_string_length_loop.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        75,
+        75
+      ],
+      "image_sha256": [
+        "61795c2cc5107185521d6378a82586c4f6e5ba5b514ff5d1ffbd3fba69212c87",
+        "61795c2cc5107185521d6378a82586c4f6e5ba5b514ff5d1ffbd3fba69212c87"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        63,
+        63
+      ],
+      "routine_code_bytes": [
+        51,
+        51
+      ],
+      "code_extent": [
+        [
+          12300,
+          12351
+        ],
+        [
+          12300,
+          12351
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 12,
+      "frame_sha256": "0a26bb2396ea64f928e48301a66b193a19cd83c2d55de68cea7c94122b17aada",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        172,
+        173
+      ],
+      "interesting_routine_bytes": {},
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Shape": 1
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        24.512,
+        23.566
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "string-loop-Standalone",
+      "source": "fixtures/mir6502/array_param_string_length_loop.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        75,
+        75
+      ],
+      "image_sha256": [
+        "61795c2cc5107185521d6378a82586c4f6e5ba5b514ff5d1ffbd3fba69212c87",
+        "61795c2cc5107185521d6378a82586c4f6e5ba5b514ff5d1ffbd3fba69212c87"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        63,
+        63
+      ],
+      "routine_code_bytes": [
+        51,
+        51
+      ],
+      "code_extent": [
+        [
+          12300,
+          12351
+        ],
+        [
+          12300,
+          12351
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 12,
+      "frame_sha256": "0a26bb2396ea64f928e48301a66b193a19cd83c2d55de68cea7c94122b17aada",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        172,
+        173
+      ],
+      "interesting_routine_bytes": {},
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Shape": 1
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        23.642,
+        23.702
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "strings-runtime-ActionCart",
+      "source": "fixtures/runtime/standalone_sys_strings_runtime.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        87,
+        87
+      ],
+      "image_sha256": [
+        "b763511c6d4016d8f98e2a612bee0ebb1750a9987dce04dc2de3d0fd8af682e4",
+        "b763511c6d4016d8f98e2a612bee0ebb1750a9987dce04dc2de3d0fd8af682e4"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        75,
+        75
+      ],
+      "routine_code_bytes": [
+        67,
+        67
+      ],
+      "code_extent": [
+        [
+          12296,
+          12363
+        ],
+        [
+          12296,
+          12363
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 25,
+      "frame_sha256": "1a1bab24ae38c2416e9bf106ecf1ef9b1ec0ed4cca0782c2cd38cc5c44622381",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        161,
+        163,
+        164,
+        165
+      ],
+      "interesting_routine_bytes": {},
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Callee": 3
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        6.57,
+        6.69
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "strings-runtime-Standalone",
+      "source": "fixtures/runtime/standalone_sys_strings_runtime.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        217,
+        217
+      ],
+      "image_sha256": [
+        "d401c385e34034522d18eb985c8521c84007098bd52626a3c531e7a59b57d464",
+        "d401c385e34034522d18eb985c8521c84007098bd52626a3c531e7a59b57d464"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        205,
+        205
+      ],
+      "routine_code_bytes": [
+        183,
+        183
+      ],
+      "code_extent": [
+        [
+          12310,
+          12493
+        ],
+        [
+          12310,
+          12493
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 39,
+      "frame_sha256": "7e00163afb1fe4a0ad22a78f002d97940f1e3e961a1006243498828cc13fbd9d",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        161,
+        163,
+        164,
+        165
+      ],
+      "interesting_routine_bytes": {},
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Callee": 3
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        20.126,
+        20.265
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "word-arithmetic-ActionCart",
+      "source": "fixtures/runtime/direct_action_word_arithmetic_args.act",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "image_bytes": [
+        472,
+        472
+      ],
+      "image_sha256": [
+        "f373f205eece23f010cd55a326388226f686e9e141919702e6334c5324aada8a",
+        "f373f205eece23f010cd55a326388226f686e9e141919702e6334c5324aada8a"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        460,
+        460
+      ],
+      "routine_code_bytes": [
+        431,
+        431
+      ],
+      "code_extent": [
+        [
+          12317,
+          12748
+        ],
+        [
+          12317,
+          12748
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 32,
+      "frame_sha256": "c69695ccedbeadeda13c977feaf1891131d936fba085a114048665c712c23b9a",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        160,
+        162,
+        163,
+        172,
+        173,
+        224,
+        225,
+        226
+      ],
+      "interesting_routine_bytes": {},
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Shape": 12
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        29.761,
+        29.284
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    },
+    {
+      "name": "word-arithmetic-Standalone",
+      "source": "fixtures/runtime/direct_action_word_arithmetic_args.act",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "image_bytes": [
+        472,
+        472
+      ],
+      "image_sha256": [
+        "f373f205eece23f010cd55a326388226f686e9e141919702e6334c5324aada8a",
+        "f373f205eece23f010cd55a326388226f686e9e141919702e6334c5324aada8a"
+      ],
+      "image_identical": true,
+      "emitted_span_bytes": [
+        460,
+        460
+      ],
+      "routine_code_bytes": [
+        431,
+        431
+      ],
+      "code_extent": [
+        [
+          12317,
+          12748
+        ],
+        [
+          12317,
+          12748
+        ]
+      ],
+      "reserved_ranges": [
+        [],
+        []
+      ],
+      "mapped_storage_symbols_bytes": 32,
+      "frame_sha256": "c69695ccedbeadeda13c977feaf1891131d936fba085a114048665c712c23b9a",
+      "frames_identical": true,
+      "declared_and_allocated_zero_page": [
+        160,
+        162,
+        163,
+        172,
+        173,
+        224,
+        225,
+        226
+      ],
+      "interesting_routine_bytes": {},
+      "changed_routine_bytes": {},
+      "changed_direct_loads_stores": {},
+      "prehome_call_admission": {
+        "Shape": 12
+      },
+      "eligible_routines": 0,
+      "late_schedule_counts": {},
+      "materialization_ms": [
+        29.452,
+        29.187
+      ],
+      "additional_whole_program_materializations": 0,
+      "additional_emission_passes": 0
+    }
+  ],
+  "executed_neutral_cycles": {
+    "inputs": {
+      "first": 255,
+      "second": 32768,
+      "tag": 128
+    },
+    "includes": "Common ABI wrapper, real callee and return",
+    "samples": [
+      {
+        "routine": "ForwardAdd",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "ActionCart",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "Standalone",
+        "optimized_nir": false,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "ActionCart",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": false,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 12288,
+        "enabled": true,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 430
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": false,
+        "cycles": 412
+      },
+      {
+        "routine": "ForwardAdd",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "ForwardSub",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 429
+      },
+      {
+        "routine": "FourByte",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 111
+      },
+      {
+        "routine": "FivePlain",
+        "runtime": "Standalone",
+        "optimized_nir": true,
+        "origin": 16839,
+        "enabled": true,
+        "cycles": 412
+      }
+    ]
+  },
+  "executed_tn_strcat": {
+    "cases": 80,
+    "runtime_inputs": true,
+    "same_buffer": true,
+    "overlapping_copy": true,
+    "source_lengths": [
+      1,
+      4,
+      6,
+      8,
+      127,
+      128,
+      255
+    ],
+    "positive_source_lengths_only": true,
+    "cycles_for_lengths_3_and_8": [
+      370,
+      370
+    ]
+  },
+  "verification": {
+    "unit_tests": 1182,
+    "unit_ignored": 4,
+    "integration_targets": 15,
+    "integration_tests": 102,
+    "emission_load_fixtures": 169,
+    "vm_targets": 8,
+    "vm_target_tests": 27,
+    "opt_in_tn_image_tests": 1,
+    "focused_runtime_fixture_tests": 3,
+    "exhaustive_arithmetic_fragment_executions": 262144,
+    "neutral_vm_calls": 6144,
+    "baseline_failure": "run-indexed-byte-fixed-action-args-vm.sh expects six indexed selections but reports zero in both the pinned baseline and final compiler. Its underlying VM assertion passes."
+  }
+}

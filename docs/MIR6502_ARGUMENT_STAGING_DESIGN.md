@@ -1,6 +1,8 @@
 # MIR6502 argument staging reduction
 
-Status: bounded schedule implemented; final qualification pending, 2026-11-11.
+Status: bounded schedule implemented and qualified, 2026-11-11. See the
+[measured results](benchmarks/6502-argument-staging/README.md), including the
+baseline selector-count check discrepancy.
 Starting compiler: `476cfecf`, after
 qualified direct comparisons and carry reuse. This note defines the contract
 for extending existing call-argument selection.
@@ -179,9 +181,10 @@ families or introduce another alias scanner in the call materializer.
 The initial qualified shape uses the pre-home fact only for admission. Frozen
 output showed that an early register hint merely moved a reload and changed
 coloring. Its consumer therefore reconstructs an independent post-home proof
-and selects the high-byte carrier after allocation. All captures, physical
-homes and ordered source reads stay fixed. Broader expression scheduling still
-requires the pre-home integration described above.
+and selects the high-byte carrier after allocation. Capture stores, home
+allocations and ordered source reads stay fixed; physical replay checks any
+ordinary-storage relocation following shorter code. Broader expression
+scheduling still requires the pre-home integration described above.
 
 Use the current explicit call-materialization effect contract and verify its
 requirements. That contract permits selected ABI setup; it does not waive
@@ -202,6 +205,12 @@ unknown callee, unsupported shape and final cost. Reporting must preserve the
 selected image. New schedules must retain better existing indexed/arithmetic
 selectors; the [direct-comparison qualification](benchmarks/6502-direct-comparisons/README.md)
 demonstrates why legal selection alone cannot decide profitability.
+
+For this first template, production counters cover reconstructed candidates,
+selection, physical overlap, machine state, scan budget and final proof/cost.
+Earlier shape/capture/storage/callee rejection is a structured pre-home fact;
+the opt-in corpus census records it separately. An absent late counter does
+not mean an unsupported shape passed a safety or profitability proof.
 
 ## Qualification and acceptance
 

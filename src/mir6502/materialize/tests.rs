@@ -9,6 +9,8 @@ mod compare_branch_copy_tests;
 mod captured_compare_tests;
 #[path = "captured_compare_measurements.rs"]
 mod captured_compare_measurements;
+#[path = "argument_staging_measurements.rs"]
+mod argument_staging_measurements;
 use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::MirRoutineGeneration;
 use crate::mir6502::ir::{

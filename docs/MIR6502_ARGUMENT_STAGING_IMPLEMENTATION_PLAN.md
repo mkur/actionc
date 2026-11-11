@@ -1,6 +1,7 @@
 # MIR6502 argument staging reduction implementation
 
-Prepared 2026-11-11. Status: slices 1–3 implemented; corpus qualification follows.
+Prepared 2026-11-11. Status: all four slices implemented and qualified; see the
+completion record for one existing baseline check discrepancy.
 Implements the [design note](MIR6502_ARGUMENT_STAGING_DESIGN.md) committed as
 `961f30e8`. The compiler baseline is `476cfecf`; freeze fresh artifacts before
 changing selection. Each slice below is a separate commit after its checks pass.
@@ -300,10 +301,10 @@ target-selection improvement or a correctness fix.
 
 | Slice | Status | Commit and evidence |
 | --- | --- | --- |
-| 1. Baseline and proofs | Complete | Frozen compiler/images, neutral entry oracle, three proof tests, integration and VM target; inert output is byte-identical |
-| 2. One schedule and costing | Implemented | Captured high-byte carrier, retained stores/homes, exact final costing and physical replay |
-| 3. Alias/effect qualification | Complete | Eight post-home proof tests, exhaustive emitted arithmetic fragments and three independent VM tests |
-| 4. Corpus and backend qualification | Planned | Record final measurements, remaining TN blockers, full scoped checks and implementation limits |
+| 1. Baseline and proofs | Complete, `97b8b4b3` | Frozen compiler/images, neutral entry oracle, three proof tests, integration and VM target; inert output is byte-identical |
+| 2. One schedule and costing | Complete, `6311c110` | Captured high-byte carrier, retained stores/homes, exact final costing and physical replay |
+| 3. Alias/effect qualification | Complete, `ff75b768` | Eight post-home proof tests, exhaustive emitted arithmetic fragments and three independent VM tests |
+| 4. Corpus and backend qualification | Complete | [Measurements and checks](benchmarks/6502-argument-staging/README.md), unchanged TN/TNDBG and the remaining indirect-producer/machine-target blockers |
 
 ### Slice 1 evidence
 
@@ -383,3 +384,39 @@ changes during later setup. An indirect callee observer reads aliases of ABI
 cells, private captures and both source parameter bytes, including a page
 boundary; feature-off/on preserve the same observed memory. Forwarding does
 not authorize capture-store or home deletion.
+
+### Slice 4 results and limits
+
+The [results report](benchmarks/6502-argument-staging/README.md) and
+[manifest](benchmarks/6502-argument-staging/results.json) cover 22
+program/runtime/origin pairs. Every image is non-growing. Four neutral pairs
+save two bytes and one cycle per arithmetic wrapper; the other 18 pairs are
+byte-identical. All eight frozen feature-off controls match their baseline
+hashes. Ordinary homes, capture stores and declared/allocated zero page are
+unchanged. The selected batch uses seven additional emission passes and zero
+additional whole-program materializations; corpus timings expose their cost.
+
+TN/TNDBG retain 9,873/9,998 and 12,969/13,094 XEX bytes respectively, with
+125-byte `Strcat`. That routine has indirect reads in the destination and
+length producers, a computed second word and a machine target without the
+admitted scalar signature. No schedule is proposed for it. Executing the
+exact measured images checks 80 string cases across both variants, runtimes
+and feature settings, including same-buffer and overlapping copies. The
+sampled `Strcat` call remains 370 cycles. The neutral and TN cartridge VM
+tests also require exact equality with the measured files.
+
+The final scoped checks pass 1,182 MIR6502 library tests, 102 integration
+tests across all 15 targets, 169 emission/load fixtures, 27 tests across eight
+affected VM targets, the measured-string test and three focused runtime
+assertions. No shared semantic/NIR contract was changed. The direct-word and
+indirect-field fixture scripts pass. The indexed-byte script's six-selection
+expectation fails with zero selections on both the pinned baseline and the
+final compiler; its underlying VM assertion passes directly, and its complete
+feature-off/on images are identical. This existing count discrepancy is
+recorded separately from the passing execution and image checks.
+
+The implementation remains deliberately narrow: direct scalar WORD/WORD/BYTE,
+one complete add/subtract-by-constant capture, same-block setup, at most 64
+operations, no setup calls/indirect/hardware accesses and no store/home
+deletion. Broader source forms and TN's indirect producers require subsequent
+design work. No TN-specific selector or unrelated optimizer setting was added.
