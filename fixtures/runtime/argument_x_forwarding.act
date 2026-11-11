@@ -1,0 +1,38 @@
+MODULE
+
+CARD observedDst=$0680,observedOther=$0682
+BYTE observedTag=$0684,observedFirst=$0685,observedSecond=$0686
+CARD inputPointer=$0690,inputOther=$0692
+BYTE inputTag=$0694
+
+PROC Observe(CARD dst,src BYTE len)
+  observedDst=dst observedOther=src observedTag=len
+RETURN
+
+PROC ObserveBytes(BYTE first,second)
+  observedFirst=first observedSecond=second
+  Observe(first,second,first+second)
+RETURN
+
+PROC Forward(CHAR POINTER p,q)
+  Observe(p+p^+1,q+1,q^)
+RETURN
+
+PROC ForwardByte(BYTE tag)
+  ObserveBytes(0,tag)
+RETURN
+
+PROC ForwardPrivate(CARD POINTER p CARD other BYTE tag)
+  Observe(p^,other,tag)
+RETURN
+
+PROC Plain(CARD first,second BYTE tag)
+  Observe(first+1,second,tag)
+RETURN
+
+PROC Main()
+  Forward(inputPointer,inputOther)
+  ForwardByte(inputTag)
+  ForwardPrivate(inputPointer,inputOther,inputTag)
+  Plain(inputPointer,inputOther,inputTag)
+RETURN

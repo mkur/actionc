@@ -1,6 +1,7 @@
 # MIR6502 argument setup A to X forwarding plan
 
-Prepared 2026-11-11. Status: planned. Compiler baseline: `1122b42c`.
+Prepared 2026-11-11. Status: slice 1 implemented; selection remains off.
+Compiler baseline: `1122b42c`.
 Implement in four vertical slices, committing each after its checks pass.
 This plan includes the bounded scheduling contract; no new executable MIR
 operation or separate design note is required.
@@ -341,3 +342,28 @@ No shared NIR or semantic change is planned. If those contracts change, also
 run `cargo test nir_fixtures_match_snapshots`,
 `cargo run --bin actionc-nir-sweep -- fixtures/nir` and `cargo test` as required.
 Explain materialized-MIR changes as target scheduling; raw NIR stays unchanged.
+
+## Completion record
+
+| Slice | Status | Evidence |
+| --- | --- | --- |
+| 1 Baselines and proof | Implemented | [Frozen controls](benchmarks/6502-argument-x-forwarding/baseline.json), three neutral home classes and four inert proof tests |
+| 2 Selection and costing | Planned | |
+| 3 Flags aliases and ABI | Planned | |
+| 4 Corpus and defaults | Planned | |
+
+The neutral fixture confirms fixed staging, ordinary BYTE parameter and private
+zero-page misses with normal optimized NIR/inlining. Its `Forward`,
+`ForwardByte`, `ForwardPrivate` and already-forwarded `Plain` routines are
+84/11/47/40 bytes; cartridge/standalone images are 360/442 bytes at both
+origins. Integration and 768 independent VM calls cover raw/optimized NIR,
+both runtimes/origins and actual LF/CRLF source parsing. Neutral images match
+the frozen compiler exactly. TN controls reuse the preceding qualified images
+from identical compiler code with checked source hashes; their matching
+feature-off listings will be exported with corpus measurement.
+
+The inert query distinguishes restored N/Z at machine-call entry from known
+scalar entry contracts. The latter currently require a scalar signature,
+non-opaque effects without flag inputs and no machine blocks in the callee.
+Unknown machine entry flags remain a blocker. Shared context/summaries expose
+this fact without changing executable MIR or existing selection behavior.

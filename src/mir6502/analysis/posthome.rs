@@ -8,7 +8,8 @@ use crate::mir6502::analysis::machine_liveness::MirMachineLiveness;
 use crate::mir6502::analysis::machine_values::{MirMachineMemoryMap, MirMachineValueAvailability};
 use crate::mir6502::analysis::param_availability::MirParamRegisterAvailability;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirRoutineSnapshot};
-use crate::mir6502::ir::MirRoutine;
+use crate::mir6502::ir::{MirRoutine,MirOp,MirCallTarget,RoutineId};
+use std::collections::BTreeSet;
 
 /// Immutable, generation-scoped fact bundle for post-home rewrites.
 #[derive(Debug)]
@@ -20,6 +21,7 @@ pub(in crate::mir6502) struct PostHomeAnalysisSnapshot<'a> {
     machine_liveness: MirMachineLiveness,
     machine_values: MirMachineValueAvailability,
     param_availability: MirParamRegisterAvailability,
+    scalar_entries_ignoring_flags: BTreeSet<RoutineId>,
 }
 
 impl<'a> PostHomeAnalysisSnapshot<'a> {
@@ -53,6 +55,9 @@ impl<'a> PostHomeAnalysisSnapshot<'a> {
         let cfg = routine_snapshot.cfg();
         Ok(Self {
             source: routine,
+            scalar_entries_ignoring_flags: routine.blocks.iter().flat_map(|b|&b.ops).filter_map(|o|match o {
+                MirOp::Call {target:MirCallTarget::Routine(id),..} if known_callees.scalar_entry_ignores_flags(*id)=>Some(*id),_=>None
+            }).collect(),
             home_definitions: MirHomeDefinitions::analyze(routine, cfg),
             home_liveness: MirHomeLiveness::analyze(routine, cfg),
             machine_liveness: MirMachineLiveness::analyze_with_known_callees(
@@ -74,6 +79,8 @@ impl<'a> PostHomeAnalysisSnapshot<'a> {
     pub(in crate::mir6502) fn routine(&self) -> &MirRoutineSnapshot<'a> {
         &self.routine
     }
+
+    pub(in crate::mir6502) fn scalar_entry_ignores_flags(&self,id:RoutineId)->bool {self.scalar_entries_ignoring_flags.contains(&id)}
 
     pub(in crate::mir6502) fn source(&self) -> &MirRoutine { self.source }
 

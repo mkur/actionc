@@ -193,6 +193,7 @@ impl MirKnownCalleeExitSummary {
 pub(in crate::mir6502) struct MirKnownCalleeSummaries {
     routines: BTreeMap<RoutineId, MirKnownCalleeExitSummary>,
     direct_call_targets: BTreeSet<RoutineId>,
+    scalar_entries_ignoring_flags: BTreeSet<RoutineId>,
 }
 
 impl MirKnownCalleeSummaries {
@@ -229,6 +230,10 @@ impl MirKnownCalleeSummaries {
             })
             .collect::<BTreeMap<_, _>>();
         let mut summaries = Self {
+            scalar_entries_ignoring_flags: program.routines.iter().filter(|r|
+                r.scalar_signature.is_some() && !r.effects.opaque && !r.effects.reads.flags
+                    && !r.blocks.iter().flat_map(|b|&b.ops).any(|o|matches!(o,MirOp::MachineBlock {..}))
+            ).map(|r|r.id).collect(),
             routines: program
                 .routines
                 .iter()
@@ -268,6 +273,10 @@ impl MirKnownCalleeSummaries {
             }
         }
         summaries
+    }
+
+    pub(in crate::mir6502) fn scalar_entry_ignores_flags(&self, routine: RoutineId) -> bool {
+        self.scalar_entries_ignoring_flags.contains(&routine)
     }
 
     pub(in crate::mir6502) fn get(&self, routine: RoutineId) -> Option<&MirKnownCalleeExitSummary> {

@@ -1,0 +1,149 @@
+{
+  "compiler_revision": "5255fa4a",
+  "compiler_code_revision": "1122b42c",
+  "compiler_sha256": "82412f3a1533f7ecb6bf4978a55561bcb1e1b3bea131b1fd48bea515318a3ede",
+  "mode": "mir6502",
+  "profile": "modern",
+  "nir": "optimized",
+  "vm_revision": "7ec0cc454ebf43b088b7bcd11515533085ea1964",
+  "inputs_sha256": {
+    "fixtures/runtime/argument_x_forwarding.act": "039c96ecf603cc53243d964244afc5a4d827c67e695039f8e3ad065ae2a01444",
+    "samples/tn/modern/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "samples/tn/modern/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+    "samples/tn/modern/LIB.ACT": "b8cd4c48b9b2d9c96fc86d24e94ea3dc6e9dfb706c636c2b7fb7fc6c58015c53"
+  },
+  "artifacts": [
+    {
+      "source": "fixtures/runtime/argument_x_forwarding.act",
+      "runtime": "cart",
+      "origin": 12288,
+      "image_bytes": 360,
+      "sha256": "64f1b4cfb276c38da99b8ecb3a81756341349f24fd5a836bf9d07b51ba41bae5",
+      "routine_bytes": {
+        "Forward": 84,
+        "ForwardByte": 11,
+        "ForwardPrivate": 47,
+        "Plain": 40
+      },
+      "compile_seconds": 1.0378,
+      "facts_sha256": "dd5346236594f057f929feec11706cdb9d552adf796584ad23fef910dd8852c6"
+    },
+    {
+      "source": "fixtures/runtime/argument_x_forwarding.act",
+      "runtime": "cart",
+      "origin": 16839,
+      "image_bytes": 360,
+      "sha256": "c6ea63e621b73597226f141c17f544a4ee407389221af3c184153040311d8af9",
+      "routine_bytes": {
+        "Forward": 84,
+        "ForwardByte": 11,
+        "ForwardPrivate": 47,
+        "Plain": 40
+      },
+      "compile_seconds": 0.2871,
+      "facts_sha256": "ead32912510edb0dd75aa076bf3bbb616e53057d4b574cc382e2db56fbc397fa"
+    },
+    {
+      "source": "fixtures/runtime/argument_x_forwarding.act",
+      "runtime": "standalone",
+      "origin": 12288,
+      "image_bytes": 442,
+      "sha256": "e7ac4bea326b601a466de973dfaf699abc2144f1fc343e04869d494bba42970f",
+      "routine_bytes": {
+        "Forward": 84,
+        "ForwardByte": 11,
+        "ForwardPrivate": 47,
+        "Plain": 40
+      },
+      "compile_seconds": 0.3035,
+      "facts_sha256": "21cff232d559dd9a1a987aba4fd36d5742dc49819e161e4d6643e0458ce53807"
+    },
+    {
+      "source": "fixtures/runtime/argument_x_forwarding.act",
+      "runtime": "standalone",
+      "origin": 16839,
+      "image_bytes": 442,
+      "sha256": "9a316059d883fbce0de4b31405264b1ebdf169009fbd168a6d11a5291795a80a",
+      "routine_bytes": {
+        "Forward": 84,
+        "ForwardByte": 11,
+        "ForwardPrivate": 47,
+        "Plain": 40
+      },
+      "compile_seconds": 0.3001,
+      "facts_sha256": "3204ca0c24407e265cce0db9e71ec24ffd9fdbb89312983f21ceacb040228fa1"
+    },
+    {
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "cart",
+      "origin": 11264,
+      "image_bytes": 9862,
+      "sha256": "847348e8721fad62b6ca8b4c9387902911fcad4e623b9e6df96b5188088aa56a",
+      "routine_bytes": {
+        "MoveMenuBar": 118,
+        "Strcat": 114,
+        "Draw": 148,
+        "Inv": 54,
+        "TagAll": 90,
+        "Copy": 673
+      },
+      "compile_seconds": null,
+      "facts_sha256": "88d6f1b919281844cdd059c368fbb0b4ecde05dbdadd08b99b11cdde53f1c6bf"
+    },
+    {
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "standalone",
+      "origin": 11264,
+      "image_bytes": 9987,
+      "sha256": "313bf6faaa3a75fbd079e3fb771772552d5e27b9df868ac67fdc5fb5bb4a1d2a",
+      "routine_bytes": {
+        "MoveMenuBar": 118,
+        "Strcat": 114,
+        "Draw": 148,
+        "Inv": 54,
+        "TagAll": 90,
+        "Copy": 673
+      },
+      "compile_seconds": null,
+      "facts_sha256": "ef8afdbc5f139eedb8ddab3fd471d6956f8eabe8139282d824b624167ec04eea"
+    },
+    {
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "cart",
+      "origin": 11264,
+      "image_bytes": 12958,
+      "sha256": "65348c94adfad78010a31736431be4f026b18f788f11b200ea3b8e6d2adedadd",
+      "routine_bytes": {
+        "MoveMenuBar": 118,
+        "Strcat": 114,
+        "Draw": 148,
+        "Inv": 54,
+        "TagAll": 90,
+        "Dbg": 1362
+      },
+      "compile_seconds": null,
+      "facts_sha256": "09b2066e2b15cd60adda96b525cc6dc7223f155043ebe8c6f522611601dba7fa"
+    },
+    {
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "standalone",
+      "origin": 11264,
+      "image_bytes": 13083,
+      "sha256": "2b7fd4850e69aefc6205eb37fc29eac918a175d68a039e5ea077f2983607e485",
+      "routine_bytes": {
+        "MoveMenuBar": 118,
+        "Strcat": 114,
+        "Draw": 148,
+        "Inv": 54,
+        "TagAll": 90,
+        "Dbg": 1362
+      },
+      "compile_seconds": null,
+      "facts_sha256": "b552cf5f3f27fb8b2a78c0028c9e5af0c05c2282a42cc74df9d8737f25c0de1e"
+    }
+  ],
+  "artifact_notes": [
+    "Neutral images, raw/materialized MIR and source listings use the frozen compiler directly.",
+    "TN/TNDBG images, materialized MIR and complete frame/zero-page facts reuse the preceding feature-on controls from identical compiler code 1122b42c with verified source hashes. Feature-off listings will be emitted with corpus measurement; null compile_seconds denotes reuse."
+  ]
+}

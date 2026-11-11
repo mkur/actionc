@@ -602,6 +602,11 @@ pub(in crate::mir6502) struct PostHomeRewriteContext<'snapshot, 'routine> {
 }
 
 impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
+    pub(in crate::mir6502) fn argument_x_forwarding(&self,point:MirProgramPoint,memory:&crate::mir6502::analysis::record_bases::MirPhysicalMemory)->Result<crate::mir6502::analysis::argument_x_forwarding::Proof,crate::mir6502::analysis::argument_x_forwarding::Blocker> {
+        crate::mir6502::analysis::argument_x_forwarding::prove(self.snapshot.source(),self,point,memory)
+    }
+    pub(in crate::mir6502) fn scalar_entry_ignores_flags(&self,id:crate::mir6502::ir::RoutineId)->bool {self.snapshot.scalar_entry_ignores_flags(id)}
+
     pub(in crate::mir6502) fn pointer_load_sharing(
         &self, point: MirProgramPoint,
         memory: &crate::mir6502::analysis::record_bases::MirPhysicalMemory,
