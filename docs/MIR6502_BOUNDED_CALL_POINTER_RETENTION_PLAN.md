@@ -54,3 +54,24 @@ the existing post-copy parameter reloads on that basis.
 
 No shared NIR contract change is planned. If one becomes necessary, document
 and run its mandatory shared checks before consuming it.
+
+## Implementation status
+
+Slice 1 is committed as `dbeac306`. Three focused fact tests cover typed
+machine decoding, loop footprints, count zero, unknown inputs, physical
+ownership, hardware/wrap exclusions and malformed/unsupported instructions.
+LF/CRLF Action sources lower to identical machine facts.
+
+Slice 2 adds the separately controlled context query to the existing costed
+transaction. A normally lowered owned-buffer copy removes ten bytes and two
+setup stores; its sample call saves fourteen cycles. The same helper with an
+unknown destination retains the old setup. Unit cases reject an explicit
+parameter-home destination, unknown source, hardware/stack effects, changed
+callee and missing physical map. The parent call-retention switch also gates
+the new consumer when CFG retention remains enabled.
+
+The focused integration matrix passes raw/optimized NIR, both runtimes and
+both origins. VM execution passes 2,952 calls across those modes and actual
+LF/CRLF files, including every byte count, pointer aliases, a pointer into its
+own home, and a copy that overwrites the pointer home and changes the following
+dereference. Full qualification and optimized defaults follow in slice 3.

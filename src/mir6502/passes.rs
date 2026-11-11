@@ -32,6 +32,8 @@ pub struct Mir6502Config {
     pub enable_register_copy_forwarding: bool,
     /// Retain complete resident bases through physically audited direct calls.
     pub enable_pointer_call_retention: bool,
+    /// Derive context-specific write footprints for inspectable bounded machine calls.
+    pub enable_bounded_call_pointer_retention: bool,
     /// Extend retention to CFG edges and invariant loops.
     pub enable_pointer_loop_retention: bool,
     /// Promote auditable changing local pointer homes into existing pairs.
@@ -109,6 +111,7 @@ impl Default for Mir6502Config {
             enable_copy_value_forwarding: true,
             enable_register_copy_forwarding: false,
             enable_pointer_call_retention: false,
+            enable_bounded_call_pointer_retention: false,
             enable_pointer_loop_retention: false,
             enable_pointer_promotion: false,
             enable_constructor_store_elision: true,
@@ -150,6 +153,7 @@ impl Mir6502Config {
             enable_record_base_reuse: true,
             enable_register_copy_forwarding: true,
             enable_pointer_call_retention: true,
+            enable_bounded_call_pointer_retention: false,
             enable_pointer_loop_retention: true,
             enable_pointer_promotion: true,
             enable_record_base_writes: true,

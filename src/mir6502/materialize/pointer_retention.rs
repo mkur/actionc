@@ -39,6 +39,7 @@ fn has_setup(r: &MirRoutine) -> bool {
     })
 }
 
+#[cfg(test)]
 fn apply(
     baseline: &MirProgram,
     proofs: &MirProgram,
@@ -46,7 +47,23 @@ fn apply(
     cfg: bool,
     promote: bool,
 ) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
+    apply_with_bounded_calls(baseline, proofs, map, cfg, promote, false)
+}
+
+fn apply_with_bounded_calls(
+    baseline: &MirProgram,
+    proofs: &MirProgram,
+    map: &MirPhysicalMemory,
+    cfg: bool,
+    promote: bool,
+    bounded_calls: bool,
+) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
     let calls = CallWrites::analyze(proofs, map);
+    let calls = if bounded_calls && !promote {
+        calls.with_bounded_machine_calls(proofs)
+    } else {
+        calls
+    };
     let known = MirKnownCalleeSummaries::analyze_for_rewriting(proofs);
     let mut proposed = baseline.clone();
     let mut stats = MirPeepholeStats::default();
@@ -561,12 +578,15 @@ fn select(
     let Some(map) = memory(&baseline, &baseline, origin) else {
         return Ok(baseline);
     };
-    let Some((proposed, mut stats, affected)) = apply(
+    let bounded_calls = config.enable_pointer_call_retention
+        && config.enable_bounded_call_pointer_retention;
+    let Some((proposed, mut stats, affected)) = apply_with_bounded_calls(
         &baseline,
         &baseline,
         &map,
         config.enable_pointer_loop_retention,
         promote,
+        bounded_calls,
     ) else {
         return Ok(baseline);
     };
@@ -586,12 +606,13 @@ fn select(
     let replay = !affected.is_empty()
         && memory(&proposed, &baseline, origin)
             .and_then(|map| {
-                apply(
+                apply_with_bounded_calls(
                     &baseline,
                     &proposed,
                     &map,
                     config.enable_pointer_loop_retention,
                     promote,
+                    bounded_calls,
                 )
             })
             .is_some_and(|(p, _, _)| p == proposed);

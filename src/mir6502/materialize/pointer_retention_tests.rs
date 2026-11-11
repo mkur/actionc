@@ -1,6 +1,100 @@
 use super::*;
 use crate::mir6502::MirEdge;
 
+#[test]
+fn bounded_call_pointer_retention_uses_owned_destinations_and_keeps_unknown_fallback() {
+    let p = fixture(include_str!(
+        "../../../fixtures/runtime/bounded_call_pointer_retention.act"
+    ));
+    let mut config = Mir6502Config::optimized();
+    config.enable_pointer_promotion = false;
+    config.enable_bounded_call_pointer_retention = false;
+    let old = select_costed(p.clone(), &config, 0x3000, false).unwrap();
+    config.enable_bounded_call_pointer_retention = true;
+    let new = select_costed(p.clone(), &config, 0x3000, false).unwrap();
+    let routine =
+        |p: &MirProgram, name: &str| p.routines.iter().find(|r| r.name == name).unwrap().clone();
+    assert_ne!(
+        routine(&old, "ReadAcrossCopy"),
+        routine(&new, "ReadAcrossCopy")
+    );
+    assert_eq!(routine(&old, "UnknownCopy"), routine(&new, "UnknownCopy"));
+    assert_eq!(
+        address_values::Cost::measure(&old, 0x3000).unwrap().bytes
+            - address_values::Cost::measure(&new, 0x3000).unwrap().bytes,
+        10
+    );
+    assert!(
+        old.routines
+            .iter()
+            .zip(&new.routines)
+            .all(|(a, b)| a.frame == b.frame)
+    );
+    assert_eq!(
+        select_costed(new.clone(), &config, 0x3000, false).unwrap(),
+        new
+    );
+    assert_eq!(select_costed(p, &config, 0x3000, true).unwrap(), new);
+}
+
+#[test]
+fn bounded_call_pointer_retention_rejects_parameter_writes_and_unsafe_callees() {
+    let source = include_str!("../../../fixtures/runtime/bounded_call_pointer_retention.act")
+        .replace("\r\n", "\n");
+    for text in [
+        source.replace(
+            "CopyBytes(@dstBuf, @srcBuf, count)",
+            "CopyBytes(@p, @srcBuf, 1)",
+        ),
+        source.replace(
+            "CopyBytes(@dstBuf, @srcBuf, count)",
+            "CopyBytes(@dstBuf, CARD(p), count)",
+        ),
+        source.replace("  rts\n", "  sta $D301\n  rts\n"),
+        source.replace("  rts\n", "  pha\n  pla\n  rts\n"),
+    ] {
+        let p = fixture(&text);
+        let mut config = Mir6502Config::optimized();
+        config.enable_pointer_promotion = false;
+        config.enable_bounded_call_pointer_retention = false;
+        let old = select_costed(p.clone(), &config, 0x3000, false).unwrap();
+        config.enable_bounded_call_pointer_retention = true;
+        assert_eq!(select_costed(p, &config, 0x3000, false).unwrap(), old);
+    }
+}
+
+#[test]
+fn bounded_call_pointer_retention_rebuilds_changed_callee_and_physical_facts() {
+    let p = fixture(include_str!(
+        "../../../fixtures/runtime/bounded_call_pointer_retention.act"
+    ));
+    let map = memory(&p, &p, 0x3000).unwrap();
+    assert_ne!(
+        apply_with_bounded_calls(&p, &p, &map, true, false, true)
+            .unwrap()
+            .0,
+        p
+    );
+    let mut changed = p.clone();
+    let items = &mut changed.machine_blocks[0].items;
+    items.splice(
+        items.len() - 1..items.len() - 1,
+        [MirMachineItem::Byte(0x85), MirMachineItem::Byte(0xAC)],
+    );
+    assert_eq!(
+        apply_with_bounded_calls(&p, &changed, &map, true, false, true)
+            .unwrap()
+            .0,
+        p
+    );
+    assert_eq!(
+        apply_with_bounded_calls(&p, &p, &MirPhysicalMemory::default(), true, false, true)
+            .unwrap()
+            .0,
+        p
+    );
+}
+
 fn fixture(text: &str) -> MirProgram {
     let ast = crate::parser::parse(&crate::lexer::tokenize(text).unwrap()).unwrap();
     let model =

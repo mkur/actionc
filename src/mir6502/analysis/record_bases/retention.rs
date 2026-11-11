@@ -3,7 +3,7 @@ use super::*;
 use crate::analysis::dataflow::{DataflowDirection, DataflowProblem, solve_dataflow};
 use crate::mir6502::analysis::cfg::MirCfg;
 use crate::mir6502::analysis::known_callees::{
-    MirKnownCalleeSummaries, MirKnownMemoryReads, MirKnownMemoryWrites,
+    BoundedMachine, MirKnownCalleeSummaries, MirKnownMemoryReads, MirKnownMemoryWrites,
 };
 use std::collections::BTreeSet;
 
@@ -11,8 +11,17 @@ use std::collections::BTreeSet;
 pub(in crate::mir6502) struct CallWrites {
     routines: BTreeMap<RoutineId, Option<BTreeSet<u16>>>,
     known: MirKnownCalleeSummaries,
+    bounded: BTreeMap<RoutineId, BoundedMachine>,
 }
 impl CallWrites {
+    pub fn with_bounded_machine_calls(mut self, program: &MirProgram) -> Self {
+        self.bounded = program
+            .routines
+            .iter()
+            .filter_map(|r| BoundedMachine::analyze(r, program).map(|summary| (r.id, summary)))
+            .collect();
+        self
+    }
     pub fn analyze(program: &MirProgram, memory: &MirPhysicalMemory) -> Self {
         let known = MirKnownCalleeSummaries::analyze_for_rewriting(program);
         let mut result = Self {
@@ -153,6 +162,33 @@ impl CallWrites {
         writes.extend(argument_writes(op, owner, memory)?);
         Some(writes)
     }
+
+    fn for_call_in_state(
+        &self,
+        op: &MirOp,
+        owner: RoutineId,
+        memory: &MirPhysicalMemory,
+        state: &State,
+    ) -> Option<BTreeSet<u16>> {
+        let MirOp::Call { target: MirCallTarget::Routine(id), effects, .. } = op else {
+            return None;
+        };
+        if effects.opaque || effects.may_call_os {
+            return None;
+        }
+        let constant = |value: Option<ByteValue>| match value {
+            Some(ByteValue::Constant(n)) => Some(n),
+            _ => None,
+        };
+        let registers = state.registers.map(constant);
+        let cells = state.cells.iter().filter_map(|(&address, &value)| {
+            if address >= 256 { return None; }
+            constant(Some(value)).map(|n| (address, n))
+        }).collect();
+        let mut writes = self.bounded.get(id)?.writes(registers, cells, memory)?;
+        writes.extend(argument_writes(op, owner, memory)?);
+        Some(writes)
+    }
 }
 
 fn safe_read(owner: RoutineId, mem: &MirMem, memory: &MirPhysicalMemory) -> bool {
@@ -238,7 +274,9 @@ fn observe_retained(
     extended: bool,
 ) {
     if matches!(op, MirOp::Call { .. }) {
-        if let Some(writes) = calls.for_call(op, routine, memory) {
+        if let Some(writes) = calls.for_call(op, routine, memory)
+            .or_else(|| calls.for_call_in_state(op, routine, memory, state))
+        {
             for address in writes {
                 state.write(address, 1);
             }

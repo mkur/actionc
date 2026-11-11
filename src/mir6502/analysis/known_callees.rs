@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-#[allow(dead_code)] // Inert fact model; the next slice adds its consumer.
 mod bounded_memory;
+pub(in crate::mir6502) use bounded_memory::BoundedMachine;
 
 use crate::analysis::dataflow::{DataflowDirection, DataflowProblem, solve_dataflow};
 use crate::codegen::AddressingMode;

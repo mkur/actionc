@@ -705,6 +705,40 @@ growth. Missing proofs or unknown emission costs retain the baseline. The
 [measured results](benchmarks/6502-pointer-byte-plus-one/README.md) qualify this
 bounded `+1` form; other constants and consumers retain their existing paths.
 
+### Context specific machine call writes
+
+Pointer retention may refine an unknown leaf-machine write footprint using
+the call's actual materialized A/X/Y and known scratch bytes. A bounded
+forward analysis over typed machine bytes enumerates all reachable direct
+writes and indirect-Y destinations. At joins, differing byte/flag values
+become unknown; an unknown Y covers all 256 offsets, including zero-count
+loops. No footprint is cached by callee ID without its actual inputs.
+
+Every indirect destination must belong to an owned ordinary RAM allocation;
+zero page, stack, hardware, code, wrapping addresses and missing placement
+reject the proof. Reads must remain in the supported RAM address space.
+Direct scratch writes are included in the footprint, so preservation of a
+pair and preservation of the pointer homes it represents remain separate
+requirements. Writing a pointer home invalidates the captured value's
+availability even when the scratch pair itself is untouched.
+
+The initial ISA subset admits leaf loads/stores, register transfers,
+increments/decrements, immediate comparisons, flag branches, CLC/SEC/CLV,
+NOP and one terminal RTS. Calls, stack-manipulation instructions, unknown
+operands, arithmetic and indexed-X addressing retain the fallback. The
+analysis is bounded to 512 bytes and 4,096 worklist steps. It uses the existing
+decoder and rejects unresolved machine names rather than interpreting source
+strings. Ordinary JSR/RTS stack traffic remains part of the call ABI; this
+proof cannot certify stack-backed source homes or indirect destinations.
+
+Existing resident-value, source-home, machine-state, transaction and final
+physical replay checks own the actual setup removal. Callee bodies and input
+constants are rebuilt for replay, frames remain allocated, and strict final
+image savings remain required. `enable_bounded_call_pointer_retention` refines
+the existing call-retention pass; disabling that parent pass also disables
+this consumer. It does not establish a closed-entry or allocator-bounds
+contract. See the [implementation plan](MIR6502_BOUNDED_CALL_POINTER_RETENTION_PLAN.md).
+
 ### Pointer load sharing
 
 An exact post-home schedule may share ordinary parameter/local pointer-byte
