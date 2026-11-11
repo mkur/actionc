@@ -1,0 +1,38 @@
+MODULE
+
+BYTE comparisonIndex=$E0
+BYTE comparisonResult=$0680
+CARD comparisonAddress=$0682
+BYTE ordinaryIndex
+
+PROC AtMost(BYTE POINTER base)
+  IF comparisonIndex <= base^ THEN
+    comparisonResult=17
+  ELSE
+    comparisonResult=29
+  FI
+RETURN
+
+PROC Greater(BYTE POINTER base)
+  IF comparisonIndex > base^ THEN
+    comparisonResult=17
+  ELSE
+    comparisonResult=29
+  FI
+RETURN
+
+PROC NamedAtMost(BYTE POINTER base)
+  BYTE captured
+  captured=ordinaryIndex
+  IF captured <= base^ THEN
+    comparisonResult=17
+  ELSE
+    comparisonResult=29
+  FI
+RETURN
+
+PROC Main()
+  AtMost(comparisonAddress)
+  Greater(comparisonAddress)
+  NamedAtMost(comparisonAddress)
+RETURN

@@ -1,0 +1,84 @@
+{
+  "compiler_revision": "1eadf8f14cae7177f0b5e8c483502769415783fb",
+  "compiler_sha256": "537a905c8535ca1278059b08b475d4e112162c3746ae65cf8974c2589187f9a9",
+  "vm_revision": "7ec0cc454ebf43b088b7bcd11515533085ea1964",
+  "inputs": {
+    "fixtures/runtime/direct_comparisons.act": "6ade5a7f34ba33f2d83cc8f4519a73ced5ee83229e897231031b069553d9870c",
+    "samples/tn/modern/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "samples/tn/modern/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6"
+  },
+  "mode": "mir6502",
+  "nir": "optimized",
+  "artifacts": [
+    {
+      "source": "fixtures/runtime/direct_comparisons.act",
+      "runtime": "cart",
+      "image_bytes": 131,
+      "sha256": "cf6c254fe4f1155475c7a70670a543ea4b763cd376e53e305c72ff6dd8da62cc",
+      "routine_bytes": {
+        "AtMost": 30,
+        "Greater": 30,
+        "NamedAtMost": 31
+      }
+    },
+    {
+      "source": "fixtures/runtime/direct_comparisons.act",
+      "runtime": "standalone",
+      "image_bytes": 131,
+      "sha256": "cf6c254fe4f1155475c7a70670a543ea4b763cd376e53e305c72ff6dd8da62cc",
+      "routine_bytes": {
+        "AtMost": 30,
+        "Greater": 30,
+        "NamedAtMost": 31
+      }
+    },
+    {
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "cart",
+      "image_bytes": 9891,
+      "sha256": "89455e97a18285ff561ba9720ff3724df4aefe60a303b896c79bcf3e0614b6e1",
+      "routine_bytes": {
+        "Instr": 66,
+        "Print": 58,
+        "PrintFname": 58,
+        "Fnamecmp": 185
+      }
+    },
+    {
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "standalone",
+      "image_bytes": 10016,
+      "sha256": "8b08426d942fc8a2942d3e68a0a9cc09f00283723536c10f459bf64f423dd4bb",
+      "routine_bytes": {
+        "Instr": 66,
+        "Print": 58,
+        "PrintFname": 58,
+        "Fnamecmp": 185
+      }
+    },
+    {
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "cart",
+      "image_bytes": 12987,
+      "sha256": "af975e4ef4f1ac6e62c2904e285ae6aa48eb7d64304f41ec1e1c7e4223acafae",
+      "routine_bytes": {
+        "Instr": 66,
+        "Print": 58,
+        "PrintFname": 58,
+        "Fnamecmp": 185
+      }
+    },
+    {
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "runtime": "standalone",
+      "image_bytes": 13112,
+      "sha256": "eae7cf2a544667a3f926a489df9a1b3d00f95cd60023c737b8182811ed5d1ae2",
+      "routine_bytes": {
+        "Instr": 66,
+        "Print": 58,
+        "PrintFname": 58,
+        "Fnamecmp": 185
+      }
+    }
+  ]
+}
