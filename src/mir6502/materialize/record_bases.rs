@@ -104,7 +104,7 @@ pub(in crate::mir6502) fn select_costed(
                     let before = estimated_6502_cost(&block.ops[index..index + 4]);
                     let after = estimated_6502_cost(&replacement);
                     plans.push(MirPostHomeRewritePlan {
-                        pointer_load_sharing: None,
+                        witness: None,
                         generation: context.generation(),
                         block: block.id,
                         range: index..index + 4,

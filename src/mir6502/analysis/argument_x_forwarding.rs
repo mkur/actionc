@@ -1,5 +1,4 @@
 //! Retained-store byte forwarding through a bounded, unchanged argument gap.
-#![allow(dead_code)] // Inert until the selection slice.
 use super::{
     call_predicates::ordinary_source,
     effects::{MirFlagSet, classify_op},

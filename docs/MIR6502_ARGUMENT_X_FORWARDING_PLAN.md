@@ -1,6 +1,6 @@
 # MIR6502 argument setup A to X forwarding plan
 
-Prepared 2026-11-11. Status: slice 1 implemented; selection remains off.
+Prepared 2026-11-11. Status: slices 1–2 implemented; optimized default remains off.
 Compiler baseline: `1122b42c`.
 Implement in four vertical slices, committing each after its checks pass.
 This plan includes the bounded scheduling contract; no new executable MIR
@@ -347,8 +347,8 @@ Explain materialized-MIR changes as target scheduling; raw NIR stays unchanged.
 
 | Slice | Status | Evidence |
 | --- | --- | --- |
-| 1 Baselines and proof | Implemented | [Frozen controls](benchmarks/6502-argument-x-forwarding/baseline.json), three neutral home classes and four inert proof tests |
-| 2 Selection and costing | Planned | |
+| 1 Baselines and proof | Complete, `8fe02793` | [Frozen controls](benchmarks/6502-argument-x-forwarding/baseline.json), three neutral home classes and four inert proof tests |
+| 2 Selection and costing | Implemented | Late selector, shared typed witnesses, physical replay and exact final costing |
 | 3 Flags aliases and ABI | Planned | |
 | 4 Corpus and defaults | Planned | |
 
@@ -367,3 +367,19 @@ scalar entry contracts. The latter currently require a scalar signature,
 non-opaque effects without flag inputs and no machine blocks in the callee.
 Unknown machine entry flags remain a blocker. Shared context/summaries expose
 this fact without changing executable MIR or existing selection behavior.
+
+Slice 2 introduces the late selector with the feature explicitly enabled only
+in tests. Typed witness variants preserve pointer-load-sharing validation and
+also certify the older restricted argument-staging schedule. That path keeps
+its admission policy; leaving its unchanged Y reload outside the mutation
+produces the same final MIR and frozen image. The generalized selector proves
+early X lifetime and both N/Z obligations, retains all stores and uses the
+original X-reload count as its decreasing rank. Final replay/cost checks retain
+the accepted baseline on failure.
+
+Eight focused tests, integration and 1,536 feature-off/on VM calls pass.
+The neutral routines shrink 84→83, 11→9 and 47→46 bytes; `Plain` stays 40.
+Images shrink 360→356 / 442→438 bytes. Sample calls improve 342→341,
+291→289 and 444→443 cycles; the control remains 429. Retained writes,
+indirect reads and observed callee state agree. Both configuration defaults
+remain off pending boundary and corpus qualification.

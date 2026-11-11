@@ -727,6 +727,31 @@ optimized configuration enables it; conservative/default remains off. See the
 [implementation plan](MIR6502_POINTER_LOAD_SHARING_PLAN.md) and
 [measured applicability](benchmarks/6502-pointer-load-sharing/README.md).
 
+### Argument setup A to X forwarding
+
+A bounded post-home transaction can retain a stored byte in X through direct
+argument setup: preserve `store H,A`, insert `Move X,A` and remove its later
+`Load X,H`. The source producer is outside the window. H can be ordinary
+parameter/local storage, an allocated private byte or a fixed backend staging
+cell. Its store and every other operation remain in order with equal values.
+No home, capture or ABI change follows from removing the ordinary RAM reload.
+
+Selection proves H unchanged under complete physical write ranges, no incoming
+X use and no gap read/clobber of X, including address operands. It separately
+proves N/Z changes from inserting TAX and removing LDX unobservable. A preserved
+tail definition can restore N/Z before any machine-call input; absent that,
+complete scalar-entry facts are required. A/C/V/Y/SP stay unchanged. The call
+and its effects remain outside the mutation.
+
+Shared typed witnesses cover both pointer load sharing and argument forwarding;
+the driver reconstructs their proofs against its snapshot and supplied map.
+The original restricted argument-staging path uses the same witness while
+retaining its source/callee admission policy and final emitted sequence.
+Final selection preserves published exits and storage, replays the proposed
+layout and requires a strictly smaller XEX. `enable_argument_x_forwarding`
+remains off in both defaults pending qualification. See the
+[implementation plan](MIR6502_ARGUMENT_X_FORWARDING_PLAN.md).
+
 ### Post-home private-byte definitions
 
 At the post-home and pre-emission boundaries, every reachable read of a

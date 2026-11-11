@@ -139,7 +139,7 @@ fn apply(
                             let new = estimated_6502_cost(&replacement);
                             retained = true;
                             return vec![MirPostHomeRewritePlan {
-                                pointer_load_sharing: None,
+                                witness: None,
                                 generation: c.generation(),
                                 block: b.id,
                                 range: index..index + setup.len,
@@ -209,7 +209,7 @@ fn apply(
                         let new = estimated_6502_cost(&replacement);
                         retained = true;
                         return vec![MirPostHomeRewritePlan {
-                            pointer_load_sharing: None,
+                            witness: None,
                             generation: c.generation(),
                             block: b.id,
                             range: index..index + 4,

@@ -345,10 +345,10 @@ fn argument_staging_posthome_plans_cannot_reuse_a_stale_generation() {
         .unwrap()
         .clone();
     let mut saved: Option<MirPostHomeRewritePlan> = None;
-    let result = MirPostHomeRewriteDriver::default().run_fixed_point_with_memory_map(
+    let result = MirPostHomeRewriteDriver::default().run_fixed_point_with_physical_memory(
         &mut r,
         &summaries,
-        |r| MirMachineMemoryMap::from_routine(r, |mem| physical.address(r.id, mem)),
+        &physical,
         |r, c| {
             if let Some(ref plan) = saved {
                 return vec![plan.clone()];

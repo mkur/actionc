@@ -3,7 +3,7 @@
 use super::*;
 use crate::mir6502::analysis::{
     argument_staging::MAX_SETUP_OPS, call_predicates::ordinary_source, effects::MirFlagSet,
-    known_callees::MirKnownCalleeSummaries, machine_values::MirMachineMemoryMap,
+    known_callees::MirKnownCalleeSummaries,
     record_bases::MirPhysicalMemory, sites::MirSite,
 };
 use crate::mir6502::ir::{MirBlock, MirRegisterSet, MirRoutine};
@@ -261,26 +261,15 @@ fn discover(
                 observations.insert((block.id, store, "argument-staging-blocked-machine-state"));
                 continue;
             }
-            let mut replacement = vec![
-                block.ops[store].clone(),
-                MirOp::Move {
-                    dst: MirDef::Reg(MirReg::X),
-                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
-                    width: MirWidth::Byte,
-                },
-            ];
-            replacement.extend_from_slice(&block.ops[store + 1..index]);
-            replacement.push(block.ops[index + 1].clone());
-            if let Some(plan) = structural_plan(
-                routine,
-                context,
-                block.id,
-                store..index + 2,
-                replacement,
-                MirExitStateChange::default(),
-                "argument-staging-selected",
-                40,
-            ) {
+            // Keep the original source/callee admission policy. The generic
+            // witness also certifies this existing transfer; leaving the Y
+            // reload outside the mutation produces the identical final MIR.
+            let Ok(proof)=context.argument_x_forwarding(after_store,physical) else {continue;};
+            let exit=MirExitStateChange {flags:nz,..MirExitStateChange::default()};
+            if let Some(mut plan)=structural_plan(routine,context,block.id,proof.shape.range(),
+                crate::mir6502::analysis::argument_x_forwarding::replacement(routine,&proof.shape).unwrap(),
+                exit,"argument-staging-selected",40) {
+                plan.witness=Some(crate::mir6502::rewrite::plan::MirPostHomeWitness::ArgumentXForwarding(proof));
                 plans.push(plan);
             }
         }
@@ -331,10 +320,10 @@ fn apply(
         // plus one therefore bounds convergence even though op count is equal.
         let rounds = r.blocks.iter().map(|b| b.ops.len()).sum::<usize>() + 1;
         let result = MirPostHomeRewriteDriver::with_max_rounds(rounds)
-            .run_fixed_point_with_memory_map(
+            .run_fixed_point_with_physical_memory(
                 r,
                 &summaries,
-                |r| MirMachineMemoryMap::from_routine(r, |mem| physical.address(r.id, mem)),
+                physical,
                 |r, c| discover(r, c, physical, &callees, &mut observations),
             )
             .ok()?;
@@ -471,3 +460,6 @@ pub(in crate::mir6502) fn select_costed(
 #[cfg(test)]
 #[path = "argument_staging_tests.rs"]
 mod tests;
+
+mod x_forwarding;
+pub(in crate::mir6502) use x_forwarding::select_costed as select_x_forwarding_costed;

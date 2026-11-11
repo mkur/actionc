@@ -2738,7 +2738,7 @@ pub(in crate::mir6502) fn discover_redundant_indexed_address_materializations(
             let (estimated_byte_saving, estimated_cycle_saving) =
                 estimated_6502_cost(std::slice::from_ref(op));
             plans.push(MirPostHomeRewritePlan {
-                pointer_load_sharing: None,
+                witness: None,
                 generation: context.generation(),
                 block: block.id,
                 range: index..index + 1,
@@ -3914,7 +3914,7 @@ fn retained_pointer_store_plan(
     }
 
     Some(MirPostHomeRewritePlan {
-        pointer_load_sharing: None,
+        witness: None,
         generation: context.generation(),
         block,
         range: index..index + 1,

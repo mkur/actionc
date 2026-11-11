@@ -84,9 +84,16 @@ fn pointer_load_sharing_driver_rejects_missing_changed_and_stale_proofs() {
     for change in 0..3 {
         let mut wrong = plan.clone();
         match change {
-            0 => wrong.pointer_load_sharing = None,
+            0 => wrong.witness = None,
             1 => wrong.replacement.swap(1, 3),
-            _ => wrong.pointer_load_sharing.as_mut().unwrap().source_address += 1,
+            _ => {
+                if let Some(
+                    crate::mir6502::rewrite::plan::MirPostHomeWitness::PointerLoadSharing(p),
+                ) = wrong.witness.as_mut()
+                {
+                    p.source_address += 1;
+                }
+            }
         }
         let error = MirPostHomeRewriteDriver::default().run_fixed_point_with_physical_memory(
             &mut r.clone(),

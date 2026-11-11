@@ -523,23 +523,19 @@ fn validate_posthome_plan(
     }
 
     let original = &block.ops[plan.range.clone()];
-    // This exact store motion needs its own value/order proof. The ordinary
-    // dependency check below cannot infer that from unchanged write counts.
-    if plan.pointer_load_sharing.is_some()
-        || crate::mir6502::analysis::pointer_load_sharing::replacement(original).as_deref()
-            == Some(plan.replacement.as_slice())
-    {
-        let valid = plan.pointer_load_sharing.as_ref().zip(physical_memory)
-            .is_some_and(|(proof, memory)| {
-                proof.point.site == MirSite::Op { block:plan.block, op_index:plan.range.start }
-                    && crate::mir6502::analysis::pointer_load_sharing::validate(
-                        proof,routine,generation,memory,original,&plan.replacement)
-            });
-        if !valid {
-            return Err(MirRewriteError::InvalidDeclaration { stat:plan.stat,
-                message:"pointer load sharing lost its physical or ordered-read proof".into() });
-        }
-    }
+    let point=MirSite::Op {block:plan.block,op_index:plan.range.start};
+    let pointer_shape=crate::mir6502::analysis::pointer_load_sharing::replacement(original).as_deref()==Some(plan.replacement.as_slice());
+    let x_shape=crate::mir6502::analysis::argument_x_forwarding::shape(routine,point).ok().is_some_and(|s|
+        s.range()==plan.range&&crate::mir6502::analysis::argument_x_forwarding::replacement(routine,&s).as_deref()==Some(plan.replacement.as_slice()));
+    let valid=match (&plan.witness,physical_memory) {
+        (Some(super::plan::MirPostHomeWitness::PointerLoadSharing(p)),Some(m))=>
+            p.point.site==point&&crate::mir6502::analysis::pointer_load_sharing::validate(p,routine,generation,m,original,&plan.replacement),
+        (Some(super::plan::MirPostHomeWitness::ArgumentXForwarding(p)),Some(m))=>
+            p.point.site==point&&crate::mir6502::analysis::argument_x_forwarding::validate(p,routine,context,m,plan.range.clone(),&plan.replacement),
+        (None,_)=>!pointer_shape&&!x_shape,
+        _=>false,
+    };
+    if !valid {return Err(MirRewriteError::InvalidDeclaration {stat:plan.stat,message:"post-home rewrite lost its typed physical or machine-state witness".into()});}
 
     let mut removed_homes = super::posthome::removed_home_definitions(
         plan.block,
@@ -2051,7 +2047,7 @@ mod tests {
             return Vec::new();
         }
         vec![MirPostHomeRewritePlan {
-            pointer_load_sharing: None,
+            witness: None,
             generation: context.generation(),
             block: MirBlockId(0),
             range: 0..1,

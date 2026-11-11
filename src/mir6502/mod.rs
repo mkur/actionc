@@ -194,11 +194,12 @@ pub fn materialize_program_with_origin_and_runtime(
     } else {
         baseline
     };
-    if config.enable_peepholes && config.enable_pointer_load_sharing {
-        materialize::pointer_load_sharing::select_costed(baseline, config, origin, runtime)
-    } else {
-        Ok(baseline)
-    }
+    let baseline=if config.enable_peepholes && config.enable_pointer_load_sharing {
+        materialize::pointer_load_sharing::select_costed(baseline,config,origin,runtime)?
+    } else {baseline};
+    if config.enable_peepholes&&config.enable_argument_x_forwarding {
+        materialize::argument_staging::select_x_forwarding_costed(baseline,config,origin,runtime)
+    } else {Ok(baseline)}
 }
 
 fn materialize_resolved_program(

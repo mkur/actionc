@@ -20,7 +20,10 @@ fn argument_x_forwarding_baseline_verifies_modes_runtimes_and_origins() {
     for (optimized, nir) in [(false, &raw), (true, &opt)] {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41C7] {
-                let config = Mir6502Config::optimized();
+                let config = Mir6502Config {
+                    enable_argument_x_forwarding: false,
+                    ..Mir6502Config::optimized()
+                };
                 let p = mir6502::materialize_program_with_origin_and_runtime(
                     mir6502::lower_program(nir).unwrap(),
                     &config,
@@ -33,6 +36,34 @@ fn argument_x_forwarding_baseline_verifies_modes_runtimes_and_origins() {
                     mir6502::generate_output_with_config_and_runtime(nir, origin, &config, runtime)
                         .unwrap();
                 let image = actionc::codegen::format_load_file(&out);
+                let enabled = Mir6502Config {
+                    enable_argument_x_forwarding: true,
+                    ..config.clone()
+                };
+                let after = mir6502::generate_output_with_config_and_runtime(
+                    nir, origin, &enabled, runtime,
+                )
+                .unwrap();
+                assert_eq!(
+                    image.len() - actionc::codegen::format_load_file(&after).len(),
+                    4
+                );
+                for old in &out.map.routine_ranges {
+                    let new = after
+                        .map
+                        .routine_ranges
+                        .iter()
+                        .find(|r| r.name == old.name)
+                        .unwrap();
+                    assert_eq!(
+                        (old.end - old.start) - (new.end - new.start),
+                        match old.name.as_str() {
+                            "Forward" | "ForwardPrivate" => 1,
+                            "ForwardByte" => 2,
+                            _ => 0,
+                        }
+                    );
+                }
                 for name in ["Forward", "ForwardByte", "ForwardPrivate"] {
                     let r = p.routines.iter().find(|r| r.name == name).unwrap();
                     assert!(

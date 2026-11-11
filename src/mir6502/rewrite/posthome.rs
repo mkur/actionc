@@ -69,7 +69,7 @@ pub(in crate::mir6502) fn structural_plan(
     let replacement_cost = estimated_6502_cost(&replacement);
 
     Some(MirPostHomeRewritePlan {
-        pointer_load_sharing: None,
+        witness: None,
         generation: context.generation(),
         block,
         range,

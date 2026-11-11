@@ -55,7 +55,9 @@ fn discover(
                 "pointer-load-sharing-selected",
                 42,
             ) {
-                plan.pointer_load_sharing = Some(proof);
+                plan.witness = Some(
+                    crate::mir6502::rewrite::plan::MirPostHomeWitness::PointerLoadSharing(proof),
+                );
                 return vec![plan];
             }
             seen.insert((key, "pointer-load-sharing-blocked-region-proof"));
