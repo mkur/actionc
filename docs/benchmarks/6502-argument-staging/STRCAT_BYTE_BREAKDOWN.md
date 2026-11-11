@@ -117,6 +117,10 @@ carry repair. The two pre-call setups of original pointers cost 17 bytes; `t`
 is also read from its home during `t+1` calculation. Eliminating duplicate
 home reads needs proof that intervening argument writes cannot alias that home.
 
+The [pointer byte constant arithmetic plan](../../MIR6502_POINTER_BYTE_CONSTANT_ARITHMETIC_PLAN.md)
+defines four slices for the first local `+1` fusion, including its target MIR
+contract, machine-state and memory proofs, execution checks and final costing.
+
 Extending high-byte forwarding to this setup is a smaller candidate, with a
 one-byte opportunity if its store remains. The 20-byte post-call reconstruction
 requires stronger callee write-range and parameter-alias facts before it can

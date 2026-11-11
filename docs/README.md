@@ -216,6 +216,9 @@ crowding the active reference set.
 - [MIR6502 argument staging implementation](MIR6502_ARGUMENT_STAGING_IMPLEMENTATION_PLAN.md)
   - four completed slices covering baseline/proofs, bounded scheduling,
   alias/effect qualification and [measured applicability](benchmarks/6502-argument-staging/README.md).
+- [MIR6502 pointer byte constant arithmetic](MIR6502_POINTER_BYTE_CONSTANT_ARITHMETIC_PLAN.md)
+  - planned local fusion of pointer-plus-indirect-byte arithmetic followed by
+  `+1`, with typed machine effects, ordered-read proofs and final cost checks.
 - [MIR6502_WIDE_SHIFT_COPY_REDUCTION.md](MIR6502_WIDE_SHIFT_COPY_REDUCTION.md)
   - byte and nibble projections for constant wide shifts, preserving captured
   operands while reducing staging for narrow results.
