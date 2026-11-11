@@ -12,6 +12,11 @@ pub(in crate::mir6502) enum MirKnownCalleeEntryFlags {
 }
 impl MirKnownCalleeEntryFlags {
     pub(in crate::mir6502) fn analyze(routine: &MirRoutine) -> Self {
+        #[cfg(test)]
+        COUNTS.with(|c| {
+            let (queries, evaluations) = c.get();
+            c.set((queries + 1, evaluations));
+        });
         if routine.scalar_signature.is_none()
             || routine.effects.opaque
             || routine.effects.reads.flags
@@ -67,6 +72,23 @@ impl MirCalleeEntryFlagFact {
                 fact: self.clone(),
             })
     }
+}
+#[cfg(test)]
+thread_local! { static COUNTS: std::cell::Cell<(usize, usize)> = const { std::cell::Cell::new((0,0)) }; }
+#[cfg(test)]
+pub(in crate::mir6502) fn reset_measurements() {
+    COUNTS.with(|c| c.set((0, 0)));
+}
+#[cfg(test)]
+pub(in crate::mir6502) fn measurements() -> (usize, usize) {
+    COUNTS.with(|c| c.get())
+}
+#[cfg(test)]
+pub(in crate::mir6502) fn record_evaluations(n: usize) {
+    COUNTS.with(|c| {
+        let (q, e) = c.get();
+        c.set((q, e + n));
+    });
 }
 #[cfg(test)]
 #[path = "entry_flags_tests.rs"]

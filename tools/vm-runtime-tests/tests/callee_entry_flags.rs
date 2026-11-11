@@ -88,6 +88,19 @@ fn callee_entry_flags_observers_match_host_oracle_with_lf_and_crlf() {
                         } else {
                             first = Some(image.clone());
                         }
+                        if opt && !crlf {
+                            if let Some(dir) =
+                                std::env::var_os("ACTIONC_CALLEE_ENTRY_FLAGS_MEASURED_IMAGES")
+                            {
+                                assert_eq!(
+                                    image,
+                                    std::fs::read(PathBuf::from(dir).join(format!(
+                                        "entry-neutral-{origin:04X}-{rt:?}-{enabled}.xex"
+                                    )))
+                                    .unwrap()
+                                );
+                            }
+                        }
                         if opt && !crlf && !enabled {
                             if let Some(dir) =
                                 std::env::var_os("ACTIONC_CALLEE_ENTRY_FLAGS_BASELINE")
@@ -178,7 +191,18 @@ fn callee_entry_flags_observers_match_host_oracle_with_lf_and_crlf() {
                                     vm.bus_mut().ram_mut().write(0x67F, 0xA5);
                                     vm.bus_mut().ram_mut().write(0x683, 0x5A);
                                     vm.bus_mut().clear_events();
+                                    let cycles_before = vm.cpu().cycles();
                                     vm = machine::call(vm, &mut Hooks, 0x740, &[tag, status]);
+                                    if opt
+                                        && !crlf
+                                        && mask == 0
+                                        && tag == 1
+                                        && std::env::var_os("ACTIONC_CALLEE_ENTRY_FLAGS_METRICS")
+                                            .is_some()
+                                    {
+                                        eprintln!("entry-flags-neutral,{name},{rt:?},{origin:04X},{enabled},cycles={}", vm.cpu().cycles()-cycles_before);
+                                    }
+
                                     let writes = vm
                                         .bus()
                                         .events()

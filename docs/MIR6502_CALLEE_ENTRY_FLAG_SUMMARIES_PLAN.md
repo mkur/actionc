@@ -1,6 +1,6 @@
 # MIR6502 callee entry flag summaries plan
 
-Prepared 2026-11-11. Status: slices 1–3 complete; the new control remains off. Compiler baseline: `82ada38f`.
+Prepared 2026-11-11. Status: all four slices implemented and qualified. Compiler baseline: `82ada38f`.
 Implement in four vertical slices and commit each after its checks pass.
 This refines the existing MIR6502 flag proof contract; a separate design note
 or new executable IR form is unnecessary.
@@ -341,8 +341,8 @@ checks, with no compiler test run.
 | --- | --- | --- |
 | 1 Baselines and incoming masks | Complete, `6ff44406` | Frozen images/facts, typed blocker census, inert flag analysis and neutral execution controls |
 | 2 Forwarding integration | Complete, `0ab5a1b6` | Opt-in N/Z proofs, callee body witnesses and final input-contract replay |
-| 3 Flag and snapshot qualification | Complete | Flag/CFG truth tables, simultaneous replay, exhaustive VM observations and measured TN execution |
-| 4 Corpus and default | Planned | |
+| 3 Flag and snapshot qualification | Complete, `019cc7b4` | Flag/CFG truth tables, simultaneous replay, exhaustive VM observations and measured TN execution |
+| 4 Corpus and default | Complete | Optimized default, historical controls and [measured qualification](benchmarks/6502-callee-entry-flags/README.md) |
 
 Slice 1 freezes eight image controls in
 [baseline.json](benchmarks/6502-callee-entry-flags/baseline.json) and records
@@ -380,3 +380,18 @@ images pass 80 string and 16 post-call parameter-alias cases; `Strcat` remains
 113 bytes and 355 cycles. The measured neutral images are 69→67 bytes and
 TNDBG is 12,954→12,953 bytes in cartridge mode; TN remains 9,858. The new
 control remains disabled until slice 4 completes backend/default qualification.
+
+Slice 4 enables the optimized default and pins historical argument-X controls
+off. Six of 32 runtime/origin pairs improve, with six additional applications
+saving ten bytes across those images. TNDBG is 12,954→12,953 cartridge /
+13,079→13,078 standalone; TN and `Strcat` remain unchanged. The new neutral
+sample is 91→89 cycles through its status-setting harness, while the unsafe
+control remains 79. Eight frozen controls and all 28 preceding corpus outputs
+match their new coarse settings; frames, capacities and zero page agree.
+
+Final review confines entry-proof kills to certified byte operations. A
+self-move emits no instruction and cannot define flags; uncertified forms
+retain incoming dependencies. Its added regression brings focused coverage to
+eleven tests. Full backend qualification was repeated after this change,
+with exact image binding to the execution artifacts. The measured report
+records final check counts, query/dataflow work, timings and remaining blockers.

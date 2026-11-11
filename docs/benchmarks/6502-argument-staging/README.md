@@ -137,8 +137,8 @@ running the VM `argument_staging` target. Its independent execution test also
 requires exact agreement with the measured neutral images. The opt-in string
 oracle below and `strcat_cost_breakdown` execute the frozen TN images directly.
 Current default TN execution uses the
-[argument X forwarding measurements](../6502-argument-x-forwarding/README.md)
-and `ACTIONC_ARGUMENT_X_MEASURED_IMAGES` for `tn_dispatch`. The plan lists the
+[callee entry flag measurements](../6502-callee-entry-flags/README.md)
+and `ACTIONC_CALLEE_ENTRY_FLAGS_MEASURED_IMAGES` for `tn_dispatch`. The plan lists the
 full affected-backend qualification commands.
 
 ```sh

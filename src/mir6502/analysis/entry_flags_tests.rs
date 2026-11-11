@@ -291,3 +291,37 @@ fn callee_entry_flags_preserve_read_before_write_and_machine_eligibility() {
         MirKnownCalleeEntryFlags::Unknown
     );
 }
+
+#[test]
+fn callee_entry_flags_self_moves_and_uncertified_writes_do_not_define_inputs() {
+    let r = wrapper(vec![
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        boundary(),
+    ]);
+    assert_eq!(
+        MirKnownCalleeEntryFlags::analyze(&r),
+        MirKnownCalleeEntryFlags::Known {
+            may_observe: mask(15)
+        }
+    );
+    let r = wrapper(vec![
+        MirOp::ComputeAddress {
+            dst: MirDef::Reg(MirReg::A),
+            base: MirValue::ConstU16(0x7000),
+            index: None,
+            elem_size: 1,
+            offset: 0,
+        },
+        boundary(),
+    ]);
+    assert_eq!(
+        MirKnownCalleeEntryFlags::analyze(&r),
+        MirKnownCalleeEntryFlags::Known {
+            may_observe: mask(15)
+        }
+    );
+}

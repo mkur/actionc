@@ -32,7 +32,7 @@ fn callee_entry_flags_census() {
         let nir = crate::nir::optimize_program(&crate::nir::lower_program(&semir)).unwrap();
         let p = mir6502::materialize_program_with_origin(
             mir6502::lower_program(&nir).unwrap(),
-            &mir6502::Mir6502Config::optimized(),
+            &mir6502::Mir6502Config { enable_precise_callee_entry_flags: false, ..mir6502::Mir6502Config::optimized() },
             0x2C00,
         )
         .unwrap();

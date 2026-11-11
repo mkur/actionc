@@ -156,8 +156,11 @@ impl MirMachineLiveness {
     /// barriers always observe all flags, independently of callee declarations.
     pub(in crate::mir6502) fn entry_flag_inputs(routine: &MirRoutine, cfg: &MirCfg) -> Option<MirFlagSet> {
         let entry = cfg.entry()?;
-        Self::analyze_with_policy(routine, cfg, MirRegisterSet::default(),
-            &MirKnownCalleeSummaries::default(), true).live_in(entry).map(|live| live.flags)
+        let facts = Self::analyze_with_policy(routine, cfg, MirRegisterSet::default(),
+            &MirKnownCalleeSummaries::default(), true);
+        #[cfg(test)]
+        super::entry_flags::record_evaluations(facts.evaluations());
+        facts.live_in(entry).map(|live| live.flags)
     }
 
     fn analyze_with_policy(
@@ -387,9 +390,27 @@ fn op_transfer(op: &MirOp, known_callees: &MirKnownCalleeSummaries) -> MirMachin
 
 // May-clobbers are not certified definitions for incoming flag proofs.
 fn entry_flag_transfer(op: &MirOp) -> MirMachineTransfer {
+    use crate::mir6502::ir::{MirBinaryOp, MirDef, MirValue, MirWidth};
     let effects = classify_op(op);
     let mut transfer = op_transfer(op, &MirKnownCalleeSummaries::default());
-    transfer.writes.flags = effects.machine.flag_writes;
+    transfer.writes.flags = match op {
+        MirOp::LoadImm { dst: MirDef::Reg(_), width: MirWidth::Byte, .. }
+        | MirOp::Load { dst: MirDef::Reg(_), width: MirWidth::Byte, .. }
+        | MirOp::LoadIndirect { .. }
+        | MirOp::UpdateMem { width: MirWidth::Byte, .. }
+        | MirOp::UpdateReg { .. } => effects.machine.flag_writes,
+        MirOp::Move { dst: MirDef::Reg(dst),
+            src: MirValue::Def(MirDef::Reg(src)),
+            width: MirWidth::Byte } if dst != src => effects.machine.flag_writes,
+        MirOp::Binary { op: MirBinaryOp::Add | MirBinaryOp::Sub
+                | MirBinaryOp::And | MirBinaryOp::Or | MirBinaryOp::Xor,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(_), width: MirWidth::Byte, .. } => effects.machine.flag_writes,
+        // Self-moves, zero shifts, folded compares and address recipes may
+        // emit no flag definition. Uncertified forms retain dependencies.
+        _ => MirFlagSet::default(),
+    };
     if effects.machine.unknown_flag_or_a_effects
         || effects.machine.opaque_flag_or_a_effects
         || matches!(op, MirOp::Call {..} | MirOp::RuntimeHelper {..} | MirOp::Barrier {..} | MirOp::MachineBlock {..})

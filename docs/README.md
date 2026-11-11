@@ -229,9 +229,9 @@ crowding the active reference set.
   physical proofs; [measured results](benchmarks/6502-argument-x-forwarding/README.md)
   save one or two bytes per site, including four bytes in TN.
 - [MIR6502 callee entry flag summaries](MIR6502_CALLEE_ENTRY_FLAG_SUMMARIES_PLAN.md)
-  - planned per-flag incoming requirements so argument forwarding can prove
-  N/Z unused while preserving live C/V, with conservative call boundaries and
-  final validation against proposed callee bodies.
+  - implemented per-flag incoming requirements, conservative call boundaries
+  and final validation against proposed callees; [measured results](benchmarks/6502-callee-entry-flags/README.md)
+  save two bytes in the neutral fixture and one additional byte in TNDBG.
 - [MIR6502_WIDE_SHIFT_COPY_REDUCTION.md](MIR6502_WIDE_SHIFT_COPY_REDUCTION.md)
   - byte and nibble projections for constant wide shifts, preserving captured
   operands while reducing staging for narrow results.

@@ -5,6 +5,7 @@ fn selected(p: MirProgram) -> MirProgram {
     select_costed(
         p,
         &Mir6502Config {
+            enable_precise_callee_entry_flags: false,
             enable_argument_x_forwarding: true,
             ..Mir6502Config::optimized()
         },
@@ -56,6 +57,7 @@ fn argument_x_forwarding_selection_saves_four_bytes_without_removing_stores_or_o
     let report = select_costed(
         old,
         &Mir6502Config {
+            enable_precise_callee_entry_flags: false,
             enable_argument_x_forwarding: true,
             peephole_report: crate::mir6502::MirPeepholeReportMode::Sites,
             ..Mir6502Config::optimized()

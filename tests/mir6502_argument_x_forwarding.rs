@@ -23,6 +23,7 @@ fn argument_x_forwarding_baseline_verifies_modes_runtimes_and_origins() {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41C7] {
                 let config = Mir6502Config {
+                    enable_precise_callee_entry_flags: false,
                     enable_argument_x_forwarding: false,
                     ..Mir6502Config::optimized()
                 };
@@ -39,6 +40,7 @@ fn argument_x_forwarding_baseline_verifies_modes_runtimes_and_origins() {
                         .unwrap();
                 let image = actionc::codegen::format_load_file(&out);
                 let enabled = Mir6502Config {
+                    enable_precise_callee_entry_flags: false,
                     enable_argument_x_forwarding: true,
                     ..config.clone()
                 };

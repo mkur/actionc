@@ -90,6 +90,7 @@ fn argument_x_forwarding_measure_corpus() {
                 let stem = format!("{name}-{runtime:?}-{enabled}");
                 eprintln!("MEASURE {stem}");
                 let config = Mir6502Config {
+                    enable_precise_callee_entry_flags: false,
                     enable_argument_x_forwarding: enabled,
                     peephole_report: MirPeepholeReportMode::PerRoutine,
                     ..Mir6502Config::optimized()

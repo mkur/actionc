@@ -4,6 +4,8 @@ use actionc::{
 };
 #[test]
 fn callee_entry_flags_baseline_matches_modes_runtimes_and_origins() {
+    assert!(!Mir6502Config::default().enable_precise_callee_entry_flags);
+    assert!(Mir6502Config::optimized().enable_precise_callee_entry_flags);
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures/runtime/callee_entry_flags.act");
     let loaded = actionc::includes::load_program_with_expanded_source(path).unwrap();

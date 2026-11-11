@@ -105,12 +105,14 @@ fn callee_entry_flags_measure_corpus() {
                     ..Mir6502Config::optimized()
                 };
                 let mir = crate::mir6502::lower_program(&nir).unwrap();
+                crate::mir6502::analysis::entry_flags::reset_measurements();
                 let started = std::time::Instant::now();
                 let mir = crate::mir6502::materialize_program_with_origin_and_runtime(
                     mir, &config, origin, runtime,
                 )
                 .unwrap();
                 let materialization_ms = started.elapsed().as_secs_f64() * 1000.0;
+                let entry_measurements = crate::mir6502::analysis::entry_flags::measurements();
                 crate::mir6502::verify_program(&mir, crate::mir6502::MirPhase::PreEmission)
                     .unwrap();
                 let mut emitter =
@@ -155,8 +157,44 @@ fn callee_entry_flags_measure_corpus() {
                             .filter(|address| *address < 0x100),
                     );
                 }
+                let mut entry_targets = BTreeSet::new();
+                for r in &mir.routines {
+                    for b in &r.blocks {
+                        for i in 0..b.ops.len() {
+                            if let Ok(shape) =
+                                crate::mir6502::analysis::argument_x_forwarding::shape(
+                                    r,
+                                    crate::mir6502::analysis::sites::MirSite::Op {
+                                        block: b.id,
+                                        op_index: i,
+                                    },
+                                )
+                            {
+                                if let crate::mir6502::analysis::sites::MirSite::Op {
+                                    op_index,
+                                    ..
+                                } = shape.call
+                                {
+                                    if let MirOp::Call {
+                                        target: MirCallTarget::Routine(id),
+                                        ..
+                                    } = b.ops[op_index]
+                                    {
+                                        entry_targets.insert(id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                let entry_masks = mir.routines.iter().filter(|r|entry_targets.contains(&r.id)).map(|r| {
+                    use crate::mir6502::analysis::entry_flags::MirKnownCalleeEntryFlags as F;
+                    let mask=match F::analyze(r) {F::Unknown=>None,F::Known {may_observe:f}=>Some((f.c,f.n,f.z,f.v))};
+                    serde_json::json!({"target_id":r.id.0,"target":r.name,"may_observe_cnzv":mask})
+                }).collect::<Vec<_>>();
                 let report = serde_json::json!({
                     "source": source, "materialization_ms": materialization_ms,
+                    "entry_summary_queries":entry_measurements.0,"entry_dataflow_evaluations":entry_measurements.1,"remaining_entry_masks":entry_masks,
                     "candidate_count":mir.routines.iter().map(|r|r.blocks.iter().map(|b|(0..b.ops.len()).filter(|&i|crate::mir6502::analysis::argument_x_forwarding::shape(r,crate::mir6502::analysis::sites::MirSite::Op {block:b.id,op_index:i}).is_ok()).count()).sum::<usize>()).sum::<usize>(),
                     "direct_x_loads":mir.routines.iter().flat_map(|r|&r.blocks).flat_map(|b|&b.ops).filter(|o|matches!(o,MirOp::Load {dst:MirDef::Reg(MirReg::X),src:MirAddr::Direct(_),width:MirWidth::Byte})).count(),
                     "runtime": format!("{runtime:?}"), "enabled": enabled,

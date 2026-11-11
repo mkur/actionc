@@ -120,7 +120,7 @@ including same-buffer and overlapping copies. Positive source lengths preserve
 the counted-string oracle's scope; existing zero-length `MovePage` assembly
 behavior is unchanged. At qualification, the default TN/TNDBG images matched
 these measured files and passed panel/dispatch execution. Current default
-images include the later [argument X forwarding](../6502-argument-x-forwarding/README.md).
+images include the later [callee entry flag refinement](../6502-callee-entry-flags/README.md).
 
 Final backend checks pass 1,206 MIR6502 unit tests, 104 integration tests across
 17 targets and 169 emission/load fixtures. Eight MADS assemblies reproduce
@@ -142,7 +142,7 @@ cargo test --release --locked --lib pointer_load_sharing_measure_corpus -- --ign
 Set `ACTIONC_POINTER_LOAD_MEASURED_IMAGES` to that directory's absolute path
 when running `pointer_load_sharing` to require equality between freshly
 compiled and measured historical images. Current default `tn_dispatch` uses
-`ACTIONC_ARGUMENT_X_MEASURED_IMAGES` and the later report. The measured TN
+`ACTIONC_CALLEE_ENTRY_FLAGS_MEASURED_IMAGES` and the later report. The measured TN
 oracle consumes the images directly and resolves current owner-qualified
 parameter homes:
 
