@@ -1067,6 +1067,45 @@ have a value identity so register-to-register copies can share the value, but
 the reads themselves are never removed. Aliasing writes, unknown calls,
 machine blocks, barriers, or disagreement at a CFG join invalidate the fact.
 
+### SSA-lite memory equalities after home expansion
+
+The existing byte-value environment may retain several equalities across a
+direct write. `D = S` means D equals the **current** byte in S, rather than a
+historical snapshot of S. A write invalidates an equality unless its byte range
+is proved disjoint from both D and every memory dependency in the value key.
+Register provenance naming a possibly overwritten byte is invalidated too;
+unrelated constant provenance survives. Unknown stored values still invalidate
+dependencies. A just-executed RAM byte copy may establish its own equality:
+even if its two byte homes alias, the source was rewritten with its own value.
+Exact self-copy equalities can be omitted.
+
+This precision runs only after executable logical temps and block parameters
+have been expanded into explicit home writes. Earlier scans retain their
+existing coarse transfer. The proof uses declared ordinary scalar parameter,
+local and spill objects, in-bounds byte ranges, and canonical local-alias
+views. Separate declared objects are allocated separately by emission;
+different view IDs alone do not prove disjointness. Missing, duplicate,
+out-of-bounds, cyclic, initialized or unsupported views remain unknown.
+Absolute memory, globals and fixed/virtual zero-page overlays do not acquire
+new no-alias permission through this proof. Estimated materializer addresses
+are never physical alias evidence.
+
+Every routine generation rebuilds the storage views, including rewritten spill
+IDs after coloring. Implicit home writes also invalidate dependencies. Unknown
+effects, calls, helpers, machine blocks, barriers, indirect writes and
+absolute-backed reads retain conservative invalidation. Existing single-copy
+eligibility does not authorize keeping other facts across an unknown write.
+At most 256 byte equalities are retained per environment; exhaustion drops
+memory-dependent facts and disables further memory learning for that scan.
+
+The environment follows the existing single-forward-predecessor chains only;
+joins, backedges and cross-call propagation gain no precision. Existing typed
+rewrite plans consume the equalities and enforce dependency, required-home,
+register/flag liveness and generation checks. Existing cleanup may remove dead
+compiler-private copies; source-visible stores and ordered accesses remain
+observable. The sites report records the maximum retained fact count, while
+accepted rewrite counts continue to come from the rewrite driver.
+
 ### Available-register direct stores
 
 After home selection, MIR6502 may replace an adjacent byte `Move A <- X/Y;

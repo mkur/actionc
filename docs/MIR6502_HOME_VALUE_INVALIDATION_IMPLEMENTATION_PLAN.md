@@ -1,6 +1,6 @@
 # MIR6502 home value invalidation implementation plan
 
-Prepared 2026-11-12. Status: implementation in progress; slices 0–2 delivered. Starting revision: `95e334be`.
+Prepared 2026-11-12. Status: complete; slices 0–3 delivered. Starting revision: `95e334be`.
 Implement in four slices and commit each after its checks pass.
 
 Replace blanket invalidation in the existing SSA-lite byte-value environment
@@ -294,6 +294,14 @@ actual LF/CRLF source parsing. Preserve exact binary/ATASCII bytes.
 This is MIR6502-only work. Shared NIR snapshots, the NIR sweep and full
 `cargo test` become mandatory if implementation changes shared frontend/NIR
 contracts. A documentation-only plan edit requires content/link checks only.
+
+Slice 3 qualifies the result with 1,261 MIR6502 unit tests, 112 integration
+tests, the 169-fixture emission sweep, neutral and real allocator VM oracles,
+consumer/runtime checks, and LF/CRLF MADS reconstruction and relocation. The
+[measured results](benchmarks/6502-home-value-invalidation/RESULTS.md) bind the
+net ten-byte image saving, sixteen-cycle allocator saving, collateral changes,
+storage, rewrite counts and bounded-fact observations. Historical scorecards
+remain frozen.
 
 ## Completion boundary
 
