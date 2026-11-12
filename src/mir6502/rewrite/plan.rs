@@ -182,3 +182,10 @@ impl MirPostHomeRewritePlan {
         self.range.len().saturating_sub(self.replacement.len())
     }
 }
+
+/// Exact representation-changing region. Its sealed proof reconstructs the
+/// address equivalence; generic post-home plans retain their stricter contract.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct MirCompoundRegionPlan {
+    pub proof: crate::mir6502::analysis::record_bases::retention::CompoundRegionProof,
+}

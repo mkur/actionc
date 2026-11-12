@@ -1,10 +1,12 @@
 //! Resident-base extension. All call ranges are resolved with their real owner.
 use super::*;
+mod compound;
 use crate::analysis::dataflow::{DataflowDirection, DataflowProblem, solve_dataflow};
 use crate::mir6502::analysis::cfg::MirCfg;
 use crate::mir6502::analysis::known_callees::{
     BoundedMachine, MirKnownCalleeSummaries, MirKnownMemoryReads, MirKnownMemoryWrites,
 };
+pub(in crate::mir6502) use compound::{CompoundRegionProof, prove_compound_region};
 use std::collections::BTreeSet;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -12,6 +14,11 @@ pub(in crate::mir6502) struct CallWrites {
     routines: BTreeMap<RoutineId, Option<BTreeSet<u16>>>,
     known: MirKnownCalleeSummaries,
     bounded: BTreeMap<RoutineId, BoundedMachine>,
+    frozen: BTreeMap<RoutineId, std::sync::Arc<MirRoutine>>,
+    homes: BTreeMap<
+        (RoutineId, RoutineId),
+        Vec<crate::mir6502::analysis::address_ranges::NumericHomeRange>,
+    >,
     ranged: BTreeMap<
         (RoutineId, RoutineId),
         Vec<crate::mir6502::analysis::address_ranges::CoherentWordRange>,
@@ -24,9 +31,22 @@ impl CallWrites {
         ranges: &crate::mir6502::analysis::address_ranges::MirAddressRanges<'_>,
     ) -> Self {
         self.ranged = ranges.validated_inputs(baseline);
+        self.homes = ranges.validated_homes(baseline);
+        for &(owner, _) in self.ranged.keys() {
+            if !self.frozen.contains_key(&owner) {
+                if let Some(r) = baseline.routines.iter().find(|r| r.id == owner) {
+                    self.frozen.insert(owner, std::sync::Arc::new(r.clone()));
+                }
+            }
+        }
         self
     }
 
+    fn compatible(&self, routine: &MirRoutine) -> bool {
+        self.frozen
+            .get(&routine.id)
+            .is_none_or(|r| r.as_ref() == routine)
+    }
     pub fn with_bounded_machine_calls(mut self, program: &MirProgram) -> Self {
         self.bounded = program
             .routines
@@ -390,6 +410,9 @@ pub(in crate::mir6502) fn prove(
     memory: &MirPhysicalMemory,
     calls: &CallWrites,
 ) -> Option<RetentionProof> {
+    if !calls.compatible(r) {
+        return None;
+    }
     let MirSite::Op { block, op_index } = site else {
         return None;
     };
@@ -467,7 +490,10 @@ impl<'routine> ResidentFacts<'routine> {
         memory: &MirPhysicalMemory,
         calls: &CallWrites,
     ) -> Option<Self> {
-        if r.blocks.len() > 256 || r.blocks.iter().map(|b| b.ops.len()).sum::<usize>() > 4096 {
+        if !calls.compatible(r)
+            || r.blocks.len() > 256
+            || r.blocks.iter().map(|b| b.ops.len()).sum::<usize>() > 4096
+        {
             return None;
         }
         let cfg = MirCfg::from_routine(r).ok()?;

@@ -1,7 +1,7 @@
 # Checked arena allocation and pointer range proofs
 
-Status: checked runtime, NIR/MIR range projection and copy footprints implemented;
-retention consumer proposed,
+Status: checked runtime, NIR/MIR ranges, copy footprints and a costed regional
+retention consumer implemented; final qualification in progress,
 2026-11-12.
 Compiler baseline: `95e88790`.
 
@@ -317,3 +317,24 @@ The existing 512-byte/4,096-step machine limits also have a 65,536-address work
 budget for interval reads and writes; exhaustion keeps the call barrier.
 Current pointer-home receipts are separate from captured SSA value receipts.
 Both source-home lanes must survive the complete physical call footprint.
+
+
+The initial consumer accepts an unchanged ordinary Action routine generation,
+a unique same-block copy call, two complete four-operation pointer setups,
+one offset-zero indirect byte addition, and return. Both current pointer words
+must have coherent numeric home receipts and both resident values must survive
+the complete physical write footprint. Final reads must stay in safe RAM and
+cannot observe the changed scratch cells. Published/current-location entries,
+extra tail operations, scratch observations and incomplete origins decline.
+The replacement remaps both consumer roles and reads both lengths after the
+copy. It does not retain a pre-copy length or infer a lifetime after rewind.
+
+A sealed `CompoundRegionProof` owns the exact source body, generation, region,
+replacement, validated call inputs, home bounds and physical map. The rewrite
+context constructs it; a separate typed regional plan in the driver replays it.
+Generic post-home plans and their removed-definition checks are unchanged.
+Selection starts from the original baseline again at final proposed layout,
+with freshly audited proposed callees. It preserves allocations and published
+exit facts and accepts only strict complete-image savings. Reporting counts an
+application after that acceptance; rejected transactions keep the baseline.
+The first implementation selects at most one region per routine generation.

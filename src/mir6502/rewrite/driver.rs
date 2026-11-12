@@ -2529,3 +2529,24 @@ mod tests {
         assert!(result.converged);
     }
 }
+
+/// A representation-changing region has its own sealed proof contract. Generic
+/// post-home plans continue to reject dependencies on removed definitions.
+pub(in crate::mir6502) fn apply_compound_region(
+    routine: &mut MirRoutine, generation: MirRoutineGeneration,
+    known: &MirKnownCalleeSummaries,
+    memory: &crate::mir6502::analysis::record_bases::MirPhysicalMemory,
+    plan: &super::plan::MirCompoundRegionPlan,
+) -> bool {
+    let map=MirMachineMemoryMap::from_routine(routine,|m|memory.address(routine.id,m));
+    let Ok(snapshot)=PostHomeAnalysisSnapshot::new_with_known_callees_and_memory_map(routine,generation,known,&map) else { return false; };
+    let context=PostHomeRewriteContext::new(&snapshot);
+    if !plan.proof.validate(routine,&context,memory) { return false; }
+    let MirSite::Op {block,op_index}=plan.proof.point().site else { return false; };
+    drop(snapshot);
+    let Some(b)=routine.blocks.iter_mut().find(|b|b.id==block) else { return false; };
+    let Some(end)=op_index.checked_add(plan.proof.original().len()) else { return false; };
+    if b.ops.get(op_index..end)!=Some(plan.proof.original()) { return false; }
+    b.ops.splice(op_index..end,plan.proof.replacement().iter().cloned());
+    true
+}

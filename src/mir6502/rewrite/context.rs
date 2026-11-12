@@ -1399,3 +1399,16 @@ mod tests {
         assert!(!proven(&r), "a successor use also prevents removal");
     }
 }
+
+impl PostHomeRewriteContext<'_, '_> {
+    pub(in crate::mir6502) fn bounded_compound_region(
+        &self, point: MirProgramPoint,
+        memory: &crate::mir6502::analysis::record_bases::MirPhysicalMemory,
+        calls: &crate::mir6502::analysis::record_bases::retention::CallWrites,
+    ) -> Option<crate::mir6502::analysis::record_bases::retention::CompoundRegionProof> {
+        self.snapshot.routine().validate_point(point).ok()?;
+        crate::mir6502::analysis::record_bases::retention::prove_compound_region(
+            self.snapshot.source(), self, point.site, memory, calls,
+        )
+    }
+}

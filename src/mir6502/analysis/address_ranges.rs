@@ -286,6 +286,23 @@ impl<'a> MirAddressRanges<'a> {
         Some(&p.homes)
     }
 
+    pub fn validated_homes(
+        &self,
+        baseline: &MirProgram,
+    ) -> BTreeMap<(RoutineId, RoutineId), Vec<NumericHomeRange>> {
+        self.calls
+            .keys()
+            .filter_map(|&(owner, callee)| {
+                let r = baseline.routines.iter().find(|r| r.id == owner)?;
+                Some((
+                    (owner, callee),
+                    self.homes_for_call(r, callee, MirRoutineGeneration::initial())?
+                        .to_vec(),
+                ))
+            })
+            .collect()
+    }
+
     pub fn validated_inputs(
         &self,
         baseline: &MirProgram,

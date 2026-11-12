@@ -1,6 +1,7 @@
 //! Costed complete-base retention after all earlier home/placement decisions.
 use super::*;
 mod promotion;
+pub(in crate::mir6502) mod checked_ranges;
 use crate::mir6502::MirRoutine;
 use crate::mir6502::analysis::effects::{MirFlagSet, MirHomeByte};
 use crate::mir6502::analysis::record_bases::{
