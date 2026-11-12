@@ -42,6 +42,7 @@ const EXECUTED: &[(&str, &str)] = &[
     ("Poke", "resident_memory_strings.act"),
     ("PokeC", "resident_memory_strings.act"),
     ("Error", "resident_error.act"),
+    ("Panic", "panic.act"),
     ("Break", "resident_break.act"),
     ("Graphics", "resident_graphics_io.act"),
     ("Position", "standalone_sys_graphics_runtime.act"),

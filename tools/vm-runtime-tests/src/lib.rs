@@ -1499,6 +1499,7 @@ mod tests {
         max_steps: u64,
     ) -> RunOutcome {
         run_runtime_fixture_with_setup(fixture, mode, runtime, false, max_steps, |vm| {
+            vm.bus_mut().ram_mut().write(0x0604, 107);
             let spin = ERROR_TRAP + 14;
             let [spin_low, spin_high] = spin.to_le_bytes();
             vm.bus_mut()
@@ -1569,6 +1570,17 @@ mod tests {
                     0xA5,
                     "Break trap marker with {runtime:?}/{mode:?}"
                 );
+
+                let panic = run_exception_fixture("panic.act", mode, runtime, max_steps);
+                assert_eq!(panic.stop_reason(), StopReason::StepLimit { max_steps });
+                assert_eq!(
+                    (0..4)
+                        .map(|offset| panic.memory().read(0x0600 + offset))
+                        .collect::<Vec<_>>(),
+                    [107, 0, 107, 0xA5],
+                    "Panic context with {runtime:?}/{mode:?}"
+                );
+                assert_eq!(panic.memory().read(0x0605), 41);
             }
         }
     }

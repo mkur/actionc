@@ -92,7 +92,8 @@ BYTE FUNC SysParseLong(STRING source BYTE signedInput LONGCARD POINTER destinati
   destination^=value
 RETURN(0)
 
-; Preserve the precise code across a returning handler, even if it changes RAM.
+; Shared SYS.Panic/checked-conversion entry. Preserve the precise code across
+; a returning handler, even if it changes RAM.
 ; Machine-only entry: the BYTE argument is already in A, without a prologue.
 PROC SysLongError(BYTE code)
   ASM

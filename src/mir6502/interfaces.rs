@@ -602,8 +602,22 @@ mod tests {
     fn embedded_sys_bindings_are_unique_and_runtime_specific() {
         let cart = parse_bindings(Runtime::ActionCart).expect("cart bindings");
         let standalone = parse_bindings(Runtime::Standalone).expect("standalone bindings");
-        assert_eq!(cart.len(), 95);
-        assert_eq!(standalone.len(), 95);
+        assert_eq!(cart.len(), 96);
+        assert_eq!(standalone.len(), 96);
+        assert_eq!(
+            cart["SYS.PANIC"],
+            BindingTarget::RuntimeRoutine {
+                unit: "SYSLONGC".to_string(),
+                routine: "CartLongError".to_string(),
+            }
+        );
+        assert_eq!(
+            standalone["SYS.PANIC"],
+            BindingTarget::RuntimeRoutine {
+                unit: "SYSLONG".to_string(),
+                routine: "SysLongError".to_string(),
+            }
+        );
         assert_eq!(cart["SYS.ZERO"], BindingTarget::Absolute(0xA78A));
         assert_eq!(
             standalone["SYS.ZERO"],

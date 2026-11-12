@@ -25,6 +25,7 @@ SET SYS.PeekC=SYSMISC_PeekC
 SET SYS.Poke=SYSMISC_Poke
 SET SYS.PokeC=SYSMISC_PokeC
 SET SYS.Error=SYSLIB_Error
+SET SYS.Panic=SYSLONG_SysLongError
 SET SYS.Break=SYSLIB_Break
 SET SYS.Graphics=SYSGR_Graphics
 SET SYS.Position=SYSGR_Position

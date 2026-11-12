@@ -1,0 +1,7 @@
+; Panic establishes the Error ABI and cannot resume subsequent source code.
+BYTE code=$0604, state=$0605
+PROC Main()
+  state=41
+  Panic(code)
+  state=42
+RETURN

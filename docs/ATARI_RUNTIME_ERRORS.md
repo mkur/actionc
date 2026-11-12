@@ -7,6 +7,19 @@ their enum discriminants are not public Atari error numbers.
 
 ## Error codes
 
+`SYS.Panic(BYTE code)` is the public non-returning fatal-error API. Legacy
+unqualified `Panic(code)` is also available. It accepts a caller-provided byte
+unchanged and calls the selected runtime's `Error` with A/Y=code and X=0.
+If the handler returns, Panic clears decimal mode, restores the code from the
+hardware stack, sets carry, and loops forever. It never resumes subsequent
+source statements. The handler must preserve the hardware return stack as
+required by the normal calling convention.
+
+Cartridge Error reports the code and enters the monitor. Standalone Error
+transfers through DOSVEC and does not promise a printed diagnostic. Panic does
+not add screen setup, recovery, or rollback. Calls retain conservative memory
+effects; the compiler does not infer terminal control flow from the API name.
+
 | Code | Reason | Reported by |
 | --- | --- | --- |
 | 100 | `InvalidArgument` | Generic invalid runtime argument; existing cartridge convention, not a catchall. |
@@ -104,6 +117,8 @@ adapter; all fault helpers have no arguments/results and opaque handler effects.
   normal result or executes subsequent source effects.
   LONG conversion wrappers preserve their dynamic code on the hardware stack
   across the handler, rather than depending on handler-preserved registers/RAM.
+  `SYS.Panic` links those same dynamic-code wrappers; it does not import LONG
+  conversion or I/O routines merely to report a panic.
 
 This intentionally delegates screen policy to Error. Cartridge SysErr enables
 the display/restores its background, but does not itself allocate a new
@@ -121,8 +136,17 @@ inspect prior fixed or escaped storage. NIR preserves/synchronizes those writes;
 MIR models arbitrary handler memory/OS effects rather than just successful
 arithmetic scratch. A proven nonzero divisor needs no NIR fault barrier.
 
+TN's checked arena retains `ArenaStop`'s local sink. The range analysis excludes
+opaque external calls from non-return certificates, even before a source loop.
+Using `Panic` there requires structured non-return/effect facts; the runtime
+API guarantee alone does not establish the allocator's bounds proof.
+
 - `tools/vm-runtime-tests/tests/action_error.rs` boots the real ROM and passes
   distinct A/X/Y values, proving that the original formatter reports Y.
+- `tools/vm-runtime-tests/tests/panic.rs` exercises dynamic byte codes, both
+  runtimes and all three compile modes through LF/CRLF source files at two
+  origins. A returning handler overwrites the input byte, clobbers registers,
+  and sets decimal mode; Panic preserves the code and prevents continuation.
 - `tools/vm-runtime-tests/tests/modern_arithmetic.rs` exercises both link modes
   and all three compile profiles, including the unmodified cartridge handler,
   a returning handler, prior-state observation, and no post-fault effects.

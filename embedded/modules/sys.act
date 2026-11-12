@@ -43,6 +43,8 @@ PUBLIC EXTERNAL PROC PokeC(CARD address, value)
 ; Raw A/X/Y ABI: the cartridge reports Y, standalone Error jumps to DOSVEC.
 ; Use Error(code,0,code) to supply the same code to A-based handlers and the cart.
 PUBLIC EXTERNAL PROC Error(BYTE code, x, y)
+; Report code through Error with A/Y=code and X=0; never return to the caller.
+PUBLIC EXTERNAL PROC Panic(BYTE code)
 PUBLIC EXTERNAL PROC Break()
 
 ; Graphics color index consumed by Plot, DrawTo, and Fill.

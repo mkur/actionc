@@ -97,14 +97,10 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         .flat_map(|module| module.items.iter().cloned())
         .collect::<Vec<_>>();
     let mut preflight = application.clone();
-    if !runtime_items.is_empty() {
-        preflight.modules.insert(
-            0,
-            Module {
-                items: runtime_items.clone(),
-            },
-        );
-    }
+    // Preflight must respect the same fixed allocation controls as emission.
+    // A runtime prefix can otherwise overrun a later application cursor reset.
+    preflight.modules =
+        insert_runtime_after_application_layout(preflight.modules, runtime_items.clone());
     let (_, classic_runtime_requirements) =
         super::driver::generate_with_options_and_requirements_with_projection_facts(
             &preflight,

@@ -936,7 +936,7 @@ fn implicit_sys_public_routines_share_the_compatibility_symbol_ids() {
             })
             .collect::<Vec<_>>();
 
-        assert_eq!(public_routines.len(), 95, "complete SYS API");
+        assert_eq!(public_routines.len(), 96, "complete SYS API");
         for (symbol_id, symbol) in public_routines {
             if matches!(
                 symbol.name.to_ascii_uppercase().as_str(),

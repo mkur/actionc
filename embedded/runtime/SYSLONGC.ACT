@@ -8,6 +8,7 @@ PROC CartLongPutE=$A4CC()
 PROC CartLongPutDE=$A4DA(BYTE channel)
 PROC CartLongInputMD=$A499(BYTE channel STRING destination BYTE maximum)
 
+; Shared SYS.Panic/checked-conversion entry.
 ; Machine-only entry receives the BYTE code directly in A.
 PROC CartLongError(BYTE code)
   ASM
