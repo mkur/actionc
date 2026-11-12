@@ -240,6 +240,7 @@ fn failures(image: &[u8], listing: &str, runtime: Runtime) -> usize {
 #[test]
 fn real_arena_success_and_window_checkpoints_with_lf_and_crlf() {
     let mut calls = 0;
+    let mut measurements = String::new();
     for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for name in ["TN.ACT", "TNDBG.ACT"] {
@@ -252,6 +253,18 @@ fn real_arena_success_and_window_checkpoints_with_lf_and_crlf() {
                         assert_eq!(image, &bytes);
                     } else {
                         image = Some(bytes.clone());
+                    }
+                    if !crlf {
+                        if let Some(file) = std::env::var_os("ACTIONC_ARENA_VM_RESULTS") {
+                            let path = PathBuf::from(file);
+                            let parent = path.parent().unwrap();
+                            std::fs::create_dir_all(parent).unwrap();
+                            std::fs::write(
+                                parent.join(format!("vm-{name}-{mode:?}-{runtime:?}.xex")),
+                                &bytes,
+                            )
+                            .unwrap();
+                        }
                     }
                     let routine = |n| symbols::routine_address(&listing, n);
                     let global = |n| symbols::global_address(&listing, n);
@@ -266,7 +279,14 @@ fn real_arena_success_and_window_checkpoints_with_lf_and_crlf() {
                     assert_eq!(vm.bus().ram().read_word(0xE8), 0x2000);
                     for n in [0u16, 1, 0, 255, 256, 0x800 - 512] {
                         let before = vm.bus().ram().read_word(0xE8);
+                        let started = vm.cpu().cycles();
                         vm = machine::call(vm, &mut hooks, routine("Alloc"), &n.to_le_bytes());
+                        if !crlf {
+                            measurements.push_str(&format!(
+                                "{name}\t{mode:?}\t{runtime:?}\tAlloc\t{n}\t{before}\t{}\n",
+                                vm.cpu().cycles() - started
+                            ));
+                        }
                         assert_eq!(vm.bus().ram().read_word(0xA0), before);
                         assert_eq!(vm.bus().ram().read_word(0xE8), before + n);
                     }
@@ -344,6 +364,12 @@ fn real_arena_success_and_window_checkpoints_with_lf_and_crlf() {
                         if name == "TNDBG.ACT" { 0x274C } else { 0x2583 }
                     );
                     eprintln!("UI high-water: ${:04X}", hooks.high_water);
+                    if !crlf {
+                        measurements.push_str(&format!(
+                            "{name}\t{mode:?}\t{runtime:?}\tUI-high-water\t0\t{}\t0\n",
+                            hooks.high_water
+                        ));
+                    }
                     // Two short lengths can overwrite t's parameter home.
                     // This is valid generic input, without a length overflow.
                     let t_home = parameter(&listing, "Strcat", "t");
@@ -353,7 +379,14 @@ fn real_arena_success_and_window_checkpoints_with_lf_and_crlf() {
                     vm.bus_mut().ram_mut().write(0x7300, 5);
                     let mut args = dst.to_le_bytes().to_vec();
                     args.extend(0x7200u16.to_le_bytes());
+                    let started = vm.cpu().cycles();
                     vm = machine::call(vm, &mut hooks, routine("Strcat"), &args);
+                    if !crlf {
+                        measurements.push_str(&format!(
+                            "{name}\t{mode:?}\t{runtime:?}\tStrcat-alias-3-2\t2\t{dst}\t{}\n",
+                            vm.cpu().cycles() - started
+                        ));
+                    }
                     assert_eq!(vm.bus().ram().read_word(t_home), 0x7300);
                     assert_eq!(vm.bus().ram().read(dst), 8);
                     calls += hooks.calls + failures(&bytes, &listing, runtime);
@@ -361,7 +394,67 @@ fn real_arena_success_and_window_checkpoints_with_lf_and_crlf() {
             }
         }
     }
+    if let Some(path) = std::env::var_os("ACTIONC_ARENA_VM_RESULTS") {
+        std::fs::write(path, measurements).unwrap();
+    }
     eprintln!(
         "checked-arena success/fault controls: {calls} calls, both backends/runtimes and LF/CRLF"
     );
+}
+
+#[test]
+#[ignore = "requires the frozen unchecked controls; measures only valid allocator calls"]
+fn unchecked_valid_allocation_cycle_controls() {
+    let mut measurements = String::new();
+    for mode in ["optimized", "mir6502"] {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let rt = if runtime == Runtime::ActionCart {
+                "cart"
+            } else {
+                "standalone"
+            };
+            for name in ["TN", "TNDBG"] {
+                let stem = root().join(format!("build/checked-arena/{name}-{mode}-{rt}"));
+                let bytes = std::fs::read(stem.with_extension("xex")).unwrap();
+                let listing = std::fs::read_to_string(stem.with_extension("asm"))
+                    .unwrap()
+                    .replace("\r\n", "\n");
+                let (mut vm, profile) = support::vm_for(runtime);
+                vm.load_atari_object_for_execution(profile, &bytes).unwrap();
+                let mut hooks = Observe {
+                    high_water: 0,
+                    calls: 0,
+                };
+                vm = machine::call(
+                    vm,
+                    &mut hooks,
+                    symbols::routine_address(&listing, "Init"),
+                    &[],
+                );
+                for n in [0u16, 1, 0, 255, 256, 0x800 - 512] {
+                    let before = vm.bus().ram().read_word(0xE8);
+                    let started = vm.cpu().cycles();
+                    vm = machine::call(
+                        vm,
+                        &mut hooks,
+                        symbols::routine_address(&listing, "Alloc"),
+                        &n.to_le_bytes(),
+                    );
+                    assert_eq!(vm.bus().ram().read_word(0xE8), before + n);
+                    measurements.push_str(&format!(
+                        "{name}.ACT\t{}\t{runtime:?}\tAlloc\t{n}\t{before}\t{}\n",
+                        if mode == "optimized" {
+                            "Optimized"
+                        } else {
+                            "Mir6502"
+                        },
+                        vm.cpu().cycles() - started
+                    ));
+                }
+            }
+        }
+    }
+    if let Some(path) = std::env::var_os("ACTIONC_UNCHECKED_ARENA_VM_RESULTS") {
+        std::fs::write(path, measurements).unwrap();
+    }
 }

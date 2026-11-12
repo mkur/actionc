@@ -1,8 +1,14 @@
 # Checked arena and pointer ranges implementation plan
 
-Status: implementation in progress; slices 0–6 delivered. Starting revision: `c1dc6a5a`; compiler baseline:
+Status: implemented and qualified; slices 0–7 delivered. Starting revision: `c1dc6a5a`; compiler baseline:
 `95e88790`. Implements the [design note](TN_CHECKED_ARENA_AND_POINTER_RANGES_DESIGN.md).
 Work in the numbered slices below and commit each after its applicable checks.
+
+The [qualification scorecard](benchmarks/6502-checked-arena/RESULTS.md) records
+the completed checks and all three configurations. Optimized MIR6502 enables
+the qualified consumer; conservative defaults keep it off. The neutral case
+saves 40 complete-image bytes. TN retains its generic 113-byte `Strcat` and
+pays 451 MIR6502 load-file bytes for the checked library.
 
 There are two independently useful deliveries: a checked arena interface, and
 compiler reuse of ranges derived from verified code. Runtime checks remain

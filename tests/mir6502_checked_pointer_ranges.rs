@@ -6,7 +6,7 @@ use actionc::{
 #[test]
 fn checked_range_regions_save_twenty_bytes_each_and_respect_parent_gating() {
     assert!(!Mir6502Config::default().enable_checked_range_pointer_retention);
-    assert!(!Mir6502Config::optimized().enable_checked_range_pointer_retention);
+    assert!(Mir6502Config::optimized().enable_checked_range_pointer_retention);
     let lf = include_str!("../fixtures/runtime/checked_pointer_ranges.act").replace("\r\n", "\n");
     for source in [lf.clone(), lf.replace('\n', "\r\n")] {
         let tokens = actionc::lexer::tokenize(&source).unwrap();
@@ -24,6 +24,7 @@ fn checked_range_regions_save_twenty_bytes_each_and_respect_parent_gating() {
                     for parent in [false, true] {
                         let mut config = Mir6502Config {
                             enable_pointer_call_retention: parent,
+                            enable_checked_range_pointer_retention: false,
                             ..Mir6502Config::optimized()
                         };
                         let old = mir6502::generate_output_with_config_and_runtime(
@@ -40,6 +41,7 @@ fn checked_range_regions_save_twenty_bytes_each_and_respect_parent_gating() {
                             continue;
                         }
                         assert_eq!(old.bytes.len() - new.bytes.len(), 40);
+                        assert_eq!(actionc::codegen::format_load_file(&old).len()-actionc::codegen::format_load_file(&new).len(),40);
                         for name in ["Guarded", "FromReturn", "Unrestricted", "CopyBytes"] {
                             let size = |o: &actionc::codegen::CodegenOutput| {
                                 let r = o

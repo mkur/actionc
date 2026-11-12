@@ -175,6 +175,7 @@ impl Mir6502Config {
             enable_private_memory_shifts: true,
             enable_dead_register_arithmetic: true,
             enable_captured_bound_motion: true,
+            enable_checked_range_pointer_retention: true,
             ..Self::default()
         }
     }

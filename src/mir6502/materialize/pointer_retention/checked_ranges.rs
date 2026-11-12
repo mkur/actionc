@@ -1,7 +1,43 @@
 //! Separately costed final family. Bounds never leak into generic retention.
 use super::*;
+use crate::mir6502::MirRoutineAbi;
 use crate::mir6502::analysis::{address_ranges::MirAddressRanges, sites::MirRoutineGeneration};
 use crate::mir6502::rewrite::{driver::apply_compound_region, plan::MirCompoundRegionPlan};
+
+/// Cheap admission before cloning source MIR or running numeric analysis.
+/// This tests only a target shape; it supplies no semantic range assumption.
+pub(in crate::mir6502) fn has_candidate(program: &MirProgram) -> bool {
+    program
+        .routines
+        .iter()
+        .filter(|r| r.abi == MirRoutineAbi::Action)
+        .any(|r| {
+            r.blocks.iter().any(|b| {
+                let Some(i) = b.ops.len().checked_sub(9) else {
+                    return false;
+                };
+                i > 0
+                    && matches!(b.terminator, MirTerminator::Return)
+                    && matches!(
+                        b.ops[i - 1],
+                        MirOp::Call {
+                            target: MirCallTarget::Routine(_),
+                            ..
+                        }
+                    )
+                    && record_bases::setup_pair(&b.ops[i..i + 4]).is_some()
+                    && record_bases::setup_pair(&b.ops[i + 4..i + 8]).is_some()
+                    && matches!(
+                        b.ops[i + 8],
+                        MirOp::IndirectByteCompound {
+                            op: MirBinaryOp::Add,
+                            offset: 0,
+                            ..
+                        }
+                    )
+            })
+        })
+}
 
 fn apply_ranges(
     baseline: &MirProgram,
@@ -36,6 +72,23 @@ fn apply_ranges(
         }
     }
     Some((proposed, affected))
+}
+
+fn profitable(
+    baseline: &MirProgram,
+    proposed: &MirProgram,
+    affected: &BTreeSet<RoutineId>,
+    origin: u16,
+) -> bool {
+    match (
+        address_values::Cost::measure(baseline, origin),
+        address_values::Cost::measure(proposed, origin),
+    ) {
+        (Some(old), Some(new)) => {
+            new.bytes < old.bytes && affected.iter().all(|id| new.does_not_grow(&old, *id))
+        }
+        _ => false,
+    }
 }
 
 pub(in crate::mir6502) fn select_costed(
@@ -80,15 +133,7 @@ pub(in crate::mir6502) fn select_costed(
             .iter()
             .zip(&proposed.routines)
             .all(|(a, b)| a.frame == b.frame)
-        && match (
-            address_values::Cost::measure(&baseline, origin),
-            address_values::Cost::measure(&proposed, origin),
-        ) {
-            (Some(old), Some(new)) => {
-                new.bytes < old.bytes && affected.iter().all(|id| new.does_not_grow(&old, *id))
-            }
-            _ => false,
-        };
+        && profitable(&baseline, &proposed, &affected, origin);
     let mut stats = MirPeepholeStats::default();
     for id in affected {
         stats.record(
@@ -103,3 +148,6 @@ pub(in crate::mir6502) fn select_costed(
     maybe_report_peepholes(if accepted { &proposed } else { &baseline }, &stats, config);
     Ok(if accepted { proposed } else { baseline })
 }
+
+#[cfg(test)]
+mod qualification;

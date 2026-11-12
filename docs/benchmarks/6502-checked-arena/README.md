@@ -1,5 +1,10 @@
 # Checked arena controls
 
+The checked runtime and optimized range consumer are delivered. See the
+[qualification scorecard](RESULTS.md) and [fresh bindings](checked.json) for
+complete unchecked/checked-off/checked-on sizes, cycle costs and TN admission.
+Historical controls below remain frozen.
+
 The implementation starts from `dedd35ab`. `unchecked.json` freezes TN and
 TNDBG in classic optimized/MIR6502 and cartridge/standalone configurations.
 It records source and compiler hashes, image sizes/hashes, routine ranges and

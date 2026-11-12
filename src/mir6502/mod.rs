@@ -333,9 +333,9 @@ pub fn generate_output_with_config_and_runtime(
 ) -> Result<crate::codegen::CodegenOutput, Vec<MirDiagnostic>> {
     let mir = lower_program(nir)?;
     let range_source = (config.enable_peepholes && config.enable_pointer_call_retention
-        && config.enable_checked_range_pointer_retention).then(|| mir.clone());
+        && config.enable_checked_range_pointer_retention && !mir.machine_blocks.is_empty()).then(|| mir.clone());
     let mir = materialize_program_with_origin_and_runtime(mir, config, origin, runtime)?;
-    let address_ranges = range_source.as_ref().map(|source| {
+    let address_ranges = range_source.as_ref().filter(|_| materialize::pointer_retention::checked_ranges::has_candidate(&mir)).map(|source| {
         analysis::address_ranges::MirAddressRanges::project(nir, source, &mir)
     }).transpose()?;
     let mir = if let Some(ranges) = &address_ranges {

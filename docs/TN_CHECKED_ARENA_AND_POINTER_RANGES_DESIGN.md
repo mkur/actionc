@@ -1,7 +1,7 @@
 # Checked arena allocation and pointer range proofs
 
-Status: checked runtime, NIR/MIR ranges, copy footprints and a costed regional
-retention consumer implemented; final qualification in progress,
+Status: checked runtime, NIR/MIR ranges, copy footprints and the costed regional
+retention consumer implemented and qualified,
 2026-11-12.
 Compiler baseline: `95e88790`.
 
@@ -338,3 +338,14 @@ with freshly audited proposed callees. It preserves allocations and published
 exit facts and accepts only strict complete-image savings. Reporting counts an
 application after that acceptance; rejected transactions keep the baseline.
 The first implementation selects at most one region per routine generation.
+
+
+Optimized MIR6502 enables `enable_checked_range_pointer_retention`; conservative
+defaults keep it off. Disabling peepholes or parent pointer-call retention also
+disables the consumer. Programs without machine blocks avoid the source-MIR
+clone, and the absence of the final regional shape avoids numeric analysis.
+Runtime checks remain active independently of compiler optimization flags.
+The [qualification scorecard](benchmarks/6502-checked-arena/RESULTS.md) binds the
+source/images and distinguishes checked-library cost from compiler savings.
+The neutral guarded/checked-return case saves 40 complete-image bytes; TN's
+unrestricted `Strcat` stays 113 bytes, with no caller-specific specialization.
