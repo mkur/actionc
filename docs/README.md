@@ -244,6 +244,9 @@ crowding the active reference set.
   - context-specific machine write footprints prove pointer homes unchanged
   across bounded owned-buffer copies; [results](benchmarks/6502-bounded-call-retention/README.md)
   save ten bytes in the neutral case and retain TN's unknown-pointer fallback.
+- [Checked arena allocation and pointer range proofs](TN_CHECKED_ARENA_AND_POINTER_RANGES_DESIGN.md)
+  - proposed checked cursor/checkpoint contract for TN, derived NIR ranges,
+  call-entry requirements and physical disjointness for pointer reuse.
 - [MIR6502_WIDE_SHIFT_COPY_REDUCTION.md](MIR6502_WIDE_SHIFT_COPY_REDUCTION.md)
   - byte and nibble projections for constant wide shifts, preserving captured
   operands while reducing staging for narrow results.

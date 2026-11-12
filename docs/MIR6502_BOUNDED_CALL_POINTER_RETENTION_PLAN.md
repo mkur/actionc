@@ -90,3 +90,8 @@ their string/parameter-alias and dispatch/panel VM checks also pass. The
 [scorecard](benchmarks/6502-bounded-call-retention/README.md) records exact
 hashes, unchanged storage, sizes and sample cycles. TN's `Strcat` remains 113
 bytes because its destination bounds and entry provenance are still unknown.
+
+The follow-up [checked arena and pointer range design](TN_CHECKED_ARENA_AND_POINTER_RANGES_DESIGN.md)
+specifies runtime bounds, checkpoint semantics and the additional range/entry
+facts needed to address those remaining blockers. It is a separate proposed
+extension; the qualified proof above remains unchanged.
