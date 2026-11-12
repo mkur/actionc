@@ -1,0 +1,69 @@
+; Neutral range controls. Deliberately unrelated names and unaligned bounds.
+ORG $3000
+CONST CARD FLOOR=$2103, LIMIT=$270B
+CARD cursor=$E8
+BYTE fault
+BYTE before, after
+
+PROC StopRange(BYTE reason)
+  fault=reason
+  DO OD
+RETURN
+
+CARD FUNC Reserve(CARD amount)
+  CARD captured, request
+  captured=cursor request=amount
+  IF captured<FLOOR THEN StopRange(1) FI
+  IF captured>LIMIT THEN StopRange(1) FI
+  IF request>LIMIT-captured THEN StopRange(2) FI
+  cursor=captured+request
+RETURN(captured)
+
+CARD FUNC Unchecked(CARD amount)
+  cursor==+amount
+RETURN(cursor-amount)
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers $A0-$A2
+;@actionc writes $0000-$FFFF
+PROC CopyBytes=*(CARD dst, src BYTE count)
+ASM
+  sta $A0
+  stx $A1
+  sty $A2
+  ldy $A4
+  dey
+again:
+  lda ($A2),y
+  sta ($A0),y
+  dey
+  cpy #$FF
+  bne again
+  rts
+ENDASM
+
+PROC Guarded(CHAR POINTER dst, src)
+  IF dst<FLOOR THEN StopRange(1) FI
+  IF dst>LIMIT THEN StopRange(1) FI
+  IF src<FLOOR THEN StopRange(1) FI
+  IF src>LIMIT THEN StopRange(1) FI
+  CopyBytes(dst+dst^+1,src+1,src^)
+  dst^==+src^
+RETURN
+
+PROC FromReturn()
+  CHAR POINTER dst, src
+  dst=CHAR POINTER(Reserve(32))
+  src=CHAR POINTER(Reserve(32))
+  CopyBytes(dst+dst^+1,src+1,src^)
+  dst^==+src^
+RETURN
+
+PROC Unrestricted(CHAR POINTER dst, src)
+  CopyBytes(dst+dst^+1,src+1,src^)
+  dst^==+src^
+RETURN
+
+PROC Main()
+  cursor=FLOOR
+RETURN
