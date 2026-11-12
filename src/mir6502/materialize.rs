@@ -484,7 +484,7 @@ pub(in crate::mir6502) fn analyzed_pointer_temp_deref_candidates(
 }
 
 pub(in crate::mir6502) fn analyzed_store_consumer_candidates(
-    routine_id: RoutineId,
+    routine: &super::ir::MirRoutine,
     block: &super::ir::MirBlock,
     config: &Mir6502Config,
     layout: &MaterializeLayout,
@@ -495,7 +495,7 @@ pub(in crate::mir6502) fn analyzed_store_consumer_candidates(
     (0..ops.len())
         .filter_map(|index| {
             analyzed_store_consumer_candidate_at(
-                routine_id,
+                routine,
                 block.id,
                 ops,
                 index,
@@ -1049,7 +1049,7 @@ fn expand_index_rewrite_window_with_producers(
 
 #[allow(clippy::too_many_arguments)]
 fn analyzed_store_consumer_candidate_at(
-    routine_id: RoutineId,
+    routine: &super::ir::MirRoutine,
     block_id: MirBlockId,
     ops: &[MirOp],
     index: usize,
@@ -1059,6 +1059,7 @@ fn analyzed_store_consumer_candidate_at(
     temp_widths: &BTreeMap<MirTempId, MirWidth>,
     delayed_byte_indexes: &indexes::DelayedByteIndexPlan,
 ) -> Option<StoreConsumerRewriteCandidate> {
+    let routine_id = routine.id;
     let mut replacement = Vec::new();
     let consumed = select_absolute_word_sub_indirect_store_consumer(
         ops,
@@ -1296,8 +1297,9 @@ fn analyzed_store_consumer_candidate_at(
         });
     }
 
-    let consumed =
-        select_store_expr_producers(ops, index, terminator, config, layout, &mut replacement);
+    let consumed = select_store_expr_producers(
+        ops, index, terminator, config, layout, routine, &mut replacement,
+    );
     (consumed > 0).then_some(StoreConsumerRewriteCandidate {
         start: index,
         consumed,

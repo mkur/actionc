@@ -10,7 +10,7 @@ use super::word_sources::{
 };
 use super::*;
 use crate::mir6502::analysis::effects::MirFlagSet;
-use crate::mir6502::ir::{MirRegisterSet, MirRoutine};
+use crate::mir6502::ir::{MirRegisterSet, MirRoutine, MirStorageClass};
 use crate::mir6502::rewrite::context::{MirExitStateChange, PostHomeRewriteContext};
 use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
 use crate::mir6502::rewrite::posthome::structural_plan;
@@ -621,7 +621,7 @@ pub(super) fn try_materialize_store_expr_producers(
     out: &mut Vec<MirOp>,
 ) -> usize {
     try_materialize_store_expr_producers_with_deadness(
-        ops, index, terminator, config, layout, true, out,
+        ops, index, terminator, config, layout, None, true, out,
     )
 }
 
@@ -631,10 +631,18 @@ pub(super) fn select_store_expr_producers(
     terminator: &MirTerminator,
     config: &Mir6502Config,
     layout: &MaterializeLayout,
+    routine: &MirRoutine,
     out: &mut Vec<MirOp>,
 ) -> usize {
     try_materialize_store_expr_producers_with_deadness(
-        ops, index, terminator, config, layout, false, out,
+        ops,
+        index,
+        terminator,
+        config,
+        layout,
+        Some(routine),
+        false,
+        out,
     )
 }
 
@@ -864,18 +872,25 @@ fn materialize_widened_byte_shift_to_word_mem(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn try_materialize_store_expr_producers_with_deadness(
     ops: &[MirOp],
     index: usize,
     terminator: &MirTerminator,
     config: &Mir6502Config,
     layout: &MaterializeLayout,
+    routine: Option<&MirRoutine>,
     require_local_deadness: bool,
     out: &mut Vec<MirOp>,
 ) -> usize {
-    let Some(plan) =
-        collect_store_expr_plan(ops, index, terminator, layout, require_local_deadness)
-    else {
+    let Some(plan) = collect_store_expr_plan(
+        ops,
+        index,
+        terminator,
+        layout,
+        routine,
+        require_local_deadness,
+    ) else {
         return 0;
     };
     let consumed = plan.consumed;
@@ -910,11 +925,26 @@ fn collect_store_expr_plan(
     index: usize,
     terminator: &MirTerminator,
     layout: &MaterializeLayout,
+    routine: Option<&MirRoutine>,
     require_local_deadness: bool,
 ) -> Option<StoreExprPlan> {
     let mut exprs = BTreeMap::<MirTempId, StoreExpr>::new();
     let mut cursor = index;
+    let mut copied_word_expression = false;
     while let Some((temp, expr)) = store_expr_producer(ops.get(cursor)?, &exprs, layout) {
+        copied_word_expression |= matches!(
+            ops[cursor],
+            MirOp::Move {
+                width: MirWidth::Word,
+                ..
+            }
+        ) && matches!(
+            expr,
+            StoreExpr::Binary {
+                width: MirWidth::Word,
+                ..
+            }
+        );
         exprs.insert(temp, expr);
         cursor += 1;
     }
@@ -938,6 +968,12 @@ fn collect_store_expr_plan(
     if !store_expr_width_can_store(&expr, *width) {
         return None;
     }
+    if copied_word_expression
+        && (*width != MirWidth::Word
+            || !copied_word_store_is_safe(&ops[index..cursor], store_dst, layout, routine))
+    {
+        return None;
+    }
     if *width == MirWidth::Byte
         && store_expr_width(&expr) == MirWidth::Word
         && binary_flags_may_be_live_after(ops, cursor.saturating_add(1), terminator)
@@ -957,6 +993,68 @@ fn collect_store_expr_plan(
         dst: store_dst.clone(),
         expr,
         width: *width,
+    })
+}
+
+fn copied_word_store_is_safe(
+    producers: &[MirOp],
+    destination: &MirMem,
+    layout: &MaterializeLayout,
+    routine: Option<&MirRoutine>,
+) -> bool {
+    use crate::mir6502::analysis::effects::classify_op;
+    // Keep destination writes clear of generated code as well as frame roots.
+    if !layout.ordinary_storage_is_above_zero_page() {
+        return false;
+    }
+    let Some(start) = layout.fixed_zero_page_address(destination) else {
+        return false;
+    };
+    let Some(end) = start.checked_add(2).filter(|end| *end <= 0x0100) else {
+        return false;
+    };
+    producers.iter().all(|op| {
+        let effects = classify_op(op);
+        if effects.machine.register_reads != MirRegisterSet::default()
+            || effects.memory.has_unknown_effects
+            || effects.memory.indirect_reads
+        {
+            return false;
+        }
+        effects.memory.direct_reads.iter().all(|read| {
+            if !layout.mem_allows_pure_read_reordering(&read.base) {
+                return false;
+            }
+            if let Some(source) = layout.fixed_zero_page_address(&read.base) {
+                return source.checked_add(read.bytes).is_some_and(|source_end| {
+                    source_end <= 0x0100 && (source_end <= start || end <= source)
+                });
+            }
+            let Some(routine) = routine else {
+                return false;
+            };
+            // Only declared, bounded scalar roots establish the origin bound.
+            // Alias views, absolute declarations and descriptors need separate
+            // proofs; no estimated per-object address is used.
+            let (slots, offset) = match &read.base {
+                MirMem::Local { offset, .. } => (&routine.frame.locals, *offset),
+                MirMem::Param { offset, .. } => (&routine.frame.params, *offset),
+                _ => return false,
+            };
+            read.bytes > 0
+                && slots.iter().any(|slot| {
+                    let same_root = match (&read.base, &slot.base) {
+                        (MirMem::Local { id, .. }, MirStorageBase::Local(root)) => id == root,
+                        (MirMem::Param { id, .. }, MirStorageBase::Param(root)) => id == root,
+                        _ => false,
+                    };
+                    same_root
+                        && slot.storage == MirStorageClass::Scalar
+                        && slot.scalar_width.is_some()
+                        && slot.init.is_none()
+                        && u32::from(offset) + u32::from(read.bytes) <= u32::from(slot.storage_size)
+                })
+        })
     })
 }
 
@@ -1001,13 +1099,25 @@ fn store_expr_producer(
                 width: MirWidth::Word,
             },
         )),
-        MirOp::Move { dst, src, width } => Some((
-            split_def_as_temp(dst)?,
-            StoreExpr::Value {
-                value: store_expr_plain_value(src, exprs, layout)?,
-                width: *width,
-            },
-        )),
+        MirOp::Move { dst, src, width } => {
+            // Same-width word moves include representation-preserving pointer
+            // casts. Keep their expression tree until store selection, rather
+            // than requiring an arithmetic result to have a temporary home.
+            let expression = store_expr_value_as_temp(src).and_then(|id| exprs.get(&id));
+            let expression = match expression {
+                Some(
+                    expr @ StoreExpr::Binary {
+                        width: MirWidth::Word,
+                        ..
+                    },
+                ) if *width == MirWidth::Word => expr.clone(),
+                _ => StoreExpr::Value {
+                    value: store_expr_plain_value(src, exprs, layout)?,
+                    width: *width,
+                },
+            };
+            Some((split_def_as_temp(dst)?, expression))
+        }
         MirOp::Binary {
             op,
             dst,
@@ -5029,3 +5139,6 @@ fn explicit_byte_carry(op: MirBinaryOp, carry_in: Option<MirCarryIn>) -> Option<
         _ => None,
     })
 }
+
+#[cfg(test)]
+mod word_move_tests;

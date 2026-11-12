@@ -914,7 +914,7 @@ pub(in crate::mir6502) fn discover_store_consumers(
     let mut plans = Vec::new();
     for block in &routine.blocks {
         for (index, candidate) in crate::mir6502::materialize::analyzed_store_consumer_candidates(
-            routine.id, block, config, layout,
+            routine, block, config, layout,
         ) {
             let plan = match candidate.stat {
                 "indexed-byte-inc-dec-update" => {

@@ -1666,6 +1666,34 @@ change it to X. If the no-wrap proof is unavailable, materialization must
 retain the independent index computations so byte-index modulo behavior is
 unchanged.
 
+### Word expression stores through same-width moves
+
+Before home allocation, the existing expression-store consumer may carry a
+word Add/Sub expression through one or more word `Move` operations. These
+moves include the MIR representation of bit-preserving integer/pointer casts;
+the typed cast remains in NIR. The consumer retains the computation tree and
+selects the existing low/high arithmetic stores directly into the destination.
+No new NIR form, MIR opcode, allocation policy or public ABI is involved.
+
+This extension requires a complete, non-wrapping fixed zero-page word
+destination and pure input reads proved disjoint from it. Fixed zero-page
+inputs use their exact ranges. Declared, in-bounds, uninitialized scalar local
+and parameter roots are separated by emission's main-origin lower bound when
+that origin is at least `$0100`; tentative per-object layout addresses do not
+prove disjointness. Local alias views, initialized/descriptor frame views, ordinary global
+or static inputs, unresolved/virtual destinations and origins inside zero page
+do not gain permission through this narrow proof.
+
+Both operand words must retain their captured values when the low result is
+stored before the high-byte reads. Physical overlap therefore retains the
+original staging, even when different global IDs denote the same bytes.
+Explicit register inputs, indirect reads, hardware reads and unknown effects
+are excluded. The producer window crosses no call, barrier or machine block.
+Width-changing moves and narrowed stores retain their previous behavior.
+Existing single-consumer checks and routine-wide removed-definition proofs
+reject escaping results, and the existing rewrite driver enforces generation
+and effect checks. There is no general word copy-propagation pass.
+
 ### Destination-aware indirect word arithmetic
 
 `IndirectWordCompound` is a post-selection MIR6502 operation for an alias-safe

@@ -1,0 +1,49 @@
+ORG $3000
+CARD left=$D0,right=$D2
+CARD POINTER result=$D8,leftHigh=$D1,rightHigh=$D3,same=$D0
+
+PROC Add()
+  result=CARD POINTER(left+right)
+RETURN
+
+PROC Subtract()
+  result=CARD POINTER(left-right)
+RETURN
+
+PROC Chained()
+  result=CARD POINTER(CARD(CARD POINTER(left+right)))
+RETURN
+
+PROC OverlapLeft()
+  leftHigh=CARD POINTER(left+right)
+RETURN
+
+PROC OverlapRight()
+  rightHigh=CARD POINTER(left+right)
+RETURN
+
+PROC InPlace()
+  same=CARD POINTER(left+right)
+RETURN
+
+PROC ChangeInputs()
+  left=$A55A
+  right=$1234
+RETURN
+
+PROC AcrossCall()
+  CARD saved
+  saved=left+right
+  ChangeInputs()
+  result=CARD POINTER(saved)
+RETURN
+
+PROC Main()
+  Add()
+  Subtract()
+  Chained()
+  OverlapLeft()
+  OverlapRight()
+  InPlace()
+  AcrossCall()
+RETURN

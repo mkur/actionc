@@ -21,6 +21,25 @@ struct MaterializeRoutineStorage {
 }
 
 impl MaterializeLayout {
+    /// Emission places generated code and ordinary frames at/above the main origin.
+    /// This bound, unlike tentative individual addresses, survives placement.
+    pub(super) fn ordinary_storage_is_above_zero_page(&self) -> bool {
+        self.origin >= 0x0100
+    }
+
+    /// Exact fixed RAM backing only; ordinary/virtual placement is not evidence.
+    pub(super) fn fixed_zero_page_address(&self, mem: &MirMem) -> Option<u16> {
+        let address = match mem {
+            MirMem::Absolute(address) => Some(*address),
+            MirMem::FixedZeroPage(slot) => Some(u16::from(slot.0)),
+            MirMem::Global { id, offset } if self.global_has_absolute_backing(*id) => {
+                self.global_address(*id)?.checked_add(*offset)
+            }
+            _ => None,
+        }?;
+        (address < 0x0100).then_some(address)
+    }
+
     pub(in crate::mir6502) fn new(program: &MirProgram, origin: u16) -> Self {
         let global_bytes = program
             .globals

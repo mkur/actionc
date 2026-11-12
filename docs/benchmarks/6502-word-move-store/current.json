@@ -1,0 +1,112 @@
+{
+  "baseline_revision": "71325d37",
+  "baseline_compiler_sources_sha256": "2a80123dc8e6dd21b0765dcc96a387c38123fe58a5ec76296432a592fd8d2eb0",
+  "compiler_sources_sha256": "3cba1cc7f73f40dce303030bf0115ff11213f4e2c0e68be1fa7e1f2e6662ebb4",
+  "compiler_sha256": "2ca7c2496c56b64b965e8a91ccc1d6a6f6870d627ac0b4347ab820457565e14e",
+  "source_sha256": {
+    "samples/tn/modern/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "samples/tn/modern/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+    "samples/tn/modern/LIB.ACT": "78e87461dd5c349c9198c4591ffbaaa823727c20c945e4dbfa1e798bfdf5f66c"
+  },
+  "fixture_sha256": "a668e9895554b4a85f1e33d1532c3d134b673715780889e505c0643f0d738993",
+  "configurations": [
+    {
+      "name": "TN",
+      "runtime": "cart",
+      "baseline_image_sha256": "5530900dd8da053e3c178fabf3d8488fd5d1163a6adab59f50e4c9a10bcbf55d",
+      "image_sha256": "a8209b77402b3056bd8ec3ebacf45aaaf65ea547ea562ea2c7bf63ee203d1caa",
+      "listing_sha256": "d0b322fa48d244884e6c80172a838d0bc63e6d48dcc2c70f4c73119e07e02a99",
+      "before_xex_bytes": 10298,
+      "xex_bytes": 10290,
+      "before_alloc_bytes": 87,
+      "alloc_bytes": 79,
+      "alloc_listing": "$2F9F..$2FEE =====\nproc_Alloc:\n; 112:1 routine Alloc | CARD FUNC Alloc(CARD n)\n        STA.A local_Alloc_request            ; $2F9F: 8D 60 2E\n        STX.A local_Alloc_request+1          ; $2FA2: 8E 61 2E\n        JSR.A proc_ArenaCursor               ; $2FA5: 20 5A 2F ; ArenaCursor\n        STA.A local_Alloc_captured+1         ; $2FA8: 8D 5F 2E\n        LDA.Z $A0                            ; $2FAB: A5 A0\n        STA.A local_Alloc_captured           ; $2FAD: 8D 5E 2E\n        LDA #$00                             ; $2FB0: A9 00\n        SEC                                  ; $2FB2: 38\n        SBC.A local_Alloc_captured           ; $2FB3: ED 5E 2E\n        STA.A spill_Alloc_8                  ; $2FB6: 8D 62 2E\n        LDA #$28                             ; $2FB9: A9 28\n        SBC.A local_Alloc_captured+1         ; $2FBB: ED 5F 2E\n        CMP.A local_Alloc_request+1          ; $2FBE: CD 61 2E\n        BCC loc_Alloc_1                      ; $2FC1: 90 0A\n        BNE loc_Alloc_2                      ; $2FC3: D0 0D\n        LDA.A spill_Alloc_8                  ; $2FC5: AD 62 2E\n        CMP.A local_Alloc_request            ; $2FC8: CD 60 2E\n        BCS loc_Alloc_2                      ; $2FCB: B0 05\nloc_Alloc_1:\n        LDA #$02                             ; $2FCD: A9 02\n        JSR.A proc_ArenaStop                 ; $2FCF: 20 54 2F ; ArenaStop\nloc_Alloc_2:\n        LDA.A local_Alloc_captured           ; $2FD2: AD 5E 2E\n        CLC                                  ; $2FD5: 18\n        ADC.A local_Alloc_request            ; $2FD6: 6D 60 2E\n        STA.Z global_allocp                  ; $2FD9: 85 E8\n        LDA.A local_Alloc_captured+1         ; $2FDB: AD 5F 2E\n        ADC.A local_Alloc_request+1          ; $2FDE: 6D 61 2E\n        STA.Z $E9                            ; $2FE1: 85 E9\n        LDA.A local_Alloc_captured           ; $2FE3: AD 5E 2E\n        STA.Z $A0                            ; $2FE6: 85 A0\n        LDA.A local_Alloc_captured+1         ; $2FE8: AD 5F 2E\n        STA.Z $A1                            ; $2FEB: 85 A1\n        RTS                                  ; $2FED: 60\n",
+      "routine_changes": {
+        "Alloc": [
+          87,
+          79
+        ]
+      }
+    },
+    {
+      "name": "TN",
+      "runtime": "standalone",
+      "baseline_image_sha256": "68fb86fe935d25615d6a317edcd97a01a2665d1c74868a25ab9ecf2a451c0779",
+      "image_sha256": "e4b89acf80c00920857eb42c49db808300f37ab897cc083990011a1ae4bd5844",
+      "listing_sha256": "be9068059fc7f71181f16cf5fb9b0b90c5254c5c40d20948142467e1a957cf69",
+      "before_xex_bytes": 10423,
+      "xex_bytes": 10415,
+      "before_alloc_bytes": 87,
+      "alloc_bytes": 79,
+      "alloc_listing": "$2FA1..$2FF0 =====\nproc_Alloc:\n; 112:1 routine Alloc | CARD FUNC Alloc(CARD n)\n        STA.A local_Alloc_request            ; $2FA1: 8D 60 2E\n        STX.A local_Alloc_request+1          ; $2FA4: 8E 61 2E\n        JSR.A proc_ArenaCursor               ; $2FA7: 20 5C 2F ; ArenaCursor\n        STA.A local_Alloc_captured+1         ; $2FAA: 8D 5F 2E\n        LDA.Z $A0                            ; $2FAD: A5 A0\n        STA.A local_Alloc_captured           ; $2FAF: 8D 5E 2E\n        LDA #$00                             ; $2FB2: A9 00\n        SEC                                  ; $2FB4: 38\n        SBC.A local_Alloc_captured           ; $2FB5: ED 5E 2E\n        STA.A spill_Alloc_8                  ; $2FB8: 8D 62 2E\n        LDA #$28                             ; $2FBB: A9 28\n        SBC.A local_Alloc_captured+1         ; $2FBD: ED 5F 2E\n        CMP.A local_Alloc_request+1          ; $2FC0: CD 61 2E\n        BCC loc_Alloc_1                      ; $2FC3: 90 0A\n        BNE loc_Alloc_2                      ; $2FC5: D0 0D\n        LDA.A spill_Alloc_8                  ; $2FC7: AD 62 2E\n        CMP.A local_Alloc_request            ; $2FCA: CD 60 2E\n        BCS loc_Alloc_2                      ; $2FCD: B0 05\nloc_Alloc_1:\n        LDA #$02                             ; $2FCF: A9 02\n        JSR.A proc_ArenaStop                 ; $2FD1: 20 56 2F ; ArenaStop\nloc_Alloc_2:\n        LDA.A local_Alloc_captured           ; $2FD4: AD 5E 2E\n        CLC                                  ; $2FD7: 18\n        ADC.A local_Alloc_request            ; $2FD8: 6D 60 2E\n        STA.Z global_allocp                  ; $2FDB: 85 E8\n        LDA.A local_Alloc_captured+1         ; $2FDD: AD 5F 2E\n        ADC.A local_Alloc_request+1          ; $2FE0: 6D 61 2E\n        STA.Z $E9                            ; $2FE3: 85 E9\n        LDA.A local_Alloc_captured           ; $2FE5: AD 5E 2E\n        STA.Z $A0                            ; $2FE8: 85 A0\n        LDA.A local_Alloc_captured+1         ; $2FEA: AD 5F 2E\n        STA.Z $A1                            ; $2FED: 85 A1\n        RTS                                  ; $2FEF: 60\n",
+      "routine_changes": {
+        "Alloc": [
+          87,
+          79
+        ]
+      }
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "cart",
+      "baseline_image_sha256": "4b3bf66097e40d93ddfcb0f2c762c0301673e4b0d41547e675cd4bf9e26113b7",
+      "image_sha256": "d2f6efb74fa2303dff3d6cc538f21a19c2bc2368ec2ae5421f63fce2b950443f",
+      "listing_sha256": "2fef26ba0e7d6523ee818ce5d5fb054a4ce46bb507857640602c0c830d96eae7",
+      "before_xex_bytes": 13393,
+      "xex_bytes": 13385,
+      "before_alloc_bytes": 87,
+      "alloc_bytes": 79,
+      "alloc_listing": "$31B6..$3205 =====\nproc_Alloc:\n; 112:1 routine Alloc | CARD FUNC Alloc(CARD n)\n        STA.A local_Alloc_request            ; $31B6: 8D 50 30\n        STX.A local_Alloc_request+1          ; $31B9: 8E 51 30\n        JSR.A proc_ArenaCursor               ; $31BC: 20 71 31 ; ArenaCursor\n        STA.A local_Alloc_captured+1         ; $31BF: 8D 4F 30\n        LDA.Z $A0                            ; $31C2: A5 A0\n        STA.A local_Alloc_captured           ; $31C4: 8D 4E 30\n        LDA #$00                             ; $31C7: A9 00\n        SEC                                  ; $31C9: 38\n        SBC.A local_Alloc_captured           ; $31CA: ED 4E 30\n        STA.A spill_Alloc_8                  ; $31CD: 8D 52 30\n        LDA #$28                             ; $31D0: A9 28\n        SBC.A local_Alloc_captured+1         ; $31D2: ED 4F 30\n        CMP.A local_Alloc_request+1          ; $31D5: CD 51 30\n        BCC loc_Alloc_1                      ; $31D8: 90 0A\n        BNE loc_Alloc_2                      ; $31DA: D0 0D\n        LDA.A spill_Alloc_8                  ; $31DC: AD 52 30\n        CMP.A local_Alloc_request            ; $31DF: CD 50 30\n        BCS loc_Alloc_2                      ; $31E2: B0 05\nloc_Alloc_1:\n        LDA #$02                             ; $31E4: A9 02\n        JSR.A proc_ArenaStop                 ; $31E6: 20 6B 31 ; ArenaStop\nloc_Alloc_2:\n        LDA.A local_Alloc_captured           ; $31E9: AD 4E 30\n        CLC                                  ; $31EC: 18\n        ADC.A local_Alloc_request            ; $31ED: 6D 50 30\n        STA.Z global_allocp                  ; $31F0: 85 E8\n        LDA.A local_Alloc_captured+1         ; $31F2: AD 4F 30\n        ADC.A local_Alloc_request+1          ; $31F5: 6D 51 30\n        STA.Z $E9                            ; $31F8: 85 E9\n        LDA.A local_Alloc_captured           ; $31FA: AD 4E 30\n        STA.Z $A0                            ; $31FD: 85 A0\n        LDA.A local_Alloc_captured+1         ; $31FF: AD 4F 30\n        STA.Z $A1                            ; $3202: 85 A1\n        RTS                                  ; $3204: 60\n",
+      "routine_changes": {
+        "Alloc": [
+          87,
+          79
+        ]
+      }
+    },
+    {
+      "name": "TNDBG",
+      "runtime": "standalone",
+      "baseline_image_sha256": "631787e650ace06684a2032bc6e2c3021cb5b90f41e5d14c443a766827d47012",
+      "image_sha256": "1c7f72596e9591abf5b0b757cc8602d39601e60314032da8d70a9e3a73735b76",
+      "listing_sha256": "988d1000e78f9066accca3d42e4ec73e1b1f27d18d8034da20efaca4c29cc842",
+      "before_xex_bytes": 13518,
+      "xex_bytes": 13510,
+      "before_alloc_bytes": 87,
+      "alloc_bytes": 79,
+      "alloc_listing": "$31B8..$3207 =====\nproc_Alloc:\n; 112:1 routine Alloc | CARD FUNC Alloc(CARD n)\n        STA.A local_Alloc_request            ; $31B8: 8D 50 30\n        STX.A local_Alloc_request+1          ; $31BB: 8E 51 30\n        JSR.A proc_ArenaCursor               ; $31BE: 20 73 31 ; ArenaCursor\n        STA.A local_Alloc_captured+1         ; $31C1: 8D 4F 30\n        LDA.Z $A0                            ; $31C4: A5 A0\n        STA.A local_Alloc_captured           ; $31C6: 8D 4E 30\n        LDA #$00                             ; $31C9: A9 00\n        SEC                                  ; $31CB: 38\n        SBC.A local_Alloc_captured           ; $31CC: ED 4E 30\n        STA.A spill_Alloc_8                  ; $31CF: 8D 52 30\n        LDA #$28                             ; $31D2: A9 28\n        SBC.A local_Alloc_captured+1         ; $31D4: ED 4F 30\n        CMP.A local_Alloc_request+1          ; $31D7: CD 51 30\n        BCC loc_Alloc_1                      ; $31DA: 90 0A\n        BNE loc_Alloc_2                      ; $31DC: D0 0D\n        LDA.A spill_Alloc_8                  ; $31DE: AD 52 30\n        CMP.A local_Alloc_request            ; $31E1: CD 50 30\n        BCS loc_Alloc_2                      ; $31E4: B0 05\nloc_Alloc_1:\n        LDA #$02                             ; $31E6: A9 02\n        JSR.A proc_ArenaStop                 ; $31E8: 20 6D 31 ; ArenaStop\nloc_Alloc_2:\n        LDA.A local_Alloc_captured           ; $31EB: AD 4E 30\n        CLC                                  ; $31EE: 18\n        ADC.A local_Alloc_request            ; $31EF: 6D 50 30\n        STA.Z global_allocp                  ; $31F2: 85 E8\n        LDA.A local_Alloc_captured+1         ; $31F4: AD 4F 30\n        ADC.A local_Alloc_request+1          ; $31F7: 6D 51 30\n        STA.Z $E9                            ; $31FA: 85 E9\n        LDA.A local_Alloc_captured           ; $31FC: AD 4E 30\n        STA.Z $A0                            ; $31FF: 85 A0\n        LDA.A local_Alloc_captured+1         ; $3201: AD 4F 30\n        STA.Z $A1                            ; $3204: 85 A1\n        RTS                                  ; $3206: 60\n",
+      "routine_changes": {
+        "Alloc": [
+          87,
+          79
+        ]
+      }
+    }
+  ],
+  "alloc_cycles": [
+    "TN-cart\t8192\t0\t195",
+    "TN-cart\t8192\t1\t195",
+    "TN-cart\t8447\t256\t195",
+    "TN-cart\t10239\t1\t197",
+    "TN-cart\t10240\t0\t197",
+    "TN-cart\t8192\t2048\t205",
+    "TN-standalone\t8192\t0\t195",
+    "TN-standalone\t8192\t1\t195",
+    "TN-standalone\t8447\t256\t195",
+    "TN-standalone\t10239\t1\t197",
+    "TN-standalone\t10240\t0\t197",
+    "TN-standalone\t8192\t2048\t205",
+    "TNDBG-cart\t8192\t0\t195",
+    "TNDBG-cart\t8192\t1\t195",
+    "TNDBG-cart\t8447\t256\t195",
+    "TNDBG-cart\t10239\t1\t197",
+    "TNDBG-cart\t10240\t0\t197",
+    "TNDBG-cart\t8192\t2048\t205",
+    "TNDBG-standalone\t8192\t0\t195",
+    "TNDBG-standalone\t8192\t1\t195",
+    "TNDBG-standalone\t8447\t256\t195",
+    "TNDBG-standalone\t10239\t1\t197",
+    "TNDBG-standalone\t10240\t0\t197",
+    "TNDBG-standalone\t8192\t2048\t205"
+  ]
+}
