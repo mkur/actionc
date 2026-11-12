@@ -1,0 +1,55 @@
+; Ordinary word snapshots separated from their consumers by other computation.
+ORG $3000
+CONST CARD LOW=$2103, HIGH=$270B
+CARD cursor=$E8
+BYTE verdict
+CARD sum
+CARD POINTER target
+
+PROC StopProbe(BYTE reason)
+  verdict=reason
+  DO OD
+RETURN
+
+CARD FUNC ReadPosition()
+  CARD position
+  position=cursor
+  IF position<LOW THEN StopProbe(2) FI
+  IF position>HIGH THEN StopProbe(2) FI
+RETURN(position)
+
+CARD FUNC CheckRoom(CARD amount)
+  CARD saved, position
+  saved=amount
+  position=ReadPosition()
+  IF saved>HIGH-position THEN verdict=1 ELSE verdict=0 FI
+  sum=saved+position
+RETURN(saved)
+
+CARD FUNC ChangeSource()
+  target^=$A55A
+RETURN($0100)
+
+CARD FUNC ChangedSource(CARD amount)
+  CARD saved
+  saved=amount
+  target=@saved
+  IF saved>ChangeSource() THEN verdict=1 ELSE verdict=0 FI
+RETURN(saved)
+
+CARD FUNC ChangeHigh()
+  BYTE POINTER lane
+  lane=BYTE POINTER(target)+1
+  lane^=$A5
+RETURN($0100)
+
+CARD FUNC ChangedHigh(CARD amount)
+  CARD saved
+  saved=amount
+  target=@saved
+  IF saved>ChangeHigh() THEN verdict=1 ELSE verdict=0 FI
+RETURN(saved)
+
+PROC Main()
+  cursor=LOW
+RETURN
