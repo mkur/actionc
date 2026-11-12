@@ -1694,6 +1694,32 @@ Existing single-consumer checks and routine-wide removed-definition proofs
 reject escaping results, and the existing rewrite driver enforces generation
 and effect checks. There is no general word copy-propagation pass.
 
+### Direct word load sharing
+
+A post-home word-load-sharing transaction may replace exactly two consecutive
+direct byte-lane copies of the same ordinary word with one low-byte load and
+both low stores, followed by one high-byte load and both high stores. The
+eight-operation original becomes six existing MIR operations; all four stores
+and the low-before-high order within each destination remain.
+
+The typed witness resolves complete, non-wrapping source and destination
+footprints against the actual physical layout. All three pairs must be
+disjoint. Ordinary parameter/local sources retain the existing backing
+exclusions; ordinary global sources additionally need complete data ownership.
+Destinations are ordinary complete words, owned compiler home bytes, or the
+existing `$AA/$AB`, `$AC/$AD`, `$AE/$AF` pointer scratch pairs. Arbitrary absolute,
+hardware, volatile and outgoing ABI storage cannot authorize this motion.
+Execution-memory overlap, unresolved placement, partial words, intervening
+operations and cross-block schedules reject the transaction.
+
+The witness proves equal exit memory, A and N/Z, with X/Y/SP and all other
+flags unchanged. It is revalidated at application against the current routine,
+generation and physical map. This proof does not relax other rewrite families'
+dependency checks. Final selection must replay from the unchanged baseline
+with the combined proposal's placement and preserve frame/home capacities,
+zero-page reservations and published callee facts. A strict final image saving
+is required. There is no general memory scheduler or new executable MIR form.
+
 ### Destination-aware indirect word arithmetic
 
 `IndirectWordCompound` is a post-selection MIR6502 operation for an alias-safe

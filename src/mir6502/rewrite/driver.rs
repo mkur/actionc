@@ -525,14 +525,17 @@ fn validate_posthome_plan(
     let original = &block.ops[plan.range.clone()];
     let point=MirSite::Op {block:plan.block,op_index:plan.range.start};
     let pointer_shape=crate::mir6502::analysis::pointer_load_sharing::replacement(original).as_deref()==Some(plan.replacement.as_slice());
+    let word_shape=crate::mir6502::analysis::word_load_sharing::replacement(original).as_deref()==Some(plan.replacement.as_slice());
     let x_shape=crate::mir6502::analysis::argument_x_forwarding::shape(routine,point).ok().is_some_and(|s|
         s.range()==plan.range&&crate::mir6502::analysis::argument_x_forwarding::replacement(routine,&s).as_deref()==Some(plan.replacement.as_slice()));
     let valid=match (&plan.witness,physical_memory) {
+        (Some(super::plan::MirPostHomeWitness::WordLoadSharing(p)),Some(m))=>
+            p.point.site==point&&crate::mir6502::analysis::word_load_sharing::validate(p,routine,generation,m,original,&plan.replacement),
         (Some(super::plan::MirPostHomeWitness::PointerLoadSharing(p)),Some(m))=>
             p.point.site==point&&crate::mir6502::analysis::pointer_load_sharing::validate(p,routine,generation,m,original,&plan.replacement),
         (Some(super::plan::MirPostHomeWitness::ArgumentXForwarding(p)),Some(m))=>
             p.point.site==point&&crate::mir6502::analysis::argument_x_forwarding::validate(p,routine,context,m,plan.range.clone(),&plan.replacement),
-        (None,_)=>!pointer_shape&&!x_shape,
+        (None,_)=>!pointer_shape&&!x_shape&&!word_shape,
         _=>false,
     };
     if !valid {return Err(MirRewriteError::InvalidDeclaration {stat:plan.stat,message:"post-home rewrite lost its typed physical or machine-state witness".into()});}

@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "revision": "7f7778f69d0aa2f62985597c763529ae3cf77477",
+  "compiler_sha256": "b2ccf3fe64fc01bbe7a037cc92e5e6199a2686966d283affbe6d648d735e1081",
+  "compiler_sources_sha256": "7cf96e6389519ee6a340068db61fa0df5d245b1a9c3b6c47b1badc52f72bb4c0",
+  "inputs": {
+    "Cargo.toml": "ecd8a5b359794b28aa711e5095868e9ffbf5ef07ad2c5d536f169609895240a1",
+    "Cargo.lock": "a9c55b511f32f2bda90c7588e8fb344c035d4981435e975c5d0bf376c156c7cb",
+    "tools/vm-runtime-tests/Cargo.toml": "f6449cbdc58a154e459cee36cd0399f79dae91601cb79bee261cd3804f1c126e",
+    "tools/vm-runtime-tests/Cargo.lock": "88a5bf40bf2ba08f08641ff159221a3aa34bb1f5068932dbbc0f2b2e71d78c5d",
+    "samples/toolkit/modern/ALLOCATE.ACT": "32f6ac1480f9b90a1848da70a4a768aad37b89a20584291904b3e1965afb87b7",
+    "samples/tn/modern/LIB.ACT": "78e87461dd5c349c9198c4591ffbaaa823727c20c945e4dbfa1e798bfdf5f66c",
+    "samples/tn/modern/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "samples/tn/modern/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6"
+  },
+  "records": [
+    {
+      "name": "neutral",
+      "source": "fixtures/runtime/word_load_sharing.act",
+      "source_sha256": "cb85766deb8e2b58941e80d9bae2c2d2907297c630d63725dd03dfb297fca00b",
+      "origin": 12288,
+      "runtime": "cart",
+      "xex_bytes": 313,
+      "xex_sha256": "e6c6a5af9e88c4c30132cbfcdb06e775af89ecf77b734ee6293a97e49c2634d2",
+      "routine_bytes": {
+        "Unlink": 93,
+        "Reset": 83,
+        "Main": 113
+      },
+      "mir_sha256": "fbef6cd5f13393197aed08cbb9df767e1b44ce6584f994fba1310a0bdb6e2e0b",
+      "frame_facts_sha256": "340b11002a75f889c48b9e15ba9ce19e738c1edb58d9fd1ab7ec45066cf0e39f"
+    },
+    {
+      "name": "neutral",
+      "source": "fixtures/runtime/word_load_sharing.act",
+      "source_sha256": "cb85766deb8e2b58941e80d9bae2c2d2907297c630d63725dd03dfb297fca00b",
+      "origin": 12288,
+      "runtime": "standalone",
+      "xex_bytes": 313,
+      "xex_sha256": "e6c6a5af9e88c4c30132cbfcdb06e775af89ecf77b734ee6293a97e49c2634d2",
+      "routine_bytes": {
+        "Unlink": 93,
+        "Reset": 83,
+        "Main": 113
+      },
+      "mir_sha256": "fbef6cd5f13393197aed08cbb9df767e1b44ce6584f994fba1310a0bdb6e2e0b",
+      "frame_facts_sha256": "340b11002a75f889c48b9e15ba9ce19e738c1edb58d9fd1ab7ec45066cf0e39f"
+    },
+    {
+      "name": "neutral-41C7",
+      "source": "fixtures/runtime/word_load_sharing.act",
+      "source_sha256": "cb85766deb8e2b58941e80d9bae2c2d2907297c630d63725dd03dfb297fca00b",
+      "origin": 16839,
+      "runtime": "cart",
+      "xex_bytes": 313,
+      "xex_sha256": "cac78d18d21680c9e3248fb64295b28fad554cb32eee8e383920ad0113969a4b",
+      "routine_bytes": {
+        "Unlink": 93,
+        "Reset": 83,
+        "Main": 113
+      },
+      "mir_sha256": "fbef6cd5f13393197aed08cbb9df767e1b44ce6584f994fba1310a0bdb6e2e0b",
+      "frame_facts_sha256": "95ef06813a0759e499f26454882667f2535e08442617acc28b864fd3e6340cf6"
+    },
+    {
+      "name": "neutral-41C7",
+      "source": "fixtures/runtime/word_load_sharing.act",
+      "source_sha256": "cb85766deb8e2b58941e80d9bae2c2d2907297c630d63725dd03dfb297fca00b",
+      "origin": 16839,
+      "runtime": "standalone",
+      "xex_bytes": 313,
+      "xex_sha256": "cac78d18d21680c9e3248fb64295b28fad554cb32eee8e383920ad0113969a4b",
+      "routine_bytes": {
+        "Unlink": 93,
+        "Reset": 83,
+        "Main": 113
+      },
+      "mir_sha256": "fbef6cd5f13393197aed08cbb9df767e1b44ce6584f994fba1310a0bdb6e2e0b",
+      "frame_facts_sha256": "95ef06813a0759e499f26454882667f2535e08442617acc28b864fd3e6340cf6"
+    },
+    {
+      "name": "allocate",
+      "source": "fixtures/runtime/allocate_word_load_sharing.act",
+      "source_sha256": "54a0490f5c1aa358408cc43414156bfb62eb7cbaaa29d78ad44be5fe82a04524",
+      "origin": 12288,
+      "runtime": "cart",
+      "xex_bytes": 952,
+      "xex_sha256": "7c37b18f19585661da602649069843738bc3d96d3e2fa583fdce4f8357861c94",
+      "routine_bytes": {
+        "Alloc": 287,
+        "Free": 358,
+        "AllocInit": 96,
+        "PrintFreeList": 112,
+        "Main": 49
+      },
+      "mir_sha256": "f0f2ad897515647ec350d5644f6260c815ca59940974d21377eabd7219e13fcb",
+      "frame_facts_sha256": "69fe47a6f720fd4681d9ba1d75dedb7c060fedde47965194d48fdd60527e9223"
+    },
+    {
+      "name": "allocate",
+      "source": "fixtures/runtime/allocate_word_load_sharing.act",
+      "source_sha256": "54a0490f5c1aa358408cc43414156bfb62eb7cbaaa29d78ad44be5fe82a04524",
+      "origin": 12288,
+      "runtime": "standalone",
+      "xex_bytes": 1427,
+      "xex_sha256": "71b51b61c91f0eac5642ed4bdbb713c391e0c070b5ba931db3ba0ae095ff07f9",
+      "routine_bytes": {
+        "Alloc": 287,
+        "Free": 358,
+        "AllocInit": 96,
+        "PrintFreeList": 112,
+        "Main": 49,
+        "ACTION.RUNTIME.RESIDENT::Output": 6,
+        "ACTION.RUNTIME.RESIDENT::In": 10,
+        "ACTION.RUNTIME.RESIDENT::XIOstr": 53,
+        "ACTION.RUNTIME.RESIDENT::Error": 7,
+        "ACTION.RUNTIME.RESIDENT::Break": 10,
+        "ACTION.RUNTIME.RESIDENT::ChkErr": 25,
+        "ACTION.RUNTIME.RESIDENT::Print": 7,
+        "ACTION.RUNTIME.RESIDENT::PrintD": 6,
+        "ACTION.RUNTIME.RESIDENT::CCIO": 29,
+        "ACTION.RUNTIME.RESIDENT::Put": 3,
+        "ACTION.RUNTIME.RESIDENT::PutD": 4,
+        "ACTION.RUNTIME.RESIDENT::PutD1": 5,
+        "ACTION.RUNTIME.RESIDENT::CToStr": 32,
+        "ACTION.RUNTIME.RESIDENT::PrintC": 5,
+        "ACTION.RUNTIME.RESIDENT::PNum": 10,
+        "ACTION.RUNTIME.RESIDENT::PrintCD": 15,
+        "ACTION.RUNTIME.RESIDENT::PrintI": 7,
+        "ACTION.RUNTIME.RESIDENT::PrintID": 29,
+        "ACTION.RUNTIME.RESIDENT::PrintH": 41,
+        "ACTION.RUNTIME.RESIDENT::PrintF": 29,
+        "ACTION.RUNTIME.RESIDENT::PF2": 91
+      },
+      "mir_sha256": "55ff2653bc5322eca54233cef127c35ad0f77aa5587051c3da5a320a9f017b08",
+      "frame_facts_sha256": "893a4cac0357c12f80b7bf69984f5cfa0cef5386c5366c84c94a806d9da6008c"
+    }
+  ]
+}

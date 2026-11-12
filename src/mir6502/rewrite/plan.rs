@@ -153,6 +153,7 @@ pub(in crate::mir6502) struct MirRemovedHomeDefinition {
 /// Rechecked using the current snapshot and supplied physical map.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::mir6502) enum MirPostHomeWitness {
+    WordLoadSharing(crate::mir6502::analysis::word_load_sharing::Proof),
     PointerLoadSharing(crate::mir6502::analysis::pointer_load_sharing::Proof),
     ArgumentXForwarding(crate::mir6502::analysis::argument_x_forwarding::Proof),
 }

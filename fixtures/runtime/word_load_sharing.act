@@ -1,0 +1,34 @@
+; Two independent direct-word copies with ordinary global sources.
+TYPE Link=[CARD size,next]
+Link POINTER anchor
+CARD startAddress
+CARD observed=$0600
+
+CARD FUNC Unlink()
+  Link POINTER previous,node
+  previous=anchor
+  node=anchor.next
+  IF node<>0 THEN previous.next=node.next FI
+RETURN(previous)
+
+PROC Reset()
+  Link POINTER p
+  p=startAddress
+  anchor.next=p
+  p.next=0
+  p.size=64
+RETURN
+
+PROC Main()
+  Link POINTER node
+  anchor=$7000
+  anchor.size=0
+  anchor.next=$7100
+  node=$7100
+  node.size=16
+  node.next=0
+  observed=Unlink()
+  startAddress=$7200
+  Reset()
+  DO OD
+RETURN

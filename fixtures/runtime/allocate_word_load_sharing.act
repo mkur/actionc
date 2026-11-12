@@ -1,0 +1,11 @@
+; Retain all four maintained library routines for code-size measurements.
+; VM probes enter them directly with controlled sentinel/heap initialization.
+INCLUDE "../../samples/toolkit/modern/ALLOCATE.ACT"
+CARD request=$0600,result=$0602
+PROC Main()
+  AllocInit(0)
+  result=Alloc(request)
+  Free(result,request)
+  PrintFreeList()
+  DO OD
+RETURN
