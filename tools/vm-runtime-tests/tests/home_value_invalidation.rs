@@ -8,6 +8,45 @@ struct Hooks;
 impl VmRunHooks for Hooks {
     type Error = String;
 }
+
+#[test]
+fn home_value_invalidation_preserves_countdown_final_zero() {
+    use actionc::compiler::{CompileMode, CompileOptions, compile_file};
+    for initial in [0, 1, 3, 127, 128, 255] {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for crlf in [false, true] {
+                let text = format!(
+                    "BYTE counter,total\nPROC Main()\n FOR counter={initial} TO 0 STEP -1 DO\n total==+1\n OD\nRETURN\n"
+                );
+                let source = support::Source::new(&if crlf {
+                    text.replace('\n', "\r\n")
+                } else {
+                    text
+                });
+                let out = compile_file(
+                    &source.0,
+                    &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+                )
+                .unwrap();
+                let (mut vm, profile) = support::vm_for(runtime);
+                vm.load_atari_object_for_execution(profile, out.object_bytes())
+                    .unwrap();
+                let listing = out.source_listing();
+                let counter = symbols::global_address(&listing, "counter");
+                let total = symbols::global_address(&listing, "total");
+                vm.bus_mut().ram_mut().write(total, 0);
+                let entry = out.run_address();
+                vm = machine::call(vm, &mut Hooks, entry, &[]);
+                assert_eq!(
+                    vm.bus().ram().read(counter),
+                    0,
+                    "{initial}/{runtime:?}/{crlf}"
+                );
+                assert_eq!(vm.bus().ram().read(total), (initial as u8).wrapping_add(1));
+            }
+        }
+    }
+}
 use std::path::{Path, PathBuf};
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")

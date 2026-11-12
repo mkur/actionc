@@ -57,6 +57,22 @@ fn home_value_invalidation_source_controls_have_stable_images_and_real_word_snap
                     .unwrap();
                     let stem = format!("neutral-{opt}-{rt:?}-{origin:04X}");
                     let image = codegen::format_load_file(&out);
+                    // The fixture was frozen before selective invalidation:
+                    // its ordinary saved-word comparison needs no second copy.
+                    for (name, bytes) in [
+                        ("CheckRoom", 89),
+                        ("ChangedSource", 68),
+                        ("ChangedHigh", 68),
+                    ] {
+                        let range = out
+                            .map
+                            .routine_ranges
+                            .iter()
+                            .find(|r| r.name == name)
+                            .unwrap();
+                        assert_eq!(range.end - range.start, bytes, "{stem}: {name}");
+                    }
+                    assert_eq!(image.len(), if opt { 411 } else { 402 }, "{stem}");
                     if crlf {
                         assert_eq!(images[&stem], image);
                     } else {

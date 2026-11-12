@@ -124,6 +124,7 @@ impl HomeStorage {
             _ => Overlap::Unknown,
         }
     }
+    #[cfg(test)]
     pub fn ordinary_byte(&self, mem: &MirMem) -> bool {
         self.region(self.owner, mem, 1).is_some()
     }
@@ -136,6 +137,25 @@ pub(super) struct Precision {
     pub peak: usize,
 }
 impl Precision {
+    pub fn for_posthome_routine(r: &MirRoutine) -> Option<Self> {
+        use crate::mir6502::analysis::effects::{classify_op, classify_terminator};
+        // Before expansion, logical definitions also overwrite projected
+        // spill homes. This narrow transfer only handles explicit home writes.
+        r.blocks
+            .iter()
+            .all(|b| {
+                b.params.is_empty()
+                    && b.ops.iter().all(|op| {
+                        let e = classify_op(op);
+                        e.logical.temp_defs.is_empty() && e.logical.temp_uses.is_empty()
+                    })
+                    && classify_terminator(&b.terminator)
+                        .logical
+                        .temp_uses
+                        .is_empty()
+            })
+            .then(|| Self::new(r))
+    }
     pub fn new(r: &MirRoutine) -> Self {
         Self {
             homes: Arc::new(HomeStorage::new(r)),
@@ -146,6 +166,7 @@ impl Precision {
     fn disjoint(&self, write: &MirMem, bytes: u16, home: &MirMem) -> bool {
         self.homes.overlap(self.homes.owner, write, bytes, home) == Overlap::Disjoint
     }
+    #[cfg(test)]
     pub fn ordinary_byte(&self, mem: &MirMem) -> bool {
         self.homes.ordinary_byte(mem)
     }
@@ -166,26 +187,29 @@ impl Precision {
             }
         }
     }
-    /// `value` describes the pre-write machine value, not a new load of source.
-    pub fn store(
+    /// `value` describes the pre-write byte. Eligibility is the existing
+    /// SSA-lite RAM-home policy, not permission to retain other facts.
+    pub fn store_eligible(
         &mut self,
         env: &mut SsaLiteValueEnv,
         dst: &MirMem,
         value: Option<SsaLiteValueKey>,
+        eligible: bool,
     ) {
         self.invalidate(env, dst, 1);
-        if self.exhausted || !self.ordinary_byte(dst) {
+        if self.exhausted || !eligible {
             return;
         }
         let Some(value) = value else {
             return;
         };
-        if let SsaLiteValueKey::DirectMem(source) = &value {
-            // Unknown overlap and exact self-copies contribute no new fact.
-            if !self.disjoint(dst, 1, source) {
-                return;
-            }
+        if matches!(&value,SsaLiteValueKey::DirectMem(source) if source==dst) {
+            return;
         }
+        // One byte is written with exactly the captured source value. If the
+        // two RAM byte homes alias, the source is rewritten with its own value;
+        // otherwise it is unchanged. Either way D == current S holds. This is
+        // the old single-copy rule, independent of retaining older equalities.
         if env.mem.len() >= MAX_FACTS {
             env.kill_memory_dependencies();
             self.exhausted = true;
@@ -193,6 +217,15 @@ impl Precision {
         }
         env.learn_mem(dst.clone(), value);
         self.peak = self.peak.max(env.mem.len());
+    }
+    #[cfg(test)]
+    pub fn store(
+        &mut self,
+        env: &mut SsaLiteValueEnv,
+        dst: &MirMem,
+        value: Option<SsaLiteValueKey>,
+    ) {
+        self.store_eligible(env, dst, value, self.ordinary_byte(dst));
     }
 }
 

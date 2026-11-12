@@ -249,3 +249,190 @@ fn home_value_invalidation_rejects_unallocated_zp_overlays_and_initialized_views
     p.invalidate(&mut env, &MirMem::ZeroPage(MirZpSlot(1)), 1);
     assert!(env.mem.is_empty());
 }
+
+fn layout(r: &MirRoutine) -> super::super::MaterializeLayout {
+    super::super::MaterializeLayout::new(
+        &MirProgram {
+            statics: vec![],
+            globals: vec![],
+            routines: vec![r.clone()],
+            machine_blocks: vec![],
+            runtime_helpers: vec![],
+        },
+        0x3000,
+    )
+}
+fn load(reg: MirReg, mem: MirMem) -> MirOp {
+    MirOp::Load {
+        dst: MirDef::Reg(reg),
+        src: MirAddr::Direct(mem),
+        width: MirWidth::Byte,
+    }
+}
+fn store(mem: MirMem, reg: MirReg) -> MirOp {
+    MirOp::Store {
+        dst: MirAddr::Direct(mem),
+        src: MirValue::Def(MirDef::Reg(reg)),
+        width: MirWidth::Byte,
+    }
+}
+fn observed_env(r: &MirRoutine) -> SsaLiteValueEnv {
+    let mut env = SsaLiteValueEnv {
+        precision: Some(Precision::new(r)),
+        ..Default::default()
+    };
+    let layout = layout(r);
+    for op in [
+        load(MirReg::A, local(0, 0)),
+        store(spill(0), MirReg::A),
+        load(MirReg::A, local(0, 1)),
+        store(spill(1), MirReg::A),
+    ] {
+        env.observe_op(&op, &layout);
+    }
+    env
+}
+
+#[test]
+fn home_value_invalidation_observer_keeps_word_copies_and_restores_only_the_stored_register() {
+    let r = routine();
+    let layout = layout(&r);
+    let mut env = observed_env(&r);
+    assert_eq!(env.mem_fact(&spill(0)), key(local(0, 0)).as_ref());
+    assert_eq!(env.mem_fact(&spill(1)), key(local(0, 1)).as_ref());
+    // X is unknown, but its disjoint destination must still be invalidated.
+    env.observe_op(&store(spill(2), MirReg::X), &layout);
+    assert_eq!(env.mem.len(), 2);
+    env.x = key(local(0, 1));
+    env.a = Some(SsaLiteValueKey::ConstU8(0x55));
+    env.observe_op(&store(local(0, 1), MirReg::A), &layout);
+    assert_eq!(env.mem_fact(&spill(0)), key(local(0, 0)).as_ref());
+    assert!(env.mem_fact(&spill(1)).is_none());
+    assert!(env.x.is_none());
+    assert_eq!(env.a, Some(SsaLiteValueKey::ConstU8(0x55)));
+    // Unknown physical relation permits the just-executed RAM copy, but
+    // never retention of older equalities or unrelated register provenance.
+    env.a = key(local(0, 0));
+    env.x = key(local(1, 0));
+    let zp = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
+    env.observe_op(&store(zp.clone(), MirReg::A), &layout);
+    assert_eq!(env.mem, vec![(zp, key(local(0, 0)).unwrap())]);
+    assert_eq!(env.a, key(local(0, 0)));
+    assert!(env.x.is_none());
+}
+
+#[test]
+fn home_value_invalidation_observer_handles_alias_updates_implicit_writes_and_barriers() {
+    let mut r = routine();
+    let mut alias = slot(2, 1);
+    alias.base = MirStorageBase::LocalAlias {
+        id: LocalId(2),
+        target: LocalId(0),
+    };
+    alias.offset = 1;
+    r.frame.locals.push(alias);
+    let layout = layout(&r);
+    let mut env = observed_env(&r);
+    env.observe_op(
+        &MirOp::UpdateMem {
+            op: MirUpdateOp::Inc,
+            mem: local(2, 0),
+            width: MirWidth::Byte,
+        },
+        &layout,
+    );
+    assert_eq!(env.mem_fact(&spill(0)), key(local(0, 0)).as_ref());
+    assert!(env.mem_fact(&spill(1)).is_none());
+    let consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+        lo: MirFixedZpSlot(0xAC),
+    });
+    for op in [
+        MirOp::MaterializeAddress {
+            consumer,
+            value: MirValue::ConstU16(0x4000),
+        },
+        MirOp::StoreIndirect {
+            consumer,
+            src: MirValue::ConstU8(7),
+            offset: 0,
+        },
+        load(MirReg::A, MirMem::Absolute(0xD20A)),
+        MirOp::Barrier {
+            effects: Default::default(),
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(local(1, 0)),
+            src: MirValue::ConstU16(0x1234),
+            width: MirWidth::Word,
+        },
+    ] {
+        let mut env = observed_env(&r);
+        env.observe_op(&op, &layout);
+        assert!(env.mem.is_empty(), "{op:?}: {:?}", env.mem);
+    }
+}
+
+#[test]
+fn home_value_invalidation_current_generation_rewrite_is_stable() {
+    use crate::mir6502::rewrite::driver::MirPostHomeRewriteDriver;
+    let mut r = routine();
+    let layout = layout(&r);
+    r.blocks[0].ops = vec![
+        load(MirReg::A, local(0, 0)),
+        store(spill(0), MirReg::A),
+        load(MirReg::A, local(0, 1)),
+        store(spill(1), MirReg::A),
+        store(spill(2), MirReg::X),
+        MirOp::Compare {
+            op: MirCompareOp::Gt,
+            dst: MirCondDest::Flags,
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::PointerCell(spill(0)),
+            width: MirWidth::Byte,
+            signed: false,
+        },
+    ];
+    let run = |r: &mut MirRoutine| {
+        MirPostHomeRewriteDriver::default()
+            .run_fixed_point(r, |r, ctx| {
+                super::super::discover_ssa_lite_byte_rewrites(r, ctx, &layout, false)
+            })
+            .unwrap()
+    };
+    assert!(run(&mut r).applied > 0);
+    assert!(
+        matches!(r.blocks[0].ops.last(),Some(MirOp::Compare{right:MirValue::PointerCell(m),..}) if *m==local(0,0))
+    );
+    let stable = r.clone();
+    assert_eq!(run(&mut r).applied, 0);
+    assert_eq!(stable, r);
+}
+
+#[test]
+fn home_value_invalidation_requires_explicit_home_writes_and_rebuilds_alias_views() {
+    let mut r = routine();
+    assert!(Precision::for_posthome_routine(&r).is_some());
+    r.blocks[0].ops.push(MirOp::LoadImm {
+        dst: MirDef::VTemp(MirTempId(0)),
+        value: 1,
+        width: MirWidth::Byte,
+    });
+    assert!(Precision::for_posthome_routine(&r).is_none());
+    r.blocks[0].ops.clear();
+    let mut alias = slot(2, 1);
+    alias.base = MirStorageBase::LocalAlias {
+        id: LocalId(2),
+        target: LocalId(0),
+    };
+    alias.offset = 1;
+    r.frame.locals.push(alias);
+    let before = Precision::for_posthome_routine(&r).unwrap();
+    r.frame.locals.last_mut().unwrap().base = MirStorageBase::LocalAlias {
+        id: LocalId(2),
+        target: LocalId(1),
+    };
+    let after = Precision::for_posthome_routine(&r).unwrap();
+    assert!(!before.disjoint(&local(2, 0), 1, &local(0, 1)));
+    assert!(after.disjoint(&local(2, 0), 1, &local(0, 1)));
+    assert!(!after.disjoint(&local(2, 0), 1, &local(1, 1)));
+}

@@ -1,4 +1,3 @@
-#[allow(dead_code)] // Connected after the transfer contract is qualified.
 mod home_values;
 use crate::mir6502::ir::MirFixedZpSlot;
 use super::dead_spills::block_successor_indices;
@@ -210,10 +209,72 @@ pub(super) struct SsaLiteValueEnv {
     pub(super) y: Option<SsaLiteValueKey>,
     pub(super) mem: Vec<(MirMem, SsaLiteValueKey)>,
     pub(super) stats: SsaLiteScanStats,
+    precision: Option<home_values::Precision>,
 }
 
 impl SsaLiteValueEnv {
     fn observe_op(&mut self, op: &MirOp, layout: &MaterializeLayout) {
+        let Some(mut precision) = self.precision.take() else {
+            self.observe_op_legacy(op, layout);
+            return;
+        };
+        if let MirOp::Store {
+            dst: MirAddr::Direct(dst),
+            src,
+            width: MirWidth::Byte,
+        } = op
+        {
+            let key = self.value_key(src, layout);
+            let eligible = ssa_lite_mem_is_trackable(layout, dst);
+            precision.store_eligible(self, dst, key.clone(), eligible);
+            // A byte store from R preserves its captured byte. For a RAM
+            // destination, the source memory byte also retains that value,
+            // including the same-byte alias case. Other registers whose
+            // source may have been overwritten stay invalidated.
+            if eligible && let MirValue::Def(MirDef::Reg(reg)) = src {
+                if let Some(key) = key {
+                    self.learn_reg(*reg, key);
+                }
+            }
+        } else {
+            let effects = crate::mir6502::analysis::effects::classify_op(op);
+            if effects.memory.indirect_writes
+                || effects.memory.may_write_any
+                || effects.memory.opaque
+                || effects.memory.has_unknown_effects
+                || !matches!(
+                    effects.memory.structured_writes,
+                    crate::mir6502::ir::MirMemoryEffect::None
+                )
+                || effects
+                    .memory
+                    .direct_reads
+                    .iter()
+                    .any(|r| layout.mem_has_absolute_backing(&r.base))
+            {
+                self.kill_memory_dependencies();
+            } else {
+                for write in &effects.memory.direct_writes {
+                    precision.invalidate(self, &write.base, write.bytes);
+                }
+                // Implicit address constructors/advances define homes even
+                // when they have no scalar Store operation in their stream.
+                for home in &effects.addresses.pair_writes {
+                    if let crate::mir6502::analysis::effects::MirHomeByte::FixedZeroPage(slot) =
+                        home
+                    {
+                        precision.invalidate(self, &MirMem::FixedZeroPage(*slot), 1);
+                    } else {
+                        self.kill_memory_dependencies();
+                    }
+                }
+            }
+            self.observe_op_legacy(op, layout);
+        }
+        self.precision = Some(precision);
+    }
+
+    fn observe_op_legacy(&mut self, op: &MirOp, layout: &MaterializeLayout) {
         match op {
             MirOp::Load {
                 dst: MirDef::Reg(reg),
@@ -3611,19 +3672,37 @@ fn ssa_lite_redundant_reload_decision_after(
 /// immutable post-home snapshot. The local value environment supplies the
 /// equality proof; routine machine liveness decides whether deleting a reload's
 /// N/Z production is observable.
+#[cfg(test)]
 pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
     routine: &MirRoutine,
     context: &PostHomeRewriteContext<'_, '_>,
     layout: &MaterializeLayout,
     allow_cross_block: bool,
 ) -> Vec<MirPostHomeRewritePlan> {
+    discover_ssa_lite_byte_rewrites_with_peak(routine, context, layout, allow_cross_block, &mut 0)
+}
+
+pub(super) fn discover_ssa_lite_byte_rewrites_with_peak(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+    allow_cross_block: bool,
+    peak: &mut usize,
+) -> Vec<MirPostHomeRewritePlan> {
     let predecessor_counts = block_predecessor_index_counts(routine);
     let mut incoming: Vec<Option<SsaLiteValueEnv>> = vec![None; routine.blocks.len()];
     let mut plans = Vec::new();
+    // Rebuild storage views from this immutable generation after home expansion.
+    let precision = home_values::Precision::for_posthome_routine(routine);
 
     for block_index in 0..routine.blocks.len() {
         let block = &routine.blocks[block_index];
-        let mut env = incoming[block_index].take().unwrap_or_default();
+        let mut env = incoming[block_index]
+            .take()
+            .unwrap_or_else(|| SsaLiteValueEnv {
+                precision: precision.clone(),
+                ..SsaLiteValueEnv::default()
+            });
         let edge_accumulator = allow_cross_block
             .then(|| {
                 context.accumulator_value_at(context.point(MirSite::BlockEntry { block: block.id }))
@@ -3741,6 +3820,9 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
                 plans.push(plan);
             }
             env.observe_op(&rewritten, layout);
+            if let Some(precision) = &env.precision {
+                *peak = (*peak).max(precision.peak);
+            }
             if ssa_lite_loaded_reg_key(&rewritten, layout).is_some_and(|(reg, _)| reg == MirReg::A)
                 || env.a.as_ref() != edge_accumulator.as_ref()
             {

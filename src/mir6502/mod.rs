@@ -12033,6 +12033,13 @@ mod tests {
                             width: MirWidth::Byte,
                         }
                     ] if is_counter(mem)
+                ) || matches!(
+                    block.ops.as_slice(),
+                    [MirOp::UpdateMem {
+                        op: MirUpdateOp::Inc,
+                        mem,
+                        width: MirWidth::Byte,
+                    }] if block.label == "countdown.restore" && is_counter(mem)
                 )
             }),
             "{}",

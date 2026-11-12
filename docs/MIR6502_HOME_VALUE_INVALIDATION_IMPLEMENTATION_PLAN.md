@@ -1,6 +1,6 @@
 # MIR6502 home value invalidation implementation plan
 
-Prepared 2026-11-12. Status: implementation in progress; slices 0–1 delivered. Starting revision: `95e334be`.
+Prepared 2026-11-12. Status: implementation in progress; slices 0–2 delivered. Starting revision: `95e334be`.
 Implement in four slices and commit each after its checks pass.
 
 Replace blanket invalidation in the existing SSA-lite byte-value environment
@@ -221,6 +221,16 @@ facts; mutation/alias controls retain correct snapshots. Repeated application
 is stable. If TN does not improve, diagnose this slice before expanding scope.
 
 Suggested commit: `Reuse unchanged homes across independent MIR6502 stores`.
+
+Slice 2 uses the existing typed rewrite driver after logical temps have been
+expanded into explicit home writes. Storage views are rebuilt for each routine
+generation. Existing coarse behavior remains in earlier phases. The real
+`Alloc` compares both request homes directly: 99 → 87 code bytes and two fewer
+spill bytes. `Init` retains a staged byte across an unproved indexed write,
+adding four code bytes; each complete TN/TNDBG image shrinks by ten bytes.
+The renamed neutral comparison saves twelve code bytes and two spill bytes;
+both source-mutation controls retain their 68-byte bodies. No library or NIR
+contract changes are involved.
 
 ## Slice 3 Qualify behavior and publish measured results
 

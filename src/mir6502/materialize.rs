@@ -3383,10 +3383,17 @@ fn run_analyzed_ssa_lite_byte_rewrites(
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     let mut driver = MirPostHomeRewriteDriver::default();
+    let mut peak = 0;
     let discover =
         |routine: &super::ir::MirRoutine,
          context: &crate::mir6502::rewrite::context::PostHomeRewriteContext<'_, '_>| {
-            ssa_lite::discover_ssa_lite_byte_rewrites(routine, context, layout, allow_cross_block)
+            ssa_lite::discover_ssa_lite_byte_rewrites_with_peak(
+                routine,
+                context,
+                layout,
+                allow_cross_block,
+                &mut peak,
+            )
         };
     let result = match known_callees {
         Some(known_callees) => {
@@ -3401,6 +3408,11 @@ fn run_analyzed_ssa_lite_byte_rewrites(
         )]
     })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    peephole_stats.record_site(
+        routine.id,
+        "ssa-lite-home-values",
+        format!("maximum retained byte facts: {peak}; limit: 256"),
+    );
     Ok(())
 }
 
