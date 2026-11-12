@@ -66,6 +66,11 @@ fn checked_words_reach_complete_materialized_abi_carriers() {
                     }
                 ]
             );
+            let homes = ranges
+                .homes_for_call(r, copy, MirRoutineGeneration::initial())
+                .unwrap();
+            assert_eq!(homes.len(), 2, "{name}: {homes:?}");
+            assert!(homes.iter().all(|h| h.min == 0x2103 && h.max == 0x270B));
             assert!(
                 ranges
                     .for_call(r, copy, MirRoutineGeneration::initial().next())

@@ -24,7 +24,17 @@ fn memory(program: &MirProgram, references: &MirProgram, origin: u16) -> Option<
     )
     .ok()?;
     emitter.finish_with_relocations().ok()?;
-    Some(summary.physical_memory)
+    let mut memory = summary.physical_memory;
+    // Includes typed routines, machine payloads and embedded runtime storage
+    // initializers. No optimizer lookup by a source/runtime display name.
+    memory.protect_execution_ranges(
+        summary
+            .source_ranges
+            .iter()
+            .map(|r| (r.start, r.end))
+            .collect(),
+    );
+    Some(memory)
 }
 
 fn has_setup(r: &MirRoutine) -> bool {
@@ -578,8 +588,8 @@ fn select(
     let Some(map) = memory(&baseline, &baseline, origin) else {
         return Ok(baseline);
     };
-    let bounded_calls = config.enable_pointer_call_retention
-        && config.enable_bounded_call_pointer_retention;
+    let bounded_calls =
+        config.enable_pointer_call_retention && config.enable_bounded_call_pointer_retention;
     let Some((proposed, mut stats, affected)) = apply_with_bounded_calls(
         &baseline,
         &baseline,

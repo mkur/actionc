@@ -203,3 +203,105 @@ fn bounded_machine_copy_rejects_unresolved_relocation_addends_and_byte_selectors
             .is_none()
     );
 }
+
+fn ranged_words(
+    dst: (u16, u16),
+    src: (u16, u16),
+) -> Vec<crate::mir6502::analysis::address_ranges::CoherentWordRange> {
+    use crate::mir6502::analysis::address_ranges::{AbiByte::*, CoherentWordRange};
+    vec![
+        CoherentWordRange {
+            lo: Register(MirReg::A),
+            hi: Register(MirReg::X),
+            min: dst.0,
+            max: dst.1,
+        },
+        CoherentWordRange {
+            lo: Register(MirReg::Y),
+            hi: Cell(0xA3),
+            min: src.0,
+            max: src.1,
+        },
+    ]
+}
+#[test]
+fn whole_word_intervals_include_the_tail_and_require_a_complete_code_map() {
+    let code = machine(&program());
+    let words = ranged_words((0x2104, 0x280B), (0x2104, 0x270C));
+    let mut map = MirPhysicalMemory::default();
+    assert!(
+        code.writes_with_ranges([None; 3], BTreeMap::new(), &map, &words)
+            .is_none()
+    );
+    map.protect_execution_ranges(vec![(0x3000, 0x4000)]);
+    for count in [None, Some(0), Some(1), Some(255)] {
+        let cells = count
+            .map(|n| BTreeMap::from([(0xA4, n)]))
+            .unwrap_or_default();
+        let writes = code
+            .writes_with_ranges([None; 3], cells, &map, &words)
+            .unwrap();
+        let last = if count == Some(1) { 0x280B } else { 0x290A };
+        assert_eq!(writes, (0x2104..=last).chain(0xA0..=0xA2).collect());
+        assert!(writes.contains(&0x280B)); // end of arena is not an ownership limit
+    }
+    assert!(!map.contains_write(0x2104, 1)); // the old object proof is untouched
+    map.protect_execution_ranges(vec![(0x290A, 0x290B)]);
+    assert!(
+        code.writes_with_ranges([None; 3], BTreeMap::new(), &map, &words)
+            .is_none()
+    );
+    map.protect_execution_ranges(vec![(0x270C, 0x270D)]);
+    assert!(
+        code.writes_with_ranges([None; 3], BTreeMap::new(), &map, &words)
+            .is_none()
+    );
+}
+#[test]
+fn interval_copy_rejects_unsafe_ranges_mixed_lanes_and_excessive_work() {
+    let code = machine(&program());
+    let mut map = MirPhysicalMemory::default();
+    map.protect_execution_ranges(vec![]);
+    for bad in [
+        (0x00AC, 0x00AC),
+        (0x100, 0x200),
+        (0x300, 0x3FF),
+        (0x7F01, 0x7FFF),
+        (0xD000, 0xD100),
+        (0xFFF0, 0xFFFF),
+        (0x2800, 0x2100),
+    ] {
+        for words in [
+            ranged_words(bad, (0x2200, 0x2300)),
+            ranged_words((0x2200, 0x2300), bad),
+        ] {
+            assert!(
+                code.writes_with_ranges([None; 3], BTreeMap::new(), &map, &words)
+                    .is_none(),
+                "{bad:?}"
+            );
+        }
+    }
+    assert!(
+        code.writes_with_ranges(
+            [None; 3],
+            BTreeMap::new(),
+            &map,
+            &ranged_words((0x400, 0x7F00), (0x400, 0x7F00))
+        )
+        .is_none()
+    );
+    let words = ranged_words((0x2104, 0x280B), (0x2104, 0x270C));
+    let mut mixed = code.clone();
+    mixed.bytes[3].value = Some(0xA2);
+    mixed.bytes[3].memory = Some(MirMem::Absolute(0xA2)); // STX overwrites the low lane of the destination
+    assert!(
+        mixed
+            .writes_with_ranges([None; 3], BTreeMap::new(), &map, &words)
+            .is_none()
+    );
+    assert!(
+        code.writes_with_ranges([Some(0), Some(0x10), None], BTreeMap::new(), &map, &words)
+            .is_none()
+    );
+}

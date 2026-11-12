@@ -26,6 +26,14 @@ pub(in crate::mir6502) struct CoherentWordRange {
     pub max: u16,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(in crate::mir6502) struct NumericHomeRange {
+    pub lo: MirMem,
+    pub hi: MirMem,
+    pub min: u16,
+    pub max: u16,
+}
+
 #[derive(Clone, Debug)]
 struct CallProjection {
     caller: Arc<MirRoutine>,
@@ -34,6 +42,8 @@ struct CallProjection {
     source_op: usize,
     receipts: Vec<nir::NirUnsignedRangeProof>,
     words: Vec<CoherentWordRange>,
+    home_receipts: Vec<nir::NirStorageRangeProof>,
+    homes: Vec<NumericHomeRange>,
 }
 
 pub(in crate::mir6502) struct MirAddressRanges<'a> {
@@ -129,6 +139,16 @@ impl<'a> MirAddressRanges<'a> {
                     {
                         continue;
                     }
+                    if !materialized
+                        .routines
+                        .iter()
+                        .find(|r| r.id == callee)
+                        .is_some_and(|r| {
+                            super::known_callees::BoundedMachine::analyze(r, materialized).is_some()
+                        })
+                    {
+                        continue;
+                    }
                     let (Some(old_homes), Some(new_homes)) =
                         (argument_bytes(old_args), argument_bytes(new_args))
                     else {
@@ -164,6 +184,24 @@ impl<'a> MirAddressRanges<'a> {
                     if words.is_empty() {
                         continue;
                     }
+                    let mut homes = Vec::new();
+                    let mut home_receipts = Vec::new();
+                    for receipt in ranges.storage_ranges_before(nr.id, nb.id, source_op) {
+                        let range = receipt.range();
+                        let (_, _, _, storage) = receipt.source();
+                        if range.bits() != 16 || range.max() > 65535 {
+                            continue;
+                        }
+                        if let Some((lo, hi)) = ordinary_home(storage, new, &materialized.globals) {
+                            homes.push(NumericHomeRange {
+                                lo,
+                                hi,
+                                min: range.min() as u16,
+                                max: range.max() as u16,
+                            });
+                            home_receipts.push(receipt);
+                        }
+                    }
                     calls.insert(
                         (id, callee),
                         CallProjection {
@@ -179,6 +217,8 @@ impl<'a> MirAddressRanges<'a> {
                             source_op,
                             receipts,
                             words,
+                            homes,
+                            home_receipts,
                         },
                     );
                 }
@@ -219,6 +259,33 @@ impl<'a> MirAddressRanges<'a> {
         Some((p.point, &p.words))
     }
 
+    pub fn homes_for_call(
+        &self,
+        caller: &MirRoutine,
+        callee: RoutineId,
+        generation: MirRoutineGeneration,
+    ) -> Option<&[NumericHomeRange]> {
+        self.for_call(caller, callee, generation)?;
+        let p = self.calls.get(&(caller.id, callee))?;
+        if p.homes.len() != p.home_receipts.len() {
+            return None;
+        }
+        for (home, receipt) in p.homes.iter().zip(&p.home_receipts) {
+            let (owner, block, index, _) = receipt.source();
+            let range = receipt.range();
+            if owner.0 != caller.id.0
+                || block != p.source_block
+                || index != p.source_op
+                || range.bits() != 16
+                || range.min() != u32::from(home.min)
+                || range.max() != u32::from(home.max)
+            {
+                return None;
+            }
+        }
+        Some(&p.homes)
+    }
+
     pub fn validated_inputs(
         &self,
         baseline: &MirProgram,
@@ -231,6 +298,53 @@ impl<'a> MirAddressRanges<'a> {
                 Some(((owner, callee), words.to_vec()))
             })
             .collect()
+    }
+}
+
+fn ordinary_home(
+    id: nir::NirStorageId,
+    r: &MirRoutine,
+    globals: &[MirGlobal],
+) -> Option<(MirMem, MirMem)> {
+    match id {
+        nir::NirStorageId::Param(id)
+            if r.frame.params.iter().any(|s| {
+                s.base == MirStorageBase::Param(id)
+                    && s.scalar_width == Some(MirWidth::Word)
+                    && s.storage_size >= 2
+            }) =>
+        {
+            Some((
+                MirMem::Param { id, offset: 0 },
+                MirMem::Param { id, offset: 1 },
+            ))
+        }
+        nir::NirStorageId::Local(id)
+            if r.frame.locals.iter().any(|s| {
+                s.base == MirStorageBase::Local(id)
+                    && s.scalar_width == Some(MirWidth::Word)
+                    && s.storage_size >= 2
+            }) =>
+        {
+            Some((
+                MirMem::Local { id, offset: 0 },
+                MirMem::Local { id, offset: 1 },
+            ))
+        }
+        nir::NirStorageId::Global(id)
+            if globals.iter().any(|g| {
+                g.id == id
+                    && g.width == Some(MirWidth::Word)
+                    && g.storage_size >= 2
+                    && matches!(g.backing, MirGlobalBacking::Ordinary { .. })
+            }) =>
+        {
+            Some((
+                MirMem::Global { id, offset: 0 },
+                MirMem::Global { id, offset: 1 },
+            ))
+        }
+        _ => None,
     }
 }
 

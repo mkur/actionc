@@ -1,7 +1,7 @@
 # Checked arena allocation and pointer range proofs
 
-Status: checked runtime, NIR ranges and inert MIR projection implemented;
-copy/retention consumer proposed,
+Status: checked runtime, NIR/MIR range projection and copy footprints implemented;
+retention consumer proposed,
 2026-11-12.
 Compiler baseline: `95e88790`.
 
@@ -305,3 +305,15 @@ Report complete XEX bytes, affected bodies, checks/fault-handler cost, any
 specialized variants, storage/zero-page changes, runtime cycles and compiler
 cost. A successful bound is a correctness result. A code-size improvement is
 accepted only when the complete measured image supports that claim.
+
+
+The machine footprint interpreter preserves whole-word origin tags through
+register transfers and scratch stores. Partial or mixed pointer lanes reject a
+range query. The retention-only RAM predicate requires a complete final code
+map, excludes zero page, stack, hardware and code, and includes every possible
+copy-tail byte outside the source arena. It grants no owned-object capacity.
+The original constant/owned-object proof retains its original predicate.
+The existing 512-byte/4,096-step machine limits also have a 65,536-address work
+budget for interval reads and writes; exhaustion keeps the call barrier.
+Current pointer-home receipts are separate from captured SSA value receipts.
+Both source-home lanes must survive the complete physical call footprint.

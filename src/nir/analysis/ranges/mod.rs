@@ -331,20 +331,51 @@ impl NirRangeAnalysis<'_> {
         routine: RoutineId,
         block: BlockId,
     ) -> Vec<NirStorageRangeProof> {
-        let Some(state) = self
-            .routines
-            .get(&routine)
-            .and_then(|r| r.inputs.get(&block))
-        else {
+        self.storage_ranges_before(routine, block, 0)
+    }
+    pub fn storage_ranges_before(
+        &self,
+        routine: RoutineId,
+        block: BlockId,
+        op_index: usize,
+    ) -> Vec<NirStorageRangeProof> {
+        let Some(r) = self.program.routines.iter().find(|r| r.id == routine) else {
             return vec![];
         };
+        let Some(b) = r.blocks.iter().find(|b| b.id == block) else {
+            return vec![];
+        };
+        let Some(facts) = self.routines.get(&routine) else {
+            return vec![];
+        };
+        let Some(mut state) = facts.inputs.get(&block).cloned() else {
+            return vec![];
+        };
+        if op_index > b.ops.len() {
+            return vec![];
+        }
+        for op in &b.ops[..op_index] {
+            if transfer_op(
+                r,
+                &facts.trackable,
+                &facts.unique,
+                &self.non_returning,
+                &self.summaries,
+                &mut state,
+                op,
+            )
+            .is_none()
+            {
+                return vec![];
+            }
+        }
         state
             .cells
             .iter()
             .map(|(storage, f)| NirStorageRangeProof {
                 routine,
                 block,
-                op_index: 0,
+                op_index,
                 storage: *storage,
                 range: f.range,
             })

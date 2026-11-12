@@ -385,6 +385,10 @@ excluded solely from the resumed caller's proof when non-returning control
 flow is independently established; their executable stores and calls remain.
 Storage receipts identify the exact routine/block/point/storage and width.
 Global initializers or a census of assignments do not establish entry ranges.
+Operation-point storage queries replay the exact block prefix: a receipt for a
+captured temp never substitutes for the current value of a subsequently
+overwritten pointer cell. MIR projects complete current storage words alongside
+call argument words, then independently checks physical writes at final layout.
 
 Scalar promotion uses one shared legality analysis and SSA rewrite engine.
 The default `Conservative` profitability policy retains existing hot-byte,

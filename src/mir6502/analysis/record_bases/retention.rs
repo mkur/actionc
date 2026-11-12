@@ -12,8 +12,21 @@ pub(in crate::mir6502) struct CallWrites {
     routines: BTreeMap<RoutineId, Option<BTreeSet<u16>>>,
     known: MirKnownCalleeSummaries,
     bounded: BTreeMap<RoutineId, BoundedMachine>,
+    ranged: BTreeMap<
+        (RoutineId, RoutineId),
+        Vec<crate::mir6502::analysis::address_ranges::CoherentWordRange>,
+    >,
 }
 impl CallWrites {
+    pub fn with_range_inputs(
+        mut self,
+        baseline: &MirProgram,
+        ranges: &crate::mir6502::analysis::address_ranges::MirAddressRanges<'_>,
+    ) -> Self {
+        self.ranged = ranges.validated_inputs(baseline);
+        self
+    }
+
     pub fn with_bounded_machine_calls(mut self, program: &MirProgram) -> Self {
         self.bounded = program
             .routines
@@ -170,7 +183,12 @@ impl CallWrites {
         memory: &MirPhysicalMemory,
         state: &State,
     ) -> Option<BTreeSet<u16>> {
-        let MirOp::Call { target: MirCallTarget::Routine(id), effects, .. } = op else {
+        let MirOp::Call {
+            target: MirCallTarget::Routine(id),
+            effects,
+            ..
+        } = op
+        else {
             return None;
         };
         if effects.opaque || effects.may_call_os {
@@ -181,11 +199,22 @@ impl CallWrites {
             _ => None,
         };
         let registers = state.registers.map(constant);
-        let cells = state.cells.iter().filter_map(|(&address, &value)| {
-            if address >= 256 { return None; }
-            constant(Some(value)).map(|n| (address, n))
-        }).collect();
-        let mut writes = self.bounded.get(id)?.writes(registers, cells, memory)?;
+        let cells = state
+            .cells
+            .iter()
+            .filter_map(|(&address, &value)| {
+                if address >= 256 {
+                    return None;
+                }
+                constant(Some(value)).map(|n| (address, n))
+            })
+            .collect();
+        let machine = self.bounded.get(id)?;
+        let mut writes = if let Some(ranges) = self.ranged.get(&(owner, *id)) {
+            machine.writes_with_ranges(registers, cells, memory, ranges)?
+        } else {
+            machine.writes(registers, cells, memory)?
+        };
         writes.extend(argument_writes(op, owner, memory)?);
         Some(writes)
     }
@@ -274,7 +303,8 @@ fn observe_retained(
     extended: bool,
 ) {
     if matches!(op, MirOp::Call { .. }) {
-        if let Some(writes) = calls.for_call(op, routine, memory)
+        if let Some(writes) = calls
+            .for_call(op, routine, memory)
             .or_else(|| calls.for_call_in_state(op, routine, memory, state))
         {
             for address in writes {

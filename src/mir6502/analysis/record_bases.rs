@@ -8,13 +8,37 @@ use std::collections::BTreeMap;
 
 pub(in crate::mir6502) mod retention;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirPhysicalMemory {
     entries: Vec<(RoutineId, MirMem, u16, bool)>,
     owned_data: Vec<(u16, u16)>,
     globals: BTreeMap<crate::nir::SymbolId, (u16, u16, bool)>,
+    execution_ranges: Option<Vec<(u16, u16)>>,
 }
 impl MirPhysicalMemory {
+    pub(in crate::mir6502) fn protect_execution_ranges(&mut self, ranges: Vec<(u16, u16)>) {
+        self.execution_ranges = ranges
+            .iter()
+            .all(|(start, end)| start <= end)
+            .then_some(ranges);
+    }
+    /// A retention-only physical RAM query. It grants no object ownership or
+    /// capacity, and keeps the tail outside a source arena in the footprint.
+    pub(in crate::mir6502) fn retention_ram_range(&self, start: u16, end: u32) -> bool {
+        u32::from(start) < end
+            && start >= 0x400
+            && end <= 0x8000
+            && self.execution_ranges.as_ref().is_some_and(|ranges| {
+                !ranges
+                    .iter()
+                    .any(|&(a, b)| u32::from(start) < u32::from(b) && u32::from(a) < end)
+            })
+    }
+    pub(in crate::mir6502) fn execution_disjoint(&self, address: u16) -> bool {
+        self.execution_ranges
+            .as_ref()
+            .is_some_and(|ranges| !ranges.iter().any(|&(a, b)| (a..b).contains(&address)))
+    }
     pub(in crate::mir6502) fn global(
         &mut self,
         id: crate::nir::SymbolId,

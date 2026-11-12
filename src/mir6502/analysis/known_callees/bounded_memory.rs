@@ -3,6 +3,9 @@
 use super::*;
 use crate::mir6502::analysis::record_bases::MirPhysicalMemory;
 use std::collections::VecDeque;
+mod ranged_inputs;
+use crate::mir6502::analysis::address_ranges::CoherentWordRange;
+use ranged_inputs::WordLanes;
 
 const MAX_BYTES: usize = 512;
 const MAX_STEPS: usize = 4096;
@@ -23,6 +26,7 @@ struct State {
     // A memory footprint alone is not an incoming-flag observation proof.
     // Admit branches only after a definite ISA definition on every path.
     defined_flags: [bool; 4],
+    words: WordLanes,
 }
 impl State {
     fn join(&mut self, other: &Self) -> bool {
@@ -34,6 +38,7 @@ impl State {
         }
         self.cells
             .retain(|address, value| other.cells.get(address) == Some(value));
+        self.words.join(&other.words);
         for (value, incoming) in self.flags.iter_mut().zip(other.flags) {
             if *value != incoming {
                 *value = None;
@@ -104,6 +109,19 @@ impl BoundedMachine {
         cells: BTreeMap<u16, u8>,
         memory: &MirPhysicalMemory,
     ) -> Option<BTreeSet<u16>> {
+        self.writes_with_ranges(registers, cells, memory, &[])
+    }
+
+    pub fn writes_with_ranges(
+        &self,
+        registers: [Option<u8>; 3],
+        cells: BTreeMap<u16, u8>,
+        memory: &MirPhysicalMemory,
+        ranges: &[CoherentWordRange],
+    ) -> Option<BTreeSet<u16>> {
+        let words = WordLanes::seed(ranges, &registers, &cells)?;
+        let ranged = !ranges.is_empty();
+        let mut range_work = 65536usize;
         let mut entries = BTreeMap::from([(
             0usize,
             State {
@@ -111,6 +129,7 @@ impl BoundedMachine {
                 cells,
                 flags: [None; 4],
                 defined_flags: [false; 4],
+                words,
             },
         )]);
         let mut pending = VecDeque::from([0usize]);
@@ -152,12 +171,14 @@ impl BoundedMachine {
                         _ => 0,
                     };
                     let value = if matches!(opcode, 0xA9 | 0xA2 | 0xA0) {
+                        state.words.load(r, None);
                         Some(byte()?)
                     } else {
                         let a = address()?;
-                        if a >= 0x8000 {
+                        if a >= 0x8000 || (ranged && !memory.execution_disjoint(a)) {
                             return None;
                         }
+                        state.words.load(r, Some(a));
                         state.cells.get(&a).copied()
                     };
                     state.registers[r] = value;
@@ -165,7 +186,9 @@ impl BoundedMachine {
                 }
                 0x85 | 0x86 | 0x84 | 0x8D | 0x8E | 0x8C => {
                     let a = address()?;
-                    if a >= 0x100 && !memory.contains_write(a, 1) {
+                    if (a >= 0x100 && !memory.contains_write(a, 1))
+                        || (ranged && !memory.execution_disjoint(a))
+                    {
                         return None;
                     }
                     writes.insert(a);
@@ -174,6 +197,7 @@ impl BoundedMachine {
                         0x84 | 0x8C => 2,
                         _ => 0,
                     };
+                    state.words.store(r, a);
                     state.cells.remove(&a);
                     if let Some(value) = state.registers[r] {
                         state.cells.insert(a, value);
@@ -184,27 +208,34 @@ impl BoundedMachine {
                     if lo == 255 {
                         return None;
                     }
-                    let base =
-                        u16::from_le_bytes([*state.cells.get(&lo)?, *state.cells.get(&(lo + 1))?]);
-                    let indices: Vec<u16> = match state.registers[2] {
-                        Some(y) => vec![u16::from(y)],
-                        None => (0..256).collect(),
-                    };
-                    for index in indices {
-                        let a = base.checked_add(index)?;
+                    let (base_min, base_max) = state.words.pointer(lo, &state.cells)?;
+                    let (first, last) =
+                        state.registers[2].map_or((0, 255), |y| (u16::from(y), u16::from(y)));
+                    let start = base_min.checked_add(first)?;
+                    let last = base_max.checked_add(last)?;
+                    let end = u32::from(last) + 1;
+                    if ranged {
+                        range_work = range_work.checked_sub((end - u32::from(start)) as usize)?;
+                        if !memory.retention_ram_range(start, end) {
+                            return None;
+                        }
+                    }
+                    for a in start..=last {
                         if opcode == 0x91 {
                             // This also proves an indirect write cannot change
                             // pointer/ABI cells, stack or the executed code.
-                            if !memory.contains_write(a, 1) {
+                            if !ranged && !memory.contains_write(a, 1) {
                                 return None;
                             }
                             writes.insert(a);
                             state.cells.remove(&a);
+                            state.words.write(a);
                         } else if a >= 0x8000 {
                             return None;
                         }
                     }
                     if opcode == 0xB1 {
+                        state.words.forget_register(0);
                         state.registers[0] = None;
                         state.nz(None);
                     }
@@ -219,6 +250,7 @@ impl BoundedMachine {
                         }
                     });
                     state.registers[r] = value;
+                    state.words.forget_register(r);
                     state.nz(value);
                 }
                 0xAA | 0xA8 | 0x8A | 0x98 => {
@@ -230,6 +262,7 @@ impl BoundedMachine {
                     };
                     let value = state.registers[src];
                     state.registers[dst] = value;
+                    state.words.transfer(dst, src);
                     state.nz(value);
                 }
                 0xC9 | 0xE0 | 0xC0 => {

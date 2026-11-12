@@ -392,3 +392,25 @@ fn opaque_bodies_recursion_retargeting_and_long_dependencies_have_no_summary() {
     assert_eq!(summary(&a, "Link15"), None);
     assert_eq!(summary(&a, "Link16"), None);
 }
+
+#[test]
+fn point_storage_queries_replay_writes_instead_of_reusing_entry_facts() {
+    let program = lower("MODULE\nPROC Main()\n CARD cell\n cell=$2103\n cell=$270B\nRETURN\n");
+    let r = &program.routines[0];
+    let analysis = analyze_unsigned_ranges(&program).unwrap();
+    let b = &r.blocks[0];
+    let mut observed = Vec::new();
+    for i in 0..=b.ops.len() {
+        for p in analysis.storage_ranges_before(r.id, b.id, i) {
+            assert_eq!(p.source().2, i);
+            observed.push((p.range().min(), p.range().max()));
+        }
+    }
+    assert!(observed.contains(&(0x2103, 0x2103)));
+    assert_eq!(observed.last(), Some(&(0x270B, 0x270B)));
+    assert!(
+        analysis
+            .storage_ranges_before(r.id, b.id, b.ops.len() + 1)
+            .is_empty()
+    );
+}
