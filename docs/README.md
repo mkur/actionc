@@ -247,6 +247,9 @@ crowding the active reference set.
 - [Checked arena allocation and pointer range proofs](TN_CHECKED_ARENA_AND_POINTER_RANGES_DESIGN.md)
   - proposed checked cursor/checkpoint contract for TN, derived NIR ranges,
   call-entry requirements and physical disjointness for pointer reuse.
+- [Checked arena and pointer ranges implementation](TN_CHECKED_ARENA_AND_POINTER_RANGES_IMPLEMENTATION_PLAN.md)
+  - eight commit slices covering runtime checks, derived NIR facts, coherent
+  MIR ranges, copy disjointness, validated pair reuse and qualification.
 - [MIR6502_WIDE_SHIFT_COPY_REDUCTION.md](MIR6502_WIDE_SHIFT_COPY_REDUCTION.md)
   - byte and nibble projections for constant wide shifts, preserving captured
   operands while reducing staging for narrow results.

@@ -2,6 +2,10 @@
 
 Status: proposed design, 2026-11-12. Compiler baseline: `95e88790`.
 
+The [implementation plan](TN_CHECKED_ARENA_AND_POINTER_RANGES_IMPLEMENTATION_PLAN.md)
+defines the initial delivery and its commit/check gates. It uses established
+entry facts or dominating guards and defers private routine variants.
+
 Bound TN's arena operations at runtime, then derive reusable pointer ranges
 from their verified success paths. Those ranges can establish that a copy
 leaves routine parameter homes unchanged. This separates the allocator's
