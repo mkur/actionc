@@ -369,6 +369,23 @@ Explicit sink CFGs and acyclic verified direct dependencies may prove lack of
 normal return; names, recursive assumptions and opaque machine control flow
 cannot do so. This analysis changes no executable NIR or printed snapshot.
 
+Normal-return summaries join every executable return, carry no freshness or
+allocation-extent promise, and never specialize a generic entry from one
+caller's arguments. Call dependencies are acyclic and bounded to height sixteen,
+including previously cached dependencies. External/retargetable interfaces,
+opaque bodies, unresolved calls, recursion and exceeded limits do not establish
+a numeric return summary. Opaque code cannot be hidden by a later apparent
+source failure edge, since it may itself return early.
+
+Complete ordinary-cell values can flow through verified normal-return write
+summaries. Local/parameter IDs are scoped by routine; global IDs remain program
+identities. Partial, indirect, volatile, machine, unknown-call and possible
+reentry effects invalidate unproved cell values. Failure-only writes are
+excluded solely from the resumed caller's proof when non-returning control
+flow is independently established; their executable stores and calls remain.
+Storage receipts identify the exact routine/block/point/storage and width.
+Global initializers or a census of assignments do not establish entry ranges.
+
 Scalar promotion uses one shared legality analysis and SSA rewrite engine.
 The default `Conservative` profitability policy retains existing hot-byte,
 word-induction and bounded-relay selection. Explicit `NativeLoops` policy also

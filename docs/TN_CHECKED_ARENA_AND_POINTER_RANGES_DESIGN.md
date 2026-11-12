@@ -1,6 +1,7 @@
 # Checked arena allocation and pointer range proofs
 
-Status: checked runtime implemented; compiler range proofs proposed, 2026-11-12.
+Status: checked runtime and inert NIR ranges implemented; MIR consumer proposed,
+2026-11-12.
 Compiler baseline: `95e88790`.
 
 The [implementation plan](TN_CHECKED_ARENA_AND_POINTER_RANGES_IMPLEMENTATION_PLAN.md)

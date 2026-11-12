@@ -268,3 +268,127 @@ fn transfer_budget_discards_incomplete_loop_facts() {
     assert!(a.evaluations(r.id).is_none());
     assert!(return_ranges(&a, "Slow").is_empty());
 }
+
+fn summary(a: &NirRangeAnalysis<'_>, name: &str) -> Option<(u32, u32)> {
+    let id = a
+        .program
+        .routines
+        .iter()
+        .find(|r| r.name == name)
+        .unwrap()
+        .id;
+    a.normal_return_range(id).map(|r| (r.min(), r.max()))
+}
+
+#[test]
+fn universal_returns_reach_complete_stores_and_call_arguments() {
+    let lf = include_str!("../../../../fixtures/runtime/checked_pointer_ranges.act")
+        .replace("\r\n", "\n");
+    for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+        let raw = lower(&source);
+        let opt = optimize_program(&raw).unwrap();
+        for p in [&raw, &opt] {
+            let a = analyze_unsigned_ranges(p).unwrap();
+            assert_eq!(summary(&a, "Reserve"), Some((0x2103, 0x270B)));
+            // Zero-size allocation remains part of the generic postcondition.
+            // A constant nonzero caller request does not silently imply extent.
+            let r = p.routines.iter().find(|r| r.name == "FromReturn").unwrap();
+            let (block, index, args) = r
+                .blocks
+                .iter()
+                .find_map(|b| {
+                    b.ops.iter().enumerate().find_map(|(i, op)| {
+                        if let NirOp::Call {
+                            callee: NirCallee::User { name, .. },
+                            args,
+                            ..
+                        } = op
+                        {
+                            if name == "CopyBytes" {
+                                return Some((b, i, args));
+                            }
+                        }
+                        None
+                    })
+                })
+                .unwrap();
+            let ranges = args
+                .iter()
+                .take(2)
+                .map(|v| a.prove_before(r.id, block.id, index, v).unwrap().range())
+                .map(|r| (r.min(), r.max()))
+                .collect::<Vec<_>>();
+            assert_eq!(ranges, [(0x2104, 0x280B), (0x2104, 0x270C)]);
+        }
+    }
+}
+
+#[test]
+fn caller_and_callee_parameter_and_local_ids_are_distinct() {
+    let p = lower(
+        "PROC Touch(CARD n) CARD saved saved=n RETURN\n\
+        CARD FUNC Keep(CARD n) CARD saved saved=1500 n=1600 Touch(1) RETURN(saved+n)\nPROC Main() RETURN\n",
+    );
+    let a = analyze_unsigned_ranges(&p).unwrap();
+    assert_eq!(summary(&a, "Keep"), Some((3100, 3100)));
+}
+
+#[test]
+fn terminal_failure_writes_are_excluded_only_from_normal_continuations() {
+    let source = "CARD held,cursor=$E8\nPROC Stop() DO OD RETURN\n\
+        PROC Rewind(CARD mark) IF mark<1000 THEN held=0 Stop() FI cursor=mark RETURN\n\
+        CARD FUNC Across() held=1500 Rewind(1000) RETURN(held)\nPROC Main() RETURN\n";
+    let p = lower(source);
+    let a = analyze_unsigned_ranges(&p).unwrap();
+    assert_eq!(summary(&a, "Across"), Some((1500, 1500)));
+    assert!(format_program(&p).contains("call Stop"));
+    let changed = lower(&source.replace("DO OD RETURN", "RETURN"));
+    assert_eq!(
+        summary(&analyze_unsigned_ranges(&changed).unwrap(), "Across"),
+        Some((0, 65535))
+    );
+}
+
+#[test]
+fn mutable_globals_require_reaching_stores_on_every_path() {
+    let p = lower(
+        "CARD saved,cursor=$E8\nPROC Stop() DO OD RETURN\n\
+        CARD FUNC Take(CARD n) CARD p p=cursor IF p<1000 THEN Stop() FI IF p>2000 THEN Stop() FI\n\
+        IF n>2000-p THEN Stop() FI cursor=p+n RETURN(p)\n\
+        PROC Rewind(CARD mark) cursor=mark RETURN\n\
+        CARD FUNC Across() saved=Take(0) Rewind(1000) RETURN(saved)\n\
+        CARD FUNC Maybe(BYTE first) saved=0 IF first THEN saved=Take(0) FI RETURN(saved)\n\
+        CARD FUNC Read() RETURN(saved)\nPROC Main() RETURN\n",
+    );
+    let a = analyze_unsigned_ranges(&p).unwrap();
+    assert_eq!(summary(&a, "Across"), Some((1000, 2000)));
+    assert_eq!(summary(&a, "Maybe"), Some((0, 2000)));
+    assert_eq!(summary(&a, "Read"), Some((0, 65535)));
+    let r = p.routines.iter().find(|r| r.name == "Across").unwrap();
+    assert!(a.storage_ranges_at_entry(r.id, r.blocks[0].id).is_empty());
+}
+
+#[test]
+fn opaque_bodies_recursion_retargeting_and_long_dependencies_have_no_summary() {
+    let p = lower(
+        "CARD FUNC External=$1234()\nCARD FUNC Rec() RETURN(Rec())\n\
+        CARD FUNC Early()\nASM OPAQUE\nlda #1\nrts\nENDASM\nRETURN(1500)\n\
+        CARD FUNC Caller() RETURN(External())\nPROC Main() RETURN\n",
+    );
+    let a = analyze_unsigned_ranges(&p).unwrap();
+    for name in ["External", "Rec", "Early", "Caller"] {
+        assert_eq!(summary(&a, name), None, "{name}");
+    }
+    let mut source = "CARD FUNC Leaf() RETURN(7)\n".to_string();
+    let mut previous = "Leaf".to_string();
+    for i in 0..17 {
+        source.push_str(&format!("CARD FUNC Link{i}() RETURN({previous}())\n"));
+        previous = format!("Link{i}");
+    }
+    source.push_str("PROC Main() RETURN\n");
+    let p = lower(&source);
+    let a = analyze_unsigned_ranges(&p).unwrap();
+    assert_eq!(summary(&a, "Link14"), Some((7, 7)));
+    assert_eq!(summary(&a, "Link15"), None);
+    assert_eq!(summary(&a, "Link16"), None);
+}

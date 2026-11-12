@@ -70,3 +70,10 @@ untracked `samples/vbxe/shared/lines.act` needs an unconfigured `SHARED.SCREEN`
 module path. That workspace work was preserved. Shared checks use stripped
 debug information and Rust optimization level 1 to keep the complete sample
 materialization matrix practical; assertions remain enabled.
+
+Normal-return summaries pass thirteen focused range tests and the actual TN/
+TNDBG storage audit in raw/optimized NIR. Both `ArenaCursor` and `Alloc` derive
+`[$2000,$2800]`; generic `Strcat` has no bounded entry facts. The repeated shared
+gates pass unchanged snapshots, all 51 sweep fixtures and 4,047 Rust tests in
+the isolated checkout. This remains analysis-only compiler work; no target
+consumer or optimized-default change has landed yet.

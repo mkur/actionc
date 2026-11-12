@@ -12,6 +12,9 @@ use std::{
     collections::{BTreeMap, BTreeSet},
 };
 
+mod summaries;
+use summaries::ReturnSummary;
+
 const MAX_BLOCKS: usize = 512;
 const MAX_OPS: usize = 4096;
 const MAX_EVALUATIONS: usize = 4096;
@@ -70,6 +73,25 @@ pub struct NirUnsignedRangeProof {
     value: NirValue,
     range: NirUnsignedRange,
 }
+
+/// A complete ordinary storage value at an exact point, without an ownership,
+/// lifetime, buffer-capacity or universally initialized-global claim.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NirStorageRangeProof {
+    routine: RoutineId,
+    block: BlockId,
+    op_index: usize,
+    storage: NirStorageId,
+    range: NirUnsignedRange,
+}
+impl NirStorageRangeProof {
+    pub fn range(&self) -> NirUnsignedRange {
+        self.range
+    }
+    pub fn source(&self) -> (RoutineId, BlockId, usize, NirStorageId) {
+        (self.routine, self.block, self.op_index, self.storage)
+    }
+}
 impl NirUnsignedRangeProof {
     pub fn range(&self) -> NirUnsignedRange {
         self.range
@@ -84,6 +106,7 @@ pub struct NirRangeAnalysis<'a> {
     program: &'a NirProgram,
     routines: BTreeMap<RoutineId, RoutineFacts>,
     non_returning: BTreeSet<RoutineId>,
+    summaries: BTreeMap<RoutineId, ReturnSummary>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -175,6 +198,7 @@ impl State {
 
 struct RoutineFacts {
     inputs: BTreeMap<BlockId, State>,
+    outputs: BTreeMap<BlockId, State>,
     dominance: NirDominance,
     trackable: BTreeMap<NirStorageId, u8>,
     unique: BTreeSet<TempId>,
@@ -185,69 +209,70 @@ pub fn analyze_unsigned_ranges(
     program: &NirProgram,
 ) -> Result<NirRangeAnalysis<'_>, Vec<NirDiagnostic>> {
     verify_program(program)?;
-    let non_returning = non_returning_routines(program);
-    let storage = analyze_program_storage(program);
-    let mut routines = BTreeMap::new();
-    // The storage analysis returns exactly one entry per input routine, in
-    // input order. Executable facts below use IDs exclusively.
-    for (routine, storage) in program.routines.iter().zip(&storage.routines) {
-        if routine.blocks.len() > MAX_BLOCKS
-            || routine.blocks.iter().map(|b| b.ops.len()).sum::<usize>() > MAX_OPS
-        {
-            continue;
-        }
-        let trackable = storage
-            .homes
-            .iter()
-            .filter_map(|(id, f)| {
-                f.is_value_trackable()
-                    .then(|| Some((*id, type_bits(f.ty.as_ref()?)?)))
-                    .flatten()
-            })
-            .collect();
-        let cfg = NirCfg::from_routine(routine);
-        let uses = NirUseDef::from_routine(routine);
-        let unique = uses
-            .all_definitions()
-            .keys()
-            .copied()
-            .filter(|id| uses.unique_definition(*id).is_some())
-            .collect();
-        let problem = Problem {
-            routine,
-            cfg: &cfg,
-            dominance: NirDominance::from_cfg(&cfg),
-            uses,
-            trackable: &trackable,
-            unique: &unique,
-            non_returning: &non_returning,
-            evaluations: Cell::new(0),
-            exhausted: Cell::new(false),
-        };
-        let result = solve_dataflow(&cfg, &problem);
-        if problem.exhausted.get() {
-            continue;
-        }
-        let inputs = routine
-            .blocks
-            .iter()
-            .filter_map(|b| result.in_state(b.id)?.clone().map(|s| (b.id, s)))
-            .collect();
-        routines.insert(
-            routine.id,
-            RoutineFacts {
-                inputs,
-                dominance: NirDominance::from_cfg(&cfg),
-                trackable,
-                unique,
-                evaluations: result.evaluations(),
-            },
-        );
+    let mut resolver = summaries::Resolver::new(program);
+    for routine in &program.routines {
+        resolver.resolve(routine.id);
     }
     Ok(NirRangeAnalysis {
         program,
-        routines,
+        routines: resolver.routines,
+        non_returning: resolver.non_returning,
+        summaries: resolver.summaries,
+    })
+}
+
+fn analyze_routine(
+    routine: &NirRoutine,
+    trackable: &BTreeMap<NirStorageId, u8>,
+    non_returning: &BTreeSet<RoutineId>,
+    summaries: &BTreeMap<RoutineId, ReturnSummary>,
+) -> Option<RoutineFacts> {
+    if routine.blocks.len() > MAX_BLOCKS
+        || routine.blocks.iter().map(|b| b.ops.len()).sum::<usize>() > MAX_OPS
+    {
+        return None;
+    }
+    let cfg = NirCfg::from_routine(routine);
+    let uses = NirUseDef::from_routine(routine);
+    let unique = uses
+        .all_definitions()
+        .keys()
+        .copied()
+        .filter(|id| uses.unique_definition(*id).is_some())
+        .collect();
+    let problem = Problem {
+        routine,
+        cfg: &cfg,
+        dominance: NirDominance::from_cfg(&cfg),
+        uses,
+        trackable,
+        unique: &unique,
         non_returning,
+        summaries,
+        evaluations: Cell::new(0),
+        exhausted: Cell::new(false),
+    };
+    let result = solve_dataflow(&cfg, &problem);
+    if problem.exhausted.get() {
+        return None;
+    }
+    let inputs = routine
+        .blocks
+        .iter()
+        .filter_map(|b| result.in_state(b.id)?.clone().map(|s| (b.id, s)))
+        .collect();
+    let outputs = routine
+        .blocks
+        .iter()
+        .filter_map(|b| result.out_state(b.id)?.clone().map(|s| (b.id, s)))
+        .collect();
+    Some(RoutineFacts {
+        inputs,
+        outputs,
+        dominance: NirDominance::from_cfg(&cfg),
+        trackable: trackable.clone(),
+        unique,
+        evaluations: result.evaluations(),
     })
 }
 
@@ -284,6 +309,7 @@ impl NirRangeAnalysis<'_> {
                 &facts.trackable,
                 &facts.unique,
                 &self.non_returning,
+                &self.summaries,
                 &mut state,
                 op,
             )?;
@@ -296,6 +322,33 @@ impl NirRangeAnalysis<'_> {
             value: value.clone(),
             range,
         })
+    }
+    pub fn normal_return_range(&self, routine: RoutineId) -> Option<NirUnsignedRange> {
+        self.summaries.get(&routine)?.range
+    }
+    pub fn storage_ranges_at_entry(
+        &self,
+        routine: RoutineId,
+        block: BlockId,
+    ) -> Vec<NirStorageRangeProof> {
+        let Some(state) = self
+            .routines
+            .get(&routine)
+            .and_then(|r| r.inputs.get(&block))
+        else {
+            return vec![];
+        };
+        state
+            .cells
+            .iter()
+            .map(|(storage, f)| NirStorageRangeProof {
+                routine,
+                block,
+                op_index: 0,
+                storage: *storage,
+                range: f.range,
+            })
+            .collect()
     }
     pub fn is_non_returning(&self, routine: RoutineId) -> bool {
         self.non_returning.contains(&routine)
@@ -350,6 +403,7 @@ fn transfer_op(
     trackable: &BTreeMap<NirStorageId, u8>,
     unique: &BTreeSet<TempId>,
     non_returning: &BTreeSet<RoutineId>,
+    summaries: &BTreeMap<RoutineId, ReturnSummary>,
     state: &mut State,
     op: &NirOp,
 ) -> Option<()> {
@@ -502,6 +556,25 @@ fn transfer_op(
             callee: NirCallee::User { id, .. },
             ..
         } if non_returning.contains(id) => return None,
+        NirOp::Call {
+            callee: NirCallee::User { id, .. },
+            result,
+            ..
+        } if summaries.contains_key(id) => {
+            let summary = &summaries[id];
+            summary.apply_writes(routine.id, state);
+            if let Some(result) = result {
+                if let (Some(bits), Some(range)) = (type_bits(&result.ty), summary.range) {
+                    if bits == range.bits {
+                        assigned = Some(Fact {
+                            range,
+                            key: None,
+                            difference: None,
+                        });
+                    }
+                }
+            }
+        }
         NirOp::Call { .. }
         | NirOp::ForeignCode { .. }
         | NirOp::VolatileStore { .. }
@@ -582,6 +655,7 @@ struct Problem<'a> {
     trackable: &'a BTreeMap<NirStorageId, u8>,
     unique: &'a BTreeSet<TempId>,
     non_returning: &'a BTreeSet<RoutineId>,
+    summaries: &'a BTreeMap<RoutineId, ReturnSummary>,
     evaluations: Cell<usize>,
     exhausted: Cell<bool>,
 }
@@ -674,6 +748,7 @@ impl NirDataflowProblem for Problem<'_> {
                 self.trackable,
                 self.unique,
                 self.non_returning,
+                self.summaries,
                 &mut state,
                 op,
             )?;
@@ -765,6 +840,7 @@ fn non_returning_routines(program: &NirProgram) -> BTreeSet<RoutineId> {
         let previous = proved.clone();
         for r in &program.routines {
             if r.entry.external
+                || r.entry.external_symbol.is_some()
                 || matches!(r.entry.placement, NirRoutinePlacement::Absolute(_))
                 || r.blocks.is_empty()
                 || r.blocks.len() > MAX_BLOCKS

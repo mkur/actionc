@@ -60,5 +60,20 @@ fn cursor_mutators_are_audited_by_resolved_storage() {
                 .into_iter()
                 .collect()
         );
+        let optimized = nir::optimize_program(&program).unwrap();
+        for p in [&program, &optimized] {
+            let ranges = nir::analyze_unsigned_ranges(p).unwrap();
+            for name in ["ArenaCursor", "Alloc"] {
+                let r = p.routines.iter().find(|r| r.name == name).unwrap();
+                let range = ranges.normal_return_range(r.id).unwrap();
+                assert_eq!((range.min(), range.max()), (0x2000, 0x2800), "{name}");
+            }
+            let generic = p.routines.iter().find(|r| r.name == "Strcat").unwrap();
+            assert!(
+                ranges
+                    .storage_ranges_at_entry(generic.id, generic.blocks[0].id)
+                    .is_empty()
+            );
+        }
     }
 }
