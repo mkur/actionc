@@ -1,6 +1,7 @@
 # Checked arena allocation and pointer range proofs
 
-Status: checked runtime and inert NIR ranges implemented; MIR consumer proposed,
+Status: checked runtime, NIR ranges and inert MIR projection implemented;
+copy/retention consumer proposed,
 2026-11-12.
 Compiler baseline: `95e88790`.
 
@@ -179,6 +180,24 @@ Integer/pointer conversions preserve a range only when the typed conversion
 preserves the represented address. Reconstructing a word from arbitrary low
 and high byte facts is insufficient. MIR carrier facts must tie both lanes to
 the same complete value and invalidate them after an unproved partial write.
+
+### Initial MIR projection boundary
+
+Projection runs after the existing materialization pipeline. It associates a
+NIR call with its lowered and materialized forms only when reachable CFG edges
+and the user-call sequence agree, and its target occurs once in that caller.
+This is a phase-association restriction, not evidence of closed routine entry.
+Aggregate ABI changes, ambiguous calls or changed CFGs retain unknown.
+
+Both bytes of a logical word range map together to the verified ABI lane
+locations. Homing, spills, global loads and selected pointer arithmetic remain
+the existing compiler's value-preserving transformations; independent byte
+intervals never establish a pointer. The side table borrows its immutable NIR
+input, shares a frozen complete materialized caller snapshot, and binds each
+receipt to its routine, block, operation and generation. Any caller-body or
+generation change requires fresh projection. Its initial materialized routine
+limit is 4,096 operations. Projection adds no executable MIR metadata operations
+or emitter dependency on source meaning.
 
 ## Entry facts and calls to Strcat
 

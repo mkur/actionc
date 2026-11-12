@@ -332,7 +332,15 @@ pub fn generate_output_with_config_and_runtime(
     runtime: crate::runtime::Runtime,
 ) -> Result<crate::codegen::CodegenOutput, Vec<MirDiagnostic>> {
     let mir = lower_program(nir)?;
+    let range_source = (config.enable_peepholes && config.enable_pointer_call_retention
+        && config.enable_checked_range_pointer_retention).then(|| mir.clone());
     let mir = materialize_program_with_origin_and_runtime(mir, config, origin, runtime)?;
+    let address_ranges = range_source.as_ref().map(|source| {
+        analysis::address_ranges::MirAddressRanges::project(nir, source, &mir)
+    }).transpose()?;
+    if let Some(ranges) = &address_ranges {
+        let _validated_inputs = ranges.validated_inputs(&mir);
+    }
     verify::verify_program(&mir, MirPhase::PreEmission)
         .map_err(|diagnostics| phase_diagnostics("pre-emission", diagnostics))?;
     let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);

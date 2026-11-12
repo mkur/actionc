@@ -1,4 +1,5 @@
 pub(super) mod address_uses;
+pub(super) mod address_ranges;
 pub(super) mod address_values;
 pub(super) mod argument_staging;
 pub(super) mod argument_x_forwarding;

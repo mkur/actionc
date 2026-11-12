@@ -34,6 +34,8 @@ pub struct Mir6502Config {
     pub enable_pointer_call_retention: bool,
     /// Derive context-specific write footprints for inspectable bounded machine calls.
     pub enable_bounded_call_pointer_retention: bool,
+    /// Consume verified NIR word ranges in final copy/retention transactions.
+    pub enable_checked_range_pointer_retention: bool,
     /// Extend retention to CFG edges and invariant loops.
     pub enable_pointer_loop_retention: bool,
     /// Promote auditable changing local pointer homes into existing pairs.
@@ -112,6 +114,7 @@ impl Default for Mir6502Config {
             enable_register_copy_forwarding: false,
             enable_pointer_call_retention: false,
             enable_bounded_call_pointer_retention: false,
+            enable_checked_range_pointer_retention: false,
             enable_pointer_loop_retention: false,
             enable_pointer_promotion: false,
             enable_constructor_store_elision: true,

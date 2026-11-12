@@ -77,3 +77,11 @@ TNDBG storage audit in raw/optimized NIR. Both `ArenaCursor` and `Alloc` derive
 gates pass unchanged snapshots, all 51 sweep fixtures and 4,047 Rust tests in
 the isolated checkout. This remains analysis-only compiler work; no target
 consumer or optimized-default change has landed yet.
+
+The inert MIR projection passes 179 MIR analysis tests and two integration
+targets. Thirty-two feature-off/on image pairs cover raw/optimized NIR, both
+runtimes, two origins, actual LF/CRLF parsing and parent-switch gating. Complete
+`CodegenOutput` values remain equal. Guarded and checked-return copies project
+their two coherent words onto A/X and Y/$A3; unrestricted entries, stale caller
+bodies/generations and repeated helper targets do not gain facts. The family
+remains default-off while the target consumer is implemented.
