@@ -1,3 +1,5 @@
+#[allow(dead_code)] // Connected after the transfer contract is qualified.
+mod home_values;
 use crate::mir6502::ir::MirFixedZpSlot;
 use super::dead_spills::block_successor_indices;
 use super::defs::{op_def, split_def_as_temp};

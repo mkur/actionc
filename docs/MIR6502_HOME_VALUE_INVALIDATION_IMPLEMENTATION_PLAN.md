@@ -1,6 +1,6 @@
 # MIR6502 home value invalidation implementation plan
 
-Prepared 2026-11-12. Status: implementation in progress; slice 0 delivered. Starting revision: `95e334be`.
+Prepared 2026-11-12. Status: implementation in progress; slices 0–1 delivered. Starting revision: `95e334be`.
 Implement in four slices and commit each after its checks pass.
 
 Replace blanket invalidation in the existing SSA-lite byte-value environment
