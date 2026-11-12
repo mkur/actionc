@@ -350,6 +350,25 @@ Opaque result receipts may cross into MIR as proof metadata, bound to their
 routine/block/value association. NIR derives the guarantee; MIR68K decides
 whether it permits a native memory instruction.
 
+Unsigned numeric ranges are also read-only derived analysis tables over verified
+NIR, not executable assumptions or allocator annotations. BYTE/CARD and 16-bit
+pointer values use widened endpoint arithmetic, conservative joins and explicit
+CFG edge refinements. A guard such as `n <= E-c` certifies a non-wrapping sum only
+for those captured values after the subtraction's own bounds are established.
+Re-executed definitions invalidate their prior certificates; loop backedges do
+not supply entry facts. Unsupported widths, signed variables, lost storage
+identity and possible memory interference yield unknown.
+
+Range queries identify an exact routine/block/operation/value point. Temp type,
+unique definition, availability and dominance must match; tables borrow their
+immutable input program and require recomputation after rewrites. The initial
+limits are 512 blocks, 4,096 operations and 4,096 transfer evaluations per
+routine. Exhaustion discards the routine result, including partially converged
+facts. Unreachable paths remain distinct from reachable unknown values.
+Explicit sink CFGs and acyclic verified direct dependencies may prove lack of
+normal return; names, recursive assumptions and opaque machine control flow
+cannot do so. This analysis changes no executable NIR or printed snapshot.
+
 Scalar promotion uses one shared legality analysis and SSA rewrite engine.
 The default `Conservative` profitability policy retains existing hot-byte,
 word-induction and bounded-relay selection. Explicit `NativeLoops` policy also

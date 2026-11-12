@@ -1,6 +1,6 @@
 # Checked arena and pointer ranges implementation plan
 
-Status: implementation in progress; slices 0–1 delivered. Starting revision: `c1dc6a5a`; compiler baseline:
+Status: implementation in progress; slices 0–2 delivered. Starting revision: `c1dc6a5a`; compiler baseline:
 `95e88790`. Implements the [design note](TN_CHECKED_ARENA_AND_POINTER_RANGES_DESIGN.md).
 Work in the numbered slices below and commit each after its applicable checks.
 

@@ -28,6 +28,9 @@ pub use analysis::aggregate_regions::{
     NirRoutineAggregateRegions, analyze_aggregate_regions,
 };
 pub use analysis::alignment::{NirAlignmentAnalysis, NirAlignmentProof, analyze_alignment};
+pub use analysis::ranges::{
+    NirRangeAnalysis, NirUnsignedRange, NirUnsignedRangeProof, analyze_unsigned_ranges,
+};
 pub use analysis::storage::{
     NirProgramStorageAnalysis, NirPromotionBlocker, NirRoutineStorageAnalysis,
     NirStorageBackingClass, NirStorageFacts, NirStorageIdentityDomain, analyze_program_storage,

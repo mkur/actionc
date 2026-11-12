@@ -61,3 +61,12 @@ returns, excluding transient half-written cursor words.
 snapshot cells. This avoids adding local frame data to classic current-location
 entries. The VM test normally uses the linked compiler crate; local runs can
 select a freshly built release CLI through `ACTIONC_ARENA_COMPILER`.
+
+The inert unsigned-range slice passes its eight focused tests, unchanged NIR
+snapshots, the 51-fixture NIR sweep and the full Rust suite in an isolated
+checkout. The checkout contains only committed arena work and the range slice.
+The original workspace's full suite reaches an unrelated sample-parser failure:
+untracked `samples/vbxe/shared/lines.act` needs an unconfigured `SHARED.SCREEN`
+module path. That workspace work was preserved. Shared checks use stripped
+debug information and Rust optimization level 1 to keep the complete sample
+materialization matrix practical; assertions remain enabled.
