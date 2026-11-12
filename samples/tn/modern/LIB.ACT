@@ -7,6 +7,9 @@ CONST BYTE SCREEN_COLS=40, SCREEN_ROWS=24
 CONST BYTE LAST_SCREEN_ROW=SCREEN_ROWS-1
 CONST CARD SCREEN_BYTES=SCREEN_COLS*SCREEN_ROWS
 CONST CARD WINDOW_ARENA=$2000, WINDOW_ARENA_BYTES=$800
+CONST CARD WINDOW_ARENA_END=WINDOW_ARENA+WINDOW_ARENA_BYTES
+CONST BYTE ARENA_INVALID_CURSOR=1, ARENA_EXHAUSTED=2,
+           ARENA_BAD_MARK=3, ARENA_UNDERFLOW=4, ARENA_BAD_CONFIG=5
 
 ; CIO commands, open modes and status bytes are separate values.
 CONST BYTE CIO_OPEN=3, CIO_GET_RECORD=5, CIO_GET_CHARS=7,
@@ -47,10 +50,14 @@ SET $491=$2C00
 MODULE
   
 BYTE ARRAY allocbuf(WINDOW_ARENA_BYTES)=WINDOW_ARENA
+BYTE ArenaFault=[0]
+; =* entries keep their existing storage-free entry layout on classic.
+CARD POINTER arenaPullCursor, arenaRestoreCursor
 
-;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers $A0-$A2
-;@actionc writes $0100-$FFFF
+; The indirect destination can include zero page (RestorePos uses $5A),
+; including either resident pointer pair. Narrow effects need a call proof.
+;@actionc writes $0000-$FFFF
 
 PROC MovePage=*(CARD dst, src BYTE len)
 ASM
@@ -69,29 +76,66 @@ loop:
 ENDASM
 
 
+PROC ArenaStop(BYTE reason)
+
+  ArenaFault=reason
+  DO OD
+RETURN
+
+
+CARD FUNC ArenaCursor()
+
+  CARD captured
+
+  captured=CARD(allocp)
+  IF captured<WINDOW_ARENA THEN ArenaStop(ARENA_INVALID_CURSOR) FI
+  IF captured>WINDOW_ARENA_END THEN ArenaStop(ARENA_INVALID_CURSOR) FI
+RETURN(captured)
+
+
 CARD FUNC Alloc(CARD n)
 
-  allocp==+n
-RETURN(allocp-n)
+  CARD captured, request
+
+  request=n
+  captured=ArenaCursor()
+  IF request>WINDOW_ARENA_END-captured THEN ArenaStop(ARENA_EXHAUSTED) FI
+  allocp=CARD POINTER(captured+request)
+RETURN(captured)
 
 
 PROC Free(CARD adr)
 
-  allocp = adr
+  CARD captured, mark
+
+  mark=adr
+  captured=ArenaCursor()
+  IF mark<WINDOW_ARENA THEN ArenaStop(ARENA_BAD_MARK) FI
+  IF mark>captured THEN ArenaStop(ARENA_BAD_MARK) FI
+  allocp=CARD POINTER(mark)
 RETURN
 
 
 PROC Push(CARD data)
 
-  allocp^ = data  
-  allocp==+2
+  CARD POINTER captured
+  CARD pushedWord
+
+  pushedWord=data
+  captured=CARD POINTER(ArenaCursor())
+  IF WINDOW_ARENA_END-captured<2 THEN ArenaStop(ARENA_EXHAUSTED) FI
+  captured^=pushedWord
+  allocp=captured+2
 RETURN
 
 
 CARD FUNC Pull=*()
 
-  allocp==-2
-RETURN(allocp^)
+  arenaPullCursor=CARD POINTER(ArenaCursor())
+  IF arenaPullCursor-WINDOW_ARENA<2 THEN ArenaStop(ARENA_UNDERFLOW) FI
+  arenaPullCursor==-2
+  allocp=arenaPullCursor
+RETURN(arenaPullCursor^)
 
 
 ;\{INV:                     }
@@ -607,8 +651,11 @@ RETURN
 
 PROC RestorePos=*()
 
-  allocp==-4
-  MovePage(@zx, allocp, 4)  
+  arenaRestoreCursor=CARD POINTER(ArenaCursor())
+  IF arenaRestoreCursor-WINDOW_ARENA<4 THEN ArenaStop(ARENA_UNDERFLOW) FI
+  arenaRestoreCursor==-4
+  allocp=arenaRestoreCursor
+  MovePage(@zx, arenaRestoreCursor, 4)
 RETURN
 
 
@@ -876,6 +923,10 @@ CHAR FUNC PopUp( BYTE POINTER mp BYTE c, spc )
 PROC Init()
  
  CARD h
+
+  IF WINDOW_ARENA_BYTES=0 OR WINDOW_ARENA_END<=WINDOW_ARENA THEN
+    ArenaStop(ARENA_BAD_CONFIG)
+  FI
  
   h = 0
   FOR i = 0 TO LAST_SCREEN_ROW DO

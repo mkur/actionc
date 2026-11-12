@@ -1,6 +1,7 @@
 # Checked arena allocation and pointer range proofs
 
-Status: proposed design, 2026-11-12. Compiler baseline: `95e88790`.
+Status: checked runtime implemented; compiler range proofs proposed, 2026-11-12.
+Compiler baseline: `95e88790`.
 
 The [implementation plan](TN_CHECKED_ARENA_AND_POINTER_RANGES_IMPLEMENTATION_PLAN.md)
 defines the initial delivery and its commit/check gates. It uses established
@@ -92,11 +93,19 @@ memory-effect proofs.
 ## Failure behavior
 
 Invalid cursor, exhaustion and underflow enter a dedicated non-returning arena
-failure path. The proposed minimal behavior records a reason and enters a stop
+failure path. `ArenaStop` records a reason in `ArenaFault` and enters a stop
 loop, without depending on cartridge services. Returning zero is unsuitable
 because existing callers immediately use allocation results without checking
 them. There is no recovery or window-operation rollback contract in this
 design.
+
+| Reason | Value |
+| --- | --- |
+| Invalid captured cursor | 1 |
+| Insufficient remaining capacity | 2 |
+| Rewind mark outside `[B,c]` | 3 |
+| Pop or position-restore underflow | 4 |
+| Invalid configured arena (checked by `Init`) | 5 |
 
 A failing primitive leaves its cursor and requested destination bytes unchanged;
 recording the fault reason is an intentional diagnostic effect. Earlier
