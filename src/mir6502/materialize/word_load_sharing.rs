@@ -161,6 +161,12 @@ fn image_size(p: &MirProgram, origin: u16, runtime: crate::runtime::Runtime) -> 
 struct Work {
     emissions: usize,
 }
+#[cfg(test)]
+impl Drop for Work {
+    fn drop(&mut self) {
+        WORK.with(|c| c.borrow_mut().push(self.emissions));
+    }
+}
 impl Work {
     fn charge(&mut self) -> Option<()> {
         if self.emissions >= 7 {
@@ -306,8 +312,6 @@ pub(in crate::mir6502) fn select_costed(
     } else {
         proposed
     };
-    #[cfg(test)]
-    WORK.with(|c| c.borrow_mut().push(work.emissions));
     maybe_report_peepholes(&result, &stats, config);
     Ok(result)
 }
@@ -315,3 +319,7 @@ pub(in crate::mir6502) fn select_costed(
 #[cfg(test)]
 #[path = "word_load_sharing_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "word_load_sharing_measurements.rs"]
+mod measurements;

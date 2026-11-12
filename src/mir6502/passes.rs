@@ -156,7 +156,7 @@ impl Mir6502Config {
             enable_precise_callee_entry_flags: true,
             enable_pointer_byte_plus_one_fusion: true,
             enable_pointer_load_sharing: true,
-            enable_word_load_sharing: false,
+            enable_word_load_sharing: true,
             enable_record_base_reuse: true,
             enable_register_copy_forwarding: true,
             enable_pointer_call_retention: true,

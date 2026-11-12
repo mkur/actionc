@@ -5,6 +5,105 @@ use actionc::{
 };
 
 #[test]
+fn word_load_sharing_defaults_and_master_peephole_gate() {
+    assert!(!Mir6502Config::default().enable_word_load_sharing);
+    assert!(Mir6502Config::optimized().enable_word_load_sharing);
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures/runtime/word_load_sharing.act");
+    let loaded = actionc::includes::load_program_with_expanded_source(path).unwrap();
+    let model = actionc::semantic::analyze_with_options(
+        &loaded.program,
+        actionc::semantic::SemanticOptions::modern(),
+    )
+    .unwrap();
+    let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
+        &actionc::semantic::ir::lower_program(&loaded.program, &model),
+    ))
+    .unwrap();
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let config = Mir6502Config {
+            enable_peepholes: false,
+            ..Mir6502Config::optimized()
+        };
+        let disabled = Mir6502Config {
+            enable_word_load_sharing: false,
+            ..config.clone()
+        };
+        let output = |config: &Mir6502Config| {
+            codegen::format_load_file(
+                &mir6502::generate_output_with_config_and_runtime(&nir, 0x3000, config, runtime)
+                    .unwrap(),
+            )
+        };
+        assert_eq!(output(&config), output(&disabled));
+    }
+}
+
+#[test]
+#[ignore = "requires MADS assembler on PATH or ACTIONC_MADS"]
+fn word_load_sharing_mads_listings_relocate_with_lf_and_crlf() {
+    use actionc::compiler::{CompileMode, CompileOptions, compile_file};
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures/runtime/word_load_sharing.act");
+    let dir = std::env::temp_dir().join(format!(
+        "actionc-word-load-sharing-mads-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let outputs = [0x3000, 0x41C7].map(|origin| {
+            compile_file(
+                &source,
+                &CompileOptions::for_mode(CompileMode::Mir6502)
+                    .with_origin(origin)
+                    .with_runtime(runtime),
+            )
+            .unwrap()
+        });
+        for (i, origin) in [0x3000, 0x41C7].into_iter().enumerate() {
+            let listing = outputs[0].source_listing().replace("\r\n", "\n").replace(
+                "ACTIONC_ORIGIN = $3000",
+                &format!("ACTIONC_ORIGIN = ${origin:04X}"),
+            );
+            for crlf in [false, true] {
+                let stem = format!("{runtime:?}-{origin:04X}-{crlf}");
+                let asm = dir.join(format!("{stem}.asm"));
+                let image = dir.join(format!("{stem}.xex"));
+                std::fs::write(
+                    &asm,
+                    if crlf {
+                        listing.replace('\n', "\r\n")
+                    } else {
+                        listing.clone()
+                    },
+                )
+                .unwrap();
+                let result = std::process::Command::new(
+                    std::env::var_os("ACTIONC_MADS").unwrap_or_else(|| "mads".into()),
+                )
+                .arg(&asm)
+                .arg(format!("-o:{}", image.display()))
+                .arg("-s")
+                .output()
+                .unwrap();
+                assert!(
+                    result.status.success(),
+                    "{} {}",
+                    String::from_utf8_lossy(&result.stdout),
+                    String::from_utf8_lossy(&result.stderr)
+                );
+                assert_eq!(
+                    std::fs::read(image).unwrap(),
+                    outputs[i].object_bytes(),
+                    "{stem}"
+                );
+            }
+        }
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn word_load_sharing_disabled_matches_baseline_and_enabled_shares_both_destinations() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     for (stem, path, origins, sizes) in [

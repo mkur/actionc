@@ -10,6 +10,18 @@ use std::collections::BTreeSet;
 #[path = "support/fixed_point.rs"]
 mod support;
 
+fn check_measured(out: &CodegenOutput, name: &str, runtime: Runtime, enabled: bool) {
+    if let Some(dir) = std::env::var_os("ACTIONC_WORD_LOAD_MEASURED_IMAGES") {
+        let path = std::path::PathBuf::from(dir).join(format!("{name}-{runtime:?}-{enabled}.xex"));
+        assert_eq!(
+            codegen::format_load_file(out),
+            std::fs::read(&path).unwrap(),
+            "{}",
+            path.display()
+        );
+    }
+}
+
 fn compile(
     text: &str,
     optimized: bool,
@@ -369,6 +381,9 @@ fn word_load_sharing_neutral_program_runs_through_both_runtimes_and_nir_modes() 
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for enabled in [false, true] {
                 let (_, out) = compile(&lf, optimized, runtime, 0x3000, enabled);
+                if optimized {
+                    check_measured(&out, "neutral", runtime, enabled);
+                }
                 let (mut vm, profile) = support::vm_for(runtime);
                 vm.load_atari_object_for_execution(profile, &codegen::format_load_file(&out))
                     .unwrap();
@@ -609,6 +624,7 @@ fn word_load_sharing_real_allocate_cases_preserve_results_and_measured_cycles() 
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         for enabled in [false, true] {
             let (_, out) = compile(&text, true, runtime, 0x3000, enabled);
+            check_measured(&out, "allocate", runtime, enabled);
             let entry = |name: &str| {
                 out.routine_addresses
                     .iter()

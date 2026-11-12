@@ -1,0 +1,1076 @@
+{
+  "schema": 1,
+  "baseline_revision": "7f7778f6",
+  "configuration": "Mir6502Config::optimized(); toggle only enable_word_load_sharing",
+  "compiler_and_source_inputs_sha256": "99497dda0f6bf4b69133f48e35383d2a3ffac93d7225a2973b8d346ac4a9ccb7",
+  "storage_facts_equal": true,
+  "outer_materializations_per_variant": 1,
+  "measurements": [
+    {
+      "name": "neutral",
+      "source": "fixtures/runtime/word_load_sharing.act",
+      "origin": 12288,
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        313,
+        301
+      ],
+      "xex_sha256": [
+        "e6c6a5af9e88c4c30132cbfcdb06e775af89ecf77b734ee6293a97e49c2634d2",
+        "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94"
+      ],
+      "routine_instruction_bytes": [
+        289,
+        277
+      ],
+      "direct_byte_loads": [
+        31,
+        27
+      ],
+      "storage_facts_sha256": "447177c8ef6066c69c362c397aba097a4503bb15f0ae0a737f6454760e7f8826",
+      "reservation_relocations": [],
+      "changed_routines": {
+        "Reset": {
+          "before": 83,
+          "after": 77,
+          "sites": 1
+        },
+        "Unlink": {
+          "before": 93,
+          "after": 87,
+          "sites": 1
+        }
+      },
+      "selection": {
+        "additional-emissions": 7,
+        "applied": 2,
+        "candidate": 2,
+        "selected": 2
+      },
+      "selector_emission_batches": [
+        7
+      ]
+    },
+    {
+      "name": "neutral",
+      "source": "fixtures/runtime/word_load_sharing.act",
+      "origin": 12288,
+      "runtime": "Standalone",
+      "xex_bytes": [
+        313,
+        301
+      ],
+      "xex_sha256": [
+        "e6c6a5af9e88c4c30132cbfcdb06e775af89ecf77b734ee6293a97e49c2634d2",
+        "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94"
+      ],
+      "routine_instruction_bytes": [
+        289,
+        277
+      ],
+      "direct_byte_loads": [
+        31,
+        27
+      ],
+      "storage_facts_sha256": "447177c8ef6066c69c362c397aba097a4503bb15f0ae0a737f6454760e7f8826",
+      "reservation_relocations": [],
+      "changed_routines": {
+        "Reset": {
+          "before": 83,
+          "after": 77,
+          "sites": 1
+        },
+        "Unlink": {
+          "before": 93,
+          "after": 87,
+          "sites": 1
+        }
+      },
+      "selection": {
+        "additional-emissions": 7,
+        "applied": 2,
+        "candidate": 2,
+        "selected": 2
+      },
+      "selector_emission_batches": [
+        7
+      ]
+    },
+    {
+      "name": "neutral-41C7",
+      "source": "fixtures/runtime/word_load_sharing.act",
+      "origin": 16839,
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        313,
+        301
+      ],
+      "xex_sha256": [
+        "cac78d18d21680c9e3248fb64295b28fad554cb32eee8e383920ad0113969a4b",
+        "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31"
+      ],
+      "routine_instruction_bytes": [
+        289,
+        277
+      ],
+      "direct_byte_loads": [
+        31,
+        27
+      ],
+      "storage_facts_sha256": "447177c8ef6066c69c362c397aba097a4503bb15f0ae0a737f6454760e7f8826",
+      "reservation_relocations": [],
+      "changed_routines": {
+        "Reset": {
+          "before": 83,
+          "after": 77,
+          "sites": 1
+        },
+        "Unlink": {
+          "before": 93,
+          "after": 87,
+          "sites": 1
+        }
+      },
+      "selection": {
+        "additional-emissions": 7,
+        "applied": 2,
+        "candidate": 2,
+        "selected": 2
+      },
+      "selector_emission_batches": [
+        7
+      ]
+    },
+    {
+      "name": "neutral-41C7",
+      "source": "fixtures/runtime/word_load_sharing.act",
+      "origin": 16839,
+      "runtime": "Standalone",
+      "xex_bytes": [
+        313,
+        301
+      ],
+      "xex_sha256": [
+        "cac78d18d21680c9e3248fb64295b28fad554cb32eee8e383920ad0113969a4b",
+        "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31"
+      ],
+      "routine_instruction_bytes": [
+        289,
+        277
+      ],
+      "direct_byte_loads": [
+        31,
+        27
+      ],
+      "storage_facts_sha256": "447177c8ef6066c69c362c397aba097a4503bb15f0ae0a737f6454760e7f8826",
+      "reservation_relocations": [],
+      "changed_routines": {
+        "Reset": {
+          "before": 83,
+          "after": 77,
+          "sites": 1
+        },
+        "Unlink": {
+          "before": 93,
+          "after": 87,
+          "sites": 1
+        }
+      },
+      "selection": {
+        "additional-emissions": 7,
+        "applied": 2,
+        "candidate": 2,
+        "selected": 2
+      },
+      "selector_emission_batches": [
+        7
+      ]
+    },
+    {
+      "name": "sources",
+      "source": "fixtures/runtime/word_load_sharing_sources.act",
+      "origin": 12288,
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        513,
+        501
+      ],
+      "xex_sha256": [
+        "06320d2fdbb7d6bb84770784988f72ace8cf2d4fb9ce786b55e920e4e48a754c",
+        "e508079c95dc7d75f9bbc6d7c471d8307da071faaa3b917117d75cd08d1d0668"
+      ],
+      "routine_instruction_bytes": [
+        475,
+        463
+      ],
+      "direct_byte_loads": [
+        62,
+        58
+      ],
+      "storage_facts_sha256": "22c338eeb13f1aa65c0348c57c302e2cb73b8b6a9bd2c8ad76222705f8029ac1",
+      "reservation_relocations": [],
+      "changed_routines": {
+        "Local": {
+          "before": 104,
+          "after": 98,
+          "sites": 1
+        },
+        "Parameter": {
+          "before": 98,
+          "after": 92,
+          "sites": 1
+        }
+      },
+      "selection": {
+        "additional-emissions": 7,
+        "applied": 2,
+        "blocked-storage": 1,
+        "candidate": 3,
+        "selected": 2
+      },
+      "selector_emission_batches": [
+        7
+      ]
+    },
+    {
+      "name": "sources",
+      "source": "fixtures/runtime/word_load_sharing_sources.act",
+      "origin": 12288,
+      "runtime": "Standalone",
+      "xex_bytes": [
+        513,
+        501
+      ],
+      "xex_sha256": [
+        "06320d2fdbb7d6bb84770784988f72ace8cf2d4fb9ce786b55e920e4e48a754c",
+        "e508079c95dc7d75f9bbc6d7c471d8307da071faaa3b917117d75cd08d1d0668"
+      ],
+      "routine_instruction_bytes": [
+        475,
+        463
+      ],
+      "direct_byte_loads": [
+        62,
+        58
+      ],
+      "storage_facts_sha256": "22c338eeb13f1aa65c0348c57c302e2cb73b8b6a9bd2c8ad76222705f8029ac1",
+      "reservation_relocations": [],
+      "changed_routines": {
+        "Local": {
+          "before": 104,
+          "after": 98,
+          "sites": 1
+        },
+        "Parameter": {
+          "before": 98,
+          "after": 92,
+          "sites": 1
+        }
+      },
+      "selection": {
+        "additional-emissions": 7,
+        "applied": 2,
+        "blocked-storage": 1,
+        "candidate": 3,
+        "selected": 2
+      },
+      "selector_emission_batches": [
+        7
+      ]
+    },
+    {
+      "name": "allocate",
+      "source": "fixtures/runtime/allocate_word_load_sharing.act",
+      "origin": 12288,
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        952,
+        928
+      ],
+      "xex_sha256": [
+        "7c37b18f19585661da602649069843738bc3d96d3e2fa583fdce4f8357861c94",
+        "a05c5350a464fb1a01aabd7072c9dd710b491491b85bcb96979ac28a24c47559"
+      ],
+      "routine_instruction_bytes": [
+        902,
+        878
+      ],
+      "direct_byte_loads": [
+        90,
+        82
+      ],
+      "storage_facts_sha256": "5631bb3f63fb1e7d6fced78608ec98d27ff8fd89152673b4df02734b5f0d485d",
+      "reservation_relocations": [],
+      "changed_routines": {
+        "Alloc": {
+          "before": 287,
+          "after": 281,
+          "sites": 1
+        },
+        "AllocInit": {
+          "before": 96,
+          "after": 90,
+          "sites": 1
+        },
+        "Free": {
+          "before": 358,
+          "after": 346,
+          "sites": 2
+        }
+      },
+      "selection": {
+        "additional-emissions": 7,
+        "applied": 4,
+        "candidate": 4,
+        "selected": 4
+      },
+      "selector_emission_batches": [
+        7
+      ]
+    },
+    {
+      "name": "allocate",
+      "source": "fixtures/runtime/allocate_word_load_sharing.act",
+      "origin": 12288,
+      "runtime": "Standalone",
+      "xex_bytes": [
+        1427,
+        1403
+      ],
+      "xex_sha256": [
+        "71b51b61c91f0eac5642ed4bdbb713c391e0c070b5ba931db3ba0ae095ff07f9",
+        "fa1128988b4e3bde952055ee42ca4e0ddd454c76b0d7a4174723703c60b8b818"
+      ],
+      "routine_instruction_bytes": [
+        1326,
+        1302
+      ],
+      "direct_byte_loads": [
+        90,
+        82
+      ],
+      "storage_facts_sha256": "b129a18d36339941aea7eb82df858c04613dcefbcb769332598482f568b1e833",
+      "reservation_relocations": [],
+      "changed_routines": {
+        "Alloc": {
+          "before": 287,
+          "after": 281,
+          "sites": 1
+        },
+        "AllocInit": {
+          "before": 96,
+          "after": 90,
+          "sites": 1
+        },
+        "Free": {
+          "before": 358,
+          "after": 346,
+          "sites": 2
+        }
+      },
+      "selection": {
+        "additional-emissions": 7,
+        "applied": 4,
+        "candidate": 4,
+        "selected": 4
+      },
+      "selector_emission_batches": [
+        7
+      ]
+    },
+    {
+      "name": "TN",
+      "source": "samples/tn/modern/TN.ACT",
+      "origin": 11264,
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        10290,
+        10290
+      ],
+      "xex_sha256": [
+        "a8209b77402b3056bd8ec3ebacf45aaaf65ea547ea562ea2c7bf63ee203d1caa",
+        "a8209b77402b3056bd8ec3ebacf45aaaf65ea547ea562ea2c7bf63ee203d1caa"
+      ],
+      "routine_instruction_bytes": [
+        9445,
+        9445
+      ],
+      "direct_byte_loads": [
+        644,
+        644
+      ],
+      "storage_facts_sha256": "b9c633f3d4cf59015ab5d2d98d322ca82d24e9d9472cb835d3dcfcd2d6be99d7",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {
+        "blocked-footprint": 2,
+        "blocked-storage": 5,
+        "candidate": 7
+      },
+      "selector_emission_batches": [
+        1
+      ]
+    },
+    {
+      "name": "TN",
+      "source": "samples/tn/modern/TN.ACT",
+      "origin": 11264,
+      "runtime": "Standalone",
+      "xex_bytes": [
+        10415,
+        10415
+      ],
+      "xex_sha256": [
+        "e4b89acf80c00920857eb42c49db808300f37ab897cc083990011a1ae4bd5844",
+        "e4b89acf80c00920857eb42c49db808300f37ab897cc083990011a1ae4bd5844"
+      ],
+      "routine_instruction_bytes": [
+        9551,
+        9551
+      ],
+      "direct_byte_loads": [
+        645,
+        645
+      ],
+      "storage_facts_sha256": "a61205f2008cf85d244eac1444db896fd12fc6d642477832ce4c6cbfc32fab6c",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {
+        "blocked-footprint": 2,
+        "blocked-storage": 5,
+        "candidate": 7
+      },
+      "selector_emission_batches": [
+        1
+      ]
+    },
+    {
+      "name": "TNDBG",
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "origin": 11264,
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        13385,
+        13373
+      ],
+      "xex_sha256": [
+        "d2f6efb74fa2303dff3d6cc538f21a19c2bc2368ec2ae5421f63fce2b950443f",
+        "54f3cde25c42814a012bae828d2350410dc94cc168bf4f588cfece22dd6eccc9"
+      ],
+      "routine_instruction_bytes": [
+        12005,
+        11993
+      ],
+      "direct_byte_loads": [
+        881,
+        877
+      ],
+      "storage_facts_sha256": "51a2434fb3e7fc1c26cbe3e0ae7b33eb02afc296facc875c44e4fe78e6ca3287",
+      "reservation_relocations": [
+        {
+          "before": 24637,
+          "after": 24625,
+          "bytes": 10
+        },
+        {
+          "before": 24647,
+          "after": 24635,
+          "bytes": 40
+        },
+        {
+          "before": 24687,
+          "after": 24675,
+          "bytes": 47
+        },
+        {
+          "before": 24734,
+          "after": 24722,
+          "bytes": 47
+        },
+        {
+          "before": 24781,
+          "after": 24769,
+          "bytes": 1171
+        },
+        {
+          "before": 25952,
+          "after": 25940,
+          "bytes": 1171
+        },
+        {
+          "before": 27123,
+          "after": 27111,
+          "bytes": 130
+        },
+        {
+          "before": 27253,
+          "after": 27241,
+          "bytes": 130
+        },
+        {
+          "before": 27383,
+          "after": 27371,
+          "bytes": 32
+        },
+        {
+          "before": 27415,
+          "after": 27403,
+          "bytes": 16
+        }
+      ],
+      "changed_routines": {
+        "DrawWinFrame": {
+          "before": 347,
+          "after": 341,
+          "sites": 1
+        },
+        "Path": {
+          "before": 201,
+          "after": 195,
+          "sites": 1
+        }
+      },
+      "selection": {
+        "additional-emissions": 7,
+        "applied": 2,
+        "blocked-footprint": 2,
+        "blocked-storage": 5,
+        "candidate": 9,
+        "selected": 2
+      },
+      "selector_emission_batches": [
+        7
+      ]
+    },
+    {
+      "name": "TNDBG",
+      "source": "samples/tn/modern/TNDBG.ACT",
+      "origin": 11264,
+      "runtime": "Standalone",
+      "xex_bytes": [
+        13510,
+        13498
+      ],
+      "xex_sha256": [
+        "1c7f72596e9591abf5b0b757cc8602d39601e60314032da8d70a9e3a73735b76",
+        "b6e3f3b7b0372d3523234e627aadf0b70761216d3e2d1e6c3819cf9aef1f3e04"
+      ],
+      "routine_instruction_bytes": [
+        12111,
+        12099
+      ],
+      "direct_byte_loads": [
+        882,
+        878
+      ],
+      "storage_facts_sha256": "7f59436be1a3502d26b20dc0dfe246c5a325de5ed2695a01b2f0279b7ecd1683",
+      "reservation_relocations": [
+        {
+          "before": 24762,
+          "after": 24750,
+          "bytes": 10
+        },
+        {
+          "before": 24772,
+          "after": 24760,
+          "bytes": 40
+        },
+        {
+          "before": 24812,
+          "after": 24800,
+          "bytes": 47
+        },
+        {
+          "before": 24859,
+          "after": 24847,
+          "bytes": 47
+        },
+        {
+          "before": 24906,
+          "after": 24894,
+          "bytes": 1171
+        },
+        {
+          "before": 26077,
+          "after": 26065,
+          "bytes": 1171
+        },
+        {
+          "before": 27248,
+          "after": 27236,
+          "bytes": 130
+        },
+        {
+          "before": 27378,
+          "after": 27366,
+          "bytes": 130
+        },
+        {
+          "before": 27508,
+          "after": 27496,
+          "bytes": 32
+        },
+        {
+          "before": 27540,
+          "after": 27528,
+          "bytes": 16
+        }
+      ],
+      "changed_routines": {
+        "DrawWinFrame": {
+          "before": 339,
+          "after": 333,
+          "sites": 1
+        },
+        "Path": {
+          "before": 201,
+          "after": 195,
+          "sites": 1
+        }
+      },
+      "selection": {
+        "additional-emissions": 7,
+        "applied": 2,
+        "blocked-footprint": 2,
+        "blocked-storage": 5,
+        "candidate": 9,
+        "selected": 2
+      },
+      "selector_emission_batches": [
+        7
+      ]
+    },
+    {
+      "name": "pointer-load-sharing",
+      "source": "fixtures/runtime/pointer_load_sharing.act",
+      "origin": 12288,
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        698,
+        698
+      ],
+      "xex_sha256": [
+        "bfdb48d608bf60e4fcaa9b127e8ba216dce7fa93cd18a0d88af7da64c8aa6db6",
+        "bfdb48d608bf60e4fcaa9b127e8ba216dce7fa93cd18a0d88af7da64c8aa6db6"
+      ],
+      "routine_instruction_bytes": [
+        657,
+        657
+      ],
+      "direct_byte_loads": [
+        89,
+        89
+      ],
+      "storage_facts_sha256": "fc7f23c7eb57a6d678620723ae668495abd497983f09947bd5124340d0df2f0c",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "pointer-load-sharing",
+      "source": "fixtures/runtime/pointer_load_sharing.act",
+      "origin": 12288,
+      "runtime": "Standalone",
+      "xex_bytes": [
+        780,
+        780
+      ],
+      "xex_sha256": [
+        "69429f8bffa68d5647dcc81a2179bd49297355b37002a82631b80e95a4a57ab5",
+        "69429f8bffa68d5647dcc81a2179bd49297355b37002a82631b80e95a4a57ab5"
+      ],
+      "routine_instruction_bytes": [
+        738,
+        738
+      ],
+      "direct_byte_loads": [
+        89,
+        89
+      ],
+      "storage_facts_sha256": "22cc47443fdbb642161cf79c4b838aff3f3a71523baf2af706e556d85fd30f09",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "word-move-store",
+      "source": "fixtures/runtime/word_move_store.act",
+      "origin": 12288,
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        213,
+        213
+      ],
+      "xex_sha256": [
+        "7149155956077c9d096ba744d83024381f1ba3292765c421bb3356f60c204ec5",
+        "7149155956077c9d096ba744d83024381f1ba3292765c421bb3356f60c204ec5"
+      ],
+      "routine_instruction_bytes": [
+        199,
+        199
+      ],
+      "direct_byte_loads": [
+        28,
+        28
+      ],
+      "storage_facts_sha256": "2a16367ee7c40406ce6433389c1200f0a8b3e2b49ad8eddb8992001264979233",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "word-move-store",
+      "source": "fixtures/runtime/word_move_store.act",
+      "origin": 12288,
+      "runtime": "Standalone",
+      "xex_bytes": [
+        213,
+        213
+      ],
+      "xex_sha256": [
+        "7149155956077c9d096ba744d83024381f1ba3292765c421bb3356f60c204ec5",
+        "7149155956077c9d096ba744d83024381f1ba3292765c421bb3356f60c204ec5"
+      ],
+      "routine_instruction_bytes": [
+        199,
+        199
+      ],
+      "direct_byte_loads": [
+        28,
+        28
+      ],
+      "storage_facts_sha256": "2a16367ee7c40406ce6433389c1200f0a8b3e2b49ad8eddb8992001264979233",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "word-arguments",
+      "source": "fixtures/runtime/direct_action_word_arithmetic_args.act",
+      "origin": 12288,
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        472,
+        472
+      ],
+      "xex_sha256": [
+        "f373f205eece23f010cd55a326388226f686e9e141919702e6334c5324aada8a",
+        "f373f205eece23f010cd55a326388226f686e9e141919702e6334c5324aada8a"
+      ],
+      "routine_instruction_bytes": [
+        431,
+        431
+      ],
+      "direct_byte_loads": [
+        25,
+        25
+      ],
+      "storage_facts_sha256": "b818cb9575ae07a485861a5ef3c92c275c08ed7b3580f36e6cb2b29a4da59c00",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "word-arguments",
+      "source": "fixtures/runtime/direct_action_word_arithmetic_args.act",
+      "origin": 12288,
+      "runtime": "Standalone",
+      "xex_bytes": [
+        472,
+        472
+      ],
+      "xex_sha256": [
+        "f373f205eece23f010cd55a326388226f686e9e141919702e6334c5324aada8a",
+        "f373f205eece23f010cd55a326388226f686e9e141919702e6334c5324aada8a"
+      ],
+      "routine_instruction_bytes": [
+        431,
+        431
+      ],
+      "direct_byte_loads": [
+        25,
+        25
+      ],
+      "storage_facts_sha256": "b818cb9575ae07a485861a5ef3c92c275c08ed7b3580f36e6cb2b29a4da59c00",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "indexed-byte",
+      "source": "fixtures/runtime/indexed_byte_fixed_action_args.act",
+      "origin": 12288,
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        738,
+        738
+      ],
+      "xex_sha256": [
+        "19a70b2d2baed734c12c5a38950a3dc5f9799f1dd0c3dd3da6240a21a39ba503",
+        "19a70b2d2baed734c12c5a38950a3dc5f9799f1dd0c3dd3da6240a21a39ba503"
+      ],
+      "routine_instruction_bytes": [
+        704,
+        704
+      ],
+      "direct_byte_loads": [
+        49,
+        49
+      ],
+      "storage_facts_sha256": "616d211d9ea7d92e8c939290128b4a917eea2c5786bbfd2c221b0c9f3d15c66f",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "indexed-byte",
+      "source": "fixtures/runtime/indexed_byte_fixed_action_args.act",
+      "origin": 12288,
+      "runtime": "Standalone",
+      "xex_bytes": [
+        820,
+        820
+      ],
+      "xex_sha256": [
+        "dd48bc1ffec1247094e3f63c0f9da131123d5a3d274eff64f9a2eb7fdc0a3dc1",
+        "dd48bc1ffec1247094e3f63c0f9da131123d5a3d274eff64f9a2eb7fdc0a3dc1"
+      ],
+      "routine_instruction_bytes": [
+        785,
+        785
+      ],
+      "direct_byte_loads": [
+        49,
+        49
+      ],
+      "storage_facts_sha256": "822edc211f50e0ee52a3966c4f6a36ed3462dc6dadac1a051b97586308d67219",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "predicate-captures",
+      "source": "surveys/tn/reproducers/captured-call-arguments.act",
+      "origin": 12288,
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        227,
+        227
+      ],
+      "xex_sha256": [
+        "bb09a93eb417c9518c0ac47b3c9d931ac1ca321f7643cb0489045779721baf37",
+        "bb09a93eb417c9518c0ac47b3c9d931ac1ca321f7643cb0489045779721baf37"
+      ],
+      "routine_instruction_bytes": [
+        199,
+        199
+      ],
+      "direct_byte_loads": [
+        27,
+        27
+      ],
+      "storage_facts_sha256": "5f23a36c4589f3e6616e405fd595b1ccc80e2f18e1ba7a02ec51161b7b0ac8b2",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "predicate-captures",
+      "source": "surveys/tn/reproducers/captured-call-arguments.act",
+      "origin": 12288,
+      "runtime": "Standalone",
+      "xex_bytes": [
+        309,
+        309
+      ],
+      "xex_sha256": [
+        "082eb7ecb4296b6001d3b1644b9e48d193a76950c437f624c5beca17cf0b6812",
+        "082eb7ecb4296b6001d3b1644b9e48d193a76950c437f624c5beca17cf0b6812"
+      ],
+      "routine_instruction_bytes": [
+        280,
+        280
+      ],
+      "direct_byte_loads": [
+        27,
+        27
+      ],
+      "storage_facts_sha256": "d89ad77751dcc3292ebbb41a3211645072b3f3ee95c5e88ea9e6ac62ad597fcd",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "string-loop",
+      "source": "fixtures/mir6502/array_param_string_length_loop.act",
+      "origin": 12288,
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        75,
+        75
+      ],
+      "xex_sha256": [
+        "61795c2cc5107185521d6378a82586c4f6e5ba5b514ff5d1ffbd3fba69212c87",
+        "61795c2cc5107185521d6378a82586c4f6e5ba5b514ff5d1ffbd3fba69212c87"
+      ],
+      "routine_instruction_bytes": [
+        51,
+        51
+      ],
+      "direct_byte_loads": [
+        2,
+        2
+      ],
+      "storage_facts_sha256": "f84a1c0c9d2f0b9dafa8e186c5c45cffe4f0cc80607b3b80919604557d39b651",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "string-loop",
+      "source": "fixtures/mir6502/array_param_string_length_loop.act",
+      "origin": 12288,
+      "runtime": "Standalone",
+      "xex_bytes": [
+        75,
+        75
+      ],
+      "xex_sha256": [
+        "61795c2cc5107185521d6378a82586c4f6e5ba5b514ff5d1ffbd3fba69212c87",
+        "61795c2cc5107185521d6378a82586c4f6e5ba5b514ff5d1ffbd3fba69212c87"
+      ],
+      "routine_instruction_bytes": [
+        51,
+        51
+      ],
+      "direct_byte_loads": [
+        2,
+        2
+      ],
+      "storage_facts_sha256": "f84a1c0c9d2f0b9dafa8e186c5c45cffe4f0cc80607b3b80919604557d39b651",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "graphics",
+      "source": "samples/graphics/fedora.act",
+      "origin": 12288,
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        5508,
+        5508
+      ],
+      "xex_sha256": [
+        "ce0c70481617cc800c32348a40d3c71090ec809bcabb28f27bc2136f2d86656c",
+        "ce0c70481617cc800c32348a40d3c71090ec809bcabb28f27bc2136f2d86656c"
+      ],
+      "routine_instruction_bytes": [
+        4924,
+        4924
+      ],
+      "direct_byte_loads": [
+        205,
+        205
+      ],
+      "storage_facts_sha256": "35d223466f74c0c9c02f071bd6302c4576c047b05a2e207250bef5c4820806b2",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "graphics",
+      "source": "samples/graphics/fedora.act",
+      "origin": 12288,
+      "runtime": "Standalone",
+      "xex_bytes": [
+        6149,
+        6149
+      ],
+      "xex_sha256": [
+        "72fe87df945cbe509d67d7deb0f1af72cde55403df9d720af83fd314955b0600",
+        "72fe87df945cbe509d67d7deb0f1af72cde55403df9d720af83fd314955b0600"
+      ],
+      "routine_instruction_bytes": [
+        5496,
+        5496
+      ],
+      "direct_byte_loads": [
+        205,
+        205
+      ],
+      "storage_facts_sha256": "99179f7c95ca69018fde6f09811f7a2286a2f2fe1d2c98242dd2e93ca3ca97e2",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "strings-runtime",
+      "source": "fixtures/runtime/standalone_sys_strings_runtime.act",
+      "origin": 12288,
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        87,
+        87
+      ],
+      "xex_sha256": [
+        "b763511c6d4016d8f98e2a612bee0ebb1750a9987dce04dc2de3d0fd8af682e4",
+        "b763511c6d4016d8f98e2a612bee0ebb1750a9987dce04dc2de3d0fd8af682e4"
+      ],
+      "routine_instruction_bytes": [
+        67,
+        67
+      ],
+      "direct_byte_loads": [
+        1,
+        1
+      ],
+      "storage_facts_sha256": "8faa6d6dce4be86001a50d4a881bb0048b4c2b76c4bdda9d749d41eff16cb20d",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    },
+    {
+      "name": "strings-runtime",
+      "source": "fixtures/runtime/standalone_sys_strings_runtime.act",
+      "origin": 12288,
+      "runtime": "Standalone",
+      "xex_bytes": [
+        217,
+        217
+      ],
+      "xex_sha256": [
+        "d401c385e34034522d18eb985c8521c84007098bd52626a3c531e7a59b57d464",
+        "d401c385e34034522d18eb985c8521c84007098bd52626a3c531e7a59b57d464"
+      ],
+      "routine_instruction_bytes": [
+        183,
+        183
+      ],
+      "direct_byte_loads": [
+        1,
+        1
+      ],
+      "storage_facts_sha256": "1f2536dad2fc78e12fa6ee5be8948a11188671ff757e88d2589f9e63196e2330",
+      "reservation_relocations": [],
+      "changed_routines": {},
+      "selection": {},
+      "selector_emission_batches": []
+    }
+  ]
+}

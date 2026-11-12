@@ -1,6 +1,6 @@
 # MIR6502 word load sharing implementation plan
 
-Prepared 2026-11-12. Status: slices 1–3 complete; slice 4 pending. Compiler baseline: `7f7778f6`.
+Prepared 2026-11-12. Status: all four slices complete. Compiler baseline: `7f7778f6`.
 Implement in four vertical slices and commit each after its checks pass.
 
 Share an ordinary word's byte loads when two direct destinations receive the
@@ -172,8 +172,10 @@ operation indices shift.
 
 Follow the existing costed batch model: baseline, proposed batch, and at most
 one batch with rejected routines restored. Require unchanged frames, home
-capacities, reservations and occupied zero page, no affected-routine growth,
-and a strict complete-XEX saving. Preserve published callee facts consumed
+capacities, reservation sizes and occupied zero page, no affected-routine growth,
+and a strict complete-XEX saving. Ordinary uninitialized buffers placed after
+code may relocate as code shrinks; final physical-map replay must prove the
+proposal at those new addresses. Preserve published callee facts consumed
 by earlier selectors, including relevant register/flag entry requirements,
 register preservation and observable accumulator results.
 
@@ -299,6 +301,16 @@ opportunity across four sites, admitted corpus cases improve without weaker proo
 growth, unsafe cases preserve fallback, and all affected backend checks pass.
 
 Suggested commit: `Enable qualified word load sharing and record corpus savings`.
+
+Completed qualification: 1,279 MIR6502 unit tests, 838 emission/codegen unit
+tests, all 29 selected root integration targets (128 tests), nine opt-in MADS
+tests, and the full Atari VM package (458 tests; eleven existing
+artifact-dependent measurements ignored). The final compiler reproduces all
+28 feature-off/on corpus comparisons and all 112 LF/CRLF MADS roundtrips.
+The optimized configuration enables the feature; conservative/default keeps
+it disabled and the master peephole switch suppresses it. TN stays unchanged;
+TNDBG saves twelve bytes in each runtime. Detailed results and reproduction
+commands are in the [measurement report](benchmarks/6502-word-load-sharing/README.md).
 
 ## Validation and disk usage
 
