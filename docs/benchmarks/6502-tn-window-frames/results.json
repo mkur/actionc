@@ -1,0 +1,1509 @@
+{
+  "schema": 1,
+  "compiler_revision": "0f777d681cef3ec55f1c67caf56cb6fa32b1cba4",
+  "source_sha256": {
+    "baseline/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "baseline/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+    "baseline/LIB.ACT": "78e87461dd5c349c9198c4591ffbaaa823727c20c945e4dbfa1e798bfdf5f66c",
+    "linked/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "linked/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+    "linked/LIB.ACT": "7d0e987d45a888c26d62c97a61dcac3e7e9f50d3e32bc4437f7c336d6baa571c",
+    "trailer/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "trailer/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+    "trailer/LIB.ACT": "9df9d5a1e752b48f430ab6e42c0d9a27b4394d01acafbf063d3aae4e8d1c051d"
+  },
+  "window_overhead_bytes": 10,
+  "arena_cursor_calls_per_pair": {
+    "baseline": 8,
+    "linked": 2,
+    "trailer": 2
+  },
+  "ranges_preserved": [
+    8192,
+    10240
+  ],
+  "measurements": [
+    {
+      "program": "TN",
+      "mode": "Optimized",
+      "runtime": "ActionCart",
+      "xex_bytes": {
+        "baseline": 11061,
+        "linked": 11423,
+        "trailer": 11429
+      },
+      "image_sha256": {
+        "baseline": "6d563301349e5a231426b14e84f34cd9751d5371303ff87dc3ead3573627a9ca",
+        "linked": "78bff9134053640d2c7328a803e85f318e7a4a1c5ac4adb66df5910b587e8bcf",
+        "trailer": "df2548d85fc6ea20c1cd7ab5fd9ca1bbaf2407bda93497a3dd24390bdd3e6b58"
+      },
+      "routine_bytes": {
+        "CloseWindow": {
+          "baseline": 51,
+          "linked": 284,
+          "trailer": 300
+        },
+        "Init": {
+          "baseline": 156,
+          "linked": 162,
+          "trailer": 156
+        },
+        "Sort": {
+          "baseline": 278,
+          "linked": 276,
+          "trailer": 276
+        },
+        "SwapScr": {
+          "baseline": 198,
+          "linked": 196,
+          "trailer": 196
+        },
+        "Tag": {
+          "baseline": 87,
+          "linked": 87,
+          "trailer": 89
+        },
+        "Window": {
+          "baseline": 344,
+          "linked": 469,
+          "trailer": 465
+        }
+      },
+      "cases": {
+        "small": {
+          "peak": 9257,
+          "open_cycles": {
+            "baseline": [
+              4871
+            ],
+            "linked": [
+              4277
+            ],
+            "trailer": [
+              4269
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2188
+            ],
+            "linked": [
+              1774
+            ],
+            "trailer": [
+              1806
+            ]
+          }
+        },
+        "nested": {
+          "peak": 9603,
+          "open_cycles": {
+            "baseline": [
+              8341,
+              10838,
+              5972
+            ],
+            "linked": [
+              7747,
+              10244,
+              5378
+            ],
+            "trailer": [
+              7739,
+              10236,
+              5370
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2590,
+              4348,
+              3020
+            ],
+            "linked": [
+              2176,
+              3934,
+              2606
+            ],
+            "trailer": [
+              2208,
+              3966,
+              2638
+            ]
+          }
+        },
+        "debug": {
+          "peak": 10060,
+          "open_cycles": {
+            "baseline": [
+              31370
+            ],
+            "linked": [
+              30776
+            ],
+            "trailer": [
+              30768
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              15610
+            ],
+            "linked": [
+              15196
+            ],
+            "trailer": [
+              15228
+            ]
+          }
+        },
+        "full-screen": {
+          "peak": 10162,
+          "open_cycles": {
+            "baseline": [
+              34478
+            ],
+            "linked": [
+              33884
+            ],
+            "trailer": [
+              33876
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              17306
+            ],
+            "linked": [
+              16892
+            ],
+            "trailer": [
+              16924
+            ]
+          }
+        },
+        "exact-fit": {
+          "peak": 10240,
+          "open_cycles": {
+            "baseline": [
+              4867
+            ],
+            "linked": [
+              4277
+            ],
+            "trailer": [
+              4265
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2184
+            ],
+            "linked": [
+              1774
+            ],
+            "trailer": [
+              1802
+            ]
+          }
+        },
+        "one-byte-short": {
+          "fault": 2,
+          "cursor_after": {
+            "baseline": 10237,
+            "linked": 10176,
+            "trailer": 10176
+          }
+        }
+      }
+    },
+    {
+      "program": "TN",
+      "mode": "Optimized",
+      "runtime": "Standalone",
+      "xex_bytes": {
+        "baseline": 11289,
+        "linked": 11651,
+        "trailer": 11657
+      },
+      "image_sha256": {
+        "baseline": "4f8a908b70dcde5b6a6fc3990fc7282f942d37341780132234f3ee8a732b0e73",
+        "linked": "836b48abc58dbe0e1dc111b4d89ca86df6cfbcb42b846ebaccf31d83bcbecc35",
+        "trailer": "afe3e0871968c7aaa81e7e7c01b6c99e2790449fc216e04f5a8444e048a81d5a"
+      },
+      "routine_bytes": {
+        "CloseWindow": {
+          "baseline": 51,
+          "linked": 284,
+          "trailer": 300
+        },
+        "Init": {
+          "baseline": 156,
+          "linked": 162,
+          "trailer": 156
+        },
+        "Sort": {
+          "baseline": 278,
+          "linked": 276,
+          "trailer": 276
+        },
+        "SwapScr": {
+          "baseline": 198,
+          "linked": 196,
+          "trailer": 196
+        },
+        "Tag": {
+          "baseline": 87,
+          "linked": 87,
+          "trailer": 89
+        },
+        "Window": {
+          "baseline": 344,
+          "linked": 469,
+          "trailer": 465
+        }
+      },
+      "cases": {
+        "small": {
+          "peak": 9257,
+          "open_cycles": {
+            "baseline": [
+              4874
+            ],
+            "linked": [
+              4280
+            ],
+            "trailer": [
+              4272
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2188
+            ],
+            "linked": [
+              1774
+            ],
+            "trailer": [
+              1806
+            ]
+          }
+        },
+        "nested": {
+          "peak": 9603,
+          "open_cycles": {
+            "baseline": [
+              8344,
+              10841,
+              5975
+            ],
+            "linked": [
+              7750,
+              10247,
+              5381
+            ],
+            "trailer": [
+              7742,
+              10239,
+              5373
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2590,
+              4348,
+              3020
+            ],
+            "linked": [
+              2176,
+              3934,
+              2606
+            ],
+            "trailer": [
+              2208,
+              3966,
+              2638
+            ]
+          }
+        },
+        "debug": {
+          "peak": 10060,
+          "open_cycles": {
+            "baseline": [
+              31373
+            ],
+            "linked": [
+              30779
+            ],
+            "trailer": [
+              30771
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              15610
+            ],
+            "linked": [
+              15196
+            ],
+            "trailer": [
+              15228
+            ]
+          }
+        },
+        "full-screen": {
+          "peak": 10162,
+          "open_cycles": {
+            "baseline": [
+              34481
+            ],
+            "linked": [
+              33887
+            ],
+            "trailer": [
+              33879
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              17306
+            ],
+            "linked": [
+              16892
+            ],
+            "trailer": [
+              16924
+            ]
+          }
+        },
+        "exact-fit": {
+          "peak": 10240,
+          "open_cycles": {
+            "baseline": [
+              4870
+            ],
+            "linked": [
+              4280
+            ],
+            "trailer": [
+              4268
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2184
+            ],
+            "linked": [
+              1774
+            ],
+            "trailer": [
+              1802
+            ]
+          }
+        },
+        "one-byte-short": {
+          "fault": 2,
+          "cursor_after": {
+            "baseline": 10237,
+            "linked": 10176,
+            "trailer": 10176
+          }
+        }
+      }
+    },
+    {
+      "program": "TN",
+      "mode": "Mir6502",
+      "runtime": "ActionCart",
+      "xex_bytes": {
+        "baseline": 10290,
+        "linked": 10654,
+        "trailer": 10653
+      },
+      "image_sha256": {
+        "baseline": "a8209b77402b3056bd8ec3ebacf45aaaf65ea547ea562ea2c7bf63ee203d1caa",
+        "linked": "6f5cc1361da83a675d43cb5cc31bd8f68b4191e8142b3ddf04f1620124f1e197",
+        "trailer": "508f9004b84544a6600c5a165b69b5b4ab5f259dd46be3f8cf764270482c90c1"
+      },
+      "routine_bytes": {
+        "CloseWindow": {
+          "baseline": 47,
+          "linked": 258,
+          "trailer": 234
+        },
+        "Init": {
+          "baseline": 100,
+          "linked": 106,
+          "trailer": 100
+        },
+        "Window": {
+          "baseline": 319,
+          "linked": 456,
+          "trailer": 483
+        }
+      },
+      "cases": {
+        "small": {
+          "peak": 9257,
+          "open_cycles": {
+            "baseline": [
+              4604
+            ],
+            "linked": [
+              4193
+            ],
+            "trailer": [
+              4231
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2151
+            ],
+            "linked": [
+              1703
+            ],
+            "trailer": [
+              1670
+            ]
+          }
+        },
+        "nested": {
+          "peak": 9603,
+          "open_cycles": {
+            "baseline": [
+              8090,
+              10571,
+              5709
+            ],
+            "linked": [
+              7679,
+              10160,
+              5298
+            ],
+            "trailer": [
+              7717,
+              10198,
+              5336
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2553,
+              4311,
+              2983
+            ],
+            "linked": [
+              2115,
+              3863,
+              2535
+            ],
+            "trailer": [
+              2082,
+              3830,
+              2502
+            ]
+          }
+        },
+        "debug": {
+          "peak": 10060,
+          "open_cycles": {
+            "baseline": [
+              30997
+            ],
+            "linked": [
+              30568
+            ],
+            "trailer": [
+              30606
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              15573
+            ],
+            "linked": [
+              15125
+            ],
+            "trailer": [
+              15092
+            ]
+          }
+        },
+        "full-screen": {
+          "peak": 10162,
+          "open_cycles": {
+            "baseline": [
+              34089
+            ],
+            "linked": [
+              33660
+            ],
+            "trailer": [
+              33698
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              17269
+            ],
+            "linked": [
+              16821
+            ],
+            "trailer": [
+              16788
+            ]
+          }
+        },
+        "exact-fit": {
+          "peak": 10240,
+          "open_cycles": {
+            "baseline": [
+              4638
+            ],
+            "linked": [
+              4203
+            ],
+            "trailer": [
+              4237
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2147
+            ],
+            "linked": [
+              1713
+            ],
+            "trailer": [
+              1676
+            ]
+          }
+        },
+        "one-byte-short": {
+          "fault": 2,
+          "cursor_after": {
+            "baseline": 10237,
+            "linked": 10176,
+            "trailer": 10176
+          }
+        }
+      }
+    },
+    {
+      "program": "TN",
+      "mode": "Mir6502",
+      "runtime": "Standalone",
+      "xex_bytes": {
+        "baseline": 10415,
+        "linked": 10779,
+        "trailer": 10778
+      },
+      "image_sha256": {
+        "baseline": "e4b89acf80c00920857eb42c49db808300f37ab897cc083990011a1ae4bd5844",
+        "linked": "b03be607500422ce9b97d80a8bbabf71ddb68b2e52a2a2d2fde242cbdac02c72",
+        "trailer": "f61ee891d105f61d069b2b435d7095d017a09f12a391cb0a7a90c423ab7e10c6"
+      },
+      "routine_bytes": {
+        "CloseWindow": {
+          "baseline": 47,
+          "linked": 258,
+          "trailer": 234
+        },
+        "Init": {
+          "baseline": 100,
+          "linked": 106,
+          "trailer": 100
+        },
+        "Window": {
+          "baseline": 317,
+          "linked": 454,
+          "trailer": 481
+        }
+      },
+      "cases": {
+        "small": {
+          "peak": 9257,
+          "open_cycles": {
+            "baseline": [
+              4545
+            ],
+            "linked": [
+              4134
+            ],
+            "trailer": [
+              4172
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2151
+            ],
+            "linked": [
+              1703
+            ],
+            "trailer": [
+              1670
+            ]
+          }
+        },
+        "nested": {
+          "peak": 9603,
+          "open_cycles": {
+            "baseline": [
+              8031,
+              10512,
+              5660
+            ],
+            "linked": [
+              7620,
+              10101,
+              5249
+            ],
+            "trailer": [
+              7658,
+              10139,
+              5287
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2553,
+              4311,
+              2983
+            ],
+            "linked": [
+              2115,
+              3863,
+              2535
+            ],
+            "trailer": [
+              2082,
+              3830,
+              2502
+            ]
+          }
+        },
+        "debug": {
+          "peak": 10060,
+          "open_cycles": {
+            "baseline": [
+              30952
+            ],
+            "linked": [
+              30523
+            ],
+            "trailer": [
+              30561
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              15573
+            ],
+            "linked": [
+              15125
+            ],
+            "trailer": [
+              15092
+            ]
+          }
+        },
+        "full-screen": {
+          "peak": 10162,
+          "open_cycles": {
+            "baseline": [
+              34035
+            ],
+            "linked": [
+              33606
+            ],
+            "trailer": [
+              33644
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              17269
+            ],
+            "linked": [
+              16821
+            ],
+            "trailer": [
+              16788
+            ]
+          }
+        },
+        "exact-fit": {
+          "peak": 10240,
+          "open_cycles": {
+            "baseline": [
+              4579
+            ],
+            "linked": [
+              4144
+            ],
+            "trailer": [
+              4178
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2147
+            ],
+            "linked": [
+              1713
+            ],
+            "trailer": [
+              1676
+            ]
+          }
+        },
+        "one-byte-short": {
+          "fault": 2,
+          "cursor_after": {
+            "baseline": 10237,
+            "linked": 10176,
+            "trailer": 10176
+          }
+        }
+      }
+    },
+    {
+      "program": "TNDBG",
+      "mode": "Optimized",
+      "runtime": "ActionCart",
+      "xex_bytes": {
+        "baseline": 14302,
+        "linked": 14667,
+        "trailer": 14674
+      },
+      "image_sha256": {
+        "baseline": "ecf65da58f5e691f01c0643a8b6369657947f47438980363c177880791647ace",
+        "linked": "2903322567ea24c9e04f2b3094762861cbb387b8070b2c7bbf14f4150c3ca782",
+        "trailer": "0053a1a483d72c456e682cd721de112602bcbb7428e509f1eb17c4b9bd60f89c"
+      },
+      "routine_bytes": {
+        "CloseWindow": {
+          "baseline": 51,
+          "linked": 284,
+          "trailer": 300
+        },
+        "Init": {
+          "baseline": 156,
+          "linked": 162,
+          "trailer": 156
+        },
+        "PrintFname": {
+          "baseline": 71,
+          "linked": 70,
+          "trailer": 71
+        },
+        "Tag": {
+          "baseline": 87,
+          "linked": 87,
+          "trailer": 89
+        },
+        "Window": {
+          "baseline": 344,
+          "linked": 469,
+          "trailer": 465
+        }
+      },
+      "cases": {
+        "small": {
+          "peak": 9257,
+          "open_cycles": {
+            "baseline": [
+              4871
+            ],
+            "linked": [
+              4277
+            ],
+            "trailer": [
+              4269
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2188
+            ],
+            "linked": [
+              1774
+            ],
+            "trailer": [
+              1806
+            ]
+          }
+        },
+        "nested": {
+          "peak": 9603,
+          "open_cycles": {
+            "baseline": [
+              8341,
+              10838,
+              5972
+            ],
+            "linked": [
+              7747,
+              10244,
+              5378
+            ],
+            "trailer": [
+              7739,
+              10236,
+              5370
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2590,
+              4348,
+              3020
+            ],
+            "linked": [
+              2176,
+              3934,
+              2606
+            ],
+            "trailer": [
+              2208,
+              3966,
+              2638
+            ]
+          }
+        },
+        "debug": {
+          "peak": 10060,
+          "open_cycles": {
+            "baseline": [
+              31370
+            ],
+            "linked": [
+              30776
+            ],
+            "trailer": [
+              30768
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              15610
+            ],
+            "linked": [
+              15196
+            ],
+            "trailer": [
+              15228
+            ]
+          }
+        },
+        "full-screen": {
+          "peak": 10162,
+          "open_cycles": {
+            "baseline": [
+              34478
+            ],
+            "linked": [
+              33884
+            ],
+            "trailer": [
+              33876
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              17306
+            ],
+            "linked": [
+              16892
+            ],
+            "trailer": [
+              16924
+            ]
+          }
+        },
+        "exact-fit": {
+          "peak": 10240,
+          "open_cycles": {
+            "baseline": [
+              4867
+            ],
+            "linked": [
+              4277
+            ],
+            "trailer": [
+              4265
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2184
+            ],
+            "linked": [
+              1774
+            ],
+            "trailer": [
+              1802
+            ]
+          }
+        },
+        "one-byte-short": {
+          "fault": 2,
+          "cursor_after": {
+            "baseline": 10237,
+            "linked": 10176,
+            "trailer": 10176
+          }
+        }
+      }
+    },
+    {
+      "program": "TNDBG",
+      "mode": "Optimized",
+      "runtime": "Standalone",
+      "xex_bytes": {
+        "baseline": 14530,
+        "linked": 14895,
+        "trailer": 14902
+      },
+      "image_sha256": {
+        "baseline": "fec78d9f1d5e231008b235548b21e698de20052a1d7117b788823f3f9c742e70",
+        "linked": "4935b1c76253faff5459cf7934108b1811587693c6d660a66ea5f8e958bb8fc3",
+        "trailer": "cc20e826c78979f40ab075c1805ad21b52935bb93a2a73be3e2090e3b4af4356"
+      },
+      "routine_bytes": {
+        "CloseWindow": {
+          "baseline": 51,
+          "linked": 284,
+          "trailer": 300
+        },
+        "Init": {
+          "baseline": 156,
+          "linked": 162,
+          "trailer": 156
+        },
+        "PrintFname": {
+          "baseline": 71,
+          "linked": 70,
+          "trailer": 71
+        },
+        "Tag": {
+          "baseline": 87,
+          "linked": 87,
+          "trailer": 89
+        },
+        "Window": {
+          "baseline": 344,
+          "linked": 469,
+          "trailer": 465
+        }
+      },
+      "cases": {
+        "small": {
+          "peak": 9257,
+          "open_cycles": {
+            "baseline": [
+              4874
+            ],
+            "linked": [
+              4280
+            ],
+            "trailer": [
+              4272
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2188
+            ],
+            "linked": [
+              1774
+            ],
+            "trailer": [
+              1806
+            ]
+          }
+        },
+        "nested": {
+          "peak": 9603,
+          "open_cycles": {
+            "baseline": [
+              8344,
+              10841,
+              5975
+            ],
+            "linked": [
+              7750,
+              10247,
+              5381
+            ],
+            "trailer": [
+              7742,
+              10239,
+              5373
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2590,
+              4348,
+              3020
+            ],
+            "linked": [
+              2176,
+              3934,
+              2606
+            ],
+            "trailer": [
+              2208,
+              3966,
+              2638
+            ]
+          }
+        },
+        "debug": {
+          "peak": 10060,
+          "open_cycles": {
+            "baseline": [
+              31373
+            ],
+            "linked": [
+              30779
+            ],
+            "trailer": [
+              30771
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              15610
+            ],
+            "linked": [
+              15196
+            ],
+            "trailer": [
+              15228
+            ]
+          }
+        },
+        "full-screen": {
+          "peak": 10162,
+          "open_cycles": {
+            "baseline": [
+              34481
+            ],
+            "linked": [
+              33887
+            ],
+            "trailer": [
+              33879
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              17306
+            ],
+            "linked": [
+              16892
+            ],
+            "trailer": [
+              16924
+            ]
+          }
+        },
+        "exact-fit": {
+          "peak": 10240,
+          "open_cycles": {
+            "baseline": [
+              4870
+            ],
+            "linked": [
+              4280
+            ],
+            "trailer": [
+              4268
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2184
+            ],
+            "linked": [
+              1774
+            ],
+            "trailer": [
+              1802
+            ]
+          }
+        },
+        "one-byte-short": {
+          "fault": 2,
+          "cursor_after": {
+            "baseline": 10237,
+            "linked": 10176,
+            "trailer": 10176
+          }
+        }
+      }
+    },
+    {
+      "program": "TNDBG",
+      "mode": "Mir6502",
+      "runtime": "ActionCart",
+      "xex_bytes": {
+        "baseline": 13373,
+        "linked": 13737,
+        "trailer": 13736
+      },
+      "image_sha256": {
+        "baseline": "54f3cde25c42814a012bae828d2350410dc94cc168bf4f588cfece22dd6eccc9",
+        "linked": "35df77e7fde98baa25caf24d98a473d7e32226da8558bd6acaca8803eea242bc",
+        "trailer": "c38507d07aa5dbcf638b053c0d74d137beeb9a44b0b83584b5fb488d982a051c"
+      },
+      "routine_bytes": {
+        "CloseWindow": {
+          "baseline": 47,
+          "linked": 258,
+          "trailer": 234
+        },
+        "Init": {
+          "baseline": 100,
+          "linked": 106,
+          "trailer": 100
+        },
+        "Window": {
+          "baseline": 319,
+          "linked": 456,
+          "trailer": 483
+        }
+      },
+      "cases": {
+        "small": {
+          "peak": 9257,
+          "open_cycles": {
+            "baseline": [
+              4604
+            ],
+            "linked": [
+              4193
+            ],
+            "trailer": [
+              4231
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2151
+            ],
+            "linked": [
+              1703
+            ],
+            "trailer": [
+              1670
+            ]
+          }
+        },
+        "nested": {
+          "peak": 9603,
+          "open_cycles": {
+            "baseline": [
+              8090,
+              10571,
+              5709
+            ],
+            "linked": [
+              7679,
+              10160,
+              5298
+            ],
+            "trailer": [
+              7717,
+              10198,
+              5336
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2553,
+              4311,
+              2983
+            ],
+            "linked": [
+              2115,
+              3863,
+              2535
+            ],
+            "trailer": [
+              2082,
+              3830,
+              2502
+            ]
+          }
+        },
+        "debug": {
+          "peak": 10060,
+          "open_cycles": {
+            "baseline": [
+              30997
+            ],
+            "linked": [
+              30568
+            ],
+            "trailer": [
+              30606
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              15573
+            ],
+            "linked": [
+              15125
+            ],
+            "trailer": [
+              15092
+            ]
+          }
+        },
+        "full-screen": {
+          "peak": 10162,
+          "open_cycles": {
+            "baseline": [
+              34089
+            ],
+            "linked": [
+              33660
+            ],
+            "trailer": [
+              33698
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              17269
+            ],
+            "linked": [
+              16821
+            ],
+            "trailer": [
+              16788
+            ]
+          }
+        },
+        "exact-fit": {
+          "peak": 10240,
+          "open_cycles": {
+            "baseline": [
+              4638
+            ],
+            "linked": [
+              4203
+            ],
+            "trailer": [
+              4237
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2147
+            ],
+            "linked": [
+              1713
+            ],
+            "trailer": [
+              1676
+            ]
+          }
+        },
+        "one-byte-short": {
+          "fault": 2,
+          "cursor_after": {
+            "baseline": 10237,
+            "linked": 10176,
+            "trailer": 10176
+          }
+        }
+      }
+    },
+    {
+      "program": "TNDBG",
+      "mode": "Mir6502",
+      "runtime": "Standalone",
+      "xex_bytes": {
+        "baseline": 13498,
+        "linked": 13862,
+        "trailer": 13861
+      },
+      "image_sha256": {
+        "baseline": "b6e3f3b7b0372d3523234e627aadf0b70761216d3e2d1e6c3819cf9aef1f3e04",
+        "linked": "3721565ac5a8c6dfdce8e5bcf3bcec7c8cc032d6bae1456a01d030d134df111d",
+        "trailer": "dd67ad19c84f20281e6b4aa0240ea635864f429d0a13fa1e8fc392c747e02eba"
+      },
+      "routine_bytes": {
+        "CloseWindow": {
+          "baseline": 47,
+          "linked": 258,
+          "trailer": 234
+        },
+        "Init": {
+          "baseline": 100,
+          "linked": 106,
+          "trailer": 100
+        },
+        "Window": {
+          "baseline": 317,
+          "linked": 454,
+          "trailer": 481
+        }
+      },
+      "cases": {
+        "small": {
+          "peak": 9257,
+          "open_cycles": {
+            "baseline": [
+              4545
+            ],
+            "linked": [
+              4134
+            ],
+            "trailer": [
+              4172
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2151
+            ],
+            "linked": [
+              1703
+            ],
+            "trailer": [
+              1670
+            ]
+          }
+        },
+        "nested": {
+          "peak": 9603,
+          "open_cycles": {
+            "baseline": [
+              8031,
+              10512,
+              5660
+            ],
+            "linked": [
+              7620,
+              10101,
+              5249
+            ],
+            "trailer": [
+              7658,
+              10139,
+              5287
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2553,
+              4311,
+              2983
+            ],
+            "linked": [
+              2115,
+              3863,
+              2535
+            ],
+            "trailer": [
+              2082,
+              3830,
+              2502
+            ]
+          }
+        },
+        "debug": {
+          "peak": 10060,
+          "open_cycles": {
+            "baseline": [
+              30952
+            ],
+            "linked": [
+              30523
+            ],
+            "trailer": [
+              30561
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              15573
+            ],
+            "linked": [
+              15125
+            ],
+            "trailer": [
+              15092
+            ]
+          }
+        },
+        "full-screen": {
+          "peak": 10162,
+          "open_cycles": {
+            "baseline": [
+              34035
+            ],
+            "linked": [
+              33606
+            ],
+            "trailer": [
+              33644
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              17269
+            ],
+            "linked": [
+              16821
+            ],
+            "trailer": [
+              16788
+            ]
+          }
+        },
+        "exact-fit": {
+          "peak": 10240,
+          "open_cycles": {
+            "baseline": [
+              4579
+            ],
+            "linked": [
+              4144
+            ],
+            "trailer": [
+              4178
+            ]
+          },
+          "close_cycles": {
+            "baseline": [
+              2147
+            ],
+            "linked": [
+              1713
+            ],
+            "trailer": [
+              1676
+            ]
+          }
+        },
+        "one-byte-short": {
+          "fault": 2,
+          "cursor_after": {
+            "baseline": 10237,
+            "linked": 10176,
+            "trailer": 10176
+          }
+        }
+      }
+    }
+  ]
+}
