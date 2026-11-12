@@ -35,3 +35,15 @@ Slice 1 validation: five typed-proof unit tests passed. The neutral and
 retaining clients reproduce all six frozen XEX files byte-for-byte; their
 frame, storage and reserved-range facts are also hashed in the manifest.
 The existing pointer-load-sharing integration matrix remains green.
+
+Slice 2 opt-in selection passes nine proof/transaction unit tests and the
+frozen-image integration matrix. It also passes the existing pointer-sharing,
+argument-X and callee-entry-flag matrices. Both configuration defaults remain
+disabled pending VM/corpus qualification.
+
+The general local-source rule finds an additional six-byte copy in `Free`'s
+traversal loop. Four sites therefore save 24 bytes: `Alloc` 287→281, `Free`
+358→346, `AllocInit` 96→90, and complete cartridge/standalone images
+952→928 / 1,427→1,403. The neutral images shrink 313→301 at both origins and
+in both runtimes. Frames, globals, reservations, block order and terminators
+are unchanged. The accepted batch uses seven additional emissions.

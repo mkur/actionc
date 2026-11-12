@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "baseline_revision": "7f7778f6",
+  "sites": {
+    "Alloc": 1,
+    "Free": 2,
+    "AllocInit": 1
+  },
+  "images": [
+    {
+      "name": "allocate-cart-3000",
+      "xex_bytes": 928,
+      "sha256": "a05c5350a464fb1a01aabd7072c9dd710b491491b85bcb96979ac28a24c47559"
+    },
+    {
+      "name": "allocate-standalone-3000",
+      "xex_bytes": 1403,
+      "sha256": "fa1128988b4e3bde952055ee42ca4e0ddd454c76b0d7a4174723703c60b8b818"
+    },
+    {
+      "name": "neutral-cart-3000",
+      "xex_bytes": 301,
+      "sha256": "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94"
+    },
+    {
+      "name": "neutral-cart-41C7",
+      "xex_bytes": 301,
+      "sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31"
+    },
+    {
+      "name": "neutral-standalone-3000",
+      "xex_bytes": 301,
+      "sha256": "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94"
+    },
+    {
+      "name": "neutral-standalone-41C7",
+      "xex_bytes": 301,
+      "sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31"
+    }
+  ],
+  "frames_equal": true,
+  "cfg_equal": true,
+  "max_additional_emissions_per_batch": 7
+}

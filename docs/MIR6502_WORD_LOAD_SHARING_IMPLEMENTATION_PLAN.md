@@ -1,6 +1,6 @@
 # MIR6502 word load sharing implementation plan
 
-Prepared 2026-11-12. Status: slice 1 complete; slices 2–4 pending. Compiler baseline: `7f7778f6`.
+Prepared 2026-11-12. Status: slices 1–2 complete; slices 3–4 pending. Compiler baseline: `7f7778f6`.
 Implement in four vertical slices and commit each after its checks pass.
 
 Share an ordinary word's byte loads when two direct destinations receive the
@@ -59,8 +59,12 @@ Slice 1 must freeze reproducible inputs and measurements independently of
 those temporary files.
 
 The separate six-byte comparison-layout improvement and the library's missed
-two-sided coalescing are outside this plan. The acceptance target is 934,
-not the combined hand-scheduled reference's 928 bytes.
+two-sided coalescing are outside this plan. The three-site reference predicts
+934 bytes. Slice 2 also finds the already-supported ordinary-local pattern
+inside Free's traversal: `current` feeds both `last` and `$AC/$AD`. That fourth
+site makes the measured word-sharing result 928 bytes (1,403 standalone),
+with `Free` at 346 instruction bytes. Block order and terminators stay equal;
+this 928-byte result does not include comparison-layout optimization.
 
 ## Ownership and initial scope
 
@@ -218,8 +222,8 @@ Suggested commit: `Prove direct word load sharing across two destinations`.
    neutral fixture. Record actual load counts, routine bytes and XEX bytes.
 
 Acceptance: the neutral case loses exactly two source loads while retaining
-all stores and machine state. The real retaining client targets 934 bytes;
-any different result needs an instruction-level explanation before proceeding.
+all stores and machine state. The real retaining client reaches 928 bytes: the three predicted sites plus
+the documented traversal-loop copy in `Free`, with unchanged CFG layout.
 
 Suggested commit: `Select costed word load sharing behind an independent flag`.
 
@@ -287,8 +291,8 @@ allocator bounds proofs, dispatch behavior and pointer reconstruction after
 calls. Additional valid matches may reduce these sizes; do not require a
 particular TN saving or change its source to manufacture a match.
 
-Acceptance: the optimized retaining client reaches the measured 18-byte
-opportunity, admitted corpus cases improve without weaker proofs or storage
+Acceptance: the optimized retaining client reaches the measured 24-byte
+opportunity across four sites, admitted corpus cases improve without weaker proofs or storage
 growth, unsafe cases preserve fallback, and all affected backend checks pass.
 
 Suggested commit: `Enable qualified word load sharing and record corpus savings`.
