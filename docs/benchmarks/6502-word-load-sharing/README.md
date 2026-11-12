@@ -47,3 +47,32 @@ traversal loop. Four sites therefore save 24 bytes: `Alloc` 287→281, `Free`
 952→928 / 1,427→1,403. The neutral images shrink 313→301 at both origins and
 in both runtimes. Frames, globals, reservations, block order and terminators
 are unchanged. The accepted batch uses seven additional emissions.
+
+Slice 3 qualification passes 13 proof/transaction tests, including all 65,536
+word values under four incoming status patterns, and six VM tests. The VM
+checks 4,704 exact emitted fragments across storage classes, raw/optimized NIR,
+both runtimes/origins, and actual LF/CRLF files. Partial aliases use an
+independent sequential-byte oracle; volatile/absolute reads retain fallback.
+Later indirect reads may alias the completed copies. Real allocator scenarios
+retain the existing two-sided-coalescing behavior. Existing pointer, home-value,
+word-store, argument-X, entry-flag and checked-pointer VM targets also pass.
+
+The cycle probe now stops after the wrapper's final JMP. Earlier analysis
+executed a seven-cycle BRK at the destination; subtracting only the 20-cycle
+wrapper overstated absolute times by seven. Savings are unchanged. Corrected
+cartridge routine measurements (return included, wrapper excluded) are:
+
+| Case | Disabled | Enabled | Saved cycles |
+| --- | ---: | ---: | ---: |
+| Empty Alloc | 95 | 87 | 8 |
+| Exact Alloc | 241 | 233 | 8 |
+| Split Alloc | 318 | 310 | 8 |
+| Boundary/skip Alloc | 407 | 399 | 8 |
+| Insert Free | 407 | 391 | 16 |
+| Left-merge Free | 345 | 329 | 16 |
+| Right-merge Free | 474 | 466 | 8 |
+| Two-neighbor Free | 521 | 505 | 16 |
+| AllocInit | 163 | 155 | 8 |
+
+The extra eight-cycle saving in traversing Free cases comes from the fourth
+match in its loop body, and repeats for each visited node.

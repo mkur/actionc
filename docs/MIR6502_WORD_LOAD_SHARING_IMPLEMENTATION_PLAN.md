@@ -1,6 +1,6 @@
 # MIR6502 word load sharing implementation plan
 
-Prepared 2026-11-12. Status: slices 1–2 complete; slices 3–4 pending. Compiler baseline: `7f7778f6`.
+Prepared 2026-11-12. Status: slices 1–3 complete; slice 4 pending. Compiler baseline: `7f7778f6`.
 Implement in four vertical slices and commit each after its checks pass.
 
 Share an ordinary word's byte loads when two direct destinations receive the
@@ -43,14 +43,17 @@ directly after installing a valid sentinel and controlled heap in ordinary RAM.
 | `AllocInit` instruction bytes | 96 | 90 |
 | `PrintFreeList` instruction bytes | 112 | 112 |
 | Retaining client XEX bytes | 952 | 934 |
-| Empty `Alloc` cycles | 102 | 94 |
-| Exact-match `Alloc` cycles | 248 | 240 |
-| Split-block `Alloc` cycles | 325 | 317 |
-| Inserting `Free` cycles | 414 | 406 |
-| `AllocInit` cycles | 170 | 162 |
+| Empty `Alloc` cycles | 95 | 87 |
+| Exact-match `Alloc` cycles | 241 | 233 |
+| Split-block `Alloc` cycles | 318 | 310 |
+| Inserting `Free` cycles | 407 | 399 |
+| `AllocInit` cycles | 163 | 155 |
 
 Cycles include the routine's return and exclude the common 20-cycle call
-wrapper. The measured sites are `FreeList` copied to `last` and `$AC/$AD`
+wrapper, stopping after the wrapper's final JMP rather than executing the
+trap at its destination. Earlier analysis figures included seven trap cycles;
+the absolute times above are corrected and the eight-cycle deltas are unchanged.
+The measured sites are `FreeList` copied to `last` and `$AC/$AD`
 in `Alloc` and `Free`, and `EndProg` copied to compiler homes and `p` in
 `AllocInit`. These names identify measurements, never selector conditions.
 Local evidence is under ignored `build/allocate-analysis-20261112/`, including

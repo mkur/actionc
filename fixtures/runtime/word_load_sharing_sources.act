@@ -1,0 +1,56 @@
+; Storage-class controls. Opaque NOPs end prior register-value availability.
+TYPE Link=[CARD size,next]
+Link POINTER anchor
+VOLATILE CARD hotAddress
+Link POINTER fixedAnchor=$0698
+CARD result=$0600
+
+CARD FUNC Parameter(Link POINTER head)
+  Link POINTER previous,node
+  ASM OPAQUE
+    NOP
+  ENDASM
+  previous=head
+  node=head.next
+  IF node<>0 THEN previous.next=node.next FI
+RETURN(previous)
+
+CARD FUNC Local()
+  Link POINTER head,previous,node
+  head=anchor
+  ASM OPAQUE
+    NOP
+  ENDASM
+  previous=head
+  node=head.next
+  IF node<>0 THEN previous.next=node.next FI
+RETURN(previous)
+
+CARD FUNC Volatile()
+  Link POINTER previous,node,view
+  ASM OPAQUE
+    NOP
+  ENDASM
+  previous=hotAddress
+  view=hotAddress
+  node=view.next
+  IF node<>0 THEN previous.next=node.next FI
+RETURN(previous)
+
+CARD FUNC Absolute()
+  Link POINTER previous,node
+  ASM OPAQUE
+    NOP
+  ENDASM
+  previous=fixedAnchor
+  node=fixedAnchor.next
+  IF node<>0 THEN previous.next=node.next FI
+RETURN(previous)
+
+PROC Main()
+  result=Parameter(anchor)
+  result=Local()
+  result=Volatile()
+  result=Absolute()
+  DO OD
+RETURN

@@ -303,3 +303,204 @@ fn word_load_sharing_revalidates_ownership_generation_and_replacement() {
         &wrong
     ));
 }
+
+#[test]
+fn word_load_sharing_rejects_every_pair_overlap_and_wrapping_footprint() {
+    let p = baseline();
+    let mut r = p
+        .routines
+        .iter()
+        .find(|r| r.name == "Unlink")
+        .unwrap()
+        .clone();
+    let mut slot = r.frame.locals[0].clone();
+    slot.id = MirStorageId(99);
+    slot.base = MirStorageBase::Local(crate::nir::LocalId(99));
+    slot.offset = 0;
+    r.frame.locals.push(slot);
+    let MirSite::Op { block, op_index } = start(&r) else {
+        unreachable!()
+    };
+    let ops = &mut r.blocks.iter_mut().find(|b| b.id == block).unwrap().ops;
+    for (i, lane) in [(5, 0), (7, 1)] {
+        if let MirOp::Store { dst, .. } = &mut ops[op_index + i] {
+            *dst = MirAddr::Direct(MirMem::Local {
+                id: crate::nir::LocalId(99),
+                offset: lane,
+            });
+        }
+    }
+    let s = shape(window(&r)).unwrap();
+    for addresses in [
+        [0x7000, 0x7100, 0x7100],
+        [0x7000, 0x7100, 0x7101],
+        [0x7000, 0x7101, 0x7100],
+        [0x7000, 0x7100, 0x7000],
+        [0x7000, 0x7100, 0x7001],
+        [0x7001, 0x7100, 0x7000],
+    ] {
+        assert_eq!(
+            fact(&r, &remapped(&r, &s, addresses)),
+            Err(Blocker::Overlap),
+            "{addresses:?}"
+        );
+    }
+    assert_eq!(
+        fact(&r, &remapped(&r, &s, [0xFFFF, 0x7100, 0x7200])),
+        Err(Blocker::Footprint)
+    );
+    for i in 0..3 {
+        let mut m = remapped(&r, &s, [0x7000, 0x7100, 0x7200]);
+        let base = [0x7000, 0x7100, 0x7200][i];
+        m.protect_execution_ranges(vec![(base + 1, base + 2)]);
+        assert_eq!(fact(&r, &m), Err(Blocker::Storage));
+    }
+    let mut m = remapped(&r, &s, [0xD000, 0x7100, 0x7200]);
+    assert_eq!(fact(&r, &m), Err(Blocker::Storage));
+    if let MirMem::Global { id, .. } = s.source[0] {
+        m.global(id, 0x7000, 2, false);
+    }
+    assert_eq!(fact(&r, &m), Err(Blocker::Storage));
+}
+
+#[test]
+fn word_load_sharing_requires_owned_private_bytes_and_exact_register_operations() {
+    let p = baseline();
+    let reset = p.routines.iter().find(|r| r.name == "Reset").unwrap();
+    let mut r = reset.clone();
+    let s = shape(window(&r)).unwrap();
+    r.frame.virtual_zero_page.clear();
+    r.frame.zero_page_allocations.clear();
+    assert_eq!(fact(&r, &memory(&p)), Err(Blocker::Storage));
+    let mut raw = reset.clone();
+    let MirSite::Op { block, op_index } = start(&raw) else {
+        unreachable!()
+    };
+    for (i, lane) in [(0, 0), (2, 1), (4, 0), (6, 1)] {
+        if let MirOp::Load { src, .. } =
+            &mut raw.blocks.iter_mut().find(|b| b.id == block).unwrap().ops[op_index + i]
+        {
+            *src = MirAddr::Direct(MirMem::Absolute(0x7000 + lane));
+        }
+    }
+    let sr = shape(window(&raw)).unwrap();
+    assert_eq!(
+        fact(&raw, &remapped(&raw, &sr, [0x7000, 0xE0, 0x7100])),
+        Err(Blocker::Storage)
+    );
+    for index in 0..WINDOW {
+        let mut ops = window(reset).to_vec();
+        match &mut ops[index] {
+            MirOp::Load { dst, .. } => *dst = MirDef::Reg(MirReg::X),
+            MirOp::Store { src, .. } => *src = MirValue::Def(MirDef::Reg(MirReg::Y)),
+            _ => unreachable!(),
+        }
+        assert_eq!(shape(&ops), Err(Blocker::Shape));
+    }
+    let call = p
+        .routines
+        .iter()
+        .flat_map(|r| &r.blocks)
+        .flat_map(|b| &b.ops)
+        .find(|op| matches!(op, MirOp::Call { .. }))
+        .unwrap();
+    let mut ops = window(reset).to_vec();
+    ops[3] = call.clone();
+    assert_eq!(shape(&ops), Err(Blocker::Shape));
+    assert!(destination(reset, &s.first, &memory(&p), 0xE0));
+}
+
+#[test]
+fn word_load_sharing_schedule_matches_all_word_values_and_status_bits() {
+    let p = baseline();
+    let r = p.routines.iter().find(|r| r.name == "Unlink").unwrap();
+    let original = window(r);
+    let selected = replacement(original).unwrap();
+    let s = shape(original).unwrap();
+    let homes = s
+        .source
+        .iter()
+        .chain(&s.first)
+        .chain(&s.second)
+        .collect::<Vec<_>>();
+    let execute = |ops: &[MirOp], mut cells: [u8; 6], mut status: u8| {
+        let mut a = 0xA7;
+        for op in ops {
+            if let Some(mem) = load(op) {
+                a = cells[homes.iter().position(|h| *h == mem).unwrap()];
+                status = (status & !0x82) | (a & 0x80) | if a == 0 { 2 } else { 0 };
+            } else {
+                let mem = store(op).unwrap();
+                cells[homes.iter().position(|h| *h == mem).unwrap()] = a;
+            }
+        }
+        (cells, a, status)
+    };
+    for value in 0u16..=u16::MAX {
+        let [lo, hi] = value.to_le_bytes();
+        for status in [0, 0xFF, 0x49, 0xB6] {
+            let input = [lo, hi, 0x37, 0xA5, 0x19, 0xC6];
+            let expected = (
+                [lo, hi, lo, hi, lo, hi],
+                hi,
+                (status & !0x82) | (hi & 0x80) | if hi == 0 { 2 } else { 0 },
+            );
+            assert_eq!(execute(original, input, status), expected);
+            assert_eq!(execute(&selected, input, status), expected);
+        }
+    }
+}
+
+#[test]
+fn word_load_sharing_accepts_owned_ram_spills_and_ordinary_global_destinations() {
+    let p = baseline();
+    for globals in [false, true] {
+        let mut r = p
+            .routines
+            .iter()
+            .find(|r| r.name == "Unlink")
+            .unwrap()
+            .clone();
+        let MirSite::Op { block, op_index } = start(&r) else {
+            unreachable!()
+        };
+        if globals {
+            let id = p
+                .globals
+                .iter()
+                .find(|g| g.name == "startAddress")
+                .unwrap()
+                .id;
+            for (i, lane) in [(5, 0), (7, 1)] {
+                if let MirOp::Store { dst, .. } =
+                    &mut r.blocks.iter_mut().find(|b| b.id == block).unwrap().ops[op_index + i]
+                {
+                    *dst = MirAddr::Direct(MirMem::Global { id, offset: lane });
+                }
+            }
+        } else {
+            r.frame.spills.extend([MirSpillId(90), MirSpillId(91)]);
+            for (i, id) in [(1, 90), (3, 91)] {
+                if let MirOp::Store { dst, .. } =
+                    &mut r.blocks.iter_mut().find(|b| b.id == block).unwrap().ops[op_index + i]
+                {
+                    *dst = MirAddr::Direct(MirMem::Spill {
+                        id: MirSpillId(id),
+                        offset: 0,
+                    });
+                }
+            }
+        }
+        let s = shape(window(&r)).unwrap();
+        let m = remapped(
+            &r,
+            &s,
+            [0x7000, 0x7100, if globals { 0x7200 } else { 0xAC }],
+        );
+        assert!(fact(&r, &m).is_ok());
+        if !globals {
+            r.frame.spills.clear();
+            assert_eq!(fact(&r, &m), Err(Blocker::Storage));
+        }
+    }
+}

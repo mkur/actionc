@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "unit_tests": 13,
+  "word_value_status_cases": 262144,
+  "vm_tests": 6,
+  "emitted_fragments": 4704,
+  "partial_alias_cases": 448,
+  "source_reads_before": 4,
+  "source_reads_after": 2,
+  "destination_stores_before": 4,
+  "destination_stores_after": 4,
+  "modes": [
+    "raw NIR",
+    "optimized NIR"
+  ],
+  "runtimes": [
+    "cart",
+    "standalone"
+  ],
+  "origins": [
+    12288,
+    16839
+  ],
+  "source_line_endings": [
+    "LF",
+    "CRLF"
+  ],
+  "cycle_wrapper_excluded": 20,
+  "stop_policy": "after final wrapper JMP; no trap instruction executed"
+}
