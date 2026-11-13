@@ -7,6 +7,7 @@ mod emit;
 mod interfaces;
 mod ir;
 mod lower;
+mod late_cleanup;
 mod materialize;
 mod passes;
 mod printer;
@@ -142,6 +143,19 @@ fn materialize_program_with_origin_and_runtime_traced(
     runtime: crate::runtime::Runtime,
     trace: &crate::mir6502::trace::Trace,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    materialize_program_with_origin_and_runtime_preserving(program, config, origin, runtime,
+        trace, &mut late_cleanup::preservation::Preservation::new(false))
+}
+
+fn materialize_program_with_origin_and_runtime_preserving(
+    program: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    trace: &crate::mir6502::trace::Trace,
+    preservation: &mut late_cleanup::preservation::Preservation,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    use late_cleanup::preservation::Family;
     verify::verify_program(&program, MirPhase::PreMaterialization)
         .map_err(|diagnostics| phase_diagnostics("pre-materialization", diagnostics))?;
     let staging_routines = if config.enable_peepholes && config.enable_argument_staging_reduction {
@@ -188,13 +202,13 @@ fn materialize_program_with_origin_and_runtime_traced(
         )?
     };
     let baseline = if config.enable_peepholes && config.enable_record_base_reuse {
-        materialize::record_bases::select_costed_traced(baseline, config, origin, true, trace)?
+        preservation.select(Family::RecordBases, baseline, |baseline| materialize::record_bases::select_costed_traced(baseline, config, origin, true, trace))?
     } else {
         trace.skipped("record-base-reuse", "disabled-or-ineligible");
         baseline
     };
     let baseline = if config.enable_peepholes && config.enable_register_copy_forwarding {
-        materialize::register_copies::select_costed_traced(baseline, config, origin, true, trace)?
+        preservation.select(Family::RegisterCopies, baseline, |baseline| materialize::register_copies::select_costed_traced(baseline, config, origin, true, trace))?
     } else {
         trace.skipped("register-copy-forwarding", "disabled-or-ineligible");
         baseline
@@ -202,60 +216,60 @@ fn materialize_program_with_origin_and_runtime_traced(
     let baseline = if config.enable_peepholes
         && (config.enable_pointer_call_retention || config.enable_pointer_loop_retention)
     {
-        materialize::pointer_retention::select_costed_traced(baseline, config, origin, true, trace)?
+        preservation.select(Family::PointerRetention, baseline, |baseline| materialize::pointer_retention::select_costed_traced(baseline, config, origin, true, trace))?
     } else {
         trace.skipped("pointer-retention", "disabled-or-ineligible");
         baseline
     };
     let baseline = if config.enable_peepholes && config.enable_pointer_promotion {
-        materialize::pointer_retention::select_promotion_costed_traced(
+        preservation.select(Family::PointerPromotion, baseline, |baseline| materialize::pointer_retention::select_promotion_costed_traced(
             baseline, config, origin, true, trace,
-        )?
+        ))?
     } else {
         trace.skipped("pointer-promotion", "disabled-or-ineligible");
         baseline
     };
     let baseline = if !staging_routines.is_empty() {
-        materialize::argument_staging::select_costed_traced(
+        preservation.select(Family::ArgumentStaging, baseline, |baseline| materialize::argument_staging::select_costed_traced(
             baseline,
             config,
             origin,
             runtime,
             &staging_routines,
             trace,
-        )?
+        ))?
     } else {
         trace.skipped("argument-staging", "disabled-or-ineligible");
         baseline
     };
     let baseline = if config.enable_peepholes && config.enable_pointer_byte_plus_one_fusion {
-        materialize::pointer_byte_plus_one::select_costed_traced(
+        preservation.select(Family::PointerBytePlusOne, baseline, |baseline| materialize::pointer_byte_plus_one::select_costed_traced(
             baseline, config, origin, runtime, trace,
-        )?
+        ))?
     } else {
         trace.skipped("pointer-byte-plus-one", "disabled-or-ineligible");
         baseline
     };
     let baseline = if config.enable_peepholes && config.enable_pointer_load_sharing {
-        materialize::pointer_load_sharing::select_costed_traced(
+        preservation.select(Family::PointerLoadSharing, baseline, |baseline| materialize::pointer_load_sharing::select_costed_traced(
             baseline, config, origin, runtime, trace,
-        )?
+        ))?
     } else {
         trace.skipped("pointer-load-sharing", "disabled-or-ineligible");
         baseline
     };
     let baseline = if config.enable_peepholes && config.enable_argument_x_forwarding {
-        materialize::argument_staging::select_x_forwarding_costed_traced(
+        preservation.select(Family::ArgumentXForwarding, baseline, |baseline| materialize::argument_staging::select_x_forwarding_costed_traced(
             baseline, config, origin, runtime, trace,
-        )?
+        ))?
     } else {
         trace.skipped("argument-x-forwarding", "disabled-or-ineligible");
         baseline
     };
     if config.enable_peepholes && config.enable_word_load_sharing {
-        materialize::word_load_sharing::select_costed_traced(
+        preservation.select(Family::WordLoadSharing, baseline, |baseline| materialize::word_load_sharing::select_costed_traced(
             baseline, config, origin, runtime, trace,
-        )
+        ))
     } else {
         trace.skipped("word-load-sharing", "disabled-or-ineligible");
         Ok(baseline)
@@ -557,12 +571,16 @@ fn prepare_program_for_emission(
     trace.snapshot("lowered", &mir);
     let range_source = (config.enable_peepholes && config.enable_pointer_call_retention
         && config.enable_checked_range_pointer_retention && !mir.machine_blocks.is_empty()).then(|| mir.clone());
-    let mir = materialize_program_with_origin_and_runtime_traced(mir, config, origin, runtime, trace)?;
+    let mut preservation = late_cleanup::preservation::Preservation::new(
+        config.enable_peepholes && config.enable_late_private_store_cleanup);
+    let mir = materialize_program_with_origin_and_runtime_preserving(
+        mir, config, origin, runtime, trace, &mut preservation)?;
     let address_ranges = range_source.as_ref().filter(|_| materialize::pointer_retention::checked_ranges::has_candidate(&mir)).map(|source| {
         analysis::address_ranges::MirAddressRanges::project(nir, source, &mir)
     }).transpose()?;
     let mir = if let Some(ranges) = &address_ranges {
-        materialize::pointer_retention::checked_ranges::select_costed_traced(mir, ranges, origin, config, trace)?
+        preservation.select(late_cleanup::preservation::Family::CheckedRanges, mir, |mir|
+            materialize::pointer_retention::checked_ranges::select_costed_traced(mir, ranges, origin, config, trace))?
     } else { trace.skipped("checked-range-retention", "feature-gated-or-no-range-candidate"); mir };
     verify::verify_program(&mir, MirPhase::PreEmission)
         .map_err(|diagnostics| phase_diagnostics("pre-emission", diagnostics))?;

@@ -180,5 +180,13 @@ pub(in crate::mir6502) fn select_costed_traced(
     })
 }
 
+pub(in crate::mir6502) fn replay_selected(
+    before: &MirProgram, selected: &MirProgram, map: &MirPhysicalMemory,
+    ranges: &MirAddressRanges<'_>,
+) -> bool {
+    // Receipts remain bound to the immutable pre-T10 snapshot, never to cleanup's indices.
+    apply_ranges(before, selected, map, ranges).is_some_and(|(p, _)| p == *selected)
+}
+
 #[cfg(test)]
 mod qualification;

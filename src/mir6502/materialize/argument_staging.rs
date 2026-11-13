@@ -512,5 +512,12 @@ pub(in crate::mir6502) fn select_costed_traced(
 #[path = "argument_staging_tests.rs"]
 mod tests;
 
-mod x_forwarding;
+pub(in crate::mir6502) mod x_forwarding;
 pub(in crate::mir6502) use x_forwarding::select_costed_traced as select_x_forwarding_costed_traced;
+
+pub(in crate::mir6502) fn replay_selected(
+    before: &MirProgram, selected: &MirProgram, map: &MirPhysicalMemory,
+    eligible: &BTreeSet<RoutineId>, trace: &crate::mir6502::trace::Trace,
+) -> bool {
+    apply_traced(before, map, eligible, trace).is_some_and(|(p, _, _)| p == *selected)
+}

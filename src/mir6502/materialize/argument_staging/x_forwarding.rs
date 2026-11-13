@@ -495,6 +495,20 @@ pub(in crate::mir6502) fn select_costed_traced(
         Ok(p)
     })
 }
+pub(in crate::mir6502) fn replay_selected(
+    before: &MirProgram, selected: &MirProgram, map: &MirPhysicalMemory,
+    eligible: &BTreeSet<RoutineId>, config: &Mir6502Config,
+    trace: &crate::mir6502::trace::Trace,
+) -> bool {
+    let (summaries, entry_targets) = prepare_summaries(before, config.enable_precise_callee_entry_flags);
+    let summaries = summaries.with_precise_entry_flags(selected, &entry_targets);
+    let policy = if config.enable_argument_x_bitwise_forwarding {
+        facts::GapPolicy::ImmediateBitwise
+    } else { facts::GapPolicy::Basic };
+    apply_with_policy_traced(before, map, Some(eligible), &summaries, policy, trace)
+        .is_some_and(|(p, _, _)| p == *selected)
+}
+
 #[cfg(test)]
 mod entry_flags_tests;
 #[cfg(test)]

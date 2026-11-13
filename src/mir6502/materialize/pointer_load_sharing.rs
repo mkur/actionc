@@ -299,3 +299,10 @@ pub(in crate::mir6502) fn select_costed_traced(
 #[cfg(test)]
 #[path = "pointer_load_sharing_tests.rs"]
 mod tests;
+
+pub(in crate::mir6502) fn replay_selected(
+    before: &MirProgram, selected: &MirProgram, map: &MirPhysicalMemory,
+    eligible: &BTreeSet<RoutineId>, trace: &crate::mir6502::trace::Trace,
+) -> bool {
+    apply_traced(before, map, Some(eligible), trace).is_some_and(|(p, _, _)| p == *selected)
+}

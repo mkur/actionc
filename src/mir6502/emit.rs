@@ -104,6 +104,17 @@ pub(super) fn emit_program_with_physical_references_traced(
     references: &MirProgram,
     trace: &crate::mir6502::trace::Trace,
 ) -> Result<MirEmissionSummary, Vec<MirDiagnostic>> {
+    emit_program_with_reference_programs_traced(mir, origin, emitter, physical_memory, &[references], trace)
+}
+
+pub(super) fn emit_program_with_reference_programs_traced(
+    mir: &MirProgram,
+    origin: u16,
+    emitter: &mut TrackedEmitter,
+    physical_memory: bool,
+    references: &[&MirProgram],
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirEmissionSummary, Vec<MirDiagnostic>> {
     let invocation = trace.child("emission", "layout-and-emission");
     let trace = &invocation;
     trace.count("emission_invocations", 1);
@@ -196,7 +207,7 @@ pub(super) fn emit_program_with_physical_references_traced(
                     }
                 }
             }
-            for routine in &references.routines {
+            for routine in references.iter().flat_map(|p| &p.routines) {
                 for op in routine.blocks.iter().flat_map(|b| &b.ops) {
                     let effects = super::analysis::effects::classify_op(op);
                     for mem in effects

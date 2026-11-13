@@ -446,3 +446,10 @@ pub(super) fn record_candidates(
 #[cfg(test)]
 #[path = "register_copies_tests.rs"]
 mod tests;
+
+pub(in crate::mir6502) fn replay_selected(
+    before: &MirProgram, selected: &MirProgram, map: &MirPhysicalMemory,
+    origin: u16, trace: &crate::mir6502::trace::Trace,
+) -> bool {
+    apply_traced(before, origin, map, trace).is_some_and(|(p, _, _)| p == *selected)
+}

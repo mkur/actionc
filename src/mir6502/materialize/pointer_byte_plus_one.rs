@@ -284,3 +284,12 @@ pub(in crate::mir6502) fn select_costed_traced(
 #[cfg(test)]
 #[path = "pointer_byte_plus_one_selection_tests.rs"]
 mod tests;
+
+pub(in crate::mir6502) fn replay_selected(
+    before: &MirProgram, selected: &MirProgram, eligible: &BTreeSet<RoutineId>,
+    trace: &crate::mir6502::trace::Trace,
+) -> bool {
+    let callees = MirKnownCalleeSummaries::analyze_for_rewriting(before);
+    apply_traced(before, &callees, Some(eligible), trace)
+        .is_some_and(|(p, _, _)| p == *selected)
+}

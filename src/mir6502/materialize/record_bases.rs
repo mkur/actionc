@@ -85,83 +85,9 @@ pub(in crate::mir6502) fn select_costed_traced(
             writes: config.enable_record_base_writes,
             parameter_origins: config.enable_record_base_parameter_origins,
         };
-        let mut proposed = baseline.clone();
-        let mut replays: Vec<(MirRoutine, RecordBaseProof)> = Vec::new();
-        let mut accepted = BTreeSet::new();
-        let mut stats = MirPeepholeStats::with_trace(trace);
-        for routine in &mut proposed.routines {
-            if !routine.blocks.iter().any(|b| {
-                b.ops
-                    .windows(4)
-                    .any(|w| crate::mir6502::analysis::record_bases::setup_pair(w).is_some())
-            }) {
-                continue;
-            }
-            let mut driver = MirPostHomeRewriteDriver::default().with_trace(trace);
-            let result = driver.run_fixed_point(routine, |routine, context| {
-                let mut plans = Vec::new();
-                for block in &routine.blocks {
-                    for index in 0..block.ops.len().saturating_sub(3) {
-                        if crate::mir6502::analysis::record_bases::setup_pair(
-                            &block.ops[index..index + 4],
-                        )
-                        .is_none()
-                        {
-                            continue;
-                        }
-                        let site = MirSite::Op {
-                            block: block.id,
-                            op_index: index,
-                        };
-                        let proof = match context.record_base_reuse(site, &map, options) {
-                            MirProof::Proven(proof) => proof,
-                            MirProof::Blocked(blocker) => {
-                                context.record_blocker(
-                                    "record-base-reuse",
-                                    block.id,
-                                    index,
-                                    &blocker,
-                                );
-                                continue;
-                            }
-                        };
-                        if !context.validate_record_base_reuse(&proof, &map) {
-                            continue;
-                        }
-                        // Keeping the original high load reproduces A and Z/N
-                        // exactly, including any exit value already consumed by
-                        // caller transformations using known-callee summaries.
-                        let replacement = vec![block.ops[index + 2].clone()];
-                        let before = estimated_6502_cost(&block.ops[index..index + 4]);
-                        let after = estimated_6502_cost(&replacement);
-                        plans.push(MirPostHomeRewritePlan {
-                            witness: None,
-                            generation: context.generation(),
-                            block: block.id,
-                            range: index..index + 4,
-                            replacement,
-                            removed_homes: Vec::new(),
-                            exit_state_change: MirExitStateChange::default(),
-                            change_set: MirChangeSet::posthome_operation_change(),
-                            stat: "record-base-reuse",
-                            observations: vec![("record-base-pair-preserved", 1)],
-                            family_priority: 0,
-                            estimated_byte_saving: before.0.saturating_sub(after.0),
-                            estimated_cycle_saving: before.1.saturating_sub(after.1),
-                        });
-                        replays.push((routine.clone(), proof));
-                    }
-                }
-                plans
-            });
-            let Ok(result) = result else {
-                return Ok(baseline);
-            };
-            if result.applied > 0 {
-                accepted.insert(routine.id);
-            }
-            record_prehome_rewrite_result(routine.id, result, &mut stats);
-        }
+        let Some((proposed, mut stats, accepted, replays)) = apply_reuse(&baseline, &map, options, trace) else {
+            return Ok(baseline);
+        };
         if accepted.is_empty() {
             if report {
                 maybe_report_peepholes(&baseline, &stats, config);
@@ -206,6 +132,97 @@ pub(in crate::mir6502) fn select_costed_traced(
         trace.decision("record_bases", accepted.iter().copied(), |_| true);
         Ok(proposed)
     })
+}
+
+fn apply_reuse(
+    baseline: &MirProgram, map: &MirPhysicalMemory, options: RecordBaseOptions,
+    trace: &crate::mir6502::trace::Trace,
+) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>, Vec<(MirRoutine, RecordBaseProof)>)> {
+    let mut proposed = baseline.clone();
+    let mut replays: Vec<(MirRoutine, RecordBaseProof)> = Vec::new();
+    let mut accepted = BTreeSet::new();
+    let mut stats = MirPeepholeStats::with_trace(trace);
+    for routine in &mut proposed.routines {
+        if !routine.blocks.iter().any(|b| {
+            b.ops
+                .windows(4)
+                .any(|w| crate::mir6502::analysis::record_bases::setup_pair(w).is_some())
+        }) {
+            continue;
+        }
+        let mut driver = MirPostHomeRewriteDriver::default().with_trace(trace);
+        let result = driver.run_fixed_point(routine, |routine, context| {
+            let mut plans = Vec::new();
+            for block in &routine.blocks {
+                for index in 0..block.ops.len().saturating_sub(3) {
+                    if crate::mir6502::analysis::record_bases::setup_pair(
+                        &block.ops[index..index + 4],
+                    )
+                    .is_none()
+                    {
+                        continue;
+                    }
+                    let site = MirSite::Op {
+                        block: block.id,
+                        op_index: index,
+                    };
+                    let proof = match context.record_base_reuse(site, &map, options) {
+                        MirProof::Proven(proof) => proof,
+                        MirProof::Blocked(blocker) => {
+                            context.record_blocker(
+                                "record-base-reuse",
+                                block.id,
+                                index,
+                                &blocker,
+                            );
+                            continue;
+                        }
+                    };
+                    if !context.validate_record_base_reuse(&proof, &map) {
+                        continue;
+                    }
+                    // Keeping the original high load reproduces A and Z/N
+                    // exactly, including any exit value already consumed by
+                    // caller transformations using known-callee summaries.
+                    let replacement = vec![block.ops[index + 2].clone()];
+                    let before = estimated_6502_cost(&block.ops[index..index + 4]);
+                    let after = estimated_6502_cost(&replacement);
+                    plans.push(MirPostHomeRewritePlan {
+                        witness: None,
+                        generation: context.generation(),
+                        block: block.id,
+                        range: index..index + 4,
+                        replacement,
+                        removed_homes: Vec::new(),
+                        exit_state_change: MirExitStateChange::default(),
+                        change_set: MirChangeSet::posthome_operation_change(),
+                        stat: "record-base-reuse",
+                        observations: vec![("record-base-pair-preserved", 1)],
+                        family_priority: 0,
+                        estimated_byte_saving: before.0.saturating_sub(after.0),
+                        estimated_cycle_saving: before.1.saturating_sub(after.1),
+                    });
+                    replays.push((routine.clone(), proof));
+                }
+            }
+            plans
+        });
+        let result = result.ok()?;
+        if result.applied > 0 {
+            accepted.insert(routine.id);
+        }
+        record_prehome_rewrite_result(routine.id, result, &mut stats);
+    }
+    Some((proposed, stats, accepted, replays))
+}
+
+pub(in crate::mir6502) fn replay_selected(
+    before: &MirProgram, selected: &MirProgram, map: &MirPhysicalMemory,
+    config: &Mir6502Config, trace: &crate::mir6502::trace::Trace,
+) -> bool {
+    let options = RecordBaseOptions { writes: config.enable_record_base_writes,
+        parameter_origins: config.enable_record_base_parameter_origins };
+    apply_reuse(before, map, options, trace).is_some_and(|(p, _, _, _)| p == *selected)
 }
 
 #[cfg(test)]

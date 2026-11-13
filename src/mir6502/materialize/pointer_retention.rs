@@ -743,3 +743,13 @@ fn select_traced(
 #[cfg(test)]
 #[path = "pointer_retention_tests.rs"]
 mod tests;
+
+pub(in crate::mir6502) fn replay_selected(
+    before: &MirProgram, selected: &MirProgram, map: &MirPhysicalMemory,
+    config: &Mir6502Config, promote: bool, trace: &crate::mir6502::trace::Trace,
+) -> bool {
+    apply_with_bounded_calls_traced(before, selected, map,
+        config.enable_pointer_loop_retention, promote,
+        config.enable_pointer_call_retention && config.enable_bounded_call_pointer_retention,
+        trace).is_some_and(|(p, _, _)| p == *selected)
+}
