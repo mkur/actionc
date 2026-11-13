@@ -203,11 +203,13 @@ fn apply_traced(
 ) -> Result<MirProgram, Declined> {
     let t = trace.child("late-cleanup-analysis", purpose);
     let result = apply(baseline, memory, default_sargs, origin, &t);
-    t.event("attempt-end", || serde_json::json!({
-        "stage": "late-cleanup-analysis",
-        "status": if result.is_ok() { "returned" } else { "failed" },
-        "returned_snapshot": null,
-    }));
+    t.event("attempt-end", || {
+        serde_json::json!({
+            "stage": "late-cleanup-analysis",
+            "status": if result.is_ok() { "returned" } else { "failed" },
+            "returned_snapshot": null,
+        })
+    });
     result
 }
 

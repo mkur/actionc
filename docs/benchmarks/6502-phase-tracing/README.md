@@ -1,5 +1,9 @@
 # MIR6502 phase tracing qualification — 2026-11-13
 
+This is the frozen tracing-only report. The subsequent
+[late-cleanup qualification](../6502-late-cleanup/README.md) records the compiler
+change that removes the stores identified here.
+
 TN's six reviewed stores survive because **pointer retention removes their last
 explicit readers after core cleanup has finished**. They have no hidden final
 MIR loads. The accepted transaction preserves their frame declarations and

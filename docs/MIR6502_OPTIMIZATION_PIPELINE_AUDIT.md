@@ -2,6 +2,11 @@
 
 Audited on 2026-11-13 against `c00f37a84b8c0943c81565723420ace2c0d4f8d2`.
 
+Follow-up: the [terminal cleanup implementation](MIR6502_LATE_CLEANUP_DESIGN.md)
+adds a frame-preserving store-deletion transaction after T10 and validates
+selected late decisions against final placement. The schedule and findings below
+remain the historical audit of the revision above.
+
 This is a source audit of the production MIR6502 path, including its shared
 NIR input and tracked emitter. It records the implemented schedule, rather
 than a proposed replacement pipeline. Classic 6502, MIR65816 and MIR68K are

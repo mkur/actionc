@@ -1,14 +1,17 @@
 # MIR6502 late private-store cleanup
 
-Status: proposed, 2026-11-13. Based on the pipeline and qualification results
-through `278076a2`. This note defines the cleanup boundary and its acceptance
-contract; it does not change compiler behavior.
+Status: implemented, 2026-11-13. The original evidence was the pipeline and
+qualification results through `278076a2`. This note defines the implemented
+cleanup boundary and acceptance contract. See the
+[implementation plan](MIR6502_LATE_CLEANUP_IMPLEMENTATION_PLAN.md) and
+[qualification](benchmarks/6502-late-cleanup/README.md).
 
 ## Decision and evidence
 
-Add one shared, frame-preserving private-store cleanup transaction after all
-late MIR6502 transformations and before final pre-emission verification. Reuse
-the existing analyzed store-deletion proof. Accept the result only when its
+The executable pipeline runs one shared, frame-preserving private-store cleanup
+transaction after all late MIR6502 transformations and before final pre-emission
+verification. It reuses the existing analyzed store-deletion proof and accepts
+the result only when its
 final placement preserves the assumptions used by earlier transformations and
 its complete emitted image is smaller. Otherwise return the unchanged input.
 
@@ -28,9 +31,10 @@ out of date. An explicit-read count identifies an opportunity; it does not prove
 that deleting a store is safe. A MIR load that emits zero bytes remains a
 semantic consumer and is a different case.
 
-The first change targets instruction bytes. TN's six allocated bytes remain
-reserved. Neither an 18-byte nor a 24-byte image reduction is established by
-the trace alone: legality, emission state and layout must still be checked.
+The implementation targets instruction bytes. TN's six allocated bytes remain
+reserved. The original trace established an opportunity; the separate
+qualification measures accepted instruction and image savings after checking
+legality, emission state and layout.
 
 ## Ownership and position
 
@@ -112,7 +116,9 @@ the store.
 Physical zero page needs an additional read proof: a numeric source pointer can
 observe a virtual home's backing byte. Follow each candidate definition across
 CFG edges until a definite overwrite; calls' may-write summaries do not kill it.
-Reject indirect or unknown readers, including readers inside called routines.
+Reject indirect or unknown readers, including readers inside called routines
+and in caller continuations after return. Context merging conservatively visits
+all direct callers; only a definite overwrite ends the definition lifetime.
 Ordinary private frames retain the existing non-escape contract and explicit
 physical-alias checks.
 
@@ -143,7 +149,7 @@ already have removed operations using a physical disjointness, ordinary-RAM,
 bounded-write or callee-exit assumption. A new physical map cannot reconstruct
 that lost justification by inspecting the final operations alone.
 
-The proposed contract is a bounded set of **preservation obligations** retained
+The contract is a bounded set of **preservation obligations** retained
 for selected decisions whose semantic proofs depend on layout or callee facts.
 Each obligation identifies the decision's owner, stable storage/routine
 identities and byte ranges, the required predicate, and any immutable witness
@@ -168,11 +174,22 @@ validator owned by the transformation that used them. Existing family-local
 placement replays can supply those validators; they do not automatically
 certify other families.
 
-The implementation plan must inventory these dependencies before enabling the
-transaction by default. Start with a closed set of supported obligations.
-If a selected decision has an affected dependency that cannot be validated,
-reject cleanup with an explicit reason. This is a prerequisite, not a later
-correctness improvement.
+The executable preparation boundary retains a sidecar with a closed family tag,
+immutable input and selected MIR snapshots, and the selected routine IDs.
+Each family's validator reruns its proof/application logic against the candidate
+map and requires the same selected result. Partial selections replay only their
+accepted routines. Checked-range evidence uses its original immutable snapshot.
+These validators perform no emission, materialization or profitability search.
+Snapshots also supply address references removed by earlier transformations;
+those references never allocate storage or become executable operations.
+
+The sidecar starts at completed core materialization and covers every selected
+T1–T10 mutation. An unrecorded mutation breaks its snapshot chain and declines
+cleanup before costing. Core allocation proofs retain their inputs because the
+transaction preserves declarations, fixed backing, mappings, origin and
+producer operations. The [plan's dependency inventory](MIR6502_LATE_CLEANUP_IMPLEMENTATION_PLAN.md#dependency-inventory-and-implementation-choice)
+records that boundary. An unfamiliar affected dependency requires a new
+family-owned validator before cleanup can accept it.
 
 Requiring all relevant addresses to remain identical is a valid conservative
 bootstrap, but may reject the TN case because code shrink moves deferred data.
@@ -246,9 +263,9 @@ Qualification should establish the following distinct behaviors:
   on/off equivalence, materialization/emission counts and compile-time/memory
   cost against the frozen tracing corpus.
 
-This is a MIR6502/emission-boundary change. A later implementation should follow
-the repository's backend-scoped checks unless it also changes a shared compiler
-contract. No NIR migration or new source-language rule is part of this design.
+This is a MIR6502/emission-boundary change. Qualification follows the
+repository's backend-scoped checks; shared compiler contracts are unchanged.
+No NIR migration or new source-language rule is part of this design.
 
 ## Deferred decisions
 
@@ -257,7 +274,6 @@ and can invalidate allocation, alias and call proofs beyond instruction shrink.
 Producer elimination likewise requires explicit register/flag and memory-read
 preservation. Neither should be bundled into the first cleanup transaction.
 
-The immediate implementation plan should turn the dependency inventory,
-preservation validators, store-only transaction and qualification gates above
-into reviewable slices. The resulting abstraction is a shared place to restore
-cleanup after consumer changes, with one owner for acceptance and rollback.
+The shared transaction restores cleanup after consumer changes, with one owner
+for acceptance and rollback. Compact typed witnesses may eventually replace the
+coarse retained snapshots, provided their preservation checks remain equivalent.

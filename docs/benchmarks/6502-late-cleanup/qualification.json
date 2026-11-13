@@ -1,0 +1,2157 @@
+{
+  "baseline_revision": "c00f37a84b8c0943c81565723420ace2c0d4f8d2",
+  "implementation_revision": "cac00bf6dcd6441021bcf42a36fce37591ae76c3",
+  "compiler_sha256": "2210a49dc54d195b8802349dc50b519d831a2beb84f726d4dcaa1476f199fc56",
+  "cases": [
+    {
+      "id": "tn-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "7e3d5211bc66db3be00bae140c3bd46a3d475f3c624cb9b1e842c422b66c38eb",
+          "after_sha256": "580add631d9cb761aeb658c4e70da2041f1d43f6c11af3263be4891413ab7cca",
+          "before_bytes": 10000,
+          "after_bytes": 9982
+        },
+        "asm": {
+          "before_sha256": "3e490024a17ae54cbcd674993516bcad6c14677f92346b1cbc4ed650cd6275ea",
+          "after_sha256": "5182056fc8071504a530ff2dc3cbfe1b921b552780e8def72ee31abe8062827c",
+          "before_bytes": 291338,
+          "after_bytes": 290960
+        },
+        "map": {
+          "before_sha256": "398de1336f8050d6fc6fb0df32350ae78458d3008eef03379b03094be27e4350",
+          "after_sha256": "53393c4fa0f2bc80e3e000e657673086ece3e025b16dc95f39d4883e1035ded2",
+          "before_bytes": 10148,
+          "after_bytes": 10148
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 7.977639583987184,
+          "traced": 9.369891249982174
+        },
+        "asm": {
+          "plain": 7.922418457979802,
+          "traced": 9.270076166954823
+        },
+        "map": {
+          "plain": 8.029969500028528,
+          "traced": 9.459723166946787
+        }
+      },
+      "work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24787
+      },
+      "previous_work": {
+        "emission_invocations": 41,
+        "inner_emission_probes": 246,
+        "materializations": 3,
+        "pipeline_attempts": 33,
+        "rewrite_analysis_builds": 24626
+      },
+      "detail_bytes": 17044538,
+      "result": {
+        "accepted": true,
+        "image_bytes_after": 9982,
+        "image_bytes_before": 10000,
+        "instruction_bytes_after": 9095,
+        "instruction_bytes_before": 9113,
+        "removed_stores": 6,
+        "routines": [
+          72,
+          73
+        ]
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 78,
+          "removed": 3
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 6,
+        "selection_outcomes": {
+          "partial": 1,
+          "accepted": 7
+        },
+        "cleanup_stops": {
+          "explicit-read": 78,
+          "covering-overwrite": 3,
+          "visited-cycle": 6,
+          "no-read-found": 24
+        },
+        "proof_blockers": {
+          "home-definition-live": 171,
+          "record-base-unavailable": 20
+        },
+        "zero_byte_operations": 13
+      },
+      "tn_removed_stores_retained_homes": [
+        {
+          "routine": 72,
+          "spill": 12
+        },
+        {
+          "routine": 72,
+          "spill": 13
+        },
+        {
+          "routine": 72,
+          "spill": 26
+        },
+        {
+          "routine": 72,
+          "spill": 27
+        },
+        {
+          "routine": 73,
+          "spill": 110
+        },
+        {
+          "routine": 73,
+          "spill": 111
+        }
+      ],
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "tn-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "23fc2cdbe286f1901213e23a190ab59a7dbe10d0b0e91c931e0f21eb02d124db",
+          "after_sha256": "7f813b964e8b3c4e371c6c06a665c51d0dba898892880116c1f2e7421745703d",
+          "before_bytes": 10107,
+          "after_bytes": 10089
+        },
+        "asm": {
+          "before_sha256": "bba8f32c2e52179ba1ebabec65b31801a857dc4055337757e6489b84c6d39031",
+          "after_sha256": "d24c09dede51c5a8d79634e52df88bffa18ec15a77a2cbc4c45154ba25c19bdc",
+          "before_bytes": 295864,
+          "after_bytes": 295486
+        },
+        "map": {
+          "before_sha256": "fcf376c5678cefaf6c5d49d1421f938c2d39f5bc4d18ee7d19d72dffa870c31a",
+          "after_sha256": "e281659d9bd0c4124ee90675b6eefa81af80b4f68b90119b94510628eed07e78",
+          "before_bytes": 10997,
+          "after_bytes": 10997
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 8.069302958028857,
+          "traced": 9.430095791001804
+        },
+        "asm": {
+          "plain": 8.03132754197577,
+          "traced": 9.39407666696934
+        },
+        "map": {
+          "plain": 7.997759499994572,
+          "traced": 9.419799917028286
+        }
+      },
+      "work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24787
+      },
+      "previous_work": {
+        "emission_invocations": 41,
+        "inner_emission_probes": 246,
+        "materializations": 3,
+        "pipeline_attempts": 33,
+        "rewrite_analysis_builds": 24626
+      },
+      "detail_bytes": 17071554,
+      "result": {
+        "accepted": true,
+        "image_bytes_after": 10089,
+        "image_bytes_before": 10107,
+        "instruction_bytes_after": 9201,
+        "instruction_bytes_before": 9219,
+        "removed_stores": 6,
+        "routines": [
+          72,
+          73
+        ]
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 78,
+          "removed": 3
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 6,
+        "selection_outcomes": {
+          "partial": 1,
+          "accepted": 7
+        },
+        "cleanup_stops": {
+          "explicit-read": 78,
+          "covering-overwrite": 3,
+          "visited-cycle": 6,
+          "no-read-found": 24
+        },
+        "proof_blockers": {
+          "home-definition-live": 171,
+          "record-base-unavailable": 20
+        },
+        "zero_byte_operations": 13
+      },
+      "tn_removed_stores_retained_homes": [
+        {
+          "routine": 72,
+          "spill": 12
+        },
+        {
+          "routine": 72,
+          "spill": 13
+        },
+        {
+          "routine": 72,
+          "spill": 26
+        },
+        {
+          "routine": 72,
+          "spill": 27
+        },
+        {
+          "routine": 73,
+          "spill": 110
+        },
+        {
+          "routine": 73,
+          "spill": 111
+        }
+      ],
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "home-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "after_sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "before_bytes": 21,
+          "after_bytes": 21
+        },
+        "asm": {
+          "before_sha256": "d0f253bc7bd825eb31d80622303b4cb8d8dc43079a65fe5a0138fa14e07d9594",
+          "after_sha256": "d0f253bc7bd825eb31d80622303b4cb8d8dc43079a65fe5a0138fa14e07d9594",
+          "before_bytes": 879,
+          "after_bytes": 879
+        },
+        "map": {
+          "before_sha256": "682f928d1073334d91dad8fe9f6658ab0a0aa7a83b7b89873a1e6477211d8e12",
+          "after_sha256": "682f928d1073334d91dad8fe9f6658ab0a0aa7a83b7b89873a1e6477211d8e12",
+          "before_bytes": 73,
+          "after_bytes": 73
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.009409125021193177,
+          "traced": 0.055905250017531216
+        },
+        "asm": {
+          "plain": 0.010255291010253131,
+          "traced": 0.05646162497578189
+        },
+        "map": {
+          "plain": 0.00936729199020192,
+          "traced": 0.059811374987475574
+        }
+      },
+      "work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 77
+      },
+      "previous_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 77
+      },
+      "detail_bytes": 129869,
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {},
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {},
+        "proof_blockers": {},
+        "zero_byte_operations": 0
+      }
+    },
+    {
+      "id": "home-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "after_sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "before_bytes": 21,
+          "after_bytes": 21
+        },
+        "asm": {
+          "before_sha256": "4cce64a0bcd304e8a7b672bd41868dd59f8754cc927bf3e09fbad615c0385dae",
+          "after_sha256": "4cce64a0bcd304e8a7b672bd41868dd59f8754cc927bf3e09fbad615c0385dae",
+          "before_bytes": 885,
+          "after_bytes": 885
+        },
+        "map": {
+          "before_sha256": "1f8c75369850d017d347758aa9ccae607c075c2adb578b613f8e7dab5f874948",
+          "after_sha256": "1f8c75369850d017d347758aa9ccae607c075c2adb578b613f8e7dab5f874948",
+          "before_bytes": 79,
+          "after_bytes": 79
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.009366417012643069,
+          "traced": 0.05936937499791384
+        },
+        "asm": {
+          "plain": 0.009248499991372228,
+          "traced": 0.05765558296116069
+        },
+        "map": {
+          "plain": 0.009247207955922931,
+          "traced": 0.05702929099788889
+        }
+      },
+      "work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 77
+      },
+      "previous_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 77
+      },
+      "detail_bytes": 129869,
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {},
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {},
+        "proof_blockers": {},
+        "zero_byte_operations": 0
+      }
+    },
+    {
+      "id": "staging-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "1f71f9e8e0f34cd9dade807e98735a6626e74922ac47c3be5f33844c8957a65e",
+          "after_sha256": "51b486710953f4fab51a0229439e641b94a65222ad3a01873d55598c1e4738ed",
+          "before_bytes": 334,
+          "after_bytes": 330
+        },
+        "asm": {
+          "before_sha256": "3b768d0903a9d0fdd4ab7b748ed0a3beaa4f699c2b76b9070d2a7b0a94faca50",
+          "after_sha256": "f077f78527fdaf9251f2a9f081048fda0b46385de9109abcaf6d18116e1e82f3",
+          "before_bytes": 11077,
+          "after_bytes": 10957
+        },
+        "map": {
+          "before_sha256": "088875cbd7332dca946fdf207ff0ef49f609c845ecf3b9883a497d56e94c96ac",
+          "after_sha256": "8e672fb164055f8b9e176e3acc7ef99f3d7748b8375f61a7002f67832bb4e93c",
+          "before_bytes": 1049,
+          "after_bytes": 1049
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.057279457978438586,
+          "traced": 0.25459199998294935
+        },
+        "asm": {
+          "plain": 0.05794237501686439,
+          "traced": 0.26315487502142787
+        },
+        "map": {
+          "plain": 0.057805666991043836,
+          "traced": 0.2556732500088401
+        }
+      },
+      "work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 612
+      },
+      "previous_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 24,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 588
+      },
+      "detail_bytes": 2220798,
+      "result": {
+        "accepted": true,
+        "image_bytes_after": 330,
+        "image_bytes_before": 334,
+        "instruction_bytes_after": 290,
+        "instruction_bytes_before": 294,
+        "removed_stores": 2,
+        "routines": [
+          2,
+          3
+        ]
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 8
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 2,
+        "selection_outcomes": {
+          "accepted": 3
+        },
+        "cleanup_stops": {
+          "explicit-read": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 28
+        },
+        "zero_byte_operations": 5
+      }
+    },
+    {
+      "id": "staging-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "fea69d197bf1bd9e4d0c226ad4f55aeb3367c41d18328f4c2796f971117b7cc5",
+          "after_sha256": "32850af4c044cdfc67e4ed9d5ef89403f8d2b0a1638a8a405ed18cd32d266ad5",
+          "before_bytes": 416,
+          "after_bytes": 412
+        },
+        "asm": {
+          "before_sha256": "dbe41933ca153c2dc40afb01ee79ff70e17e55b71956fc33bcc1df13105a8b6c",
+          "after_sha256": "2192547f4a7038d47b4752b12b7b41d4c03960318029bb2efbc6c00c7c2cad42",
+          "before_bytes": 14586,
+          "after_bytes": 14466
+        },
+        "map": {
+          "before_sha256": "5114a2adcf882c9f83de899676f5f946b910486c2bd5800980217b3250799df9",
+          "after_sha256": "8ed288d3d02d05d914f8cd1c4b0198d318ff419f86279cc8d6dac9b36a904eee",
+          "before_bytes": 1593,
+          "after_bytes": 1593
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.060864207975100726,
+          "traced": 0.2586579159833491
+        },
+        "asm": {
+          "plain": 0.06113295798422769,
+          "traced": 0.2637717499746941
+        },
+        "map": {
+          "plain": 0.0609214169671759,
+          "traced": 0.2864162079640664
+        }
+      },
+      "work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 612
+      },
+      "previous_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 24,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 588
+      },
+      "detail_bytes": 2323583,
+      "result": {
+        "accepted": true,
+        "image_bytes_after": 412,
+        "image_bytes_before": 416,
+        "instruction_bytes_after": 371,
+        "instruction_bytes_before": 375,
+        "removed_stores": 2,
+        "routines": [
+          2,
+          3
+        ]
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 8
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 2,
+        "selection_outcomes": {
+          "accepted": 3
+        },
+        "cleanup_stops": {
+          "explicit-read": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 28
+        },
+        "zero_byte_operations": 8
+      }
+    },
+    {
+      "id": "word-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "7052148ba7ca6bd52a4f1014b65827361e493af716b7884077508a568afcab5f",
+          "after_sha256": "7052148ba7ca6bd52a4f1014b65827361e493af716b7884077508a568afcab5f",
+          "before_bytes": 301,
+          "after_bytes": 301
+        },
+        "asm": {
+          "before_sha256": "1ccb6c066e4ca13fd2b9836e5ab9729b2ca555b05caf615ed2188b1dbbb7936d",
+          "after_sha256": "1ccb6c066e4ca13fd2b9836e5ab9729b2ca555b05caf615ed2188b1dbbb7936d",
+          "before_bytes": 9203,
+          "after_bytes": 9203
+        },
+        "map": {
+          "before_sha256": "c7bf7cf4a483e149a2d1424683dbc65be56365b636307ee310f8ee1f52288446",
+          "after_sha256": "c7bf7cf4a483e149a2d1424683dbc65be56365b636307ee310f8ee1f52288446",
+          "before_bytes": 199,
+          "after_bytes": 199
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.04294883296824992,
+          "traced": 0.17665774998022243
+        },
+        "asm": {
+          "plain": 0.042685041029471904,
+          "traced": 0.1792483750032261
+        },
+        "map": {
+          "plain": 0.04240754200145602,
+          "traced": 0.17295645899139345
+        }
+      },
+      "work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 257
+      },
+      "previous_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 255
+      },
+      "detail_bytes": 1476506,
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 1,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 8
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {
+          "explicit-read": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 19,
+          "record-base-unavailable": 9
+        },
+        "zero_byte_operations": 3
+      },
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "word-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "7052148ba7ca6bd52a4f1014b65827361e493af716b7884077508a568afcab5f",
+          "after_sha256": "7052148ba7ca6bd52a4f1014b65827361e493af716b7884077508a568afcab5f",
+          "before_bytes": 301,
+          "after_bytes": 301
+        },
+        "asm": {
+          "before_sha256": "2dbd5d66bb5b3c7aaabdb881dd2f4b989cecba857d8a9dd37cded5c7f523f549",
+          "after_sha256": "2dbd5d66bb5b3c7aaabdb881dd2f4b989cecba857d8a9dd37cded5c7f523f549",
+          "before_bytes": 9209,
+          "after_bytes": 9209
+        },
+        "map": {
+          "before_sha256": "ef839bad39e8ba144b0a37012b8ee1b2077642eab490bbafc07aef9a711a661b",
+          "after_sha256": "ef839bad39e8ba144b0a37012b8ee1b2077642eab490bbafc07aef9a711a661b",
+          "before_bytes": 205,
+          "after_bytes": 205
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.04244337504496798,
+          "traced": 0.17579370900057256
+        },
+        "asm": {
+          "plain": 0.043628624989651144,
+          "traced": 0.17734054097672924
+        },
+        "map": {
+          "plain": 0.043405916017945856,
+          "traced": 0.17542487499304116
+        }
+      },
+      "work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 257
+      },
+      "previous_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 255
+      },
+      "detail_bytes": 1476506,
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 1,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 8
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {
+          "explicit-read": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 19,
+          "record-base-unavailable": 9
+        },
+        "zero_byte_operations": 3
+      },
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "word-cart-0x41C7-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+          "after_sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+          "before_bytes": 301,
+          "after_bytes": 301
+        },
+        "asm": {
+          "before_sha256": "8655bf45e32c94563670fa1be05c3b15dc56480149883d39937441fc29c0cb87",
+          "after_sha256": "8655bf45e32c94563670fa1be05c3b15dc56480149883d39937441fc29c0cb87",
+          "before_bytes": 9203,
+          "after_bytes": 9203
+        },
+        "map": {
+          "before_sha256": "dfcdd4adc0528b1b5854102c9726899cc00c974e36edd251e99ddf1ea17388d0",
+          "after_sha256": "dfcdd4adc0528b1b5854102c9726899cc00c974e36edd251e99ddf1ea17388d0",
+          "before_bytes": 199,
+          "after_bytes": 199
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.04386775003513321,
+          "traced": 0.17601337499218062
+        },
+        "asm": {
+          "plain": 0.0428952089860104,
+          "traced": 0.1782113749650307
+        },
+        "map": {
+          "plain": 0.04312291700625792,
+          "traced": 0.28415483300341293
+        }
+      },
+      "work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 257
+      },
+      "previous_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 255
+      },
+      "detail_bytes": 1476506,
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 1,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 8
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {
+          "explicit-read": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 19,
+          "record-base-unavailable": 9
+        },
+        "zero_byte_operations": 3
+      },
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "loop-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "809ae5f6c3549a7cad5bc28aa7b2a8d60ff452b6c207e01cbe1f2e8a450a91ca",
+          "after_sha256": "809ae5f6c3549a7cad5bc28aa7b2a8d60ff452b6c207e01cbe1f2e8a450a91ca",
+          "before_bytes": 77,
+          "after_bytes": 77
+        },
+        "asm": {
+          "before_sha256": "9a3d485e5536f69b7b540913edae974a0422a75cabcff93c320525fe7efefccd",
+          "after_sha256": "9a3d485e5536f69b7b540913edae974a0422a75cabcff93c320525fe7efefccd",
+          "before_bytes": 2582,
+          "after_bytes": 2582
+        },
+        "map": {
+          "before_sha256": "ddc7766936d250a5d554aff519bddc01651bad922b51b9ae4e7ddf669fe70069",
+          "after_sha256": "ddc7766936d250a5d554aff519bddc01651bad922b51b9ae4e7ddf669fe70069",
+          "before_bytes": 268,
+          "after_bytes": 268
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.02197187498677522,
+          "traced": 0.09847458300646394
+        },
+        "asm": {
+          "plain": 0.02435266599059105,
+          "traced": 0.09779370797332376
+        },
+        "map": {
+          "plain": 0.021862583002075553,
+          "traced": 0.09683191700605676
+        }
+      },
+      "work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 242
+      },
+      "previous_work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 242
+      },
+      "detail_bytes": 516540,
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {},
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {},
+        "proof_blockers": {
+          "record-base-unavailable": 2
+        },
+        "zero_byte_operations": 4
+      }
+    },
+    {
+      "id": "loop-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "809ae5f6c3549a7cad5bc28aa7b2a8d60ff452b6c207e01cbe1f2e8a450a91ca",
+          "after_sha256": "809ae5f6c3549a7cad5bc28aa7b2a8d60ff452b6c207e01cbe1f2e8a450a91ca",
+          "before_bytes": 77,
+          "after_bytes": 77
+        },
+        "asm": {
+          "before_sha256": "9ac4a9da565e0712c6e6610fe38aafe437fff5e0ed7c2b26f1db5d8092217c5d",
+          "after_sha256": "9ac4a9da565e0712c6e6610fe38aafe437fff5e0ed7c2b26f1db5d8092217c5d",
+          "before_bytes": 2588,
+          "after_bytes": 2588
+        },
+        "map": {
+          "before_sha256": "df3e85c51ea46d6f0b038c6df7307494fea02c8180ccbd58aef8e096a4da5d95",
+          "after_sha256": "df3e85c51ea46d6f0b038c6df7307494fea02c8180ccbd58aef8e096a4da5d95",
+          "before_bytes": 274,
+          "after_bytes": 274
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.023222874966450036,
+          "traced": 0.11535187502158806
+        },
+        "asm": {
+          "plain": 0.02293112501502037,
+          "traced": 0.09792887500952929
+        },
+        "map": {
+          "plain": 0.0223175419960171,
+          "traced": 0.09692050004377961
+        }
+      },
+      "work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 242
+      },
+      "previous_work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 242
+      },
+      "detail_bytes": 516540,
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {},
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {},
+        "proof_blockers": {
+          "record-base-unavailable": 2
+        },
+        "zero_byte_operations": 4
+      }
+    },
+    {
+      "id": "ranges-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "after_sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "before_bytes": 21,
+          "after_bytes": 21
+        },
+        "asm": {
+          "before_sha256": "d0f253bc7bd825eb31d80622303b4cb8d8dc43079a65fe5a0138fa14e07d9594",
+          "after_sha256": "d0f253bc7bd825eb31d80622303b4cb8d8dc43079a65fe5a0138fa14e07d9594",
+          "before_bytes": 879,
+          "after_bytes": 879
+        },
+        "map": {
+          "before_sha256": "682f928d1073334d91dad8fe9f6658ab0a0aa7a83b7b89873a1e6477211d8e12",
+          "after_sha256": "682f928d1073334d91dad8fe9f6658ab0a0aa7a83b7b89873a1e6477211d8e12",
+          "before_bytes": 73,
+          "after_bytes": 73
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.009769833995960653,
+          "traced": 0.05697662499733269
+        },
+        "asm": {
+          "plain": 0.012147667002864182,
+          "traced": 0.057312791992444545
+        },
+        "map": {
+          "plain": 0.009900291974190623,
+          "traced": 0.06936087500071153
+        }
+      },
+      "work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 77
+      },
+      "previous_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 77
+      },
+      "detail_bytes": 129869,
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {},
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {},
+        "proof_blockers": {},
+        "zero_byte_operations": 0
+      },
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "ranges-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "after_sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "before_bytes": 21,
+          "after_bytes": 21
+        },
+        "asm": {
+          "before_sha256": "4cce64a0bcd304e8a7b672bd41868dd59f8754cc927bf3e09fbad615c0385dae",
+          "after_sha256": "4cce64a0bcd304e8a7b672bd41868dd59f8754cc927bf3e09fbad615c0385dae",
+          "before_bytes": 885,
+          "after_bytes": 885
+        },
+        "map": {
+          "before_sha256": "1f8c75369850d017d347758aa9ccae607c075c2adb578b613f8e7dab5f874948",
+          "after_sha256": "1f8c75369850d017d347758aa9ccae607c075c2adb578b613f8e7dab5f874948",
+          "before_bytes": 79,
+          "after_bytes": 79
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.009151000005658716,
+          "traced": 0.05608841695357114
+        },
+        "asm": {
+          "plain": 0.010150541027542204,
+          "traced": 0.05738349998136982
+        },
+        "map": {
+          "plain": 0.010053291043732315,
+          "traced": 0.0571885840035975
+        }
+      },
+      "work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 77
+      },
+      "previous_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 77
+      },
+      "detail_bytes": 129869,
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {},
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {},
+        "proof_blockers": {},
+        "zero_byte_operations": 0
+      },
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "ranges-cart-0x41C7-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "49977821fcfa638edbedb7811c56bf24827be6b9a083a06bf9ef103fc383e6de",
+          "after_sha256": "49977821fcfa638edbedb7811c56bf24827be6b9a083a06bf9ef103fc383e6de",
+          "before_bytes": 21,
+          "after_bytes": 21
+        },
+        "asm": {
+          "before_sha256": "95896f3dd36f250c4f3f389a26b59d7777dd1e86e1e572b40e5de0bfbb40c920",
+          "after_sha256": "95896f3dd36f250c4f3f389a26b59d7777dd1e86e1e572b40e5de0bfbb40c920",
+          "before_bytes": 879,
+          "after_bytes": 879
+        },
+        "map": {
+          "before_sha256": "8af839a032f9b9172f27d04fcdec1ea6d7f088ba331010cdc61eb232fa97c99d",
+          "after_sha256": "8af839a032f9b9172f27d04fcdec1ea6d7f088ba331010cdc61eb232fa97c99d",
+          "before_bytes": 73,
+          "after_bytes": 73
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.009627249964978546,
+          "traced": 0.05745575000764802
+        },
+        "asm": {
+          "plain": 0.012401124986354262,
+          "traced": 0.05724216700764373
+        },
+        "map": {
+          "plain": 0.010288499994203448,
+          "traced": 0.05773162504192442
+        }
+      },
+      "work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 77
+      },
+      "previous_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 77
+      },
+      "detail_bytes": 129869,
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {},
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {},
+        "proof_blockers": {},
+        "zero_byte_operations": 0
+      },
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "captures-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "e6d5d1a7b16a0a4c00adbfadd3f3eeb8a8e711ef3df1ef85450722df0dc33603",
+          "after_sha256": "e6d5d1a7b16a0a4c00adbfadd3f3eeb8a8e711ef3df1ef85450722df0dc33603",
+          "before_bytes": 227,
+          "after_bytes": 227
+        },
+        "asm": {
+          "before_sha256": "1fb75afeb58a1233052dd15f021a03f9c95028cd83139c472b82cd91bc44b600",
+          "after_sha256": "1fb75afeb58a1233052dd15f021a03f9c95028cd83139c472b82cd91bc44b600",
+          "before_bytes": 7904,
+          "after_bytes": 7904
+        },
+        "map": {
+          "before_sha256": "32ae9f861db81f1830149273c8eabe1a29db5f0cec9495433d86d18f2fe52379",
+          "after_sha256": "32ae9f861db81f1830149273c8eabe1a29db5f0cec9495433d86d18f2fe52379",
+          "before_bytes": 699,
+          "after_bytes": 699
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.06480091600678861,
+          "traced": 0.2612226659548469
+        },
+        "asm": {
+          "plain": 0.06185787502909079,
+          "traced": 0.2602874169824645
+        },
+        "map": {
+          "plain": 0.06112229102291167,
+          "traced": 0.26426612498471513
+        }
+      },
+      "work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 2,
+        "pipeline_attempts": 38,
+        "rewrite_analysis_builds": 659
+      },
+      "previous_work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 2,
+        "pipeline_attempts": 37,
+        "rewrite_analysis_builds": 659
+      },
+      "detail_bytes": 2212471,
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 12,
+          "removed": 4
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {
+          "explicit-read": 12,
+          "no-read-found": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 22,
+          "record-base-unavailable": 2
+        },
+        "zero_byte_operations": 5
+      }
+    },
+    {
+      "id": "captures-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "19c1064ed65e1ca4b18f33883a4eec095904adb0af5e8b4e3f8bb1f7c46c9e51",
+          "after_sha256": "19c1064ed65e1ca4b18f33883a4eec095904adb0af5e8b4e3f8bb1f7c46c9e51",
+          "before_bytes": 309,
+          "after_bytes": 309
+        },
+        "asm": {
+          "before_sha256": "39c404519dafa86b2774d1855ade2048ca940124614207d9e2804e160f190f01",
+          "after_sha256": "39c404519dafa86b2774d1855ade2048ca940124614207d9e2804e160f190f01",
+          "before_bytes": 11382,
+          "after_bytes": 11382
+        },
+        "map": {
+          "before_sha256": "a97d1adef7bf8d9799c29823488ee8df655cebf027d92f6ee88ece28ade9bdfb",
+          "after_sha256": "a97d1adef7bf8d9799c29823488ee8df655cebf027d92f6ee88ece28ade9bdfb",
+          "before_bytes": 1243,
+          "after_bytes": 1243
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.06312245799927041,
+          "traced": 0.2710042499820702
+        },
+        "asm": {
+          "plain": 0.06673587503610179,
+          "traced": 0.27109662495786324
+        },
+        "map": {
+          "plain": 0.06579554203199223,
+          "traced": 0.29488029202912003
+        }
+      },
+      "work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 2,
+        "pipeline_attempts": 38,
+        "rewrite_analysis_builds": 659
+      },
+      "previous_work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 2,
+        "pipeline_attempts": 37,
+        "rewrite_analysis_builds": 659
+      },
+      "detail_bytes": 2335560,
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 12,
+          "removed": 4
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {
+          "explicit-read": 12,
+          "no-read-found": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 22,
+          "record-base-unavailable": 2
+        },
+        "zero_byte_operations": 8
+      }
+    },
+    {
+      "id": "rejection-cart-0x3000-modern",
+      "directory": "rejection-cart-0x3000-modern-retry-to4fxf2t",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "b694b850b0201fc5ae2d491393d042a3e9908e923f9e0534704236ae57555c46",
+          "after_sha256": "b694b850b0201fc5ae2d491393d042a3e9908e923f9e0534704236ae57555c46",
+          "before_bytes": 293,
+          "after_bytes": 293
+        },
+        "asm": {
+          "before_sha256": "fdf87225e548c0de162d84c9fbac5d36b40f8f9da53fc4dc739e944c6df1b2dd",
+          "after_sha256": "fdf87225e548c0de162d84c9fbac5d36b40f8f9da53fc4dc739e944c6df1b2dd",
+          "before_bytes": 9956,
+          "after_bytes": 9956
+        },
+        "map": {
+          "before_sha256": "aed1bdbeb42630aff5624b4a604acb3fbe3deea7462fd5c3ac813b3112f769e2",
+          "after_sha256": "aed1bdbeb42630aff5624b4a604acb3fbe3deea7462fd5c3ac813b3112f769e2",
+          "before_bytes": 741,
+          "after_bytes": 741
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.08551445900229737,
+          "traced": 0.31089495797641575
+        },
+        "asm": {
+          "plain": 0.07886633300222456,
+          "traced": 0.31301979202544317
+        },
+        "map": {
+          "plain": 0.07798958302009851,
+          "traced": 0.316710457962472
+        }
+      },
+      "work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 2,
+        "pipeline_attempts": 38,
+        "rewrite_analysis_builds": 818
+      },
+      "previous_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 2,
+        "pipeline_attempts": 37,
+        "rewrite_analysis_builds": 816
+      },
+      "detail_bytes": 2726394,
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 32
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1,
+          "rejected": 1
+        },
+        "cleanup_stops": {
+          "explicit-read": 32
+        },
+        "proof_blockers": {
+          "home-definition-live": 54,
+          "record-base-unavailable": 2
+        },
+        "zero_byte_operations": 5
+      }
+    },
+    {
+      "id": "coloring-cart-0x3000-modern",
+      "directory": "coloring-cart-0x3000-modern",
+      "artifacts": {
+        "xex": {
+          "before_sha256": "759ac221533db8c280278e63acb9e364f41ad82fbbb01486745ed6a0574ce5a7",
+          "after_sha256": "759ac221533db8c280278e63acb9e364f41ad82fbbb01486745ed6a0574ce5a7",
+          "before_bytes": 164,
+          "after_bytes": 164
+        },
+        "asm": {
+          "before_sha256": "da16d463b535d5bdb2c2fa15d76536354e73517c0b9df052f4a808a563295446",
+          "after_sha256": "da16d463b535d5bdb2c2fa15d76536354e73517c0b9df052f4a808a563295446",
+          "before_bytes": 5192,
+          "after_bytes": 5192
+        },
+        "map": {
+          "before_sha256": "dcca1baaede9e7b4f97f4e32c5db9509b6d5c2db873bb59657e4f3ac52f9106c",
+          "after_sha256": "dcca1baaede9e7b4f97f4e32c5db9509b6d5c2db873bb59657e4f3ac52f9106c",
+          "before_bytes": 73,
+          "after_bytes": 73
+        }
+      },
+      "seconds": {
+        "xex": {
+          "plain": 0.023740624950733036,
+          "traced": 0.10229879099642858
+        },
+        "asm": {
+          "plain": 0.030743875016923994,
+          "traced": 0.10432091698748991
+        },
+        "map": {
+          "plain": 0.022352291038259864,
+          "traced": 0.10776608303422108
+        }
+      },
+      "work": {
+        "emission_invocations": 2,
+        "inner_emission_probes": 8,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 80
+      },
+      "previous_work": {
+        "emission_invocations": 2,
+        "inner_emission_probes": 8,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 79
+      },
+      "detail_bytes": 617666,
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 24
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {
+          "explicit-read": 24
+        },
+        "proof_blockers": {
+          "home-definition-live": 48
+        },
+        "zero_byte_operations": 2
+      }
+    }
+  ],
+  "api": [
+    {
+      "id": "home-default-ActionCart-3000",
+      "before_bytes": 408,
+      "after_bytes": 408,
+      "before_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 6,
+        "rewrite_analysis_builds": 628
+      },
+      "after_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 7,
+        "rewrite_analysis_builds": 631
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "home-default-ActionCart-41c7",
+      "before_bytes": 408,
+      "after_bytes": 408,
+      "before_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 6,
+        "rewrite_analysis_builds": 628
+      },
+      "after_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 7,
+        "rewrite_analysis_builds": 631
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "home-default-Standalone-3000",
+      "before_bytes": 408,
+      "after_bytes": 408,
+      "before_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 6,
+        "rewrite_analysis_builds": 628
+      },
+      "after_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 7,
+        "rewrite_analysis_builds": 631
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "home-default-Standalone-41c7",
+      "before_bytes": 408,
+      "after_bytes": 408,
+      "before_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 6,
+        "rewrite_analysis_builds": 628
+      },
+      "after_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 7,
+        "rewrite_analysis_builds": 631
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "home-ActionCart-3000",
+      "before_bytes": 411,
+      "after_bytes": 411,
+      "before_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 663
+      },
+      "after_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 668
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "home-ActionCart-41c7",
+      "before_bytes": 411,
+      "after_bytes": 411,
+      "before_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 663
+      },
+      "after_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 668
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "home-Standalone-3000",
+      "before_bytes": 411,
+      "after_bytes": 411,
+      "before_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 663
+      },
+      "after_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 668
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "home-Standalone-41c7",
+      "before_bytes": 411,
+      "after_bytes": 411,
+      "before_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 663
+      },
+      "after_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 668
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "staging-ActionCart-3000",
+      "before_bytes": 334,
+      "after_bytes": 330,
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 24,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 588
+      },
+      "after_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 612
+      },
+      "result": {
+        "accepted": true,
+        "image_bytes_after": 330,
+        "image_bytes_before": 334,
+        "instruction_bytes_after": 290,
+        "instruction_bytes_before": 294,
+        "removed_stores": 2,
+        "routines": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "id": "staging-ActionCart-41c7",
+      "before_bytes": 334,
+      "after_bytes": 330,
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 24,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 588
+      },
+      "after_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 612
+      },
+      "result": {
+        "accepted": true,
+        "image_bytes_after": 330,
+        "image_bytes_before": 334,
+        "instruction_bytes_after": 290,
+        "instruction_bytes_before": 294,
+        "removed_stores": 2,
+        "routines": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "id": "staging-Standalone-3000",
+      "before_bytes": 416,
+      "after_bytes": 412,
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 24,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 588
+      },
+      "after_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 612
+      },
+      "result": {
+        "accepted": true,
+        "image_bytes_after": 412,
+        "image_bytes_before": 416,
+        "instruction_bytes_after": 371,
+        "instruction_bytes_before": 375,
+        "removed_stores": 2,
+        "routines": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "id": "staging-Standalone-41c7",
+      "before_bytes": 416,
+      "after_bytes": 412,
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 24,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 588
+      },
+      "after_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 612
+      },
+      "result": {
+        "accepted": true,
+        "image_bytes_after": 412,
+        "image_bytes_before": 416,
+        "instruction_bytes_after": 371,
+        "instruction_bytes_before": 375,
+        "removed_stores": 2,
+        "routines": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "id": "ranges-ActionCart-3000",
+      "before_bytes": 612,
+      "after_bytes": 612,
+      "before_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 700
+      },
+      "after_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 701
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "ranges-ActionCart-41c7",
+      "before_bytes": 612,
+      "after_bytes": 612,
+      "before_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 700
+      },
+      "after_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 701
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "ranges-Standalone-3000",
+      "before_bytes": 612,
+      "after_bytes": 612,
+      "before_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 700
+      },
+      "after_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 701
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "ranges-Standalone-41c7",
+      "before_bytes": 612,
+      "after_bytes": 612,
+      "before_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 700
+      },
+      "after_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 701
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "word-ActionCart-3000",
+      "before_bytes": 301,
+      "after_bytes": 301,
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 255
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 257
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "word-ActionCart-41c7",
+      "before_bytes": 301,
+      "after_bytes": 301,
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 255
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 257
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "word-Standalone-3000",
+      "before_bytes": 301,
+      "after_bytes": 301,
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 255
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 257
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    },
+    {
+      "id": "word-Standalone-41c7",
+      "before_bytes": 301,
+      "after_bytes": 301,
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 255
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 257
+      },
+      "result": {
+        "accepted": false,
+        "reason": "NoDeadStores"
+      }
+    }
+  ],
+  "api_seconds": 8.426912166993134,
+  "peak_child_rss_bytes": 192462848,
+  "rss_scope": "maximum child RSS across CLI compiler, rustc API-probe build, API probe and MADS; resumed invocation excludes 16 previously completed CLI cases",
+  "tn_resource_probe": {
+    "scope": "separate Darwin /usr/bin/time -l processes, no concurrent qualification jobs",
+    "measurements": [
+      {
+        "name": "baseline-plain",
+        "seconds": 7.763801708002575,
+        "peak_rss_bytes": 84213760,
+        "image_sha256": "7e3d5211bc66db3be00bae140c3bd46a3d475f3c624cb9b1e842c422b66c38eb",
+        "command": [
+          "/usr/bin/time",
+          "-l",
+          "build/mir6502-phase-trace/baseline/actionc-emit",
+          "--profile",
+          "modern",
+          "--backend",
+          "mir6502",
+          "--runtime",
+          "cart",
+          "--origin",
+          "0x2C00",
+          "--emit-load",
+          "samples/tn/modern/TN.ACT"
+        ]
+      },
+      {
+        "name": "current-plain",
+        "seconds": 8.720438790973276,
+        "peak_rss_bytes": 87441408,
+        "image_sha256": "580add631d9cb761aeb658c4e70da2041f1d43f6c11af3263be4891413ab7cca",
+        "command": [
+          "/usr/bin/time",
+          "-l",
+          "build/checked-arena/shared-target/debug/actionc-emit",
+          "--profile",
+          "modern",
+          "--backend",
+          "mir6502",
+          "--runtime",
+          "cart",
+          "--origin",
+          "0x2C00",
+          "--emit-load",
+          "samples/tn/modern/TN.ACT"
+        ]
+      },
+      {
+        "name": "current-traced",
+        "seconds": 9.643100666988175,
+        "peak_rss_bytes": 236683264,
+        "image_sha256": "580add631d9cb761aeb658c4e70da2041f1d43f6c11af3263be4891413ab7cca",
+        "command": [
+          "/usr/bin/time",
+          "-l",
+          "build/checked-arena/shared-target/debug/actionc-emit",
+          "--profile",
+          "modern",
+          "--backend",
+          "mir6502",
+          "--runtime",
+          "cart",
+          "--origin",
+          "0x2C00",
+          "--emit-load",
+          "--trace-mir6502",
+          "build/mir6502-late-cleanup/qualification/run-eodwi7ub/tn-resource-trace",
+          "--trace-routine",
+          "FormatDirectoryRow",
+          "--trace-routine",
+          "SetWin",
+          "samples/tn/modern/TN.ACT"
+        ]
+      }
+    ]
+  },
+  "validation": {
+    "checks": [
+      {
+        "log": "unit-final",
+        "command": [
+          "cargo",
+          "test",
+          "--lib",
+          "mir6502::",
+          "--",
+          "--test-threads=2"
+        ],
+        "test_targets": 1,
+        "passed": 1296,
+        "failed": 0,
+        "ignored": 13
+      },
+      {
+        "log": "integration-final",
+        "command": [
+          "cargo",
+          "test",
+          "--no-fail-fast",
+          "--test",
+          "mir6502_argument_staging",
+          "--test",
+          "mir6502_argument_x_bitwise",
+          "--test",
+          "mir6502_argument_x_forwarding",
+          "--test",
+          "mir6502_bounded_call_pointer_retention",
+          "--test",
+          "mir6502_call_abi",
+          "--test",
+          "mir6502_callee_entry_flags",
+          "--test",
+          "mir6502_checked_pointer_ranges",
+          "--test",
+          "mir6502_circle_quality",
+          "--test",
+          "mir6502_direct_comparisons",
+          "--test",
+          "mir6502_fixtures",
+          "--test",
+          "mir6502_home_value_invalidation",
+          "--test",
+          "mir6502_kalscope_quality",
+          "--test",
+          "mir6502_late_cleanup",
+          "--test",
+          "mir6502_leaf_inline_cli",
+          "--test",
+          "mir6502_loop_consumer",
+          "--test",
+          "mir6502_materialization_gap",
+          "--test",
+          "mir6502_phase_trace",
+          "--test",
+          "mir6502_pointer_byte_plus_one",
+          "--test",
+          "mir6502_pointer_load_sharing",
+          "--test",
+          "mir6502_pointer_retention",
+          "--test",
+          "mir6502_register_copy_forwarding",
+          "--test",
+          "mir6502_rewrite_inventory",
+          "--test",
+          "mir6502_store_consumer",
+          "--test",
+          "mir6502_turtle_quality",
+          "--test",
+          "mir6502_warpdem_quality",
+          "--test",
+          "mir6502_word_load_sharing",
+          "--test",
+          "mir6502_word_move_store",
+          "--test",
+          "cli_emit_modes",
+          "--",
+          "--test-threads=2"
+        ],
+        "test_targets": 28,
+        "passed": 127,
+        "failed": 0,
+        "ignored": 10
+      },
+      {
+        "log": "hardening-vm",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "tools/vm-runtime-tests/Cargo.toml",
+          "--test",
+          "late_private_store_cleanup",
+          "--test",
+          "argument_staging",
+          "--",
+          "--test-threads=2"
+        ],
+        "test_targets": 2,
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0
+      },
+      {
+        "log": "vm-final",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "tools/vm-runtime-tests/Cargo.toml",
+          "--no-fail-fast",
+          "--test",
+          "pointer_retention",
+          "--test",
+          "bounded_call_pointer_retention",
+          "--test",
+          "checked_pointer_ranges",
+          "--test",
+          "pointer_byte_plus_one",
+          "--test",
+          "pointer_load_sharing",
+          "--test",
+          "word_load_sharing",
+          "--test",
+          "tn_codegen_reproducers",
+          "--test",
+          "tn_checked_arena",
+          "--test",
+          "tn_dispatch",
+          "--",
+          "--test-threads=2"
+        ],
+        "test_targets": 9,
+        "passed": 23,
+        "failed": 0,
+        "ignored": 1
+      }
+    ],
+    "environment": {
+      "CARGO_TARGET_DIR": "build/checked-arena/shared-target",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0",
+      "CARGO_PROFILE_DEV_OPT_LEVEL": "1",
+      "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_BUILD_JOBS": "2"
+    },
+    "cli_artifact_comparisons": 54,
+    "full_api_comparisons": 20,
+    "mads_lf_crlf_roundtrips": 16
+  }
+}

@@ -1,6 +1,6 @@
 # MIR6502 late private-store cleanup implementation plan
 
-Status: in progress, 2026-11-13.
+Status: completed, 2026-11-13.
 
 Implements the [design contract](MIR6502_LATE_CLEANUP_DESIGN.md). Each slice is
 committed separately. Compiler changes stay within MIR6502; existing user work
@@ -106,3 +106,23 @@ keep allocation unchanged and avoid extra full materializations. TN/staging
 must demonstrate proved store removal and measured final savings. Layout and
 callee-contract counterexamples must demonstrably restore the baseline.
 Passing local backend checks does not replace the repository's full CI matrix.
+
+## Completion record
+
+The five planned slices are complete. Commits `b2c06e54`, `08379f12`,
+`aabe0126` and `1596bdcd` cover the plan, preservation sidecar, guarded
+transaction and default executable integration. Qualification added the separate
+`cac00bf6` hardening slice: physical zero-page lifetimes extend through caller
+continuations, and proof diagnostic scopes always close. The final qualification
+commit contains the harness, receipt and completed documentation.
+
+TN's cart image is 9,982 bytes (18 saved); standalone is 10,089 bytes (18 saved).
+Argument staging saves four bytes in both runtimes. Frames remain identical,
+full materialization counts do not increase, and the transaction stays within
+two extra emissions. Exact counts, unchanged controls, runtime coverage and
+resource measurements are in the [qualification report](benchmarks/6502-late-cleanup/README.md).
+
+Validation passed 1,296 MIR6502 unit tests, 127 integration tests, 28 VM tests,
+54 CLI artifact comparisons, 20 complete API comparisons and 16 MADS LF/CRLF
+roundtrips. Existing optional ignored checks are listed in the report. No shared
+NIR/semantic/printer contracts changed.

@@ -50,6 +50,15 @@ write is a CLI error; recording its failure status is best effort if the
 filesystem itself is unavailable. Frontend failures also leave a failed manifest.
 A partial trace is useful for inspection but does not qualify a diagnosis.
 
+Optimized executable generation now includes `late-private-store-cleanup` after
+T10 checked-range retention. Its input/proposed/returned snapshots and
+`late-cleanup-result` distinguish accepted savings from rollback;
+`late-cleanup-store-retained` explains physical read blockers. Logical discovery,
+physical deletion, final-placement replay and earlier-decision validation have
+separate diagnostic scopes. See the [cleanup contract](MIR6502_LATE_CLEANUP_DESIGN.md).
+The historical materialized-MIR dump still ends before T10 and terminal cleanup;
+the exact `pre-emission` snapshot includes both.
+
 ## Reading evidence
 
 Attempts form a tree, not a linear list of optimization passes.
