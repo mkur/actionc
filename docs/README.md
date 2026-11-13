@@ -183,6 +183,12 @@ crowding the active reference set.
     origin definition.
 - [MIR6502_PSEUDO_MACHINE_CONTRACT.md](MIR6502_PSEUDO_MACHINE_CONTRACT.md) -
   MIR6502 contract and verifier shape.
+- [MIR6502 optimization pipeline audit](MIR6502_OPTIMIZATION_PIPELINE_AUDIT.md) -
+  implemented phase order, value homes, fact lifetimes, layout authority and
+  cleanup coverage, audited on 2026-11-13.
+- [MIR6502 phase tracing implementation plan](MIR6502_PHASE_TRACING_IMPLEMENTATION_PLAN.md) -
+  six diagnostic slices for selected/trial history, home decisions, cleanup
+  blockers and final emission, with unchanged generated artifacts.
 - [INLINE routine implementation plan](INLINE_IMPLEMENTATION_PLAN.md) -
   declaration modifier, typed preference propagation, wider scalar
   inlining and Q4.12 wrapper rollout in six slices.

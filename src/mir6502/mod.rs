@@ -12,6 +12,7 @@ mod passes;
 mod printer;
 mod rewrite;
 mod runtime;
+pub mod trace;
 pub(crate) mod standalone;
 mod verify;
 
@@ -334,7 +335,41 @@ pub fn generate_output_with_config_and_runtime(
     config: &Mir6502Config,
     runtime: crate::runtime::Runtime,
 ) -> Result<crate::codegen::CodegenOutput, Vec<MirDiagnostic>> {
+    generate_output_impl(nir, origin, config, runtime, trace::Trace::disabled())
+}
+
+/// Generate the identical executable while collecting compilation-local diagnostics.
+/// The trace never participates in optimization or owns filesystem paths.
+pub fn generate_output_with_trace(
+    nir: &NirProgram,
+    origin: u16,
+    config: &Mir6502Config,
+    runtime: crate::runtime::Runtime,
+    session: &mut trace::Mir6502Trace,
+) -> Result<crate::codegen::CodegenOutput, Vec<MirDiagnostic>> {
+    session.reset();
+    let trace = session.context();
+    trace.event("compilation", || serde_json::json!({
+        "origin": origin, "runtime": format!("{runtime:?}"),
+        "config": format!("{config:?}"),
+        "nir_identity": trace::identity(&format!("{nir:?}")),
+        "nir_optimization": "caller-owned"
+    }));
+    let result = generate_output_impl(nir, origin, config, runtime, trace);
+    session.finish(&result);
+    result
+}
+
+fn prepare_program_for_emission(
+    nir: &NirProgram,
+    origin: u16,
+    config: &Mir6502Config,
+    runtime: crate::runtime::Runtime,
+    trace: trace::Trace<'_>,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
     let mir = lower_program(nir)?;
+    trace.bind_routines(&mir);
+    trace.snapshot("lowered", &mir);
     let range_source = (config.enable_peepholes && config.enable_pointer_call_retention
         && config.enable_checked_range_pointer_retention && !mir.machine_blocks.is_empty()).then(|| mir.clone());
     let mir = materialize_program_with_origin_and_runtime(mir, config, origin, runtime)?;
@@ -346,6 +381,18 @@ pub fn generate_output_with_config_and_runtime(
     } else { mir };
     verify::verify_program(&mir, MirPhase::PreEmission)
         .map_err(|diagnostics| phase_diagnostics("pre-emission", diagnostics))?;
+    trace.snapshot("pre-emission", &mir);
+    Ok(mir)
+}
+
+fn generate_output_impl(
+    nir: &NirProgram,
+    origin: u16,
+    config: &Mir6502Config,
+    runtime: crate::runtime::Runtime,
+    trace: trace::Trace<'_>,
+) -> Result<crate::codegen::CodegenOutput, Vec<MirDiagnostic>> {
+    let mir = prepare_program_for_emission(nir, origin, config, runtime, trace)?;
     let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
     let summary = emit::emit_program(&mir, origin, &mut emitter)?;
     let emission = emitter.finish_with_relocations().map_err(|diagnostics| {
