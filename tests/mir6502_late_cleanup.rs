@@ -72,6 +72,8 @@ fn late_cleanup_shrinks_argument_staging_and_preserves_trace_equivalence() {
 
 #[test]
 fn late_cleanup_master_gate_and_historical_materialized_dump_are_independent() {
+    assert!(!Mir6502Config::default().enable_late_dead_register_cleanup);
+    assert!(Mir6502Config::optimized().enable_late_dead_register_cleanup);
     let input = nir(include_str!("../fixtures/runtime/argument_staging.act"));
     let on = Mir6502Config::optimized();
     let off = Mir6502Config {
