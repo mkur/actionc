@@ -23,6 +23,8 @@ fn argument_x_forwarding_baseline_verifies_modes_runtimes_and_origins() {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41C7] {
                 let config = Mir6502Config {
+                    // Keep this comparison specific to A-to-X forwarding.
+                    enable_late_private_store_cleanup: false,
                     enable_argument_x_bitwise_forwarding: false,
                     enable_precise_callee_entry_flags: false,
                     enable_argument_x_forwarding: false,

@@ -193,6 +193,24 @@ fn apply(
     Ok(proposed)
 }
 
+fn apply_traced(
+    baseline: &MirProgram,
+    memory: Option<&MirPhysicalMemory>,
+    default_sargs: bool,
+    origin: u16,
+    trace: &Trace,
+    purpose: &'static str,
+) -> Result<MirProgram, Declined> {
+    let t = trace.child("late-cleanup-analysis", purpose);
+    let result = apply(baseline, memory, default_sargs, origin, &t);
+    t.event("attempt-end", || serde_json::json!({
+        "stage": "late-cleanup-analysis",
+        "status": if result.is_ok() { "returned" } else { "failed" },
+        "returned_snapshot": null,
+    }));
+    result
+}
+
 /// Check the complete allowed delta, including compare-producer index repair.
 fn only_private_store_deletions(before: &MirProgram, after: &MirProgram) -> bool {
     if before.routines.len() != after.routines.len() {
@@ -305,14 +323,14 @@ pub(super) fn select(
             return Ok(baseline);
         }
         // No cost emission for programs whose definitions are all still live.
-        match apply(&baseline, None, preservation.default_sargs(), origin, &trace.child("late-cleanup-analysis", "logical-discovery")) {
+        match apply_traced(&baseline, None, preservation.default_sargs(), origin, trace, "logical-discovery") {
             Ok(p) if p == baseline => { reject(Declined::NoDeadStores); return Ok(baseline); }
             Err(reason) => { reject(reason); return Ok(baseline); }
             _ => {}
         }
         let references = preservation.references(&baseline);
         let old = measure(&baseline, &references, origin, runtime, trace)?;
-        let proposed = match apply(&baseline, Some(&old.memory), preservation.default_sargs(), origin, &trace.child("late-cleanup-analysis", "physical-deletion")) {
+        let proposed = match apply_traced(&baseline, Some(&old.memory), preservation.default_sargs(), origin, trace, "physical-deletion") {
             Ok(p) if p != baseline => p,
             Ok(_) => { reject(Declined::ObservableAlias); return Ok(baseline); }
             Err(reason) => { reject(reason); return Ok(baseline); }
@@ -328,7 +346,7 @@ pub(super) fn select(
             }
             if !callee_contracts_preserved(&baseline, &proposed) { return Err(Declined::CalleeContract); }
             let new = measure(&proposed, &references, origin, runtime, trace).map_err(|_| Declined::CandidateEmission)?;
-            if apply(&baseline, Some(&new.memory), preservation.default_sargs(), origin, &trace.child("late-cleanup-analysis", "final-placement-deletion-replay"))? != proposed { return Err(Declined::DeletionReplay); }
+            if apply_traced(&baseline, Some(&new.memory), preservation.default_sargs(), origin, trace, "final-placement-deletion-replay")? != proposed { return Err(Declined::DeletionReplay); }
             preservation.validate(&new.memory, ranges, config, origin, trace).map_err(Declined::EarlierDecision)?;
             if new.image_bytes >= old.image_bytes || baseline.routines.iter().any(|r|
                 new.instruction_bytes.get(&r.id).copied().unwrap_or(0) > old.instruction_bytes.get(&r.id).copied().unwrap_or(0)) {

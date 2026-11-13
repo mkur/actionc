@@ -84,10 +84,28 @@ fn reason(events: &[crate::mir6502::trace::TraceEvent]) -> Option<&str> {
         .and_then(|e| e.data["reason"].as_str())
 }
 
+fn assert_closed_attempts(events: &[crate::mir6502::trace::TraceEvent]) {
+    for start in events
+        .iter()
+        .filter(|e| e.kind == "attempt-start" && e.data["scope"] == "attempt")
+    {
+        assert_eq!(
+            events
+                .iter()
+                .filter(|e| e.kind == "attempt-end" && e.attempt == start.attempt)
+                .count(),
+            1,
+            "{:?}",
+            start.data
+        );
+    }
+}
+
 #[test]
 fn removes_store_keeps_frame_and_producers_with_two_emissions() {
     let p = program(vec![imm(23), store(), imm(7)]);
     let (selected, manifest, events) = run(&p, &clean(&p));
+    assert_closed_attempts(&events);
     assert_eq!(selected.routines[0].blocks[0].ops, [imm(23), imm(7)]);
     assert_eq!(selected.routines[0].frame, p.routines[0].frame);
     assert!(only_private_store_deletions(&p, &selected));
@@ -163,6 +181,7 @@ fn unsupported_earlier_proof_restores_exact_baseline() {
     log.select(Family::CheckedRanges, before, |_| Ok(p.clone()))
         .unwrap();
     let (selected, manifest, events) = run(&p, &log);
+    assert_closed_attempts(&events);
     assert_eq!(selected, p);
     assert_eq!(manifest["work"]["emission_invocations"], 2);
     assert_eq!(reason(&events), Some("EarlierDecision(CheckedRanges)"));
@@ -287,4 +306,65 @@ fn physical_zero_page_definition_survives_unknown_readers_until_definite_overwri
         }
         .definition_unobserved(&p.routines[0], MirBlockId(0), 2, 0xe1)
     );
+}
+
+#[test]
+fn physical_zero_page_definition_is_observable_after_return_to_caller() {
+    let private = MirMem::ZeroPage(MirZpSlot(0));
+    let write = MirOp::Store {
+        dst: MirAddr::Direct(private.clone()),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    };
+    let mut p = program(vec![write]);
+    let mut caller = p.routines[0].clone();
+    caller.id = RoutineId(1);
+    caller.blocks[0].ops = vec![
+        MirOp::Call {
+            target: MirCallTarget::Routine(RoutineId(0)),
+            abi: MirCallAbi {
+                params: vec![],
+                result: None,
+                additional_results: vec![],
+                clobbers: Default::default(),
+                preserves: Default::default(),
+            },
+            args: vec![],
+            result: None,
+            additional_results: vec![],
+            effects: Default::default(),
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::FixedIndirectIndexedY {
+                zp: MirFixedZpSlot(0xa0),
+            },
+            width: MirWidth::Byte,
+        },
+    ];
+    p.routines.push(caller);
+    let mut memory = MirPhysicalMemory::default();
+    memory.insert(RoutineId(0), private, 0xe1, true);
+    let known = MirKnownCalleeSummaries::default();
+    let check = |p: &MirProgram| {
+        readers::Readers {
+            program: p,
+            memory: &memory,
+            known: &known,
+            default_sargs: false,
+            origin: 0x3000,
+        }
+        .definition_unobserved(&p.routines[0], MirBlockId(0), 1, 0xe1)
+    };
+    assert!(!check(&p));
+    // A definite caller overwrite ends the lifetime, unlike a may-write call.
+    p.routines[1].blocks[0].ops.insert(
+        1,
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xe1))),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+    );
+    assert!(check(&p));
 }

@@ -25,6 +25,35 @@ impl VmRunHooks for Observe {
     }
 }
 
+fn compile(
+    text: &str,
+    origin: u16,
+    runtime: Runtime,
+    enabled: bool,
+) -> actionc::codegen::CodegenOutput {
+    let source = support::Source::new(text);
+    let loaded = actionc::includes::load_program_with_expanded_source(&source.0).unwrap();
+    let model = actionc::semantic::analyze_with_options(
+        &loaded.program,
+        actionc::semantic::SemanticOptions::modern(),
+    )
+    .unwrap();
+    let input = actionc::nir::optimize_program(&actionc::nir::lower_program(
+        &actionc::semantic::ir::lower_program(&loaded.program, &model),
+    ))
+    .unwrap();
+    mir6502::generate_output_with_config_and_runtime(
+        &input,
+        origin,
+        &Mir6502Config {
+            enable_late_private_store_cleanup: enabled,
+            ..Mir6502Config::optimized()
+        },
+        runtime,
+    )
+    .unwrap()
+}
+
 #[test]
 fn terminal_cleanup_preserves_argument_bytes_public_writes_and_returns() {
     let text = include_str!("../../../fixtures/runtime/argument_staging.act").replace("\r\n", "\n");
@@ -41,28 +70,7 @@ fn terminal_cleanup_preserves_argument_bytes_public_writes_and_returns() {
                         text.clone()
                     };
                     // Exercise CRLF through an actual source file and include loader.
-                    let source = support::Source::new(&text);
-                    let loaded =
-                        actionc::includes::load_program_with_expanded_source(&source.0).unwrap();
-                    let model = actionc::semantic::analyze_with_options(
-                        &loaded.program,
-                        actionc::semantic::SemanticOptions::modern(),
-                    )
-                    .unwrap();
-                    let input = actionc::nir::optimize_program(&actionc::nir::lower_program(
-                        &actionc::semantic::ir::lower_program(&loaded.program, &model),
-                    ))
-                    .unwrap();
-                    let output = mir6502::generate_output_with_config_and_runtime(
-                        &input,
-                        origin,
-                        &Mir6502Config {
-                            enable_late_private_store_cleanup: enabled,
-                            ..Mir6502Config::optimized()
-                        },
-                        runtime,
-                    )
-                    .unwrap();
+                    let output = compile(&text, origin, runtime, enabled);
                     let image = actionc::codegen::format_load_file(&output);
                     if let Some(lf) = &lf {
                         assert_eq!(lf, &image);
@@ -126,6 +134,54 @@ fn terminal_cleanup_preserves_argument_bytes_public_writes_and_returns() {
                 }
             }
             assert!(sizes[1] < sizes[0], "cleanup must actually save bytes");
+        }
+    }
+}
+
+#[test]
+fn caller_pointer_observes_scratch_after_a_generated_routine_returns() {
+    let text = include_str!("../../../fixtures/runtime/argument_staging.act")
+        .replace("\r\n", "\n")
+        .replace("PROC Main()\n", "PROC ObserveAfter(CARD first,second BYTE tag)\nBYTE POINTER p\nForwardAdd(first,second,tag)\np=second observedTag=p^\nRETURN\nPROC Main()\n");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for crlf in [false, true] {
+            let source = if crlf {
+                text.replace('\n', "\r\n")
+            } else {
+                text.clone()
+            };
+            let mut expected = None;
+            for enabled in [false, true] {
+                let output = compile(&source, 0x41c7, runtime, enabled);
+                let entry = output
+                    .routine_addresses
+                    .iter()
+                    .find(|r| r.name == "ObserveAfter")
+                    .unwrap()
+                    .address;
+                let image = actionc::codegen::format_load_file(&output);
+                let (mut vm, profile) = support::vm_for(runtime);
+                vm.load_atari_object_for_execution(profile, &image).unwrap();
+                let mut results = Vec::new();
+                for address in [0xe0u16, 0xe1, 0xa3, 0x7000] {
+                    vm.bus_mut().ram_mut().write(address, 0x72);
+                    let mut args = vec![0xff, 0];
+                    args.extend(address.to_le_bytes());
+                    args.push(0x80);
+                    vm = machine::call(vm, &mut Observe, entry, &args);
+                    assert_eq!(
+                        machine::bytes(&vm, 0x680, 4),
+                        vec![0, 1, address as u8, (address >> 8) as u8]
+                    );
+                    let r = vm.cpu().registers();
+                    results.push((vm.bus().ram().read(0x684), r.a, r.x, r.y, r.sp, r.status));
+                }
+                if let Some(expected) = &expected {
+                    assert_eq!(&results, expected);
+                } else {
+                    expected = Some(results);
+                }
+            }
         }
     }
 }

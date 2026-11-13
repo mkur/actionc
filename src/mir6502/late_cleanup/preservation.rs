@@ -170,6 +170,10 @@ impl Preservation {
                     )
                 }),
             };
+            t.event("attempt-end", || serde_json::json!({
+                "stage": "preservation-replay", "status": if valid { "returned" } else { "failed" },
+                "returned_snapshot": null,
+            }));
             if !valid {
                 return Err(d.family);
             }

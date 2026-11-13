@@ -133,21 +133,28 @@ impl Readers<'_> {
         start: usize,
         address: u16,
     ) -> bool {
-        let Ok(cfg) = crate::mir6502::analysis::cfg::MirCfg::from_routine(routine) else {
-            return false;
-        };
-        let mut pending = vec![(block, start)];
+        let mut pending = vec![(routine.id, block, start)];
         let mut seen = BTreeSet::new();
-        while let Some((id, start)) = pending.pop() {
-            if !seen.insert((id, start)) {
+        while let Some((owner, id, start)) = pending.pop() {
+            if !seen.insert((owner, id, start)) {
                 continue;
             }
-            let Some(block) = routine.blocks.iter().find(|b| b.id == id) else {
+            let current = if owner == routine.id {
+                routine
+            } else if let Some(r) = self.program.routines.iter().find(|r| r.id == owner) {
+                r
+            } else {
+                return false;
+            };
+            let Ok(cfg) = crate::mir6502::analysis::cfg::MirCfg::from_routine(current) else {
+                return false;
+            };
+            let Some(block) = current.blocks.iter().find(|b| b.id == id) else {
                 return false;
             };
             let mut killed = false;
             for op in &block.ops[start..] {
-                if !self.op_excludes(routine.id, op, address, &mut BTreeSet::new()) {
+                if !self.op_excludes(owner, op, address, &mut BTreeSet::new()) {
                     return false;
                 }
                 if let MirOp::Store {
@@ -155,7 +162,7 @@ impl Readers<'_> {
                     width,
                     ..
                 } = op
-                    && self.memory.address(routine.id, mem).is_some_and(|a| {
+                    && self.memory.address(owner, mem).is_some_and(|a| {
                         address.wrapping_sub(a) < if *width == MirWidth::Word { 2 } else { 1 }
                     })
                 {
@@ -170,7 +177,28 @@ impl Readers<'_> {
                 {
                     return false;
                 }
-                pending.extend(cfg.successors(id).iter().map(|id| (*id, 0)));
+                pending.extend(cfg.successors(id).iter().map(|id| (owner, *id, 0)));
+                // A private identity does not hide its physical zero-page byte
+                // from a caller's numeric pointer after this routine returns.
+                // Inspect every continuation; context merging only widens the
+                // set of possible observers. Cycles terminate through `seen`.
+                if matches!(block.terminator, MirTerminator::Return) {
+                    for caller in &self.program.routines {
+                        let caller = if caller.id == routine.id {
+                            routine
+                        } else {
+                            caller
+                        };
+                        for b in &caller.blocks {
+                            for (index, op) in b.ops.iter().enumerate() {
+                                if matches!(op, MirOp::Call { target: MirCallTarget::Routine(id), .. } if *id == owner)
+                                {
+                                    pending.push((caller.id, b.id, index + 1));
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         true
