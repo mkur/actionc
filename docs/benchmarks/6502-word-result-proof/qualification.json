@@ -1,0 +1,2195 @@
+{
+  "baseline_revision": "9149ed66",
+  "implementation_revision": "51915136a83d5351e9116d19c96d37dfd992233f",
+  "compiler_sha256": "45428525fbe92fad59ffd36127cb8786882d1a1cbcff64bbe6678dbbb205abe3",
+  "cli_cases": [
+    {
+      "id": "tn-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "bba492444a23811275fb6778925df5362cc0be123078e7ec795a583be2cb4008",
+          "bytes": 9970
+        },
+        "asm": {
+          "sha256": "389fc4cd3364e6c47ea5b7cc068542069ebfd6f37f89f9169de2937442ca78a9",
+          "bytes": 290708
+        },
+        "map": {
+          "sha256": "998624868277f7c3bd0c13a2d509c1ed89e6c0852686c9ffdb893d6ae793115e",
+          "bytes": 10148
+        }
+      }
+    },
+    {
+      "id": "tn-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "0a69f65988bd2ab83a2e2146bcab7857e693692cdeea4d85f0e32fddf59f1527",
+          "bytes": 10077
+        },
+        "asm": {
+          "sha256": "f0c65cbce33e5e529b35da5074450fbc90aad337b80b3567229b9dc735a61e30",
+          "bytes": 295234
+        },
+        "map": {
+          "sha256": "fd0e856760fc6c22d48dc7f6e79cac3d1d493fba13053d1447d0cda359842fae",
+          "bytes": 10997
+        }
+      }
+    },
+    {
+      "id": "home-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "bytes": 21
+        },
+        "asm": {
+          "sha256": "d0f253bc7bd825eb31d80622303b4cb8d8dc43079a65fe5a0138fa14e07d9594",
+          "bytes": 879
+        },
+        "map": {
+          "sha256": "682f928d1073334d91dad8fe9f6658ab0a0aa7a83b7b89873a1e6477211d8e12",
+          "bytes": 73
+        }
+      }
+    },
+    {
+      "id": "home-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "bytes": 21
+        },
+        "asm": {
+          "sha256": "4cce64a0bcd304e8a7b672bd41868dd59f8754cc927bf3e09fbad615c0385dae",
+          "bytes": 885
+        },
+        "map": {
+          "sha256": "1f8c75369850d017d347758aa9ccae607c075c2adb578b613f8e7dab5f874948",
+          "bytes": 79
+        }
+      }
+    },
+    {
+      "id": "staging-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "51b486710953f4fab51a0229439e641b94a65222ad3a01873d55598c1e4738ed",
+          "bytes": 330
+        },
+        "asm": {
+          "sha256": "f077f78527fdaf9251f2a9f081048fda0b46385de9109abcaf6d18116e1e82f3",
+          "bytes": 10957
+        },
+        "map": {
+          "sha256": "8e672fb164055f8b9e176e3acc7ef99f3d7748b8375f61a7002f67832bb4e93c",
+          "bytes": 1049
+        }
+      }
+    },
+    {
+      "id": "staging-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "32850af4c044cdfc67e4ed9d5ef89403f8d2b0a1638a8a405ed18cd32d266ad5",
+          "bytes": 412
+        },
+        "asm": {
+          "sha256": "2192547f4a7038d47b4752b12b7b41d4c03960318029bb2efbc6c00c7c2cad42",
+          "bytes": 14466
+        },
+        "map": {
+          "sha256": "8ed288d3d02d05d914f8cd1c4b0198d318ff419f86279cc8d6dac9b36a904eee",
+          "bytes": 1593
+        }
+      }
+    },
+    {
+      "id": "word-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "7052148ba7ca6bd52a4f1014b65827361e493af716b7884077508a568afcab5f",
+          "bytes": 301
+        },
+        "asm": {
+          "sha256": "1ccb6c066e4ca13fd2b9836e5ab9729b2ca555b05caf615ed2188b1dbbb7936d",
+          "bytes": 9203
+        },
+        "map": {
+          "sha256": "c7bf7cf4a483e149a2d1424683dbc65be56365b636307ee310f8ee1f52288446",
+          "bytes": 199
+        }
+      }
+    },
+    {
+      "id": "word-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "7052148ba7ca6bd52a4f1014b65827361e493af716b7884077508a568afcab5f",
+          "bytes": 301
+        },
+        "asm": {
+          "sha256": "2dbd5d66bb5b3c7aaabdb881dd2f4b989cecba857d8a9dd37cded5c7f523f549",
+          "bytes": 9209
+        },
+        "map": {
+          "sha256": "ef839bad39e8ba144b0a37012b8ee1b2077642eab490bbafc07aef9a711a661b",
+          "bytes": 205
+        }
+      }
+    },
+    {
+      "id": "word-cart-0x41C7-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+          "bytes": 301
+        },
+        "asm": {
+          "sha256": "8655bf45e32c94563670fa1be05c3b15dc56480149883d39937441fc29c0cb87",
+          "bytes": 9203
+        },
+        "map": {
+          "sha256": "dfcdd4adc0528b1b5854102c9726899cc00c974e36edd251e99ddf1ea17388d0",
+          "bytes": 199
+        }
+      }
+    },
+    {
+      "id": "loop-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "809ae5f6c3549a7cad5bc28aa7b2a8d60ff452b6c207e01cbe1f2e8a450a91ca",
+          "bytes": 77
+        },
+        "asm": {
+          "sha256": "9a3d485e5536f69b7b540913edae974a0422a75cabcff93c320525fe7efefccd",
+          "bytes": 2582
+        },
+        "map": {
+          "sha256": "ddc7766936d250a5d554aff519bddc01651bad922b51b9ae4e7ddf669fe70069",
+          "bytes": 268
+        }
+      }
+    },
+    {
+      "id": "loop-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "809ae5f6c3549a7cad5bc28aa7b2a8d60ff452b6c207e01cbe1f2e8a450a91ca",
+          "bytes": 77
+        },
+        "asm": {
+          "sha256": "9ac4a9da565e0712c6e6610fe38aafe437fff5e0ed7c2b26f1db5d8092217c5d",
+          "bytes": 2588
+        },
+        "map": {
+          "sha256": "df3e85c51ea46d6f0b038c6df7307494fea02c8180ccbd58aef8e096a4da5d95",
+          "bytes": 274
+        }
+      }
+    },
+    {
+      "id": "ranges-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "bytes": 21
+        },
+        "asm": {
+          "sha256": "d0f253bc7bd825eb31d80622303b4cb8d8dc43079a65fe5a0138fa14e07d9594",
+          "bytes": 879
+        },
+        "map": {
+          "sha256": "682f928d1073334d91dad8fe9f6658ab0a0aa7a83b7b89873a1e6477211d8e12",
+          "bytes": 73
+        }
+      }
+    },
+    {
+      "id": "ranges-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "bytes": 21
+        },
+        "asm": {
+          "sha256": "4cce64a0bcd304e8a7b672bd41868dd59f8754cc927bf3e09fbad615c0385dae",
+          "bytes": 885
+        },
+        "map": {
+          "sha256": "1f8c75369850d017d347758aa9ccae607c075c2adb578b613f8e7dab5f874948",
+          "bytes": 79
+        }
+      }
+    },
+    {
+      "id": "ranges-cart-0x41C7-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "49977821fcfa638edbedb7811c56bf24827be6b9a083a06bf9ef103fc383e6de",
+          "bytes": 21
+        },
+        "asm": {
+          "sha256": "95896f3dd36f250c4f3f389a26b59d7777dd1e86e1e572b40e5de0bfbb40c920",
+          "bytes": 879
+        },
+        "map": {
+          "sha256": "8af839a032f9b9172f27d04fcdec1ea6d7f088ba331010cdc61eb232fa97c99d",
+          "bytes": 73
+        }
+      }
+    },
+    {
+      "id": "captures-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "e6d5d1a7b16a0a4c00adbfadd3f3eeb8a8e711ef3df1ef85450722df0dc33603",
+          "bytes": 227
+        },
+        "asm": {
+          "sha256": "1fb75afeb58a1233052dd15f021a03f9c95028cd83139c472b82cd91bc44b600",
+          "bytes": 7904
+        },
+        "map": {
+          "sha256": "32ae9f861db81f1830149273c8eabe1a29db5f0cec9495433d86d18f2fe52379",
+          "bytes": 699
+        }
+      }
+    },
+    {
+      "id": "captures-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "19c1064ed65e1ca4b18f33883a4eec095904adb0af5e8b4e3f8bb1f7c46c9e51",
+          "bytes": 309
+        },
+        "asm": {
+          "sha256": "39c404519dafa86b2774d1855ade2048ca940124614207d9e2804e160f190f01",
+          "bytes": 11382
+        },
+        "map": {
+          "sha256": "a97d1adef7bf8d9799c29823488ee8df655cebf027d92f6ee88ece28ade9bdfb",
+          "bytes": 1243
+        }
+      }
+    },
+    {
+      "id": "rejection-cart-0x3000-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "b694b850b0201fc5ae2d491393d042a3e9908e923f9e0534704236ae57555c46",
+          "bytes": 293
+        },
+        "asm": {
+          "sha256": "fdf87225e548c0de162d84c9fbac5d36b40f8f9da53fc4dc739e944c6df1b2dd",
+          "bytes": 9956
+        },
+        "map": {
+          "sha256": "aed1bdbeb42630aff5624b4a604acb3fbe3deea7462fd5c3ac813b3112f769e2",
+          "bytes": 741
+        }
+      }
+    },
+    {
+      "id": "coloring-cart-0x3000-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "759ac221533db8c280278e63acb9e364f41ad82fbbb01486745ed6a0574ce5a7",
+          "bytes": 164
+        },
+        "asm": {
+          "sha256": "da16d463b535d5bdb2c2fa15d76536354e73517c0b9df052f4a808a563295446",
+          "bytes": 5192
+        },
+        "map": {
+          "sha256": "dcca1baaede9e7b4f97f4e32c5db9509b6d5c2db873bb59657e4f3ac52f9106c",
+          "bytes": 73
+        }
+      }
+    }
+  ],
+  "api": [
+    {
+      "id": "tn-ActionCart-3000",
+      "before": {
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "bytes": 9970,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 42,
+          "equal-address": 270,
+          "address-query": 324
+        },
+        "by_routine": [
+          {
+            "id": 3,
+            "name": "Alloc",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 4,
+            "name": "Free",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 5,
+            "name": "Push",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 35,
+            "name": "Window",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 36,
+            "name": "CloseWindow",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 41,
+            "name": "Ord",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 42,
+            "name": "Items",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 43,
+            "name": "FindItem",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 44,
+            "name": "DrawMenu",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 45,
+            "name": "MoveMenuBar",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 46,
+            "name": "PopUp",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 60,
+              "address-query": 72
+            }
+          },
+          {
+            "id": 87,
+            "name": "Format",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 90,
+            "name": "SwapScr",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 30,
+              "address-query": 36
+            }
+          },
+          {
+            "id": 92,
+            "name": "MkDir",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          }
+        ]
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "bytes": 9970,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 42,
+          "ordinary-range-outside-zero-page": 54,
+          "structural_true": 54
+        },
+        "by_routine": [
+          {
+            "id": 3,
+            "name": "Alloc",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 4,
+            "name": "Free",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 5,
+            "name": "Push",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 35,
+            "name": "Window",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 36,
+            "name": "CloseWindow",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 41,
+            "name": "Ord",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 42,
+            "name": "Items",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 43,
+            "name": "FindItem",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 44,
+            "name": "DrawMenu",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 45,
+            "name": "MoveMenuBar",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 46,
+            "name": "PopUp",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 12,
+              "structural_true": 12
+            }
+          },
+          {
+            "id": 87,
+            "name": "Format",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 90,
+            "name": "SwapScr",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 6,
+              "structural_true": 6
+            }
+          },
+          {
+            "id": 92,
+            "name": "MkDir",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          }
+        ]
+      },
+      "image_sha256": "c04305c001a0b2ec70cd17d0b4d316dd86c006d79b71803bfc8f93685500b4bc",
+      "full_output_debug_sha256": "b4dddc50e493c1a9f6e2f344e1e5b4fb64cc3d9a51d3bcde305ce1005489377e"
+    },
+    {
+      "id": "tn-ActionCart-41c7",
+      "before": {
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "bytes": 9970,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 42,
+          "equal-address": 270,
+          "address-query": 324
+        },
+        "by_routine": [
+          {
+            "id": 3,
+            "name": "Alloc",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 4,
+            "name": "Free",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 5,
+            "name": "Push",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 35,
+            "name": "Window",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 36,
+            "name": "CloseWindow",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 41,
+            "name": "Ord",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 42,
+            "name": "Items",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 43,
+            "name": "FindItem",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 44,
+            "name": "DrawMenu",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 45,
+            "name": "MoveMenuBar",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 46,
+            "name": "PopUp",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 60,
+              "address-query": 72
+            }
+          },
+          {
+            "id": 87,
+            "name": "Format",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 90,
+            "name": "SwapScr",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 30,
+              "address-query": 36
+            }
+          },
+          {
+            "id": 92,
+            "name": "MkDir",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          }
+        ]
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "bytes": 9970,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 42,
+          "ordinary-range-outside-zero-page": 54,
+          "structural_true": 54
+        },
+        "by_routine": [
+          {
+            "id": 3,
+            "name": "Alloc",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 4,
+            "name": "Free",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 5,
+            "name": "Push",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 35,
+            "name": "Window",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 36,
+            "name": "CloseWindow",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 41,
+            "name": "Ord",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 42,
+            "name": "Items",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 43,
+            "name": "FindItem",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 44,
+            "name": "DrawMenu",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 45,
+            "name": "MoveMenuBar",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 46,
+            "name": "PopUp",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 12,
+              "structural_true": 12
+            }
+          },
+          {
+            "id": 87,
+            "name": "Format",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 90,
+            "name": "SwapScr",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 6,
+              "structural_true": 6
+            }
+          },
+          {
+            "id": 92,
+            "name": "MkDir",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          }
+        ]
+      },
+      "image_sha256": "5fbe5bd21694888ca70a14413bacbc9a9a2ba8a771da0b788b4c4bceb8e6f1cd",
+      "full_output_debug_sha256": "43ab694c0f17c02f3eb467a91ac9361d20992f2ea8b76e962359731ca6f3ad33"
+    },
+    {
+      "id": "tn-Standalone-3000",
+      "before": {
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "bytes": 10077,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 42,
+          "equal-address": 270,
+          "address-query": 324
+        },
+        "by_routine": [
+          {
+            "id": 3,
+            "name": "Alloc",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 4,
+            "name": "Free",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 5,
+            "name": "Push",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 35,
+            "name": "Window",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 36,
+            "name": "CloseWindow",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 41,
+            "name": "Ord",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 42,
+            "name": "Items",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 43,
+            "name": "FindItem",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 44,
+            "name": "DrawMenu",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 45,
+            "name": "MoveMenuBar",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 46,
+            "name": "PopUp",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 60,
+              "address-query": 72
+            }
+          },
+          {
+            "id": 87,
+            "name": "Format",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 90,
+            "name": "SwapScr",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 30,
+              "address-query": 36
+            }
+          },
+          {
+            "id": 92,
+            "name": "MkDir",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          }
+        ]
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "bytes": 10077,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 42,
+          "ordinary-range-outside-zero-page": 54,
+          "structural_true": 54
+        },
+        "by_routine": [
+          {
+            "id": 3,
+            "name": "Alloc",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 4,
+            "name": "Free",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 5,
+            "name": "Push",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 35,
+            "name": "Window",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 36,
+            "name": "CloseWindow",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 41,
+            "name": "Ord",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 42,
+            "name": "Items",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 43,
+            "name": "FindItem",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 44,
+            "name": "DrawMenu",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 45,
+            "name": "MoveMenuBar",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 46,
+            "name": "PopUp",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 12,
+              "structural_true": 12
+            }
+          },
+          {
+            "id": 87,
+            "name": "Format",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 90,
+            "name": "SwapScr",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 6,
+              "structural_true": 6
+            }
+          },
+          {
+            "id": 92,
+            "name": "MkDir",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          }
+        ]
+      },
+      "image_sha256": "17554913b1f6c39992b657c9e2ca9a2983a3204e95275a101e9ee75f8d89d8f0",
+      "full_output_debug_sha256": "e2a91a8d1ae541dde346c261696ced8c7bb539508765ffc8bf8271e66ff04678"
+    },
+    {
+      "id": "tn-Standalone-41c7",
+      "before": {
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "bytes": 10077,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 42,
+          "equal-address": 270,
+          "address-query": 324
+        },
+        "by_routine": [
+          {
+            "id": 3,
+            "name": "Alloc",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 4,
+            "name": "Free",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 5,
+            "name": "Push",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 35,
+            "name": "Window",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 36,
+            "name": "CloseWindow",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 41,
+            "name": "Ord",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 42,
+            "name": "Items",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 43,
+            "name": "FindItem",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 44,
+            "name": "DrawMenu",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 45,
+            "name": "MoveMenuBar",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 46,
+            "name": "PopUp",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 60,
+              "address-query": 72
+            }
+          },
+          {
+            "id": 87,
+            "name": "Format",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          },
+          {
+            "id": 90,
+            "name": "SwapScr",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 30,
+              "address-query": 36
+            }
+          },
+          {
+            "id": 92,
+            "name": "MkDir",
+            "counts": {
+              "applied_rounds": 3,
+              "equal-address": 15,
+              "address-query": 18
+            }
+          }
+        ]
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "bytes": 10077,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 42,
+          "ordinary-range-outside-zero-page": 54,
+          "structural_true": 54
+        },
+        "by_routine": [
+          {
+            "id": 3,
+            "name": "Alloc",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 4,
+            "name": "Free",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 5,
+            "name": "Push",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 35,
+            "name": "Window",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 36,
+            "name": "CloseWindow",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 41,
+            "name": "Ord",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 42,
+            "name": "Items",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 43,
+            "name": "FindItem",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 44,
+            "name": "DrawMenu",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 45,
+            "name": "MoveMenuBar",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 46,
+            "name": "PopUp",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 12,
+              "structural_true": 12
+            }
+          },
+          {
+            "id": 87,
+            "name": "Format",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          },
+          {
+            "id": 90,
+            "name": "SwapScr",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 6,
+              "structural_true": 6
+            }
+          },
+          {
+            "id": 92,
+            "name": "MkDir",
+            "counts": {
+              "applied_rounds": 3,
+              "ordinary-range-outside-zero-page": 3,
+              "structural_true": 3
+            }
+          }
+        ]
+      },
+      "image_sha256": "6e9386f38a756e6ea4a46c1856446942e150f6e7e5984f458a48ef33d313069a",
+      "full_output_debug_sha256": "a3981d507e30e4a5b6cd29467ac4b02f34c8694ec3ec8ead888720d88824948a"
+    },
+    {
+      "id": "word-ActionCart-3000",
+      "before": {
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "bytes": 301,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "bytes": 301,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "image_sha256": "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94",
+      "full_output_debug_sha256": "bb529c937fbe4b4c05bb10f002daba766565ba9e43da20b0b02b3e75e8937867"
+    },
+    {
+      "id": "word-ActionCart-41c7",
+      "before": {
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "bytes": 301,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "bytes": 301,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "image_sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+      "full_output_debug_sha256": "c4adc7231ffbab6ceaf502dec325c575d5c9023914afba8ad55171feccb6c50b"
+    },
+    {
+      "id": "word-Standalone-3000",
+      "before": {
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "bytes": 301,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "bytes": 301,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "image_sha256": "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94",
+      "full_output_debug_sha256": "c92d1adb39832183ab3d5a9e03f72ff9a155007bcafb0b2c2a4e43d64492cb34"
+    },
+    {
+      "id": "word-Standalone-41c7",
+      "before": {
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "bytes": 301,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "bytes": 301,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "image_sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+      "full_output_debug_sha256": "b9b2305ad9e51b5d7ea307dcd0d88b3160a8911965d11cd17c085028ba68ba2d"
+    },
+    {
+      "id": "staging-ActionCart-3000",
+      "before": {
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "bytes": 330,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "bytes": 330,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "image_sha256": "9a9d1ca4d3038df22bb79c4d0d7c1f92c9d9011db2f1ab9f36554a5444e22b86",
+      "full_output_debug_sha256": "3de6cf49e966229fefc0a9c3fba0cff5e1380127a4505e8ce31a2f8bcc718c5e"
+    },
+    {
+      "id": "staging-ActionCart-41c7",
+      "before": {
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "bytes": 330,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "bytes": 330,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "image_sha256": "b68577c7038115260cd10e835391f76cb506e68919940b25f80cad2ec44e07d0",
+      "full_output_debug_sha256": "b7499c5146b3ffc4e440581fc3ed30f243cb52c0775fb7c5007d40de839a6c22"
+    },
+    {
+      "id": "staging-Standalone-3000",
+      "before": {
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "bytes": 412,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "bytes": 412,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "image_sha256": "8bf1d099c51ca217d5bc36ee22b108a1f4107b8d8bf9d1e932a0555e78251b4c",
+      "full_output_debug_sha256": "fe3ce5f4dc8fedccf42fa093dd1d3c92edd561190b5948eb6c475c03cb4e0fd0"
+    },
+    {
+      "id": "staging-Standalone-41c7",
+      "before": {
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "bytes": 412,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "bytes": 412,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "image_sha256": "5e54e159556e8e1561a54284a588af6c1f0a895d17f9ebb82e0216c67b25cff9",
+      "full_output_debug_sha256": "e1c795b1499dad7d8d1a8fd20c1e2d3ba6d15ed6b363c541e29339217e81e4ce"
+    },
+    {
+      "id": "loop-ActionCart-3000",
+      "before": {
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "bytes": 77,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "bytes": 77,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "image_sha256": "7ed326bb9d7342bf7381e69b551df3eb00767cf6ef526bf91568097e0767e45d",
+      "full_output_debug_sha256": "2235d0852042e7023ca1367f0ad864d1054aada4b8498cf4113e9b444b477941"
+    },
+    {
+      "id": "loop-ActionCart-41c7",
+      "before": {
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "bytes": 77,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "bytes": 77,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "image_sha256": "f1bcacb9c985bff703046012c13fd57bdbbf53549623f43f58c2cf0c67fdb1fc",
+      "full_output_debug_sha256": "28672f3fc503b01f2287eacb0a4dadb60ead0f1af823b308752c9d852fafb490"
+    },
+    {
+      "id": "loop-Standalone-3000",
+      "before": {
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "bytes": 77,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "bytes": 77,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "image_sha256": "7ed326bb9d7342bf7381e69b551df3eb00767cf6ef526bf91568097e0767e45d",
+      "full_output_debug_sha256": "f07bd84085168f839866a1d2ae1010a7a9d4d1c9c4c28a270c59ca5137bacb77"
+    },
+    {
+      "id": "loop-Standalone-41c7",
+      "before": {
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "bytes": 77,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "bytes": 77,
+        "status": "complete",
+        "applied_family_round_envelopes": {},
+        "by_routine": []
+      },
+      "image_sha256": "f1bcacb9c985bff703046012c13fd57bdbbf53549623f43f58c2cf0c67fdb1fc",
+      "full_output_debug_sha256": "75bfd13192fad1f4a35adb26f4a7c56e596b5b0bcc08367e502049274b20e675"
+    },
+    {
+      "id": "result-ActionCart-3000",
+      "before": {
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "bytes": 50,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 1,
+          "equal-address": 5,
+          "address-query": 6
+        },
+        "by_routine": [
+          {
+            "id": 1,
+            "name": "Main",
+            "counts": {
+              "applied_rounds": 1,
+              "equal-address": 5,
+              "address-query": 6
+            }
+          }
+        ]
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "bytes": 50,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 1,
+          "ordinary-range-outside-zero-page": 1,
+          "structural_true": 1
+        },
+        "by_routine": [
+          {
+            "id": 1,
+            "name": "Main",
+            "counts": {
+              "applied_rounds": 1,
+              "ordinary-range-outside-zero-page": 1,
+              "structural_true": 1
+            }
+          }
+        ]
+      },
+      "image_sha256": "f7c9ffd9d27172533149595ff0f80130d5358c95a9fed20c12c5696613fdf1d3",
+      "full_output_debug_sha256": "e1a1ab165e927ae5be31130cdde7e35becd7371599a7bfe5668b08d2e77687b3"
+    },
+    {
+      "id": "result-ActionCart-41c7",
+      "before": {
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "bytes": 50,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 1,
+          "equal-address": 5,
+          "address-query": 6
+        },
+        "by_routine": [
+          {
+            "id": 1,
+            "name": "Main",
+            "counts": {
+              "applied_rounds": 1,
+              "equal-address": 5,
+              "address-query": 6
+            }
+          }
+        ]
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "bytes": 50,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 1,
+          "ordinary-range-outside-zero-page": 1,
+          "structural_true": 1
+        },
+        "by_routine": [
+          {
+            "id": 1,
+            "name": "Main",
+            "counts": {
+              "applied_rounds": 1,
+              "ordinary-range-outside-zero-page": 1,
+              "structural_true": 1
+            }
+          }
+        ]
+      },
+      "image_sha256": "ba4bd68828d5f631fc00e61dd68553d642f42b8883213d4bfefadf2010edafbf",
+      "full_output_debug_sha256": "46a176b9a464218d8f4630570ae88e480e1c570b10a9488bcfa6ca282670f3b6"
+    },
+    {
+      "id": "result-Standalone-3000",
+      "before": {
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "bytes": 50,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 1,
+          "equal-address": 5,
+          "address-query": 6
+        },
+        "by_routine": [
+          {
+            "id": 1,
+            "name": "Main",
+            "counts": {
+              "applied_rounds": 1,
+              "equal-address": 5,
+              "address-query": 6
+            }
+          }
+        ]
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "bytes": 50,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 1,
+          "ordinary-range-outside-zero-page": 1,
+          "structural_true": 1
+        },
+        "by_routine": [
+          {
+            "id": 1,
+            "name": "Main",
+            "counts": {
+              "applied_rounds": 1,
+              "ordinary-range-outside-zero-page": 1,
+              "structural_true": 1
+            }
+          }
+        ]
+      },
+      "image_sha256": "f7c9ffd9d27172533149595ff0f80130d5358c95a9fed20c12c5696613fdf1d3",
+      "full_output_debug_sha256": "54af229335be0cfd019b5e6fee64aec8ce52cd7e521d1e365850606279db88f3"
+    },
+    {
+      "id": "result-Standalone-41c7",
+      "before": {
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "bytes": 50,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 1,
+          "equal-address": 5,
+          "address-query": 6
+        },
+        "by_routine": [
+          {
+            "id": 1,
+            "name": "Main",
+            "counts": {
+              "applied_rounds": 1,
+              "equal-address": 5,
+              "address-query": 6
+            }
+          }
+        ]
+      },
+      "after": {
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "bytes": 50,
+        "status": "complete",
+        "applied_family_round_envelopes": {
+          "applied_rounds": 1,
+          "ordinary-range-outside-zero-page": 1,
+          "structural_true": 1
+        },
+        "by_routine": [
+          {
+            "id": 1,
+            "name": "Main",
+            "counts": {
+              "applied_rounds": 1,
+              "ordinary-range-outside-zero-page": 1,
+              "structural_true": 1
+            }
+          }
+        ]
+      },
+      "image_sha256": "ba4bd68828d5f631fc00e61dd68553d642f42b8883213d4bfefadf2010edafbf",
+      "full_output_debug_sha256": "182a575fbcace7fb7b9a5132ab0d158103a612f3fdaf63b5b00a0ffa8ba567af"
+    }
+  ],
+  "api_rlib_sha256": "604727c3e98c0a67f99164e2506582813def4134f77e92ecb0be62d472f12596",
+  "cli_artifact_comparisons": 54,
+  "full_api_baseline_comparisons": 20,
+  "full_api_trace_off_on_comparisons": 20,
+  "interpretation": "Counts are local applied discovery-round envelopes, including speculative materializations and rejected candidates. Structural observations are not numeric queries or persistent preservation witnesses.",
+  "source_sha256_lf": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "fixtures/runtime/word_load_sharing.act": "cb85766deb8e2b58941e80d9bae2c2d2907297c630d63725dd03dfb297fca00b",
+    "fixtures/runtime/argument_staging.act": "400871bc51dca8577fa9dd16d27c121ff5173968814a1fdc1368d7e557e34c75",
+    "fixtures/runtime/pointer_invariant_loop.act": "0508ad8bf6152cdade795ffd1e85b6adaf694b6cd25c02f4a4011485e93d7aa7",
+    "fixtures/runtime/core_layout_census.act": "1db385f6cddb48056fb9cef61fabcabbf94e26d096ad7c32e3d11fd1d19eb944"
+  },
+  "baseline_compiler_sha256": "2d25c5b51c767d511e19ae63ccc35ef5a97d2cb315848ecce79359746817667b",
+  "baseline_probe_sha256": "2fbca22842f156bae90c1e36ff72dc6c9a23cfa5a65cb374fadab802bf9fa7af",
+  "compiler_inputs_sha256": {
+    "src/mir6502/materialize.rs": "4d1c9594a271f765552bd4f18f6f1d2d33a8b875d209b968850262ccda62186b",
+    "src/mir6502/materialize/layout.rs": "6eb3cbf47de31a813bfba8ed7ea61180245c90a2cc2c4518f7bd19bdda2dff49",
+    "src/mir6502/materialize/layout/ordinary.rs": "534f4654144ef337eef5dd7a4470aaeea569a1e01f8c1108571dd25d998237db",
+    "src/mir6502/materialize/peepholes.rs": "66f49034f1ae790aac08950fc6aacc25e03d29862a8a6bda4d62e0efc49d7013",
+    "src/mir6502/trace/layout.rs": "092071daa1f5b70a5341d328441b4ffcc069409fd11f6b18822bd8894ab1a51f"
+  },
+  "compilation_note": "Qualification ran before the implementation commit; compiler behavior and these source files were unchanged through the commit. The baseline was captured before edits at 9149ed66.",
+  "qualification_started_from_revision": "9149ed66685c6d7f701571aa9759e6112c6dd60a",
+  "build_environment": {
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "1",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_BUILD_JOBS": "2"
+  },
+  "validation": {
+    "unit-final": {
+      "command": "cargo test --lib mir6502:: -- --test-threads=2",
+      "passed": 1323,
+      "failed": 0,
+      "ignored": 14,
+      "test_targets": 1,
+      "log_sha256": "7bd3e60957903c3e2ff2f12f6e2fde15aed7a3ebfd0f94aac1eefcdf86e490a4"
+    },
+    "integration-focused": {
+      "command": "cargo test --test mir6502_layout_census --test mir6502_late_spill_pruning --test mir6502_call_abi --test mir6502_store_consumer -- --test-threads=2",
+      "passed": 19,
+      "failed": 0,
+      "ignored": 0,
+      "test_targets": 4,
+      "log_sha256": "d3a9e4a29a003e5e969fda445465f7d014c42fcef72577f31c6d6ae9fa16386b"
+    },
+    "vm": {
+      "command": "cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test word_result_placement --test late_spill_pruning --test late_private_store_cleanup --test late_dead_producers --test argument_staging --test pointer_retention --test bounded_call_pointer_retention --test checked_pointer_ranges --test pointer_byte_plus_one --test pointer_load_sharing --test word_load_sharing --test tn_codegen_reproducers --test tn_checked_arena --test tn_dispatch -- --test-threads=2",
+      "passed": 32,
+      "failed": 0,
+      "ignored": 1,
+      "test_targets": 14,
+      "log_sha256": "9e3b51ce5f3de368b14a849d5fa61b9d599f79c6427a1c370e93a398cfa736db"
+    },
+    "integration-remaining": {
+      "command": "cargo test --test mir6502_argument_staging --test mir6502_argument_x_bitwise --test mir6502_argument_x_forwarding --test mir6502_bounded_call_pointer_retention --test mir6502_callee_entry_flags --test mir6502_checked_pointer_ranges --test mir6502_circle_quality --test mir6502_direct_comparisons --test mir6502_fixtures --test mir6502_home_value_invalidation --test mir6502_kalscope_quality --test mir6502_late_cleanup --test mir6502_leaf_inline_cli --test mir6502_loop_consumer --test mir6502_materialization_gap --test mir6502_phase_trace --test mir6502_pointer_byte_plus_one --test mir6502_pointer_load_sharing --test mir6502_pointer_retention --test mir6502_register_copy_forwarding --test mir6502_rewrite_inventory --test mir6502_turtle_quality --test mir6502_warpdem_quality --test mir6502_word_load_sharing --test mir6502_word_move_store --test cli_emit_modes -- --test-threads=2",
+      "passed": 115,
+      "failed": 0,
+      "ignored": 11,
+      "test_targets": 26,
+      "log_sha256": "c34a08fbaec72d2c56f57c1bf54e71d0cf6d12b2d247c60174848323fcafa8bb"
+    },
+    "integration_total": {
+      "passed": 134,
+      "failed": 0,
+      "ignored": 11,
+      "test_targets": 30
+    },
+    "auxiliary": [
+      "rustfmt --check on new Rust modules, test/probe files and edited census integration test",
+      "python3 -m py_compile tools/compare6502/core_layout_census.py tools/compare6502/word_result_proof.py",
+      "Updated census summarizer applied to saved TN trace: structural evaluations 54 and no numeric queries for known-callee word-result placement",
+      "Edited Markdown relative links checked",
+      "git diff --check"
+    ]
+  },
+  "validation_notes": [
+    "New unit-fixture setup failures were corrected before the passing full MIR6502 unit run; no production changes were required.",
+    "LF/CRLF is exercised through the parser/loader by the integration and new VM tests. The new VM test runs 48 input/runtime/origin/newline cases.",
+    "MADS roundtrips were not repeated: no emission changes and all 54 frozen images/listings/maps remain identical. Prior listing qualification remains applicable.",
+    "No shared frontend/NIR/verifier/printer contracts changed; validation is scoped to MIR6502 and its CLI/runtime consumers."
+  ]
+}

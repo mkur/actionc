@@ -216,3 +216,16 @@ slice only. It adds no replayable core proof or compaction permission.
    pre-change compiler; exercise LF/CRLF and execution. Record actual savings and
    remaining dependencies, then commit the qualification. Keep frame compaction
    disabled and retain all existing terminal preservation guards.
+
+
+Implementation is committed as `51915136`. The typed path eliminates all numeric
+queries from TN's 42 locally applied known-callee word-result rounds (324 raw
+queries and 270 equality evaluations previously), including `Alloc`. This is
+family-level progress; the rest of the pipeline still needs preservation proofs.
+The [qualification report](benchmarks/6502-word-result-proof/README.md) records
+unchanged complete output/work and zero additional image saving.
+
+Qualification completed: 1,323 MIR6502 unit tests, 134 integration tests, 32 VM
+tests, 54 frozen CLI artifact comparisons, 20 full API baseline comparisons and
+20 full API trace-off/on comparisons pass. The independent control validates
+LF/CRLF and actual high-lane-first execution. No shared IR contracts changed.

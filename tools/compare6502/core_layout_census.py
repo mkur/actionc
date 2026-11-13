@@ -26,6 +26,7 @@ def summarize(directory):
     assert manifest['core_layout_census']['status'] == 'complete', manifest
     rounds = collections.Counter()
     predicates = collections.Counter()
+    structural = collections.Counter()
     raw_sites = collections.Counter()
     resolutions = collections.defaultdict(collections.Counter)
     outside_sites = collections.Counter()
@@ -39,7 +40,11 @@ def summarize(directory):
             names.update({r['id']:r['name'] for r in data.get('routines',[])})
         if event['kind'] == 'core-layout-round' and data['applied_count']:
             families = sorted({p['family'] for p in data['applied']})
-            movable = [o for o in data['observations'] if any(i['planning_address'] for i in o['observation']['inputs'])]
+            structural_entries = [o for o in data['observations'] if o['observation']['predicate'] == 'ordinary-range-outside-zero-page']
+            for entry in structural_entries:
+                structural[', '.join(families)] += entry['evaluations']
+            # Structural bounds observations have no numeric address input.
+            movable = [o for o in data['observations'] if o not in structural_entries and any(i['planning_address'] for i in o['observation']['inputs'])]
             if not movable:
                 continue
             # Count rounds, not individual dependencies of each applied rewrite.
@@ -63,13 +68,14 @@ def summarize(directory):
         elif event['kind'] == 'core-layout-unattributed':
             for entry in data['observations']:
                 observation = entry['observation']
-                if any(i['planning_address'] for i in observation['inputs']):
+                if observation['predicate'] != 'ordinary-range-outside-zero-page' and any(i['planning_address'] for i in observation['inputs']):
                     outside_sites[f"{observation['file']}:{observation['line']}"] += entry['evaluations']
     return dict(census=manifest['core_layout_census'], work=manifest['work'],
                 bytes=manifest['output_sizes']['load_file_bytes'],
                 locally_applied_rounds_with_planning_queries=dict(rounds),
                 planning_query_resolution_by_applied_family_group={family:dict(counts) for family,counts in resolutions.items()},
                 predicate_evaluations_in_those_rounds=dict(predicates),
+                structural_evaluations_by_applied_family_group=dict(structural),
                 planning_homes_by_applied_family_group={family:[dict(kind=h[0],routine=h[1],id=h[2],offset=h[3]) for h in sorted(values,key=lambda h:(h[0],-1 if h[1] is None else h[1],h[2],h[3]))] for family,values in homes.items()},
                 raw_query_evaluations_by_site=dict(raw_sites),
                 unattributed_query_evaluations_by_site=dict(outside_sites),
