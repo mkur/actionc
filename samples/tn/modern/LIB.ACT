@@ -341,6 +341,28 @@ invert_next:
 ENDASM
 
 
+;@actionc preserves X Y $AC/$AD $AE/$AF
+;@actionc clobbers A $A0/$A1 scl/sch
+; X is the remaining row count; preserve it through the shared advance.
+PROC _ImageAdvance=*()
+ASM
+  clc
+  lda.z scl
+  adc #SCREEN_COLS
+  sta.z scl
+  bcc screen_ready
+  inc.z sch
+  clc
+screen_ready:
+  lda $A0
+  adc $A4
+  sta $A0
+  bcc buffer_ready
+  inc $A1
+buffer_ready:
+  rts
+ENDASM
+
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers A X Y $A0-$A4 scl/sch
 ;@actionc writes $0100-$FFFF
@@ -360,20 +382,7 @@ get_column:
   sta ($A0),y
   dey
   bpl get_column
-  clc
-  lda.z scl
-  adc #SCREEN_COLS
-  sta.z scl
-  bcc screen_ready
-  inc.z sch
-  clc
-screen_ready:
-  lda $A0
-  adc $A4
-  sta $A0
-  bcc destination_ready
-  inc $A1
-destination_ready:
+  jsr _ImageAdvance
   dex
   bpl get_row
   rts
@@ -399,20 +408,7 @@ put_column:
   sta (screen),y
   dey
   bpl put_column
-  clc
-  lda.z scl
-  adc #SCREEN_COLS
-  sta.z scl
-  bcc screen_ready
-  inc.z sch
-  clc
-screen_ready:
-  lda $A0
-  adc $A4
-  sta $A0
-  bcc source_ready
-  inc $A1
-source_ready:
+  jsr _ImageAdvance
   dex
   bpl put_row
   rts
@@ -567,10 +563,10 @@ ENDASM
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers A X Y $A1 $A3/$A4
 ;@actionc writes $0100-$FFFF
-PROC Bget=*(BYTE chn CARD buf, len)
+; X selects the IOCB, Y/$A1 hold the buffer, and $A3/$A4 hold length.
+; Restore A from ICCOM: CIO uses A when the requested length is zero.
+PROC _BlockIO=*()
 ASM
-  stx $A1
-  jsr _LodChn
   lda $A1
   sta $0344,x
   tya
@@ -579,9 +575,20 @@ ASM
   sta $0348,x
   lda $A4
   sta $0349,x
+  lda $0342,x
+  jmp _Cio
+ENDASM
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers A X Y $A1 $A3/$A4
+;@actionc writes $0100-$FFFF
+PROC Bget=*(BYTE chn CARD buf, len)
+ASM
+  stx $A1
+  jsr _LodChn
   lda #CIO_GET_CHARS
   sta $0342,x
-  jmp _Cio
+  jmp _BlockIO
 ENDASM
 
 ;@actionc preserves $AC/$AD $AE/$AF
@@ -591,17 +598,9 @@ PROC Bput=*(BYTE chn CARD buf, len)
 ASM
   stx $A1
   jsr _LodChn
-  lda $A1
-  sta $0344,x
-  tya
-  sta $0345,x
-  lda $A3
-  sta $0348,x
-  lda $A4
-  sta $0349,x
   lda #CIO_PUT_CHARS
   sta $0342,x
-  jmp _Cio
+  jmp _BlockIO
 ENDASM
 
 ;@actionc preserves $AC/$AD $AE/$AF

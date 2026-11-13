@@ -1,0 +1,934 @@
+{
+  "schema": 1,
+  "baseline_source_revision": "5d002c27",
+  "source_sha256": {
+    "before/TN.ACT": "7e8dc619908bfc9f494770ef6842147f8754f09dfacfee12f6866c8147025b68",
+    "before/TNDBG.ACT": "153fc6adc2d3a6c6b38f4e8f7758b724daa416d3048ac5dbc08f0500897ea5b6",
+    "before/LIB.ACT": "78e87461dd5c349c9198c4591ffbaaa823727c20c945e4dbfa1e798bfdf5f66c",
+    "after/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "after/TNDBG.ACT": "d181815a1fbcccda202f4c639a37d37b1ae23a8fe5839b550ca08806a340a809",
+    "after/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d"
+  },
+  "measurements": [
+    {
+      "program": "TN",
+      "mode": "Optimized",
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        11061,
+        10635
+      ],
+      "reserved_bytes": [
+        13693,
+        13257
+      ],
+      "copy_buffer": [
+        24957,
+        24521
+      ],
+      "routine_changes": {
+        "ACTION.RUNTIME.ACTIONC::DivU16": [
+          81,
+          0
+        ],
+        "ACTION.RUNTIME.ACTIONC::RemU16": [
+          81,
+          0
+        ],
+        "Bget": [
+          32,
+          13
+        ],
+        "Bput": [
+          32,
+          13
+        ],
+        "DrawWinFrame": [
+          358,
+          360
+        ],
+        "FormatDirectoryRow": [
+          0,
+          344
+        ],
+        "GetImage": [
+          49,
+          30
+        ],
+        "Handle": [
+          863,
+          865
+        ],
+        "IsDirectory": [
+          58,
+          17
+        ],
+        "IsProtected": [
+          58,
+          17
+        ],
+        "IsTagged": [
+          48,
+          30
+        ],
+        "MakeJmp": [
+          104,
+          22
+        ],
+        "Path": [
+          79,
+          81
+        ],
+        "PrintB": [
+          106,
+          39
+        ],
+        "PrintNonzeroDigit": [
+          0,
+          49
+        ],
+        "PutImage": [
+          49,
+          30
+        ],
+        "RowMarker": [
+          0,
+          30
+        ],
+        "SetWin": [
+          1233,
+          804
+        ],
+        "Sort": [
+          278,
+          276
+        ],
+        "SwapScr": [
+          198,
+          196
+        ],
+        "Tag": [
+          87,
+          88
+        ],
+        "_BlockIO": [
+          0,
+          25
+        ],
+        "_ImageAdvance": [
+          0,
+          23
+        ]
+      },
+      "image_sha256": {
+        "before": "6d563301349e5a231426b14e84f34cd9751d5371303ff87dc3ead3573627a9ca",
+        "after": "21818045e279427f4943b3f94ade077eec9f967d7cc537cf4a44b3c7c3b5a76a"
+      }
+    },
+    {
+      "program": "TN",
+      "mode": "Optimized",
+      "runtime": "Standalone",
+      "xex_bytes": [
+        11289,
+        10863
+      ],
+      "reserved_bytes": [
+        13921,
+        13485
+      ],
+      "copy_buffer": [
+        25185,
+        24749
+      ],
+      "routine_changes": {
+        "ACTION.RUNTIME.ACTIONC::DivU16": [
+          81,
+          0
+        ],
+        "ACTION.RUNTIME.ACTIONC::RemU16": [
+          81,
+          0
+        ],
+        "Bget": [
+          32,
+          13
+        ],
+        "Bput": [
+          32,
+          13
+        ],
+        "DrawWinFrame": [
+          358,
+          360
+        ],
+        "FormatDirectoryRow": [
+          0,
+          344
+        ],
+        "GetImage": [
+          49,
+          30
+        ],
+        "Handle": [
+          863,
+          865
+        ],
+        "IsDirectory": [
+          58,
+          17
+        ],
+        "IsProtected": [
+          58,
+          17
+        ],
+        "IsTagged": [
+          48,
+          30
+        ],
+        "MakeJmp": [
+          104,
+          22
+        ],
+        "Path": [
+          79,
+          81
+        ],
+        "PrintB": [
+          106,
+          39
+        ],
+        "PrintNonzeroDigit": [
+          0,
+          49
+        ],
+        "PutImage": [
+          49,
+          30
+        ],
+        "RowMarker": [
+          0,
+          30
+        ],
+        "SetWin": [
+          1233,
+          804
+        ],
+        "Sort": [
+          278,
+          276
+        ],
+        "SwapScr": [
+          198,
+          196
+        ],
+        "Tag": [
+          87,
+          88
+        ],
+        "_BlockIO": [
+          0,
+          25
+        ],
+        "_ImageAdvance": [
+          0,
+          23
+        ]
+      },
+      "image_sha256": {
+        "before": "4f8a908b70dcde5b6a6fc3990fc7282f942d37341780132234f3ee8a732b0e73",
+        "after": "f25253a1d3595e15ec4cf689b1b847451ab6304b810387e85ecc9da44961a2f0"
+      }
+    },
+    {
+      "program": "TN",
+      "mode": "Mir6502",
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        10290,
+        10000
+      ],
+      "reserved_bytes": [
+        13072,
+        12772
+      ],
+      "copy_buffer": [
+        24336,
+        24036
+      ],
+      "routine_changes": {
+        "ACTION.RUNTIME.ACTIONC::DivU8": [
+          57,
+          0
+        ],
+        "ACTION.RUNTIME.ACTIONC::RemU8": [
+          57,
+          0
+        ],
+        "Bget": [
+          32,
+          13
+        ],
+        "Bput": [
+          32,
+          13
+        ],
+        "DrawWinFrame": [
+          231,
+          233
+        ],
+        "FormatDirectoryRow": [
+          0,
+          309
+        ],
+        "GetImage": [
+          49,
+          30
+        ],
+        "Handle": [
+          789,
+          791
+        ],
+        "IsDirectory": [
+          53,
+          17
+        ],
+        "IsProtected": [
+          53,
+          17
+        ],
+        "IsTagged": [
+          42,
+          24
+        ],
+        "MakeJmp": [
+          64,
+          22
+        ],
+        "Path": [
+          85,
+          87
+        ],
+        "PrintB": [
+          68,
+          17
+        ],
+        "PrintNonzeroDigit": [
+          0,
+          47
+        ],
+        "PutImage": [
+          49,
+          30
+        ],
+        "RowMarker": [
+          0,
+          32
+        ],
+        "SetWin": [
+          1025,
+          624
+        ],
+        "_BlockIO": [
+          0,
+          25
+        ],
+        "_ImageAdvance": [
+          0,
+          23
+        ]
+      },
+      "image_sha256": {
+        "before": "a8209b77402b3056bd8ec3ebacf45aaaf65ea547ea562ea2c7bf63ee203d1caa",
+        "after": "7e3d5211bc66db3be00bae140c3bd46a3d475f3c624cb9b1e842c422b66c38eb"
+      }
+    },
+    {
+      "program": "TN",
+      "mode": "Mir6502",
+      "runtime": "Standalone",
+      "xex_bytes": [
+        10415,
+        10107
+      ],
+      "reserved_bytes": [
+        13197,
+        12879
+      ],
+      "copy_buffer": [
+        24461,
+        24143
+      ],
+      "routine_changes": {
+        "ACTION.RUNTIME.ACTIONC::DivU8": [
+          57,
+          0
+        ],
+        "ACTION.RUNTIME.ACTIONC::RemU8": [
+          57,
+          0
+        ],
+        "Bget": [
+          32,
+          13
+        ],
+        "Bput": [
+          32,
+          13
+        ],
+        "DrawWinFrame": [
+          223,
+          225
+        ],
+        "FormatDirectoryRow": [
+          0,
+          309
+        ],
+        "GetImage": [
+          49,
+          30
+        ],
+        "Handle": [
+          789,
+          791
+        ],
+        "IsDirectory": [
+          53,
+          17
+        ],
+        "IsProtected": [
+          53,
+          17
+        ],
+        "IsTagged": [
+          42,
+          24
+        ],
+        "MakeJmp": [
+          64,
+          22
+        ],
+        "Path": [
+          85,
+          87
+        ],
+        "PrintB": [
+          68,
+          17
+        ],
+        "PrintNonzeroDigit": [
+          0,
+          47
+        ],
+        "PutImage": [
+          49,
+          30
+        ],
+        "RowMarker": [
+          0,
+          32
+        ],
+        "SetWin": [
+          1025,
+          624
+        ],
+        "_BlockIO": [
+          0,
+          25
+        ],
+        "_ImageAdvance": [
+          0,
+          23
+        ]
+      },
+      "image_sha256": {
+        "before": "e4b89acf80c00920857eb42c49db808300f37ab897cc083990011a1ae4bd5844",
+        "after": "23fc2cdbe286f1901213e23a190ab59a7dbe10d0b0e91c931e0f21eb02d124db"
+      }
+    },
+    {
+      "program": "TNDBG",
+      "mode": "Optimized",
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        14302,
+        13872
+      ],
+      "reserved_bytes": [
+        16934,
+        16494
+      ],
+      "copy_buffer": [
+        28198,
+        27758
+      ],
+      "routine_changes": {
+        "ACTION.RUNTIME.ACTIONC::DivU16": [
+          81,
+          0
+        ],
+        "ACTION.RUNTIME.ACTIONC::RemU16": [
+          81,
+          0
+        ],
+        "Bget": [
+          32,
+          13
+        ],
+        "Bput": [
+          32,
+          13
+        ],
+        "Dbg": [
+          1783,
+          1793
+        ],
+        "DrawWinFrame": [
+          459,
+          463
+        ],
+        "FormatDirectoryRow": [
+          0,
+          449
+        ],
+        "GetImage": [
+          49,
+          30
+        ],
+        "Handle": [
+          864,
+          866
+        ],
+        "HexDigit": [
+          28,
+          0
+        ],
+        "IsDirectory": [
+          58,
+          17
+        ],
+        "IsProtected": [
+          58,
+          17
+        ],
+        "IsTagged": [
+          48,
+          30
+        ],
+        "MakeJmp": [
+          115,
+          22
+        ],
+        "Path": [
+          178,
+          182
+        ],
+        "PrintB": [
+          106,
+          39
+        ],
+        "PrintHexB": [
+          35,
+          19
+        ],
+        "PrintHexDigit": [
+          0,
+          37
+        ],
+        "PrintNonzeroDigit": [
+          0,
+          49
+        ],
+        "PutImage": [
+          49,
+          30
+        ],
+        "RowMarker": [
+          0,
+          30
+        ],
+        "SetWin": [
+          1452,
+          912
+        ],
+        "Tag": [
+          87,
+          88
+        ],
+        "_BlockIO": [
+          0,
+          25
+        ],
+        "_ImageAdvance": [
+          0,
+          23
+        ]
+      },
+      "image_sha256": {
+        "before": "ecf65da58f5e691f01c0643a8b6369657947f47438980363c177880791647ace",
+        "after": "126033dce9a51f97cb89d5481bb690da97022a5f3d9e2be37a7928544c26f4bb"
+      }
+    },
+    {
+      "program": "TNDBG",
+      "mode": "Optimized",
+      "runtime": "Standalone",
+      "xex_bytes": [
+        14530,
+        14100
+      ],
+      "reserved_bytes": [
+        17162,
+        16722
+      ],
+      "copy_buffer": [
+        28426,
+        27986
+      ],
+      "routine_changes": {
+        "ACTION.RUNTIME.ACTIONC::DivU16": [
+          81,
+          0
+        ],
+        "ACTION.RUNTIME.ACTIONC::RemU16": [
+          81,
+          0
+        ],
+        "Bget": [
+          32,
+          13
+        ],
+        "Bput": [
+          32,
+          13
+        ],
+        "Dbg": [
+          1783,
+          1793
+        ],
+        "DrawWinFrame": [
+          459,
+          463
+        ],
+        "FormatDirectoryRow": [
+          0,
+          449
+        ],
+        "GetImage": [
+          49,
+          30
+        ],
+        "Handle": [
+          864,
+          866
+        ],
+        "HexDigit": [
+          28,
+          0
+        ],
+        "IsDirectory": [
+          58,
+          17
+        ],
+        "IsProtected": [
+          58,
+          17
+        ],
+        "IsTagged": [
+          48,
+          30
+        ],
+        "MakeJmp": [
+          115,
+          22
+        ],
+        "Path": [
+          178,
+          182
+        ],
+        "PrintB": [
+          106,
+          39
+        ],
+        "PrintHexB": [
+          35,
+          19
+        ],
+        "PrintHexDigit": [
+          0,
+          37
+        ],
+        "PrintNonzeroDigit": [
+          0,
+          49
+        ],
+        "PutImage": [
+          49,
+          30
+        ],
+        "RowMarker": [
+          0,
+          30
+        ],
+        "SetWin": [
+          1452,
+          912
+        ],
+        "Tag": [
+          87,
+          88
+        ],
+        "_BlockIO": [
+          0,
+          25
+        ],
+        "_ImageAdvance": [
+          0,
+          23
+        ]
+      },
+      "image_sha256": {
+        "before": "fec78d9f1d5e231008b235548b21e698de20052a1d7117b788823f3f9c742e70",
+        "after": "c4617a7f907886981ab83079f7f22d264a5d0644bdc1e1464f47baff2150fa24"
+      }
+    },
+    {
+      "program": "TNDBG",
+      "mode": "Mir6502",
+      "runtime": "ActionCart",
+      "xex_bytes": [
+        13373,
+        13045
+      ],
+      "reserved_bytes": [
+        16155,
+        15817
+      ],
+      "copy_buffer": [
+        27419,
+        27081
+      ],
+      "routine_changes": {
+        "ACTION.RUNTIME.ACTIONC::DivU8": [
+          57,
+          0
+        ],
+        "ACTION.RUNTIME.ACTIONC::RemU8": [
+          57,
+          0
+        ],
+        "Bget": [
+          32,
+          13
+        ],
+        "Bput": [
+          32,
+          13
+        ],
+        "Dbg": [
+          1361,
+          1371
+        ],
+        "DrawWinFrame": [
+          341,
+          345
+        ],
+        "FormatDirectoryRow": [
+          0,
+          309
+        ],
+        "GetImage": [
+          49,
+          30
+        ],
+        "Handle": [
+          789,
+          791
+        ],
+        "HexDigit": [
+          22,
+          0
+        ],
+        "IsDirectory": [
+          53,
+          17
+        ],
+        "IsProtected": [
+          53,
+          17
+        ],
+        "IsTagged": [
+          42,
+          24
+        ],
+        "MakeJmp": [
+          71,
+          22
+        ],
+        "Path": [
+          195,
+          199
+        ],
+        "PrintB": [
+          68,
+          17
+        ],
+        "PrintHexB": [
+          70,
+          18
+        ],
+        "PrintHexDigit": [
+          0,
+          28
+        ],
+        "PrintNonzeroDigit": [
+          0,
+          47
+        ],
+        "PutImage": [
+          49,
+          30
+        ],
+        "RowMarker": [
+          0,
+          32
+        ],
+        "SetWin": [
+          1028,
+          627
+        ],
+        "_BlockIO": [
+          0,
+          25
+        ],
+        "_ImageAdvance": [
+          0,
+          23
+        ]
+      },
+      "image_sha256": {
+        "before": "54f3cde25c42814a012bae828d2350410dc94cc168bf4f588cfece22dd6eccc9",
+        "after": "76e1ea17808a4ae0420076830ad9a1f60050efbdd974fef7c003548cd87625cf"
+      }
+    },
+    {
+      "program": "TNDBG",
+      "mode": "Mir6502",
+      "runtime": "Standalone",
+      "xex_bytes": [
+        13498,
+        13152
+      ],
+      "reserved_bytes": [
+        16280,
+        15924
+      ],
+      "copy_buffer": [
+        27544,
+        27188
+      ],
+      "routine_changes": {
+        "ACTION.RUNTIME.ACTIONC::DivU8": [
+          57,
+          0
+        ],
+        "ACTION.RUNTIME.ACTIONC::RemU8": [
+          57,
+          0
+        ],
+        "Bget": [
+          32,
+          13
+        ],
+        "Bput": [
+          32,
+          13
+        ],
+        "Dbg": [
+          1361,
+          1371
+        ],
+        "DrawWinFrame": [
+          333,
+          337
+        ],
+        "FormatDirectoryRow": [
+          0,
+          309
+        ],
+        "GetImage": [
+          49,
+          30
+        ],
+        "Handle": [
+          789,
+          791
+        ],
+        "HexDigit": [
+          22,
+          0
+        ],
+        "IsDirectory": [
+          53,
+          17
+        ],
+        "IsProtected": [
+          53,
+          17
+        ],
+        "IsTagged": [
+          42,
+          24
+        ],
+        "MakeJmp": [
+          71,
+          22
+        ],
+        "Path": [
+          195,
+          199
+        ],
+        "PrintB": [
+          68,
+          17
+        ],
+        "PrintHexB": [
+          70,
+          18
+        ],
+        "PrintHexDigit": [
+          0,
+          28
+        ],
+        "PrintNonzeroDigit": [
+          0,
+          47
+        ],
+        "PutImage": [
+          49,
+          30
+        ],
+        "RowMarker": [
+          0,
+          32
+        ],
+        "SetWin": [
+          1028,
+          627
+        ],
+        "_BlockIO": [
+          0,
+          25
+        ],
+        "_ImageAdvance": [
+          0,
+          23
+        ]
+      },
+      "image_sha256": {
+        "before": "b6e3f3b7b0372d3523234e627aadf0b70761216d3e2d1e6c3819cf9aef1f3e04",
+        "after": "dc107a8a56d91bb10277985f59c6bbff76539bd3b8504852807eb9b71f8e0b14"
+      }
+    }
+  ]
+}

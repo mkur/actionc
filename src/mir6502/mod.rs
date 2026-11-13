@@ -10938,9 +10938,36 @@ mod tests {
 
         assert_eq!(
             skipped_lengths,
-            vec![10, 16, 32, 40, 47, 47, 130, 130, 1171, 1171],
+            vec![16, 32, 40, 47, 47, 130, 130, 1171, 1171],
             "TN should defer every eligible uninitialized global and local array backing range"
         );
+        // Path-name pointers are initialized once for each panel. They must
+        // relocate to the deferred path buffers, beyond the final code/data.
+        for prefix in ["lp", "rp"] {
+            let storage = |name: &str| {
+                output
+                    .map
+                    .storage_symbols
+                    .iter()
+                    .find(|symbol| symbol.name == name)
+                    .unwrap_or_else(|| panic!("missing TN storage {name}"))
+            };
+            let names = storage(&format!("{prefix}_names"));
+            let path = storage(&format!("{prefix}_PathBuf"));
+            let descriptor = usize::from(names.address - output.origin);
+            let backing =
+                u16::from_le_bytes(output.bytes[descriptor..descriptor + 2].try_into().unwrap());
+            assert!(backing >= output.origin && backing + 10 <= emitted_end);
+            let offset = usize::from(backing - output.origin);
+            for (i, displacement) in [10u16, 11, 20, 29, 38].into_iter().enumerate() {
+                let entry = offset + i * 2;
+                assert_eq!(
+                    u16::from_le_bytes(output.bytes[entry..entry + 2].try_into().unwrap()),
+                    path.address + displacement,
+                    "{prefix}_names[{i}] must address its panel's path buffer"
+                );
+            }
+        }
         // The active and saved panels include their own tagged-file count.
         for name in ["active", "leftPanel", "rightPanel"] {
             let symbol = output
