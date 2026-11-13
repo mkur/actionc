@@ -87,12 +87,14 @@ core cleanup group or materialize the program again.
 
 ## Producer-deletion extension
 
-Status: contract accepted; implementation and qualification in progress.
+Status: implemented in `97b50d4d`, enabled in optimized builds by `075aa821`.
+See the [producer qualification](benchmarks/6502-late-producers/README.md).
 
-The store-only TN image is 9,982 bytes. Its final assembly contains two unused
+The frozen store-only TN image is 9,982 bytes. Its assembly contained two unused
 loads of `global_s`/`global_s+1` in `FormatDirectoryRow` and another pair in
-`SetWin`. These account for 12 candidate instruction bytes. Final image savings
-must be measured after proof validation and emission.
+`SetWin`. The qualified extension removes these four loads and saves twelve
+final image bytes, producing a 9,970-byte cart image. Frame declarations remain
+identical.
 
 The first producer slice admits only byte `LoadImm`, native A↔X/A↔Y
 `Move`, and direct byte `Load` operations into A/X/Y. It excludes arithmetic,
@@ -136,7 +138,7 @@ read-effect obligations belong to this terminal transaction.
 
 `enable_late_dead_register_cleanup` controls the extension inside the existing
 `enable_late_private_store_cleanup` and master peephole gates. Default-config
-behavior remains disabled; optimized configuration enables it after qualification.
+behavior remains disabled; optimized configuration enables it.
 The historical trace stage name remains stable. Report `removed_stores` and
 `removed_producers` separately. Keep the same two-cost-emission budget, strict
 packaged-image saving, no per-routine instruction growth and exact rollback.

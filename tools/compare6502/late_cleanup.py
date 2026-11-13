@@ -26,16 +26,27 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / "build/mir6502-late-cleanup/qualification")
     parser.add_argument("--resume", type=Path, help="continue an incomplete run after validating its completed artifact prefix")
     parser.add_argument("--api-rlib", type=Path)
+    parser.add_argument("--baseline-receipt", type=Path, help="compare against a previous late-cleanup qualification; also isolate producer cleanup in API checks")
     parser.add_argument("--mads", help="MADS executable; omit to skip listing roundtrips")
     args = parser.parse_args()
     compiler = args.compiler.resolve()
     frozen = json.loads((ROOT / "docs/benchmarks/6502-phase-tracing/baseline.json").read_text())
     previous = json.loads((ROOT / "docs/benchmarks/6502-phase-tracing/qualification.json").read_text())
+    if args.baseline_receipt:
+        previous = json.loads(args.baseline_receipt.read_text())
+        old_cases = {c["id"]: c for c in previous["cases"]}
+        frozen["revision"] = previous["implementation_revision"]
+        for case in frozen["cases"]:
+            old = old_cases[case["id"]]
+            case["artifacts"] = {suffix: a["after_sha256"] for suffix, a in old["artifacts"].items()}
+            case["reference_directory"] = old.get("directory", case["id"])
     old_work = {c["id"]: c["work"] for c in previous["cases"]}
     args.output.mkdir(parents=True, exist_ok=True)
     work = args.resume.resolve() if args.resume else Path(tempfile.mkdtemp(prefix="run-", dir=args.output)).resolve()
     revision, _ = run(["git", "rev-parse", "HEAD"])
     report = dict(baseline_revision=frozen["revision"], implementation_revision=revision.decode().strip(), compiler_sha256=sha(compiler.read_bytes()), cases=[])
+    if args.reference_compiler:
+        report["reference_compiler_sha256"] = sha(args.reference_compiler.read_bytes())
     if args.resume:
         saved = json.loads((work / "qualification.json").read_text())
         assert saved["baseline_revision"] == report["baseline_revision"]
@@ -66,7 +77,7 @@ def main():
             if args.reference_compiler:
                 before, _ = run([args.reference_compiler.resolve()] + command[1:] + [mode, case["source"]])
             else:
-                before = (args.reference / case["id"] / f"output.{suffix}").read_bytes()
+                before = (args.reference / case.get("reference_directory", case["id"]) / f"output.{suffix}").read_bytes()
             assert sha(before) == case["artifacts"][suffix]
             plain, plain_time = run(command + [mode, case["source"]])
             bundle = directory / f"trace-{suffix}"
@@ -85,7 +96,11 @@ def main():
         row.update(work=manifest["work"], previous_work=old_work[case["id"]], detail_bytes=manifest["detail_bytes"],
                    result=result["data"] if result else dict(accepted=False, reason="feature-disabled"), observations=controls(events))
         assert row["work"].get("materializations") == row["previous_work"].get("materializations")
-        assert 0 <= row["work"]["emission_invocations"] - row["previous_work"]["emission_invocations"] <= 2
+        assert row["work"]["emission_invocations"] - row["previous_work"]["emission_invocations"] <= 2
+        if result:
+            requests = [e for e in events if e["kind"] == "attempt-start" and e["data"].get("parent") == result["attempt"] and e["data"]["stage"] == "emission-request"]
+            assert len(requests) <= 2
+            row["terminal_cost_emissions"] = len(requests)
         assert row["artifacts"]["xex"]["after_bytes"] <= row["artifacts"]["xex"]["before_bytes"]
         if row["result"]["accepted"]:
             snapshots = {e["data"]["stage"]: e["data"] for e in events if e["kind"] == "snapshot" and e["attempt"] == result["attempt"]}
@@ -118,7 +133,7 @@ def main():
     rlib = args.api_rlib or max((compiler.parent / "deps").glob("libactionc-*.rlib"), key=lambda p: p.stat().st_mtime)
     probe = work / ("api-probe.exe" if sys.platform == "win32" else "api-probe")
     run(["rustc", "--edition=2024", ROOT / "tools/compare6502/late_cleanup_api.rs", "--extern", f"actionc={rlib}", "-L", f"dependency={rlib.parent}", "-o", probe])
-    output, elapsed = run([probe, work / "api"])
+    output, elapsed = run([probe, work / "api"] + (["--producer-only"] if args.baseline_receipt else []))
     report["api"] = [json.loads(line) for line in output.decode().splitlines()]
     report["api_seconds"] = elapsed
     report["peak_child_rss_bytes"] = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss * (1 if sys.platform == "darwin" else 1024) if resource else None

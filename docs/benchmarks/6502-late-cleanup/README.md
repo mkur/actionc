@@ -1,5 +1,9 @@
 # MIR6502 terminal cleanup qualification — 2026-11-13
 
+This is the frozen store-only report. The subsequent
+[producer-cleanup qualification](../6502-late-producers/README.md) measures the
+extension that removes unused byte loads and native register transfers.
+
 The shared terminal transaction removes stores made dead by late consumer
 changes. It preserves frames and producers, validates the final placement and
 earlier selected decisions, and accepts only a smaller packaged image.

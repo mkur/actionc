@@ -9,7 +9,8 @@ fn main() {
     let destination = std::env::args().nth(1).expect("output directory");
     let destination = Path::new(&destination);
     fs::create_dir(destination).unwrap();
-    for (name, source, optimized) in [
+    let producer_only = std::env::args().any(|arg| arg == "--producer-only");
+    let mut cases = vec![
         (
             "home-default",
             "fixtures/runtime/home_value_invalidation.act",
@@ -23,7 +24,16 @@ fn main() {
             true,
         ),
         ("word", "fixtures/runtime/word_load_sharing.act", true),
-    ] {
+    ];
+    if producer_only {
+        cases.push((
+            "producers",
+            "fixtures/runtime/late_producer_cleanup.act",
+            true,
+        ));
+        cases.push(("tn", "samples/tn/modern/TN.ACT", true));
+    }
+    for (name, source, optimized) in cases {
         let loaded = actionc::includes::load_program_with_expanded_source(source).unwrap();
         let model = actionc::semantic::analyze_with_options(
             &loaded.program,
@@ -46,12 +56,22 @@ fn main() {
                 } else {
                     Mir6502Config::default()
                 };
-                off.enable_late_private_store_cleanup = false;
+                off.enable_late_private_store_cleanup = producer_only;
+                off.enable_late_dead_register_cleanup = false;
                 let on = Mir6502Config {
                     enable_late_private_store_cleanup: true,
+                    enable_late_dead_register_cleanup: producer_only,
                     ..off.clone()
                 };
-                let mut old_trace = Mir6502Trace::default();
+                let options = mir6502::trace::TraceOptions {
+                    routines: if name == "tn" {
+                        vec!["FormatDirectoryRow".into(), "SetWin".into()]
+                    } else {
+                        vec![]
+                    },
+                    ..Default::default()
+                };
+                let mut old_trace = Mir6502Trace::new(options.clone());
                 let before = mir6502::generate_output_with_trace(
                     &input,
                     origin,
@@ -60,7 +80,7 @@ fn main() {
                     &mut old_trace,
                 )
                 .unwrap();
-                let mut trace = Mir6502Trace::default();
+                let mut trace = Mir6502Trace::new(options);
                 let after =
                     mir6502::generate_output_with_trace(&input, origin, &on, runtime, &mut trace)
                         .unwrap();
@@ -76,7 +96,9 @@ fn main() {
                 if new_image.len() == old_image.len() {
                     assert_eq!(before, after);
                 }
-                if name == "staging" {
+                if (!producer_only && name == "staging")
+                    || (producer_only && (name == "producers" || name == "tn"))
+                {
                     assert!(new_image.len() < old_image.len());
                 }
                 let old_work = old_trace.manifest()["work"].clone();

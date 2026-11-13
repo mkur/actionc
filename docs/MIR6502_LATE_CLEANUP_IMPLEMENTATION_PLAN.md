@@ -139,3 +139,14 @@ NIR/semantic/printer contracts changed.
    compiler and independent controls. Add runtime and final-placement coverage,
    enable the optimized default, run the affected backend suites and record
    measured image/work/resource differences in a separate receipt; commit it.
+
+Producer extension completed: `bbb1f5a7` records the contract, `97b50d4d`
+implements the shared analysis and tests, and `075aa821` enables the optimized
+default. Qualification records the actual final placement, output and runtime
+checks in a [separate report](benchmarks/6502-late-producers/README.md).
+TN saves another twelve bytes in both runtimes (cart 9,970; standalone 10,077).
+The independent pointer-transform fixture saves six bytes. Frames and the
+existing materialization/emission budgets are preserved. Local validation passed
+1,303 MIR6502 unit tests, 129 integration tests plus the explicit MADS test,
+30 VM tests, 54 CLI artifact comparisons, 28 complete API comparisons and
+24 MADS LF/CRLF roundtrips.

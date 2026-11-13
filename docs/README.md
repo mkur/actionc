@@ -193,7 +193,7 @@ crowding the active reference set.
   and evidence interpretation.
 - [Phase-tracing qualification and TN findings](benchmarks/6502-phase-tracing/README.md) -
   frozen artifacts, six store histories, and the next cleanup boundary.
-- [MIR6502 late private-store cleanup design](MIR6502_LATE_CLEANUP_DESIGN.md) -
+- [MIR6502 late store and producer cleanup design](MIR6502_LATE_CLEANUP_DESIGN.md) -
   implemented shared cleanup boundary, preserved frames, layout-dependent proof
   validation and exact-cost acceptance with rollback.
 - [MIR6502 late cleanup implementation plan](MIR6502_LATE_CLEANUP_IMPLEMENTATION_PLAN.md) -
@@ -201,6 +201,8 @@ crowding the active reference set.
   and backend qualification.
 - [Late-cleanup qualification](benchmarks/6502-late-cleanup/README.md) -
   measured TN/staging savings, preserved homes, runtime checks and compiler work.
+- [Late-producer cleanup qualification](benchmarks/6502-late-producers/README.md) -
+  producer-only savings, liveness/read-purity controls, runtime oracles and work counts.
 - [INLINE routine implementation plan](INLINE_IMPLEMENTATION_PLAN.md) -
   declaration modifier, typed preference propagation, wider scalar
   inlining and Q4.12 wrapper rollout in six slices.
