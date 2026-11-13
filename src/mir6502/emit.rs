@@ -108,102 +108,106 @@ pub(super) fn emit_program_with_physical_references_traced(
     let trace = &invocation;
     trace.count("emission_invocations", 1);
 
-    verify::verify_program(mir, MirPhase::PreEmission)?;
-    let mut layout_diagnostics = Vec::new();
-    let inline_probe = MirObjectLayout::new(mir, origin, Some(origin), &mut layout_diagnostics);
-    let mut deferred_base = inline_probe.storage_end;
-    let mut layout = inline_probe;
-    let mut routine_code_size = 0;
-    let mut branch_plan = MirBranchRelaxationPlan::default();
-    let mut converged = false;
-    for _ in 0..16 {
-        let mut iteration_diagnostics = Vec::new();
-        let candidate =
-            MirObjectLayout::new(mir, origin, Some(deferred_base), &mut iteration_diagnostics);
-        let (emitted_size, candidate_branch_plan) = emitted_size_for_layout_traced(
-            mir,
-            origin,
-            candidate.clone(),
-            &mut iteration_diagnostics,
-            trace,
-        );
-        let storage_size = candidate.storage_end.saturating_sub(origin);
-        let candidate_code_size = emitted_size.saturating_sub(storage_size);
-        let next_deferred_base = candidate.storage_end.saturating_add(candidate_code_size);
-        layout = candidate;
-        routine_code_size = candidate_code_size;
-        branch_plan = candidate_branch_plan;
-        if next_deferred_base <= deferred_base {
-            layout_diagnostics.append(&mut iteration_diagnostics);
-            converged = true;
-            break;
-        }
-        deferred_base = next_deferred_base;
-    }
-    if !converged {
-        layout_diagnostics.push(MirDiagnostic {
-            routine: None,
-            block: None,
-            message: "MIR layout did not converge while placing deferred storage".to_string(),
-        });
-    }
-    layout
-        .plan
-        .push(MirSegmentKind::Code, layout.storage_end, routine_code_size);
-    let mut ctx = MirEmitContext::with_layout(mir, origin, layout, branch_plan);
-    if physical_memory {
-        // Data allocations come from actual placement, independently of any
-        // pointer type. Numeric pointers into code or foreign RAM are not
-        // certificates for retaining memory-dependent machine facts.
-        for global in &mir.globals {
-            if let Some(MirStoragePlacement::Absolute { address, size, .. }) =
-                ctx.layout.globals.get(&global.id)
-            {
-                ctx.summary.physical_memory.global(
-                    global.id,
-                    *address,
-                    *size,
-                    matches!(global.backing, MirGlobalBacking::Ordinary { .. }),
-                );
+    let result = (|| {
+        verify::verify_program(mir, MirPhase::PreEmission)?;
+        let mut layout_diagnostics = Vec::new();
+        let inline_probe = MirObjectLayout::new(mir, origin, Some(origin), &mut layout_diagnostics);
+        let mut deferred_base = inline_probe.storage_end;
+        let mut layout = inline_probe;
+        let mut routine_code_size = 0;
+        let mut branch_plan = MirBranchRelaxationPlan::default();
+        let mut converged = false;
+        for _ in 0..16 {
+            let mut iteration_diagnostics = Vec::new();
+            let candidate =
+                MirObjectLayout::new(mir, origin, Some(deferred_base), &mut iteration_diagnostics);
+            let (emitted_size, candidate_branch_plan) = emitted_size_for_layout_traced(
+                mir,
+                origin,
+                candidate.clone(),
+                &mut iteration_diagnostics,
+                trace,
+            );
+            let storage_size = candidate.storage_end.saturating_sub(origin);
+            let candidate_code_size = emitted_size.saturating_sub(storage_size);
+            let next_deferred_base = candidate.storage_end.saturating_add(candidate_code_size);
+            layout = candidate;
+            routine_code_size = candidate_code_size;
+            branch_plan = candidate_branch_plan;
+            if next_deferred_base <= deferred_base {
+                layout_diagnostics.append(&mut iteration_diagnostics);
+                converged = true;
+                break;
             }
-            if matches!(global.backing, MirGlobalBacking::Ordinary { .. }) {
+            deferred_base = next_deferred_base;
+        }
+        if !converged {
+            layout_diagnostics.push(MirDiagnostic {
+                routine: None,
+                block: None,
+                message: "MIR layout did not converge while placing deferred storage".to_string(),
+            });
+        }
+        layout
+            .plan
+            .push(MirSegmentKind::Code, layout.storage_end, routine_code_size);
+        let mut ctx = MirEmitContext::with_layout(mir, origin, layout, branch_plan);
+        if trace.final_artifact() {
+            ctx.trace = trace.clone();
+            trace_final_layout(&ctx);
+        }
+        if physical_memory {
+            // Data allocations come from actual placement, independently of any
+            // pointer type. Numeric pointers into code or foreign RAM are not
+            // certificates for retaining memory-dependent machine facts.
+            for global in &mir.globals {
                 if let Some(MirStoragePlacement::Absolute { address, size, .. }) =
                     ctx.layout.globals.get(&global.id)
                 {
-                    ctx.summary.physical_memory.own_data(*address, *size);
+                    ctx.summary.physical_memory.global(
+                        global.id,
+                        *address,
+                        *size,
+                        matches!(global.backing, MirGlobalBacking::Ordinary { .. }),
+                    );
+                }
+                if matches!(global.backing, MirGlobalBacking::Ordinary { .. }) {
+                    if let Some(MirStoragePlacement::Absolute { address, size, .. }) =
+                        ctx.layout.globals.get(&global.id)
+                    {
+                        ctx.summary.physical_memory.own_data(*address, *size);
+                    }
                 }
             }
-        }
-        for routine in &mir.routines {
-            for slot in routine.frame.params.iter().chain(&routine.frame.locals) {
-                let mem = match slot.base {
-                    MirStorageBase::Param(id) => Some(MirMem::Param { id, offset: 0 }),
-                    MirStorageBase::Local(id) => Some(MirMem::Local { id, offset: 0 }),
-                    _ => None,
-                };
-                if let Some(address) = mem
-                    .and_then(|mem| ctx.layout.direct_mem(routine.id, &mem))
-                    .map(resolved_mem_address)
-                {
-                    ctx.summary
-                        .physical_memory
-                        .own_data(address, slot.storage_size);
+            for routine in &mir.routines {
+                for slot in routine.frame.params.iter().chain(&routine.frame.locals) {
+                    let mem = match slot.base {
+                        MirStorageBase::Param(id) => Some(MirMem::Param { id, offset: 0 }),
+                        MirStorageBase::Local(id) => Some(MirMem::Local { id, offset: 0 }),
+                        _ => None,
+                    };
+                    if let Some(address) = mem
+                        .and_then(|mem| ctx.layout.direct_mem(routine.id, &mem))
+                        .map(resolved_mem_address)
+                    {
+                        ctx.summary
+                            .physical_memory
+                            .own_data(address, slot.storage_size);
+                    }
                 }
             }
-        }
-        for routine in &references.routines {
-            for op in routine.blocks.iter().flat_map(|b| &b.ops) {
-                let effects = super::analysis::effects::classify_op(op);
-                for mem in effects
-                    .memory
-                    .direct_references
-                    .iter()
-                    .chain(effects.memory.direct_reads.iter().map(|r| &r.base))
-                    .chain(effects.memory.direct_writes.iter().map(|r| &r.base))
-                {
-                    if let Some(resolved) = ctx.layout.direct_mem(routine.id, mem) {
-                        let ordinary =
-                            match mem {
+            for routine in &references.routines {
+                for op in routine.blocks.iter().flat_map(|b| &b.ops) {
+                    let effects = super::analysis::effects::classify_op(op);
+                    for mem in effects
+                        .memory
+                        .direct_references
+                        .iter()
+                        .chain(effects.memory.direct_reads.iter().map(|r| &r.base))
+                        .chain(effects.memory.direct_writes.iter().map(|r| &r.base))
+                    {
+                        if let Some(resolved) = ctx.layout.direct_mem(routine.id, mem) {
+                            let ordinary = match mem {
                                 MirMem::Global { id, .. } => {
                                     mir.globals.iter().find(|g| g.id == *id).is_some_and(|g| {
                                         matches!(g.backing, MirGlobalBacking::Ordinary { .. })
@@ -220,27 +224,30 @@ pub(super) fn emit_program_with_physical_references_traced(
                                 ),
                                 MirMem::Absolute(_) | MirMem::FixedZeroPage(_) => false,
                             };
-                        ctx.summary.physical_memory.insert(
-                            routine.id,
-                            mem.clone(),
-                            resolved_mem_address(resolved),
-                            ordinary,
-                        );
+                            ctx.summary.physical_memory.insert(
+                                routine.id,
+                                mem.clone(),
+                                resolved_mem_address(resolved),
+                                ordinary,
+                            );
+                        }
                     }
                 }
             }
         }
-    }
-    ctx.diagnostics.append(&mut layout_diagnostics);
-    emit_storage(&mut ctx, emitter);
-    for routine in &mir.routines {
-        emit_routine(&mut ctx, routine, emitter);
-    }
-    if ctx.diagnostics.is_empty() {
-        Ok(ctx.summary)
-    } else {
-        Err(ctx.diagnostics)
-    }
+        ctx.diagnostics.append(&mut layout_diagnostics);
+        emit_storage(&mut ctx, emitter);
+        for routine in &mir.routines {
+            emit_routine(&mut ctx, routine, emitter);
+        }
+        if ctx.diagnostics.is_empty() {
+            Ok(ctx.summary)
+        } else {
+            Err(ctx.diagnostics)
+        }
+    })();
+    trace.event("attempt-end", ||serde_json::json!({"scope":"emission","status":if result.is_ok(){"completed"}else{"failed"}}));
+    result
 }
 
 #[allow(dead_code)]
@@ -538,6 +545,7 @@ struct MirEmitContext<'a> {
     branch_plan: MirBranchRelaxationPlan,
     measurements: MirEmissionMeasurements,
     scaled_y_offset: Option<u16>,
+    trace: crate::mir6502::trace::Trace,
 }
 
 impl<'a> MirEmitContext<'a> {
@@ -562,6 +570,7 @@ impl<'a> MirEmitContext<'a> {
             branch_plan,
             measurements: MirEmissionMeasurements::default(),
             scaled_y_offset: None,
+            trace: crate::mir6502::trace::Trace::disabled(),
         }
     }
 }
@@ -1938,6 +1947,92 @@ impl StorageInitView for MirStorageInit {
     }
 }
 
+/// Observe the final traversal's own layout, including unreferenced declarations.
+fn trace_final_layout(ctx: &MirEmitContext<'_>) {
+    use crate::mir6502::trace::homes;
+    let trace = &ctx.trace;
+    trace.event("final-layout", || {
+        serde_json::json!({"snapshot":trace.final_snapshot(),"origin":ctx.origin,
+        "authority":"final emission; artifact completion is recorded separately"})
+    });
+    for r in &ctx.mir.routines {
+        if !trace.wants(r.id) {
+            continue;
+        }
+        let mut memories = std::collections::BTreeMap::new();
+        let mut add = |mem: MirMem, bytes: u16| {
+            memories
+                .entry(homes::memory(r.id, &mem))
+                .or_insert((mem, bytes));
+        };
+        for s in r.frame.params.iter().chain(&r.frame.locals) {
+            let mem = match s.base {
+                MirStorageBase::Param(id) | MirStorageBase::ParamAbiOnly(id) => MirMem::Param {
+                    id,
+                    offset: s.offset,
+                },
+                MirStorageBase::Local(id) | MirStorageBase::LocalAlias { id, .. } => {
+                    MirMem::Local {
+                        id,
+                        offset: s.offset,
+                    }
+                }
+                MirStorageBase::Spill(id) => MirMem::Spill {
+                    id,
+                    offset: s.offset,
+                },
+                MirStorageBase::Global(id) => MirMem::Global {
+                    id,
+                    offset: s.offset,
+                },
+                MirStorageBase::Static(id) => MirMem::Static {
+                    id,
+                    offset: s.offset,
+                },
+                MirStorageBase::Absolute(a) => MirMem::Absolute(a.wrapping_add(s.offset)),
+            };
+            add(mem, s.storage_size);
+        }
+        for id in &r.frame.spills {
+            add(MirMem::Spill { id: *id, offset: 0 }, 1);
+        }
+        for id in &r.frame.virtual_zero_page {
+            add(
+                MirMem::ZeroPage(*id),
+                r.frame
+                    .zero_page_allocations
+                    .iter()
+                    .find(|a| a.slot == *id)
+                    .map_or(1, |a| u16::from(a.size)),
+            );
+        }
+        for id in &r.frame.fixed_zero_page {
+            add(MirMem::FixedZeroPage(*id), 1);
+        }
+        for b in &r.blocks {
+            let effects = b
+                .ops
+                .iter()
+                .map(|op| super::analysis::effects::classify_op(op).memory)
+                .chain(std::iter::once(
+                    super::analysis::effects::classify_terminator(&b.terminator).memory,
+                ));
+            for e in effects {
+                for a in e.direct_reads.iter().chain(&e.direct_writes) {
+                    add(a.base.clone(), a.bytes);
+                }
+                for mem in e.direct_references {
+                    add(mem, 1);
+                }
+            }
+        }
+        for (home, (mem, bytes)) in memories {
+            trace.event("final-home", ||serde_json::json!({"snapshot":trace.final_snapshot(),"routine":r.id.0,
+                "home":home,"bytes":bytes,"address":ctx.layout.direct_mem(r.id,&mem).map(resolved_mem_address)}));
+        }
+    }
+}
+
 fn emit_routine(ctx: &mut MirEmitContext<'_>, routine: &MirRoutine, emitter: &mut TrackedEmitter) {
     let range_start = current_address(ctx, emitter);
     let routine_label = ctx.layout.routine_label(routine.id);
@@ -1965,14 +2060,32 @@ fn emit_routine(ctx: &mut MirEmitContext<'_>, routine: &MirRoutine, emitter: &mu
         let tail_call =
             block.ops.last().is_some_and(is_tail_call_op) && block_exits_via_return(routine, block);
         for (op_index, op) in block.ops.iter().enumerate() {
+            let start = emitter.position();
             if tail_call
                 && op_index + 1 == block.ops.len()
                 && emit_tail_call(ctx, routine.id, block.id, op, emitter)
             {
+                ctx.trace.emitted_range(
+                    routine.id,
+                    block.id,
+                    Some(op_index),
+                    start,
+                    emitter.position(),
+                    true,
+                );
                 continue;
             }
             emit_op(ctx, routine.id, block.id, op, emitter);
+            ctx.trace.emitted_range(
+                routine.id,
+                block.id,
+                Some(op_index),
+                start,
+                emitter.position(),
+                false,
+            );
         }
+        let start = emitter.position();
         let next_block = routine.blocks.get(index + 1).map(|block| block.id);
         if !tail_call {
             emit_terminator(
@@ -1984,11 +2097,17 @@ fn emit_routine(ctx: &mut MirEmitContext<'_>, routine: &MirRoutine, emitter: &mu
                 emitter,
             );
         }
-        ctx.summary.block_ranges.push((
+        ctx.trace.emitted_range(
             routine.id,
             block.id,
-            block_start..emitter.position(),
-        ));
+            None,
+            start,
+            emitter.position(),
+            tail_call,
+        );
+        ctx.summary
+            .block_ranges
+            .push((routine.id, block.id, block_start..emitter.position()));
     }
     ctx.summary.routine_ranges.push(RoutineRange {
         name: routine.name.clone(),

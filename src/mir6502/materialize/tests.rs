@@ -13520,7 +13520,9 @@ fn dead_spill_store_keeps_value_read_before_store_on_next_iteration() {
         effects: MirEffects::default(),
     };
 
-    remove_dead_spill_stores(&mut routine);
+    let trace = crate::mir6502::trace::Mir6502Trace::default();
+    remove_dead_spill_stores_traced(&mut routine, &trace.context());
+    assert!(trace.events().iter().any(|e|e.kind == "compat-spill-stop" && e.data["reason"] == "explicit-read" && e.data["point"]["block"] == 0 && e.data["point"]["op"] == 0));
 
     assert!(matches!(
         routine.blocks[0].ops.as_slice(),

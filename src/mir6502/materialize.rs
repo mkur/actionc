@@ -153,7 +153,7 @@ use compare_branch::{
     try_fuse_byte_compare_consumer, try_fuse_compare_operand_producers,
 };
 use copies::select_aggregate_copies;
-use dead_spills::remove_dead_spill_stores;
+use dead_spills::remove_dead_spill_stores_traced;
 use defs::{op_def, split_def_as_temp};
 use flags::{
     op_clobbers_unknown_flag_or_a_effects, op_has_opaque_flag_or_a_effects, op_overwrites_carry,
@@ -2901,7 +2901,7 @@ fn run_prehome_selection_group(
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     if config.enable_peepholes && config.enable_address_values {
-        let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+        let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_prehome_selection_group");
         let result = driver.run_fixed_point_by_key(routine, |routine, context| {
             let mut plans = super::rewrite::address_values::discover_known_pointer_locals(routine, context, layout);
             plans.extend(super::rewrite::address_values::discover_zero_index_address_values(routine, context));
@@ -2949,7 +2949,7 @@ fn run_analyzed_indexed_to_indirect_word_copies(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_indexed_to_indirect_word_copies");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -2975,7 +2975,7 @@ fn run_analyzed_private_indirect_word_copies(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_private_indirect_word_copies");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3001,7 +3001,7 @@ fn run_analyzed_indirect_to_indexed_word_copies(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_indirect_to_indexed_word_copies");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3096,7 +3096,7 @@ fn run_analyzed_static_indexed_byte_stores(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_static_indexed_byte_stores");
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             indexes::discover_static_indexed_byte_stores(routine, context, layout)
@@ -3142,7 +3142,7 @@ fn run_analyzed_direct_indexed_byte_binaries(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_direct_indexed_byte_binaries");
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             indexes::discover_direct_indexed_byte_binaries(routine, context, layout)
@@ -3181,7 +3181,7 @@ fn run_posthome_cleanup_group(
     run_analyzed_ssa_lite_byte_rewrites(routine, layout, true, known_callees, peephole_stats)?;
     run_analyzed_call_result_y_placements(routine, peephole_stats)?;
     run_analyzed_dead_register_writes(routine, layout, known_callees, peephole_stats)?;
-    remove_dead_spill_stores(routine);
+    remove_dead_spill_stores_traced(routine, &peephole_stats.trace);
     let trace = peephole_stats.trace.clone();
     let color_before = trace.routine_snapshot("before-block-coloring", routine);
     let remap = color_basic_block_spills(routine);
@@ -3213,7 +3213,7 @@ fn run_analyzed_redundant_indexed_address_materializations(
     known_callees: Option<&MirKnownCalleeSummaries>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_redundant_indexed_address_materializations");
     let discover =
         |routine: &super::ir::MirRoutine,
          context: &crate::mir6502::rewrite::context::PostHomeRewriteContext<'_, '_>| {
@@ -3241,7 +3241,7 @@ fn run_analyzed_staged_word_forwards(
     enable_direct_byte_word_update: bool,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_staged_word_forwards");
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             peepholes::discover_staged_word_forwards(
@@ -3265,7 +3265,7 @@ fn run_analyzed_spill_forwards(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_spill_forwards");
     let result = driver
         .run_fixed_point(routine, spills::discover_spill_forwards)
         .map_err(|error| {
@@ -3283,7 +3283,7 @@ fn run_analyzed_param_home_reloads(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_param_home_reloads");
     let result = driver
         .run_fixed_point(routine, calls::discover_param_home_reloads)
         .map_err(|error| {
@@ -3312,7 +3312,7 @@ fn run_analyzed_direct_inc_dec_updates(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_direct_inc_dec_updates");
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             store_consumers::discover_direct_inc_dec_updates(routine, context, layout)
@@ -3333,7 +3333,7 @@ fn run_analyzed_dead_register_writes(
     known_callees: Option<&MirKnownCalleeSummaries>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_dead_register_writes");
     let discover =
         |routine: &super::ir::MirRoutine,
          context: &crate::mir6502::rewrite::context::PostHomeRewriteContext<'_, '_>| {
@@ -3359,7 +3359,7 @@ fn run_analyzed_txa_direct_store_folds(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_txa_direct_store_folds");
     let result = driver
         .run_fixed_point(routine, peepholes::discover_txa_direct_store_folds)
         .map_err(|error| {
@@ -3376,7 +3376,7 @@ fn run_analyzed_call_result_y_placements(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_call_result_y_placements");
     let result = driver
         .run_fixed_point(routine, peepholes::discover_call_result_y_placements)
         .map_err(|error| {
@@ -3398,7 +3398,7 @@ fn run_analyzed_known_callee_word_result_placements(
     let Some(known_callees) = known_callees else {
         return Ok(());
     };
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_known_callee_word_result_placements");
     let preserve_exit_accumulator = known_callees.accumulator_summary_is_observable(routine.id);
     let result = driver
         .run_fixed_point_with_known_callees(routine, known_callees, |routine, context| {
@@ -3428,7 +3428,7 @@ fn run_analyzed_known_callee_preserved_index_param_carriers(
     let Some(known_callees) = known_callees else {
         return Ok(());
     };
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_known_callee_preserved_index_param_carriers");
     let result = driver
         .run_fixed_point_with_known_callees(routine, known_callees, |routine, context| {
             peepholes::discover_known_callee_preserved_index_param_carriers(
@@ -3455,7 +3455,7 @@ fn run_analyzed_ssa_lite_byte_rewrites(
     known_callees: Option<&MirKnownCalleeSummaries>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_ssa_lite_byte_rewrites");
     let mut peak = 0;
     let discover =
         |routine: &super::ir::MirRoutine,
@@ -3494,7 +3494,7 @@ fn run_analyzed_rhs_and_adjacent_reloads(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_rhs_and_adjacent_reloads");
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             peepholes::discover_rhs_and_adjacent_reloads(routine, context, layout)
@@ -3513,7 +3513,7 @@ fn run_analyzed_dead_private_scratch_stores(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_dead_private_scratch_stores");
     let result = driver
         .run_fixed_point(routine, peepholes::discover_dead_private_scratch_stores)
         .map_err(|error| {
@@ -3531,7 +3531,7 @@ fn run_analyzed_word_array_value_staging(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_word_array_value_staging");
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             peepholes::discover_word_array_value_staging(routine, context, layout)
@@ -3551,7 +3551,7 @@ fn run_analyzed_word_rsh8_high_projections(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_word_rsh8_high_projections");
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             peepholes::discover_word_rsh8_high_projections(routine, context, layout)
@@ -3571,7 +3571,7 @@ fn run_analyzed_indirect_constant_stores(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_indirect_constant_stores");
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             peepholes::discover_indirect_constant_stores(routine, context, layout)
@@ -3591,7 +3591,7 @@ fn run_analyzed_indirect_stores_and_compounds(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_indirect_stores_and_compounds");
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             peepholes::discover_indirect_stores_and_compounds(routine, context, layout)
@@ -3610,7 +3610,7 @@ fn run_analyzed_indexed_base_pointer_staging(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_indexed_base_pointer_staging");
     let result = driver
         .run_fixed_point(routine, indexes::discover_indexed_base_pointer_staging)
         .map_err(|error| {
@@ -3628,7 +3628,7 @@ fn run_analyzed_helper_indexed_store_placements(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_helper_indexed_store_placements");
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             indexes::discover_helper_indexed_store_placements(routine, context, layout)
@@ -3648,7 +3648,7 @@ fn run_analyzed_scaled_y_word_reads(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_scaled_y_word_reads");
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             indexes::discover_scaled_y_word_reads(routine, context, layout)
@@ -3668,7 +3668,7 @@ fn run_analyzed_scaled_y_word_stores(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_scaled_y_word_stores");
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             indexes::discover_scaled_y_word_stores(routine, context, layout)
@@ -3695,7 +3695,7 @@ fn run_analyzed_compare_branch_copies(
         return Ok(());
     }
     let mut observations = BTreeSet::new();
-    let result = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace)
+    let result = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_compare_branch_copies")
         .run_fixed_point(routine, |routine, context| {
             super::rewrite::pilots::discover_compare_branch_copies(
                 routine,
@@ -3721,7 +3721,7 @@ fn run_analyzed_captured_byte_comparisons(
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     let mut observations = BTreeSet::new();
-    let result = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace)
+    let result = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_captured_byte_comparisons")
         .run_fixed_point_by_key(
             routine,
             |routine, context| discover_captured_byte_compares(routine, context, &mut observations),
@@ -3744,7 +3744,7 @@ fn run_analyzed_compare_producer_rewrites(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_compare_producer_rewrites");
     let result = driver
         .run_fixed_point(routine, discover_compare_producers)
         .map_err(|error| {
@@ -3762,7 +3762,7 @@ fn run_analyzed_inclusive_compare_reversals(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_inclusive_compare_reversals");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3783,7 +3783,7 @@ fn run_analyzed_compare_narrowing(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_compare_narrowing");
     let result = driver
         .run_fixed_point_by_key(routine, discover_compare_narrowing, compare_narrowing_rank)
         .map_err(|error| {
@@ -3801,7 +3801,7 @@ fn run_analyzed_dual_indirect_compares(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_dual_indirect_compares");
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             discover_dual_indirect_compares_with_layout(routine, context, layout)
@@ -3820,7 +3820,7 @@ fn run_analyzed_byte_binary_compare_consumers(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_byte_binary_compare_consumers");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3842,7 +3842,7 @@ fn run_analyzed_pointer_rewrites(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_pointer_rewrites");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3864,7 +3864,7 @@ fn run_analyzed_index_rewrites(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_index_rewrites");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3885,7 +3885,7 @@ fn run_analyzed_affine_static_byte_indexes(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_affine_static_byte_indexes");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3906,7 +3906,7 @@ fn run_analyzed_call_arg_producers(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_call_arg_producers");
     let result = driver
         .run_fixed_point(routine, super::rewrite::pilots::discover_call_arg_producers)
         .map_err(|error| {
@@ -3923,7 +3923,7 @@ fn run_analyzed_return_slot_call_arg_forwards(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_return_slot_call_arg_forwards");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3950,7 +3950,7 @@ fn run_analyzed_param_home_consumers(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_param_home_consumers");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3974,7 +3974,7 @@ fn run_analyzed_call_arg_exprs(
     helpers: &mut Vec<MirRuntimeHelper>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_call_arg_exprs");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -4002,7 +4002,7 @@ fn run_analyzed_unused_lea_addrs(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_unused_lea_addrs");
     let result = driver
         .run_fixed_point(routine, discover_unused_lea_addrs)
         .map_err(|error| {
@@ -4019,7 +4019,7 @@ fn run_analyzed_call_result_store_consumers(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_call_result_store_consumers");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -4040,7 +4040,7 @@ fn run_analyzed_stored_call_result_aliases(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_stored_call_result_aliases");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -4063,7 +4063,7 @@ fn run_analyzed_word_carry_chain_store_consumers(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_word_carry_chain_store_consumers");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -4089,7 +4089,7 @@ fn run_analyzed_widened_byte_shift_store_consumers(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_widened_byte_shift_store_consumers");
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -4117,7 +4117,7 @@ fn run_analyzed_store_consumers(
     helpers: &mut Vec<MirRuntimeHelper>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_store_consumers");
     let result = driver
         .run_fixed_point_by_key(
             routine,

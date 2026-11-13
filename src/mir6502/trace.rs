@@ -1,5 +1,7 @@
 //! Bounded, compilation-local diagnostics. Nothing here grants rewrite permission.
 pub(crate) mod homes;
+pub(crate) mod rewrites;
+mod summary;
 
 use std::cell::RefCell;
 use std::collections::BTreeSet;
@@ -88,6 +90,7 @@ impl Mir6502Trace {
             "first_omitted_stage": s.truncated_at, "filter_errors": s.filter_errors,
             "output_identity": s.output_identity, "identity_algorithm": "fnv1a64",
             "selected_routines": s.selected.iter().map(|r| r.0).collect::<Vec<_>>(),
+            "final_layout": if s.finished && !s.failed { s.events.iter().rev().find(|e|e.kind == "final-layout").map(|e|e.id) } else { None },
             "final_snapshot": s.events.iter().rev().find(|e| e.kind == "snapshot" && e.data["stage"] == "pre-emission").map(|e| e.id)
         })
     }
@@ -99,6 +102,7 @@ impl Mir6502Trace {
         Trace {
             session: Some(Rc::clone(&self.inner)),
             attempt: 0,
+            final_artifact: false,
             #[cfg(test)]
             observer: None,
         }
@@ -128,6 +132,7 @@ impl Default for Mir6502Trace {
 pub(crate) struct Trace {
     session: Option<Rc<Collector>>,
     attempt: u64,
+    final_artifact: bool,
     #[cfg(test)]
     observer: Option<Rc<RefCell<std::collections::BTreeMap<&'static str, usize>>>>,
 }
@@ -137,8 +142,39 @@ impl Trace {
         Self {
             session: None,
             attempt: 0,
+            final_artifact: false,
             #[cfg(test)]
             observer: None,
+        }
+    }
+    pub(crate) fn final_artifact(&self) -> bool {
+        self.final_artifact && self.enabled()
+    }
+    pub(crate) fn final_snapshot(&self) -> Option<u64> {
+        self.session
+            .as_ref()?
+            .state
+            .borrow()
+            .events
+            .iter()
+            .rev()
+            .find(|e| e.kind == "snapshot" && e.data["stage"] == "pre-emission")
+            .map(|e| e.id)
+    }
+    pub(crate) fn emitted_range(
+        &self,
+        routine: RoutineId,
+        block: super::MirBlockId,
+        op: Option<usize>,
+        start: usize,
+        end: usize,
+        tail_call: bool,
+    ) {
+        if self.wants(routine) {
+            self.event("emitted-range", || {
+                json!({"snapshot":self.final_snapshot(),"routine":routine.0,
+                "block":block.0,"op":op,"offset_start":start,"offset_end":end,"tail_call":tail_call})
+            });
         }
     }
     pub(crate) fn enabled(&self) -> bool {
@@ -201,6 +237,7 @@ impl Trace {
         };
         let child = Self {
             attempt: id,
+            final_artifact: self.final_artifact || purpose == "final-artifact",
             ..self.clone()
         };
         child.event(

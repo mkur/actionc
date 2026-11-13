@@ -156,7 +156,7 @@ fn nested_trials_have_scoped_results_and_selected_inlining_is_replayed() {
                 && e.data["stage"] == "inline-final-rematerialization")
     );
     assert!(events.iter().any(|e| e.kind == "inline-selection"));
-    for end in events.iter().filter(|e| e.kind == "attempt-end") {
+    for end in events.iter().filter(|e| e.kind == "attempt-end" && e.data["returned_snapshot"].is_number()) {
         let snapshot = events
             .iter()
             .find(|e| Some(e.id) == end.data["returned_snapshot"].as_u64())
@@ -297,4 +297,32 @@ fn home_history_has_typed_scoped_plans_remaps_and_explicit_observations() {
         repeated_definition,
         "stores to the same home remain distinct points"
     );
+}
+
+#[test]
+fn final_ranges_join_the_exact_mir_and_expose_zero_byte_consumers() {
+    let mut empty_reads = 0;
+    for source in [include_str!("../fixtures/runtime/argument_staging.act"), include_str!("../fixtures/runtime/word_load_sharing.act")] {
+        let mut trace = Mir6502Trace::default();
+        mir6502::generate_output_with_trace(&nir(&source.replace("\r\n", "\n")), 0x3000, &Mir6502Config::optimized(), Runtime::ActionCart, &mut trace).unwrap();
+        assert_eq!(trace.manifest()["status"], "complete");
+        assert!(trace.manifest()["final_layout"].is_number());
+        let events = trace.events();
+        let final_id = trace.manifest()["final_snapshot"].as_u64().unwrap();
+        let snapshot = events.iter().find(|e| e.id==final_id).unwrap();
+        let expected: usize = snapshot.data["routines"].as_array().unwrap().iter().flat_map(|r|r["blocks"].as_array().unwrap()).map(|b| b["ops"].as_u64().unwrap() as usize + 1).sum();
+        let ranges: Vec<_> = events.iter().filter(|e|e.kind=="emitted-range").collect();
+        assert_eq!(ranges.len(),expected);
+        for range in ranges {
+            assert_eq!(range.data["snapshot"],final_id);
+            assert!(range.data["offset_start"].as_u64().unwrap() <= range.data["offset_end"].as_u64().unwrap());
+        }
+        let summary = trace.home_summary();
+        for r in summary["routines"].as_array().unwrap() {
+            for h in r["homes"].as_array().unwrap() { empty_reads += h["zero_byte_read_events"].as_array().unwrap().len(); }
+        }
+        assert!(events.iter().any(|e|e.kind=="compat-spill-stop"));
+        assert!(events.iter().any(|e|e.kind=="rewrite" && e.data["outcome"]=="applied"));
+    }
+    assert!(empty_reads > 0, "final MIR consumers can emit no bytes");
 }

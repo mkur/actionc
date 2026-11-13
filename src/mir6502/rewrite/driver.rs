@@ -77,6 +77,8 @@ impl MirRewriteRunResult {
 #[derive(Debug, Clone)]
 pub(in crate::mir6502) struct MirPreHomeRewriteDriver {
     trace: crate::mir6502::trace::Trace,
+    trace_active: bool,
+    trace_family: &'static str,
     generation: MirRoutineGeneration,
     max_rounds: usize,
 }
@@ -85,6 +87,8 @@ impl Default for MirPreHomeRewriteDriver {
     fn default() -> Self {
         Self {
             trace: crate::mir6502::trace::Trace::disabled(),
+            trace_active: false,
+            trace_family: "local-rewrite",
             generation: MirRoutineGeneration::initial(),
             max_rounds: 32,
         }
@@ -92,8 +96,18 @@ impl Default for MirPreHomeRewriteDriver {
 }
 
 impl MirPreHomeRewriteDriver {
+    pub(in crate::mir6502) fn with_trace_named(
+        mut self,
+        trace: &crate::mir6502::trace::Trace,
+        family: &'static str,
+    ) -> Self {
+        self.trace = trace.clone();
+        self.trace_family = family;
+        self
+    }
+
     pub(in crate::mir6502) fn with_trace(mut self, trace: &crate::mir6502::trace::Trace) -> Self {
-        self.trace = trace.child("rewrite-driver", "MirPreHomeRewriteDriver");
+        self.trace = trace.clone();
         self
     }
 
@@ -136,48 +150,83 @@ impl MirPreHomeRewriteDriver {
         Metric: FnMut(&MirRoutine) -> Key,
         Key: Ord,
     {
-        let mut result = MirRewriteRunResult::default();
-        for _ in 0..self.max_rounds {
-            result.rounds += 1;
-            let snapshot = PreHomeAnalysisSnapshot::new(routine, self.generation)
-                .map_err(|_| MirRewriteError::InvalidCfg)?;
-            result.analysis_builds += 1;
-            self.trace.count("rewrite_analysis_builds", 1);
-            let context = PreHomeRewriteContext::new(&snapshot);
-            let plans = discover(routine, &context);
-            result.candidates += plans.len();
-            drop(snapshot);
-            if plans.is_empty() {
-                result.converged = true;
-                return Ok(result);
-            }
+        let parent = self.trace.clone();
+        let was_active = self.trace_active;
+        let invocation = parent.child("rewrite-driver", self.trace_family);
+        self.trace = invocation.clone();
+        self.trace_active = true;
+        let result = (|| {
+            let mut result = MirRewriteRunResult::default();
+            for _ in 0..self.max_rounds {
+                result.rounds += 1;
+                let snapshot = PreHomeAnalysisSnapshot::new(routine, self.generation)
+                    .map_err(|_| MirRewriteError::InvalidCfg)?;
+                self.trace
+                    .driver_round(routine, self.generation, "pre-home");
+                result.analysis_builds += 1;
+                self.trace.count("rewrite_analysis_builds", 1);
+                let context = PreHomeRewriteContext::new(&snapshot);
+                let plans = discover(routine, &context);
+                for plan in &plans {
+                    self.trace.prehome_plan(routine, plan, "candidate");
+                }
+                result.candidates += plans.len();
+                drop(snapshot);
+                if plans.is_empty() {
+                    result.converged = true;
+                    return Ok(result);
+                }
 
-            let before = metric(routine);
-            let batch = self.apply_batch(routine, plans)?;
-            result.overlap_rejections += batch.overlap_rejections;
-            result.estimated_bytes_saved += batch.estimated_bytes_saved;
-            result.estimated_cycles_saved += batch.estimated_cycles_saved;
-            result.applied += batch.applied.len();
-            for stat in batch.applied {
-                *result.applied_by_stat.entry(stat).or_default() += 1;
+                let before = metric(routine);
+                let batch = self.apply_batch(routine, plans)?;
+                result.overlap_rejections += batch.overlap_rejections;
+                result.estimated_bytes_saved += batch.estimated_bytes_saved;
+                result.estimated_cycles_saved += batch.estimated_cycles_saved;
+                result.applied += batch.applied.len();
+                for stat in batch.applied {
+                    *result.applied_by_stat.entry(stat).or_default() += 1;
+                }
+                for (stat, count) in batch.observations {
+                    *result.applied_by_stat.entry(stat).or_default() += count;
+                }
+                let after = metric(routine);
+                if after >= before {
+                    return Err(MirRewriteError::InvalidDeclaration {
+                        stat: "pre-home-fixed-point",
+                        message: "rewrite batch did not reduce its declared metric".to_string(),
+                    });
+                }
             }
-            for (stat, count) in batch.observations {
-                *result.applied_by_stat.entry(stat).or_default() += count;
-            }
-            let after = metric(routine);
-            if after >= before {
-                return Err(MirRewriteError::InvalidDeclaration {
-                    stat: "pre-home-fixed-point",
-                    message: "rewrite batch did not reduce its declared metric".to_string(),
-                });
-            }
-        }
-        Err(MirRewriteError::DidNotConverge {
-            max_rounds: self.max_rounds,
-        })
+            Err(MirRewriteError::DidNotConverge {
+                max_rounds: self.max_rounds,
+            })
+        })();
+        self.trace = parent;
+        self.trace_active = was_active;
+        invocation.event("attempt-end", ||serde_json::json!({"scope":"rewrite-driver",
+            "status":if result.is_ok(){"completed"}else{"failed"},
+            "work":result.as_ref().ok().map(|r: &MirRewriteRunResult|serde_json::json!({"rounds":r.rounds,"analysis_builds":r.analysis_builds,"candidates":r.candidates,"applied":r.applied,"overlap_rejections":r.overlap_rejections}))}));
+        result
     }
 
     pub(in crate::mir6502) fn apply_batch(
+        &mut self,
+        routine: &mut MirRoutine,
+        plans: Vec<MirRewritePlan>,
+    ) -> Result<MirAppliedBatch, MirRewriteError> {
+        if self.trace_active {
+            return self.apply_batch_impl(routine, plans);
+        }
+        let parent = self.trace.clone();
+        let invocation = parent.child("rewrite-driver", "pre-home-batch");
+        self.trace = invocation.clone();
+        let result = self.apply_batch_impl(routine, plans);
+        self.trace = parent;
+        invocation.event("attempt-end", ||serde_json::json!({"scope":"rewrite-driver","status":if result.is_ok(){"completed"}else{"failed"}}));
+        result
+    }
+
+    pub(in crate::mir6502) fn apply_batch_impl(
         &mut self,
         routine: &mut MirRoutine,
         plans: Vec<MirRewritePlan>,
@@ -186,7 +235,7 @@ impl MirPreHomeRewriteDriver {
             validate_plan(routine, self.generation, plan)?;
         }
         let candidates = plans.len();
-        let selected = select_non_overlapping(routine, plans);
+        let selected = select_non_overlapping_traced(routine, plans, &self.trace);
         let overlap_rejections = candidates.saturating_sub(selected.len());
         let estimated_bytes_saved = selected
             .iter()
@@ -210,6 +259,7 @@ impl MirPreHomeRewriteDriver {
                 .expect("validated rewrite block");
             plans.sort_by_key(|plan| std::cmp::Reverse(plan.range.start));
             for plan in plans {
+                self.trace.prehome_plan(routine, &plan, "applied");
                 for (stat, count) in &plan.observations {
                     *observations.entry(*stat).or_default() += *count;
                 }
@@ -254,6 +304,8 @@ pub(in crate::mir6502) struct MirAppliedBatch {
 #[derive(Debug, Clone)]
 pub(in crate::mir6502) struct MirPostHomeRewriteDriver {
     trace: crate::mir6502::trace::Trace,
+    trace_active: bool,
+    trace_family: &'static str,
     generation: MirRoutineGeneration,
     max_rounds: usize,
 }
@@ -262,6 +314,8 @@ impl Default for MirPostHomeRewriteDriver {
     fn default() -> Self {
         Self {
             trace: crate::mir6502::trace::Trace::disabled(),
+            trace_active: false,
+            trace_family: "local-rewrite",
             generation: MirRoutineGeneration::initial(),
             max_rounds: 32,
         }
@@ -269,8 +323,18 @@ impl Default for MirPostHomeRewriteDriver {
 }
 
 impl MirPostHomeRewriteDriver {
+    pub(in crate::mir6502) fn with_trace_named(
+        mut self,
+        trace: &crate::mir6502::trace::Trace,
+        family: &'static str,
+    ) -> Self {
+        self.trace = trace.clone();
+        self.trace_family = family;
+        self
+    }
+
     pub(in crate::mir6502) fn with_trace(mut self, trace: &crate::mir6502::trace::Trace) -> Self {
-        self.trace = trace.child("rewrite-driver", "MirPostHomeRewriteDriver");
+        self.trace = trace.clone();
         self
     }
 
@@ -358,87 +422,106 @@ impl MirPostHomeRewriteDriver {
         Discover: FnMut(&MirRoutine, &PostHomeRewriteContext<'_, '_>) -> Vec<MirPostHomeRewritePlan>,
         MemoryMap: FnMut(&MirRoutine) -> MirMachineMemoryMap,
     {
-        let mut result = MirRewriteRunResult::default();
-        for _ in 0..self.max_rounds {
-            result.rounds += 1;
-            let map = memory_map(routine);
-            let snapshot = PostHomeAnalysisSnapshot::new_with_known_callees_and_memory_map(
-                routine,
-                self.generation,
-                known_callees,
-                &map,
-            )
-            .map_err(|_| MirRewriteError::InvalidCfg)?;
-            result.analysis_builds += 1;
-            self.trace.count("rewrite_analysis_builds", 1);
-            let context = PostHomeRewriteContext::new(&snapshot);
-            let plans = discover(routine, &context);
-            result.candidates += plans.len();
-            for site in context.take_blocked_sites() {
-                result.record_blocked_site(site);
-            }
-            for plan in &plans {
-                validate_posthome_plan(routine, self.generation, &context, plan, physical_memory)?;
-            }
-            drop(snapshot);
-            if plans.is_empty() {
-                result.converged = true;
-                return Ok(result);
-            }
-
-            let candidates = plans.len();
-            let selected = select_non_overlapping_posthome(routine, plans);
-            result.overlap_rejections += candidates.saturating_sub(selected.len());
-            result.estimated_bytes_saved += selected
-                .iter()
-                .map(|plan| usize::from(plan.estimated_byte_saving))
-                .sum::<usize>();
-            result.estimated_cycles_saved += selected
-                .iter()
-                .map(|plan| usize::from(plan.estimated_cycle_saving))
-                .sum::<usize>();
-            let mut by_block = BTreeMap::<MirBlockId, Vec<MirPostHomeRewritePlan>>::new();
-            for plan in selected {
-                by_block.entry(plan.block).or_default().push(plan);
-            }
-            let mut applied_this_round = 0usize;
-            for (block, mut plans) in by_block {
-                let block_index = routine
-                    .blocks
-                    .iter()
-                    .position(|candidate| candidate.id == block)
-                    .expect("validated post-home rewrite block");
-                plans.sort_by_key(|plan| std::cmp::Reverse(plan.range.start));
-                for plan in plans {
-                    for (stat, count) in &plan.observations {
-                        *result.applied_by_stat.entry(*stat).or_default() += *count;
-                    }
-                    let block = &mut routine.blocks[block_index];
-                    let range = plan.range;
-                    let replacement_len = plan.replacement.len();
-                    block.ops.splice(range.clone(), plan.replacement);
-                    shift_fused_compare_producer_after_splice(
-                        block.id,
-                        &mut block.terminator,
-                        &range,
-                        replacement_len,
-                    );
-                    *result.applied_by_stat.entry(plan.stat).or_default() += 1;
-                    result.applied += 1;
-                    applied_this_round += 1;
+        let parent = self.trace.clone();
+        let was_active = self.trace_active;
+        let invocation = parent.child("rewrite-driver", self.trace_family);
+        self.trace = invocation.clone();
+        self.trace_active = true;
+        let result = (|| {
+            let mut result = MirRewriteRunResult::default();
+            for _ in 0..self.max_rounds {
+                result.rounds += 1;
+                let map = memory_map(routine);
+                let snapshot = PostHomeAnalysisSnapshot::new_with_known_callees_and_memory_map(
+                    routine,
+                    self.generation,
+                    known_callees,
+                    &map,
+                )
+                .map_err(|_| MirRewriteError::InvalidCfg)?;
+                self.trace
+                    .driver_round(routine, self.generation, "post-home");
+                result.analysis_builds += 1;
+                self.trace.count("rewrite_analysis_builds", 1);
+                let context = PostHomeRewriteContext::new(&snapshot).with_trace(&self.trace);
+                let plans = discover(routine, &context);
+                for plan in &plans {
+                    self.trace.posthome_plan(routine, plan, "candidate");
                 }
+                result.candidates += plans.len();
+                for site in context.take_blocked_sites() {
+                    result.record_blocked_site(site);
+                }
+                for plan in &plans {
+                    validate_posthome_plan(routine, self.generation, &context, plan, physical_memory)?;
+                }
+                drop(snapshot);
+                if plans.is_empty() {
+                    result.converged = true;
+                    return Ok(result);
+                }
+
+                let candidates = plans.len();
+                let selected = select_non_overlapping_posthome_traced(routine, plans, &self.trace);
+                result.overlap_rejections += candidates.saturating_sub(selected.len());
+                result.estimated_bytes_saved += selected
+                    .iter()
+                    .map(|plan| usize::from(plan.estimated_byte_saving))
+                    .sum::<usize>();
+                result.estimated_cycles_saved += selected
+                    .iter()
+                    .map(|plan| usize::from(plan.estimated_cycle_saving))
+                    .sum::<usize>();
+                let mut by_block = BTreeMap::<MirBlockId, Vec<MirPostHomeRewritePlan>>::new();
+                for plan in selected {
+                    by_block.entry(plan.block).or_default().push(plan);
+                }
+                let mut applied_this_round = 0usize;
+                for (block, mut plans) in by_block {
+                    let block_index = routine
+                        .blocks
+                        .iter()
+                        .position(|candidate| candidate.id == block)
+                        .expect("validated post-home rewrite block");
+                    plans.sort_by_key(|plan| std::cmp::Reverse(plan.range.start));
+                    for plan in plans {
+                        self.trace.posthome_plan(routine, &plan, "applied");
+                        for (stat, count) in &plan.observations {
+                            *result.applied_by_stat.entry(*stat).or_default() += *count;
+                        }
+                        let block = &mut routine.blocks[block_index];
+                        let range = plan.range;
+                        let replacement_len = plan.replacement.len();
+                        block.ops.splice(range.clone(), plan.replacement);
+                        shift_fused_compare_producer_after_splice(
+                            block.id,
+                            &mut block.terminator,
+                            &range,
+                            replacement_len,
+                        );
+                        *result.applied_by_stat.entry(plan.stat).or_default() += 1;
+                        result.applied += 1;
+                        applied_this_round += 1;
+                    }
+                }
+                if applied_this_round == 0 {
+                    return Err(MirRewriteError::InvalidDeclaration {
+                        stat: "post-home-fixed-point",
+                        message: "non-empty candidate set selected no rewrite".to_string(),
+                    });
+                }
+                self.generation = self.generation.next();
             }
-            if applied_this_round == 0 {
-                return Err(MirRewriteError::InvalidDeclaration {
-                    stat: "post-home-fixed-point",
-                    message: "non-empty candidate set selected no rewrite".to_string(),
-                });
-            }
-            self.generation = self.generation.next();
-        }
-        Err(MirRewriteError::DidNotConverge {
-            max_rounds: self.max_rounds,
-        })
+            Err(MirRewriteError::DidNotConverge {
+                max_rounds: self.max_rounds,
+            })
+        })();
+        self.trace = parent;
+        self.trace_active = was_active;
+        invocation.event("attempt-end", ||serde_json::json!({"scope":"rewrite-driver",
+            "status":if result.is_ok(){"completed"}else{"failed"},
+            "work":result.as_ref().ok().map(|r: &MirRewriteRunResult|serde_json::json!({"rounds":r.rounds,"analysis_builds":r.analysis_builds,"candidates":r.candidates,"applied":r.applied,"overlap_rejections":r.overlap_rejections}))}));
+        result
     }
 }
 
@@ -463,9 +546,22 @@ fn shift_fused_compare_producer_after_splice(
     }
 }
 
+#[allow(dead_code)]
 fn select_non_overlapping_posthome(
     routine: &MirRoutine,
+    plans: Vec<MirPostHomeRewritePlan>,
+) -> Vec<MirPostHomeRewritePlan> {
+    select_non_overlapping_posthome_traced(
+        routine,
+        plans,
+        &crate::mir6502::trace::Trace::disabled(),
+    )
+}
+
+fn select_non_overlapping_posthome_traced(
+    routine: &MirRoutine,
     mut plans: Vec<MirPostHomeRewritePlan>,
+    trace: &crate::mir6502::trace::Trace,
 ) -> Vec<MirPostHomeRewritePlan> {
     let block_order = routine
         .blocks
@@ -491,6 +587,9 @@ fn select_non_overlapping_posthome(
                 .iter()
                 .any(|range| ranges_overlap(range, &plan.range))
         });
+        if overlaps {
+            trace.posthome_plan(routine, &plan, "overlap-rejected");
+        }
         if !overlaps {
             occupied
                 .entry(plan.block)
@@ -639,9 +738,15 @@ fn validate_posthome_plan(
     Ok(())
 }
 
-fn select_non_overlapping(
+#[allow(dead_code)]
+fn select_non_overlapping(routine: &MirRoutine, plans: Vec<MirRewritePlan>) -> Vec<MirRewritePlan> {
+    select_non_overlapping_traced(routine, plans, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn select_non_overlapping_traced(
     routine: &MirRoutine,
     mut plans: Vec<MirRewritePlan>,
+    trace: &crate::mir6502::trace::Trace,
 ) -> Vec<MirRewritePlan> {
     let block_order = routine
         .blocks
@@ -667,6 +772,9 @@ fn select_non_overlapping(
                 .iter()
                 .any(|range| ranges_overlap(range, &plan.range))
         });
+        if overlaps {
+            trace.prehome_plan(routine, &plan, "overlap-rejected");
+        }
         if overlaps {
             continue;
         }

@@ -597,6 +597,7 @@ fn register_set_contains(registers: MirRegisterSet, reg: MirReg) -> bool {
 /// absent so matchers cannot accidentally cross the materialization boundary.
 #[derive(Debug)]
 pub(in crate::mir6502) struct PostHomeRewriteContext<'snapshot, 'routine> {
+    trace: crate::mir6502::trace::Trace,
     snapshot: &'snapshot PostHomeAnalysisSnapshot<'routine>,
     blocked_sites: RefCell<Vec<MirBlockedRewriteSite>>,
 }
@@ -663,6 +664,7 @@ impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
         Self {
             snapshot,
             blocked_sites: RefCell::new(Vec::new()),
+            trace: crate::mir6502::trace::Trace::disabled(),
         }
     }
 
@@ -678,6 +680,10 @@ impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
         self.snapshot.cfg()
     }
 
+    pub(in crate::mir6502) fn with_trace(mut self, trace: &crate::mir6502::trace::Trace) -> Self {
+        self.trace = trace.clone(); self
+    }
+
     pub(in crate::mir6502) fn record_blocker(
         &self,
         stat: &'static str,
@@ -685,6 +691,13 @@ impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
         op_index: usize,
         blocker: &MirProofBlocker,
     ) {
+        self.trace.blocker(
+            self.snapshot.source(),
+            self.generation(),
+            stat,
+            MirSite::Op { block, op_index },
+            blocker,
+        );
         self.blocked_sites.borrow_mut().push(MirBlockedRewriteSite {
             stat,
             block,
@@ -708,10 +721,27 @@ impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
                 return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
             }
         }
-        match self.snapshot.home_definitions().definition_dead_after(
+        match self.snapshot.home_definitions().definition_dead_after_observed(
             home,
             store.site,
             window_end.site,
+            |reader| {
+                let routine = self.snapshot.source();
+                if self.trace.wants(routine.id) {
+                    self.trace.event("home-definition-reader", || serde_json::json!({
+                        "routine":routine.id.0,"generation":store.generation.number(),
+                        "home":crate::mir6502::trace::rewrites::home(routine.id,home),
+                        "store":crate::mir6502::trace::rewrites::site(store.site),
+                        "window_end":crate::mir6502::trace::rewrites::site(window_end.site),
+                        "reader":crate::mir6502::trace::rewrites::site(reader),
+                        "reader_display":match reader {
+                            MirSite::Op{block,op_index} => routine.blocks.iter().find(|b|b.id==block).and_then(|b|b.ops.get(op_index)).map(|op|format!("{op:?}")),
+                            MirSite::Terminator{block} => routine.blocks.iter().find(|b|b.id==block).map(|b|format!("{:?}",b.terminator)),
+                            _ => None,
+                        }
+                    }));
+                }
+            },
         ) {
             Ok(true) => MirProof::Proven(()),
             Ok(false) => MirProof::Blocked(MirProofBlocker::HomeDefinitionLive {

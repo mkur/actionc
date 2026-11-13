@@ -7,6 +7,8 @@ use crate::mir6502::ir::{MirBlockId, MirRoutine};
 pub(in crate::mir6502) struct MirRoutineGeneration(u64);
 
 impl MirRoutineGeneration {
+    pub(in crate::mir6502) fn number(self) -> u64 { self.0 }
+
     pub(in crate::mir6502) fn initial() -> Self {
         Self(0)
     }

@@ -266,11 +266,22 @@ impl MirHomeDefinitions {
     /// Proves that the exact definition at `store_site` has no use outside the
     /// rewrite window. Reads inside the window are ignored because the rewrite
     /// driver validates that transaction separately.
+    #[allow(dead_code)]
     pub(in crate::mir6502) fn definition_dead_after(
         &self,
         home: MirHomeByte,
         store_site: MirSite,
         window_end: MirSite,
+    ) -> Result<bool, MirHomeDefinitionError> {
+        self.definition_dead_after_observed(home, store_site, window_end, |_| {})
+    }
+
+    pub(in crate::mir6502) fn definition_dead_after_observed(
+        &self,
+        home: MirHomeByte,
+        store_site: MirSite,
+        window_end: MirSite,
+        mut observe_live: impl FnMut(MirSite),
     ) -> Result<bool, MirHomeDefinitionError> {
         let MirSite::Op {
             block,
@@ -311,8 +322,13 @@ impl MirHomeDefinitions {
             store: store_site,
         };
         Ok(self.uses.get(&definition).is_none_or(|uses| {
-            uses.iter()
-                .all(|usage| site_inside_window(*usage, store_site, window_end))
+            uses.iter().all(|usage| {
+                let inside = site_inside_window(*usage, store_site, window_end);
+                if !inside {
+                    observe_live(*usage);
+                }
+                inside
+            })
         }))
     }
 }
