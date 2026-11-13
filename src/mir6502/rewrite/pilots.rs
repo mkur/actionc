@@ -1030,10 +1030,12 @@ pub(in crate::mir6502) fn store_consumer_rank(routine: &MirRoutine) -> usize {
 pub(in crate::mir6502) fn discover_direct_pointer_temp_rematerializations(
     routine: &MirRoutine,
     context: &PreHomeRewriteContext<'_, '_>,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
 ) -> Vec<MirRewritePlan> {
     let mut plans = Vec::new();
     for block in &routine.blocks {
         for index in 0..block.ops.len() {
+            let scope = layout.census_candidate(routine.id, "direct-pointer-temp-rematerialization", block.id, index);
             let Some(candidate) =
                 crate::mir6502::materialize::analyzed_direct_pointer_temp_rematerialization_candidate(
                     &block.ops,
@@ -1042,6 +1044,7 @@ pub(in crate::mir6502) fn discover_direct_pointer_temp_rematerializations(
             else {
                 continue;
             };
+            scope.shape(index + candidate.consumed);
             if let Some(plan) = direct_pointer_temp_rematerialization_plan(
                 block.id, &block.ops, index, candidate, context,
             ) {
@@ -1057,7 +1060,7 @@ pub(in crate::mir6502) fn discover_pointer_rewrites(
     context: &PreHomeRewriteContext<'_, '_>,
     layout: &crate::mir6502::materialize::MaterializeLayout,
 ) -> Vec<MirRewritePlan> {
-    let mut plans = discover_direct_pointer_temp_rematerializations(routine, context);
+    let mut plans = discover_direct_pointer_temp_rematerializations(routine, context, layout);
     plans.extend(discover_pointer_temp_derefs(routine, context, layout));
     plans.extend(super::addresses::discover_address_displacements(routine, context));
     plans.extend(super::addresses::discover_record_element_consumers(routine, context));

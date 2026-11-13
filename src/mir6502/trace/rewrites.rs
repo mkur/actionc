@@ -50,6 +50,7 @@ impl Trace {
         p: &MirRewritePlan,
         outcome: &'static str,
     ) {
+        self.layout_plan_outcome(p.stat, p.block, p.range.start, p.range.end, outcome);
         if outcome == "applied" {
             self.layout_applied(p.stat, p.block, p.range.start, p.range.end);
         }
@@ -65,6 +66,7 @@ impl Trace {
         p: &MirPostHomeRewritePlan,
         outcome: &'static str,
     ) {
+        self.layout_plan_outcome(p.stat, p.block, p.range.start, p.range.end, outcome);
         if outcome == "applied" {
             self.layout_applied(p.stat, p.block, p.range.start, p.range.end);
         }

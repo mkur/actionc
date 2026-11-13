@@ -528,3 +528,40 @@ those bodies' contracts. Eliminating this family's direct numeric queries does
 not certify the whole pipeline, authorize compaction, or cover other layout
 owners. Existing terminal acceptance, rollback and exact surviving-address
 guards remain in force; spill pruning stays disabled by default.
+
+
+## Pointer setup and candidate attribution
+
+Pointer-pair selection may choose the existing scratch pair without an individual
+planning-address query when a complete ordinary two-byte source range satisfies
+the ordinary-storage bounds proof. The source lanes must still be adjacent.
+Fixed/absolute sources, aliases, descriptors and unknown bounds keep the existing
+explicit placement path. Only addresses through $FE can start a complete fixed
+ZP pair; $FF cannot.
+
+Plain-address source separation may use the same proof for each one-byte source
+cell when the entire scratch pair is inside zero page. Pair starts at $FF do not
+qualify: the existing check's high address is $0100. Unsupported/unknown sources
+keep the conservative numeric check. Source-read observability, memory invalidation,
+register/flag liveness, callee effects and the address-reuse rules are unchanged.
+This does not broaden ordinary storage eligibility or permit allocation movement.
+
+The census now tags the local observations of explicitly scoped pointer candidates
+with family, block and starting operation; routine, generation and attempt come
+from the containing round. A recorded shape also has its exclusive end. Driver
+candidate/overlap-rejected/applied events update only an exactly matching range
+in that round. No plan or an unselected shape is not an accepted transformation.
+Locally applied still means speculative until every enclosing attempt selects it.
+
+Scopes cover direct-pointer rematerialization, pointer-temp dereference selection,
+and local gates for redundant plain/indexed address preparation. SSA prefix
+observation and fact learning occur outside candidate scopes: their queries remain
+shared analysis and can support a later candidate. Candidate observations therefore
+are local-gate records, not complete necessary proof obligations. Queries outside
+drivers and other layout owners retain their prior coverage limitations. No scope,
+missing record or empty local observation set certifies layout independence.
+
+Observation and candidate counts are bounded. Omitted candidate records mark the
+census truncated, just like omitted observations; the trace byte limit remains
+independent. Disabled/filtered diagnostics must not change decisions or work.
+Candidate tags are diagnostics only and never enter optimizer plans or proofs.

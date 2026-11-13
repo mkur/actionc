@@ -1,0 +1,13 @@
+; Ordinary pointer setup and repeated reads through one retained pointer.
+BYTE POINTER cursor
+BYTE first=$0600,second=$0601
+
+PROC ReadPair(BYTE POINTER source)
+  cursor=source
+  first=cursor^
+  second=cursor^
+RETURN
+
+PROC Main()
+  ReadPair($7200)
+RETURN

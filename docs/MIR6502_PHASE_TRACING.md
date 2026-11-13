@@ -121,3 +121,14 @@ not a numeric predicate: its input address is null because no address was
 queried. Count `address-query` events separately when measuring numeric layout
 dependence. Unsupported shapes can emit a false structural observation followed
 by explicit address queries. Round envelopes still include rejected candidates.
+
+
+Pointer candidate scopes add an optional `candidate` key to observations and a
+`candidates` array to `core-layout-round`. Keys contain family/block/start; each
+shape records its exclusive end and latest exact driver outcome (`candidate`,
+`overlap-rejected`, `applied`). `shape-only` and `no-shape` are not accepted plans.
+The containing attempt/routine/generation forms the rest of the identity. SSA
+prefix queries have no candidate key and remain shared analysis. These scopes
+cover local gates only; inherited facts and parent selection still matter.
+`fits-fixed-zero-page-pair` records a resolved pointer-pair choice. Structural
+bounds observations remain separate from numeric queries.

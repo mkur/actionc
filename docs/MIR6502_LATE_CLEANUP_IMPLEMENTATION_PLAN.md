@@ -229,3 +229,19 @@ Qualification completed: 1,323 MIR6502 unit tests, 134 integration tests, 32 VM
 tests, 54 frozen CLI artifact comparisons, 20 full API baseline comparisons and
 20 full API trace-off/on comparisons pass. The independent control validates
 LF/CRLF and actual high-lane-first execution. No shared IR contracts changed.
+
+
+## Pointer setup follow-up slices
+
+1. Add bounded candidate attribution to the existing census, link exact driver
+   outcomes, and keep SSA prefix facts separate. Capture a diagnostic-only
+   baseline and check output/work equivalence; commit this instrumentation.
+2. Reuse the existing ordinary-range proof for pointer-pair selection and plain
+   pointer-source separation. Keep numeric fallbacks and all preservation gates.
+   Test fixed-pair boundaries, unknown/alias storage, actual competing candidates
+   and repeated preparation; commit the implementation.
+3. Compare TN and independent controls against both the original output baseline
+   and the attributed baseline, including both runtimes/origins, LF/CRLF and VM
+   execution. Record accepted local gates separately from rejected/shared queries,
+   actual image sizes/work, and the remaining interior-spill blockers; commit
+   qualification. Compaction remains disabled.

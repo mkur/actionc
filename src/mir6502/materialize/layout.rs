@@ -39,6 +39,14 @@ struct MaterializeRoutineStorage {
 }
 
 impl MaterializeLayout {
+    pub(in crate::mir6502) fn census_candidate(
+        &self, routine: RoutineId, family: &'static str,
+        block: crate::mir6502::MirBlockId, start: usize,
+    ) -> crate::mir6502::trace::layout::CandidateGuard {
+        self.census.as_ref().map_or_else(Default::default, |(trace, _)|
+            trace.layout_candidate(routine, family, block, start))
+    }
+
     pub(super) fn with_census(
         mut self,
         trace: &crate::mir6502::trace::Trace,

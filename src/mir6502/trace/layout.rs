@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 const MAX_ROUND_OBSERVATIONS: usize = 512;
 const MAX_OUTSIDE_OBSERVATIONS: usize = 8192;
 const MAX_APPLIED_SITES: usize = 256;
+const MAX_CANDIDATES: usize = 256;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -22,6 +23,7 @@ pub(crate) enum Predicate {
     AboveZeroPageAndNoWrap,
     /// Declaration/extent proof; no numeric address was queried.
     OrdinaryRangeOutsideZeroPage,
+    FitsFixedZeroPagePair,
 }
 
 #[cfg(test)]
@@ -119,6 +121,89 @@ mod tests {
             0
         );
     }
+
+    #[test]
+    fn candidate_queries_follow_exact_outcomes_without_claiming_shared_analysis() {
+        let session = new_session();
+        let trace = session.context();
+        {
+            let _round = trace.layout_round(RoutineId(2), 3);
+            query(&trace, 0x4000); // Shared analysis, not either candidate.
+            {
+                let scope = trace.layout_candidate(RoutineId(2), "loser", MirBlockId(4), 1);
+                query(&trace, 0x3000);
+                scope.shape(3);
+            }
+            {
+                let scope = trace.layout_candidate(RoutineId(2), "winner", MirBlockId(4), 1);
+                scope.shape(3); // A selected shape can have no address queries.
+            }
+            trace.layout_plan_outcome("winner", MirBlockId(4), 1, 4, "applied");
+            trace.layout_plan_outcome("winner", MirBlockId(4), 1, 3, "candidate");
+            trace.layout_plan_outcome("loser", MirBlockId(4), 1, 3, "overlap-rejected");
+            trace.layout_plan_outcome("winner", MirBlockId(4), 1, 3, "applied");
+            trace.layout_applied("winner", MirBlockId(4), 1, 3);
+        }
+        let events = session.events();
+        let data = &events[0].data;
+        assert_eq!(data["candidates"][0]["outcome"], "overlap-rejected");
+        assert_eq!(data["candidates"][1]["outcome"], "applied");
+        let observations = data["observations"].as_array().unwrap();
+        assert!(
+            observations
+                .iter()
+                .any(|o| o["observation"]["candidate"].is_null())
+        );
+        assert!(
+            observations
+                .iter()
+                .any(|o| o["observation"]["candidate"]["family"] == "loser")
+        );
+        assert!(
+            !observations
+                .iter()
+                .any(|o| o["observation"]["candidate"]["family"] == "winner")
+        );
+        {
+            let _round = trace.layout_round(RoutineId(2), 4);
+            let scope = trace.layout_candidate(RoutineId(2), "winner", MirBlockId(4), 1);
+            scope.shape(3);
+        }
+        assert_eq!(
+            session.events()[1].data["candidates"][0]["outcome"],
+            "shape-only"
+        );
+    }
+
+    #[test]
+    fn candidate_caps_are_explicit_and_unscoped_candidates_grant_no_acceptance() {
+        let session = new_session();
+        let trace = session.context();
+        trace
+            .layout_candidate(RoutineId(2), "outside", MirBlockId(0), 0)
+            .shape(1);
+        assert!(session.events().is_empty());
+        {
+            let _round = trace.layout_round(RoutineId(2), 0);
+            for start in 0..=MAX_CANDIDATES {
+                trace
+                    .layout_candidate(RoutineId(2), "bounded", MirBlockId(0), start)
+                    .shape(start + 1);
+            }
+        }
+        assert_eq!(
+            session.events()[0].data["candidates"]
+                .as_array()
+                .unwrap()
+                .len(),
+            MAX_CANDIDATES
+        );
+        assert_eq!(session.events()[0].data["omitted"], 1);
+        assert_eq!(
+            session.manifest()["core_layout_census"]["status"],
+            "truncated"
+        );
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -154,6 +239,24 @@ struct Observation {
     predicate: Predicate,
     result: Option<bool>,
     inputs: Vec<Input>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    candidate: Option<CandidateKey>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+struct CandidateKey {
+    family: &'static str,
+    block: u32,
+    start: usize,
+}
+
+#[derive(Serialize)]
+struct Candidate {
+    key: CandidateKey,
+    end: Option<usize>,
+    outcome: &'static str,
+    #[serde(skip)]
+    observed: bool,
 }
 
 #[derive(Default)]
@@ -189,6 +292,9 @@ struct Round {
     journal: Journal,
     applied: Vec<Value>,
     applied_count: usize,
+    active_candidate: Option<Candidate>,
+    candidates: BTreeMap<CandidateKey, Candidate>,
+    omitted_candidates: usize,
 }
 
 #[derive(Default)]
@@ -211,6 +317,48 @@ impl Census {
     }
 }
 
+/// Diagnostics only. A scope covers local candidate checks, not inherited
+/// dataflow facts. Scope identity is local to the active driver round.
+#[derive(Default)]
+pub(crate) struct CandidateGuard(Option<Trace>);
+
+impl CandidateGuard {
+    pub(crate) fn shape(&self, end: usize) {
+        if let Some(trace) = &self.0 {
+            let mut state = trace.session.as_ref().unwrap().state.borrow_mut();
+            let candidate = state
+                .layout
+                .rounds
+                .last_mut()
+                .unwrap()
+                .active_candidate
+                .as_mut()
+                .unwrap();
+            candidate.end = Some(end);
+            candidate.outcome = "shape-only";
+        }
+    }
+}
+
+impl Drop for CandidateGuard {
+    fn drop(&mut self) {
+        let Some(trace) = &self.0 else {
+            return;
+        };
+        let mut state = trace.session.as_ref().unwrap().state.borrow_mut();
+        let round = state.layout.rounds.last_mut().unwrap();
+        let candidate = round.active_candidate.take().expect("candidate scope");
+        if !candidate.observed && candidate.end.is_none() {
+            return;
+        }
+        if round.candidates.len() < MAX_CANDIDATES {
+            round.candidates.insert(candidate.key.clone(), candidate);
+        } else {
+            round.omitted_candidates += 1;
+        }
+    }
+}
+
 pub(crate) struct RoundGuard(Option<Trace>);
 impl Drop for RoundGuard {
     fn drop(&mut self) {
@@ -228,7 +376,12 @@ impl Drop for RoundGuard {
             .pop()
             .expect("layout census round");
         debug_assert_eq!(round.attempt, trace.attempt);
-        if round.journal.observations.is_empty() && round.journal.omitted == 0 {
+        debug_assert!(round.active_candidate.is_none());
+        if round.journal.observations.is_empty()
+            && round.journal.omitted == 0
+            && round.candidates.is_empty()
+            && round.omitted_candidates == 0
+        {
             return;
         }
         {
@@ -236,21 +389,94 @@ impl Drop for RoundGuard {
             let census = &mut state.layout;
             census.observed_rounds += 1;
             census.applied_rounds += usize::from(round.applied_count > 0);
-            census.omitted +=
-                round.journal.omitted + round.applied_count.saturating_sub(round.applied.len());
+            census.omitted += round.journal.omitted
+                + round.applied_count.saturating_sub(round.applied.len())
+                + round.omitted_candidates;
         }
         trace.event("core-layout-round", || json!({
             "routine":round.routine.0,"generation":round.generation,
             "association":"discovery-round envelope; not per-rewrite proof",
             "selection_scope":"local; speculative until selected by every parent",
             "applied_count":round.applied_count,"applied":round.applied,
-            "omitted":round.journal.omitted + round.applied_count.saturating_sub(round.applied.len()),
+            "omitted":round.journal.omitted + round.applied_count.saturating_sub(round.applied.len()) + round.omitted_candidates,
             "observations":round.journal.values(),
+            "candidates":round.candidates.values().collect::<Vec<_>>(),
+            "candidate_coverage":"instrumented local checks only; inherited analysis and unscoped observations are separate",
         }));
     }
 }
 
 impl Trace {
+    pub(crate) fn layout_candidate(
+        &self,
+        routine: RoutineId,
+        family: &'static str,
+        block: MirBlockId,
+        start: usize,
+    ) -> CandidateGuard {
+        if !self.layout_census_enabled() || !self.wants(routine) {
+            return CandidateGuard::default();
+        }
+        let mut state = self.session.as_ref().unwrap().state.borrow_mut();
+        let Some(round) = state
+            .layout
+            .rounds
+            .last_mut()
+            .filter(|r| r.routine == routine)
+        else {
+            return CandidateGuard::default();
+        };
+        assert!(
+            round.active_candidate.is_none(),
+            "candidate scopes must not overlap"
+        );
+        round.active_candidate = Some(Candidate {
+            key: CandidateKey {
+                family,
+                block: block.0,
+                start,
+            },
+            end: None,
+            outcome: "no-shape",
+            observed: false,
+        });
+        CandidateGuard(Some(self.clone()))
+    }
+
+    pub(crate) fn layout_plan_outcome(
+        &self,
+        family: &'static str,
+        block: MirBlockId,
+        start: usize,
+        end: usize,
+        outcome: &'static str,
+    ) {
+        if !self.layout_census_enabled() {
+            return;
+        }
+        let mut state = self.session.as_ref().unwrap().state.borrow_mut();
+        let Some(round) = state
+            .layout
+            .rounds
+            .last_mut()
+            .filter(|r| r.attempt == self.attempt)
+        else {
+            return;
+        };
+        let key = CandidateKey {
+            family,
+            block: block.0,
+            start,
+        };
+        if let Some(candidate) = round
+            .candidates
+            .get_mut(&key)
+            .filter(|c| c.end == Some(end))
+        {
+            candidate.outcome = outcome;
+        }
+    }
+
     pub(crate) fn layout_census_enabled(&self) -> bool {
         self.enabled()
             && self
@@ -277,6 +503,9 @@ impl Trace {
                 journal: Journal::default(),
                 applied: Vec::new(),
                 applied_count: 0,
+                active_candidate: None,
+                candidates: BTreeMap::new(),
+                omitted_candidates: 0,
             });
         RoundGuard(Some(self.clone()))
     }
@@ -321,13 +550,14 @@ impl Trace {
             return;
         }
         let caller = std::panic::Location::caller();
-        let observation = Observation {
+        let mut observation = Observation {
             epoch,
             file: caller.file(),
             line: caller.line(),
             predicate,
             result,
             inputs: inputs(),
+            candidate: None,
         };
         let mut state = self.session.as_ref().unwrap().state.borrow_mut();
         let census = &mut state.layout;
@@ -336,6 +566,10 @@ impl Trace {
             .last_mut()
             .filter(|r| routine.is_none_or(|id| r.routine == id))
         {
+            if let Some(candidate) = &mut round.active_candidate {
+                candidate.observed = true;
+                observation.candidate = Some(candidate.key.clone());
+            }
             round.journal.record(observation, MAX_ROUND_OBSERVATIONS);
         } else {
             let key = (self.attempt, routine);

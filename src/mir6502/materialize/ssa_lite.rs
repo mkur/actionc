@@ -2761,6 +2761,15 @@ pub(in crate::mir6502) fn discover_redundant_indexed_address_materializations(
                 env.observe_op(op, routine.id, layout);
                 continue;
             };
+            let stat = if matches!(&fact.key, SsaLiteV2AddressKey::Address(_)) {
+                "ssa-lite-redundant-base-address"
+            } else {
+                STAT
+            };
+            // Attribute only local candidate gates. Prefix observation/learning
+            // below remains shared analysis, including on rejected candidates.
+            let scope = layout.census_candidate(routine.id, stat, block.id, index);
+            scope.shape(index + 1);
             let direct_shape = match &fact.key {
                 SsaLiteV2AddressKey::Address(MirValue::Word { lo, hi }) => {
                     direct_load_byte_shape(lo, layout) && direct_load_byte_shape(hi, layout)
@@ -2777,12 +2786,8 @@ pub(in crate::mir6502) fn discover_redundant_indexed_address_materializations(
                 (SsaLiteV2AddressKey::Address(_), _) => false,
                 _ => true,
             };
-            let stat = if matches!(&fact.key, SsaLiteV2AddressKey::Address(_)) {
-                "ssa-lite-redundant-base-address"
-            } else {
-                STAT
-            };
             if !env.address_is_reusable(&fact, layout) || !direct_shape {
+                drop(scope);
                 env.observe_op(op, routine.id, layout);
                 learn_normalized_plain_address(&mut env, fact, routine.id, layout);
                 continue;
@@ -2805,6 +2810,7 @@ pub(in crate::mir6502) fn discover_redundant_indexed_address_materializations(
                 context.exit_state_change_is_unobservable(&exit_state_change, point)
             {
                 context.record_blocker(stat, block.id, index, &blocker);
+                drop(scope);
                 env.observe_op(op, routine.id, layout);
                 learn_normalized_plain_address(&mut env, fact, routine.id, layout);
                 continue;

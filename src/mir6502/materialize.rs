@@ -495,8 +495,10 @@ pub(in crate::mir6502) fn analyzed_pointer_temp_deref_candidates(
     let temp_widths = collect_temp_widths(&block.ops);
     (0..block.ops.len())
         .filter_map(|index| {
-            select_pointer_temp_deref(&block.ops, index, routine_id, layout, &temp_widths, false)
-                .map(|candidate| (index, candidate))
+            let scope = layout.census_candidate(routine_id, "pointer-temp-deref", block.id, index);
+            let candidate = select_pointer_temp_deref(&block.ops, index, routine_id, layout, &temp_widths, false)?;
+            scope.shape(index + candidate.consumed);
+            Some((index, candidate))
         })
         .collect()
 }

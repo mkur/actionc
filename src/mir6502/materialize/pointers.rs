@@ -479,6 +479,12 @@ fn pointer_consumer_for_value(
     let Some(address) = layout.mem_address(routine_id, lo_mem) else {
         return DEFAULT_POINTER_PAIR;
     };
+    layout.observe_predicate(
+        routine_id,
+        crate::mir6502::trace::layout::Predicate::FitsFixedZeroPagePair,
+        address <= 0x00FE,
+        &[(lo_mem, Some(address), 2)],
+    );
     if address <= 0x00FE {
         MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
             lo: MirFixedZpSlot(address as u8),
