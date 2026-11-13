@@ -94,7 +94,7 @@ loads of `global_s`/`global_s+1` in `FormatDirectoryRow` and another pair in
 `SetWin`. These account for 12 candidate instruction bytes. Final image savings
 must be measured after proof validation and emission.
 
-The first producer slice admits only byte `LoadImm`, register-to-register
+The first producer slice admits only byte `LoadImm`, native A↔X/A↔Y
 `Move`, and direct byte `Load` operations into A/X/Y. It excludes arithmetic,
 word operations, indirect loads, pointer-valued moves, raw absolute reads,
 fixed-ZP reads, calls and machine blocks. This closed shape check is separate

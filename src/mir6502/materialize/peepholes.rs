@@ -3561,11 +3561,24 @@ pub(in crate::mir6502) fn discover_dead_register_writes(
     context: &PostHomeRewriteContext<'_, '_>,
     layout: &MaterializeLayout,
 ) -> Vec<MirPostHomeRewritePlan> {
+    discover_dead_register_writes_with_purity(routine, context, |op| {
+        pure_byte_reg_write_for_dce(op, layout)
+    })
+}
+
+/// Share liveness/structural proofs while allowing each pipeline boundary to
+/// supply its own read-purity evidence. Core cleanup retains its layout rules;
+/// terminal cleanup uses authoritative emitted placement and a narrower shape.
+pub(in crate::mir6502) fn discover_dead_register_writes_with_purity(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    pure: impl Fn(&MirOp) -> Option<MirReg>,
+) -> Vec<MirPostHomeRewritePlan> {
     let mut plans = Vec::new();
     for block in &routine.blocks {
         for index in 0..block.ops.len() {
             if let Some(reg) = dead_reg_write_before_overwrite_shape_at(&block.ops, index)
-                && pure_byte_reg_write_for_dce(&block.ops[index], layout) == Some(reg)
+                && pure(&block.ops[index]) == Some(reg)
                 && let Some(plan) = structural_plan(
                     routine,
                     context,
@@ -3580,7 +3593,7 @@ pub(in crate::mir6502) fn discover_dead_register_writes(
                 plans.push(plan);
             }
             if let Some(reg) = dead_a_load_before_flag_overwrite_shape_at(&block.ops, index)
-                && pure_byte_reg_write_for_dce(&block.ops[index], layout) == Some(reg)
+                && pure(&block.ops[index]) == Some(reg)
                 && let Some(plan) = structural_plan(
                     routine,
                     context,
@@ -3598,7 +3611,7 @@ pub(in crate::mir6502) fn discover_dead_register_writes(
                 block: block.id,
                 op_index: index,
             });
-            if let Some(reg) = pure_byte_reg_write_for_dce(&block.ops[index], layout)
+            if let Some(reg) = pure(&block.ops[index])
                 && context.register_dead_after(reg, point).is_proven()
                 && context
                     .flags_dead_after(

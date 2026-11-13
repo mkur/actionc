@@ -28,6 +28,8 @@ pub struct Mir6502Config {
     pub enable_word_load_sharing: bool,
     /// Terminal, frame-preserving private-store cleanup with selected-proof replay.
     pub enable_late_private_store_cleanup: bool,
+    /// Extend terminal cleanup to proved-dead byte loads and native register moves.
+    pub enable_late_dead_register_cleanup: bool,
     /// Replace proven small constant fill loops with direct byte stores.
     pub enable_tiny_constant_fills: bool,
     /// Forward captured bytes into small copies, subject to final size costing.
@@ -115,6 +117,7 @@ impl Default for Mir6502Config {
             enable_pointer_load_sharing: false,
             enable_word_load_sharing: false,
             enable_late_private_store_cleanup: false,
+            enable_late_dead_register_cleanup: false,
             enable_tiny_constant_fills: true,
             enable_copy_value_forwarding: true,
             enable_register_copy_forwarding: false,
@@ -161,6 +164,7 @@ impl Mir6502Config {
             enable_pointer_load_sharing: true,
             enable_word_load_sharing: true,
             enable_late_private_store_cleanup: true,
+            enable_late_dead_register_cleanup: false,
             enable_record_base_reuse: true,
             enable_register_copy_forwarding: true,
             enable_pointer_call_retention: true,

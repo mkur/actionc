@@ -1,0 +1,25 @@
+MODULE
+
+BYTE POINTER text
+BYTE index
+
+BYTE FUNC Convert(BYTE c)
+  IF c<32 THEN
+    RETURN(c+64)
+  FI
+  IF c<96 THEN
+    RETURN(c-32)
+  FI
+RETURN(c)
+
+PROC Transform(CARD address)
+  text=address
+  FOR index=0 TO 3
+  DO
+    text(index)=Convert(text(index))
+  OD
+RETURN
+
+PROC Main()
+  Transform($7200)
+RETURN
