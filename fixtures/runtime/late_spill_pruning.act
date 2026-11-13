@@ -1,0 +1,26 @@
+; Ordinary-RAM argument capture under zero-page pressure. Late cleanup leaves
+; an unused tail spill. ABI descriptor references expose the frame; the narrow
+; pruner must preserve the already-cleaned output on that rejection.
+MODULE
+CARD observedFirst=$0680,observedSecond=$0682
+BYTE observedTag=$0684
+BYTE reservedE0=$E0,reservedE1=$E1,reservedE2=$E2,reservedE3=$E3
+BYTE reservedE4=$E4,reservedE5=$E5,reservedE6=$E6,reservedE7=$E7
+BYTE reservedE8=$E8,reservedE9=$E9,reservedEA=$EA,reservedEB=$EB
+BYTE reservedEC=$EC,reservedED=$ED,reservedEE=$EE,reservedEF=$EF
+BYTE reservedF0=$F0,reservedF1=$F1,reservedF2=$F2,reservedF3=$F3
+BYTE reservedF4=$F4,reservedF5=$F5,reservedF6=$F6,reservedF7=$F7
+BYTE reservedF8=$F8,reservedF9=$F9,reservedFA=$FA,reservedFB=$FB
+BYTE reservedFC=$FC,reservedFD=$FD,reservedFE=$FE,reservedFF=$FF
+
+PROC Capture(CARD first,second BYTE tag)
+  observedFirst=first
+  observedSecond=second
+  observedTag=tag
+RETURN
+PROC Forward(CARD first,second BYTE tag)
+  Capture(first+1,second,tag)
+RETURN
+PROC Main()
+  Forward(1,2,3)
+RETURN

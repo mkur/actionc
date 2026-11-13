@@ -31,6 +31,7 @@ const ADDRESS_INDEX_SCRATCH_HI: u8 = 0xAF;
 #[derive(Debug, Default, Clone)]
 pub(super) struct MirEmissionSummary {
     pub physical_memory: super::analysis::record_bases::MirPhysicalMemory,
+    pub storage_layout: Option<MirStorageLayoutProof>,
     /// Final instruction ranges, after layout and branch relaxation. Internal
     /// proof consumers use IDs, never listing labels or source names.
     pub block_ranges: Vec<(RoutineId, MirBlockId, std::ops::Range<usize>)>,
@@ -168,6 +169,7 @@ pub(super) fn emit_program_with_reference_programs_traced(
             trace_final_layout(&ctx);
         }
         if physical_memory {
+            ctx.summary.storage_layout = Some(MirStorageLayoutProof::from_layout(&ctx.layout));
             // Data allocations come from actual placement, independently of any
             // pointer type. Numeric pointers into code or foreign RAM are not
             // certificates for retaining memory-dependent machine facts.
@@ -662,7 +664,7 @@ struct MirRoutineStorageLayout {
     machine_symbols: HashMap<String, MirMachineSymbol>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MirStoragePlacement {
     Absolute {
         address: u16,
@@ -670,6 +672,106 @@ enum MirStoragePlacement {
         output_relative: bool,
     },
     Unresolved,
+}
+
+/// Typed final allocation certificate; debug names are not proof identities.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct MirStorageLayoutProof {
+    // Raw object starts also cover descriptor backing data that is not exposed
+    // through the logical descriptor-cell placement maps below.
+    data: Vec<(Option<RoutineId>, MirStorageBase, u16)>,
+    globals: HashMap<SymbolId, MirStoragePlacement>,
+    statics: HashMap<SymbolId, MirStoragePlacement>,
+    routines: HashMap<RoutineId, MirRoutineStorageProof>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MirRoutineStorageProof {
+    params: HashMap<ParamId, MirStoragePlacement>,
+    locals: HashMap<LocalId, MirStoragePlacement>,
+    spills: HashMap<MirSpillId, MirStoragePlacement>,
+    zero_page: HashMap<MirZpSlot, u8>,
+}
+
+impl MirStorageLayoutProof {
+    fn from_layout(layout: &MirObjectLayout) -> Self {
+        Self {
+            data: layout
+                .storage_items
+                .iter()
+                .map(|item| match item {
+                    MirStorageItem::Global { id, address } => {
+                        (None, MirStorageBase::Global(*id), *address)
+                    }
+                    MirStorageItem::Static { id, address } => {
+                        (None, MirStorageBase::Static(*id), *address)
+                    }
+                    MirStorageItem::RoutineSlot {
+                        routine,
+                        slot,
+                        address,
+                    } => (Some(*routine), slot.base.clone(), *address),
+                })
+                .collect(),
+            globals: layout.globals.clone(),
+            statics: layout.statics.clone(),
+            routines: layout
+                .routine_storage
+                .iter()
+                .map(|(&id, r)| {
+                    (
+                        id,
+                        MirRoutineStorageProof {
+                            params: r.params.clone(),
+                            locals: r.locals.clone(),
+                            spills: r.spills.clone(),
+                            zero_page: r.zero_page.clone(),
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    pub(super) fn spill_address(&self, routine: RoutineId, spill: MirSpillId) -> Option<u16> {
+        match self.routines.get(&routine)?.spills.get(&spill)? {
+            MirStoragePlacement::Absolute {
+                address,
+                size: 1,
+                output_relative: true,
+            } => Some(*address),
+            _ => None,
+        }
+    }
+
+    pub(super) fn preserves_surviving_storage(
+        &self,
+        candidate: &Self,
+        removed: &std::collections::BTreeMap<RoutineId, std::collections::BTreeSet<MirSpillId>>,
+    ) -> bool {
+        let mut expected = self.clone();
+        expected.data.retain(|(owner, base, _)| {
+            !matches!((owner, base), (Some(r), MirStorageBase::Spill(id)) if removed.get(r).is_some_and(|ids| ids.contains(id)))
+        });
+        for (id, r) in &mut expected.routines {
+            if let Some(ids) = removed.get(id) {
+                r.spills.retain(|id, _| !ids.contains(id));
+            }
+        }
+        let resolved = |p: &Self| {
+            p.globals
+                .values()
+                .chain(p.statics.values())
+                .chain(p.routines.values().flat_map(|r| {
+                    r.params
+                        .values()
+                        .chain(r.locals.values())
+                        .chain(r.spills.values())
+                }))
+                .all(|p| matches!(p, MirStoragePlacement::Absolute { .. }))
+        };
+        expected == *candidate && resolved(&expected)
+    }
 }
 
 #[derive(Debug, Clone)]

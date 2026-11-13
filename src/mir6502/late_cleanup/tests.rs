@@ -1,34 +1,34 @@
 use super::*;
 use crate::mir6502::trace::{Mir6502Trace, TraceOptions};
 
-fn home() -> MirMem {
+pub(super) fn home() -> MirMem {
     MirMem::Spill {
         id: MirSpillId(0),
         offset: 0,
     }
 }
-fn imm(value: u16) -> MirOp {
+pub(super) fn imm(value: u16) -> MirOp {
     MirOp::LoadImm {
         dst: MirDef::Reg(MirReg::A),
         value,
         width: MirWidth::Byte,
     }
 }
-fn store() -> MirOp {
+pub(super) fn store() -> MirOp {
     MirOp::Store {
         dst: MirAddr::Direct(home()),
         src: MirValue::Def(MirDef::Reg(MirReg::A)),
         width: MirWidth::Byte,
     }
 }
-fn load(mem: MirMem) -> MirOp {
+pub(super) fn load(mem: MirMem) -> MirOp {
     MirOp::Load {
         dst: MirDef::Reg(MirReg::A),
         src: MirAddr::Direct(mem),
         width: MirWidth::Byte,
     }
 }
-fn program(ops: Vec<MirOp>) -> MirProgram {
+pub(super) fn program(ops: Vec<MirOp>) -> MirProgram {
     MirProgram {
         globals: vec![],
         statics: vec![],
@@ -98,7 +98,7 @@ fn reason(events: &[crate::mir6502::trace::TraceEvent]) -> Option<&str> {
         .and_then(|e| e.data["reason"].as_str())
 }
 
-fn assert_closed_attempts(events: &[crate::mir6502::trace::TraceEvent]) {
+pub(super) fn assert_closed_attempts(events: &[crate::mir6502::trace::TraceEvent]) {
     for start in events
         .iter()
         .filter(|e| e.kind == "attempt-start" && e.data["scope"] == "attempt")
@@ -219,7 +219,7 @@ fn change_guard_rejects_producer_frame_and_public_store_deletion() {
     assert!(!only_cleanup_deletions(&p, &bad, false, None));
 }
 
-fn clean(program: &MirProgram) -> Preservation {
+pub(super) fn clean(program: &MirProgram) -> Preservation {
     let mut log = Preservation::new(true);
     log.begin(program);
     log

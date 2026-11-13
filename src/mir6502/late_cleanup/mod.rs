@@ -1,6 +1,7 @@
 //! Terminal store/producer cleanup and preservation of selected late decisions.
 pub(super) mod preservation;
 mod producers;
+mod pruning;
 mod readers;
 
 use super::{
@@ -37,6 +38,7 @@ enum Declined {
 }
 
 struct Measurement {
+    storage_layout: Option<emit::MirStorageLayoutProof>,
     memory: MirPhysicalMemory,
     image_bytes: usize,
     instruction_bytes: BTreeMap<RoutineId, usize>,
@@ -83,12 +85,24 @@ fn measure(
     for (id, _, range) in &summary.block_ranges {
         *instruction_bytes.entry(*id).or_default() += range.len();
     }
+    let storage_layout = summary.storage_layout.clone();
     let output = super::codegen_output(emission, origin, summary, runtime, program);
     Ok(Measurement {
+        storage_layout,
         memory,
         instruction_bytes,
         image_bytes: crate::codegen::format_load_file(&output).len(),
     })
+}
+
+/// Both terminal transactions accept only measured packaged savings without
+/// increasing any existing routine's instruction footprint.
+fn improves_cost(program: &MirProgram, old: &Measurement, new: &Measurement) -> bool {
+    new.image_bytes < old.image_bytes
+        && program.routines.iter().all(|r| {
+            new.instruction_bytes.get(&r.id).copied().unwrap_or(0)
+                <= old.instruction_bytes.get(&r.id).copied().unwrap_or(0)
+        })
 }
 
 fn observable_reads(program: &MirProgram, memory: &MirPhysicalMemory) -> Vec<(Option<u16>, u16)> {
@@ -354,6 +368,49 @@ pub(super) fn select(
     runtime: crate::runtime::Runtime,
     trace: &Trace,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    if !config.enable_late_spill_pruning || !preservation.covers(&baseline) {
+        return select_definitions(
+            baseline,
+            preservation,
+            ranges,
+            config,
+            origin,
+            runtime,
+            trace,
+        );
+    }
+    // Keep the original proof references alive without treating them as storage.
+    let references = preservation.references(&baseline);
+    let cleaned = select_definitions(
+        baseline.clone(),
+        preservation,
+        ranges,
+        config,
+        origin,
+        runtime,
+        trace,
+    )?;
+    pruning::select(
+        cleaned,
+        &references,
+        preservation,
+        ranges,
+        config,
+        origin,
+        runtime,
+        trace,
+    )
+}
+
+fn select_definitions(
+    baseline: MirProgram,
+    preservation: &Preservation,
+    ranges: Option<&MirAddressRanges<'_>>,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    trace: &Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
     trace.run("late-private-store-cleanup", |trace| {
         trace.snapshot("attempt-input", &baseline);
         let remove_producers = config.enable_late_dead_register_cleanup;
@@ -390,8 +447,7 @@ pub(super) fn select(
             let new = measure(&proposed, &references, origin, runtime, trace).map_err(|_| Declined::CandidateEmission)?;
             if apply_traced(&baseline, Some(&new.memory), preservation.default_sargs(), remove_producers, origin, trace, "final-placement-deletion-replay")? != proposed { return Err(Declined::DeletionReplay); }
             preservation.validate(&new.memory, ranges, config, origin, trace).map_err(Declined::EarlierDecision)?;
-            if new.image_bytes >= old.image_bytes || baseline.routines.iter().any(|r|
-                new.instruction_bytes.get(&r.id).copied().unwrap_or(0) > old.instruction_bytes.get(&r.id).copied().unwrap_or(0)) {
+            if !improves_cost(&baseline, &old, &new) {
                 return Err(Declined::Cost);
             }
             Ok(new)

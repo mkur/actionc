@@ -182,6 +182,21 @@ use indexes::{
     try_prepare_dynamic_word_index,
 };
 pub(super) use layout::MaterializeLayout;
+
+/// Candidate inventory only. Late callers must separately prove absence of
+/// structured references, address exposure and allocation-dependent changes.
+pub(super) fn unused_spill_candidates(routine: &super::ir::MirRoutine) -> Vec<MirSpillId> {
+    let mut pruned = routine.clone();
+    spills::prune_unused_spills(&mut pruned);
+    routine
+        .frame
+        .spills
+        .iter()
+        .copied()
+        .filter(|id| !pruned.frame.spills.contains(id))
+        .collect()
+}
+
 use lea::{lower_address_to_def, lower_lea_addrs_with_final_layout};
 use machine_value_census::fold_redundant_register_reloads;
 pub(in crate::mir6502) use memory::op_may_write_mem;

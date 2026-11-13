@@ -4,6 +4,7 @@ use crate::mir6502::ir::{
 };
 use crate::nir::{LocalId, ParamId, SymbolId};
 
+#[derive(Clone, PartialEq, Eq)]
 pub(in crate::mir6502) struct MaterializeLayout {
     origin: u16,
     globals: Vec<(SymbolId, MirGlobalBacking, bool)>,
@@ -11,7 +12,7 @@ pub(in crate::mir6502) struct MaterializeLayout {
     routine_storage: Vec<(RoutineId, MaterializeRoutineStorage)>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 struct MaterializeRoutineStorage {
     params: Vec<(ParamId, u16, u16, Option<MirWidth>)>,
     locals: Vec<(LocalId, u16, u16, Option<MirWidth>)>,
@@ -21,6 +22,21 @@ struct MaterializeRoutineStorage {
 }
 
 impl MaterializeLayout {
+    /// Only erased private spills may disappear. Every surviving planning-layout
+    /// address, size and storage attribute must remain exactly equal.
+    pub(in crate::mir6502) fn preserves_surviving_storage(
+        &self,
+        candidate: &Self,
+        removed: &std::collections::BTreeMap<RoutineId, std::collections::BTreeSet<MirSpillId>>,
+    ) -> bool {
+        let mut expected = self.clone();
+        for (id, storage) in &mut expected.routine_storage {
+            if let Some(ids) = removed.get(id) {
+                storage.spills.retain(|(id, _, _)| !ids.contains(id));
+            }
+        }
+        expected == *candidate
+    }
     /// Emission places generated code and ordinary frames at/above the main origin.
     /// This bound, unlike tentative individual addresses, survives placement.
     pub(super) fn ordinary_storage_is_above_zero_page(&self) -> bool {

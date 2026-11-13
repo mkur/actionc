@@ -359,6 +359,9 @@ structured effect/reference inventory. Address references, including references
 in immutable earlier-decision witnesses, retain a spill. Structured reads and
 writes, terminators, call results and frame-slot backing also count as uses;
 a missing explicit load is insufficient. Data relocations cannot name spills.
+Unknown or indirect readers/writers retain storage unless existing callee
+summaries provide exact footprints. Compiler-private identity alone does not
+justify discarding zero-initialized bytes that unknown code might observe.
 
 ### Core allocation preservation
 
