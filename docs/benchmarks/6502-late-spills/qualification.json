@@ -1,0 +1,1471 @@
+{
+  "baseline_revision": "83236a1f",
+  "implementation_revision": "304025f3855ae6fb2f43ac24b17b1174e8aeed07",
+  "compiler_sha256": "cf004cdc023d5b5694c0715e4c2f0d24be81742af4949d30d6df1cc8ebd95993",
+  "cli_cases": [
+    {
+      "id": "tn-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "bba492444a23811275fb6778925df5362cc0be123078e7ec795a583be2cb4008",
+          "bytes": 9970,
+          "seconds": 8.11663637496531
+        },
+        "asm": {
+          "sha256": "389fc4cd3364e6c47ea5b7cc068542069ebfd6f37f89f9169de2937442ca78a9",
+          "bytes": 290708,
+          "seconds": 8.199826416035648
+        },
+        "map": {
+          "sha256": "998624868277f7c3bd0c13a2d509c1ed89e6c0852686c9ffdb893d6ae793115e",
+          "bytes": 10148,
+          "seconds": 8.140323292056564
+        }
+      }
+    },
+    {
+      "id": "tn-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "0a69f65988bd2ab83a2e2146bcab7857e693692cdeea4d85f0e32fddf59f1527",
+          "bytes": 10077,
+          "seconds": 7.956949374987744
+        },
+        "asm": {
+          "sha256": "f0c65cbce33e5e529b35da5074450fbc90aad337b80b3567229b9dc735a61e30",
+          "bytes": 295234,
+          "seconds": 8.066788166994229
+        },
+        "map": {
+          "sha256": "fd0e856760fc6c22d48dc7f6e79cac3d1d493fba13053d1447d0cda359842fae",
+          "bytes": 10997,
+          "seconds": 8.001318500027992
+        }
+      }
+    },
+    {
+      "id": "home-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "bytes": 21,
+          "seconds": 0.009085791010875255
+        },
+        "asm": {
+          "sha256": "d0f253bc7bd825eb31d80622303b4cb8d8dc43079a65fe5a0138fa14e07d9594",
+          "bytes": 879,
+          "seconds": 0.008071999996900558
+        },
+        "map": {
+          "sha256": "682f928d1073334d91dad8fe9f6658ab0a0aa7a83b7b89873a1e6477211d8e12",
+          "bytes": 73,
+          "seconds": 0.00877329200739041
+        }
+      }
+    },
+    {
+      "id": "home-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "bytes": 21,
+          "seconds": 0.00877545797266066
+        },
+        "asm": {
+          "sha256": "4cce64a0bcd304e8a7b672bd41868dd59f8754cc927bf3e09fbad615c0385dae",
+          "bytes": 885,
+          "seconds": 0.008744375023525208
+        },
+        "map": {
+          "sha256": "1f8c75369850d017d347758aa9ccae607c075c2adb578b613f8e7dab5f874948",
+          "bytes": 79,
+          "seconds": 0.008510541985742748
+        }
+      }
+    },
+    {
+      "id": "staging-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "51b486710953f4fab51a0229439e641b94a65222ad3a01873d55598c1e4738ed",
+          "bytes": 330,
+          "seconds": 0.057841582980472594
+        },
+        "asm": {
+          "sha256": "f077f78527fdaf9251f2a9f081048fda0b46385de9109abcaf6d18116e1e82f3",
+          "bytes": 10957,
+          "seconds": 0.05764037498738617
+        },
+        "map": {
+          "sha256": "8e672fb164055f8b9e176e3acc7ef99f3d7748b8375f61a7002f67832bb4e93c",
+          "bytes": 1049,
+          "seconds": 0.0576458330033347
+        }
+      }
+    },
+    {
+      "id": "staging-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "32850af4c044cdfc67e4ed9d5ef89403f8d2b0a1638a8a405ed18cd32d266ad5",
+          "bytes": 412,
+          "seconds": 0.06029262498486787
+        },
+        "asm": {
+          "sha256": "2192547f4a7038d47b4752b12b7b41d4c03960318029bb2efbc6c00c7c2cad42",
+          "bytes": 14466,
+          "seconds": 0.061258082976564765
+        },
+        "map": {
+          "sha256": "8ed288d3d02d05d914f8cd1c4b0198d318ff419f86279cc8d6dac9b36a904eee",
+          "bytes": 1593,
+          "seconds": 0.060362208052538335
+        }
+      }
+    },
+    {
+      "id": "word-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "7052148ba7ca6bd52a4f1014b65827361e493af716b7884077508a568afcab5f",
+          "bytes": 301,
+          "seconds": 0.04006595799000934
+        },
+        "asm": {
+          "sha256": "1ccb6c066e4ca13fd2b9836e5ab9729b2ca555b05caf615ed2188b1dbbb7936d",
+          "bytes": 9203,
+          "seconds": 0.04079341603210196
+        },
+        "map": {
+          "sha256": "c7bf7cf4a483e149a2d1424683dbc65be56365b636307ee310f8ee1f52288446",
+          "bytes": 199,
+          "seconds": 0.04022170801181346
+        }
+      }
+    },
+    {
+      "id": "word-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "7052148ba7ca6bd52a4f1014b65827361e493af716b7884077508a568afcab5f",
+          "bytes": 301,
+          "seconds": 0.04015125002479181
+        },
+        "asm": {
+          "sha256": "2dbd5d66bb5b3c7aaabdb881dd2f4b989cecba857d8a9dd37cded5c7f523f549",
+          "bytes": 9209,
+          "seconds": 0.04107074998319149
+        },
+        "map": {
+          "sha256": "ef839bad39e8ba144b0a37012b8ee1b2077642eab490bbafc07aef9a711a661b",
+          "bytes": 205,
+          "seconds": 0.04156004101969302
+        }
+      }
+    },
+    {
+      "id": "word-cart-0x41C7-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+          "bytes": 301,
+          "seconds": 0.041084625001531094
+        },
+        "asm": {
+          "sha256": "8655bf45e32c94563670fa1be05c3b15dc56480149883d39937441fc29c0cb87",
+          "bytes": 9203,
+          "seconds": 0.04164541600039229
+        },
+        "map": {
+          "sha256": "dfcdd4adc0528b1b5854102c9726899cc00c974e36edd251e99ddf1ea17388d0",
+          "bytes": 199,
+          "seconds": 0.04141037497902289
+        }
+      }
+    },
+    {
+      "id": "loop-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "809ae5f6c3549a7cad5bc28aa7b2a8d60ff452b6c207e01cbe1f2e8a450a91ca",
+          "bytes": 77,
+          "seconds": 0.022407540993299335
+        },
+        "asm": {
+          "sha256": "9a3d485e5536f69b7b540913edae974a0422a75cabcff93c320525fe7efefccd",
+          "bytes": 2582,
+          "seconds": 0.022114583000075072
+        },
+        "map": {
+          "sha256": "ddc7766936d250a5d554aff519bddc01651bad922b51b9ae4e7ddf669fe70069",
+          "bytes": 268,
+          "seconds": 0.021814374951645732
+        }
+      }
+    },
+    {
+      "id": "loop-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "809ae5f6c3549a7cad5bc28aa7b2a8d60ff452b6c207e01cbe1f2e8a450a91ca",
+          "bytes": 77,
+          "seconds": 0.02310516603756696
+        },
+        "asm": {
+          "sha256": "9ac4a9da565e0712c6e6610fe38aafe437fff5e0ed7c2b26f1db5d8092217c5d",
+          "bytes": 2588,
+          "seconds": 0.022523042047396302
+        },
+        "map": {
+          "sha256": "df3e85c51ea46d6f0b038c6df7307494fea02c8180ccbd58aef8e096a4da5d95",
+          "bytes": 274,
+          "seconds": 0.023173750028945506
+        }
+      }
+    },
+    {
+      "id": "ranges-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "bytes": 21,
+          "seconds": 0.00889495899900794
+        },
+        "asm": {
+          "sha256": "d0f253bc7bd825eb31d80622303b4cb8d8dc43079a65fe5a0138fa14e07d9594",
+          "bytes": 879,
+          "seconds": 0.00861420901492238
+        },
+        "map": {
+          "sha256": "682f928d1073334d91dad8fe9f6658ab0a0aa7a83b7b89873a1e6477211d8e12",
+          "bytes": 73,
+          "seconds": 0.008516457979567349
+        }
+      }
+    },
+    {
+      "id": "ranges-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "bytes": 21,
+          "seconds": 0.00826354103628546
+        },
+        "asm": {
+          "sha256": "4cce64a0bcd304e8a7b672bd41868dd59f8754cc927bf3e09fbad615c0385dae",
+          "bytes": 885,
+          "seconds": 0.00876541598699987
+        },
+        "map": {
+          "sha256": "1f8c75369850d017d347758aa9ccae607c075c2adb578b613f8e7dab5f874948",
+          "bytes": 79,
+          "seconds": 0.009022374986670911
+        }
+      }
+    },
+    {
+      "id": "ranges-cart-0x41C7-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "49977821fcfa638edbedb7811c56bf24827be6b9a083a06bf9ef103fc383e6de",
+          "bytes": 21,
+          "seconds": 0.008647416019812226
+        },
+        "asm": {
+          "sha256": "95896f3dd36f250c4f3f389a26b59d7777dd1e86e1e572b40e5de0bfbb40c920",
+          "bytes": 879,
+          "seconds": 0.0087633749935776
+        },
+        "map": {
+          "sha256": "8af839a032f9b9172f27d04fcdec1ea6d7f088ba331010cdc61eb232fa97c99d",
+          "bytes": 73,
+          "seconds": 0.008906166011001915
+        }
+      }
+    },
+    {
+      "id": "captures-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "e6d5d1a7b16a0a4c00adbfadd3f3eeb8a8e711ef3df1ef85450722df0dc33603",
+          "bytes": 227,
+          "seconds": 0.06148945802124217
+        },
+        "asm": {
+          "sha256": "1fb75afeb58a1233052dd15f021a03f9c95028cd83139c472b82cd91bc44b600",
+          "bytes": 7904,
+          "seconds": 0.06238908297382295
+        },
+        "map": {
+          "sha256": "32ae9f861db81f1830149273c8eabe1a29db5f0cec9495433d86d18f2fe52379",
+          "bytes": 699,
+          "seconds": 0.06074362498475239
+        }
+      }
+    },
+    {
+      "id": "captures-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "19c1064ed65e1ca4b18f33883a4eec095904adb0af5e8b4e3f8bb1f7c46c9e51",
+          "bytes": 309,
+          "seconds": 0.06497100001433864
+        },
+        "asm": {
+          "sha256": "39c404519dafa86b2774d1855ade2048ca940124614207d9e2804e160f190f01",
+          "bytes": 11382,
+          "seconds": 0.06619345804210752
+        },
+        "map": {
+          "sha256": "a97d1adef7bf8d9799c29823488ee8df655cebf027d92f6ee88ece28ade9bdfb",
+          "bytes": 1243,
+          "seconds": 0.06596758303930983
+        }
+      }
+    },
+    {
+      "id": "rejection-cart-0x3000-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "b694b850b0201fc5ae2d491393d042a3e9908e923f9e0534704236ae57555c46",
+          "bytes": 293,
+          "seconds": 0.0777264169882983
+        },
+        "asm": {
+          "sha256": "fdf87225e548c0de162d84c9fbac5d36b40f8f9da53fc4dc739e944c6df1b2dd",
+          "bytes": 9956,
+          "seconds": 0.07879270799458027
+        },
+        "map": {
+          "sha256": "aed1bdbeb42630aff5624b4a604acb3fbe3deea7462fd5c3ac813b3112f769e2",
+          "bytes": 741,
+          "seconds": 0.07717433298239484
+        }
+      }
+    },
+    {
+      "id": "coloring-cart-0x3000-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "759ac221533db8c280278e63acb9e364f41ad82fbbb01486745ed6a0574ce5a7",
+          "bytes": 164,
+          "seconds": 0.02199829200981185
+        },
+        "asm": {
+          "sha256": "da16d463b535d5bdb2c2fa15d76536354e73517c0b9df052f4a808a563295446",
+          "bytes": 5192,
+          "seconds": 0.021688542037736624
+        },
+        "map": {
+          "sha256": "dcca1baaede9e7b4f97f4e32c5db9509b6d5c2db873bb59657e4f3ac52f9106c",
+          "bytes": 73,
+          "seconds": 0.022508250025566667
+        }
+      }
+    }
+  ],
+  "api_rlib_sha256": "58bc5738cb3441678d1ae708410fff69425186605af795560de2fd5877cba8a7",
+  "api_source_sha256_lf": {
+    "fixtures/runtime/home_value_invalidation.act": "59ae6830773f69fbf2c415293e39ab2139155021dc5f5edd3e846096117c1ecc",
+    "fixtures/runtime/argument_staging.act": "400871bc51dca8577fa9dd16d27c121ff5173968814a1fdc1368d7e557e34c75",
+    "fixtures/runtime/checked_pointer_ranges.act": "17e840580d1464df1c974f8d808f9cb4e7432f7319f30751d866f418718f0a8d",
+    "fixtures/runtime/word_load_sharing.act": "cb85766deb8e2b58941e80d9bae2c2d2907297c630d63725dd03dfb297fca00b",
+    "fixtures/runtime/late_producer_cleanup.act": "56989d8f1b6598eced0298d0ccda69a74919c0a10aba435dd4ba75962af72a5f",
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "fixtures/runtime/late_spill_pruning.act": "370358cef6eafb070d19ec5cfb1beb09c6acac8bd956064d8989b391efd58bf8"
+  },
+  "api": [
+    {
+      "id": "home-default-ActionCart-3000",
+      "before_bytes": 408,
+      "after_bytes": 408,
+      "before_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 7,
+        "rewrite_analysis_builds": 635
+      },
+      "after_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 8,
+        "rewrite_analysis_builds": 635
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "home-default-ActionCart-41c7",
+      "before_bytes": 408,
+      "after_bytes": 408,
+      "before_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 7,
+        "rewrite_analysis_builds": 635
+      },
+      "after_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 8,
+        "rewrite_analysis_builds": 635
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "home-default-Standalone-3000",
+      "before_bytes": 408,
+      "after_bytes": 408,
+      "before_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 7,
+        "rewrite_analysis_builds": 635
+      },
+      "after_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 8,
+        "rewrite_analysis_builds": 635
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "home-default-Standalone-41c7",
+      "before_bytes": 408,
+      "after_bytes": 408,
+      "before_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 7,
+        "rewrite_analysis_builds": 635
+      },
+      "after_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 8,
+        "rewrite_analysis_builds": 635
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "home-ActionCart-3000",
+      "before_bytes": 411,
+      "after_bytes": 411,
+      "before_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 670
+      },
+      "after_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 670
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "home-ActionCart-41c7",
+      "before_bytes": 411,
+      "after_bytes": 411,
+      "before_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 670
+      },
+      "after_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 670
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "home-Standalone-3000",
+      "before_bytes": 411,
+      "after_bytes": 411,
+      "before_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 670
+      },
+      "after_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 670
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "home-Standalone-41c7",
+      "before_bytes": 411,
+      "after_bytes": 411,
+      "before_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 670
+      },
+      "after_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 670
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "staging-ActionCart-3000",
+      "before_bytes": 330,
+      "after_bytes": 330,
+      "before_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 625
+      },
+      "after_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 625
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "staging-ActionCart-41c7",
+      "before_bytes": 330,
+      "after_bytes": 330,
+      "before_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 625
+      },
+      "after_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 625
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "staging-Standalone-3000",
+      "before_bytes": 412,
+      "after_bytes": 412,
+      "before_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 625
+      },
+      "after_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 625
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "staging-Standalone-41c7",
+      "before_bytes": 412,
+      "after_bytes": 412,
+      "before_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 625
+      },
+      "after_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 625
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "ranges-ActionCart-3000",
+      "before_bytes": 612,
+      "after_bytes": 612,
+      "before_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 706
+      },
+      "after_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 706
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "ranges-ActionCart-41c7",
+      "before_bytes": 612,
+      "after_bytes": 612,
+      "before_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 706
+      },
+      "after_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 706
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "ranges-Standalone-3000",
+      "before_bytes": 612,
+      "after_bytes": 612,
+      "before_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 706
+      },
+      "after_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 706
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "ranges-Standalone-41c7",
+      "before_bytes": 612,
+      "after_bytes": 612,
+      "before_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 706
+      },
+      "after_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 706
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "word-ActionCart-3000",
+      "before_bytes": 301,
+      "after_bytes": 301,
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 258
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "word-ActionCart-41c7",
+      "before_bytes": 301,
+      "after_bytes": 301,
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 258
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "word-Standalone-3000",
+      "before_bytes": 301,
+      "after_bytes": 301,
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 258
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "word-Standalone-41c7",
+      "before_bytes": 301,
+      "after_bytes": 301,
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 258
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "producers-ActionCart-3000",
+      "before_bytes": 99,
+      "after_bytes": 99,
+      "before_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 260
+      },
+      "after_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 260
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 2,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 2
+      }
+    },
+    {
+      "id": "producers-ActionCart-41c7",
+      "before_bytes": 99,
+      "after_bytes": 99,
+      "before_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 260
+      },
+      "after_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 260
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 2,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 2
+      }
+    },
+    {
+      "id": "producers-Standalone-3000",
+      "before_bytes": 99,
+      "after_bytes": 99,
+      "before_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 260
+      },
+      "after_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 260
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 2,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 2
+      }
+    },
+    {
+      "id": "producers-Standalone-41c7",
+      "before_bytes": 99,
+      "after_bytes": 99,
+      "before_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 260
+      },
+      "after_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 260
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 2,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 2
+      }
+    },
+    {
+      "id": "tn-ActionCart-3000",
+      "before_bytes": 9970,
+      "after_bytes": 9970,
+      "before_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24926
+      },
+      "after_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 24926
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 4
+      }
+    },
+    {
+      "id": "tn-ActionCart-41c7",
+      "before_bytes": 9970,
+      "after_bytes": 9970,
+      "before_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24926
+      },
+      "after_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 24926
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 4
+      }
+    },
+    {
+      "id": "tn-Standalone-3000",
+      "before_bytes": 10077,
+      "after_bytes": 10077,
+      "before_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24926
+      },
+      "after_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 24926
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 4
+      }
+    },
+    {
+      "id": "tn-Standalone-41c7",
+      "before_bytes": 10077,
+      "after_bytes": 10077,
+      "before_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24926
+      },
+      "after_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 24926
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 4
+      }
+    },
+    {
+      "id": "spill-pressure-ActionCart-3000",
+      "before_bytes": 118,
+      "after_bytes": 118,
+      "before_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 259
+      },
+      "after_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 259
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 1,
+        "reason": "ReferencedOrExposed",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "spill-pressure-ActionCart-41c7",
+      "before_bytes": 118,
+      "after_bytes": 118,
+      "before_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 259
+      },
+      "after_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 259
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 1,
+        "reason": "ReferencedOrExposed",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "spill-pressure-Standalone-3000",
+      "before_bytes": 200,
+      "after_bytes": 200,
+      "before_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 259
+      },
+      "after_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 259
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 1,
+        "reason": "ReferencedOrExposed",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    },
+    {
+      "id": "spill-pressure-Standalone-41c7",
+      "before_bytes": 200,
+      "after_bytes": 200,
+      "before_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 259
+      },
+      "after_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 259
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 1,
+        "reason": "ReferencedOrExposed",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      }
+    }
+  ],
+  "api_seconds": 111.75870908400975,
+  "source_fixture_image_savings": 0,
+  "cli_artifact_comparisons": 54,
+  "full_api_comparisons": 32,
+  "validation": {
+    "checks": [
+      {
+        "log": "build/mir6502-late-spills/unit-final.log",
+        "command": [
+          "cargo",
+          "test",
+          "--lib",
+          "mir6502::",
+          "--",
+          "--test-threads=2"
+        ],
+        "test_targets": 1,
+        "passed": 1314,
+        "failed": 0,
+        "ignored": 14,
+        "ignored_checks": [
+          "test mir6502::analysis::entry_flags::tests::census::callee_entry_flags_census ... ignored, opt-in typed flag blocker census; writes ignored build artifacts",
+          "test mir6502::late_cleanup::pruning::tests::pruned_tail_mads_reconstruction_relocation_lf_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+          "test mir6502::materialize::inlining::tests::q4_exhaustive_squares_and_deterministic_floor_products_match_both_configurations ... ignored, exhaustive signed-16 arithmetic audit",
+          "test mir6502::materialize::inlining::tests::q4_inline_matched_artifacts ... ignored, writes matched benchmark artifacts under ignored build/",
+          "test mir6502::materialize::pointer_retention::checked_ranges::qualification::checked_range_mads_relocation ... ignored, requires MADS; assembles actual LF/CRLF listings and relocates enabled images",
+          "test mir6502::materialize::pointer_retention::checked_ranges::qualification::fresh_checked_range_measurements ... ignored, run tools/compare6502/tn/checked_ranges.py to generate/check fresh bindings",
+          "test mir6502::materialize::tests::argument_staging_measurements::argument_staging_measure_corpus ... ignored, opt-in corpus measurement; writes ignored build artifacts",
+          "test mir6502::materialize::tests::argument_x_bitwise_measurements::argument_x_bitwise_measure_corpus ... ignored, opt-in corpus measurement; writes ignored build artifacts",
+          "test mir6502::materialize::tests::argument_x_forwarding_measurements::argument_x_forwarding_measure_corpus ... ignored, opt-in corpus measurement; writes ignored build artifacts",
+          "test mir6502::materialize::tests::callee_entry_flags_measurements::callee_entry_flags_measure_corpus ... ignored, opt-in corpus measurement; writes ignored build artifacts",
+          "test mir6502::materialize::tests::captured_compare_measurements::captured_compare_measure_corpus ... ignored, opt-in corpus measurement; writes ignored build artifacts",
+          "test mir6502::materialize::tests::pointer_byte_plus_one_measurements::pointer_byte_plus_one_measure_corpus ... ignored, opt-in corpus measurement; writes ignored build artifacts",
+          "test mir6502::materialize::tests::pointer_load_sharing_measurements::pointer_load_sharing_measure_corpus ... ignored, opt-in corpus measurement; writes ignored build artifacts",
+          "test mir6502::materialize::word_load_sharing::measurements::word_load_sharing_measure_corpus ... ignored, opt-in corpus export; writes ignored build artifacts"
+        ]
+      },
+      {
+        "log": "build/mir6502-late-spills/integration-final.log",
+        "command": [
+          "cargo",
+          "test",
+          "--no-fail-fast",
+          "--test",
+          "mir6502_argument_staging",
+          "--test",
+          "mir6502_argument_x_bitwise",
+          "--test",
+          "mir6502_argument_x_forwarding",
+          "--test",
+          "mir6502_bounded_call_pointer_retention",
+          "--test",
+          "mir6502_call_abi",
+          "--test",
+          "mir6502_callee_entry_flags",
+          "--test",
+          "mir6502_checked_pointer_ranges",
+          "--test",
+          "mir6502_circle_quality",
+          "--test",
+          "mir6502_direct_comparisons",
+          "--test",
+          "mir6502_fixtures",
+          "--test",
+          "mir6502_home_value_invalidation",
+          "--test",
+          "mir6502_kalscope_quality",
+          "--test",
+          "mir6502_late_cleanup",
+          "--test",
+          "mir6502_late_spill_pruning",
+          "--test",
+          "mir6502_leaf_inline_cli",
+          "--test",
+          "mir6502_loop_consumer",
+          "--test",
+          "mir6502_materialization_gap",
+          "--test",
+          "mir6502_phase_trace",
+          "--test",
+          "mir6502_pointer_byte_plus_one",
+          "--test",
+          "mir6502_pointer_load_sharing",
+          "--test",
+          "mir6502_pointer_retention",
+          "--test",
+          "mir6502_register_copy_forwarding",
+          "--test",
+          "mir6502_rewrite_inventory",
+          "--test",
+          "mir6502_store_consumer",
+          "--test",
+          "mir6502_turtle_quality",
+          "--test",
+          "mir6502_warpdem_quality",
+          "--test",
+          "mir6502_word_load_sharing",
+          "--test",
+          "mir6502_word_move_store",
+          "--test",
+          "cli_emit_modes",
+          "--",
+          "--test-threads=2"
+        ],
+        "test_targets": 29,
+        "passed": 131,
+        "failed": 0,
+        "ignored": 11,
+        "ignored_checks": [
+          "test argument_x_bitwise_mads_listings_reconstruct_and_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+          "test argument_x_forwarding_mads_listings_reconstruct_and_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+          "test bounded_call_pointer_retention_keeps_unknown_tn_destinations_unchanged ... ignored, requires the qualified argument-x-bitwise TN images",
+          "test bounded_call_pointer_retention_mads_relocation_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+          "test callee_entry_flags_mads_listings_reconstruct_and_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+          "test home_value_invalidation_mads_listings_reconstruct_and_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+          "test late_producer_listings_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+          "test pointer_byte_plus_one_mads_listings_reconstruct_and_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+          "test pointer_load_sharing_mads_listings_reconstruct_and_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+          "test word_load_sharing_mads_listings_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+          "test word_move_store_mads_listings_reconstruct_and_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS"
+        ]
+      },
+      {
+        "log": "build/mir6502-late-spills/vm-final.log",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "tools/vm-runtime-tests/Cargo.toml",
+          "--no-fail-fast",
+          "--test",
+          "late_spill_pruning",
+          "--test",
+          "late_private_store_cleanup",
+          "--test",
+          "late_dead_producers",
+          "--test",
+          "argument_staging",
+          "--test",
+          "pointer_retention",
+          "--test",
+          "bounded_call_pointer_retention",
+          "--test",
+          "checked_pointer_ranges",
+          "--test",
+          "pointer_byte_plus_one",
+          "--test",
+          "pointer_load_sharing",
+          "--test",
+          "word_load_sharing",
+          "--test",
+          "tn_codegen_reproducers",
+          "--test",
+          "tn_checked_arena",
+          "--test",
+          "tn_dispatch",
+          "--",
+          "--test-threads=2"
+        ],
+        "test_targets": 13,
+        "passed": 31,
+        "failed": 0,
+        "ignored": 1,
+        "ignored_checks": [
+          "test unchecked_valid_allocation_cycle_controls ... ignored, requires the frozen unchecked controls; measures only valid allocator calls"
+        ]
+      },
+      {
+        "log": "build/mir6502-late-spills/mads-final.log",
+        "command": [
+          "cargo",
+          "test",
+          "--lib",
+          "mir6502::late_cleanup::pruning::tests::pruned_tail_mads",
+          "--",
+          "--ignored"
+        ],
+        "test_targets": 1,
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "ignored_checks": []
+      }
+    ],
+    "environment": {
+      "CARGO_TARGET_DIR": "build/checked-arena/shared-target",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0",
+      "CARGO_PROFILE_DEV_OPT_LEVEL": "1",
+      "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_BUILD_JOBS": "2"
+    },
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+    "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)",
+    "qualification_command": [
+      "python3",
+      "tools/compare6502/late_spill_pruning.py",
+      "--compiler",
+      "build/checked-arena/shared-target/debug/actionc-emit",
+      "--output",
+      "build/mir6502-late-spills/qualification"
+    ],
+    "cli_artifact_comparisons": 54,
+    "full_api_comparisons": 32,
+    "mads_lf_crlf_reconstruction_relocation_comparisons": 8,
+    "positive_control": {
+      "kind": "constructed MIR executable, not a source fixture",
+      "image_bytes_saved": 1,
+      "executions": 2048,
+      "byte_inputs": 256,
+      "origins": [
+        "0x3000",
+        "0x41c7"
+      ],
+      "runtimes": [
+        "cart",
+        "standalone"
+      ],
+      "pruning": [
+        "off",
+        "on"
+      ]
+    },
+    "scope": "MIR6502 backend; shared frontend and NIR contracts unchanged; optional tests not explicitly selected remain ignored"
+  },
+  "experiment_default_enabled": false,
+  "qualification_artifacts": "build/mir6502-late-spills/qualification/run-a2y2v02v"
+}

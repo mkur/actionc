@@ -59,8 +59,12 @@ stage name also covers the byte-producer extension. Accepted outcomes report
 not themselves an emitted-byte saving. Final cost decides acceptance. Logical
 discovery, physical deletion, final-placement replay and earlier-decision validation have
 separate diagnostic scopes. See the [cleanup contract](MIR6502_LATE_CLEANUP_DESIGN.md).
+The opt-in `late-spill-pruning` transaction reports candidate, unreferenced and
+removed spill counts separately. Its `late-spill-pruning-result` records core
+allocation, exposure, physical placement and earlier-proof rejection reasons.
+A rejected allocation experiment retains the accepted store/producer cleanup.
 The historical materialized-MIR dump still ends before T10 and terminal cleanup;
-the exact `pre-emission` snapshot includes both.
+the exact `pre-emission` snapshot includes all selected terminal work.
 
 ## Reading evidence
 

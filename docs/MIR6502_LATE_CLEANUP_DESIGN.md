@@ -52,6 +52,7 @@ core materialization and cleanup
   -> selected late transactions T1–T9
   -> checked-range pointer retention T10
   -> shared late private-store cleanup transaction
+  -> optional address-stable spill-declaration pruning transaction
   -> PreEmission verification and exact pre-emission snapshot
   -> final emission
 ```
@@ -82,8 +83,10 @@ and preserves:
 - Data declarations, helper selection and inlining decisions.
 
 The producer extension below adds a narrowly checked deletion class. Frame
-pruning, coloring and ZP reassignment remain excluded. Do not invoke the whole
-core cleanup group or materialize the program again.
+pruning, coloring and ZP reassignment remain excluded from the operation-cleanup
+transaction. The optional allocation experiment has its own declaration-only
+acceptance and rollback boundary, described below. Do not invoke the whole core
+cleanup group or materialize the program again.
 
 ## Producer-deletion extension
 
@@ -348,8 +351,10 @@ coarse retained snapshots, provided their preservation checks remain equivalent.
 
 ## Allocation-pruning experiment
 
-Status: implementation in progress. The producer-enabled baseline retains six
-unused ordinary spill bytes in TN. They are candidates, not a measured saving.
+Status: implemented as an opt-in experiment, disabled in both default and
+optimized configurations. TN retains all six candidate spill bytes and has no
+additional image saving. The [qualification report](benchmarks/6502-late-spills/README.md)
+records the address-stable control, conservative blockers and remaining gaps.
 
 The first allocation slice removes only completely unreferenced one-byte
 `frame.spills` declarations. It retains live storage IDs, order, parameters,
@@ -409,7 +414,7 @@ bounded by two cost emissions and zero full materializations. Track these
 separately from the preceding operation-cleanup transaction.
 
 The experiment is explicitly configured by `enable_late_spill_pruning`, under
-the existing terminal/master gates, and initially disabled in both default and
+the existing terminal/master gates, and remains disabled in both default and
 optimized configurations. Trace candidate counts, retained reasons, final
 removed bytes, actual cost and rollback independently of operation deletion.
 Trace-off builds must make identical decisions.

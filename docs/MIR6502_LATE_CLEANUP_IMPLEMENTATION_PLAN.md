@@ -170,3 +170,20 @@ The [allocation contract](MIR6502_LATE_CLEANUP_DESIGN.md#allocation-pruning-expe
 explains why late selected-decision replay alone cannot approve moving live
 storage. This slice leaves the established frame-preserving cleanup enabled;
 it does not weaken its safety checks to obtain a target image size.
+
+The bounded experiment is complete: `ed007fa7` records the design and plan;
+`304025f3` implements guarded declaration pruning, exact planning/emitted-storage
+certificates, rollback, trace outcomes and focused regressions. The final
+qualification commit adds the reproducible harness and
+[separate receipt](benchmarks/6502-late-spills/README.md).
+
+TN remains 9,970 bytes cart / 10,077 standalone: **zero additional saving**.
+The constructed direct-MIR control saves one byte; all source controls retain
+their producer-enabled output. The flag remains off in both configurations.
+General compaction remains unimplemented because the existing preservation
+sidecar cannot replay core allocation assumptions after surviving objects move.
+
+Validation passed 1,314 MIR6502 unit tests, 131 integration tests, 31 VM tests,
+the explicit MADS test (eight LF/CRLF reconstruction/relocation comparisons),
+54 frozen CLI artifact comparisons and 32 complete API comparisons. No shared
+frontend/NIR contracts changed.

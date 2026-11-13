@@ -203,6 +203,8 @@ crowding the active reference set.
   measured TN/staging savings, preserved homes, runtime checks and compiler work.
 - [Late-producer cleanup qualification](benchmarks/6502-late-producers/README.md) -
   producer-only savings, liveness/read-purity controls, runtime oracles and work counts.
+- [Late spill-pruning experiment](benchmarks/6502-late-spills/README.md) -
+  opt-in allocation guards, measured zero additional TN savings and remaining proof gaps.
 - [INLINE routine implementation plan](INLINE_IMPLEMENTATION_PLAN.md) -
   declaration modifier, typed preference propagation, wider scalar
   inlining and Q4.12 wrapper rollout in six slices.
