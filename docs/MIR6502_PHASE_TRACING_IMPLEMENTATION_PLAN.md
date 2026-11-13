@@ -1,6 +1,6 @@
 # MIR6502 phase tracing implementation plan
 
-Prepared 2026-11-13. Status: implementation in progress; Slices 1–4 complete.
+Prepared 2026-11-13. Status: implementation in progress; Slices 1–5 complete.
 Source baseline: `c00f37a84b8c0943c81565723420ace2c0d4f8d2`.
 
 Implement in six vertical slices. Commit each slice after its checks pass.
@@ -202,7 +202,8 @@ claim the trace was saved. Ordinary compiler diagnostics retain their meaning.
 | 2 | Complete | Scoped trial/return/selection records, measured work and actual replay boundaries; independent trace-on/off work observer; nested-inlining integration check; 48 frozen artifacts unchanged. Remaining corpus outcome coverage is qualified in Slice 6. |
 | 3 | Complete | Four trace integration tests, existing MIR fixture snapshots, independent work-count test, and all 48 frozen artifacts unchanged. A focused indexed-store fixture covers routine coloring and distinct definitions sharing storage. |
 | 4 | Complete | Five trace integration tests; 75 focused trace, driver, reaching-definition and compatibility-scan unit tests; all 48 frozen artifacts unchanged. Final ranges include zero-byte consumers; typed summary references preserve speculative attempt identity. |
-| 5–6 | Pending | |
+| 5 | Complete | Seven trace integration tests and three CLI mode tests; real LF/CRLF paths, deterministic bundles, filtering/truncation/failure status, report-mode equality; writer failure unit check; 48 frozen artifacts unchanged. |
+| 6 | In progress | Complete filtered TN trace obtained; all six consumers disappear in the accepted pointer-retention transaction. |
 
 The pre-change compiler and artifacts are retained under ignored
 `build/mir6502-phase-trace/baseline/` for differential qualification.

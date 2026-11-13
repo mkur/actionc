@@ -156,7 +156,10 @@ fn nested_trials_have_scoped_results_and_selected_inlining_is_replayed() {
                 && e.data["stage"] == "inline-final-rematerialization")
     );
     assert!(events.iter().any(|e| e.kind == "inline-selection"));
-    for end in events.iter().filter(|e| e.kind == "attempt-end" && e.data["returned_snapshot"].is_number()) {
+    for end in events
+        .iter()
+        .filter(|e| e.kind == "attempt-end" && e.data["returned_snapshot"].is_number())
+    {
         let snapshot = events
             .iter()
             .find(|e| Some(e.id) == end.data["returned_snapshot"].as_u64())
@@ -302,27 +305,209 @@ fn home_history_has_typed_scoped_plans_remaps_and_explicit_observations() {
 #[test]
 fn final_ranges_join_the_exact_mir_and_expose_zero_byte_consumers() {
     let mut empty_reads = 0;
-    for source in [include_str!("../fixtures/runtime/argument_staging.act"), include_str!("../fixtures/runtime/word_load_sharing.act")] {
+    for source in [
+        include_str!("../fixtures/runtime/argument_staging.act"),
+        include_str!("../fixtures/runtime/word_load_sharing.act"),
+    ] {
         let mut trace = Mir6502Trace::default();
-        mir6502::generate_output_with_trace(&nir(&source.replace("\r\n", "\n")), 0x3000, &Mir6502Config::optimized(), Runtime::ActionCart, &mut trace).unwrap();
+        mir6502::generate_output_with_trace(
+            &nir(&source.replace("\r\n", "\n")),
+            0x3000,
+            &Mir6502Config::optimized(),
+            Runtime::ActionCart,
+            &mut trace,
+        )
+        .unwrap();
         assert_eq!(trace.manifest()["status"], "complete");
         assert!(trace.manifest()["final_layout"].is_number());
         let events = trace.events();
         let final_id = trace.manifest()["final_snapshot"].as_u64().unwrap();
-        let snapshot = events.iter().find(|e| e.id==final_id).unwrap();
-        let expected: usize = snapshot.data["routines"].as_array().unwrap().iter().flat_map(|r|r["blocks"].as_array().unwrap()).map(|b| b["ops"].as_u64().unwrap() as usize + 1).sum();
-        let ranges: Vec<_> = events.iter().filter(|e|e.kind=="emitted-range").collect();
-        assert_eq!(ranges.len(),expected);
+        let snapshot = events.iter().find(|e| e.id == final_id).unwrap();
+        let expected: usize = snapshot.data["routines"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|r| r["blocks"].as_array().unwrap())
+            .map(|b| b["ops"].as_u64().unwrap() as usize + 1)
+            .sum();
+        let ranges: Vec<_> = events
+            .iter()
+            .filter(|e| e.kind == "emitted-range")
+            .collect();
+        assert_eq!(ranges.len(), expected);
         for range in ranges {
-            assert_eq!(range.data["snapshot"],final_id);
-            assert!(range.data["offset_start"].as_u64().unwrap() <= range.data["offset_end"].as_u64().unwrap());
+            assert_eq!(range.data["snapshot"], final_id);
+            assert!(
+                range.data["offset_start"].as_u64().unwrap()
+                    <= range.data["offset_end"].as_u64().unwrap()
+            );
         }
         let summary = trace.home_summary();
         for r in summary["routines"].as_array().unwrap() {
-            for h in r["homes"].as_array().unwrap() { empty_reads += h["zero_byte_read_events"].as_array().unwrap().len(); }
+            for h in r["homes"].as_array().unwrap() {
+                empty_reads += h["zero_byte_read_events"].as_array().unwrap().len();
+            }
         }
-        assert!(events.iter().any(|e|e.kind=="compat-spill-stop"));
-        assert!(events.iter().any(|e|e.kind=="rewrite" && e.data["outcome"]=="applied"));
+        assert!(events.iter().any(|e| e.kind == "compat-spill-stop"));
+        assert!(
+            events
+                .iter()
+                .any(|e| e.kind == "rewrite" && e.data["outcome"] == "applied")
+        );
     }
     assert!(empty_reads > 0, "final MIR consumers can emit no bytes");
+}
+
+mod cli {
+    use serde_json::Value;
+    use std::{
+        collections::BTreeMap,
+        fs,
+        path::{Path, PathBuf},
+        process::{Command, Output},
+    };
+    struct Scratch(PathBuf);
+    impl Scratch {
+        fn new(name: &str) -> Self {
+            let path = std::env::temp_dir()
+                .join(format!("actionc-phase-trace-{name}-{}", std::process::id()));
+            let _ = fs::remove_dir_all(&path);
+            fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+        fn path(&self, name: &str) -> PathBuf {
+            self.0.join(name)
+        }
+    }
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+    fn emit(source: &Path, args: &[&str], trace: Option<&Path>, report: bool) -> Output {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_actionc-emit"));
+        cmd.args(["--profile", "modern", "--backend", "mir6502"]);
+        if report {
+            cmd.env("ACTIONC_MIR6502_PEEPHOLES", "sites");
+        } else {
+            cmd.env_remove("ACTIONC_MIR6502_PEEPHOLES");
+        }
+        if let Some(trace) = trace {
+            cmd.arg("--trace-mir6502").arg(trace);
+        }
+        cmd.args(args).arg(source).output().unwrap()
+    }
+    fn bundle(path: &Path) -> BTreeMap<String, Vec<u8>> {
+        fs::read_dir(path)
+            .unwrap()
+            .map(|e| {
+                let p = e.unwrap().path();
+                (
+                    p.file_name().unwrap().to_str().unwrap().to_owned(),
+                    fs::read(p).unwrap(),
+                )
+            })
+            .collect()
+    }
+    fn manifest(path: &Path) -> Value {
+        serde_json::from_slice(&fs::read(path.join("manifest.json")).unwrap()).unwrap()
+    }
+    #[test]
+    fn bundles_are_deterministic_and_real_lf_crlf_paths_preserve_outputs() {
+        let dir = Scratch::new("determinism");
+        let source = "BYTE input,output\nPROC Main()\n output=input+1\nRETURN\n";
+        for (label, source) in [
+            ("lf", source.to_owned()),
+            ("crlf", source.replace('\n', "\r\n")),
+        ] {
+            let input = dir.path(&format!("{label}.act"));
+            fs::write(&input, source).unwrap();
+            for (mode, report) in [
+                ("--emit-load", false),
+                ("--emit-listing", false),
+                ("--emit-map", true),
+            ] {
+                let a = dir.path(&format!("{label}-{mode}-a"));
+                let b = dir.path(&format!("{label}-{mode}-b"));
+                let off = emit(&input, &[mode], None, report);
+                let on = emit(&input, &[mode, "--trace-routine", "Main"], Some(&a), report);
+                let again = emit(&input, &[mode, "--trace-routine", "Main"], Some(&b), report);
+                assert!(
+                    on.status.success(),
+                    "{}",
+                    String::from_utf8_lossy(&on.stderr)
+                );
+                assert_eq!(on.stdout, off.stdout);
+                assert_eq!(on.stderr, off.stderr);
+                assert_eq!(on.stdout, again.stdout);
+                assert_eq!(bundle(&a), bundle(&b));
+                assert_eq!(manifest(&a)["status"], "complete");
+                let journal = fs::read_to_string(a.join("events.jsonl"))
+                    .unwrap()
+                    .replace("\r\n", "\n");
+                for line in journal.lines() {
+                    let event: Value = serde_json::from_str(line).unwrap();
+                    if let Some(file) = event["data"]["mir_file"].as_str() {
+                        assert!(a.join(file).is_file());
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    fn filters_limits_and_frontend_failures_have_explicit_status() {
+        let dir = Scratch::new("statuses");
+        let source = dir.path("input.act");
+        fs::write(&source, "BYTE output\nPROC Main()\n output=7\nRETURN\n").unwrap();
+        let off = emit(&source, &["--emit-load"], None, false);
+        let limited = dir.path("limited");
+        let out = emit(
+            &source,
+            &["--emit-load", "--trace-max-bytes", "0"],
+            Some(&limited),
+            false,
+        );
+        assert!(out.status.success());
+        assert_eq!(out.stdout, off.stdout);
+        assert_eq!(manifest(&limited)["status"], "truncated");
+        let unknown = dir.path("unknown");
+        assert!(
+            !emit(
+                &source,
+                &["--trace-routine", "absent"],
+                Some(&unknown),
+                false
+            )
+            .status
+            .success()
+        );
+        assert_eq!(manifest(&unknown)["status"], "filter-error");
+        let existing = dir.path("existing");
+        fs::create_dir(&existing).unwrap();
+        fs::write(existing.join("sentinel"), "keep").unwrap();
+        assert!(!emit(&source, &[], Some(&existing), false).status.success());
+        assert_eq!(fs::read(existing.join("sentinel")).unwrap(), b"keep");
+        for args in [
+            vec!["--emit-nir"],
+            vec!["--emit-materialized-mir6502"],
+            vec!["--backend", "classic"],
+        ] {
+            let rejected = dir.path("rejected");
+            assert!(
+                !emit(&source, &args, Some(&rejected), false)
+                    .status
+                    .success()
+            );
+            assert!(!rejected.exists());
+        }
+        assert!(
+            !emit(&source, &["--trace-routine", "Main"], None, false)
+                .status
+                .success()
+        );
+        fs::write(&source, "PROC Main(???").unwrap();
+        let failed = dir.path("failed");
+        assert!(!emit(&source, &[], Some(&failed), false).status.success());
+        assert_eq!(manifest(&failed)["status"], "compilation-failed");
+    }
 }

@@ -187,6 +187,7 @@ crowding the active reference set.
   implemented phase order, value homes, fact lifetimes, layout authority and
   cleanup coverage, audited on 2026-11-13.
 - [MIR6502 phase tracing implementation plan](MIR6502_PHASE_TRACING_IMPLEMENTATION_PLAN.md) -
+- [MIR6502 phase tracing](MIR6502_PHASE_TRACING.md): CLI usage, bounded artifacts, and evidence interpretation.
   six diagnostic slices for selected/trial history, home decisions, cleanup
   blockers and final emission, with unchanged generated artifacts.
 - [INLINE routine implementation plan](INLINE_IMPLEMENTATION_PLAN.md) -

@@ -1,4 +1,5 @@
 mod native;
+mod phase_trace;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
@@ -106,9 +107,37 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
     let mut listing_path = None;
     let mut input_path = None;
     let mut module_paths = Vec::new();
+    let mut trace_directory = None;
+    let mut trace_options = mir6502::trace::TraceOptions::default();
+    let mut trace_options_explicit = false;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "--trace-mir6502" => {
+                if trace_directory.is_some() {
+                    eprintln!("--trace-mir6502 may be specified once");
+                    process::exit(2);
+                }
+                trace_directory = Some(PathBuf::from(args.next().unwrap_or_else(|| {
+                    eprintln!("--trace-mir6502 requires a fresh directory");
+                    process::exit(2);
+                })));
+            }
+            "--trace-routine" => {
+                trace_options_explicit = true;
+                trace_options.routines.push(args.next().unwrap_or_else(|| {
+                    eprintln!("--trace-routine requires a name or rID");
+                    process::exit(2);
+                }));
+            }
+            "--trace-max-bytes" => {
+                trace_options_explicit = true;
+                trace_options.max_bytes =
+                    args.next().and_then(|v| v.parse().ok()).unwrap_or_else(|| {
+                        eprintln!("--trace-max-bytes requires a nonnegative byte count");
+                        process::exit(2);
+                    });
+            }
             "--no-opt" => native_flags.no_opt = true,
             "--no-codegen-opt" => native_flags.no_codegen_opt = true,
             "--emit-tokens" => emit_tokens = true,
@@ -283,6 +312,14 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
         }
     }
 
+    if trace_options_explicit && trace_directory.is_none() {
+        eprintln!("--trace-routine and --trace-max-bytes require --trace-mir6502");
+        process::exit(2);
+    }
+    if trace_directory.is_some() && flavor != CliFlavor::Emit {
+        eprintln!("--trace-mir6502 belongs to actionc-emit full code generation");
+        process::exit(2);
+    }
     let Some(input_path) = input_path else {
         print_help_for(flavor);
         process::exit(2);
@@ -351,7 +388,11 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                 .file_stem()
                 .unwrap_or_default()
                 .to_string_lossy();
-            let extension = if native_flags.amiga { "amiga" } else { "native.json" };
+            let extension = if native_flags.amiga {
+                "amiga"
+            } else {
+                "native.json"
+            };
             output_path = Some(PathBuf::from(format!("{stem}.{extension}")));
         }
     }
@@ -415,6 +456,36 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
         process::exit(2);
     }
 
+    if trace_directory.is_some() {
+        let (mut trace_profile, mut trace_backend, mut trace_target) = (profile, backend, target);
+        apply_source_codegen_settings(
+            &root_source,
+            &mut trace_profile,
+            profile_explicit,
+            &mut trace_backend,
+            backend_explicit,
+            &mut trace_target,
+            target_explicit,
+        );
+        if native_options.is_some()
+            || trace_target != TargetId::Atari6502
+            || trace_backend != Backend::Mir6502
+            || emit_tokens
+            || emit_link_plan
+            || emit_semir
+            || emit_nir
+            || emit_optimized_nir
+            || emit_nir_stats
+            || emit_mir6502
+            || emit_materialized_mir6502
+        {
+            eprintln!(
+                "--trace-mir6502 requires full MIR6502 code generation; other backends and early IR dump modes are unsupported"
+            );
+            process::exit(2);
+        }
+    }
+
     if let Some(options) = &native_options {
         if emit_source_listing
             || emit_load
@@ -431,7 +502,15 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
         let inspection =
             emit_tokens || emit_semir || emit_nir || emit_optimized_nir || emit_nir_stats;
         if !inspection {
-            native::run(&input_path, options, native_flags.amiga, compile_outputs.as_ref(), emit_listing, emit_map, diagnostic_byte_ranges);
+            native::run(
+                &input_path,
+                options,
+                native_flags.amiga,
+                compile_outputs.as_ref(),
+                emit_listing,
+                emit_map,
+                diagnostic_byte_ranges,
+            );
             return;
         }
     }
@@ -505,6 +584,14 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
         return;
     }
 
+    let mut trace_artifact = trace_directory.map(|directory| {
+        phase_trace::Artifact::create(directory, trace_options, &root_source).unwrap_or_else(
+            |error| {
+                eprintln!("failed to create MIR6502 trace (destination must be fresh): {error}");
+                process::exit(2);
+            },
+        )
+    });
     let loaded = match load_compilation(
         &input_path,
         &ModuleLoadOptions {
@@ -515,7 +602,7 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
         Ok(loaded) => loaded,
         Err(diagnostics) => {
             print_input_diagnostics(&input_path, diagnostics, diagnostic_byte_ranges);
-            process::exit(1);
+            phase_trace::exit(trace_artifact.as_ref(), 1);
         }
     };
     let program = &loaded.root_module().program;
@@ -530,7 +617,7 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
     );
     if let Some(message) = profile_backend_error(profile, backend) {
         eprintln!("{message}");
-        process::exit(2);
+        phase_trace::exit(trace_artifact.as_ref(), 2);
     }
 
     let semantic_options = if profile == CodegenProfile::Modern {
@@ -548,7 +635,7 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                 Some(&loaded.source_map),
                 diagnostic_byte_ranges,
             );
-            process::exit(1);
+            phase_trace::exit(trace_artifact.as_ref(), 1);
         }
     };
     let full_semir = ir::lower_compilation(&loaded, &model);
@@ -570,7 +657,7 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                     Some(&loaded.source_map),
                     diagnostic_byte_ranges,
                 );
-                process::exit(1);
+                phase_trace::exit(trace_artifact.as_ref(), 1);
             }
         };
     let named = matches!(program.source_kind, crate::ast::SourceUnitKind::Named(_));
@@ -601,14 +688,14 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
             Ok(compiled) => compiled,
             Err(error) => {
                 print_compile_error(&error, diagnostic_byte_ranges);
-                process::exit(1);
+                phase_trace::exit(trace_artifact.as_ref(), 1);
             }
         };
         let baseline = match compile(Some(crate::linker::SemLinkPolicy::RetainAll)) {
             Ok(compiled) => compiled,
             Err(error) => {
                 print_compile_error(&error, diagnostic_byte_ranges);
-                process::exit(1);
+                phase_trace::exit(trace_artifact.as_ref(), 1);
             }
         };
         println!(
@@ -632,7 +719,7 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                 Some(&loaded.source_map),
                 diagnostic_byte_ranges,
             );
-            process::exit(1);
+            phase_trace::exit(trace_artifact.as_ref(), 1);
         }
     }
 
@@ -651,7 +738,7 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
         let nir = nir::lower_program(&semir);
         if let Err(diagnostics) = nir::verify_program(&nir) {
             print_nir_diagnostics(diagnostics);
-            process::exit(1);
+            phase_trace::exit(trace_artifact.as_ref(), 1);
         }
         print!("{}", nir::format_program(&nir));
         return;
@@ -686,14 +773,14 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
             Ok(mir) => mir,
             Err(diagnostics) => {
                 print_mir6502_diagnostics(diagnostics);
-                process::exit(1);
+                phase_trace::exit(trace_artifact.as_ref(), 1);
             }
         };
         if let Err(diagnostics) =
             mir6502::verify_program(&mir, mir6502::MirPhase::PreMaterialization)
         {
             print_mir6502_diagnostics(diagnostics);
-            process::exit(1);
+            phase_trace::exit(trace_artifact.as_ref(), 1);
         }
         if emit_materialized_mir6502 {
             let mir_config = if matches!(profile, CodegenProfile::Modern) {
@@ -715,13 +802,13 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                 Ok(mir) => mir,
                 Err(diagnostics) => {
                     print_mir6502_diagnostics(diagnostics);
-                    process::exit(1);
+                    phase_trace::exit(trace_artifact.as_ref(), 1);
                 }
             };
             if let Err(diagnostics) = mir6502::verify_program(&mir, mir6502::MirPhase::PreEmission)
             {
                 print_mir6502_diagnostics(diagnostics);
-                process::exit(1);
+                phase_trace::exit(trace_artifact.as_ref(), 1);
             }
             print!("{}", mir6502::format_program(&mir));
             return;
@@ -734,7 +821,7 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
         eprintln!(
             "code generation backend for target `{target}` is not implemented; use --emit-nir or --emit-optimized-nir"
         );
-        process::exit(2);
+        phase_trace::exit(trace_artifact.as_ref(), 2);
     }
 
     if should_run_codegen_backend(
@@ -748,13 +835,15 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
         backend,
     ) {
         if matches!(backend, Backend::Mir6502) {
-            reject_nir_unsupported_legacy_routine_retargeting_or_exit(
+            reject_nir_unsupported_legacy_routine_retargeting_traced_or_exit(
                 program,
                 &loaded.source,
                 Some(&loaded.source_map),
                 diagnostic_byte_ranges,
+                trace_artifact.as_ref(),
             );
-            let nir = optimize_nir_or_exit(nir::lower_program(&semir));
+            let nir =
+                optimize_nir_traced_or_exit(nir::lower_program(&semir), trace_artifact.as_ref());
             let mir_origin = if origin_explicit {
                 origin
             } else {
@@ -765,12 +854,26 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
             } else {
                 mir6502::Mir6502Config::default()
             };
-            match mir6502::generate_output_with_config_and_runtime(
-                &nir,
-                mir_origin,
-                &mir_config,
-                runtime,
-            ) {
+            let result = if let Some(artifact) = trace_artifact.as_mut() {
+                mir6502::generate_output_with_trace(
+                    &nir,
+                    mir_origin,
+                    &mir_config,
+                    runtime,
+                    &mut artifact.trace,
+                )
+            } else {
+                mir6502::generate_output_with_config_and_runtime(
+                    &nir,
+                    mir_origin,
+                    &mir_config,
+                    runtime,
+                )
+            };
+            if let Some(artifact) = &trace_artifact {
+                phase_trace::save_or_exit(artifact);
+            }
+            match result {
                 Ok(mut output) => {
                     crate::compiler::artifacts::record_declaration_names(&mut output, &semir);
                     emit_output(
@@ -786,7 +889,7 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                 }
                 Err(diagnostics) => {
                     print_mir6502_diagnostics(diagnostics);
-                    process::exit(1);
+                    phase_trace::exit(trace_artifact.as_ref(), 1);
                 }
             }
             return;
@@ -822,7 +925,7 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                         Some(&loaded.source_map),
                         diagnostic_byte_ranges,
                     );
-                    process::exit(1);
+                    phase_trace::exit(trace_artifact.as_ref(), 1);
                 }
             }
             return;
@@ -855,7 +958,7 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                         Some(&loaded.source_map),
                         diagnostic_byte_ranges,
                     );
-                    process::exit(1);
+                    phase_trace::exit(trace_artifact.as_ref(), 1);
                 }
             }
             return;
@@ -893,7 +996,7 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                     Some(&loaded.source_map),
                     diagnostic_byte_ranges,
                 );
-                process::exit(1);
+                phase_trace::exit(trace_artifact.as_ref(), 1);
             }
         }
         return;
@@ -944,12 +1047,28 @@ fn reject_nir_unsupported_legacy_routine_retargeting_or_exit(
     source_map: Option<&SourceMap>,
     diagnostic_byte_ranges: bool,
 ) {
+    reject_nir_unsupported_legacy_routine_retargeting_traced_or_exit(
+        program,
+        source,
+        source_map,
+        diagnostic_byte_ranges,
+        None,
+    );
+}
+
+fn reject_nir_unsupported_legacy_routine_retargeting_traced_or_exit(
+    program: &Program,
+    source: &str,
+    source_map: Option<&SourceMap>,
+    diagnostic_byte_ranges: bool,
+    trace: Option<&phase_trace::Artifact>,
+) {
     let diagnostics = legacy_routine_retargeting_diagnostics(program);
     if diagnostics.is_empty() {
         return;
     }
     print_diagnostics_with_source(diagnostics, source, source_map, diagnostic_byte_ranges);
-    process::exit(1);
+    phase_trace::exit(trace, 1);
 }
 
 fn parse_backend_or_exit(value: &str) -> Backend {
@@ -1572,7 +1691,7 @@ fn print_compile_help() {
 
 fn print_help() {
     eprintln!(
-        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-link-plan|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--target <name>] [--runtime cart|standalone|bare|amiga] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502|mir68k] <file.act>\n       actionc-emit --version\n\nTargets: atari-6502, wdc-65816-native, wdc-65816-small, motorola-68000. Motorola 68000\nsupports --emit-code (address-labelled segment hex), --emit-listing (physical\nMIR68K), --emit-map and shared frontend inspection. The 65816 targets support\nSemIR/NIR inspection only. Atari listings are re-originable MADS assembly. Change only ACTIONC_ORIGIN to move the main segment."
+        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-link-plan|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--target <name>] [--runtime cart|standalone|bare|amiga] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502|mir68k] <file.act>\n       actionc-emit --trace-mir6502 <fresh-directory> [--trace-routine <name-or-rID>] [--trace-max-bytes <bytes>] --profile modern --backend mir6502 <file.act>\n       actionc-emit --version\n\nTargets: atari-6502, wdc-65816-native, wdc-65816-small, motorola-68000. Motorola 68000\nsupports --emit-code (address-labelled segment hex), --emit-listing (physical\nMIR68K), --emit-map and shared frontend inspection. The 65816 targets support\nSemIR/NIR inspection only. Atari listings are re-originable MADS assembly. Change only ACTIONC_ORIGIN to move the main segment."
     );
 }
 
@@ -1625,11 +1744,18 @@ fn format_optimization_kind(kind: CodegenOptimizationKind) -> &'static str {
 }
 
 fn optimize_nir_or_exit(program: nir::NirProgram) -> nir::NirProgram {
+    optimize_nir_traced_or_exit(program, None)
+}
+
+fn optimize_nir_traced_or_exit(
+    program: nir::NirProgram,
+    trace: Option<&phase_trace::Artifact>,
+) -> nir::NirProgram {
     match nir::optimize_program(&program) {
         Ok(program) => program,
         Err(diagnostics) => {
             print_nir_diagnostics(diagnostics);
-            process::exit(1);
+            phase_trace::exit(trace, 1);
         }
     }
 }
