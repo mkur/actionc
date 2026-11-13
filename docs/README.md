@@ -193,6 +193,12 @@ crowding the active reference set.
   and evidence interpretation.
 - [Phase-tracing qualification and TN findings](benchmarks/6502-phase-tracing/README.md) -
   frozen artifacts, six store histories, and the next cleanup boundary.
+- [MIR6502 late private-store cleanup design](MIR6502_LATE_CLEANUP_DESIGN.md) -
+  proposed shared cleanup boundary, preserved frames, layout-dependent proof
+  validation and exact-cost acceptance with rollback.
+- [MIR6502 late cleanup implementation plan](MIR6502_LATE_CLEANUP_IMPLEMENTATION_PLAN.md) -
+  sliced preservation proofs, store-only transaction, executable integration
+  and backend qualification.
 - [INLINE routine implementation plan](INLINE_IMPLEMENTATION_PLAN.md) -
   declaration modifier, typed preference propagation, wider scalar
   inlining and Q4.12 wrapper rollout in six slices.

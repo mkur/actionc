@@ -121,6 +121,10 @@ mechanism is real, but does not explain TN's six stores.
 
 ## Next compiler slice
 
+The proposed [late cleanup design](../../MIR6502_LATE_CLEANUP_DESIGN.md) defines
+the shared boundary and acceptance contract, including placement changes from
+instruction shrink even when frame declarations are preserved.
+
 Make cleanup invalidation part of the late-transaction contract. The first
 implementation should be a **frame-preserving private-store cleanup transaction**
 after late consumer-changing passes, using the existing analyzed proofs. Record
