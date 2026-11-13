@@ -20,6 +20,8 @@ pub(crate) enum Predicate {
     DisjointRanges,
     InRange,
     AboveZeroPageAndNoWrap,
+    /// Declaration/extent proof; no numeric address was queried.
+    OrdinaryRangeOutsideZeroPage,
 }
 
 #[cfg(test)]

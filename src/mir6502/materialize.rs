@@ -3415,6 +3415,10 @@ fn run_analyzed_known_callee_word_result_placements(
     };
     let mut driver = MirPostHomeRewriteDriver::default().with_trace_named(&peephole_stats.trace, "run_analyzed_known_callee_word_result_placements");
     let preserve_exit_accumulator = known_callees.accumulator_summary_is_observable(routine.id);
+    // This entry point deliberately uses an empty physical memory map. The
+    // post-call A fact and liveness do not depend on planning addresses; only
+    // the shape's explicit fallback does. Keep that boundary when changing the
+    // driver or callee summaries (see the ordinary word-result design contract).
     let result = driver
         .run_fixed_point_with_known_callees(routine, known_callees, |routine, context| {
             peepholes::discover_known_callee_word_result_placements(

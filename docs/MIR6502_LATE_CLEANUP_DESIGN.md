@@ -472,3 +472,59 @@ reported as truncation. Consumers must check both trace and census status.
 No diagnostic record authorizes compaction or replaces an optimizer fact.
 Findings and qualification are recorded in the
 [census report](benchmarks/6502-core-layout-census/README.md).
+
+
+## Ordinary word-result destination proof
+
+Known-callee word-result placement may store the high lane first because the
+callee leaves that byte in A. Its destination checks can use a typed declaration
+proof instead of five physical-byte comparisons. This proof belongs to MIR6502
+materialization and consumes only MIR declarations, not SemIR or source names.
+
+The admitted range has a directly declared ordinary global, local or parameter
+scalar root, a known extent, and two adjacent bytes fully within that extent.
+Global aliases, local alias views, descriptors, array/deferred storage, ABI-only
+parameters, spills, virtual/fixed ZP and absolute backing do not qualify. Store
+reordering permission remains a separate mandatory check.
+
+The origin must be at least $0100. A conservative whole-program storage budget
+must fit between the origin and $10000: sum declaration sizes plus initializer
+payloads for allocating roots, statics and spill bytes. This intentionally
+counts some bytes twice and includes deferred storage. Qualifying scalar roots
+are allocated inline before code; their addresses therefore stay inside this
+budget independently of code size. Bounds arithmetic is wide/saturating toward
+rejection, never a truncated or wrapped address calculation. This extra budget
+is necessary because current layout arithmetic saturates; declaration bounds
+alone do not prove two lanes distinct near $FFFF.
+
+These facts establish distinct destination lanes and separation from all fixed
+ZP bytes, including the $A0/$A1 return slots, without consulting an individual
+planning address. They remain valid under movements that preserve the root,
+its extent/storage class, inline allocation, origin bound and total budget.
+The fact table is scoped to the materialization layout; a consumer must rebuild
+it after allocation changes. It is not a persistent preservation witness.
+
+Other destinations retain the existing explicit address checks. Both destination
+addresses must resolve before that fallback can succeed; unknown is not a
+separation proof. In particular, aliases gain no new movement permission.
+The diagnostic `ordinary-range-outside-zero-page` observation records the
+structural result and range with no numeric address. It must not be counted as
+an unresolved numeric query.
+
+### Supporting-analysis audit
+
+`run_analyzed_known_callee_word_result_placements` uses the shared driver's
+`run_fixed_point_with_known_callees`, which supplies an empty physical memory
+map. Its accumulator fact is checked immediately after the call against the
+fixed high return slot. MIR callee exit summaries also run machine-value
+analysis with an empty map; machine-block summaries use declared/fixed contracts.
+Register/flag liveness and structural-plan validation use CFG, effects and typed
+home identities. None of these entry points queries `MaterializeLayout`.
+
+The accumulator and observable-exit checks, A/N/Z liveness, home-definition
+checks and callee contracts are unchanged. Earlier transformations of callee
+bodies can still depend on layout, and later allocation changes must preserve
+those bodies' contracts. Eliminating this family's direct numeric queries does
+not certify the whole pipeline, authorize compaction, or cover other layout
+owners. Existing terminal acceptance, rollback and exact surviving-address
+guards remain in force; spill pruning stays disabled by default.

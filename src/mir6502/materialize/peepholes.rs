@@ -4354,13 +4354,24 @@ fn known_callee_word_result_placement_shape_at(
         || destination_hi == destination_lo
         || !layout.mem_allows_word_lane_store_reordering(&destination_lo)
         || !layout.mem_allows_word_lane_store_reordering(&destination_hi)
-        || mems_may_resolve_same_byte(&destination_lo, &destination_hi, routine_id, layout)
-        || mems_may_resolve_same_byte(&destination_lo, &result_lo, routine_id, layout)
-        || mems_may_resolve_same_byte(&destination_lo, &result_hi, routine_id, layout)
-        || mems_may_resolve_same_byte(&destination_hi, &result_lo, routine_id, layout)
-        || mems_may_resolve_same_byte(&destination_hi, &result_hi, routine_id, layout)
     {
         return None;
+    }
+    // A complete inline ordinary word has two distinct lanes outside ZP,
+    // regardless of its individual address. Keep explicit address dependencies
+    // for shapes not covered by that declaration proof. Unknown addresses must
+    // not be mistaken for evidence of separation on this fallback path.
+    if !layout.ordinary_range_is_outside_zero_page(routine_id, &destination_lo, 2) {
+        resolved_mem_address(&destination_lo, routine_id, layout)?;
+        resolved_mem_address(&destination_hi, routine_id, layout)?;
+        if mems_may_resolve_same_byte(&destination_lo, &destination_hi, routine_id, layout)
+            || mems_may_resolve_same_byte(&destination_lo, &result_lo, routine_id, layout)
+            || mems_may_resolve_same_byte(&destination_lo, &result_hi, routine_id, layout)
+            || mems_may_resolve_same_byte(&destination_hi, &result_lo, routine_id, layout)
+            || mems_may_resolve_same_byte(&destination_hi, &result_hi, routine_id, layout)
+        {
+            return None;
+        }
     }
 
     let forwarded_high_store = ops.get(index + 5).and_then(|op| {

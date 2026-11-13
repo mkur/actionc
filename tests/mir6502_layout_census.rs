@@ -70,13 +70,21 @@ fn census_preserves_artifacts_work_and_real_lf_crlf_parsing() {
                         .any(|a| a["family"] == "known-callee-word-result-placement")
                     {
                         observed_applied = true;
+                        assert!(
+                            event.data["observations"]
+                                .as_array()
+                                .unwrap()
+                                .iter()
+                                .all(|x| x["observation"]["predicate"] != "address-query"
+                                    && x["observation"]["predicate"] != "equal-address")
+                        );
                         observed_predicate |= event.data["observations"]
                             .as_array()
                             .unwrap()
                             .iter()
                             .any(|x| {
-                                x["observation"]["predicate"] == "equal-address"
-                                    && x["observation"]["result"] == false
+                                x["observation"]["predicate"] == "ordinary-range-outside-zero-page"
+                                    && x["observation"]["result"] == true
                                     && x["observation"]["inputs"].as_array().unwrap().iter().any(
                                         |i| {
                                             i["planning_address"] == true

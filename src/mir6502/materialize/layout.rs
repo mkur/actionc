@@ -4,12 +4,16 @@ use crate::mir6502::ir::{
 };
 use crate::nir::{LocalId, ParamId, SymbolId};
 
+mod ordinary;
+use ordinary::OrdinaryStorageBounds;
+
 #[derive(Clone)]
 pub(in crate::mir6502) struct MaterializeLayout {
     origin: u16,
     globals: Vec<(SymbolId, MirGlobalBacking, bool)>,
     statics: Vec<(SymbolId, u16, u16)>,
     routine_storage: Vec<(RoutineId, MaterializeRoutineStorage)>,
+    ordinary_bounds: OrdinaryStorageBounds,
     census: Option<(crate::mir6502::trace::Trace, &'static str)>,
 }
 
@@ -20,6 +24,7 @@ impl PartialEq for MaterializeLayout {
             && self.globals == other.globals
             && self.statics == other.statics
             && self.routine_storage == other.routine_storage
+            && self.ordinary_bounds == other.ordinary_bounds
     }
 }
 impl Eq for MaterializeLayout {}
@@ -92,7 +97,31 @@ impl MaterializeLayout {
                 storage.spills.retain(|(id, _, _)| !ids.contains(id));
             }
         }
+        expected
+            .ordinary_bounds
+            .remove_spills(removed.values().map(|ids| ids.len()).sum());
         expected == *candidate
+    }
+
+    /// A declaration/bounds proof, independent of individual planning addresses.
+    /// Only complete inline scalar roots qualify; aliases and descriptors need
+    /// separate proofs. A false result grants no new placement authority.
+    pub(super) fn ordinary_range_is_outside_zero_page(
+        &self,
+        routine: RoutineId,
+        mem: &MirMem,
+        bytes: u16,
+    ) -> bool {
+        let proven = self
+            .ordinary_bounds
+            .range_is_outside_zero_page(self.origin, routine, mem, bytes);
+        self.observe_predicate(
+            routine,
+            crate::mir6502::trace::layout::Predicate::OrdinaryRangeOutsideZeroPage,
+            proven,
+            &[(mem, None, bytes)],
+        );
+        proven
     }
     /// Emission places generated code and ordinary frames at/above the main origin.
     /// This bound, unlike tentative individual addresses, survives placement.
@@ -159,6 +188,7 @@ impl MaterializeLayout {
             routine_storage.push((routine.id, storage));
         }
         Self {
+            ordinary_bounds: OrdinaryStorageBounds::new(program),
             census: None,
             origin,
             globals: program

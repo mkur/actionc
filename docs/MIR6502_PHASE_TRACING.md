@@ -113,3 +113,11 @@ instrumented shared local rewrite drivers, not every compiler analysis.
 
 See the [implementation plan](MIR6502_PHASE_TRACING_IMPLEMENTATION_PLAN.md) and
 [pipeline audit](MIR6502_OPTIMIZATION_PIPELINE_AUDIT.md) for boundary ownership.
+
+
+The word-result destination proof also emits
+`ordinary-range-outside-zero-page`. This is a declaration/extent/budget result,
+not a numeric predicate: its input address is null because no address was
+queried. Count `address-query` events separately when measuring numeric layout
+dependence. Unsupported shapes can emit a false structural observation followed
+by explicit address queries. Round envelopes still include rejected candidates.

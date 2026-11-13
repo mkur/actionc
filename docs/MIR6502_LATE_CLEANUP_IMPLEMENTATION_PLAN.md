@@ -201,3 +201,18 @@ The [census report](benchmarks/6502-core-layout-census/README.md) records TN and
 independent controls, unchanged full output/work, validation and the next
 candidate family: known-callee word-result placement. This completes the census
 slice only. It adds no replayable core proof or compaction permission.
+
+
+## Ordinary word-result proof follow-up
+
+1. Add the declaration/extent/budget contract to the existing design, implement
+   a reusable ordinary-range proof, and use it only for known-callee word-result
+   destinations. Retain explicit fallback checks and reject unresolved fallback
+   addresses. Audit accumulator/callee/structural-plan dependencies. Test bounds,
+   excluded storage, relocation invariance, liveness and fallback behavior;
+   commit the implementation.
+2. Qualify TN and independent controls in both runtimes and shifted origins.
+   Compare complete outputs, compiler work and census queries against the frozen
+   pre-change compiler; exercise LF/CRLF and execution. Record actual savings and
+   remaining dependencies, then commit the qualification. Keep frame compaction
+   disabled and retain all existing terminal preservation guards.

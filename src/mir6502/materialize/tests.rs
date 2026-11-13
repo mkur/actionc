@@ -1,4 +1,6 @@
 use super::*;
+#[path = "word_result_proof_tests.rs"]
+mod word_result_proof_tests;
 #[path = "arithmetic_tests.rs"]
 mod arithmetic_tests;
 #[path = "indexed_copy_tests.rs"]
@@ -22094,7 +22096,21 @@ fn known_callee_word_result_placement_stores_proven_high_lane_first() {
         id: RoutineId(0),
         name: "Caller".to_string(),
         abi: MirRoutineAbi::Action,
-        frame: MirFrame::default(),
+        frame: MirFrame {
+            locals: vec![MirStorageSlot {
+                purpose: crate::mir6502::ir::MirStoragePurpose::Storage,
+                id: MirStorageId(0),
+                name: Some("destination".into()),
+                storage: MirStorageClass::Scalar,
+                storage_size: 2,
+                scalar_width: Some(MirWidth::Word),
+                base: MirStorageBase::Local(LocalId(0)),
+                offset: 0,
+                mutable: true,
+                init: None,
+            }],
+            ..MirFrame::default()
+        },
         temps: Vec::new(),
         blocks: vec![MirBlock {
             id: MirBlockId(0),
