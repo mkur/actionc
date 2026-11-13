@@ -67,6 +67,10 @@ fn report_decision(
     bytes: Option<usize>,
     cycles: Option<u32>,
 ) {
+    stats.trace.event("inline-selection", || serde_json::json!({
+        "caller": caller.0, "callee": callee.0, "outcome": outcome,
+        "growth_bytes": bytes, "estimated_cycles_saved": cycles
+    }));
     let source = program.routines.iter().find(|r| r.id == callee).unwrap();
     let requested = source.inline.requested();
     let caller = program.routines.iter().find(|r| r.id == caller).unwrap();
@@ -469,6 +473,7 @@ fn expand_group(
     })
 }
 
+#[allow(dead_code)]
 pub(in crate::mir6502) fn materialize(
     program: MirProgram,
     census: LeafCensus,
@@ -476,7 +481,21 @@ pub(in crate::mir6502) fn materialize(
     origin: u16,
     runtime: Runtime,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    let mut stats = MirPeepholeStats::default();
+    materialize_traced(program, census, config, origin, runtime, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(in crate::mir6502) fn materialize_traced(
+    program: MirProgram,
+    census: LeafCensus,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: Runtime,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    trace.run("inlining", |trace| {
+    trace.snapshot("attempt-input", &program);
+
+    let mut stats = MirPeepholeStats::with_trace(trace);
     for routine in program.routines.iter().filter(|r| r.inline.requested()) {
         stats.record(routine.id, "inline-requested-routine");
         let callers: Vec<_> = program
@@ -548,19 +567,19 @@ pub(in crate::mir6502) fn materialize(
     });
     if groups.is_empty() {
         maybe_report_peepholes(&current, &stats, config);
-        return crate::mir6502::materialize_resolved_program(
+        return trace.run("fallback-or-selected-replay", |trace| crate::mir6502::materialize_resolved_program_traced(
             current, config, origin, runtime, true,
-        );
+         trace,));
     }
     let mut trials = [0; 2];
-    let mut baseline = crate::mir6502::materialize_resolved_program(
+    let mut baseline = trace.run("baseline-materialization", |trace| crate::mir6502::materialize_resolved_program_traced(
         current.clone(),
         config,
         origin,
         runtime,
         false,
-    )?;
-    let mut baseline_image = Image::build(&baseline, origin);
+     trace,))?;
+    let mut baseline_image = Image::build_traced(&baseline, origin, trace);
     let initial_bytes = baseline_image.as_ref().map_or(0, |i| i.bytes.len());
     let mut caller_growth = BTreeMap::<(RoutineId, bool), usize>::new();
     let mut program_growth = [0; 2];
@@ -619,20 +638,20 @@ pub(in crate::mir6502) fn materialize(
         crate::mir6502::verify_program(&candidate, MirPhase::PreMaterialization)?;
         trials[policy] += 1;
         stats.record(caller_id, "leaf-inline-trials");
-        let trial = crate::mir6502::materialize_resolved_program(
+        let trial = trace.run("candidate-materialization", |trace| crate::mir6502::materialize_resolved_program_traced(
             candidate.clone(),
             config,
             origin,
             runtime,
             false,
-        );
+         trace,));
         let Some((mut trial, mut image)) = trial
             .ok()
             .map(|mut program| {
                 apply_helper_placements(&mut program, &helper_placements);
                 program
             })
-            .and_then(|p| Image::build(&p, origin).map(|image| (p, image)))
+            .and_then(|p| Image::build_traced(&p, origin, trace).map(|image| (p, image)))
         else {
             stats.record_many(caller_id, "leaf-inline-blocked-unknown", count);
             report_decision(
@@ -769,7 +788,7 @@ pub(in crate::mir6502) fn materialize(
                     }
                     trials[policy] += 1;
                     stats.record(caller_id, "leaf-inline-layout-trials");
-                    let Some(alternative_image) = Image::build(&alternative, origin) else {
+                    let Some(alternative_image) = Image::build_traced(&alternative, origin, trace) else {
                         continue;
                     };
                     let alternative_charge = alternative_image
@@ -858,11 +877,16 @@ pub(in crate::mir6502) fn materialize(
         baseline_image = Some(image);
     }
     maybe_report_peepholes(&current, &stats, config);
+    trace.snapshot("inline-selected-source", &current);
+    let replay = trace.child("inline-final-rematerialization", "selected-input-replay");
     let mut result =
-        crate::mir6502::materialize_resolved_program(current, config, origin, runtime, true)?;
+        crate::mir6502::materialize_resolved_program_traced(current, config, origin, runtime, true, &replay)?;
     apply_helper_placements(&mut result, &helper_placements);
+    trace.event("helper-placement", || serde_json::json!({ "placements": helper_placements.iter().map(|(h,a)| (h.0,a.0)).collect::<Vec<_>>() }));
     crate::mir6502::verify_program(&result, MirPhase::PreEmission)?;
     Ok(result)
+
+    })
 }
 
 fn helper_placement_anchors(program: &MirProgram, caller: RoutineId) -> Vec<RoutineId> {

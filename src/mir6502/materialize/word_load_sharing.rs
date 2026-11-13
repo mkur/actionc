@@ -74,14 +74,24 @@ fn has_candidate(p: &MirProgram) -> bool {
     })
 }
 
+#[allow(dead_code)]
 fn apply(
     baseline: &MirProgram,
     memory: &MirPhysicalMemory,
     eligible: Option<&BTreeSet<RoutineId>>,
 ) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
+    apply_traced(baseline, memory, eligible, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn apply_traced(
+    baseline: &MirProgram,
+    memory: &MirPhysicalMemory,
+    eligible: Option<&BTreeSet<RoutineId>>,
+    trace: &crate::mir6502::trace::Trace,
+) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
     let callees = MirKnownCalleeSummaries::analyze_for_rewriting(baseline);
     let mut proposed = baseline.clone();
-    let mut stats = MirPeepholeStats::default();
+    let mut stats = MirPeepholeStats::with_trace(trace);
     let mut affected = BTreeSet::new();
     for r in &mut proposed.routines {
         if eligible.is_some_and(|ids| !ids.contains(&r.id))
@@ -100,7 +110,7 @@ fn apply(
             .collect::<BTreeMap<_, _>>();
         let mut seen = BTreeSet::new();
         let rounds = r.blocks.iter().map(|b| b.ops.len()).sum::<usize>() + 1;
-        let result = MirPostHomeRewriteDriver::with_max_rounds(rounds)
+        let result = MirPostHomeRewriteDriver::with_max_rounds(rounds).with_trace(trace)
             .run_fixed_point_with_physical_memory(r, &callees, memory, |r, c| {
                 let plans = discover(r, c, memory, &ids, &mut seen);
                 // Keep the original first-load identity across index shifts so a
@@ -142,9 +152,21 @@ fn exit_facts_preserved(
             .iter()
             .all(|&r| !a.preserves_register(r) || b.preserves_register(r))
 }
+#[allow(dead_code)]
 fn image_size(p: &MirProgram, origin: u16, runtime: crate::runtime::Runtime) -> Option<usize> {
+    image_size_traced(p, origin, runtime, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn image_size_traced(
+    p: &MirProgram,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    trace: &crate::mir6502::trace::Trace,
+) -> Option<usize> {
+    let invocation = trace.child("emission-request", "load-image");
+    let trace = &invocation;
     let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
-    let summary = super::super::emit::emit_program(p, origin, &mut emitter).ok()?;
+    let summary = super::super::emit::emit_program_traced(p, origin, &mut emitter, trace).ok()?;
     let output = super::super::codegen_output(
         emitter.finish_with_relocations().ok()?,
         origin,
@@ -159,6 +181,7 @@ fn image_size(p: &MirProgram, origin: u16, runtime: crate::runtime::Runtime) -> 
 // No candidate causes another complete materialization.
 #[derive(Default)]
 struct Work {
+    trace: crate::mir6502::trace::Trace,
     emissions: usize,
 }
 #[cfg(test)]
@@ -181,15 +204,17 @@ impl Work {
         references: &MirProgram,
         origin: u16,
     ) -> Option<MirPhysicalMemory> {
+        let trace = self.trace.clone();
+        let trace = &trace;
         self.charge()?;
         let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
-        let summary = super::super::emit::emit_program_with_physical_references(
+        let summary = super::super::emit::emit_program_with_physical_references_traced(
             p,
             origin,
             &mut emitter,
             true,
             references,
-        )
+         trace,)
         .ok()?;
         emitter.finish_with_relocations().ok()?;
         let mut memory = summary.physical_memory;
@@ -203,8 +228,10 @@ impl Work {
         Some(memory)
     }
     fn cost(&mut self, p: &MirProgram, origin: u16) -> Option<address_values::Cost> {
+        let trace = self.trace.clone();
+        let trace = &trace;
         self.charge()?;
-        address_values::Cost::measure(p, origin)
+        address_values::Cost::measure_traced(p, origin, trace)
     }
     fn image(
         &mut self,
@@ -212,108 +239,133 @@ impl Work {
         origin: u16,
         runtime: crate::runtime::Runtime,
     ) -> Option<usize> {
+        let trace = self.trace.clone();
+        let trace = &trace;
         self.charge()?;
-        image_size(p, origin, runtime)
+        image_size_traced(p, origin, runtime, trace)
     }
 }
 #[cfg(test)]
 thread_local! { static WORK: std::cell::RefCell<Vec<usize>> = const {std::cell::RefCell::new(Vec::new())}; }
 
+#[allow(dead_code)]
 pub(in crate::mir6502) fn select_costed(
     baseline: MirProgram,
     config: &Mir6502Config,
     origin: u16,
     runtime: crate::runtime::Runtime,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    if !has_candidate(&baseline) {
-        return Ok(baseline);
-    }
-    let mut work = Work::default();
-    let Some(memory) = work.physical(&baseline, &baseline, origin) else {
-        return Ok(baseline);
-    };
-    let Some((mut proposed, mut stats, affected)) = apply(&baseline, &memory, None) else {
-        return Ok(baseline);
-    };
-    if affected.is_empty() {
-        maybe_report_peepholes(&baseline, &stats, config);
-        return Ok(baseline);
-    }
-    let old = work.cost(&baseline, origin);
-    let cost = work.cost(&proposed, origin);
-    let callees = MirKnownCalleeSummaries::analyze_for_rewriting(&baseline)
-        .with_precise_entry_flags(&baseline, &affected);
-    let new_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&proposed);
-    let mut accepted = affected
-        .iter()
-        .copied()
-        .filter(|&id| {
-            old.as_ref()
-                .zip(cost.as_ref())
-                .is_some_and(|(a, b)| b.does_not_grow(a, id))
-                && exit_facts_preserved(&callees, &new_callees, id)
-        })
-        .collect::<BTreeSet<_>>();
-    for r in &mut proposed.routines {
-        if affected.contains(&r.id) && !accepted.contains(&r.id) {
-            *r = baseline
-                .routines
-                .iter()
-                .find(|old| old.id == r.id)
-                .unwrap()
-                .clone();
+    select_costed_traced(baseline, config, origin, runtime, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(in crate::mir6502) fn select_costed_traced(
+    baseline: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    trace.run("word_load_sharing", |trace| {
+        trace.snapshot("attempt-input", &baseline);
+
+        if !has_candidate(&baseline) {
+            return Ok(baseline);
         }
-    }
-    if !accepted.is_empty() {
-        let replay = work
-            .physical(&proposed, &baseline, origin)
-            .and_then(|m| apply(&baseline, &m, Some(&accepted)))
-            .is_some_and(|(p, _, _)| p == proposed);
-        let final_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&proposed);
-        let good = replay
-            && callees.entry_inputs_preserved_by(&proposed, &final_callees)
-            && super::super::verify_program(&proposed, MirPhase::PreEmission).is_ok()
-            && baseline
-                .routines
-                .iter()
-                .zip(&proposed.routines)
-                .all(|(a, b)| {
-                    a.frame == b.frame && exit_facts_preserved(&callees, &final_callees, a.id)
-                })
-            && old
-                .as_ref()
-                .zip(work.cost(&proposed, origin))
-                .is_some_and(|(a, b)| {
-                    b.bytes <= a.bytes && accepted.iter().all(|&id| b.does_not_grow(a, id))
-                })
-            && work
-                .image(&baseline, origin, runtime)
-                .zip(work.image(&proposed, origin, runtime))
-                .is_some_and(|(a, b)| b < a);
-        if !good {
-            accepted.clear();
-        }
-    }
-    if let Some(&id) = affected.iter().next() {
-        stats.record_many(id, "word-load-sharing-additional-emissions", work.emissions);
-    }
-    for id in affected {
-        let stat = if accepted.contains(&id) {
-            "word-load-sharing-applied"
-        } else if !exit_facts_preserved(&callees, &new_callees, id) {
-            "word-load-sharing-declined-callee-exit"
-        } else {
-            "word-load-sharing-declined-final-proof-or-cost"
+        let mut work = Work {
+            trace: trace.clone(),
+            ..Work::default()
         };
-        stats.record_many(id, stat, stats.count_for(id, "word-load-sharing-selected"));
-    }
-    let result = if accepted.is_empty() {
-        baseline
-    } else {
-        proposed
-    };
-    maybe_report_peepholes(&result, &stats, config);
-    Ok(result)
+        let Some(memory) = work.physical(&baseline, &baseline, origin) else {
+            return Ok(baseline);
+        };
+        let Some((mut proposed, mut stats, affected)) =
+            apply_traced(&baseline, &memory, None, trace)
+        else {
+            return Ok(baseline);
+        };
+        if affected.is_empty() {
+            maybe_report_peepholes(&baseline, &stats, config);
+            return Ok(baseline);
+        }
+        let old = work.cost(&baseline, origin);
+        let cost = work.cost(&proposed, origin);
+        let callees = MirKnownCalleeSummaries::analyze_for_rewriting(&baseline)
+            .with_precise_entry_flags(&baseline, &affected);
+        let new_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&proposed);
+        let mut accepted = affected
+            .iter()
+            .copied()
+            .filter(|&id| {
+                old.as_ref()
+                    .zip(cost.as_ref())
+                    .is_some_and(|(a, b)| b.does_not_grow(a, id))
+                    && exit_facts_preserved(&callees, &new_callees, id)
+            })
+            .collect::<BTreeSet<_>>();
+        for r in &mut proposed.routines {
+            if affected.contains(&r.id) && !accepted.contains(&r.id) {
+                *r = baseline
+                    .routines
+                    .iter()
+                    .find(|old| old.id == r.id)
+                    .unwrap()
+                    .clone();
+            }
+        }
+        if !accepted.is_empty() {
+            let replay = work
+                .physical(&proposed, &baseline, origin)
+                .and_then(|m| apply_traced(&baseline, &m, Some(&accepted), trace))
+                .is_some_and(|(p, _, _)| p == proposed);
+            let final_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&proposed);
+            let good = replay
+                && callees.entry_inputs_preserved_by(&proposed, &final_callees)
+                && super::super::verify_program(&proposed, MirPhase::PreEmission).is_ok()
+                && baseline
+                    .routines
+                    .iter()
+                    .zip(&proposed.routines)
+                    .all(|(a, b)| {
+                        a.frame == b.frame && exit_facts_preserved(&callees, &final_callees, a.id)
+                    })
+                && old
+                    .as_ref()
+                    .zip(work.cost(&proposed, origin))
+                    .is_some_and(|(a, b)| {
+                        b.bytes <= a.bytes && accepted.iter().all(|&id| b.does_not_grow(a, id))
+                    })
+                && work
+                    .image(&baseline, origin, runtime)
+                    .zip(work.image(&proposed, origin, runtime))
+                    .is_some_and(|(a, b)| b < a);
+            if !good {
+                accepted.clear();
+            }
+        }
+        if let Some(&id) = affected.iter().next() {
+            stats.record_many(id, "word-load-sharing-additional-emissions", work.emissions);
+        }
+        trace.decision("word_load_sharing", affected.iter().copied(), |id| {
+            accepted.contains(&id)
+        });
+        for id in affected {
+            let stat = if accepted.contains(&id) {
+                "word-load-sharing-applied"
+            } else if !exit_facts_preserved(&callees, &new_callees, id) {
+                "word-load-sharing-declined-callee-exit"
+            } else {
+                "word-load-sharing-declined-final-proof-or-cost"
+            };
+            stats.record_many(id, stat, stats.count_for(id, "word-load-sharing-selected"));
+        }
+        let result = if accepted.is_empty() {
+            baseline
+        } else {
+            proposed
+        };
+        maybe_report_peepholes(&result, &stats, config);
+        Ok(result)
+    })
 }
 
 #[cfg(test)]

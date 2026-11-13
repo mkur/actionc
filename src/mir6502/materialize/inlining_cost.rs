@@ -17,9 +17,20 @@ pub(super) struct Image {
 }
 
 impl Image {
+#[allow(dead_code)]
     pub fn build(program: &MirProgram, origin: u16) -> Option<Self> {
+    Self::build_traced(program, origin, &crate::mir6502::trace::Trace::disabled())
+}
+
+    pub fn build_traced(
+        program: &MirProgram,
+        origin: u16,
+        trace: &crate::mir6502::trace::Trace,
+    ) -> Option<Self> {
+        let invocation = trace.child("emission-request", "inline-image");
+        let trace = &invocation;
         let mut emitter = TrackedEmitter::with_origin(origin);
-        let summary = emit::emit_program(program, origin, &mut emitter).ok()?;
+        let summary = emit::emit_program_traced(program, origin, &mut emitter, trace).ok()?;
         let bytes = emitter.finish_with_relocations().ok()?.bytes;
         let mut entries = BTreeMap::new();
         for routine in &program.routines {

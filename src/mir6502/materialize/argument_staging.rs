@@ -16,14 +16,21 @@ use crate::mir6502::rewrite::{
 
 /// The pre-home witness restricts this first release to its qualified source
 /// shape. It is never reused as a post-home machine/placement proof.
+#[allow(dead_code)]
 pub(in crate::mir6502) fn eligible_routines(program: &MirProgram) -> BTreeSet<RoutineId> {
+    eligible_routines_traced(program, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(in crate::mir6502) fn eligible_routines_traced(program: &MirProgram,
+    trace: &crate::mir6502::trace::Trace,
+) -> BTreeSet<RoutineId> {
     use crate::mir6502::analysis::{prehome::PreHomeAnalysisSnapshot, sites::MirRoutineGeneration};
     use crate::mir6502::rewrite::context::PreHomeRewriteContext;
     let mut eligible = BTreeSet::new();
     for original in &program.routines {
         if !original.blocks.iter().flat_map(|b| &b.ops).any(|op| matches!(op,MirOp::Call { args,.. } if args.len() == 3 && args[0].width == MirWidth::Word && args[1].width == MirWidth::Word && args[2].width == MirWidth::Byte)) { continue; }
         let mut routine = original.clone();
-        if MirPreHomeRewriteDriver::default()
+        if MirPreHomeRewriteDriver::default().with_trace(trace)
             .run_fixed_point(
                 &mut routine,
                 crate::mir6502::rewrite::pilots::discover_call_arg_producers,
@@ -279,10 +286,20 @@ fn discover(
     plans.into_iter().take(1).collect()
 }
 
+#[allow(dead_code)]
 fn apply(
     baseline: &MirProgram,
     physical: &MirPhysicalMemory,
     eligible: &BTreeSet<RoutineId>,
+) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
+    apply_traced(baseline, physical, eligible, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn apply_traced(
+    baseline: &MirProgram,
+    physical: &MirPhysicalMemory,
+    eligible: &BTreeSet<RoutineId>,
+    trace: &crate::mir6502::trace::Trace,
 ) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
     let callees = baseline
         .routines
@@ -302,7 +319,7 @@ fn apply(
         .collect::<BTreeSet<_>>();
     let summaries = MirKnownCalleeSummaries::analyze_for_rewriting(baseline);
     let mut proposed = baseline.clone();
-    let mut stats = MirPeepholeStats::default();
+    let mut stats = MirPeepholeStats::with_trace(trace);
     let mut affected = BTreeSet::new();
     for r in &mut proposed.routines {
         if !eligible.contains(&r.id) {
@@ -319,13 +336,10 @@ fn apply(
         // Each commit removes one X reload. The number of original operations
         // plus one therefore bounds convergence even though op count is equal.
         let rounds = r.blocks.iter().map(|b| b.ops.len()).sum::<usize>() + 1;
-        let result = MirPostHomeRewriteDriver::with_max_rounds(rounds)
-            .run_fixed_point_with_physical_memory(
-                r,
-                &summaries,
-                physical,
-                |r, c| discover(r, c, physical, &callees, &mut observations),
-            )
+        let result = MirPostHomeRewriteDriver::with_max_rounds(rounds).with_trace(trace)
+            .run_fixed_point_with_physical_memory(r, &summaries, physical, |r, c| {
+                discover(r, c, physical, &callees, &mut observations)
+            })
             .ok()?;
         for (_, _, stat) in observations {
             stats.record(r.id, stat);
@@ -338,9 +352,21 @@ fn apply(
     Some((proposed, stats, affected))
 }
 
+#[allow(dead_code)]
 fn image_size(p: &MirProgram, origin: u16, runtime: crate::runtime::Runtime) -> Option<usize> {
+    image_size_traced(p, origin, runtime, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn image_size_traced(
+    p: &MirProgram,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    trace: &crate::mir6502::trace::Trace,
+) -> Option<usize> {
+    let invocation = trace.child("emission-request", "load-image");
+    let trace = &invocation;
     let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
-    let summary = super::super::emit::emit_program(p, origin, &mut emitter).ok()?;
+    let summary = super::super::emit::emit_program_traced(p, origin, &mut emitter, trace).ok()?;
     let output = super::super::codegen_output(
         emitter.finish_with_relocations().ok()?,
         origin,
@@ -351,6 +377,7 @@ fn image_size(p: &MirProgram, origin: u16, runtime: crate::runtime::Runtime) -> 
     Some(crate::codegen::format_load_file(&output).len())
 }
 
+#[allow(dead_code)]
 pub(in crate::mir6502) fn select_costed(
     baseline: MirProgram,
     config: &Mir6502Config,
@@ -358,102 +385,126 @@ pub(in crate::mir6502) fn select_costed(
     runtime: crate::runtime::Runtime,
     eligible: &BTreeSet<RoutineId>,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    if !baseline.routines.iter().any(|r| {
-        r.blocks
+    select_costed_traced(baseline, config, origin, runtime, eligible, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(in crate::mir6502) fn select_costed_traced(
+    baseline: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    eligible: &BTreeSet<RoutineId>,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    trace.run("argument_staging", |trace| {
+        trace.snapshot("attempt-input", &baseline);
+
+        if !baseline.routines.iter().any(|r| {
+            r.blocks
+                .iter()
+                .any(|b| (5..b.ops.len()).any(|i| arithmetic_capture(r, b, i).is_some()))
+        }) {
+            return Ok(baseline);
+        }
+        let Some(physical) =
+            register_copies::physical_memory_traced(&baseline, &baseline, origin, trace)
+        else {
+            return Ok(baseline);
+        };
+        let Some((mut proposed, mut stats, affected)) =
+            apply_traced(&baseline, &physical, eligible, trace)
+        else {
+            return Ok(baseline);
+        };
+        if affected.is_empty() {
+            maybe_report_peepholes(&baseline, &stats, config);
+            return Ok(baseline);
+        }
+        let old = address_values::Cost::measure_traced(&baseline, origin, trace);
+        let cost = address_values::Cost::measure_traced(&proposed, origin, trace);
+        let mut accepted = affected
             .iter()
-            .any(|b| (5..b.ops.len()).any(|i| arithmetic_capture(r, b, i).is_some()))
-    }) {
-        return Ok(baseline);
-    }
-    let Some(physical) = register_copies::physical_memory(&baseline, &baseline, origin) else {
-        return Ok(baseline);
-    };
-    let Some((mut proposed, mut stats, affected)) = apply(&baseline, &physical, eligible) else {
-        return Ok(baseline);
-    };
-    if affected.is_empty() {
-        maybe_report_peepholes(&baseline, &stats, config);
-        return Ok(baseline);
-    }
-    let old = address_values::Cost::measure(&baseline, origin);
-    let cost = address_values::Cost::measure(&proposed, origin);
-    let mut accepted = affected
-        .iter()
-        .copied()
-        .filter(|&id| {
-            old.as_ref()
-                .zip(cost.as_ref())
-                .is_some_and(|(old, new)| new.does_not_grow(old, id))
-        })
-        .collect::<BTreeSet<_>>();
-    for r in &mut proposed.routines {
-        if affected.contains(&r.id) && !accepted.contains(&r.id) {
-            *r = baseline
+            .copied()
+            .filter(|&id| {
+                old.as_ref()
+                    .zip(cost.as_ref())
+                    .is_some_and(|(old, new)| new.does_not_grow(old, id))
+            })
+            .collect::<BTreeSet<_>>();
+        for r in &mut proposed.routines {
+            if affected.contains(&r.id) && !accepted.contains(&r.id) {
+                *r = baseline
+                    .routines
+                    .iter()
+                    .find(|old| old.id == r.id)
+                    .unwrap()
+                    .clone();
+            }
+        }
+        let replayed = register_copies::physical_memory_traced(&proposed, &baseline, origin, trace)
+            .and_then(|map| apply_traced(&baseline, &map, eligible, trace))
+            .is_some_and(|(mut replay, _, _)| {
+                for r in &mut replay.routines {
+                    if affected.contains(&r.id) && !accepted.contains(&r.id) {
+                        *r = baseline
+                            .routines
+                            .iter()
+                            .find(|old| old.id == r.id)
+                            .unwrap()
+                            .clone();
+                    }
+                }
+                replay == proposed
+            });
+        let final_ok = replayed
+            && super::super::verify_program(&proposed, MirPhase::PreEmission).is_ok()
+            && baseline
                 .routines
                 .iter()
-                .find(|old| old.id == r.id)
-                .unwrap()
-                .clone();
+                .zip(&proposed.routines)
+                .all(|(a, b)| a.frame == b.frame)
+            && old
+                .as_ref()
+                .zip(address_values::Cost::measure_traced(
+                    &proposed, origin, trace,
+                ))
+                .is_some_and(|(old, new)| {
+                    new.bytes <= old.bytes && accepted.iter().all(|&id| new.does_not_grow(old, id))
+                })
+            && image_size_traced(&baseline, origin, runtime, trace)
+                .zip(image_size_traced(&proposed, origin, runtime, trace))
+                .is_some_and(|(old, new)| new < old);
+        if !final_ok {
+            accepted.clear();
         }
-    }
-    let replayed = register_copies::physical_memory(&proposed, &baseline, origin)
-        .and_then(|map| apply(&baseline, &map, eligible))
-        .is_some_and(|(mut replay, _, _)| {
-            for r in &mut replay.routines {
-                if affected.contains(&r.id) && !accepted.contains(&r.id) {
-                    *r = baseline
-                        .routines
-                        .iter()
-                        .find(|old| old.id == r.id)
-                        .unwrap()
-                        .clone();
-                }
-            }
-            replay == proposed
+        trace.decision("argument_staging", affected.iter().copied(), |id| {
+            accepted.contains(&id)
         });
-    let final_ok = replayed
-        && super::super::verify_program(&proposed, MirPhase::PreEmission).is_ok()
-        && baseline
-            .routines
-            .iter()
-            .zip(&proposed.routines)
-            .all(|(a, b)| a.frame == b.frame)
-        && old
-            .as_ref()
-            .zip(address_values::Cost::measure(&proposed, origin))
-            .is_some_and(|(old, new)| {
-                new.bytes <= old.bytes && accepted.iter().all(|&id| new.does_not_grow(old, id))
-            })
-        && image_size(&baseline, origin, runtime)
-            .zip(image_size(&proposed, origin, runtime))
-            .is_some_and(|(old, new)| new < old);
-    if !final_ok {
-        accepted.clear();
-    }
-    for id in affected {
-        stats.record_many(
-            id,
-            if accepted.contains(&id) {
-                "argument-staging-applied"
+        for id in affected {
+            stats.record_many(
+                id,
+                if accepted.contains(&id) {
+                    "argument-staging-applied"
+                } else {
+                    "argument-staging-declined-final-proof-or-cost"
+                },
+                stats.count_for(id, "argument-staging-selected"),
+            );
+        }
+        maybe_report_peepholes(
+            if accepted.is_empty() {
+                &baseline
             } else {
-                "argument-staging-declined-final-proof-or-cost"
+                &proposed
             },
-            stats.count_for(id, "argument-staging-selected"),
+            &stats,
+            config,
         );
-    }
-    maybe_report_peepholes(
-        if accepted.is_empty() {
-            &baseline
+        Ok(if accepted.is_empty() {
+            baseline
         } else {
-            &proposed
-        },
-        &stats,
-        config,
-    );
-    Ok(if accepted.is_empty() {
-        baseline
-    } else {
-        proposed
+            proposed
+        })
     })
 }
 
@@ -462,4 +513,4 @@ pub(in crate::mir6502) fn select_costed(
 mod tests;
 
 mod x_forwarding;
-pub(in crate::mir6502) use x_forwarding::select_costed as select_x_forwarding_costed;
+pub(in crate::mir6502) use x_forwarding::select_costed_traced as select_x_forwarding_costed_traced;

@@ -121,3 +121,56 @@ fn sessions_are_isolated_and_failures_and_truncation_are_explicit() {
     assert_eq!(full.manifest()["status"], "compilation-failed");
     assert!(full.manifest()["final_snapshot"].is_null());
 }
+
+#[test]
+fn nested_trials_have_scoped_results_and_selected_inlining_is_replayed() {
+    let input = nir(
+        "BYTE input,output BYTE FUNC Map(BYTE value) IF (value AND $80)#0 THEN RETURN((value LSH 1) XOR $1B) FI RETURN(value LSH 1) PROC Main() output=Map(input) RETURN",
+    );
+    let mut trace = Mir6502Trace::default();
+    let config = Mir6502Config::optimized();
+    let output = mir6502::generate_output_with_trace(
+        &input,
+        0x3000,
+        &config,
+        Runtime::ActionCart,
+        &mut trace,
+    )
+    .unwrap();
+    assert_eq!(
+        output,
+        mir6502::generate_output_with_config_and_runtime(
+            &input,
+            0x3000,
+            &config,
+            Runtime::ActionCart
+        )
+        .unwrap()
+    );
+    let events = trace.events();
+    assert_eq!(trace.manifest()["status"], "complete");
+    assert!(
+        events
+            .iter()
+            .any(|e| e.kind == "attempt-start"
+                && e.data["stage"] == "inline-final-rematerialization")
+    );
+    assert!(events.iter().any(|e| e.kind == "inline-selection"));
+    for end in events.iter().filter(|e| e.kind == "attempt-end") {
+        let snapshot = events
+            .iter()
+            .find(|e| Some(e.id) == end.data["returned_snapshot"].as_u64())
+            .unwrap();
+        assert_eq!(snapshot.attempt, end.attempt);
+        assert_eq!(snapshot.data["stage"], "attempt-return");
+        for id in end.data["equivalent_source_snapshots"].as_array().unwrap() {
+            let source = events.iter().find(|e| Some(e.id) == id.as_u64()).unwrap();
+            assert_ne!(source.attempt, end.attempt);
+            assert!(source.id < snapshot.id);
+            assert_eq!(
+                source.data["program_identity"],
+                snapshot.data["program_identity"]
+            );
+        }
+    }
+}

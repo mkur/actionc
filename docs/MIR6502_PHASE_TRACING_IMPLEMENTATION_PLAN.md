@@ -1,6 +1,6 @@
 # MIR6502 phase tracing implementation plan
 
-Prepared 2026-11-13. Status: implementation in progress; Slice 1 complete.
+Prepared 2026-11-13. Status: implementation in progress; Slices 1–2 complete.
 Source baseline: `c00f37a84b8c0943c81565723420ace2c0d4f8d2`.
 
 Implement in six vertical slices. Commit each slice after its checks pass.
@@ -199,7 +199,8 @@ claim the trace was saved. Ordinary compiler diagnostics retain their meaning.
 | Slice | Status | Validation |
 | --- | --- | --- |
 | 1 | Complete | Trace unit test; two integration tests across cart/standalone, default/optimized settings and LF/CRLF; 48 pre-change artifacts and four API outputs (including relocations) unchanged. |
-| 2–6 | Pending | |
+| 2 | Complete | Scoped trial/return/selection records, measured work and actual replay boundaries; independent trace-on/off work observer; nested-inlining integration check; 48 frozen artifacts unchanged. Remaining corpus outcome coverage is qualified in Slice 6. |
+| 3–6 | Pending | |
 
 The pre-change compiler and artifacts are retained under ignored
 `build/mir6502-phase-trace/baseline/` for differential qualification.

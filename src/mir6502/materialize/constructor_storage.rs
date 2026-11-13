@@ -628,6 +628,7 @@ fn escaped_routines(p: &MirProgram) -> BTreeSet<RoutineId> {
     escaped
 }
 
+#[allow(dead_code)]
 pub(super) fn improve(
     forwarded: &mut MirProgram,
     emitted: &mut MirProgram,
@@ -635,6 +636,18 @@ pub(super) fn improve(
     config: &Mir6502Config,
     origin: u16,
     runtime: crate::runtime::Runtime,
+) -> MirPeepholeStats {
+    improve_traced(forwarded, emitted, discovery, config, origin, runtime, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(super) fn improve_traced(
+    forwarded: &mut MirProgram,
+    emitted: &mut MirProgram,
+    discovery: Discovery,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    trace: &crate::mir6502::trace::Trace,
 ) -> MirPeepholeStats {
     let Discovery {
         candidates,
@@ -678,18 +691,19 @@ pub(super) fn improve(
     let proposed = crate::mir6502::verify_program(&selected, MirPhase::PreMaterialization)
         .ok()
         .and_then(|()| {
-            crate::mir6502::materialize_resolved_program_without_copy_costing(
+            trace.run("candidate-materialization", |trace| crate::mir6502::materialize_resolved_program_without_copy_costing_traced(
                 selected.clone(),
                 config,
                 origin,
                 runtime,
                 false,
-            )
+                trace,
+            ))
             .ok()
         });
     let accepted = proposed.as_ref().is_some_and(|new| {
-        Cost::measure(emitted, origin)
-            .zip(Cost::measure(new, origin))
+        Cost::measure_traced(emitted, origin, trace)
+            .zip(Cost::measure_traced(new, origin, trace))
             .is_some_and(|(old, new)| {
                 new.bytes < old.bytes && affected.iter().all(|&id| new.does_not_grow(&old, id))
             })
@@ -698,7 +712,7 @@ pub(super) fn improve(
             && private_cells::physical_cells_unaliased(new, origin, &protected)
     });
     let removed = if accepted && config.enable_constructor_home_elision {
-        elide_homes(
+        elide_homes_traced(
             &selected,
             proposed.as_ref().unwrap(),
             &applied,
@@ -706,6 +720,7 @@ pub(super) fn improve(
             config,
             origin,
             runtime,
+            trace,
         )
     } else {
         None
@@ -742,8 +757,9 @@ pub(super) fn improve(
             *emitted = proposed.unwrap();
         }
         if config.enable_constructor_payload_forwarding {
-            payloads::improve(
+            payloads::improve_traced(
                 forwarded, emitted, &applied, &protected, config, origin, runtime, &mut stats,
+                trace,
             );
         }
     }
@@ -752,6 +768,7 @@ pub(super) fn improve(
 
 // Home deletion is an additional transaction against store-only output. It
 // never makes store elimination depend on a stronger allocation/layout proof.
+#[allow(dead_code)]
 fn elide_homes(
     stores: &MirProgram,
     emitted: &MirProgram,
@@ -760,6 +777,19 @@ fn elide_homes(
     config: &Mir6502Config,
     origin: u16,
     runtime: crate::runtime::Runtime,
+) -> Option<(MirProgram, MirProgram, BTreeSet<(RoutineId, LocalId)>)> {
+    elide_homes_traced(stores, emitted, candidates, protected, config, origin, runtime, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn elide_homes_traced(
+    stores: &MirProgram,
+    emitted: &MirProgram,
+    candidates: &[Candidate],
+    protected: &BTreeMap<RoutineId, Vec<MirMem>>,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    trace: &crate::mir6502::trace::Trace,
 ) -> Option<(MirProgram, MirProgram, BTreeSet<(RoutineId, LocalId)>)> {
     let mut selected = stores.clone();
     let mut removed = BTreeSet::new();
@@ -805,16 +835,17 @@ fn elide_homes(
         return None;
     }
     crate::mir6502::verify_program(&selected, MirPhase::PreMaterialization).ok()?;
-    let proposed = crate::mir6502::materialize_resolved_program_without_copy_costing(
+    let proposed = trace.run("candidate-materialization", |trace| crate::mir6502::materialize_resolved_program_without_copy_costing_traced(
         selected.clone(),
         config,
         origin,
         runtime,
         false,
-    )
+        trace,
+    ))
     .ok()?;
-    let old = Cost::measure(emitted, origin)?;
-    let new = Cost::measure(&proposed, origin)?;
+    let old = Cost::measure_traced(emitted, origin, trace)?;
+    let new = Cost::measure_traced(&proposed, origin, trace)?;
     let remaining = protected.iter().filter_map(|(&id, mems)| {
         let mems = mems.iter().filter(|m| !matches!(m, MirMem::Local { id: local, .. } if removed.contains(&(id, *local))))
             .cloned().collect::<Vec<_>>();

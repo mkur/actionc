@@ -33,6 +33,7 @@ fn enabled(slot: &MirStorageSlot, config: &Mir6502Config) -> bool {
     }
 }
 
+#[allow(dead_code)]
 pub(in crate::mir6502) fn materialize_costed(
     original: MirProgram,
     config: &Mir6502Config,
@@ -40,144 +41,186 @@ pub(in crate::mir6502) fn materialize_costed(
     runtime: crate::runtime::Runtime,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    let mut off = config.clone();
-    off.enable_argument_capture_forwarding = false;
-    off.enable_pattern_binding_forwarding = false;
-    let fallback = |p, reporting| {
-        crate::mir6502::materialize_resolved_program_without_scalar_costing(
-            p, &off, origin, runtime, reporting,
-        )
-    };
-    if !original
-        .routines
-        .iter()
-        .any(|r| r.frame.locals.iter().any(|s| enabled(s, config)))
-    {
-        return fallback(original, report);
-    }
-    let mut selected = original.clone();
-    let mut selection = select(&mut selected, config);
-    let mut affected = selection
-        .forwarded
-        .keys()
-        .chain(selection.removed.keys())
-        .chain(selection.kept.keys())
-        .copied()
-        .collect::<BTreeSet<_>>();
-    if affected.is_empty() {
-        let emitted = fallback(original.clone(), false)?;
-        return finish(original, emitted, config, origin, runtime, report);
-    }
-    let attempted = affected.clone();
-    crate::mir6502::verify_program(&selected, MirPhase::PreMaterialization)?;
-    let baseline = fallback(original.clone(), false)?;
-    let mut proposed = fallback(selected.clone(), false).ok();
-    // One growing routine must not hide an independently profitable routine.
-    // Roll back rejected routines once, then remeasure the complete layout.
-    if let Some((old, new)) = Cost::measure(&baseline, origin)
-        .zip(proposed.as_ref().and_then(|p| Cost::measure(p, origin)))
-    {
-        let rejected = affected
-            .iter()
-            .copied()
-            .filter(|&id| !new.does_not_grow(&old, id))
-            .collect::<BTreeSet<_>>();
-        if !rejected.is_empty() {
-            for r in &mut selected.routines {
-                if rejected.contains(&r.id) {
-                    *r = original
-                        .routines
-                        .iter()
-                        .find(|old| old.id == r.id)
-                        .unwrap()
-                        .clone();
-                }
-            }
-            affected.retain(|id| !rejected.contains(id));
-            selection.forwarded.retain(|id, _| !rejected.contains(id));
-            selection.removed.retain(|id, _| !rejected.contains(id));
-            selection.kept.retain(|id, _| !rejected.contains(id));
-            proposed = if affected.is_empty() {
-                None
-            } else {
-                fallback(selected.clone(), false).ok()
-            };
-        }
-    }
-    let accepted = proposed.as_ref().is_some_and(|proposed| {
-        Cost::measure(&baseline, origin)
-            .zip(Cost::measure(proposed, origin))
-            .is_some_and(|(old, new)| {
-                new.bytes < old.bytes && affected.iter().all(|&id| new.does_not_grow(&old, id))
-            })
-            && occupied(proposed).is_subset(&occupied(&baseline))
-            && private_cells::physical_cells_unaliased(&baseline, origin, &selection.removed)
-            && private_cells::physical_cells_unaliased(&baseline, origin, &selection.kept)
-            && private_cells::physical_cells_unaliased(proposed, origin, &selection.kept)
-    });
-    if report {
-        let mut stats = super::MirPeepholeStats::default();
-        for &id in &attempted {
-            if accepted && affected.contains(&id) {
-                stats.record_many(
-                    id,
-                    "scalar-capture-load-forwarded",
-                    selection.forwarded.get(&id).copied().unwrap_or(0),
-                );
-                stats.record_many(
-                    id,
-                    "scalar-capture-stored-bytes-removed",
-                    selection.kept.get(&id).map_or(0, Vec::len),
-                );
-                stats.record_many(
-                    id,
-                    "scalar-capture-home-bytes-removed",
-                    selection.removed.get(&id).map_or(0, Vec::len),
-                );
-            } else {
-                stats.record(id, "scalar-capture-declined-final-cost-or-alias");
-            }
-        }
-        super::maybe_report_peepholes(&original, &stats, config);
-    }
-    finish(
-        if accepted { selected } else { original },
-        if accepted {
-            proposed.unwrap()
-        } else {
-            baseline
-        },
-        config,
-        origin,
-        runtime,
-        report,
-    )
+    materialize_costed_traced(original, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
 }
 
+pub(in crate::mir6502) fn materialize_costed_traced(
+    original: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    report: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    trace.run("scalar_captures", |trace| {
+        trace.snapshot("attempt-input", &original);
+
+        let mut off = config.clone();
+        off.enable_argument_capture_forwarding = false;
+        off.enable_pattern_binding_forwarding = false;
+        let fallback = |p, reporting| {
+            trace.run("source-materialization", |trace| crate::mir6502::materialize_resolved_program_without_scalar_costing_traced(
+                p, &off, origin, runtime, reporting, trace,
+            ))
+        };
+        if !original
+            .routines
+            .iter()
+            .any(|r| r.frame.locals.iter().any(|s| enabled(s, config)))
+        {
+            return fallback(original, report);
+        }
+        let mut selected = original.clone();
+        let mut selection = select(&mut selected, config);
+        let mut affected = selection
+            .forwarded
+            .keys()
+            .chain(selection.removed.keys())
+            .chain(selection.kept.keys())
+            .copied()
+            .collect::<BTreeSet<_>>();
+        if affected.is_empty() {
+            let emitted = fallback(original.clone(), false)?;
+            return finish_traced(original, emitted, config, origin, runtime, report, trace);
+        }
+        let attempted = affected.clone();
+        crate::mir6502::verify_program(&selected, MirPhase::PreMaterialization)?;
+        let baseline = fallback(original.clone(), false)?;
+        let mut proposed = fallback(selected.clone(), false).ok();
+        // One growing routine must not hide an independently profitable routine.
+        // Roll back rejected routines once, then remeasure the complete layout.
+        if let Some((old, new)) = Cost::measure_traced(&baseline, origin, trace).zip(
+            proposed
+                .as_ref()
+                .and_then(|p| Cost::measure_traced(p, origin, trace)),
+        ) {
+            let rejected = affected
+                .iter()
+                .copied()
+                .filter(|&id| !new.does_not_grow(&old, id))
+                .collect::<BTreeSet<_>>();
+            if !rejected.is_empty() {
+                for r in &mut selected.routines {
+                    if rejected.contains(&r.id) {
+                        *r = original
+                            .routines
+                            .iter()
+                            .find(|old| old.id == r.id)
+                            .unwrap()
+                            .clone();
+                    }
+                }
+                affected.retain(|id| !rejected.contains(id));
+                selection.forwarded.retain(|id, _| !rejected.contains(id));
+                selection.removed.retain(|id, _| !rejected.contains(id));
+                selection.kept.retain(|id, _| !rejected.contains(id));
+                proposed = if affected.is_empty() {
+                    None
+                } else {
+                    fallback(selected.clone(), false).ok()
+                };
+            }
+        }
+        let accepted = proposed.as_ref().is_some_and(|proposed| {
+            Cost::measure_traced(&baseline, origin, trace)
+                .zip(Cost::measure_traced(proposed, origin, trace))
+                .is_some_and(|(old, new)| {
+                    new.bytes < old.bytes && affected.iter().all(|&id| new.does_not_grow(&old, id))
+                })
+                && occupied(proposed).is_subset(&occupied(&baseline))
+                && private_cells::physical_cells_unaliased(&baseline, origin, &selection.removed)
+                && private_cells::physical_cells_unaliased(&baseline, origin, &selection.kept)
+                && private_cells::physical_cells_unaliased(proposed, origin, &selection.kept)
+        });
+        trace.decision("scalar_captures", attempted.iter().copied(), |id| {
+            accepted && affected.contains(&id)
+        });
+        if report {
+            let mut stats = super::MirPeepholeStats::with_trace(trace);
+            for &id in &attempted {
+                if accepted && affected.contains(&id) {
+                    stats.record_many(
+                        id,
+                        "scalar-capture-load-forwarded",
+                        selection.forwarded.get(&id).copied().unwrap_or(0),
+                    );
+                    stats.record_many(
+                        id,
+                        "scalar-capture-stored-bytes-removed",
+                        selection.kept.get(&id).map_or(0, Vec::len),
+                    );
+                    stats.record_many(
+                        id,
+                        "scalar-capture-home-bytes-removed",
+                        selection.removed.get(&id).map_or(0, Vec::len),
+                    );
+                } else {
+                    stats.record(id, "scalar-capture-declined-final-cost-or-alias");
+                }
+            }
+            super::maybe_report_peepholes(&original, &stats, config);
+        }
+        finish_traced(
+            if accepted { selected } else { original },
+            if accepted {
+                proposed.unwrap()
+            } else {
+                baseline
+            },
+            config,
+            origin,
+            runtime,
+            report,
+            trace,
+        )
+    })
+}
+
+#[allow(dead_code)]
 fn finish(
+    selected: MirProgram,
+    emitted: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    report: bool,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    finish_traced(selected, emitted, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn finish_traced(
     mut selected: MirProgram,
     mut emitted: MirProgram,
     config: &Mir6502Config,
     origin: u16,
     runtime: crate::runtime::Runtime,
     report: bool,
+    trace: &crate::mir6502::trace::Trace,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
     if config.enable_scalar_capture_call_elision {
-        let stats = observations::improve(&mut selected, &mut emitted, config, origin, runtime);
+        let stats = observations::improve_traced(
+            &mut selected,
+            &mut emitted,
+            config,
+            origin,
+            runtime,
+            trace,
+        );
         if report {
             super::maybe_report_peepholes(&selected, &stats, config);
         }
     }
     if config.enable_scalar_capture_pointer_elision {
-        let stats = pointers::improve(&mut selected, &mut emitted, config, origin, runtime);
+        let stats =
+            pointers::improve_traced(&mut selected, &mut emitted, config, origin, runtime, trace);
         if report {
             super::maybe_report_peepholes(&selected, &stats, config);
         }
     }
     if report && super::stats::reporting_enabled(config) {
-        crate::mir6502::materialize_resolved_program_without_scalar_costing(
-            selected, config, origin, runtime, true,
-        )
+        trace.run("candidate-materialization", |trace| crate::mir6502::materialize_resolved_program_without_scalar_costing_traced(
+            selected, config, origin, runtime, true, trace,
+        ))
     } else {
         Ok(emitted)
     }

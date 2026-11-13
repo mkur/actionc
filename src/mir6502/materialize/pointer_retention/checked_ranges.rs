@@ -74,15 +74,26 @@ fn apply_ranges(
     Some((proposed, affected))
 }
 
+#[allow(dead_code)]
 fn profitable(
     baseline: &MirProgram,
     proposed: &MirProgram,
     affected: &BTreeSet<RoutineId>,
     origin: u16,
 ) -> bool {
+    profitable_traced(baseline, proposed, affected, origin, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn profitable_traced(
+    baseline: &MirProgram,
+    proposed: &MirProgram,
+    affected: &BTreeSet<RoutineId>,
+    origin: u16,
+    trace: &crate::mir6502::trace::Trace,
+) -> bool {
     match (
-        address_values::Cost::measure(baseline, origin),
-        address_values::Cost::measure(proposed, origin),
+        address_values::Cost::measure_traced(baseline, origin, trace),
+        address_values::Cost::measure_traced(proposed, origin, trace),
     ) {
         (Some(old), Some(new)) => {
             new.bytes < old.bytes && affected.iter().all(|id| new.does_not_grow(&old, *id))
@@ -91,62 +102,82 @@ fn profitable(
     }
 }
 
+#[allow(dead_code)]
 pub(in crate::mir6502) fn select_costed(
     baseline: MirProgram,
     ranges: &MirAddressRanges<'_>,
     origin: u16,
     config: &Mir6502Config,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    let Some(map) = memory(&baseline, &baseline, origin) else {
-        return Ok(baseline);
-    };
-    let Some((proposed, affected)) = apply_ranges(&baseline, &baseline, &map, ranges) else {
-        return Ok(baseline);
-    };
-    if affected.is_empty() {
-        return Ok(baseline);
-    }
-    let old = MirKnownCalleeSummaries::analyze_for_rewriting(&baseline);
-    let new = MirKnownCalleeSummaries::analyze_for_rewriting(&proposed);
-    let exits = baseline.routines.iter().all(|r| {
-        let (Some(a), Some(b)) = (old.get(r.id), new.get(r.id)) else {
-            return old.get(r.id).is_none();
+    select_costed_traced(baseline, ranges, origin, config, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(in crate::mir6502) fn select_costed_traced(
+    baseline: MirProgram,
+    ranges: &MirAddressRanges<'_>,
+    origin: u16,
+    config: &Mir6502Config,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    trace.run("pointer_retention/checked_ranges", |trace| {
+        trace.snapshot("attempt-input", &baseline);
+
+        let Some(map) = memory_traced(&baseline, &baseline, origin, trace) else {
+            return Ok(baseline);
         };
-        (!old.accumulator_summary_is_observable(r.id) || a.accumulator() == b.accumulator())
-            && (a.zn().is_none() || a.zn() == b.zn())
-            && [MirReg::A, MirReg::X, MirReg::Y]
-                .into_iter()
-                .all(|v| !a.preserves_register(v) || b.preserves_register(v))
-            && [0xAA, 0xAC, 0xAE].into_iter().all(|v| {
-                !a.preserves_fixed_pair(MirFixedZpSlot(v))
-                    || b.preserves_fixed_pair(MirFixedZpSlot(v))
-            })
-    });
-    let replay = memory(&proposed, &baseline, origin)
-        .and_then(|m| apply_ranges(&baseline, &proposed, &m, ranges))
-        .is_some_and(|(p, a)| p == proposed && a == affected);
-    let accepted = exits
-        && replay
-        && crate::mir6502::verify_program(&proposed, MirPhase::PreEmission).is_ok()
-        && baseline
-            .routines
-            .iter()
-            .zip(&proposed.routines)
-            .all(|(a, b)| a.frame == b.frame)
-        && profitable(&baseline, &proposed, &affected, origin);
-    let mut stats = MirPeepholeStats::default();
-    for id in affected {
-        stats.record(
-            id,
-            if accepted {
-                "pointer-retention-checked-compound"
-            } else {
-                "pointer-retention-checked-declined-final-proof-or-cost"
-            },
+        let Some((proposed, affected)) = apply_ranges(&baseline, &baseline, &map, ranges) else {
+            return Ok(baseline);
+        };
+        if affected.is_empty() {
+            return Ok(baseline);
+        }
+        let old = MirKnownCalleeSummaries::analyze_for_rewriting(&baseline);
+        let new = MirKnownCalleeSummaries::analyze_for_rewriting(&proposed);
+        let exits = baseline.routines.iter().all(|r| {
+            let (Some(a), Some(b)) = (old.get(r.id), new.get(r.id)) else {
+                return old.get(r.id).is_none();
+            };
+            (!old.accumulator_summary_is_observable(r.id) || a.accumulator() == b.accumulator())
+                && (a.zn().is_none() || a.zn() == b.zn())
+                && [MirReg::A, MirReg::X, MirReg::Y]
+                    .into_iter()
+                    .all(|v| !a.preserves_register(v) || b.preserves_register(v))
+                && [0xAA, 0xAC, 0xAE].into_iter().all(|v| {
+                    !a.preserves_fixed_pair(MirFixedZpSlot(v))
+                        || b.preserves_fixed_pair(MirFixedZpSlot(v))
+                })
+        });
+        let replay = memory_traced(&proposed, &baseline, origin, trace)
+            .and_then(|m| apply_ranges(&baseline, &proposed, &m, ranges))
+            .is_some_and(|(p, a)| p == proposed && a == affected);
+        let accepted = exits
+            && replay
+            && crate::mir6502::verify_program(&proposed, MirPhase::PreEmission).is_ok()
+            && baseline
+                .routines
+                .iter()
+                .zip(&proposed.routines)
+                .all(|(a, b)| a.frame == b.frame)
+            && profitable_traced(&baseline, &proposed, &affected, origin, trace);
+        trace.decision(
+            "pointer_retention/checked_ranges",
+            affected.iter().copied(),
+            |_| accepted,
         );
-    }
-    maybe_report_peepholes(if accepted { &proposed } else { &baseline }, &stats, config);
-    Ok(if accepted { proposed } else { baseline })
+        let mut stats = MirPeepholeStats::with_trace(trace);
+        for id in affected {
+            stats.record(
+                id,
+                if accepted {
+                    "pointer-retention-checked-compound"
+                } else {
+                    "pointer-retention-checked-declined-final-proof-or-cost"
+                },
+            );
+        }
+        maybe_report_peepholes(if accepted { &proposed } else { &baseline }, &stats, config);
+        Ok(if accepted { proposed } else { baseline })
+    })
 }
 
 #[cfg(test)]

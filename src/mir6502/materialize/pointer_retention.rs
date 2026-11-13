@@ -14,14 +14,27 @@ use crate::mir6502::rewrite::context::{MirProof, PostHomeRewriteContext};
 use crate::mir6502::rewrite::plan::{MirChangeSet, MirPostHomeRewritePlan};
 use crate::mir6502::rewrite::posthome::estimated_6502_cost;
 
+#[allow(dead_code)]
 fn memory(program: &MirProgram, references: &MirProgram, origin: u16) -> Option<MirPhysicalMemory> {
+    memory_traced(program, references, origin, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn memory_traced(
+    program: &MirProgram,
+    references: &MirProgram,
+    origin: u16,
+    trace: &crate::mir6502::trace::Trace,
+) -> Option<MirPhysicalMemory> {
+    let invocation = trace.child("emission-request", "physical-map");
+    let trace = &invocation;
     let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
-    let summary = crate::mir6502::emit::emit_program_with_physical_references(
+    let summary = crate::mir6502::emit::emit_program_with_physical_references_traced(
         program,
         origin,
         &mut emitter,
         true,
         references,
+        trace,
     )
     .ok()?;
     emitter.finish_with_relocations().ok()?;
@@ -51,6 +64,7 @@ fn has_setup(r: &MirRoutine) -> bool {
 }
 
 #[cfg(test)]
+#[allow(dead_code)]
 fn apply(
     baseline: &MirProgram,
     proofs: &MirProgram,
@@ -58,9 +72,22 @@ fn apply(
     cfg: bool,
     promote: bool,
 ) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
-    apply_with_bounded_calls(baseline, proofs, map, cfg, promote, false)
+    apply_traced(baseline, proofs, map, cfg, promote, &crate::mir6502::trace::Trace::disabled())
 }
 
+#[cfg(test)]
+fn apply_traced(
+    baseline: &MirProgram,
+    proofs: &MirProgram,
+    map: &MirPhysicalMemory,
+    cfg: bool,
+    promote: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
+    apply_with_bounded_calls_traced(baseline, proofs, map, cfg, promote, false, trace)
+}
+
+#[allow(dead_code)]
 fn apply_with_bounded_calls(
     baseline: &MirProgram,
     proofs: &MirProgram,
@@ -68,6 +95,18 @@ fn apply_with_bounded_calls(
     cfg: bool,
     promote: bool,
     bounded_calls: bool,
+) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
+    apply_with_bounded_calls_traced(baseline, proofs, map, cfg, promote, bounded_calls, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn apply_with_bounded_calls_traced(
+    baseline: &MirProgram,
+    proofs: &MirProgram,
+    map: &MirPhysicalMemory,
+    cfg: bool,
+    promote: bool,
+    bounded_calls: bool,
+    trace: &crate::mir6502::trace::Trace,
 ) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
     let calls = CallWrites::analyze(proofs, map);
     let calls = if bounded_calls && !promote {
@@ -77,7 +116,7 @@ fn apply_with_bounded_calls(
     };
     let known = MirKnownCalleeSummaries::analyze_for_rewriting(proofs);
     let mut proposed = baseline.clone();
-    let mut stats = MirPeepholeStats::default();
+    let mut stats = MirPeepholeStats::with_trace(trace);
     let mut affected = BTreeSet::new();
     for r in &mut proposed.routines {
         if !has_setup(r) {
@@ -120,7 +159,7 @@ fn apply_with_bounded_calls(
         }
         let rounds = r.blocks.iter().map(|b| b.ops.len()).sum::<usize>() + 1;
         let mut retained = affected.contains(&r.id);
-        let result = MirPostHomeRewriteDriver::with_max_rounds(rounds)
+        let result = MirPostHomeRewriteDriver::with_max_rounds(rounds).with_trace(trace)
             .run_fixed_point_with_known_callees(r, &known, |r, c| {
                 let facts = cfg
                     .then(|| retention::ResidentFacts::analyze(r, map, &calls))
@@ -558,24 +597,55 @@ fn indexed_store_plan(
     None
 }
 
+#[allow(dead_code)]
 pub(in crate::mir6502) fn select_costed(
     baseline: MirProgram,
     config: &Mir6502Config,
     origin: u16,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    select(baseline, config, origin, report, false)
+    select_costed_traced(baseline, config, origin, report, &crate::mir6502::trace::Trace::disabled())
 }
 
+pub(in crate::mir6502) fn select_costed_traced(
+    baseline: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    report: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    trace.run("pointer_retention", |trace| {
+        trace.snapshot("attempt-input", &baseline);
+
+        select_traced(baseline, config, origin, report, false, trace)
+    })
+}
+
+#[allow(dead_code)]
 pub(in crate::mir6502) fn select_promotion_costed(
     baseline: MirProgram,
     config: &Mir6502Config,
     origin: u16,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    select(baseline, config, origin, report, true)
+    select_promotion_costed_traced(baseline, config, origin, report, &crate::mir6502::trace::Trace::disabled())
 }
 
+pub(in crate::mir6502) fn select_promotion_costed_traced(
+    baseline: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    report: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    trace.run("pointer-promotion", |trace| {
+        trace.snapshot("attempt-input", &baseline);
+
+        select_traced(baseline, config, origin, report, true, trace)
+    })
+}
+
+#[allow(dead_code)]
 fn select(
     baseline: MirProgram,
     config: &Mir6502Config,
@@ -583,21 +653,33 @@ fn select(
     report: bool,
     promote: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    select_traced(baseline, config, origin, report, promote, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn select_traced(
+    baseline: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    report: bool,
+    promote: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
     if !baseline.routines.iter().any(has_setup) {
         return Ok(baseline);
     }
-    let Some(map) = memory(&baseline, &baseline, origin) else {
+    let Some(map) = memory_traced(&baseline, &baseline, origin, trace) else {
         return Ok(baseline);
     };
     let bounded_calls =
         config.enable_pointer_call_retention && config.enable_bounded_call_pointer_retention;
-    let Some((proposed, mut stats, affected)) = apply_with_bounded_calls(
+    let Some((proposed, mut stats, affected)) = apply_with_bounded_calls_traced(
         &baseline,
         &baseline,
         &map,
         config.enable_pointer_loop_retention,
         promote,
         bounded_calls,
+        trace,
     ) else {
         return Ok(baseline);
     };
@@ -615,15 +697,16 @@ fn select(
                 == new_callees.get(r.id).and_then(|s| s.accumulator())
     });
     let replay = !affected.is_empty()
-        && memory(&proposed, &baseline, origin)
+        && memory_traced(&proposed, &baseline, origin, trace)
             .and_then(|map| {
-                apply_with_bounded_calls(
+                apply_with_bounded_calls_traced(
                     &baseline,
                     &proposed,
                     &map,
                     config.enable_pointer_loop_retention,
                     promote,
                     bounded_calls,
+                    trace,
                 )
             })
             .is_some_and(|(p, _, _)| p == proposed);
@@ -636,16 +719,17 @@ fn select(
             .zip(&proposed.routines)
             .all(|(a, b)| a.frame == b.frame)
         && match (
-            address_values::Cost::measure(&baseline, origin),
-            address_values::Cost::measure(&proposed, origin),
+            address_values::Cost::measure_traced(&baseline, origin, trace),
+            address_values::Cost::measure_traced(&proposed, origin, trace),
         ) {
             (Some(old), Some(new)) => {
                 new.bytes < old.bytes && affected.iter().all(|id| new.does_not_grow(&old, *id))
             }
             _ => false,
         };
+    trace.decision("pointer_retention", affected.iter().copied(), |_| accepted);
     if !accepted && !affected.is_empty() {
-        stats = MirPeepholeStats::default();
+        stats = MirPeepholeStats::with_trace(trace);
         for id in affected {
             stats.record(id, "pointer-retention-declined-final-proof-or-cost");
         }

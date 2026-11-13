@@ -10,6 +10,7 @@ use crate::mir6502::ir::MirRoutine;
 use crate::mir6502::rewrite::context::PreHomeRewriteContext;
 use std::collections::{BTreeMap, BTreeSet};
 
+#[allow(dead_code)]
 pub(in crate::mir6502) fn materialize_costed(
     original: MirProgram,
     config: &Mir6502Config,
@@ -17,161 +18,186 @@ pub(in crate::mir6502) fn materialize_costed(
     runtime: crate::runtime::Runtime,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    let layout = MaterializeLayout::new(&original, origin);
-    let mut selected = original.clone();
-    let mut proofs = BTreeMap::<RoutineId, Vec<(ArgumentSnapshot, MirOp)>>::new();
-    for routine in &mut selected.routines {
-        let snapshot = PreHomeAnalysisSnapshot::new(routine, MirRoutineGeneration::initial())
-            .map_err(|e| {
+    materialize_costed_traced(original, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(in crate::mir6502) fn materialize_costed_traced(
+    original: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    report: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    trace.run("call_predicates", |trace| {
+        trace.snapshot("attempt-input", &original);
+
+        let layout = MaterializeLayout::new(&original, origin);
+        let mut selected = original.clone();
+        let mut proofs = BTreeMap::<RoutineId, Vec<(ArgumentSnapshot, MirOp)>>::new();
+        for routine in &mut selected.routines {
+            let snapshot = PreHomeAnalysisSnapshot::new(routine, MirRoutineGeneration::initial())
+                .map_err(|e| {
                 vec![MirDiagnostic::routine(
                     &routine.name,
                     format!("argument snapshot CFG: {e:?}"),
                 )]
             })?;
-        let context = PreHomeRewriteContext::new(&snapshot);
-        let mut facts = Vec::new();
-        for b in &routine.blocks {
-            for (i, op) in b.ops.iter().enumerate() {
-                let site = MirSite::Op {
-                    block: b.id,
-                    op_index: i,
-                };
-                if let Some((_, predicate)) = predicate_call(routine, &context, site) {
-                    for a in 0..predicate {
-                        if let Ok(fact) =
-                            context.argument_snapshot(routine, context.point(site), a, &layout)
-                        {
-                            facts.push((fact, op.clone()));
+            let context = PreHomeRewriteContext::new(&snapshot);
+            let mut facts = Vec::new();
+            for b in &routine.blocks {
+                for (i, op) in b.ops.iter().enumerate() {
+                    let site = MirSite::Op {
+                        block: b.id,
+                        op_index: i,
+                    };
+                    if let Some((_, predicate)) = predicate_call(routine, &context, site) {
+                        for a in 0..predicate {
+                            if let Ok(fact) =
+                                context.argument_snapshot(routine, context.point(site), a, &layout)
+                            {
+                                facts.push((fact, op.clone()));
+                            }
                         }
                     }
                 }
             }
-        }
-        if facts.is_empty() {
-            continue;
-        }
-        let result = MirPreHomeRewriteDriver::default()
-            .run_fixed_point(routine, |r, c| {
-                crate::mir6502::rewrite::call_predicates::discover_argument_snapshots(r, c, &layout)
-            })
-            .map_err(|e| {
-                vec![MirDiagnostic::routine(
-                    &routine.name,
-                    format!("argument snapshot transaction: {e:?}"),
-                )]
-            })?;
-        if result.applied > 0 {
-            proofs.insert(routine.id, facts);
-        }
-    }
-    let mut off = config.clone();
-    off.enable_call_predicate_arguments = false;
-    off.enable_call_predicate_abi = false;
-    if proofs.is_empty() {
-        return crate::mir6502::materialize_resolved_program_without_call_costing(
-            original, &off, origin, runtime, report,
-        );
-    }
-    let baseline = crate::mir6502::materialize_resolved_program_without_call_costing(
-        original.clone(),
-        &off,
-        origin,
-        runtime,
-        false,
-    )?;
-    let mut trial = crate::mir6502::materialize_resolved_program_without_call_costing(
-        selected.clone(),
-        config,
-        origin,
-        runtime,
-        false,
-    )?;
-    let baseline_cost = Cost::measure(&baseline, origin);
-    let trial_cost = Cost::measure(&trial, origin);
-    let placed = MaterializeLayout::new(&trial, origin);
-    let mut accepted = BTreeSet::new();
-    for (id, facts) in &proofs {
-        let r = trial.routines.iter().find(|r| r.id == *id).unwrap();
-        if facts
-            .iter()
-            .all(|(fact, call)| physical_source(r, &placed, &fact.source, fact.width, call))
-            && baseline_cost
-                .as_ref()
-                .and_then(|c| c.routine(*id))
-                .zip(trial_cost.as_ref().and_then(|c| c.routine(*id)))
-                .is_some_and(|(old, new)| new <= old)
-        {
-            accepted.insert(*id);
-        }
-    }
-    if accepted.len() != proofs.len() && !accepted.is_empty() {
-        for r in &mut selected.routines {
-            if proofs.contains_key(&r.id) && !accepted.contains(&r.id) {
-                *r = original
-                    .routines
-                    .iter()
-                    .find(|old| old.id == r.id)
-                    .unwrap()
-                    .clone();
+            if facts.is_empty() {
+                continue;
+            }
+            let result = MirPreHomeRewriteDriver::default()
+                .with_trace(trace)
+                .run_fixed_point(routine, |r, c| {
+                    crate::mir6502::rewrite::call_predicates::discover_argument_snapshots(
+                        r, c, &layout,
+                    )
+                })
+                .map_err(|e| {
+                    vec![MirDiagnostic::routine(
+                        &routine.name,
+                        format!("argument snapshot transaction: {e:?}"),
+                    )]
+                })?;
+            if result.applied > 0 {
+                proofs.insert(routine.id, facts);
             }
         }
-        trial = crate::mir6502::materialize_resolved_program_without_call_costing(
+        let mut off = config.clone();
+        off.enable_call_predicate_arguments = false;
+        off.enable_call_predicate_abi = false;
+        if proofs.is_empty() {
+            return trace.run("fallback-or-selected-replay", |trace| crate::mir6502::materialize_resolved_program_without_call_costing_traced(
+                original, &off, origin, runtime, report, trace,
+            ));
+        }
+        let baseline = trace.run("baseline-materialization", |trace| crate::mir6502::materialize_resolved_program_without_call_costing_traced(
+            original.clone(),
+            &off,
+            origin,
+            runtime,
+            false,
+            trace,
+        ))?;
+        let mut trial = trace.run("candidate-materialization", |trace| crate::mir6502::materialize_resolved_program_without_call_costing_traced(
             selected.clone(),
             config,
             origin,
             runtime,
             false,
-        )?;
-    }
-    // Reconfirm after rollback: placement and relaxed branches may have moved.
-    let placed = MaterializeLayout::new(&trial, origin);
-    let final_cost = Cost::measure(&trial, origin);
-    if !baseline_cost
-        .as_ref()
-        .zip(final_cost.as_ref())
-        .is_some_and(|(old, new)| new.bytes <= old.bytes)
-        || accepted.iter().any(|id| {
+            trace,
+        ))?;
+        let baseline_cost = Cost::measure_traced(&baseline, origin, trace);
+        let trial_cost = Cost::measure_traced(&trial, origin, trace);
+        let placed = MaterializeLayout::new(&trial, origin);
+        let mut accepted = BTreeSet::new();
+        for (id, facts) in &proofs {
             let r = trial.routines.iter().find(|r| r.id == *id).unwrap();
-            !proofs[id]
+            if facts
                 .iter()
                 .all(|(fact, call)| physical_source(r, &placed, &fact.source, fact.width, call))
-                || !baseline_cost
+                && baseline_cost
                     .as_ref()
                     .and_then(|c| c.routine(*id))
-                    .zip(final_cost.as_ref().and_then(|c| c.routine(*id)))
+                    .zip(trial_cost.as_ref().and_then(|c| c.routine(*id)))
                     .is_some_and(|(old, new)| new <= old)
-        })
-    {
-        accepted.clear();
-    }
-    if report {
-        let mut stats = MirPeepholeStats::default();
-        for id in proofs.keys() {
-            stats.record(
-                *id,
-                if accepted.contains(id) {
-                    "call-predicate-applied"
-                } else {
-                    "call-predicate-declined"
-                },
-            );
+            {
+                accepted.insert(*id);
+            }
         }
-        maybe_report_peepholes(&original, &stats, config);
-        if stats::reporting_enabled(config) {
-            return crate::mir6502::materialize_resolved_program_without_call_costing(
-                if accepted.is_empty() {
-                    original
-                } else {
-                    selected
-                },
-                if accepted.is_empty() { &off } else { config },
+        if accepted.len() != proofs.len() && !accepted.is_empty() {
+            for r in &mut selected.routines {
+                if proofs.contains_key(&r.id) && !accepted.contains(&r.id) {
+                    *r = original
+                        .routines
+                        .iter()
+                        .find(|old| old.id == r.id)
+                        .unwrap()
+                        .clone();
+                }
+            }
+            trial = trace.run("candidate-materialization", |trace| crate::mir6502::materialize_resolved_program_without_call_costing_traced(
+                selected.clone(),
+                config,
                 origin,
                 runtime,
-                true,
-            );
+                false,
+                trace,
+            ))?;
         }
-    }
-    Ok(if accepted.is_empty() { baseline } else { trial })
+        // Reconfirm after rollback: placement and relaxed branches may have moved.
+        let placed = MaterializeLayout::new(&trial, origin);
+        let final_cost = Cost::measure_traced(&trial, origin, trace);
+        if !baseline_cost
+            .as_ref()
+            .zip(final_cost.as_ref())
+            .is_some_and(|(old, new)| new.bytes <= old.bytes)
+            || accepted.iter().any(|id| {
+                let r = trial.routines.iter().find(|r| r.id == *id).unwrap();
+                !proofs[id]
+                    .iter()
+                    .all(|(fact, call)| physical_source(r, &placed, &fact.source, fact.width, call))
+                    || !baseline_cost
+                        .as_ref()
+                        .and_then(|c| c.routine(*id))
+                        .zip(final_cost.as_ref().and_then(|c| c.routine(*id)))
+                        .is_some_and(|(old, new)| new <= old)
+            })
+        {
+            accepted.clear();
+        }
+        trace.decision("call_predicates", proofs.keys().copied(), |id| {
+            accepted.contains(&id)
+        });
+        if report {
+            let mut stats = MirPeepholeStats::with_trace(trace);
+            for id in proofs.keys() {
+                stats.record(
+                    *id,
+                    if accepted.contains(id) {
+                        "call-predicate-applied"
+                    } else {
+                        "call-predicate-declined"
+                    },
+                );
+            }
+            maybe_report_peepholes(&original, &stats, config);
+            if stats::reporting_enabled(config) {
+                return trace.run("selected-reporting-replay", |trace| crate::mir6502::materialize_resolved_program_without_call_costing_traced(
+                    if accepted.is_empty() {
+                        original
+                    } else {
+                        selected
+                    },
+                    if accepted.is_empty() { &off } else { config },
+                    origin,
+                    runtime,
+                    true,
+                    trace,
+                ));
+            }
+        }
+        Ok(if accepted.is_empty() { baseline } else { trial })
+    })
 }
 
 /// Each diamond is committed as a whole routine candidate. Every commit gets a

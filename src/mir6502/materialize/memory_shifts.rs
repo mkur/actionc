@@ -94,7 +94,7 @@ pub(super) fn run(
     {
         return Ok(());
     }
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&stats.trace);
     let result = driver
         .run_fixed_point(r, discover_private_memory_shifts)
         .map_err(|error| {

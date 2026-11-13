@@ -326,6 +326,7 @@ fn occupied(p: &MirProgram) -> BTreeSet<u8> {
         .collect()
 }
 
+#[allow(dead_code)]
 pub(in crate::mir6502) fn materialize_costed(
     original: MirProgram,
     config: &Mir6502Config,
@@ -333,143 +334,163 @@ pub(in crate::mir6502) fn materialize_costed(
     runtime: crate::runtime::Runtime,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    let mut off = config.clone();
-    off.enable_comparison_loop_pointers = false;
-    let fallback = |p, c, report| {
-        crate::mir6502::materialize_resolved_program_without_comparison_costing(
-            p, c, origin, runtime, report,
-        )
-    };
-    if !original
-        .routines
-        .iter()
-        .any(crate::mir6502::analysis::comparison_loops::might_match)
-    {
-        return fallback(original, &off, report);
-    }
-    if !scratch_private(&original, origin) {
-        return fallback(original, &off, report);
-    }
-    let mut private_cells = BTreeMap::new();
-    if config.enable_comparison_loop_fusion || config.enable_comparison_loop_y {
-        for r in original
+    materialize_costed_traced(original, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(in crate::mir6502) fn materialize_costed_traced(
+    original: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    report: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    trace.run("comparison_loops", |trace| {
+        trace.snapshot("attempt-input", &original);
+
+        let mut off = config.clone();
+        off.enable_comparison_loop_pointers = false;
+        let fallback = |p, c, report| {
+            trace.run("source-materialization", |trace| crate::mir6502::materialize_resolved_program_without_comparison_costing_traced(
+                p, c, origin, runtime, report, trace,
+            ))
+        };
+        if !original
             .routines
             .iter()
-            .filter(|r| crate::mir6502::analysis::comparison_loops::might_match(r))
+            .any(crate::mir6502::analysis::comparison_loops::might_match)
         {
-            if let Ok(snapshot) = PreHomeAnalysisSnapshot::new(r, MirRoutineGeneration::initial()) {
-                let c = PreHomeRewriteContext::new(&snapshot);
-                let cells = r
-                    .blocks
-                    .iter()
-                    .filter_map(|b| c.comparison_loop(r, b.id).ok())
-                    .flat_map(|f| [f.left.capture, f.right.capture, f.induction])
-                    .collect::<Vec<_>>();
-                if !cells.is_empty() {
-                    private_cells.insert(r.id, cells);
+            return fallback(original, &off, report);
+        }
+        if !scratch_private(&original, origin) {
+            return fallback(original, &off, report);
+        }
+        let mut private_cells = BTreeMap::new();
+        if config.enable_comparison_loop_fusion || config.enable_comparison_loop_y {
+            for r in original
+                .routines
+                .iter()
+                .filter(|r| crate::mir6502::analysis::comparison_loops::might_match(r))
+            {
+                if let Ok(snapshot) =
+                    PreHomeAnalysisSnapshot::new(r, MirRoutineGeneration::initial())
+                {
+                    let c = PreHomeRewriteContext::new(&snapshot);
+                    let cells = r
+                        .blocks
+                        .iter()
+                        .filter_map(|b| c.comparison_loop(r, b.id).ok())
+                        .flat_map(|f| [f.left.capture, f.right.capture, f.induction])
+                        .collect::<Vec<_>>();
+                    if !cells.is_empty() {
+                        private_cells.insert(r.id, cells);
+                    }
                 }
             }
         }
-    }
-    let mut selected = original.clone();
-    let mut candidates = BTreeSet::new();
-    for r in &mut selected.routines {
-        if select(
-            r,
-            config.enable_comparison_loop_fusion,
-            config.enable_comparison_loop_y,
-        ) > 0
-        {
-            candidates.insert(r.id);
-        }
-    }
-    if candidates.is_empty() {
-        return fallback(original, &off, report);
-    }
-    crate::mir6502::verify::verify_program(&selected, MirPhase::PreMaterialization)?;
-    // Baseline, batch and at most one partial-batch repair. Existing argument
-    // and address gates remain coordinated inside these bounded trials.
-    let baseline = fallback(original.clone(), &off, false)?;
-    let Ok(mut proposed) = fallback(selected.clone(), &off, false) else {
-        return fallback(original, &off, report);
-    };
-    let (Some(old), Some(new)) = (
-        address_values::Cost::measure(&baseline, origin),
-        address_values::Cost::measure(&proposed, origin),
-    ) else {
-        return fallback(original, &off, report);
-    };
-    let mut accepted = candidates
-        .iter()
-        .copied()
-        .filter(|&id| new.does_not_grow(&old, id))
-        .collect::<BTreeSet<_>>();
-    if accepted.is_empty() {
-        return if report && stats::reporting_enabled(config) {
-            fallback(original, &off, true)
-        } else {
-            Ok(baseline)
-        };
-    }
-    if accepted != candidates {
+        let mut selected = original.clone();
+        let mut candidates = BTreeSet::new();
         for r in &mut selected.routines {
-            if candidates.contains(&r.id) && !accepted.contains(&r.id) {
-                *r = original
-                    .routines
-                    .iter()
-                    .find(|o| o.id == r.id)
-                    .unwrap()
-                    .clone();
+            if select(
+                r,
+                config.enable_comparison_loop_fusion,
+                config.enable_comparison_loop_y,
+            ) > 0
+            {
+                candidates.insert(r.id);
             }
         }
-        let Ok(repaired) = fallback(selected.clone(), &off, false) else {
+        if candidates.is_empty() {
+            return fallback(original, &off, report);
+        }
+        crate::mir6502::verify::verify_program(&selected, MirPhase::PreMaterialization)?;
+        // Baseline, batch and at most one partial-batch repair. Existing argument
+        // and address gates remain coordinated inside these bounded trials.
+        let baseline = fallback(original.clone(), &off, false)?;
+        let Ok(mut proposed) = fallback(selected.clone(), &off, false) else {
             return fallback(original, &off, report);
         };
-        proposed = repaired;
-    }
-    // AA..AF is the existing fixed compiler pointer window; only virtual
-    // allocations outside it must retain their old occupied set.
-    let mut old_occupied = occupied(&baseline);
-    old_occupied.extend(0xAA..=0xAF);
-    if address_values::Cost::measure(&proposed, origin).is_none_or(|cost| {
-        cost.bytes > old.bytes || accepted.iter().any(|&id| !cost.does_not_grow(&old, id))
-    }) || !occupied(&proposed).is_subset(&old_occupied)
-        || !scratch_private(&proposed, origin)
-        || !private_cells_unaliased(&proposed, origin, &private_cells)
-    {
-        accepted.clear();
-    }
-    if report {
-        let mut stats = MirPeepholeStats::default();
-        for &id in &candidates {
-            stats.record(
-                id,
-                if accepted.contains(&id) {
-                    "comparison-loop-applied"
-                } else {
-                    "comparison-loop-declined-final-cost"
-                },
-            );
-        }
-        maybe_report_peepholes(&original, &stats, config);
-    }
-    if report && stats::reporting_enabled(config) {
-        fallback(
-            if accepted.is_empty() {
-                original
+        let (Some(old), Some(new)) = (
+            address_values::Cost::measure_traced(&baseline, origin, trace),
+            address_values::Cost::measure_traced(&proposed, origin, trace),
+        ) else {
+            return fallback(original, &off, report);
+        };
+        let mut accepted = candidates
+            .iter()
+            .copied()
+            .filter(|&id| new.does_not_grow(&old, id))
+            .collect::<BTreeSet<_>>();
+        if accepted.is_empty() {
+            return if report && stats::reporting_enabled(config) {
+                fallback(original, &off, true)
             } else {
-                selected
-            },
-            &off,
-            true,
-        )
-    } else {
-        Ok(if accepted.is_empty() {
-            baseline
+                Ok(baseline)
+            };
+        }
+        if accepted != candidates {
+            for r in &mut selected.routines {
+                if candidates.contains(&r.id) && !accepted.contains(&r.id) {
+                    *r = original
+                        .routines
+                        .iter()
+                        .find(|o| o.id == r.id)
+                        .unwrap()
+                        .clone();
+                }
+            }
+            let Ok(repaired) = fallback(selected.clone(), &off, false) else {
+                return fallback(original, &off, report);
+            };
+            proposed = repaired;
+        }
+        // AA..AF is the existing fixed compiler pointer window; only virtual
+        // allocations outside it must retain their old occupied set.
+        let mut old_occupied = occupied(&baseline);
+        old_occupied.extend(0xAA..=0xAF);
+        if address_values::Cost::measure_traced(&proposed, origin, trace).is_none_or(|cost| {
+            cost.bytes > old.bytes || accepted.iter().any(|&id| !cost.does_not_grow(&old, id))
+        }) || !occupied(&proposed).is_subset(&old_occupied)
+            || !scratch_private(&proposed, origin)
+            || !private_cells_unaliased(&proposed, origin, &private_cells)
+        {
+            accepted.clear();
+        }
+        trace.decision("comparison_loops", candidates.iter().copied(), |id| {
+            accepted.contains(&id)
+        });
+        if report {
+            let mut stats = MirPeepholeStats::with_trace(trace);
+            for &id in &candidates {
+                stats.record(
+                    id,
+                    if accepted.contains(&id) {
+                        "comparison-loop-applied"
+                    } else {
+                        "comparison-loop-declined-final-cost"
+                    },
+                );
+            }
+            maybe_report_peepholes(&original, &stats, config);
+        }
+        if report && stats::reporting_enabled(config) {
+            fallback(
+                if accepted.is_empty() {
+                    original
+                } else {
+                    selected
+                },
+                &off,
+                true,
+            )
         } else {
-            proposed
-        })
-    }
+            Ok(if accepted.is_empty() {
+                baseline
+            } else {
+                proposed
+            })
+        }
+    })
 }
 
 #[cfg(test)]

@@ -1361,456 +1361,502 @@ fn materialize_program(
     materialize_program_with_reporting(program, config, origin, true)
 }
 
+#[allow(dead_code)]
 pub(super) fn materialize_program_with_reporting(
-    mut program: MirProgram,
+    program: MirProgram,
     config: &Mir6502Config,
     object_origin: u16,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    // Legalization can introduce mandatory helpers before optional rewrites.
-    // Discover them even when helper-selection/peephole passes are disabled.
-    let mut helpers = program.routines.iter().flat_map(|routine| &routine.blocks)
-        .flat_map(|block| &block.ops).filter_map(|op| match op {
-            MirOp::RuntimeHelper { helper, .. } => Some(*helper),
-            _ => None,
-        }).collect::<Vec<_>>();
-    let mut peephole_stats = MirPeepholeStats::default();
-    let mut home_fates = BTreeMap::<RoutineId, HomeFateTracker>::new();
-    if config.enable_peepholes && config.enable_tiny_constant_fills {
-        let selected = tiny_fills::select(&mut program);
-        if !selected.is_empty() {
-            for (routine, count) in selected {
-                peephole_stats.record_many(routine, "tiny-constant-fill-selected", count);
+    materialize_program_with_reporting_traced(program, config, object_origin, report, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(super) fn materialize_program_with_reporting_traced(
+    mut program: MirProgram,
+    config: &Mir6502Config,
+    object_origin: u16,
+    report: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    trace.run("core-materialization", |trace| {
+        trace.count("materializations", 1);
+        trace.snapshot("attempt-input", &program);
+
+        // Legalization can introduce mandatory helpers before optional rewrites.
+        // Discover them even when helper-selection/peephole passes are disabled.
+        let mut helpers = program
+            .routines
+            .iter()
+            .flat_map(|routine| &routine.blocks)
+            .flat_map(|block| &block.ops)
+            .filter_map(|op| match op {
+                MirOp::RuntimeHelper { helper, .. } => Some(*helper),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let mut peephole_stats = MirPeepholeStats::with_trace(trace);
+        let mut home_fates = BTreeMap::<RoutineId, HomeFateTracker>::new();
+        if config.enable_peepholes && config.enable_tiny_constant_fills {
+            let selected = tiny_fills::select(&mut program);
+            if !selected.is_empty() {
+                for (routine, count) in selected {
+                    peephole_stats.record_many(routine, "tiny-constant-fill-selected", count);
+                }
+                // Hand-built MIR may already use fixed slots whose bookkeeping
+                // would otherwise be populated later during materialization.
+                for routine in &mut program.routines {
+                    reserve_used_fixed_zero_page_slots(routine);
+                }
+                verify_materialization_stage(
+                    &program,
+                    MirPhase::PreMaterialization,
+                    "tiny constant fill selection",
+                )?;
             }
-            // Hand-built MIR may already use fixed slots whose bookkeeping
-            // would otherwise be populated later during materialization.
-            for routine in &mut program.routines {
-                reserve_used_fixed_zero_page_slots(routine);
+        }
+        for routine in &mut program.routines {
+            let selected = copy_loops::expand_large_aggregate_copies(routine);
+            peephole_stats.record_many(routine.id, "aggregate-copy-loop-selected", selected);
+        }
+        refine_terminal_indirect_jump_effects(&mut program);
+        reserve_pointer_scratch_slots(&mut program);
+        allocate_zero_page_slots(&mut program);
+        let source_zero_page = source_zero_page_slots(&program);
+        {
+            let (routines, machine_blocks) = (&mut program.routines, &mut program.machine_blocks);
+            for routine in routines {
+                prepend_action_abi_param_prologue(routine, machine_blocks, &mut helpers);
             }
-            verify_materialization_stage(
-                &program,
-                MirPhase::PreMaterialization,
-                "tiny constant fill selection",
-            )?;
         }
-    }
-    for routine in &mut program.routines {
-        let selected = copy_loops::expand_large_aggregate_copies(routine);
-        peephole_stats.record_many(routine.id, "aggregate-copy-loop-selected", selected);
-    }
-    refine_terminal_indirect_jump_effects(&mut program);
-    reserve_pointer_scratch_slots(&mut program);
-    allocate_zero_page_slots(&mut program);
-    let source_zero_page = source_zero_page_slots(&program);
-    {
-        let (routines, machine_blocks) = (&mut program.routines, &mut program.machine_blocks);
-        for routine in routines {
-            prepend_action_abi_param_prologue(routine, machine_blocks, &mut helpers);
-        }
-    }
-    let layout = MaterializeLayout::new(&program, object_origin);
-    for routine in &mut program.routines {
-        let aggregate_copies = select_aggregate_copies(routine);
-        peephole_stats.record_many(
-            routine.id,
-            "aggregate-copy-retained",
-            aggregate_copies.retained,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "aggregate-copy-selected",
-            aggregate_copies.selected,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "aggregate-copy-prepared-address",
-            aggregate_copies.prepared_address,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "aggregate-copy-scalar-fallback",
-            aggregate_copies.scalar_fallback,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "aggregate-copy-blocked-address-form",
-            aggregate_copies.blocked_address_form,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "aggregate-copy-blocked-offset-range",
-            aggregate_copies.blocked_offset_range,
-        );
-        run_cfg_group(routine, &layout)?;
-        let narrow_arithmetic = narrow_discarded_high_arithmetic(routine);
-        peephole_stats.record_many(
-            routine.id, "discarded-high-arithmetic-candidate", narrow_arithmetic.candidates,
-        );
-        peephole_stats.record_many(
-            routine.id, "discarded-high-arithmetic-narrowed", narrow_arithmetic.applied,
-        );
-        let narrow_products = narrow_discarded_high_constant_products(routine);
-        peephole_stats.record_many(
-            routine.id,
-            "discarded-high-product-candidate",
-            narrow_products.candidates,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "discarded-high-product-narrowed",
-            narrow_products.applied,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "discarded-high-product-blocked-high-lane-live",
-            narrow_products.blocked_high_lane_live,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "discarded-high-product-blocked-multiple-definitions",
-            narrow_products.blocked_multiple_definitions,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "discarded-high-product-blocked-operand-width",
-            narrow_products.blocked_operand_width,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "discarded-high-product-blocked-carry-contract",
-            narrow_products.blocked_carry_contract,
-        );
-        strength_reduce_constant_multiplications(
-            routine,
-            &layout,
-            &narrow_products.low_only_results,
-            &mut peephole_stats,
-        );
-        strength_reduce_constant_unsigned_divmod(routine, &mut peephole_stats);
-        run_analyzed_widened_byte_shift_store_consumers(routine, &layout, &mut peephole_stats)?;
-        lower_constant_word_shift_projections(routine, &layout, &mut peephole_stats);
-        lower_small_constant_word_shifts(routine, &layout, &mut peephole_stats);
-        run_prehome_canonicalization_group(routine, config, &layout, &mut peephole_stats)?;
-        runtime::expose_zero_extended_binary_inputs(routine);
-        let divmod_pairs = runtime::fuse_adjacent_divmod(routine, config, &layout, &mut helpers);
-        peephole_stats.record_many(routine.id, "shared-divmod-selected", divmod_pairs);
-        run_prehome_selection_group(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
-        expand_compute_address_values(routine)?;
-        let routine_temp_widths = collect_routine_temp_widths(routine);
-        for block in &mut routine.blocks {
-            block.ops = materialize_ops_impl(
+        let layout = MaterializeLayout::new(&program, object_origin);
+        for routine in &mut program.routines {
+            let aggregate_copies = select_aggregate_copies(routine);
+            peephole_stats.record_many(
                 routine.id,
-                block.id,
-                block.ops.clone(),
-                &block.terminator,
+                "aggregate-copy-retained",
+                aggregate_copies.retained,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "aggregate-copy-selected",
+                aggregate_copies.selected,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "aggregate-copy-prepared-address",
+                aggregate_copies.prepared_address,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "aggregate-copy-scalar-fallback",
+                aggregate_copies.scalar_fallback,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "aggregate-copy-blocked-address-form",
+                aggregate_copies.blocked_address_form,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "aggregate-copy-blocked-offset-range",
+                aggregate_copies.blocked_offset_range,
+            );
+            run_cfg_group(routine, &layout)?;
+            let narrow_arithmetic = narrow_discarded_high_arithmetic(routine);
+            peephole_stats.record_many(
+                routine.id,
+                "discarded-high-arithmetic-candidate",
+                narrow_arithmetic.candidates,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "discarded-high-arithmetic-narrowed",
+                narrow_arithmetic.applied,
+            );
+            let narrow_products = narrow_discarded_high_constant_products(routine);
+            peephole_stats.record_many(
+                routine.id,
+                "discarded-high-product-candidate",
+                narrow_products.candidates,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "discarded-high-product-narrowed",
+                narrow_products.applied,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "discarded-high-product-blocked-high-lane-live",
+                narrow_products.blocked_high_lane_live,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "discarded-high-product-blocked-multiple-definitions",
+                narrow_products.blocked_multiple_definitions,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "discarded-high-product-blocked-operand-width",
+                narrow_products.blocked_operand_width,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "discarded-high-product-blocked-carry-contract",
+                narrow_products.blocked_carry_contract,
+            );
+            strength_reduce_constant_multiplications(
+                routine,
+                &layout,
+                &narrow_products.low_only_results,
+                &mut peephole_stats,
+            );
+            strength_reduce_constant_unsigned_divmod(routine, &mut peephole_stats);
+            run_analyzed_widened_byte_shift_store_consumers(routine, &layout, &mut peephole_stats)?;
+            lower_constant_word_shift_projections(routine, &layout, &mut peephole_stats);
+            lower_small_constant_word_shifts(routine, &layout, &mut peephole_stats);
+            run_prehome_canonicalization_group(routine, config, &layout, &mut peephole_stats)?;
+            runtime::expose_zero_extended_binary_inputs(routine);
+            let divmod_pairs =
+                runtime::fuse_adjacent_divmod(routine, config, &layout, &mut helpers);
+            peephole_stats.record_many(routine.id, "shared-divmod-selected", divmod_pairs);
+            run_prehome_selection_group(
+                routine,
                 config,
                 &layout,
                 &mut helpers,
                 &mut peephole_stats,
-                false,
-                Some(&routine_temp_widths),
-            );
-            block.ops = normalize_synthetic_byte_storage_high_ops(
-                std::mem::take(&mut block.ops),
-                routine.id,
-                &layout,
-            );
-        }
-        reserve_used_fixed_zero_page_slots(routine);
-        materialize_word_compare_temp_ops(routine, &layout);
-        run_pre_home_cleanup_fixed_point(routine, &layout, &mut peephole_stats);
-        let home_liveness = analyze_temp_liveness(routine);
-        let home_plan = record_home_demand_census(routine, &home_liveness, &mut peephole_stats);
-        home_fates.insert(routine.id, HomeFateTracker::from_plan(&home_plan));
-        apply_register_home_plan(routine, &home_plan, &mut peephole_stats);
-        for block in &mut routine.blocks {
-            let (ops, repeated_address_reuses) =
-                materialize_temp_ops_with_routine_widths_and_address_reuse(
-                    std::mem::take(&mut block.ops),
-                    &mut routine.frame.spills,
-                    &routine_temp_widths,
+            )?;
+            expand_compute_address_values(routine)?;
+            let routine_temp_widths = collect_routine_temp_widths(routine);
+            for block in &mut routine.blocks {
+                block.ops = materialize_ops_impl(
+                    routine.id,
+                    block.id,
+                    block.ops.clone(),
+                    &block.terminator,
+                    config,
+                    &layout,
+                    &mut helpers,
+                    &mut peephole_stats,
+                    false,
+                    Some(&routine_temp_widths),
                 );
-            block.ops = ops;
-            temps::materialize_boolean_home(&mut block.terminator, &mut block.ops, &mut routine.frame.spills);
-            peephole_stats.record_many(
-                routine.id,
-                "ssa-lite-redundant-address",
-                repeated_address_reuses,
-            );
-            block.ops = normalize_synthetic_byte_storage_high_ops(
-                std::mem::take(&mut block.ops),
-                routine.id,
-                &layout,
-            );
-            // LEA temps retain an implicit identity with the two spill lanes
-            // selected from their temp ID. Make those writes explicit before
-            // spill coloring so definitions and uses are remapped together.
-            // Symbolic storage-address bytes remain layout-independent until
-            // emission, while descriptors retain their pointer-cell meaning.
-            block.ops = lower_lea_addrs_with_final_layout(routine.id, block.ops.clone(), &layout);
-        }
-        let induction_zp_remap =
-            lower_hot_induction_address_spills_to_zero_page(routine, &source_zero_page);
-        peephole_stats.record_many(
-            routine.id,
-            "hot-induction-address-zp-pairs",
-            induction_zp_remap.len() / 2,
-        );
-        if let Some(tracker) = home_fates.get_mut(&routine.id) {
-            tracker.apply_zero_page_remap(&induction_zp_remap);
-        }
-        run_posthome_structural_group(routine, &layout, config, None, &mut peephole_stats)?;
-        run_posthome_cleanup_group(
-            routine,
-            &layout,
-            None,
-            None,
-            home_fates.get_mut(&routine.id),
-            &mut peephole_stats,
-        )?;
-    }
-    for routine in &mut program.routines {
-        coalesce_leaf_word_param_with_result_home(routine, &mut peephole_stats);
-    }
-    for routine in &mut program.routines {
-        elide_write_only_param_homes(routine, &mut peephole_stats);
-    }
-    for helper in helpers {
-        ensure_helper_decl(&mut program, helper);
-    }
-    // Home selection may introduce virtual zero-page lanes after the initial
-    // reservation pass. Assign those lanes before building known-callee
-    // memory summaries so a callee's private scratch writes have exact
-    // physical identities for cross-call preservation proofs.
-    allocate_zero_page_slots(&mut program);
-    let known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
-    let layout = MaterializeLayout::new(&program, object_origin);
-    for routine in &mut program.routines {
-        for block in &mut routine.blocks {
-            block.ops = lower_lea_addrs_with_final_layout(routine.id, block.ops.clone(), &layout);
-            block.ops = normalize_synthetic_byte_storage_high_ops(
-                std::mem::take(&mut block.ops),
-                routine.id,
-                &layout,
-            );
-        }
-        run_posthome_structural_group(
-            routine,
-            &layout,
-            config,
-            Some(&known_callees),
-            &mut peephole_stats,
-        )?;
-        run_posthome_cleanup_group(
-            routine,
-            &layout,
-            Some(config),
-            Some(&known_callees),
-            home_fates.get_mut(&routine.id),
-            &mut peephole_stats,
-        )?;
-    }
-    // Known-callee carrier selection can replace the last parameter reload
-    // with a preserved machine register. Re-run the narrow ABI-home elider so
-    // the now write-only entry capture is removed in the same pipeline.
-    for routine in &mut program.routines {
-        elide_write_only_param_homes(routine, &mut peephole_stats);
-    }
-    if config.enable_peepholes && config.enable_dead_register_arithmetic {
-        for routine in &mut program.routines {
-            dead_arithmetic::run(routine, &layout, &mut peephole_stats)?;
-        }
-    }
-    if config.enable_peepholes && config.enable_private_memory_shifts {
-        for routine in &mut program.routines {
-            memory_shifts::run(routine, &mut peephole_stats)?;
-        }
-    }
-    let zero_page_remaps = lower_block_local_byte_spills_to_zero_page(&mut program);
-    for (routine, remap) in zero_page_remaps {
-        if let Some(tracker) = home_fates.get_mut(&routine) {
-            tracker.apply_zero_page_remap(&remap);
-        }
-    }
-    allocate_zero_page_slots(&mut program);
-    let zero_page_known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
-    let reused_zero_page_remaps =
-        lower_known_call_result_spills_to_reused_zero_page(&mut program, &zero_page_known_callees);
-    for (routine, remap) in reused_zero_page_remaps {
-        peephole_stats.record_many(
-            routine,
-            "known-call-result-preserved-in-reused-zp",
-            remap.len() / 2,
-        );
-        if let Some(tracker) = home_fates.get_mut(&routine) {
-            tracker.apply_zero_page_remap(&remap);
-        }
-    }
-    // Zero-page coloring can make two previously distinct logical homes the
-    // same physical byte at a CFG edge. Rebuild machine-value and exact Z/N
-    // provenance facts after that remap so final physical reloads can be
-    // removed safely.
-    let final_known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
-    let final_layout = MaterializeLayout::new(&program, object_origin);
-    for routine in &mut program.routines {
-        run_analyzed_ssa_lite_byte_rewrites(
-            routine,
-            &final_layout,
-            true,
-            Some(&final_known_callees),
-            &mut peephole_stats,
-        )?;
-        let exact_zn_compares =
-            ssa_lite::fold_exact_zn_zero_compares(routine, &final_known_callees);
-        peephole_stats.record_many(routine.id, "exact-zn-zero-compare-fold", exact_zn_compares);
-        if config.enable_peepholes {
-            let selected = small_loops::select_high_bit_shift_xor_diamonds(routine, &final_layout);
-            peephole_stats.record_many(
-                routine.id,
-                "high-bit-shift-xor-carry-branch-selected",
-                selected,
-            );
-            verify_cfg_after_transform(routine, "late high-bit shift/XOR carry selection")?;
-        }
-        // Exact Z/N folding can expose a load/add-or-sub/store update whose
-        // only remaining consumer is the branch on the update result. Re-run
-        // the analyzed selector here so countdown latches become DEC/BNE (or
-        // INC/BNE) without changing live A/carry/overflow state.
-        run_analyzed_direct_inc_dec_updates(routine, &final_layout, &mut peephole_stats)?;
-        let carried = cfg::select_counted_loop_register_carriers(routine, &final_layout);
-        peephole_stats.record_many(routine.id, "register-carried-induction-selected", carried);
-        if carried > 0 && layout_blocks_in_reverse_postorder(routine) {
-            peephole_stats.record(routine.id, "register-carried-induction-layout");
-        }
-        if layout_blocks_in_reverse_postorder(routine) {
-            peephole_stats.record(routine.id, "cfg-cost-aware-layout");
-        }
-        let latch_report = cfg::select_counted_loop_latches_with_report(routine, &final_layout);
-        peephole_stats.record_many(
-            routine.id,
-            "counted-loop-latch-candidate",
-            latch_report.candidates,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "counted-loop-latch-blocked-initial-guard",
-            latch_report.blocked_initial_guard,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "counted-loop-latch-first-entry-a-required",
-            latch_report.first_entry_accumulator_required,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "counted-loop-latch-first-entry-flags-required",
-            latch_report.first_entry_flags_required,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "counted-loop-latch-blocked-unsupported-or-unsafe",
-            latch_report.blocked_unsupported_or_unsafe,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "counted-loop-latch-blocked-profitability",
-            latch_report.blocked_profitability,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "counted-loop-latch-selected-exact-rotation",
-            latch_report.selected_exact_rotation,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "counted-loop-latch-selected-first-entry-repair",
-            latch_report.selected_first_entry_repaired,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "counted-loop-latch-selected-exact-trip-count",
-            latch_report.selected_exact_trip_count,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "counted-loop-latch-selected-estimated-cycles-saved",
-            latch_report.selected_estimated_cycles_saved,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "counted-loop-latch-selected-static-bytes-added",
-            latch_report.selected_static_bytes_added,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "counted-loop-latch-selected-static-bytes-saved",
-            latch_report.selected_static_bytes_saved,
-        );
-        peephole_stats.record_many(
-            routine.id,
-            "counted-loop-latch-selected",
-            latch_report.selected,
-        );
-        if latch_report.selected > 0 && layout_blocks_in_reverse_postorder(routine) {
-            peephole_stats.record(routine.id, "counted-loop-post-selection-layout");
-        }
-    }
-    materialize_remaining_pointer_cell_values(&mut program);
-    if stats::reporting_enabled(config) {
-        register_copies::record_candidates(&program, &final_layout, &mut peephole_stats);
-    }
-    fold_redundant_register_reloads(&mut program, &final_layout, &mut peephole_stats);
-    for routine in &mut program.routines {
-        if config.enable_peepholes {
-            let selected = small_loops::coalesce_chained_shift_xor_stores(routine, &final_layout);
-            peephole_stats.record_many(routine.id, "chained-shift-xor-store-coalesced", selected);
-            let entry_stores =
-                small_loops::coalesce_selected_shift_entry_stores(routine, &final_layout);
-            peephole_stats.record_many(
-                routine.id,
-                "selected-shift-entry-store-coalesced",
-                entry_stores,
-            );
-            let hoisted = small_loops::hoist_common_shift_xor_stores(routine, &final_layout);
-            peephole_stats.record_many(routine.id, "common-shift-xor-store-hoisted", hoisted);
-            if selected > 0 || entry_stores > 0 || hoisted > 0 {
-                collapse_empty_jump_blocks(routine);
-                if layout_blocks_in_reverse_postorder(routine) {
-                    peephole_stats.record(routine.id, "chained-shift-xor-layout");
-                }
+                block.ops = normalize_synthetic_byte_storage_high_ops(
+                    std::mem::take(&mut block.ops),
+                    routine.id,
+                    &layout,
+                );
             }
-            verify_cfg_after_transform(routine, "chained shift/XOR store coalescing")?;
+            reserve_used_fixed_zero_page_slots(routine);
+            materialize_word_compare_temp_ops(routine, &layout);
+            run_pre_home_cleanup_fixed_point(routine, &layout, &mut peephole_stats);
+            let home_liveness = analyze_temp_liveness(routine);
+            let home_plan = record_home_demand_census(routine, &home_liveness, &mut peephole_stats);
+            home_fates.insert(routine.id, HomeFateTracker::from_plan(&home_plan));
+            apply_register_home_plan(routine, &home_plan, &mut peephole_stats);
+            for block in &mut routine.blocks {
+                let (ops, repeated_address_reuses) =
+                    materialize_temp_ops_with_routine_widths_and_address_reuse(
+                        std::mem::take(&mut block.ops),
+                        &mut routine.frame.spills,
+                        &routine_temp_widths,
+                    );
+                block.ops = ops;
+                temps::materialize_boolean_home(
+                    &mut block.terminator,
+                    &mut block.ops,
+                    &mut routine.frame.spills,
+                );
+                peephole_stats.record_many(
+                    routine.id,
+                    "ssa-lite-redundant-address",
+                    repeated_address_reuses,
+                );
+                block.ops = normalize_synthetic_byte_storage_high_ops(
+                    std::mem::take(&mut block.ops),
+                    routine.id,
+                    &layout,
+                );
+                // LEA temps retain an implicit identity with the two spill lanes
+                // selected from their temp ID. Make those writes explicit before
+                // spill coloring so definitions and uses are remapped together.
+                // Symbolic storage-address bytes remain layout-independent until
+                // emission, while descriptors retain their pointer-cell meaning.
+                block.ops =
+                    lower_lea_addrs_with_final_layout(routine.id, block.ops.clone(), &layout);
+            }
+            let induction_zp_remap =
+                lower_hot_induction_address_spills_to_zero_page(routine, &source_zero_page);
+            peephole_stats.record_many(
+                routine.id,
+                "hot-induction-address-zp-pairs",
+                induction_zp_remap.len() / 2,
+            );
+            if let Some(tracker) = home_fates.get_mut(&routine.id) {
+                tracker.apply_zero_page_remap(&induction_zp_remap);
+            }
+            run_posthome_structural_group(routine, &layout, config, None, &mut peephole_stats)?;
+            run_posthome_cleanup_group(
+                routine,
+                &layout,
+                None,
+                None,
+                home_fates.get_mut(&routine.id),
+                &mut peephole_stats,
+            )?;
         }
-    }
-    // Late exact-Z/N and register-value folding can leave an earlier pure
-    // register write dead across a CFG edge. Rebuild machine liveness before
-    // the final home-definition cleanup so both exposed register writes and
-    // newly dead private stores are removed from the final program.
-    for routine in &mut program.routines {
-        run_analyzed_dead_register_writes(
-            routine,
-            &final_layout,
-            Some(&final_known_callees),
-            &mut peephole_stats,
-        )?;
-        run_analyzed_dead_private_scratch_stores(routine, &mut peephole_stats)?;
-        prune_unused_spills(routine);
-    }
-    verify_materialization_stage(&program, MirPhase::PostHome, "post-home boundary")?;
-    // Check private pointer-byte definitions before replacing their virtual
-    // identities with fixed physical pairs for emission.
-    resolve_virtual_address_consumers(&mut program);
-    record_final_home_allocations(&program, &mut peephole_stats);
-    for routine in &program.routines {
-        if let Some(tracker) = home_fates.get(&routine.id) {
-            tracker.record_final_fates(routine, &mut peephole_stats);
+        for routine in &mut program.routines {
+            coalesce_leaf_word_param_with_result_home(routine, &mut peephole_stats);
         }
-    }
-    record_unspecified_add_sub_carry_observability(&program, &mut peephole_stats);
-    if report {
-        maybe_report_peepholes(&program, &peephole_stats, config);
-    }
-    Ok(program)
+        for routine in &mut program.routines {
+            elide_write_only_param_homes(routine, &mut peephole_stats);
+        }
+        for helper in helpers {
+            ensure_helper_decl(&mut program, helper);
+        }
+        // Home selection may introduce virtual zero-page lanes after the initial
+        // reservation pass. Assign those lanes before building known-callee
+        // memory summaries so a callee's private scratch writes have exact
+        // physical identities for cross-call preservation proofs.
+        allocate_zero_page_slots(&mut program);
+        let known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
+        let layout = MaterializeLayout::new(&program, object_origin);
+        for routine in &mut program.routines {
+            for block in &mut routine.blocks {
+                block.ops =
+                    lower_lea_addrs_with_final_layout(routine.id, block.ops.clone(), &layout);
+                block.ops = normalize_synthetic_byte_storage_high_ops(
+                    std::mem::take(&mut block.ops),
+                    routine.id,
+                    &layout,
+                );
+            }
+            run_posthome_structural_group(
+                routine,
+                &layout,
+                config,
+                Some(&known_callees),
+                &mut peephole_stats,
+            )?;
+            run_posthome_cleanup_group(
+                routine,
+                &layout,
+                Some(config),
+                Some(&known_callees),
+                home_fates.get_mut(&routine.id),
+                &mut peephole_stats,
+            )?;
+        }
+        // Known-callee carrier selection can replace the last parameter reload
+        // with a preserved machine register. Re-run the narrow ABI-home elider so
+        // the now write-only entry capture is removed in the same pipeline.
+        for routine in &mut program.routines {
+            elide_write_only_param_homes(routine, &mut peephole_stats);
+        }
+        if config.enable_peepholes && config.enable_dead_register_arithmetic {
+            for routine in &mut program.routines {
+                dead_arithmetic::run(routine, &layout, &mut peephole_stats)?;
+            }
+        }
+        if config.enable_peepholes && config.enable_private_memory_shifts {
+            for routine in &mut program.routines {
+                memory_shifts::run(routine, &mut peephole_stats)?;
+            }
+        }
+        let zero_page_remaps = lower_block_local_byte_spills_to_zero_page(&mut program);
+        for (routine, remap) in zero_page_remaps {
+            if let Some(tracker) = home_fates.get_mut(&routine) {
+                tracker.apply_zero_page_remap(&remap);
+            }
+        }
+        allocate_zero_page_slots(&mut program);
+        let zero_page_known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
+        let reused_zero_page_remaps = lower_known_call_result_spills_to_reused_zero_page(
+            &mut program,
+            &zero_page_known_callees,
+        );
+        for (routine, remap) in reused_zero_page_remaps {
+            peephole_stats.record_many(
+                routine,
+                "known-call-result-preserved-in-reused-zp",
+                remap.len() / 2,
+            );
+            if let Some(tracker) = home_fates.get_mut(&routine) {
+                tracker.apply_zero_page_remap(&remap);
+            }
+        }
+        // Zero-page coloring can make two previously distinct logical homes the
+        // same physical byte at a CFG edge. Rebuild machine-value and exact Z/N
+        // provenance facts after that remap so final physical reloads can be
+        // removed safely.
+        let final_known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
+        let final_layout = MaterializeLayout::new(&program, object_origin);
+        for routine in &mut program.routines {
+            run_analyzed_ssa_lite_byte_rewrites(
+                routine,
+                &final_layout,
+                true,
+                Some(&final_known_callees),
+                &mut peephole_stats,
+            )?;
+            let exact_zn_compares =
+                ssa_lite::fold_exact_zn_zero_compares(routine, &final_known_callees);
+            peephole_stats.record_many(routine.id, "exact-zn-zero-compare-fold", exact_zn_compares);
+            if config.enable_peepholes {
+                let selected =
+                    small_loops::select_high_bit_shift_xor_diamonds(routine, &final_layout);
+                peephole_stats.record_many(
+                    routine.id,
+                    "high-bit-shift-xor-carry-branch-selected",
+                    selected,
+                );
+                verify_cfg_after_transform(routine, "late high-bit shift/XOR carry selection")?;
+            }
+            // Exact Z/N folding can expose a load/add-or-sub/store update whose
+            // only remaining consumer is the branch on the update result. Re-run
+            // the analyzed selector here so countdown latches become DEC/BNE (or
+            // INC/BNE) without changing live A/carry/overflow state.
+            run_analyzed_direct_inc_dec_updates(routine, &final_layout, &mut peephole_stats)?;
+            let carried = cfg::select_counted_loop_register_carriers(routine, &final_layout);
+            peephole_stats.record_many(routine.id, "register-carried-induction-selected", carried);
+            if carried > 0 && layout_blocks_in_reverse_postorder(routine) {
+                peephole_stats.record(routine.id, "register-carried-induction-layout");
+            }
+            if layout_blocks_in_reverse_postorder(routine) {
+                peephole_stats.record(routine.id, "cfg-cost-aware-layout");
+            }
+            let latch_report = cfg::select_counted_loop_latches_with_report(routine, &final_layout);
+            peephole_stats.record_many(
+                routine.id,
+                "counted-loop-latch-candidate",
+                latch_report.candidates,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "counted-loop-latch-blocked-initial-guard",
+                latch_report.blocked_initial_guard,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "counted-loop-latch-first-entry-a-required",
+                latch_report.first_entry_accumulator_required,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "counted-loop-latch-first-entry-flags-required",
+                latch_report.first_entry_flags_required,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "counted-loop-latch-blocked-unsupported-or-unsafe",
+                latch_report.blocked_unsupported_or_unsafe,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "counted-loop-latch-blocked-profitability",
+                latch_report.blocked_profitability,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "counted-loop-latch-selected-exact-rotation",
+                latch_report.selected_exact_rotation,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "counted-loop-latch-selected-first-entry-repair",
+                latch_report.selected_first_entry_repaired,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "counted-loop-latch-selected-exact-trip-count",
+                latch_report.selected_exact_trip_count,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "counted-loop-latch-selected-estimated-cycles-saved",
+                latch_report.selected_estimated_cycles_saved,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "counted-loop-latch-selected-static-bytes-added",
+                latch_report.selected_static_bytes_added,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "counted-loop-latch-selected-static-bytes-saved",
+                latch_report.selected_static_bytes_saved,
+            );
+            peephole_stats.record_many(
+                routine.id,
+                "counted-loop-latch-selected",
+                latch_report.selected,
+            );
+            if latch_report.selected > 0 && layout_blocks_in_reverse_postorder(routine) {
+                peephole_stats.record(routine.id, "counted-loop-post-selection-layout");
+            }
+        }
+        materialize_remaining_pointer_cell_values(&mut program);
+        if stats::reporting_enabled(config) {
+            register_copies::record_candidates(&program, &final_layout, &mut peephole_stats);
+        }
+        fold_redundant_register_reloads(&mut program, &final_layout, &mut peephole_stats);
+        for routine in &mut program.routines {
+            if config.enable_peepholes {
+                let selected =
+                    small_loops::coalesce_chained_shift_xor_stores(routine, &final_layout);
+                peephole_stats.record_many(
+                    routine.id,
+                    "chained-shift-xor-store-coalesced",
+                    selected,
+                );
+                let entry_stores =
+                    small_loops::coalesce_selected_shift_entry_stores(routine, &final_layout);
+                peephole_stats.record_many(
+                    routine.id,
+                    "selected-shift-entry-store-coalesced",
+                    entry_stores,
+                );
+                let hoisted = small_loops::hoist_common_shift_xor_stores(routine, &final_layout);
+                peephole_stats.record_many(routine.id, "common-shift-xor-store-hoisted", hoisted);
+                if selected > 0 || entry_stores > 0 || hoisted > 0 {
+                    collapse_empty_jump_blocks(routine);
+                    if layout_blocks_in_reverse_postorder(routine) {
+                        peephole_stats.record(routine.id, "chained-shift-xor-layout");
+                    }
+                }
+                verify_cfg_after_transform(routine, "chained shift/XOR store coalescing")?;
+            }
+        }
+        // Late exact-Z/N and register-value folding can leave an earlier pure
+        // register write dead across a CFG edge. Rebuild machine liveness before
+        // the final home-definition cleanup so both exposed register writes and
+        // newly dead private stores are removed from the final program.
+        for routine in &mut program.routines {
+            run_analyzed_dead_register_writes(
+                routine,
+                &final_layout,
+                Some(&final_known_callees),
+                &mut peephole_stats,
+            )?;
+            run_analyzed_dead_private_scratch_stores(routine, &mut peephole_stats)?;
+            prune_unused_spills(routine);
+        }
+        verify_materialization_stage(&program, MirPhase::PostHome, "post-home boundary")?;
+        // Check private pointer-byte definitions before replacing their virtual
+        // identities with fixed physical pairs for emission.
+        resolve_virtual_address_consumers(&mut program);
+        record_final_home_allocations(&program, &mut peephole_stats);
+        for routine in &program.routines {
+            if let Some(tracker) = home_fates.get(&routine.id) {
+                tracker.record_final_fates(routine, &mut peephole_stats);
+            }
+        }
+        record_unspecified_add_sub_carry_observability(&program, &mut peephole_stats);
+        if report {
+            maybe_report_peepholes(&program, &peephole_stats, config);
+        }
+        Ok(program)
+    })
 }
 
 fn strength_reduce_constant_multiplications(
@@ -2838,7 +2884,7 @@ fn run_prehome_selection_group(
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     if config.enable_peepholes && config.enable_address_values {
-        let mut driver = MirPreHomeRewriteDriver::default();
+        let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
         let result = driver.run_fixed_point_by_key(routine, |routine, context| {
             let mut plans = super::rewrite::address_values::discover_known_pointer_locals(routine, context, layout);
             plans.extend(super::rewrite::address_values::discover_zero_index_address_values(routine, context));
@@ -2886,7 +2932,7 @@ fn run_analyzed_indexed_to_indirect_word_copies(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -2912,7 +2958,7 @@ fn run_analyzed_private_indirect_word_copies(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -2938,7 +2984,7 @@ fn run_analyzed_indirect_to_indexed_word_copies(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3033,7 +3079,7 @@ fn run_analyzed_static_indexed_byte_stores(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             indexes::discover_static_indexed_byte_stores(routine, context, layout)
@@ -3079,7 +3125,7 @@ fn run_analyzed_direct_indexed_byte_binaries(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             indexes::discover_direct_indexed_byte_binaries(routine, context, layout)
@@ -3143,7 +3189,7 @@ fn run_analyzed_redundant_indexed_address_materializations(
     known_callees: Option<&MirKnownCalleeSummaries>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let discover =
         |routine: &super::ir::MirRoutine,
          context: &crate::mir6502::rewrite::context::PostHomeRewriteContext<'_, '_>| {
@@ -3171,7 +3217,7 @@ fn run_analyzed_staged_word_forwards(
     enable_direct_byte_word_update: bool,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             peepholes::discover_staged_word_forwards(
@@ -3195,7 +3241,7 @@ fn run_analyzed_spill_forwards(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, spills::discover_spill_forwards)
         .map_err(|error| {
@@ -3213,7 +3259,7 @@ fn run_analyzed_param_home_reloads(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, calls::discover_param_home_reloads)
         .map_err(|error| {
@@ -3242,7 +3288,7 @@ fn run_analyzed_direct_inc_dec_updates(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             store_consumers::discover_direct_inc_dec_updates(routine, context, layout)
@@ -3263,7 +3309,7 @@ fn run_analyzed_dead_register_writes(
     known_callees: Option<&MirKnownCalleeSummaries>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let discover =
         |routine: &super::ir::MirRoutine,
          context: &crate::mir6502::rewrite::context::PostHomeRewriteContext<'_, '_>| {
@@ -3289,7 +3335,7 @@ fn run_analyzed_txa_direct_store_folds(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, peepholes::discover_txa_direct_store_folds)
         .map_err(|error| {
@@ -3306,7 +3352,7 @@ fn run_analyzed_call_result_y_placements(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, peepholes::discover_call_result_y_placements)
         .map_err(|error| {
@@ -3328,7 +3374,7 @@ fn run_analyzed_known_callee_word_result_placements(
     let Some(known_callees) = known_callees else {
         return Ok(());
     };
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let preserve_exit_accumulator = known_callees.accumulator_summary_is_observable(routine.id);
     let result = driver
         .run_fixed_point_with_known_callees(routine, known_callees, |routine, context| {
@@ -3358,7 +3404,7 @@ fn run_analyzed_known_callee_preserved_index_param_carriers(
     let Some(known_callees) = known_callees else {
         return Ok(());
     };
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_with_known_callees(routine, known_callees, |routine, context| {
             peepholes::discover_known_callee_preserved_index_param_carriers(
@@ -3385,7 +3431,7 @@ fn run_analyzed_ssa_lite_byte_rewrites(
     known_callees: Option<&MirKnownCalleeSummaries>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let mut peak = 0;
     let discover =
         |routine: &super::ir::MirRoutine,
@@ -3424,7 +3470,7 @@ fn run_analyzed_rhs_and_adjacent_reloads(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             peepholes::discover_rhs_and_adjacent_reloads(routine, context, layout)
@@ -3443,7 +3489,7 @@ fn run_analyzed_dead_private_scratch_stores(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, peepholes::discover_dead_private_scratch_stores)
         .map_err(|error| {
@@ -3461,7 +3507,7 @@ fn run_analyzed_word_array_value_staging(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             peepholes::discover_word_array_value_staging(routine, context, layout)
@@ -3481,7 +3527,7 @@ fn run_analyzed_word_rsh8_high_projections(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             peepholes::discover_word_rsh8_high_projections(routine, context, layout)
@@ -3501,7 +3547,7 @@ fn run_analyzed_indirect_constant_stores(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             peepholes::discover_indirect_constant_stores(routine, context, layout)
@@ -3521,7 +3567,7 @@ fn run_analyzed_indirect_stores_and_compounds(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             peepholes::discover_indirect_stores_and_compounds(routine, context, layout)
@@ -3540,7 +3586,7 @@ fn run_analyzed_indexed_base_pointer_staging(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, indexes::discover_indexed_base_pointer_staging)
         .map_err(|error| {
@@ -3558,7 +3604,7 @@ fn run_analyzed_helper_indexed_store_placements(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             indexes::discover_helper_indexed_store_placements(routine, context, layout)
@@ -3578,7 +3624,7 @@ fn run_analyzed_scaled_y_word_reads(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             indexes::discover_scaled_y_word_reads(routine, context, layout)
@@ -3598,7 +3644,7 @@ fn run_analyzed_scaled_y_word_stores(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPostHomeRewriteDriver::default();
+    let mut driver = MirPostHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             indexes::discover_scaled_y_word_stores(routine, context, layout)
@@ -3625,7 +3671,7 @@ fn run_analyzed_compare_branch_copies(
         return Ok(());
     }
     let mut observations = BTreeSet::new();
-    let result = MirPreHomeRewriteDriver::default()
+    let result = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace)
         .run_fixed_point(routine, |routine, context| {
             super::rewrite::pilots::discover_compare_branch_copies(
                 routine,
@@ -3651,7 +3697,7 @@ fn run_analyzed_captured_byte_comparisons(
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     let mut observations = BTreeSet::new();
-    let result = MirPreHomeRewriteDriver::default()
+    let result = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace)
         .run_fixed_point_by_key(
             routine,
             |routine, context| discover_captured_byte_compares(routine, context, &mut observations),
@@ -3674,7 +3720,7 @@ fn run_analyzed_compare_producer_rewrites(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, discover_compare_producers)
         .map_err(|error| {
@@ -3692,7 +3738,7 @@ fn run_analyzed_inclusive_compare_reversals(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3713,7 +3759,7 @@ fn run_analyzed_compare_narrowing(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(routine, discover_compare_narrowing, compare_narrowing_rank)
         .map_err(|error| {
@@ -3731,7 +3777,7 @@ fn run_analyzed_dual_indirect_compares(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, |routine, context| {
             discover_dual_indirect_compares_with_layout(routine, context, layout)
@@ -3750,7 +3796,7 @@ fn run_analyzed_byte_binary_compare_consumers(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3772,7 +3818,7 @@ fn run_analyzed_pointer_rewrites(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3794,7 +3840,7 @@ fn run_analyzed_index_rewrites(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3815,7 +3861,7 @@ fn run_analyzed_affine_static_byte_indexes(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3836,7 +3882,7 @@ fn run_analyzed_call_arg_producers(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, super::rewrite::pilots::discover_call_arg_producers)
         .map_err(|error| {
@@ -3853,7 +3899,7 @@ fn run_analyzed_return_slot_call_arg_forwards(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3880,7 +3926,7 @@ fn run_analyzed_param_home_consumers(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3904,7 +3950,7 @@ fn run_analyzed_call_arg_exprs(
     helpers: &mut Vec<MirRuntimeHelper>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3932,7 +3978,7 @@ fn run_analyzed_unused_lea_addrs(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point(routine, discover_unused_lea_addrs)
         .map_err(|error| {
@@ -3949,7 +3995,7 @@ fn run_analyzed_call_result_store_consumers(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3970,7 +4016,7 @@ fn run_analyzed_stored_call_result_aliases(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -3993,7 +4039,7 @@ fn run_analyzed_word_carry_chain_store_consumers(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -4019,7 +4065,7 @@ fn run_analyzed_widened_byte_shift_store_consumers(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -4047,7 +4093,7 @@ fn run_analyzed_store_consumers(
     helpers: &mut Vec<MirRuntimeHelper>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&peephole_stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,

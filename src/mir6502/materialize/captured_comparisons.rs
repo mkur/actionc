@@ -18,6 +18,7 @@ fn occupied_zero_page(program: &MirProgram) -> BTreeSet<u8> {
         .collect()
 }
 
+#[allow(dead_code)]
 pub(in crate::mir6502) fn materialize_costed(
     original: MirProgram,
     config: &Mir6502Config,
@@ -25,109 +26,128 @@ pub(in crate::mir6502) fn materialize_costed(
     runtime: crate::runtime::Runtime,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    let mut off = config.clone();
-    off.enable_captured_byte_comparisons = false;
-    let fallback = |program, report| {
-        crate::mir6502::materialize_resolved_program_without_captured_compare_costing(
-            program, &off, origin, runtime, report,
-        )
-    };
-    if !original
-        .routines
-        .iter()
-        .any(|routine| captured_byte_compare_rank(routine) > 0)
-    {
-        return fallback(original, report);
-    }
-    let mut selected = original.clone();
-    let mut stats = MirPeepholeStats::default();
-    let mut candidates = BTreeSet::new();
-    for routine in &mut selected.routines {
-        if captured_byte_compare_rank(routine) > 0 {
-            run_analyzed_captured_byte_comparisons(routine, &mut stats)?;
-            if stats.count_for(routine.id, "captured-byte-compare-selected") > 0 {
-                candidates.insert(routine.id);
-            }
+    materialize_costed_traced(original, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(in crate::mir6502) fn materialize_costed_traced(
+    original: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    report: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    trace.run("captured_comparisons", |trace| {
+        trace.snapshot("attempt-input", &original);
+
+        let mut off = config.clone();
+        off.enable_captured_byte_comparisons = false;
+        let fallback = |program, report| {
+            trace.run("source-materialization", |trace| crate::mir6502::materialize_resolved_program_without_captured_compare_costing_traced(
+                program, &off, origin, runtime, report, trace,
+            ))
+        };
+        if !original
+            .routines
+            .iter()
+            .any(|routine| captured_byte_compare_rank(routine) > 0)
+        {
+            return fallback(original, report);
         }
-    }
-    if candidates.is_empty() {
-        if report {
-            maybe_report_peepholes(&original, &stats, config);
-        }
-        return fallback(original, report);
-    }
-    let baseline = fallback(original.clone(), false)?;
-    let mut proposed = fallback(selected.clone(), false).ok();
-    let old = address_values::Cost::measure(&baseline, origin);
-    let mut accepted = old
-        .as_ref()
-        .zip(
-            proposed
-                .as_ref()
-                .and_then(|p| address_values::Cost::measure(p, origin)),
-        )
-        .map_or_else(BTreeSet::new, |(old, new)| {
-            candidates
-                .iter()
-                .copied()
-                .filter(|&id| new.does_not_grow(old, id))
-                .collect()
-        });
-    if !accepted.is_empty() && accepted != candidates {
+        let mut selected = original.clone();
+        let mut stats = MirPeepholeStats::with_trace(trace);
+        let mut candidates = BTreeSet::new();
         for routine in &mut selected.routines {
-            if candidates.contains(&routine.id) && !accepted.contains(&routine.id) {
-                *routine = original
-                    .routines
-                    .iter()
-                    .find(|r| r.id == routine.id)
-                    .unwrap()
-                    .clone();
+            if captured_byte_compare_rank(routine) > 0 {
+                run_analyzed_captured_byte_comparisons(routine, &mut stats)?;
+                if stats.count_for(routine.id, "captured-byte-compare-selected") > 0 {
+                    candidates.insert(routine.id);
+                }
             }
         }
-        proposed = fallback(selected.clone(), false).ok();
-    }
-    // Recheck the combined result after rollback. Allocation and branch
-    // relaxation can change costs in routines outside the selected suffix.
-    let final_ok = proposed.as_ref().is_some_and(|program| {
-        occupied_zero_page(program).is_subset(&occupied_zero_page(&baseline))
-            && old
-                .as_ref()
-                .zip(address_values::Cost::measure(program, origin))
-                .is_some_and(|(old, new)| {
-                    new.bytes <= old.bytes && accepted.iter().all(|&id| new.does_not_grow(old, id))
-                })
-    });
-    if !final_ok {
-        accepted.clear();
-    }
-    if report {
-        for &id in &candidates {
-            stats.record_many(
-                id,
-                if accepted.contains(&id) {
-                    "captured-byte-compare-applied"
-                } else {
-                    "captured-byte-compare-declined-final-cost"
-                },
-                stats.count_for(id, "captured-byte-compare-selected"),
-            );
+        if candidates.is_empty() {
+            if report {
+                maybe_report_peepholes(&original, &stats, config);
+            }
+            return fallback(original, report);
         }
-        maybe_report_peepholes(&original, &stats, config);
-        if stats::reporting_enabled(config) {
-            return fallback(
-                if accepted.is_empty() {
-                    original
-                } else {
-                    selected
-                },
-                true,
-            );
+        let baseline = fallback(original.clone(), false)?;
+        let mut proposed = fallback(selected.clone(), false).ok();
+        let old = address_values::Cost::measure_traced(&baseline, origin, trace);
+        let mut accepted = old
+            .as_ref()
+            .zip(
+                proposed
+                    .as_ref()
+                    .and_then(|p| address_values::Cost::measure_traced(p, origin, trace)),
+            )
+            .map_or_else(BTreeSet::new, |(old, new)| {
+                candidates
+                    .iter()
+                    .copied()
+                    .filter(|&id| new.does_not_grow(old, id))
+                    .collect()
+            });
+        if !accepted.is_empty() && accepted != candidates {
+            for routine in &mut selected.routines {
+                if candidates.contains(&routine.id) && !accepted.contains(&routine.id) {
+                    *routine = original
+                        .routines
+                        .iter()
+                        .find(|r| r.id == routine.id)
+                        .unwrap()
+                        .clone();
+                }
+            }
+            proposed = fallback(selected.clone(), false).ok();
         }
-    }
-    Ok(if accepted.is_empty() {
-        baseline
-    } else {
-        proposed.unwrap()
+        // Recheck the combined result after rollback. Allocation and branch
+        // relaxation can change costs in routines outside the selected suffix.
+        let final_ok = proposed.as_ref().is_some_and(|program| {
+            occupied_zero_page(program).is_subset(&occupied_zero_page(&baseline))
+                && old
+                    .as_ref()
+                    .zip(address_values::Cost::measure_traced(program, origin, trace))
+                    .is_some_and(|(old, new)| {
+                        new.bytes <= old.bytes
+                            && accepted.iter().all(|&id| new.does_not_grow(old, id))
+                    })
+        });
+        if !final_ok {
+            accepted.clear();
+        }
+        trace.decision("captured_comparisons", candidates.iter().copied(), |id| {
+            accepted.contains(&id)
+        });
+        if report {
+            for &id in &candidates {
+                stats.record_many(
+                    id,
+                    if accepted.contains(&id) {
+                        "captured-byte-compare-applied"
+                    } else {
+                        "captured-byte-compare-declined-final-cost"
+                    },
+                    stats.count_for(id, "captured-byte-compare-selected"),
+                );
+            }
+            maybe_report_peepholes(&original, &stats, config);
+            if stats::reporting_enabled(config) {
+                return fallback(
+                    if accepted.is_empty() {
+                        original
+                    } else {
+                        selected
+                    },
+                    true,
+                );
+            }
+        }
+        Ok(if accepted.is_empty() {
+            baseline
+        } else {
+            proposed.unwrap()
+        })
     })
 }
 

@@ -18,6 +18,7 @@ const MAX_BYTES: u16 = 8;
 const MAX_OPS: usize = 64;
 const MAX_BLOCKS: usize = 4;
 
+#[allow(dead_code)]
 pub(in crate::mir6502) fn materialize_costed(
     original: MirProgram,
     config: &Mir6502Config,
@@ -25,94 +26,116 @@ pub(in crate::mir6502) fn materialize_costed(
     runtime: crate::runtime::Runtime,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    let mut off = config.clone();
-    off.enable_copy_value_forwarding = false;
-    let fallback = |p, reporting| {
-        crate::mir6502::materialize_resolved_program_without_copy_costing(
-            p, &off, origin, runtime, reporting,
-        )
-    };
-    // Avoid another materialization for programs without small local copies.
-    if !original
-        .routines
-        .iter()
-        .flat_map(|r| &r.blocks)
-        .flat_map(|b| &b.ops)
-        .any(|op| {
-            matches!(
-                op,
-                MirOp::CopyBytes {
-                    source: MirAddr::Direct(MirMem::Local { .. }),
-                    size: 1..=MAX_BYTES,
-                    source_volatile: false,
-                    destination_volatile: false,
-                    ..
-                }
-            )
-        })
-    {
-        return fallback(original, report);
-    }
-    let mut selected = original.clone();
-    let tiny_selected = if config.enable_tiny_constant_fills {
-        tiny_fills::select(&mut selected)
-    } else {
-        Vec::new()
-    };
-    let constructors = super::constructor_storage::discover(&selected, config);
-    let candidates = select(&mut selected);
-    if candidates.is_empty() {
-        return fallback(original, report);
-    }
-    crate::mir6502::verify_program(&selected, MirPhase::PreMaterialization)?;
-    let baseline = fallback(original.clone(), false)?;
-    let Ok(mut proposed) = fallback(selected.clone(), false) else {
-        return fallback(original, report);
-    };
-    let accepted = match (
-        Cost::measure(&baseline, origin),
-        Cost::measure(&proposed, origin),
-    ) {
-        (Some(old), Some(new)) => {
-            new.bytes < old.bytes
-                && candidates.keys().all(|&id| new.does_not_grow(&old, id))
-                && occupied_zero_page(&proposed).is_subset(&occupied_zero_page(&baseline))
+    materialize_costed_traced(original, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(in crate::mir6502) fn materialize_costed_traced(
+    original: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    report: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    trace.run("copy_values", |trace| {
+        trace.snapshot("attempt-input", &original);
+
+        let mut off = config.clone();
+        off.enable_copy_value_forwarding = false;
+        let fallback = |p, reporting| {
+            trace.run("source-materialization", |trace| crate::mir6502::materialize_resolved_program_without_copy_costing_traced(
+                p, &off, origin, runtime, reporting, trace,
+            ))
+        };
+        // Avoid another materialization for programs without small local copies.
+        if !original
+            .routines
+            .iter()
+            .flat_map(|r| &r.blocks)
+            .flat_map(|b| &b.ops)
+            .any(|op| {
+                matches!(
+                    op,
+                    MirOp::CopyBytes {
+                        source: MirAddr::Direct(MirMem::Local { .. }),
+                        size: 1..=MAX_BYTES,
+                        source_volatile: false,
+                        destination_volatile: false,
+                        ..
+                    }
+                )
+            })
+        {
+            return fallback(original, report);
         }
-        _ => false,
-    };
-    let constructor_stats = if accepted {
-        super::constructor_storage::improve(
-            &mut selected, &mut proposed, constructors, config, origin, runtime,
-        )
-    } else {
-        super::MirPeepholeStats::default()
-    };
-    if report {
-        let mut stats = super::MirPeepholeStats::default();
-        if accepted {
-            for (routine, count) in tiny_selected {
-                stats.record_many(routine, "tiny-constant-fill-selected", count);
+        let mut selected = original.clone();
+        let tiny_selected = if config.enable_tiny_constant_fills {
+            tiny_fills::select(&mut selected)
+        } else {
+            Vec::new()
+        };
+        let constructors = super::constructor_storage::discover(&selected, config);
+        let candidates = select(&mut selected);
+        if candidates.is_empty() {
+            return fallback(original, report);
+        }
+        crate::mir6502::verify_program(&selected, MirPhase::PreMaterialization)?;
+        let baseline = fallback(original.clone(), false)?;
+        let Ok(mut proposed) = fallback(selected.clone(), false) else {
+            return fallback(original, report);
+        };
+        let accepted = match (
+            Cost::measure_traced(&baseline, origin, trace),
+            Cost::measure_traced(&proposed, origin, trace),
+        ) {
+            (Some(old), Some(new)) => {
+                new.bytes < old.bytes
+                    && candidates.keys().all(|&id| new.does_not_grow(&old, id))
+                    && occupied_zero_page(&proposed).is_subset(&occupied_zero_page(&baseline))
             }
+            _ => false,
+        };
+        trace.decision("copy_values", candidates.keys().copied(), |_| accepted);
+        let constructor_stats = if accepted {
+            super::constructor_storage::improve_traced(
+                &mut selected,
+                &mut proposed,
+                constructors,
+                config,
+                origin,
+                runtime,
+                trace,
+            )
+        } else {
+            super::MirPeepholeStats::with_trace(trace)
+        };
+        if report {
+            let mut stats = super::MirPeepholeStats::with_trace(trace);
+            if accepted {
+                for (routine, count) in tiny_selected {
+                    stats.record_many(routine, "tiny-constant-fill-selected", count);
+                }
+            }
+            for (&routine, &count) in &candidates {
+                stats.record_many(
+                    routine,
+                    if accepted {
+                        "aggregate-copy-values-forwarded"
+                    } else {
+                        "aggregate-copy-values-declined-final-cost"
+                    },
+                    count,
+                );
+            }
+            super::maybe_report_peepholes(&original, &stats, config);
+            super::maybe_report_peepholes(&original, &constructor_stats, config);
         }
-        for (&routine, &count) in &candidates {
-            stats.record_many(
-                routine,
-                if accepted {
-                    "aggregate-copy-values-forwarded"
-                } else {
-                    "aggregate-copy-values-declined-final-cost"
-                },
-                count,
-            );
+        if report && super::stats::reporting_enabled(config) {
+            fallback(if accepted { selected } else { original }, true)
+        } else {
+            Ok(if accepted { proposed } else { baseline })
         }
-        super::maybe_report_peepholes(&original, &stats, config);
-        super::maybe_report_peepholes(&original, &constructor_stats, config);
-    }
-    if report && super::stats::reporting_enabled(config) {
-        fallback(if accepted { selected } else { original }, true)
-    } else {
-        Ok(if accepted { proposed } else { baseline })
-    }
+    })
 }
 
 fn occupied_zero_page(program: &MirProgram) -> BTreeSet<u8> {

@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 #[derive(Default)]
 pub(super) struct MirPeepholeStats {
+    pub(in crate::mir6502) trace: crate::mir6502::trace::Trace,
     counts: BTreeMap<(RoutineId, String), usize>,
     sites: Vec<MirPeepholeSite>,
 }
@@ -15,6 +16,10 @@ struct MirPeepholeSite {
 }
 
 impl MirPeepholeStats {
+    pub(super) fn with_trace(trace: &crate::mir6502::trace::Trace) -> Self {
+        Self { trace: trace.clone(), ..Self::default() }
+    }
+
     pub(super) fn record(&mut self, routine: RoutineId, name: &'static str) {
         self.record_dynamic(routine, name);
     }

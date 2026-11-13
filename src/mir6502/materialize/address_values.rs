@@ -132,7 +132,7 @@ pub(super) fn forward_saved_byte_indexes(
     known_callees: &MirKnownCalleeSummaries,
     stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let result = MirPostHomeRewriteDriver::default()
+    let result = MirPostHomeRewriteDriver::default().with_trace(&stats.trace)
         .run_fixed_point_with_known_callees(routine, known_callees, |r, c| {
             discover_saved_byte_indexes(r, c, layout)
         })
@@ -572,7 +572,7 @@ pub(super) fn materialize_address_stores(
     layout: &MaterializeLayout,
     stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    let mut driver = MirPreHomeRewriteDriver::default();
+    let mut driver = MirPreHomeRewriteDriver::default().with_trace(&stats.trace);
     let result = driver
         .run_fixed_point_by_key(
             routine,
@@ -595,9 +595,21 @@ pub(super) struct Cost {
     homes: BTreeMap<RoutineId, usize>,
 }
 impl Cost {
+#[allow(dead_code)]
     pub(super) fn measure(program: &MirProgram, origin: u16) -> Option<Self> {
+    Self::measure_traced(program, origin, &crate::mir6502::trace::Trace::disabled())
+}
+
+    pub(super) fn measure_traced(
+        program: &MirProgram,
+        origin: u16,
+        trace: &crate::mir6502::trace::Trace,
+    ) -> Option<Self> {
+        let invocation = trace.child("emission-request", "cost");
+        let trace = &invocation;
         let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
-        let summary = crate::mir6502::emit::emit_program(program, origin, &mut emitter).ok()?;
+        let summary =
+            crate::mir6502::emit::emit_program_traced(program, origin, &mut emitter, trace).ok()?;
         let image = emitter.finish_with_relocations().ok()?;
         let mut routine_bytes = BTreeMap::new();
         for (routine, _, range) in summary.block_ranges {
@@ -615,10 +627,7 @@ impl Cost {
                             .iter()
                             .chain(&r.frame.locals)
                             .filter(|s| {
-                                matches!(
-                                    s.base,
-                                    MirStorageBase::Local(_) | MirStorageBase::Param(_)
-                                )
+                                matches!(s.base, MirStorageBase::Local(_) | MirStorageBase::Param(_))
                             })
                             .map(|s| usize::from(s.storage_size))
                             .sum::<usize>(),
@@ -677,6 +686,7 @@ fn scratch_is_private(program: &MirProgram, origin: u16) -> bool {
     true
 }
 
+#[allow(dead_code)]
 pub(in crate::mir6502) fn materialize_costed(
     original: MirProgram,
     config: &Mir6502Config,
@@ -684,147 +694,172 @@ pub(in crate::mir6502) fn materialize_costed(
     runtime: crate::runtime::Runtime,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    let mut baseline_config = config.clone();
-    baseline_config.enable_indexed_address_values = false;
-    if !scratch_is_private(&original, origin) {
-        return crate::mir6502::materialize_resolved_program_without_address_costing(
-            original,
-            &baseline_config,
-            origin,
-            runtime,
-            report,
-        );
-    }
-    let mut selected = original.clone();
-    let mut candidates = BTreeSet::new();
-    for routine in &mut selected.routines {
-        let mut driver = MirPreHomeRewriteDriver::default();
-        let result = driver
-            .run_fixed_point_by_key(
-                routine,
-                crate::mir6502::rewrite::address_values::discover_indexed_address_values,
-                crate::mir6502::rewrite::address_values::address_value_rank,
-            )
-            .map_err(|error| {
-                vec![MirDiagnostic::routine(
-                    &routine.name,
-                    format!("address-value provenance failed: {error:?}"),
-                )]
-            })?;
-        if result.applied > 0
-            || routine.blocks.iter().flat_map(|b| &b.ops).any(|op| {
-                matches!(
-                    op,
-                    MirOp::ComputeAddress {
-                        index: Some(_),
-                        elem_size: 1..=255,
-                        ..
-                    }
-                )
-            })
-        {
-            candidates.insert(routine.id);
+    materialize_costed_traced(original, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(in crate::mir6502) fn materialize_costed_traced(
+    original: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    report: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    trace.run("address_values", |trace| {
+        trace.snapshot("attempt-input", &original);
+
+        let mut baseline_config = config.clone();
+        baseline_config.enable_indexed_address_values = false;
+        if !scratch_is_private(&original, origin) {
+            return trace.run("fallback-or-selected-replay", |trace| crate::mir6502::materialize_resolved_program_without_address_costing_traced(
+                original,
+                &baseline_config,
+                origin,
+                runtime,
+                report,
+                trace,
+            ));
         }
-    }
-    if candidates.is_empty() {
-        return crate::mir6502::materialize_resolved_program_without_address_costing(
-            original,
-            &baseline_config,
-            origin,
-            runtime,
-            report,
-        );
-    }
-    let baseline = crate::mir6502::materialize_resolved_program_without_address_costing(
-        original.clone(),
-        &baseline_config,
-        origin,
-        runtime,
-        false,
-    )?;
-    let mut trial = crate::mir6502::materialize_resolved_program_without_address_costing(
-        selected.clone(),
-        config,
-        origin,
-        runtime,
-        false,
-    )?;
-    let baseline_cost = Cost::measure(&baseline, origin);
-    let trial_cost = Cost::measure(&trial, origin);
-    let mut accepted = BTreeSet::new();
-    for id in &candidates {
-        if baseline_cost
-            .as_ref()
-            .and_then(|c| c.routine(*id))
-            .zip(trial_cost.as_ref().and_then(|c| c.routine(*id)))
-            .is_some_and(|(old, new)| new <= old)
-        {
-            accepted.insert(*id);
-        }
-    }
-    if accepted != candidates && !accepted.is_empty() {
+        let mut selected = original.clone();
+        let mut candidates = BTreeSet::new();
         for routine in &mut selected.routines {
-            if candidates.contains(&routine.id) && !accepted.contains(&routine.id) {
-                *routine = original
-                    .routines
-                    .iter()
-                    .find(|r| r.id == routine.id)
-                    .unwrap()
-                    .clone();
+            let mut driver = MirPreHomeRewriteDriver::default().with_trace(trace);
+            let result = driver
+                .run_fixed_point_by_key(
+                    routine,
+                    crate::mir6502::rewrite::address_values::discover_indexed_address_values,
+                    crate::mir6502::rewrite::address_values::address_value_rank,
+                )
+                .map_err(|error| {
+                    vec![MirDiagnostic::routine(
+                        &routine.name,
+                        format!("address-value provenance failed: {error:?}"),
+                    )]
+                })?;
+            if result.applied > 0
+                || routine.blocks.iter().flat_map(|b| &b.ops).any(|op| {
+                    matches!(
+                        op,
+                        MirOp::ComputeAddress {
+                            index: Some(_),
+                            elem_size: 1..=255,
+                            ..
+                        }
+                    )
+                })
+            {
+                candidates.insert(routine.id);
             }
         }
-        trial = crate::mir6502::materialize_resolved_program_without_address_costing(
-            selected.clone(),
-            config,
+        if candidates.is_empty() {
+            return trace.run("fallback-or-selected-replay", |trace| crate::mir6502::materialize_resolved_program_without_address_costing_traced(
+                original,
+                &baseline_config,
+                origin,
+                runtime,
+                report,
+                trace,
+            ));
+        }
+        let baseline = trace.run("baseline-materialization", |trace| crate::mir6502::materialize_resolved_program_without_address_costing_traced(
+            original.clone(),
+            &baseline_config,
             origin,
             runtime,
             false,
-        )?;
-    }
-    // Shared homes, runtime helpers and relaxed branches are charged again at
-    // the whole-image boundary. A local saving is not a pooled-home saving.
-    if accepted.is_empty()
-        || !baseline_cost
-            .as_ref()
-            .zip(Cost::measure(&trial, origin).as_ref())
-            .is_some_and(|(old, new)| new.bytes <= old.bytes)
-    {
-        accepted.clear();
-    }
-    let applied = !accepted.is_empty();
-    if report {
-        let mut stats = MirPeepholeStats::default();
+            trace,
+        ))?;
+        let mut trial =
+            trace.run("candidate-materialization", |trace| crate::mir6502::materialize_resolved_program_without_address_costing_traced(
+                selected.clone(),
+                config,
+                origin,
+                runtime,
+                false,
+                trace,
+            ))?;
+        let baseline_cost = Cost::measure_traced(&baseline, origin, trace);
+        let trial_cost = Cost::measure_traced(&trial, origin, trace);
+        let mut accepted = BTreeSet::new();
         for id in &candidates {
-            stats.record(
-                *id,
-                if accepted.contains(id) {
-                    "address-value-applied"
-                } else {
-                    "address-value-declined-size"
-                },
-            );
-        }
-        for id in &candidates {
-            if let Some((old, new)) = baseline_cost
+            if baseline_cost
                 .as_ref()
                 .and_then(|c| c.routine(*id))
                 .zip(trial_cost.as_ref().and_then(|c| c.routine(*id)))
+                .is_some_and(|(old, new)| new <= old)
             {
-                stats.record_dynamic(*id, format!("address-value-code-home-{old}-to-{new}"));
+                accepted.insert(*id);
             }
         }
-        maybe_report_peepholes(&original, &stats, config);
-    }
-    if report && stats::reporting_enabled(config) {
-        return crate::mir6502::materialize_resolved_program_without_address_costing(
-            if applied { selected } else { original },
-            if applied { config } else { &baseline_config },
-            origin,
-            runtime,
-            true,
-        );
-    }
-    Ok(if applied { trial } else { baseline })
+        if accepted != candidates && !accepted.is_empty() {
+            for routine in &mut selected.routines {
+                if candidates.contains(&routine.id) && !accepted.contains(&routine.id) {
+                    *routine = original
+                        .routines
+                        .iter()
+                        .find(|r| r.id == routine.id)
+                        .unwrap()
+                        .clone();
+                }
+            }
+            trial = trace.run("candidate-materialization", |trace| crate::mir6502::materialize_resolved_program_without_address_costing_traced(
+                selected.clone(),
+                config,
+                origin,
+                runtime,
+                false,
+                trace,
+            ))?;
+        }
+        // Shared homes, runtime helpers and relaxed branches are charged again at
+        // the whole-image boundary. A local saving is not a pooled-home saving.
+        if accepted.is_empty()
+            || !baseline_cost
+                .as_ref()
+                .zip(Cost::measure_traced(&trial, origin, trace).as_ref())
+                .is_some_and(|(old, new)| new.bytes <= old.bytes)
+        {
+            accepted.clear();
+        }
+        trace.decision("address_values", candidates.iter().copied(), |id| {
+            accepted.contains(&id)
+        });
+        let applied = !accepted.is_empty();
+        if report {
+            let mut stats = MirPeepholeStats::with_trace(trace);
+            for id in &candidates {
+                stats.record(
+                    *id,
+                    if accepted.contains(id) {
+                        "address-value-applied"
+                    } else {
+                        "address-value-declined-size"
+                    },
+                );
+            }
+            for id in &candidates {
+                if let Some((old, new)) = baseline_cost
+                    .as_ref()
+                    .and_then(|c| c.routine(*id))
+                    .zip(trial_cost.as_ref().and_then(|c| c.routine(*id)))
+                {
+                    stats.record_dynamic(*id, format!("address-value-code-home-{old}-to-{new}"));
+                }
+            }
+            maybe_report_peepholes(&original, &stats, config);
+        }
+        if report && stats::reporting_enabled(config) {
+            return trace.run("selected-reporting-replay", |trace| crate::mir6502::materialize_resolved_program_without_address_costing_traced(
+                if applied { selected } else { original },
+                if applied { config } else { &baseline_config },
+                origin,
+                runtime,
+                true,
+                trace,
+            ));
+        }
+        Ok(if applied { trial } else { baseline })
+    })
 }
 
 #[cfg(test)]

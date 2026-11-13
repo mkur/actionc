@@ -74,7 +74,7 @@ pub(super) fn run(
     }
     // The same fixed point removes newly exposed pure reloads. Absolute reads
     // stay governed by the existing conservative load classifier.
-    let result = MirPostHomeRewriteDriver::default()
+    let result = MirPostHomeRewriteDriver::default().with_trace(&stats.trace)
         .run_fixed_point(routine, |r, c| {
             let mut plans = discover_dead_register_arithmetic(r, c);
             plans.extend(peepholes::discover_dead_register_writes(r, c, layout));

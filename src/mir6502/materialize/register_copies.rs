@@ -16,75 +16,93 @@ use std::collections::BTreeSet;
 
 /// Final transaction: home selection/inlining and all previous savings survive
 /// a failed proof, verifier or exact emission-cost comparison.
+#[allow(dead_code)]
 pub(in crate::mir6502) fn select_costed(
     baseline: MirProgram,
     config: &crate::mir6502::Mir6502Config,
     origin: u16,
     report: bool,
 ) -> Result<MirProgram, Vec<crate::mir6502::MirDiagnostic>> {
-    if !baseline.routines.iter().any(has_candidate) {
-        return Ok(baseline);
-    }
-    let Some(physical) = physical_memory(&baseline, &baseline, origin) else {
-        return Ok(baseline);
-    };
-    let Some((proposed, mut stats, affected)) = apply(&baseline, origin, &physical) else {
-        return Ok(baseline);
-    };
-    if affected.is_empty() {
-        return Ok(baseline);
-    }
-    let callees = MirKnownCalleeSummaries::analyze_for_rewriting(&baseline);
-    let new_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&proposed);
-    // Earlier caller rewrites can already rely on a callee's incidental A
-    // result. Preserve those published exit values as well as the public ABI.
-    let exits_preserved = baseline.routines.iter().all(|r| {
-        !callees.accumulator_summary_is_observable(r.id)
-            || callees.get(r.id).and_then(|s| s.accumulator())
-                == new_callees.get(r.id).and_then(|s| s.accumulator())
-    });
-    // Deferred data can move when code shrinks. Re-run all proofs from the
-    // unchanged baseline using the independently emitted proposed placement.
-    let replayed = physical_memory(&proposed, &baseline, origin)
-        .and_then(|map| apply(&baseline, origin, &map))
-        .is_some_and(|(replay, _, _)| replay == proposed);
-    let accepted = exits_preserved
-        && replayed
-        && crate::mir6502::verify_program(&proposed, MirPhase::PreEmission).is_ok()
-        && proposed
-            .routines
-            .iter()
-            .zip(&baseline.routines)
-            .all(|(a, b)| a.frame == b.frame)
-        && match (
-            super::address_values::Cost::measure(&baseline, origin),
-            super::address_values::Cost::measure(&proposed, origin),
-        ) {
-            (Some(old), Some(new)) => {
-                new.bytes < old.bytes && affected.iter().all(|id| new.does_not_grow(&old, *id))
-            }
-            _ => false,
+    select_costed_traced(baseline, config, origin, report, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(in crate::mir6502) fn select_costed_traced(
+    baseline: MirProgram,
+    config: &crate::mir6502::Mir6502Config,
+    origin: u16,
+    report: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<crate::mir6502::MirDiagnostic>> {
+    trace.run("register_copies", |trace| {
+        trace.snapshot("attempt-input", &baseline);
+
+        if !baseline.routines.iter().any(has_candidate) {
+            return Ok(baseline);
+        }
+        let Some(physical) = physical_memory_traced(&baseline, &baseline, origin, trace) else {
+            return Ok(baseline);
         };
-    if !accepted {
-        stats = MirPeepholeStats::default();
-        for id in affected {
-            stats.record(id, "register-copy-declined-final-proof-or-cost");
-            if !exits_preserved {
-                stats.record(id, "register-copy-declined-callee-exit");
-            }
-            if !replayed {
-                stats.record(id, "register-copy-declined-placement-replay");
+        let Some((proposed, mut stats, affected)) =
+            apply_traced(&baseline, origin, &physical, trace)
+        else {
+            return Ok(baseline);
+        };
+        if affected.is_empty() {
+            return Ok(baseline);
+        }
+        let callees = MirKnownCalleeSummaries::analyze_for_rewriting(&baseline);
+        let new_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&proposed);
+        // Earlier caller rewrites can already rely on a callee's incidental A
+        // result. Preserve those published exit values as well as the public ABI.
+        let exits_preserved = baseline.routines.iter().all(|r| {
+            !callees.accumulator_summary_is_observable(r.id)
+                || callees.get(r.id).and_then(|s| s.accumulator())
+                    == new_callees.get(r.id).and_then(|s| s.accumulator())
+        });
+        // Deferred data can move when code shrinks. Re-run all proofs from the
+        // unchanged baseline using the independently emitted proposed placement.
+        let replayed = physical_memory_traced(&proposed, &baseline, origin, trace)
+            .and_then(|map| apply_traced(&baseline, origin, &map, trace))
+            .is_some_and(|(replay, _, _)| replay == proposed);
+        let accepted = exits_preserved
+            && replayed
+            && crate::mir6502::verify_program(&proposed, MirPhase::PreEmission).is_ok()
+            && proposed
+                .routines
+                .iter()
+                .zip(&baseline.routines)
+                .all(|(a, b)| a.frame == b.frame)
+            && match (
+                super::address_values::Cost::measure_traced(&baseline, origin, trace),
+                super::address_values::Cost::measure_traced(&proposed, origin, trace),
+            ) {
+                (Some(old), Some(new)) => {
+                    new.bytes < old.bytes && affected.iter().all(|id| new.does_not_grow(&old, *id))
+                }
+                _ => false,
+            };
+        trace.decision("register_copies", affected.iter().copied(), |_| accepted);
+        if !accepted {
+            stats = MirPeepholeStats::with_trace(trace);
+            for id in affected {
+                stats.record(id, "register-copy-declined-final-proof-or-cost");
+                if !exits_preserved {
+                    stats.record(id, "register-copy-declined-callee-exit");
+                }
+                if !replayed {
+                    stats.record(id, "register-copy-declined-placement-replay");
+                }
             }
         }
-    }
-    if report {
-        super::stats::maybe_report_peepholes(
-            if accepted { &proposed } else { &baseline },
-            &stats,
-            config,
-        );
-    }
-    Ok(if accepted { proposed } else { baseline })
+        if report {
+            super::stats::maybe_report_peepholes(
+                if accepted { &proposed } else { &baseline },
+                &stats,
+                config,
+            );
+        }
+        Ok(if accepted { proposed } else { baseline })
+    })
 }
 
 fn has_candidate(routine: &MirRoutine) -> bool {
@@ -113,28 +131,51 @@ fn has_candidate(routine: &MirRoutine) -> bool {
     })
 }
 
+#[allow(dead_code)]
 pub(super) fn physical_memory(
     program: &MirProgram,
     references: &MirProgram,
     origin: u16,
 ) -> Option<MirPhysicalMemory> {
+    physical_memory_traced(program, references, origin, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(super) fn physical_memory_traced(
+    program: &MirProgram,
+    references: &MirProgram,
+    origin: u16,
+    trace: &crate::mir6502::trace::Trace,
+) -> Option<MirPhysicalMemory> {
+    let invocation = trace.child("emission-request", "physical-map");
+    let trace = &invocation;
     let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
-    let summary = crate::mir6502::emit::emit_program_with_physical_references(
+    let summary = crate::mir6502::emit::emit_program_with_physical_references_traced(
         program,
         origin,
         &mut emitter,
         true,
         references,
+        trace,
     )
     .ok()?;
     emitter.finish_with_relocations().ok()?;
     Some(summary.physical_memory)
 }
 
+#[allow(dead_code)]
 fn apply(
     baseline: &MirProgram,
     origin: u16,
     physical: &MirPhysicalMemory,
+) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
+    apply_traced(baseline, origin, physical, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn apply_traced(
+    baseline: &MirProgram,
+    origin: u16,
+    physical: &MirPhysicalMemory,
+    trace: &crate::mir6502::trace::Trace,
 ) -> Option<(MirProgram, MirPeepholeStats, BTreeSet<RoutineId>)> {
     let layout = MaterializeLayout::new(baseline, origin);
     let callees = MirKnownCalleeSummaries::analyze_for_rewriting(baseline);
@@ -152,7 +193,7 @@ fn apply(
         }
     }
     let mut proposed = baseline.clone();
-    let mut stats = MirPeepholeStats::default();
+    let mut stats = MirPeepholeStats::with_trace(trace);
     let mut affected = BTreeSet::new();
     for routine in &mut proposed.routines {
         if !has_candidate(routine) {
@@ -169,7 +210,7 @@ fn apply(
             .map(|b| b.ops.len())
             .sum::<usize>()
             .saturating_add(1);
-        let result = MirPostHomeRewriteDriver::with_max_rounds(rounds)
+        let result = MirPostHomeRewriteDriver::with_max_rounds(rounds).with_trace(trace)
             .run_fixed_point_with_memory_map(
                 routine,
                 &callees,

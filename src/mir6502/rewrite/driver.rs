@@ -74,8 +74,9 @@ impl MirRewriteRunResult {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub(in crate::mir6502) struct MirPreHomeRewriteDriver {
+    trace: crate::mir6502::trace::Trace,
     generation: MirRoutineGeneration,
     max_rounds: usize,
 }
@@ -83,6 +84,7 @@ pub(in crate::mir6502) struct MirPreHomeRewriteDriver {
 impl Default for MirPreHomeRewriteDriver {
     fn default() -> Self {
         Self {
+            trace: crate::mir6502::trace::Trace::disabled(),
             generation: MirRoutineGeneration::initial(),
             max_rounds: 32,
         }
@@ -90,6 +92,11 @@ impl Default for MirPreHomeRewriteDriver {
 }
 
 impl MirPreHomeRewriteDriver {
+    pub(in crate::mir6502) fn with_trace(mut self, trace: &crate::mir6502::trace::Trace) -> Self {
+        self.trace = trace.child("rewrite-driver", "MirPreHomeRewriteDriver");
+        self
+    }
+
     pub(in crate::mir6502) fn generation(&self) -> MirRoutineGeneration {
         self.generation
     }
@@ -135,6 +142,7 @@ impl MirPreHomeRewriteDriver {
             let snapshot = PreHomeAnalysisSnapshot::new(routine, self.generation)
                 .map_err(|_| MirRewriteError::InvalidCfg)?;
             result.analysis_builds += 1;
+            self.trace.count("rewrite_analysis_builds", 1);
             let context = PreHomeRewriteContext::new(&snapshot);
             let plans = discover(routine, &context);
             result.candidates += plans.len();
@@ -243,8 +251,9 @@ pub(in crate::mir6502) struct MirAppliedBatch {
 /// Routine-level transactional driver for physical-home rewrites. A snapshot
 /// is rebuilt after every applied batch, so no liveness or availability fact
 /// can be reused with shifted operation indices.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub(in crate::mir6502) struct MirPostHomeRewriteDriver {
+    trace: crate::mir6502::trace::Trace,
     generation: MirRoutineGeneration,
     max_rounds: usize,
 }
@@ -252,6 +261,7 @@ pub(in crate::mir6502) struct MirPostHomeRewriteDriver {
 impl Default for MirPostHomeRewriteDriver {
     fn default() -> Self {
         Self {
+            trace: crate::mir6502::trace::Trace::disabled(),
             generation: MirRoutineGeneration::initial(),
             max_rounds: 32,
         }
@@ -259,6 +269,11 @@ impl Default for MirPostHomeRewriteDriver {
 }
 
 impl MirPostHomeRewriteDriver {
+    pub(in crate::mir6502) fn with_trace(mut self, trace: &crate::mir6502::trace::Trace) -> Self {
+        self.trace = trace.child("rewrite-driver", "MirPostHomeRewriteDriver");
+        self
+    }
+
     pub(in crate::mir6502) fn generation(&self) -> MirRoutineGeneration {
         self.generation
     }
@@ -355,6 +370,7 @@ impl MirPostHomeRewriteDriver {
             )
             .map_err(|_| MirRewriteError::InvalidCfg)?;
             result.analysis_builds += 1;
+            self.trace.count("rewrite_analysis_builds", 1);
             let context = PostHomeRewriteContext::new(&snapshot);
             let plans = discover(routine, &context);
             result.candidates += plans.len();

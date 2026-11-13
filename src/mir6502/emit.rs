@@ -44,26 +44,48 @@ pub(super) struct MirEmissionSummary {
     pub machine_blocks: Vec<CodegenMachineBlockAnalysis>,
 }
 
+#[allow(dead_code)]
 pub(super) fn emit_program(
     mir: &MirProgram,
     origin: u16,
     emitter: &mut TrackedEmitter,
 ) -> Result<MirEmissionSummary, Vec<MirDiagnostic>> {
-    emit_program_with_physical_memory(mir, origin, emitter, false)
+    emit_program_traced(mir, origin, emitter, &crate::mir6502::trace::Trace::disabled())
 }
 
+pub(super) fn emit_program_traced(
+    mir: &MirProgram,
+    origin: u16,
+    emitter: &mut TrackedEmitter,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirEmissionSummary, Vec<MirDiagnostic>> {
+    emit_program_with_physical_memory_traced(mir, origin, emitter, false, trace)
+}
+
+#[allow(dead_code)]
 pub(super) fn emit_program_with_physical_memory(
     mir: &MirProgram,
     origin: u16,
     emitter: &mut TrackedEmitter,
     physical_memory: bool,
 ) -> Result<MirEmissionSummary, Vec<MirDiagnostic>> {
-    emit_program_with_physical_references(mir, origin, emitter, physical_memory, mir)
+    emit_program_with_physical_memory_traced(mir, origin, emitter, physical_memory, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(super) fn emit_program_with_physical_memory_traced(
+    mir: &MirProgram,
+    origin: u16,
+    emitter: &mut TrackedEmitter,
+    physical_memory: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirEmissionSummary, Vec<MirDiagnostic>> {
+    emit_program_with_physical_references_traced(mir, origin, emitter, physical_memory, mir, trace)
 }
 
 /// Resolve proof identities from an unchanged reference program in the actual
 /// emitted layout. Removed scratch reads still need addresses during replay;
 /// the reference operations do not contribute bytes or placement decisions.
+#[allow(dead_code)]
 pub(super) fn emit_program_with_physical_references(
     mir: &MirProgram,
     origin: u16,
@@ -71,6 +93,21 @@ pub(super) fn emit_program_with_physical_references(
     physical_memory: bool,
     references: &MirProgram,
 ) -> Result<MirEmissionSummary, Vec<MirDiagnostic>> {
+    emit_program_with_physical_references_traced(mir, origin, emitter, physical_memory, references, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(super) fn emit_program_with_physical_references_traced(
+    mir: &MirProgram,
+    origin: u16,
+    emitter: &mut TrackedEmitter,
+    physical_memory: bool,
+    references: &MirProgram,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirEmissionSummary, Vec<MirDiagnostic>> {
+    let invocation = trace.child("emission", "layout-and-emission");
+    let trace = &invocation;
+    trace.count("emission_invocations", 1);
+
     verify::verify_program(mir, MirPhase::PreEmission)?;
     let mut layout_diagnostics = Vec::new();
     let inline_probe = MirObjectLayout::new(mir, origin, Some(origin), &mut layout_diagnostics);
@@ -83,8 +120,13 @@ pub(super) fn emit_program_with_physical_references(
         let mut iteration_diagnostics = Vec::new();
         let candidate =
             MirObjectLayout::new(mir, origin, Some(deferred_base), &mut iteration_diagnostics);
-        let (emitted_size, candidate_branch_plan) =
-            emitted_size_for_layout(mir, origin, candidate.clone(), &mut iteration_diagnostics);
+        let (emitted_size, candidate_branch_plan) = emitted_size_for_layout_traced(
+            mir,
+            origin,
+            candidate.clone(),
+            &mut iteration_diagnostics,
+            trace,
+        );
         let storage_size = candidate.storage_end.saturating_sub(origin);
         let candidate_code_size = emitted_size.saturating_sub(storage_size);
         let next_deferred_base = candidate.storage_end.saturating_add(candidate_code_size);
@@ -114,24 +156,38 @@ pub(super) fn emit_program_with_physical_references(
         // pointer type. Numeric pointers into code or foreign RAM are not
         // certificates for retaining memory-dependent machine facts.
         for global in &mir.globals {
-            if let Some(MirStoragePlacement::Absolute {address,size,..})=ctx.layout.globals.get(&global.id) {
-                ctx.summary.physical_memory.global(global.id,*address,*size,matches!(global.backing,MirGlobalBacking::Ordinary{..}));
+            if let Some(MirStoragePlacement::Absolute { address, size, .. }) =
+                ctx.layout.globals.get(&global.id)
+            {
+                ctx.summary.physical_memory.global(
+                    global.id,
+                    *address,
+                    *size,
+                    matches!(global.backing, MirGlobalBacking::Ordinary { .. }),
+                );
             }
-            if matches!(global.backing,MirGlobalBacking::Ordinary {..}) {
-                if let Some(MirStoragePlacement::Absolute {address,size,..})=ctx.layout.globals.get(&global.id) {
-                    ctx.summary.physical_memory.own_data(*address,*size);
+            if matches!(global.backing, MirGlobalBacking::Ordinary { .. }) {
+                if let Some(MirStoragePlacement::Absolute { address, size, .. }) =
+                    ctx.layout.globals.get(&global.id)
+                {
+                    ctx.summary.physical_memory.own_data(*address, *size);
                 }
             }
         }
         for routine in &mir.routines {
             for slot in routine.frame.params.iter().chain(&routine.frame.locals) {
-                let mem=match slot.base {
-                    MirStorageBase::Param(id)=>Some(MirMem::Param {id,offset:0}),
-                    MirStorageBase::Local(id)=>Some(MirMem::Local {id,offset:0}),
-                    _=>None,
+                let mem = match slot.base {
+                    MirStorageBase::Param(id) => Some(MirMem::Param { id, offset: 0 }),
+                    MirStorageBase::Local(id) => Some(MirMem::Local { id, offset: 0 }),
+                    _ => None,
                 };
-                if let Some(address)=mem.and_then(|mem|ctx.layout.direct_mem(routine.id,&mem)).map(resolved_mem_address) {
-                    ctx.summary.physical_memory.own_data(address,slot.storage_size);
+                if let Some(address) = mem
+                    .and_then(|mem| ctx.layout.direct_mem(routine.id, &mem))
+                    .map(resolved_mem_address)
+                {
+                    ctx.summary
+                        .physical_memory
+                        .own_data(address, slot.storage_size);
                 }
             }
         }
@@ -187,11 +243,22 @@ pub(super) fn emit_program_with_physical_references(
     }
 }
 
+#[allow(dead_code)]
 fn emitted_size_for_layout(
     mir: &MirProgram,
     origin: u16,
     layout: MirObjectLayout,
     diagnostics: &mut Vec<MirDiagnostic>,
+) -> (u16, MirBranchRelaxationPlan) {
+    emitted_size_for_layout_traced(mir, origin, layout, diagnostics, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn emitted_size_for_layout_traced(
+    mir: &MirProgram,
+    origin: u16,
+    layout: MirObjectLayout,
+    diagnostics: &mut Vec<MirDiagnostic>,
+    trace: &crate::mir6502::trace::Trace,
 ) -> (u16, MirBranchRelaxationPlan) {
     let mut branch_plan = MirBranchRelaxationPlan::default();
     let branch_count = mir
@@ -202,14 +269,24 @@ fn emitted_size_for_layout(
         .count();
 
     for _ in 0..=branch_count.saturating_mul(2) {
-        let (emitted_size, measurements, mut probe_diagnostics) =
-            emission_probe_for_layout(mir, origin, layout.clone(), branch_plan.clone());
+        let (emitted_size, measurements, mut probe_diagnostics) = emission_probe_for_layout_traced(
+            mir,
+            origin,
+            layout.clone(),
+            branch_plan.clone(),
+            trace,
+        );
         if extend_branch_relaxation_plan(mir, &measurements, &mut branch_plan) {
             continue;
         }
-        if let Some(target) =
-            find_self_enabling_branch_relaxation(mir, origin, &layout, &measurements, &branch_plan)
-        {
+        if let Some(target) = find_self_enabling_branch_relaxation_traced(
+            mir,
+            origin,
+            &layout,
+            &measurements,
+            &branch_plan,
+            trace,
+        ) {
             branch_plan.direct_targets.insert(target);
             continue;
         }
@@ -223,17 +300,29 @@ fn emitted_size_for_layout(
         message: "MIR forward-branch relaxation did not converge".to_string(),
     });
     let (emitted_size, _, mut probe_diagnostics) =
-        emission_probe_for_layout(mir, origin, layout, branch_plan.clone());
+        emission_probe_for_layout_traced(mir, origin, layout, branch_plan.clone(), trace);
     diagnostics.append(&mut probe_diagnostics);
     (emitted_size, branch_plan)
 }
 
+#[allow(dead_code)]
 fn emission_probe_for_layout(
     mir: &MirProgram,
     origin: u16,
     layout: MirObjectLayout,
     branch_plan: MirBranchRelaxationPlan,
 ) -> (u16, MirEmissionMeasurements, Vec<MirDiagnostic>) {
+    emission_probe_for_layout_traced(mir, origin, layout, branch_plan, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn emission_probe_for_layout_traced(
+    mir: &MirProgram,
+    origin: u16,
+    layout: MirObjectLayout,
+    branch_plan: MirBranchRelaxationPlan,
+    trace: &crate::mir6502::trace::Trace,
+) -> (u16, MirEmissionMeasurements, Vec<MirDiagnostic>) {
+    trace.count("inner_emission_probes", 1);
     let mut ctx = MirEmitContext::with_layout(mir, origin, layout, branch_plan);
     let mut emitter = TrackedEmitter::with_origin(origin);
     emit_storage(&mut ctx, &mut emitter);
@@ -323,12 +412,24 @@ fn extend_branch_relaxation_plan(
     changed
 }
 
+#[allow(dead_code)]
 fn find_self_enabling_branch_relaxation(
     mir: &MirProgram,
     origin: u16,
     layout: &MirObjectLayout,
     measurements: &MirEmissionMeasurements,
     plan: &MirBranchRelaxationPlan,
+) -> Option<(RoutineId, MirBlockId, MirBlockId)> {
+    find_self_enabling_branch_relaxation_traced(mir, origin, layout, measurements, plan, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn find_self_enabling_branch_relaxation_traced(
+    mir: &MirProgram,
+    origin: u16,
+    layout: &MirObjectLayout,
+    measurements: &MirEmissionMeasurements,
+    plan: &MirBranchRelaxationPlan,
+    trace: &crate::mir6502::trace::Trace,
 ) -> Option<(RoutineId, MirBlockId, MirBlockId)> {
     const MAX_SELF_RELAXATION_SAVING: isize = 3;
 
@@ -371,8 +472,13 @@ fn find_self_enabling_branch_relaxation(
 
                 let mut trial_plan = plan.clone();
                 trial_plan.direct_targets.insert(key);
-                let (_, trial_measurements, _) =
-                    emission_probe_for_layout(mir, origin, layout.clone(), trial_plan);
+                let (_, trial_measurements, _) = emission_probe_for_layout_traced(
+                    mir,
+                    origin,
+                    layout.clone(),
+                    trial_plan,
+                    trace,
+                );
                 let Some(&trial_branch_position) = trial_measurements
                     .branch_positions
                     .get(&(routine.id, block.id))

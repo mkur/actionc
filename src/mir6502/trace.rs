@@ -1,6 +1,7 @@
 //! Bounded, compilation-local diagnostics. Nothing here grants rewrite permission.
 use std::cell::RefCell;
 use std::collections::BTreeSet;
+use std::rc::Rc;
 
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -45,34 +46,43 @@ struct State {
     finished: bool,
     failed: bool,
     output_identity: Option<String>,
+    next_attempt: u64,
+    work: std::collections::BTreeMap<&'static str, usize>,
 }
 
 /// A caller-owned bounded collector. A generation call resets it before use.
-pub struct Mir6502Trace {
+struct Collector {
     options: TraceOptions,
     state: RefCell<State>,
+}
+
+pub struct Mir6502Trace {
+    inner: Rc<Collector>,
 }
 
 impl Mir6502Trace {
     pub fn new(options: TraceOptions) -> Self {
         Self {
-            options,
-            state: RefCell::new(State::default()),
+            inner: Rc::new(Collector {
+                options,
+                state: RefCell::new(State::default()),
+            }),
         }
     }
 
     pub fn events(&self) -> Vec<TraceEvent> {
-        self.state.borrow().events.clone()
+        self.inner.state.borrow().events.clone()
     }
 
     pub fn manifest(&self) -> Value {
-        let s = self.state.borrow();
+        let s = self.inner.state.borrow();
         json!({
             "schema_version": SCHEMA_VERSION,
             "status": if !s.finished { "incomplete" } else if s.failed { "compilation-failed" }
                 else if !s.filter_errors.is_empty() { "filter-error" }
                 else if s.truncated_at.is_some() { "truncated" } else { "complete" },
-            "detail_bytes": s.bytes, "max_bytes": self.options.max_bytes,
+            "work": s.work, "analysis_counter_scope": "shared rewrite drivers only",
+            "detail_bytes": s.bytes, "max_bytes": self.inner.options.max_bytes,
             "first_omitted_stage": s.truncated_at, "filter_errors": s.filter_errors,
             "output_identity": s.output_identity, "identity_algorithm": "fnv1a64",
             "selected_routines": s.selected.iter().map(|r| r.0).collect::<Vec<_>>(),
@@ -81,19 +91,21 @@ impl Mir6502Trace {
     }
 
     pub(super) fn reset(&mut self) {
-        *self.state.get_mut() = State::default();
+        *self.inner.state.borrow_mut() = State::default();
     }
-    pub(super) fn context(&self) -> Trace<'_> {
+    pub(super) fn context(&self) -> Trace {
         Trace {
-            session: Some(self),
+            session: Some(Rc::clone(&self.inner)),
             attempt: 0,
+            #[cfg(test)]
+            observer: None,
         }
     }
     pub(super) fn finish(
         &self,
         result: &Result<crate::codegen::CodegenOutput, Vec<MirDiagnostic>>,
     ) {
-        let mut s = self.state.borrow_mut();
+        let mut s = self.inner.state.borrow_mut();
         s.finished = true;
         s.failed = result.is_err();
         s.output_identity = result
@@ -110,26 +122,31 @@ impl Default for Mir6502Trace {
 }
 
 /// Explicitly passed observation capability. Disabled contexts do not evaluate payloads.
-#[derive(Clone, Copy, Default)]
-pub(crate) struct Trace<'a> {
-    session: Option<&'a Mir6502Trace>,
+#[derive(Clone, Default)]
+pub(crate) struct Trace {
+    session: Option<Rc<Collector>>,
     attempt: u64,
+    #[cfg(test)]
+    observer: Option<Rc<RefCell<std::collections::BTreeMap<&'static str, usize>>>>,
 }
 
-impl<'a> Trace<'a> {
+impl Trace {
     pub(crate) const fn disabled() -> Self {
         Self {
             session: None,
             attempt: 0,
+            #[cfg(test)]
+            observer: None,
         }
     }
-    pub(crate) fn enabled(self) -> bool {
+    pub(crate) fn enabled(&self) -> bool {
         self.session
+            .as_ref()
             .is_some_and(|s| s.state.borrow().truncated_at.is_none())
     }
 
-    pub(crate) fn event(self, kind: &'static str, data: impl FnOnce() -> Value) -> Option<u64> {
-        let session = self.session?;
+    pub(crate) fn event(&self, kind: &'static str, data: impl FnOnce() -> Value) -> Option<u64> {
+        let session = self.session.as_ref()?;
         if !self.enabled() {
             return None;
         }
@@ -160,8 +177,91 @@ impl<'a> Trace<'a> {
         Some(id)
     }
 
-    pub(crate) fn bind_routines(self, program: &MirProgram) {
-        let Some(session) = self.session else {
+    pub(crate) fn count(&self, counter: &'static str, n: usize) {
+        #[cfg(test)]
+        if let Some(observer) = &self.observer {
+            *observer.borrow_mut().entry(counter).or_default() += n;
+        }
+
+        if let Some(session) = &self.session {
+            *session.state.borrow_mut().work.entry(counter).or_default() += n;
+        }
+    }
+
+    pub(crate) fn child(&self, stage: &'static str, purpose: &'static str) -> Self {
+        let Some(session) = &self.session else {
+            return self.clone();
+        };
+        let id = {
+            let mut s = session.state.borrow_mut();
+            s.next_attempt += 1;
+            s.next_attempt
+        };
+        let child = Self {
+            attempt: id,
+            ..self.clone()
+        };
+        child.event(
+            "attempt-start",
+            || json!({ "parent": self.attempt, "stage": stage, "purpose": purpose }),
+        );
+        child
+    }
+
+    pub(crate) fn run(
+        &self,
+        stage: &'static str,
+        f: impl FnOnce(&Self) -> Result<MirProgram, Vec<MirDiagnostic>>,
+    ) -> Result<MirProgram, Vec<MirDiagnostic>> {
+        let child = self.child(stage, "pipeline-attempt");
+        child.count("pipeline_attempts", 1);
+        let result = f(&child);
+        let snapshot = result
+            .as_ref()
+            .ok()
+            .and_then(|p| child.snapshot("attempt-return", p));
+        child.event("attempt-end", || {
+            let mut sources = Vec::new();
+            if let (Some(session), Some(snapshot)) = (&child.session, snapshot) {
+                let state = session.state.borrow();
+                let output = &state.events.iter().find(|e| e.id == snapshot).unwrap().data["program_identity"];
+                let start = state.events.iter().find(|e| e.kind == "attempt-start" && e.attempt == child.attempt).unwrap().id;
+                for e in state.events.iter().filter(|e| e.id > start && e.id < snapshot && e.attempt != child.attempt && e.kind == "snapshot" && e.data["stage"] == "attempt-return" && &e.data["program_identity"] == output) {
+                    sources.push(e.id);
+                }
+            }
+            json!({ "stage": stage,
+                "status": if result.is_ok() { "returned" } else { "failed" },
+                "returned_snapshot": snapshot, "equivalent_source_snapshots": sources,
+                "selection_scope": "local; speculative until selected by every parent" })
+        });
+        result
+    }
+
+    pub(crate) fn decision(
+        &self,
+        stage: &'static str,
+        candidates: impl IntoIterator<Item = RoutineId>,
+        accepted: impl Fn(RoutineId) -> bool,
+    ) {
+        self.event("selection", || {
+            let (yes, no): (Vec<_>, Vec<_>) = candidates.into_iter().partition(|id| accepted(*id));
+            json!({ "stage": stage,
+                "accepted_routines": yes.iter().map(|r|r.0).collect::<Vec<_>>(),
+                "rejected_routines": no.iter().map(|r|r.0).collect::<Vec<_>>(),
+                "outcome": if yes.is_empty() { "rejected" } else if no.is_empty() { "accepted" } else { "partial" } })
+        });
+    }
+
+    pub(crate) fn skipped(&self, stage: &'static str, reason: &'static str) {
+        self.event(
+            "stage",
+            || json!({"stage":stage,"outcome":"skipped","reason":reason}),
+        );
+    }
+
+    pub(crate) fn bind_routines(&self, program: &MirProgram) {
+        let Some(session) = &self.session else {
             return;
         };
         let mut s = session.state.borrow_mut();
@@ -185,20 +285,29 @@ impl<'a> Trace<'a> {
         }
     }
 
-    pub(crate) fn wants(self, routine: RoutineId) -> bool {
+    pub(crate) fn wants(&self, routine: RoutineId) -> bool {
         self.enabled()
-            && self.session.is_some_and(|s| {
+            && self.session.as_ref().is_some_and(|s| {
                 s.options.routines.is_empty() || s.state.borrow().selected.contains(&routine)
             })
     }
 
-    pub(crate) fn snapshot(self, stage: &'static str, program: &MirProgram) -> Option<u64> {
+    pub(crate) fn snapshot(&self, stage: &'static str, program: &MirProgram) -> Option<u64> {
         self.event("snapshot", || {
             let mut selected = program.clone();
             selected.routines.retain(|r| self.wants(r.id));
-            json!({ "stage": stage, "scope": "program", "mir": super::format_program(&selected),
+            json!({ "stage": stage, "scope": "program", "program_identity": identity(&format!("{program:?}")), "mir": super::format_program(&selected),
                 "routines": selected.routines.iter().map(|r| json!({"id":r.id.0,"name":r.name})).collect::<Vec<_>>() })
         })
+    }
+}
+
+impl std::fmt::Debug for Trace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Trace")
+            .field("attempt", &self.attempt)
+            .field("enabled", &self.enabled())
+            .finish()
     }
 }
 
@@ -227,5 +336,76 @@ mod tests {
         s.context().event("test", || json!({"stage":"first"}));
         assert!(s.events().is_empty());
         assert_eq!(s.manifest()["first_omitted_stage"], "first");
+    }
+    #[test]
+    fn trace_does_not_add_compiler_work() {
+        fn nir(source: &str) -> crate::nir::NirProgram {
+            let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
+            let model = crate::semantic::analyze_with_options(
+                &ast,
+                crate::semantic::SemanticOptions::modern(),
+            )
+            .unwrap();
+            crate::nir::optimize_program(&crate::nir::lower_program(
+                &crate::semantic::ir::lower_program(&ast, &model),
+            ))
+            .unwrap()
+        }
+        for source in [
+            include_str!("../../fixtures/runtime/argument_staging.act"),
+            include_str!("../../surveys/tn/reproducers/captured-call-arguments.act"),
+            "BYTE input,output BYTE FUNC Map(BYTE value) IF (value AND $80)#0 THEN RETURN((value LSH 1) XOR $1B) FI RETURN(value LSH 1) PROC Main() output=Map(input) RETURN",
+        ] {
+            let input = nir(&source.replace("\r\n", "\n"));
+            let session = Mir6502Trace::default();
+            let on_work = Rc::new(RefCell::new(std::collections::BTreeMap::new()));
+            let off_work = Rc::new(RefCell::new(std::collections::BTreeMap::new()));
+            let mut on = session.context();
+            on.observer = Some(on_work.clone());
+            let mut off = Trace::disabled();
+            off.observer = Some(off_work.clone());
+            let config = super::super::Mir6502Config::optimized();
+            let a = super::super::generate_output_impl(
+                &input,
+                0x3000,
+                &config,
+                crate::runtime::Runtime::ActionCart,
+                &off,
+            )
+            .unwrap();
+            let b = super::super::generate_output_impl(
+                &input,
+                0x3000,
+                &config,
+                crate::runtime::Runtime::ActionCart,
+                &on,
+            )
+            .unwrap();
+            assert_eq!(a, b);
+            assert_eq!(*on_work.borrow(), *off_work.borrow());
+            for key in [
+                "materializations",
+                "emission_invocations",
+                "inner_emission_probes",
+                "rewrite_analysis_builds",
+            ] {
+                assert!(on_work.borrow()[key] > 0, "{key}");
+            }
+            let events = session.events();
+            let ids = events
+                .iter()
+                .filter(|e| e.kind == "attempt-start")
+                .map(|e| e.attempt)
+                .collect::<BTreeSet<_>>();
+            assert_eq!(
+                ids.len(),
+                events.iter().filter(|e| e.kind == "attempt-start").count()
+            );
+            for event in events.iter().filter(|e| e.kind == "attempt-start") {
+                let parent = event.data["parent"].as_u64().unwrap();
+                assert!(parent == 0 || ids.contains(&parent));
+                assert!(parent < event.attempt);
+            }
+        }
     }
 }

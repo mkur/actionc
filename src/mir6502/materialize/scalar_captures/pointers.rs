@@ -3,6 +3,7 @@
 use super::*;
 use crate::mir6502::analysis::bounded_pointers::{self, Object, Summary};
 
+#[allow(dead_code)]
 pub(super) fn improve(
     selected: &mut MirProgram,
     emitted: &mut MirProgram,
@@ -10,7 +11,18 @@ pub(super) fn improve(
     origin: u16,
     runtime: crate::runtime::Runtime,
 ) -> super::super::MirPeepholeStats {
-    let mut stats = super::super::MirPeepholeStats::default();
+    improve_traced(selected, emitted, config, origin, runtime, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(super) fn improve_traced(
+    selected: &mut MirProgram,
+    emitted: &mut MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    trace: &crate::mir6502::trace::Trace,
+) -> super::super::MirPeepholeStats {
+    let mut stats = super::super::MirPeepholeStats::with_trace(trace);
     let mut forwarded = selected.clone();
     let counts = forward_loads(&mut forwarded, config);
     let mut proposal = selected.clone();
@@ -69,18 +81,19 @@ pub(super) fn improve(
         .collect();
     let materialized = summaries.as_ref().and_then(|_| {
         crate::mir6502::verify_program(&proposal, MirPhase::PreMaterialization).ok()?;
-        crate::mir6502::materialize_resolved_program_without_scalar_costing(
+        trace.run("source-materialization", |trace| crate::mir6502::materialize_resolved_program_without_scalar_costing_traced(
             proposal.clone(),
             config,
             origin,
             runtime,
             false,
-        )
+            trace,
+        ))
         .ok()
     });
     let accepted = materialized.as_ref().is_some_and(|new| {
-        Cost::measure(emitted, origin)
-            .zip(Cost::measure(new, origin))
+        Cost::measure_traced(emitted, origin, trace)
+            .zip(Cost::measure_traced(new, origin, trace))
             .is_some_and(|(old, new)| {
                 new.bytes < old.bytes && candidates.keys().all(|&id| new.does_not_grow(&old, id))
             })
