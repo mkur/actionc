@@ -65,7 +65,7 @@ mod machine_value_census;
 mod memory;
 mod memory_shifts;
 mod narrowing;
-mod peepholes;
+pub(super) mod peepholes;
 mod pointers;
 mod regs;
 pub(super) mod register_copies;

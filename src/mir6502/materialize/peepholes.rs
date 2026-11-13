@@ -3413,7 +3413,7 @@ pub(super) fn dead_private_scratch_store_at(
     }
 }
 
-fn store_direct_private_scratch_byte(op: &MirOp) -> Option<MirMem> {
+pub(in crate::mir6502) fn store_direct_private_scratch_byte(op: &MirOp) -> Option<MirMem> {
     let MirOp::Store {
         dst: MirAddr::Direct(mem),
         src: MirValue::Def(MirDef::Reg(_)),
