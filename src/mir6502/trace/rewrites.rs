@@ -50,6 +50,9 @@ impl Trace {
         p: &MirRewritePlan,
         outcome: &'static str,
     ) {
+        if outcome == "applied" {
+            self.layout_applied(p.stat, p.block, p.range.start, p.range.end);
+        }
         if self.wants(r.id) {
             self.event("rewrite", ||json!({"routine":r.id.0,"generation":p.generation.number(),"phase":"pre-home",
                 "family":p.stat,"outcome":outcome,"block":p.block.0,"range":[p.range.start,p.range.end],"replacement_ops":p.replacement.len(),
@@ -62,6 +65,9 @@ impl Trace {
         p: &MirPostHomeRewritePlan,
         outcome: &'static str,
     ) {
+        if outcome == "applied" {
+            self.layout_applied(p.stat, p.block, p.range.start, p.range.end);
+        }
         if self.wants(r.id) {
             self.event("rewrite", ||json!({"routine":r.id.0,"generation":p.generation.number(),"phase":"post-home",
                 "family":p.stat,"outcome":outcome,"block":p.block.0,"range":[p.range.start,p.range.end],"replacement_ops":p.replacement.len(),

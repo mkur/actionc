@@ -432,3 +432,43 @@ Reconstruct and relocate listings through real LF/CRLF paths. Record work counts
 and preserve the producer-only qualification receipt. Leave the experiment
 opt-in if the narrow address-stability contract yields insufficient general
 benefit; broader compaction is a separate design and proof extension.
+
+## Core allocation dependency census
+
+The first follow-up is diagnostic only. `TraceOptions::core_layout_census`
+(`--trace-core-layout` with `--trace-mir6502`) observes the initial, post-home
+and post-ZP `MaterializeLayout` instances in core materialization. It does not
+change any query result, rewrite, allocation guard, preservation witness or
+cost decision. Diagnostic state is excluded from layout equality.
+
+Address observations carry structured storage IDs, offsets, optional planning
+addresses, layout epoch and source location. Raw address queries have no claimed
+access width. Annotated predicates additionally record equality, range
+membership, disjointness, or the above-ZP/no-wrap condition, with their original
+boolean result and operand ranges. `planning_address` distinguishes ordinary
+planning queries from fixed-address/ZP identities; it is not an escape or
+movability proof. Unknown addresses remain unknown.
+Predicate names group existing checks; their exact checked/wrapping arithmetic
+still belongs to the recorded source site. They are not a replay instruction set.
+
+The shared rewrite drivers bound collection to an analysis/discovery round and
+record the actual applied sites, including the routine, generation, block and
+range. This is a **conservative round envelope**: queries may support shared
+analysis or rejected candidates within a successful round. They must not be
+presented as necessary predicates of every applied rewrite. Rounds with no
+applied rewrite remain distinguishable. Parent pipeline attempts may still
+reject a locally applied result; the existing attempt/selection provenance
+remains authoritative for interpreting diagnostics.
+
+Queries outside those drivers are explicitly unattributed. Source-level
+constructor/capture transactions that build separate planning layouts remain
+outside this initial dynamic census. Raw query sites also identify consumers
+whose relational predicate has not yet been annotated. These coverage gaps
+prevent any claim that the census is a complete preservation certificate.
+
+Collection is compilation-local, opt-in and bounded independently of the normal
+trace byte budget. Repeated observations are counted; exhausted bounds are
+reported as truncation. Consumers must check both trace and census status.
+No diagnostic record authorizes compaction or replaces an optimizer fact.
+Findings and qualification are recorded in the
+[census report](benchmarks/6502-core-layout-census/README.md).

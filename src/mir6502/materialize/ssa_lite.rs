@@ -2685,7 +2685,19 @@ fn plain_address_sources_disjoint(
 ) -> bool {
     match value {
         MirValue::PointerCell(mem) => ssa_lite_mem_resolved_address(layout, routine, mem)
-            .is_some_and(|address| address != u16::from(lo.0) && address != u16::from(lo.0) + 1),
+            .is_some_and(|address| {
+                let disjoint = address != u16::from(lo.0) && address != u16::from(lo.0) + 1;
+                layout.observe_predicate(
+                    routine,
+                    crate::mir6502::trace::layout::Predicate::DisjointRanges,
+                    disjoint,
+                    &[
+                        (mem, Some(address), 1),
+                        (&MirMem::FixedZeroPage(lo), Some(u16::from(lo.0)), 2),
+                    ],
+                );
+                disjoint
+            }),
         MirValue::Word { lo: low, hi } => {
             plain_address_sources_disjoint(low, lo, routine, layout)
                 && plain_address_sources_disjoint(hi, lo, routine, layout)
@@ -3428,7 +3440,18 @@ fn ssa_lite_mem_resolves_to_address(
     mem: &MirMem,
     address: u16,
 ) -> bool {
-    ssa_lite_mem_resolved_address(layout, routine_id, mem) == Some(address)
+    let resolved = ssa_lite_mem_resolved_address(layout, routine_id, mem);
+    let equal = resolved == Some(address);
+    layout.observe_predicate(
+        routine_id,
+        crate::mir6502::trace::layout::Predicate::EqualAddress,
+        equal,
+        &[
+            (mem, resolved, 1),
+            (&MirMem::Absolute(address), Some(address), 1),
+        ],
+    );
+    equal
 }
 
 fn ssa_lite_mem_resolved_address(

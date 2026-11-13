@@ -159,6 +159,7 @@ impl MirPreHomeRewriteDriver {
             let mut result = MirRewriteRunResult::default();
             for _ in 0..self.max_rounds {
                 result.rounds += 1;
+                let _layout_round = self.trace.layout_round(routine.id, self.generation.number().into());
                 let snapshot = PreHomeAnalysisSnapshot::new(routine, self.generation)
                     .map_err(|_| MirRewriteError::InvalidCfg)?;
                 self.trace
@@ -220,6 +221,7 @@ impl MirPreHomeRewriteDriver {
         let parent = self.trace.clone();
         let invocation = parent.child("rewrite-driver", "pre-home-batch");
         self.trace = invocation.clone();
+        let _layout_round = self.trace.layout_round(routine.id, self.generation.number().into());
         self.trace.driver_round(routine, self.generation, "pre-home");
         let result = self.apply_batch_impl(routine, plans);
         self.trace = parent;
@@ -432,6 +434,7 @@ impl MirPostHomeRewriteDriver {
             let mut result = MirRewriteRunResult::default();
             for _ in 0..self.max_rounds {
                 result.rounds += 1;
+                let _layout_round = self.trace.layout_round(routine.id, self.generation.number().into());
                 let map = memory_map(routine);
                 let snapshot = PostHomeAnalysisSnapshot::new_with_known_callees_and_memory_map(
                     routine,

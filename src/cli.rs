@@ -130,6 +130,10 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
                     process::exit(2);
                 }));
             }
+            "--trace-core-layout" => {
+                trace_options_explicit = true;
+                trace_options.core_layout_census = true;
+            }
             "--trace-max-bytes" => {
                 trace_options_explicit = true;
                 trace_options.max_bytes =
@@ -313,7 +317,7 @@ fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
     }
 
     if trace_options_explicit && trace_directory.is_none() {
-        eprintln!("--trace-routine and --trace-max-bytes require --trace-mir6502");
+        eprintln!("--trace-routine, --trace-max-bytes and --trace-core-layout require --trace-mir6502");
         process::exit(2);
     }
     if trace_directory.is_some() && flavor != CliFlavor::Emit {
@@ -1691,7 +1695,7 @@ fn print_compile_help() {
 
 fn print_help() {
     eprintln!(
-        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-link-plan|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--target <name>] [--runtime cart|standalone|bare|amiga] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502|mir68k] <file.act>\n       actionc-emit --trace-mir6502 <fresh-directory> [--trace-routine <name-or-rID>] [--trace-max-bytes <bytes>] --profile modern --backend mir6502 <file.act>\n       actionc-emit --version\n\nTargets: atari-6502, wdc-65816-native, wdc-65816-small, motorola-68000. Motorola 68000\nsupports --emit-code (address-labelled segment hex), --emit-listing (physical\nMIR68K), --emit-map and shared frontend inspection. The 65816 targets support\nSemIR/NIR inspection only. Atari listings are re-originable MADS assembly. Change only ACTIONC_ORIGIN to move the main segment."
+        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-link-plan|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--target <name>] [--runtime cart|standalone|bare|amiga] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502|mir68k] <file.act>\n       actionc-emit --trace-mir6502 <fresh-directory> [--trace-routine <name-or-rID>] [--trace-max-bytes <bytes>] [--trace-core-layout] --profile modern --backend mir6502 <file.act>\n       actionc-emit --version\n\nTargets: atari-6502, wdc-65816-native, wdc-65816-small, motorola-68000. Motorola 68000\nsupports --emit-code (address-labelled segment hex), --emit-listing (physical\nMIR68K), --emit-map and shared frontend inspection. The 65816 targets support\nSemIR/NIR inspection only. Atari listings are re-originable MADS assembly. Change only ACTIONC_ORIGIN to move the main segment."
     );
 }
 

@@ -1445,7 +1445,7 @@ pub(super) fn materialize_program_with_reporting_traced(
                 prepend_action_abi_param_prologue(routine, machine_blocks, &mut helpers);
             }
         }
-        let layout = MaterializeLayout::new(&program, object_origin);
+        let layout = MaterializeLayout::new(&program, object_origin).with_census(trace, "initial-core");
         for routine in &mut program.routines {
             let aggregate_copies = select_aggregate_copies(routine);
             peephole_stats.record_many(
@@ -1644,7 +1644,7 @@ pub(super) fn materialize_program_with_reporting_traced(
         // physical identities for cross-call preservation proofs.
         allocate_zero_page_slots(&mut program);
         let known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
-        let layout = MaterializeLayout::new(&program, object_origin);
+        let layout = MaterializeLayout::new(&program, object_origin).with_census(trace, "post-home-core");
         for routine in &mut program.routines {
             for block in &mut routine.blocks {
                 block.ops =
@@ -1720,7 +1720,7 @@ pub(super) fn materialize_program_with_reporting_traced(
         // provenance facts after that remap so final physical reloads can be
         // removed safely.
         let final_known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
-        let final_layout = MaterializeLayout::new(&program, object_origin);
+        let final_layout = MaterializeLayout::new(&program, object_origin).with_census(trace, "post-zp-core");
         for routine in &mut program.routines {
             run_analyzed_ssa_lite_byte_rewrites(
                 routine,

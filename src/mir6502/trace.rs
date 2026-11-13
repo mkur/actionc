@@ -1,6 +1,7 @@
 //! Bounded, compilation-local diagnostics. Nothing here grants rewrite permission.
 pub(crate) mod homes;
 pub(crate) mod rewrites;
+pub(crate) mod layout;
 mod summary;
 
 use std::cell::RefCell;
@@ -17,6 +18,8 @@ pub const DEFAULT_MAX_BYTES: usize = 32 * 1024 * 1024;
 
 #[derive(Clone, Debug)]
 pub struct TraceOptions {
+    /// Diagnostic observations only; never enables a transformation or proof.
+    pub core_layout_census: bool,
     /// Exact display names or `r123` IDs; used only to filter diagnostics.
     pub routines: Vec<String>,
     pub max_bytes: usize,
@@ -25,6 +28,7 @@ pub struct TraceOptions {
 impl Default for TraceOptions {
     fn default() -> Self {
         Self {
+            core_layout_census: false,
             routines: Vec::new(),
             max_bytes: DEFAULT_MAX_BYTES,
         }
@@ -41,6 +45,7 @@ pub struct TraceEvent {
 
 #[derive(Default)]
 struct State {
+    layout: layout::Census,
     events: Vec<TraceEvent>,
     bytes: usize,
     next_id: u64,
@@ -93,6 +98,7 @@ impl Mir6502Trace {
             "output_sizes": s.output_sizes,
             "output_identity": s.output_identity, "identity_algorithm": "fnv1a64",
             "selected_routines": s.selected.iter().map(|r| r.0).collect::<Vec<_>>(),
+            "core_layout_census": s.layout.summary(self.inner.options.core_layout_census),
             "final_layout": if s.finished && !s.failed { s.events.iter().rev().find(|e|e.kind == "final-layout").map(|e|e.id) } else { None },
             "final_snapshot": s.events.iter().rev().find(|e| e.kind == "snapshot" && e.data["stage"] == "pre-emission").map(|e| e.id)
         })
@@ -114,6 +120,7 @@ impl Mir6502Trace {
         &self,
         result: &Result<crate::codegen::CodegenOutput, Vec<MirDiagnostic>>,
     ) {
+        self.context().finish_layout_census();
         let mut s = self.inner.state.borrow_mut();
         s.finished = true;
         s.failed = result.is_err();

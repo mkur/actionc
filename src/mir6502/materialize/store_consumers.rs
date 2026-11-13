@@ -798,8 +798,18 @@ fn widened_byte_shift_source_is_disjoint(
     let Some(destination_address) = layout.mem_address(routine_id, destination) else {
         return false;
     };
-    source_address != destination_address
-        && Some(source_address) != destination_address.checked_add(1)
+    let disjoint = source_address != destination_address
+        && Some(source_address) != destination_address.checked_add(1);
+    layout.observe_predicate(
+        routine_id,
+        crate::mir6502::trace::layout::Predicate::DisjointRanges,
+        disjoint,
+        &[
+            (source, Some(source_address), 1),
+            (destination, Some(destination_address), 2),
+        ],
+    );
+    disjoint
 }
 
 fn materialize_widened_byte_shift_to_word_mem(

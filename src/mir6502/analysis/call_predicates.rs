@@ -160,7 +160,14 @@ pub(in crate::mir6502) fn physical_source(
     ordinary_source(r, source, width)
         && args.iter().all(|a| home(&a.home))
         && layout.mem_address(r.id, source).is_some_and(|a| {
-            a >= 0x100 && a.checked_add(u16::from(width == MirWidth::Word)).is_some()
+            let valid = a >= 0x100 && a.checked_add(u16::from(width == MirWidth::Word)).is_some();
+            layout.observe_predicate(
+                r.id,
+                crate::mir6502::trace::layout::Predicate::AboveZeroPageAndNoWrap,
+                valid,
+                &[(source, Some(a), 1 + u16::from(width == MirWidth::Word))],
+            );
+            valid
         })
 }
 

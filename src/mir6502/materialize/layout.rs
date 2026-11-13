@@ -4,13 +4,25 @@ use crate::mir6502::ir::{
 };
 use crate::nir::{LocalId, ParamId, SymbolId};
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub(in crate::mir6502) struct MaterializeLayout {
     origin: u16,
     globals: Vec<(SymbolId, MirGlobalBacking, bool)>,
     statics: Vec<(SymbolId, u16, u16)>,
     routine_storage: Vec<(RoutineId, MaterializeRoutineStorage)>,
+    census: Option<(crate::mir6502::trace::Trace, &'static str)>,
 }
+
+// Diagnostic capabilities never affect the allocation-equality guard.
+impl PartialEq for MaterializeLayout {
+    fn eq(&self, other: &Self) -> bool {
+        self.origin == other.origin
+            && self.globals == other.globals
+            && self.statics == other.statics
+            && self.routine_storage == other.routine_storage
+    }
+}
+impl Eq for MaterializeLayout {}
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 struct MaterializeRoutineStorage {
@@ -22,6 +34,51 @@ struct MaterializeRoutineStorage {
 }
 
 impl MaterializeLayout {
+    pub(super) fn with_census(
+        mut self,
+        trace: &crate::mir6502::trace::Trace,
+        epoch: &'static str,
+    ) -> Self {
+        if trace.layout_census_enabled() {
+            self.census = Some((trace.clone(), epoch));
+        }
+        self
+    }
+
+    #[track_caller]
+    pub(in crate::mir6502) fn observe_predicate(
+        &self,
+        routine: RoutineId,
+        predicate: crate::mir6502::trace::layout::Predicate,
+        result: bool,
+        inputs: &[(&MirMem, Option<u16>, u16)],
+    ) {
+        if let Some((trace, epoch)) = &self.census {
+            trace.layout_observation(epoch, Some(routine), predicate, Some(result), || {
+                inputs
+                    .iter()
+                    .map(|(mem, address, bytes)| self.census_input(routine, mem, *address, *bytes))
+                    .collect()
+            });
+        }
+    }
+
+    fn census_input(
+        &self,
+        routine: RoutineId,
+        mem: &MirMem,
+        address: Option<u16>,
+        bytes: u16,
+    ) -> crate::mir6502::trace::layout::Input {
+        crate::mir6502::trace::layout::Input::new(
+            routine,
+            mem,
+            address,
+            bytes,
+            !self.mem_has_absolute_backing(mem)
+                && !matches!(mem, MirMem::ZeroPage(_) | MirMem::FixedZeroPage(_)),
+        )
+    }
     /// Only erased private spills may disappear. Every surviving planning-layout
     /// address, size and storage attribute must remain exactly equal.
     pub(in crate::mir6502) fn preserves_surviving_storage(
@@ -102,6 +159,7 @@ impl MaterializeLayout {
             routine_storage.push((routine.id, storage));
         }
         Self {
+            census: None,
             origin,
             globals: program
                 .globals
@@ -119,14 +177,17 @@ impl MaterializeLayout {
         }
     }
 
+    #[track_caller]
     pub(in crate::mir6502) fn mem_address(
         &self,
         routine_id: RoutineId,
         mem: &MirMem,
     ) -> Option<u16> {
-        match mem {
+        let address = match mem {
             MirMem::Absolute(address) => Some(*address),
-            MirMem::Global { id, offset } => self.global_address(*id).map(|addr| addr + *offset),
+            MirMem::Global { id, offset } => {
+                self.global_address_raw(*id).map(|addr| addr + *offset)
+            }
             MirMem::Static { id, offset } => self.static_address(*id).map(|addr| addr + *offset),
             MirMem::Local { id, offset } => self
                 .routine_storage(routine_id)
@@ -138,7 +199,17 @@ impl MaterializeLayout {
                 .routine_storage(routine_id)
                 .and_then(|storage| storage.spill_address(*id, *offset)),
             MirMem::ZeroPage(_) | MirMem::FixedZeroPage(_) => None,
+        };
+        if let Some((trace, epoch)) = &self.census {
+            trace.layout_observation(
+                epoch,
+                Some(routine_id),
+                crate::mir6502::trace::layout::Predicate::AddressQuery,
+                None,
+                || vec![self.census_input(routine_id, mem, address, 0)],
+            );
         }
+        address
     }
 
     pub(super) fn mem_has_absolute_backing(&self, mem: &MirMem) -> bool {
@@ -154,7 +225,29 @@ impl MaterializeLayout {
         }
     }
 
+    #[track_caller]
     pub(super) fn global_address(&self, id: SymbolId) -> Option<u16> {
+        let address = self.global_address_raw(id);
+        if let Some((trace, epoch)) = &self.census {
+            trace.layout_observation(
+                epoch,
+                None,
+                crate::mir6502::trace::layout::Predicate::AddressQuery,
+                None,
+                || {
+                    vec![self.census_input(
+                        RoutineId(0),
+                        &MirMem::Global { id, offset: 0 },
+                        address,
+                        0,
+                    )]
+                },
+            );
+        }
+        address
+    }
+
+    fn global_address_raw(&self, id: SymbolId) -> Option<u16> {
         for (global_id, backing, _) in &self.globals {
             if *global_id == id {
                 return match backing {
@@ -163,7 +256,7 @@ impl MaterializeLayout {
                     }
                     MirGlobalBacking::Absolute(address) => Some(*address),
                     MirGlobalBacking::Alias { target, offset } => self
-                        .global_address(*target)
+                        .global_address_raw(*target)
                         .map(|address| address.saturating_add(*offset)),
                 };
             }
@@ -645,6 +738,13 @@ mod tests {
         crate::mir6502::verify_program(&program, crate::mir6502::MirPhase::PreMaterialization)
             .expect("address-only local storage is verifier-clean");
         let layout = MaterializeLayout::new(&program, 0x2000);
+        let session = crate::mir6502::trace::Mir6502Trace::new(crate::mir6502::trace::TraceOptions {
+            core_layout_census: true,
+            ..Default::default()
+        });
+        let observed = layout.clone().with_census(&session.context(), "test");
+        assert!(layout == observed, "diagnostics cannot change allocation equality");
+        assert_eq!(observed.mem_address(RoutineId(0), &MirMem::Local { id: LocalId(0), offset: 5 }), Some(0x2005));
         assert_eq!(
             layout.mem_address(
                 RoutineId(0),

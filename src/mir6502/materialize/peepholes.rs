@@ -1001,7 +1001,21 @@ fn mem_may_overlap_fixed_range(
             super::memory::ranges_overlap(u16::from(slot.0), 1, u16::from(start), size)
         }
         _ => layout.mem_address(routine_id, mem).is_some_and(|address| {
-            super::memory::ranges_overlap(address, 1, u16::from(start), size)
+            let overlaps = super::memory::ranges_overlap(address, 1, u16::from(start), size);
+            layout.observe_predicate(
+                routine_id,
+                crate::mir6502::trace::layout::Predicate::DisjointRanges,
+                !overlaps,
+                &[
+                    (mem, Some(address), 1),
+                    (
+                        &MirMem::Absolute(u16::from(start)),
+                        Some(u16::from(start)),
+                        size,
+                    ),
+                ],
+            );
+            overlaps
         }),
     }
 }
@@ -3184,7 +3198,22 @@ fn mem_may_overlap_fixed_pointer_scratch(
         MirMem::FixedZeroPage(slot) => (POINTER_SCRATCH_LO..=POINTER_SCRATCH_HI).contains(&slot.0),
         MirMem::ZeroPage(_) => true,
         _ => layout.mem_address(routine_id, mem).is_some_and(|address| {
-            (u16::from(POINTER_SCRATCH_LO)..=u16::from(POINTER_SCRATCH_HI)).contains(&address)
+            let overlaps =
+                (u16::from(POINTER_SCRATCH_LO)..=u16::from(POINTER_SCRATCH_HI)).contains(&address);
+            layout.observe_predicate(
+                routine_id,
+                crate::mir6502::trace::layout::Predicate::DisjointRanges,
+                !overlaps,
+                &[
+                    (mem, Some(address), 1),
+                    (
+                        &MirMem::Absolute(u16::from(POINTER_SCRATCH_LO)),
+                        Some(u16::from(POINTER_SCRATCH_LO)),
+                        2,
+                    ),
+                ],
+            );
+            overlaps
         }),
     }
 }
@@ -4190,8 +4219,18 @@ fn resolved_range_contains_mem(
     let Some(mem_address) = resolved_mem_address(mem, routine_id, layout) else {
         return false;
     };
-    u32::from(mem_address) >= u32::from(base_address)
-        && u32::from(mem_address) < u32::from(base_address) + u32::from(bytes)
+    let contains = u32::from(mem_address) >= u32::from(base_address)
+        && u32::from(mem_address) < u32::from(base_address) + u32::from(bytes);
+    layout.observe_predicate(
+        routine_id,
+        crate::mir6502::trace::layout::Predicate::InRange,
+        contains,
+        &[
+            (mem, Some(mem_address), 1),
+            (base, Some(base_address), bytes),
+        ],
+    );
+    contains
 }
 
 fn mems_may_resolve_same_byte(
@@ -4203,7 +4242,19 @@ fn mems_may_resolve_same_byte(
     left == right
         || resolved_mem_address(left, routine_id, layout)
             .zip(resolved_mem_address(right, routine_id, layout))
-            .is_some_and(|(left, right)| left == right)
+            .is_some_and(|(left_address, right_address)| {
+                let equal = left_address == right_address;
+                layout.observe_predicate(
+                    routine_id,
+                    crate::mir6502::trace::layout::Predicate::EqualAddress,
+                    equal,
+                    &[
+                        (left, Some(left_address), 1),
+                        (right, Some(right_address), 1),
+                    ],
+                );
+                equal
+            })
 }
 
 fn resolved_mem_address(

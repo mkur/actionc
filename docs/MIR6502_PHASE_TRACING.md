@@ -63,6 +63,13 @@ The opt-in `late-spill-pruning` transaction reports candidate, unreferenced and
 removed spill counts separately. Its `late-spill-pruning-result` records core
 allocation, exposure, physical placement and earlier-proof rejection reasons.
 A rejected allocation experiment retains the accepted store/producer cleanup.
+`--trace-core-layout` adds an opt-in planning-address census. `core-layout-round`
+events associate observations with actual applied rewrite rounds; they are
+conservative envelopes that can include rejected-candidate queries. Queries
+outside the shared drivers produce `core-layout-unattributed` events. Neither
+kind is proof metadata. Check `core_layout_census.status` as well as the overall
+trace status before interpreting coverage. See the
+[census contract](MIR6502_LATE_CLEANUP_DESIGN.md#core-allocation-dependency-census).
 The historical materialized-MIR dump still ends before T10 and terminal cleanup;
 the exact `pre-emission` snapshot includes all selected terminal work.
 

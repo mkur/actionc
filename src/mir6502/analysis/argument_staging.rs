@@ -191,10 +191,21 @@ impl ArgumentStaging {
     ) -> bool {
         self.sources.iter().all(|(source, width)| {
             layout.mem_address(routine, source).is_some_and(|address| {
-                address >= 0x100
+                let valid = address >= 0x100
                     && address
                         .checked_add(u16::from(*width == MirWidth::Word))
-                        .is_some()
+                        .is_some();
+                layout.observe_predicate(
+                    routine,
+                    crate::mir6502::trace::layout::Predicate::AboveZeroPageAndNoWrap,
+                    valid,
+                    &[(
+                        source,
+                        Some(address),
+                        1 + u16::from(*width == MirWidth::Word),
+                    )],
+                );
+                valid
             })
         })
     }
