@@ -197,6 +197,28 @@ impl HomeFateTracker {
         Self { lanes }
     }
 
+    pub(super) fn trace_assignments(
+        &self,
+        routine: &MirRoutine,
+        trace: &crate::mir6502::trace::Trace,
+        snapshot: Option<u64>,
+    ) {
+        if !trace.wants(routine.id) {
+            return;
+        }
+        for (lane, tracked) in &self.lanes {
+            trace.event("home-assignment", || {
+                let (home, declared) = match tracked.home {
+                    Some(TrackedHome::Spill(id)) => (Some(crate::mir6502::trace::homes::memory(routine.id,&crate::mir6502::MirMem::Spill{id,offset:0})),routine.frame.spills.contains(&id)),
+                    Some(TrackedHome::ZeroPage(id)) => (Some(crate::mir6502::trace::homes::memory(routine.id,&crate::mir6502::MirMem::ZeroPage(id))),routine.frame.virtual_zero_page.contains(&id)),
+                    None => (None,false),
+                };
+                serde_json::json!({"routine":routine.id.0,"snapshot":snapshot,"temp":lane.id.0,"byte":lane.byte,
+                    "planned_home":home,"declared":declared,"plan":decision_name(&tracked.decision)})
+            });
+        }
+    }
+
     pub(super) fn apply_spill_remap(&mut self, remap: &BTreeMap<MirSpillId, MirSpillId>) {
         for lane in self.lanes.values_mut() {
             let Some(TrackedHome::Spill(spill)) = lane.home else {
@@ -249,6 +271,15 @@ impl HomeFateTracker {
                     ("eliminated", None)
                 }
             };
+            if stats.trace.wants(routine.id) {
+                stats.trace.event("home-fate", ||serde_json::json!({"routine":routine.id.0,"snapshot":stats.trace.latest_snapshot(routine.id),
+                    "temp":lane.id.0,"byte":lane.byte,"fate":fate,"plan":decision_name(&tracked.decision),
+                    "home":match tracked.home {
+                        Some(TrackedHome::Spill(id)) => Some(crate::mir6502::trace::homes::memory(routine.id,&crate::mir6502::MirMem::Spill{id,offset:0})),
+                        Some(TrackedHome::ZeroPage(id)) => Some(crate::mir6502::trace::homes::memory(routine.id,&crate::mir6502::MirMem::ZeroPage(id))),
+                        None=>None,
+                    }}));
+            }
             reconciled = reconciled.saturating_add(1);
             stats.record_dynamic(routine.id, format!("residual-lane-final-{fate}"));
             stats.record_dynamic(
@@ -403,7 +434,7 @@ pub(super) fn record_home_demand_census(
     liveness: &MirTempLiveness,
     stats: &mut MirPeepholeStats,
 ) -> HomePlan {
-    let analysis = analyze_home_demand(routine, liveness);
+    let analysis = analyze_home_demand_traced(routine, liveness, &stats.trace);
     let census = analysis.census;
     let routine_id = routine.id;
     stats.record_many(
@@ -572,6 +603,11 @@ pub(super) fn apply_register_home_plan(
             continue;
         }
 
+        if stats.trace.wants(routine_id) {
+            stats.trace.event("home-elision", ||serde_json::json!({"routine":routine_id.0,
+                "snapshot":stats.trace.latest_snapshot(routine_id),"temp":lane.id.0,"byte":lane.byte,
+                "block":block.id.0,"definition":range.def_op,"consumer":range.use_op,"register":format!("{reg:?}")}));
+        }
         block.ops[range.def_op] = rewritten_producer;
         block.ops[range.use_op] = rewritten_consumer;
         if forwarded_load {
@@ -794,7 +830,16 @@ fn scan_home_plan(routine: &MirRoutine, liveness: &MirTempLiveness) -> HomePlan 
     analyze_home_demand(routine, liveness).plan
 }
 
+#[allow(dead_code)]
 fn analyze_home_demand(routine: &MirRoutine, liveness: &MirTempLiveness) -> HomeDemandAnalysis {
+    analyze_home_demand_traced(routine, liveness, &crate::mir6502::trace::Trace::disabled())
+}
+
+fn analyze_home_demand_traced(
+    routine: &MirRoutine,
+    liveness: &MirTempLiveness,
+    trace: &crate::mir6502::trace::Trace,
+) -> HomeDemandAnalysis {
     let widths = routine_temp_widths(routine);
     let mut facts = BTreeMap::<TempLane, LaneFacts>::new();
     for (block_index, block) in routine.blocks.iter().enumerate() {
@@ -1085,6 +1130,25 @@ fn analyze_home_demand(routine: &MirRoutine, liveness: &MirTempLiveness) -> Home
     }
     debug_assert_eq!(plan.len(), census.temp_lanes);
     debug_assert_eq!(plan.attributions.len(), census.temp_lanes);
+    if trace.wants(routine.id) {
+        for (lane, fact) in &facts {
+            trace.event("home-plan", || {
+                let decision = &plan.decisions[lane];
+                let attribution = &plan.attributions[lane];
+                let kind = match decision {
+                    HomeDecision::MustMaterialize(_) => "materialize",
+                    HomeDecision::ElideInRegister(_) => "register",
+                    HomeDecision::ForwardToConsumer(_) => "forward",
+                    HomeDecision::Rematerialize(_) => "rematerialize",
+                };
+                serde_json::json!({"routine":routine.id.0,"snapshot":trace.latest_snapshot(routine.id),
+                    "temp":lane.id.0,"byte":lane.byte,"decision":kind,"reason":decision_name(decision),
+                    "producer_kind":attribution.producer,"consumer_kind":attribution.consumer,"coupled":attribution.coupled,
+                    "definitions":fact.defs.iter().map(|d|serde_json::json!({"block":routine.blocks[d.block].id.0,"op":d.op,"block_parameter":routine.blocks[d.block].params.iter().any(|p|p.dest==lane.id)})).collect::<Vec<_>>(),
+                    "uses":fact.uses.iter().map(|u|serde_json::json!({"block":routine.blocks[u.block].id.0,"op":u.op})).collect::<Vec<_>>()})
+            });
+        }
+    }
     HomeDemandAnalysis { census, plan }
 }
 

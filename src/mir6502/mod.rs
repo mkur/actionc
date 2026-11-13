@@ -468,16 +468,18 @@ fn materialize_resolved_program_without_captured_compare_costing_traced(
     report: bool,
     trace: &crate::mir6502::trace::Trace,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    let mut materialized = materialize::materialize_program_with_reporting_traced(
-        program, config, origin, report, trace,
-    )
-    .map_err(|diagnostics| phase_diagnostics("materialization", diagnostics))?;
-    verify::verify_program(&materialized, MirPhase::PostMaterialization)
-        .map_err(|diagnostics| phase_diagnostics("post-materialization", diagnostics))?;
-    runtime::resolve_helpers(&mut materialized, runtime)
-        .map_err(|diagnostics| phase_diagnostics("runtime resolution", diagnostics))?;
-    trace.snapshot("helper-resolution", &materialized);
-    Ok(materialized)
+    trace.run("core-with-helpers", |trace| {
+        let mut materialized = materialize::materialize_program_with_reporting_traced(
+            program, config, origin, report, trace,
+        )
+        .map_err(|diagnostics| phase_diagnostics("materialization", diagnostics))?;
+        verify::verify_program(&materialized, MirPhase::PostMaterialization)
+            .map_err(|diagnostics| phase_diagnostics("post-materialization", diagnostics))?;
+        runtime::resolve_helpers(&mut materialized, runtime)
+            .map_err(|diagnostics| phase_diagnostics("runtime resolution", diagnostics))?;
+        trace.snapshot("helper-resolution", &materialized);
+        Ok(materialized)
+    })
 }
 
 pub fn format_program(program: &MirProgram) -> String {

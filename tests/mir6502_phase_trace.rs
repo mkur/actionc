@@ -174,3 +174,127 @@ fn nested_trials_have_scoped_results_and_selected_inlining_is_replayed() {
         }
     }
 }
+
+#[test]
+fn home_history_has_typed_scoped_plans_remaps_and_explicit_observations() {
+    let mut kinds = std::collections::BTreeSet::new();
+    let mut zp = false;
+    let mut reused = false;
+    let mut repeated_definition = false;
+    for source in [
+        include_str!("../fixtures/runtime/home_value_invalidation.act"),
+        include_str!("../fixtures/runtime/argument_staging.act"),
+        include_str!("../fixtures/runtime/word_load_sharing.act"),
+        include_str!("../fixtures/runtime/pointer_invariant_loop.act"),
+        include_str!("../fixtures/runtime/mir6502_phase_trace_homes.act"),
+    ] {
+        let input = nir(&source.replace("\r\n", "\n"));
+        let mut trace = Mir6502Trace::default();
+        mir6502::generate_output_with_trace(
+            &input,
+            0x3000,
+            &Mir6502Config::optimized(),
+            Runtime::ActionCart,
+            &mut trace,
+        )
+        .unwrap();
+        assert_eq!(trace.manifest()["status"], "complete");
+        let events = trace.events();
+        for event in &events {
+            kinds.insert(event.kind);
+            if event.kind == "home-plan" {
+                let snapshot = events
+                    .iter()
+                    .find(|s| Some(s.id) == event.data["snapshot"].as_u64())
+                    .unwrap();
+                assert_eq!(snapshot.attempt, event.attempt);
+                assert_eq!(snapshot.data["stage"], "before-home-assignment");
+                let r = snapshot.data["routines"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|r| r["id"] == event.data["routine"])
+                    .unwrap();
+                for definition in event.data["definitions"].as_array().unwrap() {
+                    let b = r["blocks"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|b| b["id"] == definition["block"])
+                        .unwrap();
+                    assert!(
+                        definition["block_parameter"] == true
+                            || definition["op"].as_u64().unwrap() < b["ops"].as_u64().unwrap()
+                    );
+                }
+            }
+            if event.kind == "home-remap" {
+                for field in ["from_snapshot", "to_snapshot"] {
+                    let snapshot = events
+                        .iter()
+                        .find(|s| Some(s.id) == event.data[field].as_u64())
+                        .unwrap();
+                    assert_eq!(snapshot.attempt, event.attempt);
+                    assert!(
+                        snapshot.data["routines"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .any(|r| r["id"] == event.data["routine"])
+                    );
+                }
+                let mut destinations = std::collections::BTreeSet::new();
+                for entry in event.data["entries"].as_array().unwrap() {
+                    assert_eq!(entry["from"]["routine"], event.data["routine"]);
+                    assert_eq!(entry["to"]["routine"], event.data["routine"]);
+                    zp |= entry["to"]["kind"] == "virtual-zp";
+                    reused |= !destinations.insert(entry["to"].to_string());
+                    let before = events
+                        .iter()
+                        .find(|s| Some(s.id) == event.data["from_snapshot"].as_u64())
+                        .unwrap();
+                    reused |= entry["from"] != entry["to"]
+                        && entry["to"]["kind"] == "spill"
+                        && before.data["frames"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .filter(|f| f["routine"] == event.data["routine"])
+                            .any(|f| f["spills"].as_array().unwrap().contains(&entry["to"]));
+                }
+            }
+            if event.kind == "snapshot" {
+                for r in event.data["accesses"].as_array().unwrap() {
+                    assert_eq!(
+                        r["interpretation"],
+                        "zero explicit reads is not a deadness proof"
+                    );
+                    for h in r["homes"].as_array().unwrap() {
+                        repeated_definition |= h["home"]["kind"] == "spill"
+                            && h["counts"]["writes"].as_u64().unwrap() > 1;
+                    }
+                }
+            }
+        }
+    }
+    for kind in [
+        "home-plan",
+        "home-assignment",
+        "home-elision",
+        "home-fate",
+        "home-remap",
+        "home-prune",
+        "abi-home-elision",
+    ] {
+        assert!(kinds.contains(kind), "missing coverage for {kind}");
+    }
+    assert!(zp, "zero-page remapping must be observed");
+    assert!(
+        reused,
+        "distinct homes must be observed sharing a colored home"
+    );
+    assert!(
+        repeated_definition,
+        "stores to the same home remain distinct points"
+    );
+}

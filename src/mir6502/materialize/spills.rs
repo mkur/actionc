@@ -1206,7 +1206,15 @@ fn spill_value_needed_after(
     live_out.full_temp_live(temp) || live_out.exact_lane_live(temp, byte)
 }
 
+#[allow(dead_code)]
 pub(super) fn prune_unused_spills(routine: &mut MirRoutine) {
+    prune_unused_spills_traced(routine, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(super) fn prune_unused_spills_traced(
+    routine: &mut MirRoutine,
+    trace: &crate::mir6502::trace::Trace,
+) {
     let mut used = Vec::new();
     for block in &routine.blocks {
         for op in &block.ops {
@@ -1214,7 +1222,21 @@ pub(super) fn prune_unused_spills(routine: &mut MirRoutine) {
         }
         collect_terminator_spills(&block.terminator, &mut used);
     }
-    routine.frame.spills.retain(|spill| used.contains(spill));
+    let observe = trace.wants(routine.id);
+    let before = trace.routine_snapshot("before-home-pruning", routine);
+    let mut pruned = Vec::new();
+    routine.frame.spills.retain(|spill| {
+        let keep = used.contains(spill);
+        if observe && !keep {
+            pruned.push(*spill);
+        }
+        keep
+    });
+    let after = trace.routine_snapshot("after-home-pruning", routine);
+    if observe && !pruned.is_empty() {
+        trace.event("home-prune", ||serde_json::json!({"routine":routine.id.0,"from_snapshot":before,"to_snapshot":after,"reason":"no-reference-in-compatibility-scan",
+            "homes":pruned.iter().map(|id|crate::mir6502::trace::homes::memory(routine.id,&MirMem::Spill{id:*id,offset:0})).collect::<Vec<_>>()}));
+    }
 }
 
 /// Reuse an existing, dead private zero-page pair for an earlier known-call
@@ -1225,9 +1247,18 @@ pub(super) fn prune_unused_spills(routine: &mut MirRoutine) {
 /// routine call, and every call crossed by either lane must have an exact
 /// fixed-pair preservation proof. Unknown calls, machine blocks, and opaque
 /// writes retain the ordinary RAM spill homes.
+#[allow(dead_code)]
 pub(super) fn lower_known_call_result_spills_to_reused_zero_page(
     program: &mut MirProgram,
     known_callees: &MirKnownCalleeSummaries,
+) -> BTreeMap<RoutineId, BTreeMap<MirSpillId, MirZpSlot>> {
+    lower_known_call_result_spills_to_reused_zero_page_traced(program, known_callees, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(super) fn lower_known_call_result_spills_to_reused_zero_page_traced(
+    program: &mut MirProgram,
+    known_callees: &MirKnownCalleeSummaries,
+    trace: &crate::mir6502::trace::Trace,
 ) -> BTreeMap<RoutineId, BTreeMap<MirSpillId, MirZpSlot>> {
     let mut remaps = BTreeMap::new();
     for routine in &mut program.routines {
@@ -1304,7 +1335,7 @@ pub(super) fn lower_known_call_result_spills_to_reused_zero_page(
             }
             remap_terminator_spills_to_zero_page(&mut block.terminator, &routine_remap);
         }
-        prune_unused_spills(routine);
+        prune_unused_spills_traced(routine, trace);
         remaps.insert(routine.id, routine_remap);
     }
     remaps
@@ -1568,8 +1599,16 @@ fn op_may_write_fixed_pair(op: &MirOp, fixed_lo: MirFixedZpSlot) -> bool {
     })
 }
 
+#[allow(dead_code)]
 pub(super) fn lower_block_local_byte_spills_to_zero_page(
     program: &mut MirProgram,
+) -> BTreeMap<RoutineId, BTreeMap<MirSpillId, MirZpSlot>> {
+    lower_block_local_byte_spills_to_zero_page_traced(program, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(super) fn lower_block_local_byte_spills_to_zero_page_traced(
+    program: &mut MirProgram,
+    trace: &crate::mir6502::trace::Trace,
 ) -> BTreeMap<RoutineId, BTreeMap<MirSpillId, MirZpSlot>> {
     let source_zero_page = source_zero_page_slots(program);
     let mut remaps = BTreeMap::new();
@@ -1630,7 +1669,7 @@ pub(super) fn lower_block_local_byte_spills_to_zero_page(
             }
             remap_terminator_spills_to_zero_page(&mut block.terminator, &remap);
         }
-        prune_unused_spills(routine);
+        prune_unused_spills_traced(routine, trace);
     }
     remaps
 }
@@ -1642,9 +1681,18 @@ pub(super) fn lower_block_local_byte_spills_to_zero_page(
 /// materialization and remain live across a CFG cycle. Pairs crossing calls or
 /// opaque barriers stay in ordinary spill storage because the private
 /// `$E0-$EF` pool is shared by caller and callee materialization.
+#[allow(dead_code)]
 pub(super) fn lower_hot_induction_address_spills_to_zero_page(
     routine: &mut MirRoutine,
     source_zero_page: &[MirFixedZpSlot],
+) -> BTreeMap<MirSpillId, MirZpSlot> {
+    lower_hot_induction_address_spills_to_zero_page_traced(routine, source_zero_page, &crate::mir6502::trace::Trace::disabled())
+}
+
+pub(super) fn lower_hot_induction_address_spills_to_zero_page_traced(
+    routine: &mut MirRoutine,
+    source_zero_page: &[MirFixedZpSlot],
+    trace: &crate::mir6502::trace::Trace,
 ) -> BTreeMap<MirSpillId, MirZpSlot> {
     const MAX_HOT_PAIRS: usize = 2;
 
@@ -1708,7 +1756,7 @@ pub(super) fn lower_hot_induction_address_spills_to_zero_page(
         }
         remap_terminator_spills_to_zero_page(&mut block.terminator, &remap);
     }
-    prune_unused_spills(routine);
+    prune_unused_spills_traced(routine, trace);
     remap
 }
 

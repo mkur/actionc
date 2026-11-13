@@ -1,4 +1,6 @@
 //! Bounded, compilation-local diagnostics. Nothing here grants rewrite permission.
+pub(crate) mod homes;
+
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::rc::Rc;
@@ -292,12 +294,59 @@ impl Trace {
             })
     }
 
+    pub(crate) fn routine_snapshot(
+        &self,
+        stage: &'static str,
+        routine: &super::MirRoutine,
+    ) -> Option<u64> {
+        if !self.wants(routine.id) {
+            return None;
+        }
+        self.event("snapshot", || json!({"stage":stage,"scope":"routine",
+            "routine":routine.id.0,"routines":[{"id":routine.id.0,"name":routine.name,"blocks":routine.blocks.iter().map(|b|json!({"id":b.id.0,"ops":b.ops.len()})).collect::<Vec<_>>() }],
+            "mir":super::printer::format_routine(routine),
+            "frames":[homes::frame(routine)],"accesses":[homes::accesses(routine)]}))
+    }
+
+    pub(crate) fn latest_snapshot(&self, routine: RoutineId) -> Option<u64> {
+        self.session
+            .as_ref()?
+            .state
+            .borrow()
+            .events
+            .iter()
+            .rev()
+            .find(|e| {
+                e.attempt == self.attempt
+                    && e.kind == "snapshot"
+                    && e.data["routines"]
+                        .as_array()
+                        .is_some_and(|rs| rs.iter().any(|r| r["id"] == routine.0))
+            })
+            .map(|e| e.id)
+    }
+
+    pub(crate) fn remap(
+        &self,
+        stage: &'static str,
+        routine: RoutineId,
+        before: Option<u64>,
+        after: Option<u64>,
+        entries: impl FnOnce() -> Value,
+    ) {
+        if self.wants(routine) {
+            self.event("home-remap", ||json!({"stage":stage,"routine":routine.0,"from_snapshot":before,"to_snapshot":after,"entries":entries()}));
+        }
+    }
+
     pub(crate) fn snapshot(&self, stage: &'static str, program: &MirProgram) -> Option<u64> {
         self.event("snapshot", || {
-            let mut selected = program.clone();
-            selected.routines.retain(|r| self.wants(r.id));
-            json!({ "stage": stage, "scope": "program", "program_identity": identity(&format!("{program:?}")), "mir": super::format_program(&selected),
-                "routines": selected.routines.iter().map(|r| json!({"id":r.id.0,"name":r.name})).collect::<Vec<_>>() })
+            let routines = program.routines.iter().filter(|r|self.wants(r.id)).collect::<Vec<_>>();
+            json!({ "stage": stage, "scope": "program", "program_identity": identity(&format!("{program:?}")),
+                "mir": super::printer::format_program_filtered(program, |id|self.wants(id)),
+                "routines": routines.iter().map(|r|json!({"id":r.id.0,"name":r.name,"blocks":r.blocks.iter().map(|b|json!({"id":b.id.0,"ops":b.ops.len()})).collect::<Vec<_>>()})).collect::<Vec<_>>(),
+                "frames":routines.iter().map(|r|homes::frame(r)).collect::<Vec<_>>(),
+                "accesses":routines.iter().map(|r|homes::accesses(r)).collect::<Vec<_>>() })
         })
     }
 }

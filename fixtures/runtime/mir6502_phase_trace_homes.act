@@ -1,0 +1,9 @@
+; Each computed address survives a comparison, then dies before the next
+; address is computed. Their disjoint lifetimes exercise routine spill coloring.
+BYTE ARRAY buffer(300)
+CARD index
+BYTE a,b,c,d
+PROC Main()
+  buffer(index+1)=(a>b)
+  buffer(index+2)=(c>d)
+RETURN

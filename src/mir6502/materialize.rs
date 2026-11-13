@@ -1,3 +1,4 @@
+use crate::mir6502::trace;
 use super::analysis::cfg::{MirCfg, MirCfgError};
 use super::analysis::known_callees::MirKnownCalleeSummaries;
 use super::diagnostics::MirDiagnostic;
@@ -225,10 +226,11 @@ use spills::{
     can_remove_spill_store_reload_pair_at, fold_indirect_load_spill_consumers,
     forward_block_local_spill_accumulator,
 };
+use spills::{color_basic_block_spills, color_routine_spills};
+#[cfg(test)]
 use spills::{
-    color_basic_block_spills, color_routine_spills, lower_block_local_byte_spills_to_zero_page,
     lower_hot_induction_address_spills_to_zero_page,
-    lower_known_call_result_spills_to_reused_zero_page, prune_unused_spills,
+    lower_known_call_result_spills_to_reused_zero_page,
 };
 #[cfg(test)]
 use ssa_lite::scan_ssa_lite_v2_observability;
@@ -1550,6 +1552,7 @@ pub(super) fn materialize_program_with_reporting_traced(
             reserve_used_fixed_zero_page_slots(routine);
             materialize_word_compare_temp_ops(routine, &layout);
             run_pre_home_cleanup_fixed_point(routine, &layout, &mut peephole_stats);
+            trace.routine_snapshot("before-home-assignment", routine);
             let home_liveness = analyze_temp_liveness(routine);
             let home_plan = record_home_demand_census(routine, &home_liveness, &mut peephole_stats);
             home_fates.insert(routine.id, HomeFateTracker::from_plan(&home_plan));
@@ -1585,8 +1588,12 @@ pub(super) fn materialize_program_with_reporting_traced(
                 block.ops =
                     lower_lea_addrs_with_final_layout(routine.id, block.ops.clone(), &layout);
             }
+            let temps_snapshot = trace.routine_snapshot("after-temp-materialization", routine);
+            if let Some(tracker) = home_fates.get(&routine.id) {
+                tracker.trace_assignments(routine, trace, temps_snapshot);
+            }
             let induction_zp_remap =
-                lower_hot_induction_address_spills_to_zero_page(routine, &source_zero_page);
+                spills::lower_hot_induction_address_spills_to_zero_page_traced(routine, &source_zero_page, trace);
             peephole_stats.record_many(
                 routine.id,
                 "hot-induction-address-zp-pairs",
@@ -1595,6 +1602,8 @@ pub(super) fn materialize_program_with_reporting_traced(
             if let Some(tracker) = home_fates.get_mut(&routine.id) {
                 tracker.apply_zero_page_remap(&induction_zp_remap);
             }
+            let induction_snapshot = trace.routine_snapshot("after-induction-zp", routine);
+            trace.remap("induction-zp", routine.id, temps_snapshot, induction_snapshot, || serde_json::json!(induction_zp_remap.iter().map(|(a,b)| serde_json::json!({"from":trace::homes::memory(routine.id,&MirMem::Spill{id:*a,offset:0}),"to":trace::homes::memory(routine.id,&MirMem::ZeroPage(*b))})).collect::<Vec<_>>()));
             run_posthome_structural_group(routine, &layout, config, None, &mut peephole_stats)?;
             run_posthome_cleanup_group(
                 routine,
@@ -1663,19 +1672,25 @@ pub(super) fn materialize_program_with_reporting_traced(
                 memory_shifts::run(routine, &mut peephole_stats)?;
             }
         }
-        let zero_page_remaps = lower_block_local_byte_spills_to_zero_page(&mut program);
+        let zp_before = trace.snapshot("before-zp-remapping", &program);
+        let zero_page_remaps = spills::lower_block_local_byte_spills_to_zero_page_traced(&mut program, trace);
+        let zp_after = trace.snapshot("after-zp-remapping", &program);
         for (routine, remap) in zero_page_remaps {
+            trace.remap("block-local-zp", routine, zp_before, zp_after, ||serde_json::json!(remap.iter().map(|(a,b)|serde_json::json!({"from":trace::homes::memory(routine,&MirMem::Spill{id:*a,offset:0}),"to":trace::homes::memory(routine,&MirMem::ZeroPage(*b))})).collect::<Vec<_>>()));
             if let Some(tracker) = home_fates.get_mut(&routine) {
                 tracker.apply_zero_page_remap(&remap);
             }
         }
         allocate_zero_page_slots(&mut program);
         let zero_page_known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
-        let reused_zero_page_remaps = lower_known_call_result_spills_to_reused_zero_page(
+        let reuse_before = trace.snapshot("before-call-result-zp-reuse", &program);
+        let reused_zero_page_remaps = spills::lower_known_call_result_spills_to_reused_zero_page_traced(
             &mut program,
             &zero_page_known_callees,
-        );
+         trace,);
+        let reuse_after = trace.snapshot("after-call-result-zp-reuse", &program);
         for (routine, remap) in reused_zero_page_remaps {
+            trace.remap("call-result-zp-reuse", routine, reuse_before, reuse_after, ||serde_json::json!(remap.iter().map(|(a,b)|serde_json::json!({"from":trace::homes::memory(routine,&MirMem::Spill{id:*a,offset:0}),"to":trace::homes::memory(routine,&MirMem::ZeroPage(*b))})).collect::<Vec<_>>()));
             peephole_stats.record_many(
                 routine,
                 "known-call-result-preserved-in-reused-zp",
@@ -1839,12 +1854,14 @@ pub(super) fn materialize_program_with_reporting_traced(
                 &mut peephole_stats,
             )?;
             run_analyzed_dead_private_scratch_stores(routine, &mut peephole_stats)?;
-            prune_unused_spills(routine);
+            spills::prune_unused_spills_traced(routine, trace);
         }
         verify_materialization_stage(&program, MirPhase::PostHome, "post-home boundary")?;
+        trace.snapshot("core-post-home", &program);
         // Check private pointer-byte definitions before replacing their virtual
         // identities with fixed physical pairs for emission.
         resolve_virtual_address_consumers(&mut program);
+        trace.snapshot("address-consumers-resolved", &program);
         record_final_home_allocations(&program, &mut peephole_stats);
         for routine in &program.routines {
             if let Some(tracker) = home_fates.get(&routine.id) {
@@ -3165,11 +3182,17 @@ fn run_posthome_cleanup_group(
     run_analyzed_call_result_y_placements(routine, peephole_stats)?;
     run_analyzed_dead_register_writes(routine, layout, known_callees, peephole_stats)?;
     remove_dead_spill_stores(routine);
+    let trace = peephole_stats.trace.clone();
+    let color_before = trace.routine_snapshot("before-block-coloring", routine);
     let remap = color_basic_block_spills(routine);
+    let color_after = trace.routine_snapshot("after-block-coloring", routine);
+    trace.remap("block-coloring", routine.id, color_before, color_after, ||serde_json::json!(remap.iter().map(|(a,b)|serde_json::json!({"from":trace::homes::memory(routine.id,&MirMem::Spill{id:*a,offset:0}),"to":trace::homes::memory(routine.id,&MirMem::Spill{id:*b,offset:0})})).collect::<Vec<_>>()));
     if let Some(tracker) = home_fates.as_deref_mut() {
         tracker.apply_spill_remap(&remap);
     }
     let routine_remap = color_routine_spills(routine);
+    let routine_color_after = trace.routine_snapshot("after-routine-coloring", routine);
+    trace.remap("routine-coloring", routine.id, color_after, routine_color_after, ||serde_json::json!(routine_remap.iter().map(|(a,b)|serde_json::json!({"from":trace::homes::memory(routine.id,&MirMem::Spill{id:*a,offset:0}),"to":trace::homes::memory(routine.id,&MirMem::Spill{id:*b,offset:0})})).collect::<Vec<_>>()));
     peephole_stats.record_many(
         routine.id,
         "routine-spill-color-remaps",
@@ -3178,8 +3201,9 @@ fn run_posthome_cleanup_group(
     if let Some(tracker) = home_fates {
         tracker.apply_spill_remap(&routine_remap);
     }
-    prune_unused_spills(routine);
+    spills::prune_unused_spills_traced(routine, &trace);
     reserve_used_fixed_zero_page_slots(routine);
+    trace.routine_snapshot(if known_callees.is_some() { "post-home-cleanup-known-callees" } else { "post-home-cleanup-initial" }, routine);
     Ok(())
 }
 

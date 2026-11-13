@@ -106,6 +106,7 @@ pub(super) fn elide_write_only_param_homes(
         .map(|(id, _, _, _, _)| *id)
         .collect::<BTreeSet<_>>();
 
+    let before = peephole_stats.trace.routine_snapshot("before-abi-home-elision", routine);
     for block in &mut routine.blocks {
         block.ops = block
             .ops
@@ -121,7 +122,12 @@ pub(super) fn elide_write_only_param_homes(
             slot.base = MirStorageBase::ParamAbiOnly(id);
         }
     }
+    let after = peephole_stats.trace.routine_snapshot("after-abi-home-elision", routine);
     for (id, bytes, name, store_count, capture_count) in candidates {
+        if peephole_stats.trace.wants(routine.id) {
+            peephole_stats.trace.event("abi-home-elision", ||serde_json::json!({"routine":routine.id.0,"from_snapshot":before,"to_snapshot":after,
+                "param":id.0,"bytes":bytes,"stores_removed":store_count,"allocation":"abi-only"}));
+        }
         peephole_stats.record_many(
             routine.id,
             "write-only-param-home-elided",
@@ -193,7 +199,13 @@ pub(super) fn coalesce_leaf_word_param_with_result_home(
     entry.ops[1] = store_register_to_fixed_zp(MirReg::A, 0xA0);
     rewritten.frame.params[0].base = MirStorageBase::ParamAbiOnly(param);
 
+    let before = peephole_stats.trace.routine_snapshot("before-abi-result-coalescing", routine);
     *routine = rewritten;
+    let after = peephole_stats.trace.routine_snapshot("after-abi-result-coalescing", routine);
+    if peephole_stats.trace.wants(routine.id) {
+        peephole_stats.trace.event("abi-home-remap", ||serde_json::json!({"routine":routine.id.0,"from_snapshot":before,"to_snapshot":after,
+            "param":param.0,"bytes":2,"allocation":"abi-only","fixed_result_pair":[160,161]}));
+    }
     peephole_stats.record_many(routine.id, "leaf-param-result-home-coalesced", 2);
     peephole_stats.record_site(
         routine.id,

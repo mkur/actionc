@@ -9,6 +9,13 @@ use super::ir::{
 };
 
 pub(super) fn format_program(program: &MirProgram) -> String {
+    format_program_filtered(program, |_| true)
+}
+
+pub(super) fn format_program_filtered(
+    program: &MirProgram,
+    selected: impl Fn(super::ir::RoutineId) -> bool,
+) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "mir6502 program");
     for global in &program.globals {
@@ -64,43 +71,53 @@ pub(super) fn format_program(program: &MirProgram) -> String {
                 .join(" ")
         );
     }
-    for routine in &program.routines {
-        let _ = writeln!(out);
-        let _ = writeln!(out, "routine r{} {}", routine.id.0, routine.name);
-        if routine.inline.requested() {
-            let _ = writeln!(out, "  inline prefer");
-        }
-        for local in &routine.frame.locals {
-            if let Some(init) = &local.init {
-                let _ = writeln!(out, "  local l{}{}", local.id.0, storage_init_summary(init));
-            }
-        }
-        for allocation in &routine.frame.zero_page_allocations {
-            let _ = writeln!(
-                out,
-                "  zp{} -> ${:02X} size={}",
-                allocation.slot.0, allocation.start.0, allocation.size
-            );
-        }
-        for block in &routine.blocks {
-            let params = block
-                .params
-                .iter()
-                .map(|param| format!("v{}:{}", param.dest.0, width_name(param.width)))
-                .collect::<Vec<_>>()
-                .join(", ");
-            if params.is_empty() {
-                let _ = writeln!(out, "b{} {}:", block.id.0, block.label);
-            } else {
-                let _ = writeln!(out, "b{} {}({params}):", block.id.0, block.label);
-            }
-            for op in &block.ops {
-                let _ = writeln!(out, "  {}", op_summary(op));
-            }
-            let _ = writeln!(out, "  {}", terminator_summary(&block.terminator));
-        }
+    for routine in program.routines.iter().filter(|r| selected(r.id)) {
+        write_routine(&mut out, routine);
     }
     out
+}
+
+pub(super) fn format_routine(routine: &super::ir::MirRoutine) -> String {
+    let mut out = String::new();
+    write_routine(&mut out, routine);
+    out
+}
+
+fn write_routine(out: &mut String, routine: &super::ir::MirRoutine) {
+    let _ = writeln!(out);
+    let _ = writeln!(out, "routine r{} {}", routine.id.0, routine.name);
+    if routine.inline.requested() {
+        let _ = writeln!(out, "  inline prefer");
+    }
+    for local in &routine.frame.locals {
+        if let Some(init) = &local.init {
+            let _ = writeln!(out, "  local l{}{}", local.id.0, storage_init_summary(init));
+        }
+    }
+    for allocation in &routine.frame.zero_page_allocations {
+        let _ = writeln!(
+            out,
+            "  zp{} -> ${:02X} size={}",
+            allocation.slot.0, allocation.start.0, allocation.size
+        );
+    }
+    for block in &routine.blocks {
+        let params = block
+            .params
+            .iter()
+            .map(|param| format!("v{}:{}", param.dest.0, width_name(param.width)))
+            .collect::<Vec<_>>()
+            .join(", ");
+        if params.is_empty() {
+            let _ = writeln!(out, "b{} {}:", block.id.0, block.label);
+        } else {
+            let _ = writeln!(out, "b{} {}({params}):", block.id.0, block.label);
+        }
+        for op in &block.ops {
+            let _ = writeln!(out, "  {}", op_summary(op));
+        }
+        let _ = writeln!(out, "  {}", terminator_summary(&block.terminator));
+    }
 }
 
 fn global_init_summary(init: &MirGlobalInit) -> String {
