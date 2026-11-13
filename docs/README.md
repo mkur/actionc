@@ -192,6 +192,9 @@ crowding the active reference set.
 - [MIR6502_GENERAL_CODEGEN_OPTIMIZATION_PLAN.md](MIR6502_GENERAL_CODEGEN_OPTIMIZATION_PLAN.md)
   - active general plan for counted loops, register facts, and direct value
   consumers.
+- [TN 6502 code-generation review (2026-11-13)](TN_6502_CODEGEN_REVIEW_2026-11-13.md)
+  - source-referenced review of the supplied cartridge listing, covering pointer
+    residency, dead spills, redundant loads, and arithmetic/addressing opportunities.
 - [TN 6502 code-generation review (2026-11-10)](TN_6502_CODEGEN_REVIEW_2026-11-10.md)
   - static review of a supplied TN assembly listing, with concrete size/cycle
     improvements, optimization preconditions, and separate correctness observations.
