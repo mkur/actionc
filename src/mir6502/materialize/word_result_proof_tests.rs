@@ -17,7 +17,7 @@ fn slot(base: MirStorageBase, size: u16) -> MirStorageSlot {
     }
 }
 
-fn program() -> MirProgram {
+pub(super) fn program() -> MirProgram {
     let mut program = empty_test_program();
     let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
         id: MirBlockId(0),

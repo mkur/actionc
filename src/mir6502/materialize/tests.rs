@@ -1,6 +1,8 @@
 use super::*;
 #[path = "word_result_proof_tests.rs"]
 mod word_result_proof_tests;
+#[path = "pointer_setup_proof_tests.rs"]
+mod pointer_setup_proof_tests;
 #[path = "arithmetic_tests.rs"]
 mod arithmetic_tests;
 #[path = "indexed_copy_tests.rs"]

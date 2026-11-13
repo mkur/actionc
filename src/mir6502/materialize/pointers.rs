@@ -476,6 +476,11 @@ fn pointer_consumer_for_value(
     if offset_mem(lo_mem, 1) != *hi_mem {
         return DEFAULT_POINTER_PAIR;
     }
+    // Complete ordinary pointer cells cannot be a fixed ZP pair. Select the
+    // existing scratch strategy without depending on their tentative address.
+    if layout.ordinary_range_is_outside_zero_page(routine_id, lo_mem, 2) {
+        return DEFAULT_POINTER_PAIR;
+    }
     let Some(address) = layout.mem_address(routine_id, lo_mem) else {
         return DEFAULT_POINTER_PAIR;
     };

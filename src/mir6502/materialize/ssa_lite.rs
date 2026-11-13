@@ -2665,7 +2665,7 @@ fn learn_normalized_plain_address(
         return;
     };
     // A captured register value no longer equals its originating cell if the
-    // preparation overwrites that cell. Require final placement for every read.
+    // preparation overwrites that cell. Prove separation for every source read.
     let safe = match &fact.key {
         SsaLiteV2AddressKey::Address(value) => {
             plain_address_sources_disjoint(value, lo, routine, layout)
@@ -2684,6 +2684,10 @@ fn plain_address_sources_disjoint(
     layout: &MaterializeLayout,
 ) -> bool {
     match value {
+        // The entire scratch pair must be in ZP: a start at $FF has its high
+        // address at $0100 in the existing numeric contract.
+        MirValue::PointerCell(mem) if lo.0 < 0xff
+            && layout.ordinary_range_is_outside_zero_page(routine, mem, 1) => true,
         MirValue::PointerCell(mem) => ssa_lite_mem_resolved_address(layout, routine, mem)
             .is_some_and(|address| {
                 let disjoint = address != u16::from(lo.0) && address != u16::from(lo.0) + 1;

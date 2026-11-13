@@ -168,6 +168,8 @@ mod tests {
             let _round = trace.layout_round(RoutineId(2), 4);
             let scope = trace.layout_candidate(RoutineId(2), "winner", MirBlockId(4), 1);
             scope.shape(3);
+            drop(scope);
+            trace.layout_plan_outcome("winner", MirBlockId(4), 1, 4, "applied");
         }
         assert_eq!(
             session.events()[1].data["candidates"][0]["outcome"],
@@ -201,6 +203,21 @@ mod tests {
         assert_eq!(session.events()[0].data["omitted"], 1);
         assert_eq!(
             session.manifest()["core_layout_census"]["status"],
+            "truncated"
+        );
+        let duplicate = new_session();
+        let trace = duplicate.context();
+        {
+            let _round = trace.layout_round(RoutineId(2), 0);
+            for end in [1, 2] {
+                trace
+                    .layout_candidate(RoutineId(2), "duplicate", MirBlockId(0), 0)
+                    .shape(end);
+            }
+        }
+        assert_eq!(duplicate.events()[0].data["omitted"], 1);
+        assert_eq!(
+            duplicate.manifest()["core_layout_census"]["status"],
             "truncated"
         );
     }
@@ -351,7 +368,10 @@ impl Drop for CandidateGuard {
         if !candidate.observed && candidate.end.is_none() {
             return;
         }
-        if round.candidates.len() < MAX_CANDIDATES {
+        // Instrumented families have one candidate per start. A future caller
+        // that violates that identity must not silently merge two decisions.
+        if round.candidates.len() < MAX_CANDIDATES && !round.candidates.contains_key(&candidate.key)
+        {
             round.candidates.insert(candidate.key.clone(), candidate);
         } else {
             round.omitted_candidates += 1;
