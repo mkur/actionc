@@ -126,3 +126,16 @@ Validation passed 1,296 MIR6502 unit tests, 127 integration tests, 28 VM tests,
 54 CLI artifact comparisons, 20 complete API comparisons and 16 MADS LF/CRLF
 roundtrips. Existing optional ignored checks are listed in the report. No shared
 NIR/semantic/printer contracts changed.
+
+
+## Producer extension slices
+
+1. Extend the design with the closed producer shapes, liveness/read-effect
+   contract, callee preservation, physical replay and bounded shared loop.
+2. Reuse the existing dead-register analysis with separate core/late purity
+   predicates. Add a disabled-by-default extension switch, guarded deletion
+   accounting and focused positive/negative tests; commit the implementation.
+3. Qualify enabled/disabled producer cleanup against the frozen store-only TN
+   compiler and independent controls. Add runtime and final-placement coverage,
+   enable the optimized default, run the affected backend suites and record
+   measured image/work/resource differences in a separate receipt; commit it.

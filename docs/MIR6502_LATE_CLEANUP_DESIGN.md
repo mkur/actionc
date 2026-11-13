@@ -1,4 +1,4 @@
-# MIR6502 late private-store cleanup
+# MIR6502 late store and producer cleanup
 
 Status: implemented, 2026-11-13. The original evidence was the pipeline and
 qualification results through `278076a2`. This note defines the implemented
@@ -64,7 +64,7 @@ The historical materialized-MIR dump ends before T10. Preserve that boundary
 and document that the exact pre-emission snapshot includes this new transaction.
 All executable output modes must select the same final MIR.
 
-## First-version scope
+## Store-deletion scope
 
 Eligible candidates are the existing direct byte stores from a machine
 register into `MirMem::Spill` or virtual `MirMem::ZeroPage` storage, as recognized
@@ -72,7 +72,8 @@ by [`store_direct_private_scratch_byte`](../src/mir6502/materialize/peepholes.rs
 Fixed zero-page ABI slots, source variables, globals, statics, absolute
 addresses, indirect stores and hardware accesses are outside this scope.
 
-The transaction may delete eligible store operations. It preserves:
+With producer cleanup disabled, the transaction deletes only eligible stores
+and preserves:
 
 - Every frame declaration, storage identity, allocation and virtual-ZP mapping,
   including newly unused homes.
@@ -80,11 +81,73 @@ The transaction may delete eligible store operations. It preserves:
   block order, routine membership and ABI placement.
 - Data declarations, helper selection and inlining decisions.
 
-Keeping a producer is intentional even if removing its store makes the producer
-dead. Deleting loads or arithmetic brings additional memory, register and flag
-obligations. Frame pruning, coloring, ZP reassignment and producer cleanup need
-separate extensions of this contract. Do not invoke the whole core cleanup
-group or materialize the program again.
+The producer extension below adds a narrowly checked deletion class. Frame
+pruning, coloring and ZP reassignment remain excluded. Do not invoke the whole
+core cleanup group or materialize the program again.
+
+## Producer-deletion extension
+
+Status: contract accepted; implementation and qualification in progress.
+
+The store-only TN image is 9,982 bytes. Its final assembly contains two unused
+loads of `global_s`/`global_s+1` in `FormatDirectoryRow` and another pair in
+`SetWin`. These account for 12 candidate instruction bytes. Final image savings
+must be measured after proof validation and emission.
+
+The first producer slice admits only byte `LoadImm`, register-to-register
+`Move`, and direct byte `Load` operations into A/X/Y. It excludes arithmetic,
+word operations, indirect loads, pointer-valued moves, raw absolute reads,
+fixed-ZP reads, calls and machine blocks. This closed shape check is separate
+from the proof that a particular definition is dead.
+
+Reuse `discover_dead_register_writes` and its existing structural-plan/liveness
+proof through a caller-supplied purity predicate. Core cleanup keeps its current
+purity rules. Late cleanup additionally requires an emitted physical mapping
+that marks a named memory source ordinary and separates it from executable
+memory. Missing placement, hardware/OS memory, externally backed storage without
+ordinary-memory evidence and unknown reads retain the producer. Repeat these
+queries against final candidate placement; `MaterializeLayout` is insufficient
+for the late read-elision decision.
+
+Every deleted producer's destination register and N/Z outputs must be dead on
+all paths, including successor blocks and backedges. Calls and machine blocks
+remain barriers unless the existing structured analysis proves the affected
+state unobserved. The admitted operations preserve C/V; arithmetic that changes
+these flags requires a later extension. A load that emits zero bytes is still
+a semantic read and requires the same liveness and purity proofs.
+
+Store and producer plans share one monotonically decreasing, routine-local
+rewrite loop. Rebuild analyses after each batch. Producer removal can make a
+private store dead, and store removal can make its producer dead. Bound rounds
+by the input operation count; do not repeat late strategy selection or run
+whole-program materialization. Whole-program baseline callee summaries remain
+conservative inputs during discovery. After rewriting, rebuild summaries and
+preserve every consumed entry/exit/register/fixed-pair contract and each prior
+memory-effect exclusion. Narrower may-read/may-write sets are allowed. A callee
+contract failure rejects the complete transaction.
+
+The complete-delta guard permits only these producer deletions plus the existing
+private-store deletions and checked compare-index repair. Frames, data,
+allocations, ABI, CFG, helper choices and remaining operations stay identical.
+The earlier selected-decision sidecar remains authoritative: replay all affected
+proofs from immutable witnesses using final placement. Deleting pure dead
+register definitions adds no allocation dependency; all new register/flag and
+read-effect obligations belong to this terminal transaction.
+
+`enable_late_dead_register_cleanup` controls the extension inside the existing
+`enable_late_private_store_cleanup` and master peephole gates. Default-config
+behavior remains disabled; optimized configuration enables it after qualification.
+The historical trace stage name remains stable. Report `removed_stores` and
+`removed_producers` separately. Keep the same two-cost-emission budget, strict
+packaged-image saving, no per-routine instruction growth and exact rollback.
+
+Qualification compares store-only versus producer-enabled output, separately
+from the earlier no-terminal-cleanup baseline. Cover TN, independent ordinary
+loads and moves, live registers/flags, successor/backedge use, observable memory,
+callee contracts, changed placement and rollback. Compare actual execution,
+public writes and return state, with both runtimes, shifted origins and real
+LF/CRLF source/listing paths. Record code/image deltas, preserved frames, trace
+on/off equality and compiler work before enabling the optimized default.
 
 ## Cleanup invalidation and fact lifetimes
 
@@ -94,7 +157,7 @@ result, including partial acceptance; rejected speculative candidates do not
 contribute requests. This is compiler state, independent of tracing.
 
 Initially, conservatively seed the request set with all routines and use the
-cheap store-shape filter before building analyses. Complete changed-routine
+cheap candidate-shape filter before building analyses. Complete changed-routine
 reporting can later narrow that set. Missing or unfamiliar change information
 must cause a broader scan, never a silent assumption that cleanup is current.
 There is one terminal transaction, rather than cleanup after every request.
@@ -186,8 +249,9 @@ those references never allocate storage or become executable operations.
 The sidecar starts at completed core materialization and covers every selected
 T1–T10 mutation. An unrecorded mutation breaks its snapshot chain and declines
 cleanup before costing. Core allocation proofs retain their inputs because the
-transaction preserves declarations, fixed backing, mappings, origin and
-producer operations. The [plan's dependency inventory](MIR6502_LATE_CLEANUP_IMPLEMENTATION_PLAN.md#dependency-inventory-and-implementation-choice)
+transaction preserves declarations, fixed backing, mappings and origin. Pure
+dead producers are deleted only under the extension's register/flag and read-effect
+proofs; this does not alter core allocation inputs. The [plan's dependency inventory](MIR6502_LATE_CLEANUP_IMPLEMENTATION_PLAN.md#dependency-inventory-and-implementation-choice)
 records that boundary. An unfamiliar affected dependency requires a new
 family-owned validator before cleanup can accept it.
 
@@ -201,16 +265,17 @@ hold; they must not assume that movement is harmless.
 
 Keep an immutable baseline at the new boundary. Discover and apply proved
 deletions in deterministic routine/block order using the existing rewrite
-driver. Rebuild facts as required by its generation rules. Store-only progress
+driver. Rebuild facts as required by its generation rules. Deletion-only progress
 strictly reduces the operation count; do not run a fixed point over unrelated
 optimization families or search subsets for a more profitable result.
 
 Accept the candidate only when all of these checks pass:
 
-1. Only permitted store deletions occurred, frames and allocations are identical,
+1. Only permitted store/producer deletions occurred, frames and allocations are identical,
    and the result passes `PreEmission` verification.
-2. Each deletion has a valid home-definition proof under the candidate's
-   applicable memory/effect facts. Candidate placement validates the deletion
+2. Each store deletion has a valid home-definition proof, and each producer
+   deletion has valid register/flag liveness and read-purity proofs under the
+   candidate's applicable memory/effect facts. Candidate placement validates the deletion
    decisions made from the baseline.
 3. Fresh whole-program callee analysis preserves all consumed contracts,
    including observable accumulator results, required flags and entry inputs,
@@ -271,8 +336,9 @@ No NIR migration or new source-language rule is part of this design.
 
 Frame compaction needs a separate design extension: it changes home addresses
 and can invalidate allocation, alias and call proofs beyond instruction shrink.
-Producer elimination likewise requires explicit register/flag and memory-read
-preservation. Neither should be bundled into the first cleanup transaction.
+Further producer classes, including arithmetic and indirect loads, require
+separate register/flag and memory-read contracts. They are outside the admitted
+byte-load/move extension.
 
 The shared transaction restores cleanup after consumer changes, with one owner
 for acceptance and rollback. Compact typed witnesses may eventually replace the
