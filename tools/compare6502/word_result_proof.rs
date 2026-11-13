@@ -22,6 +22,14 @@ fn main() {
     if std::env::args().any(|arg| arg == "--pointer-setup") {
         cases.push(("pointer", "fixtures/runtime/pointer_setup_bounds.act"));
     }
+    let movement = std::env::args().any(|arg| arg == "--spill-movement");
+    if movement {
+        cases = vec![
+            ("tn", "samples/tn/modern/TN.ACT"),
+            ("producers", "fixtures/runtime/late_producer_cleanup.act"),
+            ("spill-pressure", "fixtures/runtime/late_spill_pruning.act"),
+        ];
+    }
     for (name, path) in cases {
         let loaded = actionc::includes::load_program_with_expanded_source(path).unwrap();
         let model = actionc::semantic::analyze_with_options(
@@ -37,6 +45,7 @@ fn main() {
             for origin in [0x3000, 0x41c7] {
                 let config = Mir6502Config {
                     enable_small_leaf_inlining: name != "result",
+                    enable_late_spill_pruning: movement,
                     ..Mir6502Config::optimized()
                 };
                 let mut off = Mir6502Trace::new(TraceOptions {

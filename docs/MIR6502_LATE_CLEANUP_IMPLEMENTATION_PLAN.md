@@ -261,3 +261,26 @@ Next work should identify obligations for that concrete movement before replacin
 either the core or physical surviving-address guard. Validation passed 1,329 unit,
 135 integration and 33 VM tests, 54 frozen CLI artifact comparisons, 24 full API
 comparisons across three versions and four TN pruning-off/on comparisons.
+
+## Concrete movement audit and ownership correction
+
+The diagnostic slice `a898ac04` reports actual old/proposed planning entries on
+`CoreAllocation` rejection and attributes the three selectors implicated by the
+mixed rounds. The [audit report](benchmarks/6502-spill-movement/README.md) records
+the evidence and reproduction commands. Removing TN's four candidate bytes
+would move 50 surviving entries in 12 routines in cart mode, or 51 in 13 routines
+standalone. Full output and compiler work remain unchanged in all 12 cases.
+
+The audit changes the proposed next step. A source pointer allowed to observe
+compiler state could target an ordinary temporary as well as fixed ZP scratch;
+staging does not remove that issue. The existing 6502 rules mix a private-home
+non-escape contract with stronger physical-ZP observability checks. Resolve this
+ownership inconsistency before expanding selected-predicate replay. Explicit
+low-level/ABI effects remain relevant, and address-taken program objects need
+correct relocation rather than automatic numerical-address preservation.
+
+The newly scoped selected gates contain no resolved inputs from the proposed
+moving storage; unresolved spill references and inherited facts remain explicit
+coverage gaps. No semantic ownership rule, guard relaxation or compaction is
+implemented by this slice. Validation passed 452 scoped unit tests, 78 integration
+tests, three VM tests, two audit tests and 12 full-output/census comparisons.

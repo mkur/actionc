@@ -211,6 +211,8 @@ crowding the active reference set.
   typed destination bounds, reduced planning-address dependencies and qualification.
 - [Pointer setup proof](benchmarks/6502-pointer-setup-proof/README.md) -
   candidate-level attribution, ordinary-storage bounds and TN pruning reassessment.
+- [Concrete spill movement audit](benchmarks/6502-spill-movement/README.md) -
+  actual moved storage, selected-candidate evidence and the private-storage ownership gap.
 - [INLINE routine implementation plan](INLINE_IMPLEMENTATION_PLAN.md) -
   declaration modifier, typed preference propagation, wider scalar
   inlining and Q4.12 wrapper rollout in six slices.
