@@ -19,13 +19,16 @@ fn nir(source: &str) -> actionc::nir::NirProgram {
 
 #[test]
 fn census_preserves_artifacts_work_and_real_lf_crlf_parsing() {
-    let source = include_str!("../fixtures/runtime/word_load_sharing.act").replace("\r\n", "\n");
+    let source = include_str!("../fixtures/runtime/core_layout_census.act").replace("\r\n", "\n");
     let mut observed_applied = false;
     let mut observed_predicate = false;
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         for origin in [0x3000, 0x41c7] {
             let input = nir(&source);
-            let config = Mir6502Config::optimized();
+            let config = Mir6502Config {
+                enable_small_leaf_inlining: false,
+                ..Mir6502Config::optimized()
+            };
             let mut off = Mir6502Trace::default();
             let before =
                 mir6502::generate_output_with_trace(&input, origin, &config, runtime, &mut off)
@@ -60,13 +63,27 @@ fn census_preserves_artifacts_work_and_real_lf_crlf_parsing() {
                 assert_eq!(on.manifest()["status"], "complete");
                 assert_eq!(on.manifest()["core_layout_census"]["status"], "complete");
                 for event in on.events().iter().filter(|e| e.kind == "core-layout-round") {
-                    if event.data["applied_count"].as_u64().unwrap() > 0 {
+                    if event.data["applied"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|a| a["family"] == "known-callee-word-result-placement")
+                    {
                         observed_applied = true;
                         observed_predicate |= event.data["observations"]
                             .as_array()
                             .unwrap()
                             .iter()
-                            .any(|x| x["observation"]["predicate"] != "address-query");
+                            .any(|x| {
+                                x["observation"]["predicate"] == "equal-address"
+                                    && x["observation"]["result"] == false
+                                    && x["observation"]["inputs"].as_array().unwrap().iter().any(
+                                        |i| {
+                                            i["planning_address"] == true
+                                                && i["home"]["kind"] == "global"
+                                        },
+                                    )
+                            });
                     }
                 }
             }

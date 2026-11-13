@@ -187,3 +187,17 @@ Validation passed 1,314 MIR6502 unit tests, 131 integration tests, 31 VM tests,
 the explicit MADS test (eight LF/CRLF reconstruction/relocation comparisons),
 54 frozen CLI artifact comparisons and 32 complete API comparisons. No shared
 frontend/NIR contracts changed.
+
+## Core layout census follow-up — slice 1
+
+Completed as diagnostic-only instrumentation in `d1ca2cb9`, followed by corpus
+qualification and an independent positive control. The opt-in observer records
+planning-address queries, selected predicate results, typed storage references
+and actual applied rewrite sites. Association is conservative per discovery
+round; unknown addresses, unattributed legacy queries, speculative parent
+attempts and uninstrumented layout owners remain explicit limitations.
+
+The [census report](benchmarks/6502-core-layout-census/README.md) records TN and
+independent controls, unchanged full output/work, validation and the next
+candidate family: known-callee word-result placement. This completes the census
+slice only. It adds no replayable core proof or compaction permission.

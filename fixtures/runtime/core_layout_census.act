@@ -1,0 +1,12 @@
+; Independent ordinary word-result placement control. Tests disable leaf
+; inlining in both runs so the call and its core layout checks remain visible.
+CARD input=$0600,output=$0602
+CARD saved
+
+CARD FUNC ReadValue()
+RETURN(input+1)
+
+PROC Main()
+  saved=ReadValue()
+  output=0
+RETURN
