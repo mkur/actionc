@@ -345,3 +345,82 @@ byte-load/move extension.
 The shared transaction restores cleanup after consumer changes, with one owner
 for acceptance and rollback. Compact typed witnesses may eventually replace the
 coarse retained snapshots, provided their preservation checks remain equivalent.
+
+## Allocation-pruning experiment
+
+Status: implementation in progress. The producer-enabled baseline retains six
+unused ordinary spill bytes in TN. They are candidates, not a measured saving.
+
+The first allocation slice removes only completely unreferenced one-byte
+`frame.spills` declarations. It retains live storage IDs, order, parameters,
+locals, data declarations, fixed backing, ABI, virtual-ZP allocations and every
+operation. Reuse the core spill-pruning candidate scan, intersected with the
+structured effect/reference inventory. Address references, including references
+in immutable earlier-decision witnesses, retain a spill. Structured reads and
+writes, terminators, call results and frame-slot backing also count as uses;
+a missing explicit load is insufficient. Data relocations cannot name spills.
+
+### Core allocation preservation
+
+The existing sidecar starts after core materialization. It cannot certify a
+change to assumptions made by core alias checks, captured comparisons, scalar
+captures, constructor storage or zero-page selection. The initial experiment
+therefore requires exact equality of all surviving `MaterializeLayout` storage
+addresses and attributes, and unchanged zero-page allocations. Removing only
+unreferenced ordinary declarations cannot change source typing, descriptor
+facts, logical alias identities or storage widths. The address-equality guard
+preserves the remaining allocation-dependent core inputs. Removed spills must
+be private, unexposed and absent from executable references; they supply no
+surviving value or address.
+
+This is deliberately an address-stable subset of compaction. It usually admits
+unused storage at the end of ordinary allocation. It does not authorize moving
+live cells to fill interior holes. TN's six holes precede live storage, so the
+experiment must report a core-allocation blocker if equality fails. General
+interior compaction needs retained, replayable core allocation predicates; a
+new final map alone cannot reconstruct assumptions erased by earlier rewrites.
+
+### Placement and rollback
+
+Run the optional pruning transaction inside executable terminal preparation,
+after the existing accepted store/producer cleanup. Its immutable baseline is
+that already-cleaned program. A pruning rejection returns it exactly, retaining
+previous savings. Keep the original operation-cleanup transaction unchanged.
+No recursive strategy selection, coloring, zero-page reassignment, subset
+search or full rematerialization is permitted.
+
+Before costing, reject changes to surviving core allocation inputs. Baseline
+and candidate converged emissions then supply final placement, protected code
+ranges, relocation results and packaged-image cost. Check surviving physical
+storage addresses and ordinary-memory facts, and replay the existing selected
+late decisions with the candidate map. Missing addresses in historical proofs
+cause rejection; never invent ghost addresses for removed storage. Declarations
+referenced by proof witnesses do not allocate memory during replay.
+
+Require a strictly smaller packaged image and no per-routine instruction growth.
+Verify the exact permitted declaration-only delta and `PreEmission` invariants,
+preserve whole-program callee contracts, and restore the complete pruning
+baseline on verification, layout, preservation or cost failure. A no-op or a core
+allocation blocker causes no cost emission. A nontrivial pruning attempt is
+bounded by two cost emissions and zero full materializations. Track these
+separately from the preceding operation-cleanup transaction.
+
+The experiment is explicitly configured by `enable_late_spill_pruning`, under
+the existing terminal/master gates, and initially disabled in both default and
+optimized configurations. Trace candidate counts, retained reasons, final
+removed bytes, actual cost and rollback independently of operation deletion.
+Trace-off builds must make identical decisions.
+
+### Qualification
+
+Compare pruning off/on with store and producer cleanup held enabled. Cover TN
+and independent controls at multiple origins in both runtimes. Report TN's
+actual result even if zero; report six candidate bytes separately from accepted
+savings. Positive controls must exercise generated code as well as declaration
+removal, and execute against a byte oracle. Negative controls include interior
+holes, surviving spill/address references, relocation-driven movement, unknown
+placement, observable fixed aliases, live zero-page mappings and cost rollback.
+Reconstruct and relocate listings through real LF/CRLF paths. Record work counts
+and preserve the producer-only qualification receipt. Leave the experiment
+opt-in if the narrow address-stability contract yields insufficient general
+benefit; broader compaction is a separate design and proof extension.

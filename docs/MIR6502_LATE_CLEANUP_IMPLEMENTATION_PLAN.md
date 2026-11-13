@@ -150,3 +150,23 @@ existing materialization/emission budgets are preserved. Local validation passed
 1,303 MIR6502 unit tests, 129 integration tests plus the explicit MADS test,
 30 VM tests, 54 CLI artifact comparisons, 28 complete API comparisons and
 24 MADS LF/CRLF roundtrips.
+
+## Allocation-pruning experiment slices
+
+1. Document the core-allocation gap, the address-stable subset, immutable
+   producer-cleaned baseline, candidate/reference rules and bounded costing.
+   Commit this design and plan before implementation.
+2. Reuse the existing spill-pruning candidate scan with structured references.
+   Add exact core/physical preservation guards and a declaration-only terminal
+   transaction with rollback, explicit opt-in configuration and trace outcomes.
+   Add focused positive and rejection tests; commit the implementation.
+3. Qualify TN and independent source/control programs in both runtimes and at
+   shifted origins. Check execution, relocation, trace equivalence, frame deltas,
+   actual image savings and work. Run the affected backend tests, save a separate
+   receipt and commit results. Do not describe TN's candidate bytes as savings
+   or claim general compaction when the core address guard rejects it.
+
+The [allocation contract](MIR6502_LATE_CLEANUP_DESIGN.md#allocation-pruning-experiment)
+explains why late selected-decision replay alone cannot approve moving live
+storage. This slice leaves the established frame-preserving cleanup enabled;
+it does not weaken its safety checks to obtain a target image size.
