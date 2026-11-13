@@ -15,7 +15,8 @@ The destination must not exist; its parent must exist. Repeat `--trace-routine`
 with exact routine names or IDs such as `r12`. Selectors refer to routines in
 initially lowered MIR, before generated helpers and inlining. An unknown or
 ambiguous selector is an error. Omitting selectors records every routine.
-Filtering affects diagnostics only. The option belongs to `actionc-emit` and
+Filtering affects diagnostics only. In the manifest, `selected_routines` is the
+resolved selector set; an empty set without filter errors means unfiltered. The option belongs to `actionc-emit` and
 requires full MIR6502 generation; other backends and early IR dump modes are
 rejected. Existing peephole-report settings remain independent.
 
@@ -27,7 +28,8 @@ The bundle contains:
 - `events.jsonl`: append-only event IDs, attempt IDs and typed diagnostic facts.
 - `snapshot-NNNNNN.mir`: existing MIR text for each captured snapshot.
 - `home-summary.json`: final explicit accesses, physical placements and references
-  to home demand, remaps and cleanup outcomes in the journal.
+  to home demand, remaps and cleanup outcomes in the journal. Access-count
+  changes across the returned outer pipeline identify later consumer removal.
 
 Identities use FNV-1a for diagnostic correlation, never optimizer proofs or
 cache keys. The qualification harness uses SHA-256 for artifact checks. The
@@ -50,7 +52,9 @@ A partial trace is useful for inspection but does not qualify a diagnosis.
 
 ## Reading evidence
 
-Attempts form a tree, not a linear list of optimization passes. Nested successes
+Attempts form a tree, not a linear list of optimization passes.
+Starts labeled `context` group child work and inherit their completion from the
+parent; starts labeled `attempt` have their own completion record. Nested successes
 remain speculative until selected by every parent. Selection records carry
 accepted/rejected routine IDs; returned snapshots show the actual composite
 program after rollback. Equivalent source snapshots are explicitly labeled

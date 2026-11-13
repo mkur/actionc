@@ -1,0 +1,276 @@
+{
+  "revision": "c00f37a84b8c0943c81565723420ace2c0d4f8d2",
+  "cases": [
+    {
+      "name": "tn",
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "cart",
+      "origin": "0x2C00",
+      "profile": "modern",
+      "id": "tn-cart-0x2C00-modern",
+      "source_sha256": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+      "artifacts": {
+        "xex": "7e3d5211bc66db3be00bae140c3bd46a3d475f3c624cb9b1e842c422b66c38eb",
+        "asm": "3e490024a17ae54cbcd674993516bcad6c14677f92346b1cbc4ed650cd6275ea",
+        "map": "398de1336f8050d6fc6fb0df32350ae78458d3008eef03379b03094be27e4350"
+      }
+    },
+    {
+      "name": "tn",
+      "source": "samples/tn/modern/TN.ACT",
+      "runtime": "standalone",
+      "origin": "0x2C00",
+      "profile": "modern",
+      "id": "tn-standalone-0x2C00-modern",
+      "source_sha256": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+      "artifacts": {
+        "xex": "23fc2cdbe286f1901213e23a190ab59a7dbe10d0b0e91c931e0f21eb02d124db",
+        "asm": "bba8f32c2e52179ba1ebabec65b31801a857dc4055337757e6489b84c6d39031",
+        "map": "fcf376c5678cefaf6c5d49d1421f938c2d39f5bc4d18ee7d19d72dffa870c31a"
+      }
+    },
+    {
+      "name": "home",
+      "source": "fixtures/runtime/home_value_invalidation.act",
+      "runtime": "cart",
+      "origin": "0x2C00",
+      "profile": "modern",
+      "id": "home-cart-0x2C00-modern",
+      "source_sha256": "59ae6830773f69fbf2c415293e39ab2139155021dc5f5edd3e846096117c1ecc",
+      "artifacts": {
+        "xex": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+        "asm": "d0f253bc7bd825eb31d80622303b4cb8d8dc43079a65fe5a0138fa14e07d9594",
+        "map": "682f928d1073334d91dad8fe9f6658ab0a0aa7a83b7b89873a1e6477211d8e12"
+      }
+    },
+    {
+      "name": "home",
+      "source": "fixtures/runtime/home_value_invalidation.act",
+      "runtime": "standalone",
+      "origin": "0x2C00",
+      "profile": "modern",
+      "id": "home-standalone-0x2C00-modern",
+      "source_sha256": "59ae6830773f69fbf2c415293e39ab2139155021dc5f5edd3e846096117c1ecc",
+      "artifacts": {
+        "xex": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+        "asm": "4cce64a0bcd304e8a7b672bd41868dd59f8754cc927bf3e09fbad615c0385dae",
+        "map": "1f8c75369850d017d347758aa9ccae607c075c2adb578b613f8e7dab5f874948"
+      }
+    },
+    {
+      "name": "staging",
+      "source": "fixtures/runtime/argument_staging.act",
+      "runtime": "cart",
+      "origin": "0x2C00",
+      "profile": "modern",
+      "id": "staging-cart-0x2C00-modern",
+      "source_sha256": "400871bc51dca8577fa9dd16d27c121ff5173968814a1fdc1368d7e557e34c75",
+      "artifacts": {
+        "xex": "1f71f9e8e0f34cd9dade807e98735a6626e74922ac47c3be5f33844c8957a65e",
+        "asm": "3b768d0903a9d0fdd4ab7b748ed0a3beaa4f699c2b76b9070d2a7b0a94faca50",
+        "map": "088875cbd7332dca946fdf207ff0ef49f609c845ecf3b9883a497d56e94c96ac"
+      }
+    },
+    {
+      "name": "staging",
+      "source": "fixtures/runtime/argument_staging.act",
+      "runtime": "standalone",
+      "origin": "0x2C00",
+      "profile": "modern",
+      "id": "staging-standalone-0x2C00-modern",
+      "source_sha256": "400871bc51dca8577fa9dd16d27c121ff5173968814a1fdc1368d7e557e34c75",
+      "artifacts": {
+        "xex": "fea69d197bf1bd9e4d0c226ad4f55aeb3367c41d18328f4c2796f971117b7cc5",
+        "asm": "dbe41933ca153c2dc40afb01ee79ff70e17e55b71956fc33bcc1df13105a8b6c",
+        "map": "5114a2adcf882c9f83de899676f5f946b910486c2bd5800980217b3250799df9"
+      }
+    },
+    {
+      "name": "word",
+      "source": "fixtures/runtime/word_load_sharing.act",
+      "runtime": "cart",
+      "origin": "0x2C00",
+      "profile": "modern",
+      "id": "word-cart-0x2C00-modern",
+      "source_sha256": "cb85766deb8e2b58941e80d9bae2c2d2907297c630d63725dd03dfb297fca00b",
+      "artifacts": {
+        "xex": "7052148ba7ca6bd52a4f1014b65827361e493af716b7884077508a568afcab5f",
+        "asm": "1ccb6c066e4ca13fd2b9836e5ab9729b2ca555b05caf615ed2188b1dbbb7936d",
+        "map": "c7bf7cf4a483e149a2d1424683dbc65be56365b636307ee310f8ee1f52288446"
+      }
+    },
+    {
+      "name": "word",
+      "source": "fixtures/runtime/word_load_sharing.act",
+      "runtime": "standalone",
+      "origin": "0x2C00",
+      "profile": "modern",
+      "id": "word-standalone-0x2C00-modern",
+      "source_sha256": "cb85766deb8e2b58941e80d9bae2c2d2907297c630d63725dd03dfb297fca00b",
+      "artifacts": {
+        "xex": "7052148ba7ca6bd52a4f1014b65827361e493af716b7884077508a568afcab5f",
+        "asm": "2dbd5d66bb5b3c7aaabdb881dd2f4b989cecba857d8a9dd37cded5c7f523f549",
+        "map": "ef839bad39e8ba144b0a37012b8ee1b2077642eab490bbafc07aef9a711a661b"
+      }
+    },
+    {
+      "name": "word",
+      "source": "fixtures/runtime/word_load_sharing.act",
+      "runtime": "cart",
+      "origin": "0x41C7",
+      "profile": "modern",
+      "id": "word-cart-0x41C7-modern",
+      "source_sha256": "cb85766deb8e2b58941e80d9bae2c2d2907297c630d63725dd03dfb297fca00b",
+      "artifacts": {
+        "xex": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+        "asm": "8655bf45e32c94563670fa1be05c3b15dc56480149883d39937441fc29c0cb87",
+        "map": "dfcdd4adc0528b1b5854102c9726899cc00c974e36edd251e99ddf1ea17388d0"
+      }
+    },
+    {
+      "name": "loop",
+      "source": "fixtures/runtime/pointer_invariant_loop.act",
+      "runtime": "cart",
+      "origin": "0x2C00",
+      "profile": "modern",
+      "id": "loop-cart-0x2C00-modern",
+      "source_sha256": "0508ad8bf6152cdade795ffd1e85b6adaf694b6cd25c02f4a4011485e93d7aa7",
+      "artifacts": {
+        "xex": "809ae5f6c3549a7cad5bc28aa7b2a8d60ff452b6c207e01cbe1f2e8a450a91ca",
+        "asm": "9a3d485e5536f69b7b540913edae974a0422a75cabcff93c320525fe7efefccd",
+        "map": "ddc7766936d250a5d554aff519bddc01651bad922b51b9ae4e7ddf669fe70069"
+      }
+    },
+    {
+      "name": "loop",
+      "source": "fixtures/runtime/pointer_invariant_loop.act",
+      "runtime": "standalone",
+      "origin": "0x2C00",
+      "profile": "modern",
+      "id": "loop-standalone-0x2C00-modern",
+      "source_sha256": "0508ad8bf6152cdade795ffd1e85b6adaf694b6cd25c02f4a4011485e93d7aa7",
+      "artifacts": {
+        "xex": "809ae5f6c3549a7cad5bc28aa7b2a8d60ff452b6c207e01cbe1f2e8a450a91ca",
+        "asm": "9ac4a9da565e0712c6e6610fe38aafe437fff5e0ed7c2b26f1db5d8092217c5d",
+        "map": "df3e85c51ea46d6f0b038c6df7307494fea02c8180ccbd58aef8e096a4da5d95"
+      }
+    },
+    {
+      "name": "ranges",
+      "source": "fixtures/runtime/checked_pointer_ranges.act",
+      "runtime": "cart",
+      "origin": "0x2C00",
+      "profile": "modern",
+      "id": "ranges-cart-0x2C00-modern",
+      "source_sha256": "17e840580d1464df1c974f8d808f9cb4e7432f7319f30751d866f418718f0a8d",
+      "artifacts": {
+        "xex": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+        "asm": "d0f253bc7bd825eb31d80622303b4cb8d8dc43079a65fe5a0138fa14e07d9594",
+        "map": "682f928d1073334d91dad8fe9f6658ab0a0aa7a83b7b89873a1e6477211d8e12"
+      }
+    },
+    {
+      "name": "ranges",
+      "source": "fixtures/runtime/checked_pointer_ranges.act",
+      "runtime": "standalone",
+      "origin": "0x2C00",
+      "profile": "modern",
+      "id": "ranges-standalone-0x2C00-modern",
+      "source_sha256": "17e840580d1464df1c974f8d808f9cb4e7432f7319f30751d866f418718f0a8d",
+      "artifacts": {
+        "xex": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+        "asm": "4cce64a0bcd304e8a7b672bd41868dd59f8754cc927bf3e09fbad615c0385dae",
+        "map": "1f8c75369850d017d347758aa9ccae607c075c2adb578b613f8e7dab5f874948"
+      }
+    },
+    {
+      "name": "ranges",
+      "source": "fixtures/runtime/checked_pointer_ranges.act",
+      "runtime": "cart",
+      "origin": "0x41C7",
+      "profile": "modern",
+      "id": "ranges-cart-0x41C7-modern",
+      "source_sha256": "17e840580d1464df1c974f8d808f9cb4e7432f7319f30751d866f418718f0a8d",
+      "artifacts": {
+        "xex": "49977821fcfa638edbedb7811c56bf24827be6b9a083a06bf9ef103fc383e6de",
+        "asm": "95896f3dd36f250c4f3f389a26b59d7777dd1e86e1e572b40e5de0bfbb40c920",
+        "map": "8af839a032f9b9172f27d04fcdec1ea6d7f088ba331010cdc61eb232fa97c99d"
+      }
+    },
+    {
+      "name": "captures",
+      "source": "surveys/tn/reproducers/captured-call-arguments.act",
+      "runtime": "cart",
+      "origin": "0x2C00",
+      "profile": "modern",
+      "id": "captures-cart-0x2C00-modern",
+      "source_sha256": "c228fe34612cd0ebade108da2a219990343d4f33d59fea7623ab87ef5b57e775",
+      "artifacts": {
+        "xex": "e6d5d1a7b16a0a4c00adbfadd3f3eeb8a8e711ef3df1ef85450722df0dc33603",
+        "asm": "1fb75afeb58a1233052dd15f021a03f9c95028cd83139c472b82cd91bc44b600",
+        "map": "32ae9f861db81f1830149273c8eabe1a29db5f0cec9495433d86d18f2fe52379"
+      }
+    },
+    {
+      "name": "captures",
+      "source": "surveys/tn/reproducers/captured-call-arguments.act",
+      "runtime": "standalone",
+      "origin": "0x2C00",
+      "profile": "modern",
+      "id": "captures-standalone-0x2C00-modern",
+      "source_sha256": "c228fe34612cd0ebade108da2a219990343d4f33d59fea7623ab87ef5b57e775",
+      "artifacts": {
+        "xex": "19c1064ed65e1ca4b18f33883a4eec095904adb0af5e8b4e3f8bb1f7c46c9e51",
+        "asm": "39c404519dafa86b2774d1855ade2048ca940124614207d9e2804e160f190f01",
+        "map": "a97d1adef7bf8d9799c29823488ee8df655cebf027d92f6ee88ece28ade9bdfb"
+      }
+    },
+    {
+      "name": "rejection",
+      "source": "surveys/tn/reproducers/call-predicate-layouts.act",
+      "runtime": "cart",
+      "origin": "0x3000",
+      "profile": "modern",
+      "id": "rejection-cart-0x3000-modern",
+      "source_sha256": "4d6ca1efda90fd28cc8708bdf57e22fa6924fb3ba56c774263f62bf70ec3b11c",
+      "artifacts": {
+        "xex": "b694b850b0201fc5ae2d491393d042a3e9908e923f9e0534704236ae57555c46",
+        "asm": "fdf87225e548c0de162d84c9fbac5d36b40f8f9da53fc4dc739e944c6df1b2dd",
+        "map": "aed1bdbeb42630aff5624b4a604acb3fbe3deea7462fd5c3ac813b3112f769e2"
+      }
+    },
+    {
+      "name": "coloring",
+      "source": "fixtures/runtime/mir6502_phase_trace_homes.act",
+      "runtime": "cart",
+      "origin": "0x3000",
+      "profile": "modern",
+      "id": "coloring-cart-0x3000-modern",
+      "source_sha256": "6bc39ab9299d3fb8e616bc8701da254ff41e27559dd3e9c855f97ca8255eba3c",
+      "artifacts": {
+        "xex": "759ac221533db8c280278e63acb9e364f41ad82fbbb01486745ed6a0574ce5a7",
+        "asm": "da16d463b535d5bdb2c2fa15d76536354e73517c0b9df052f4a808a563295446",
+        "map": "dcca1baaede9e7b4f97f4e32c5db9509b6d5c2db873bb59657e4f3ac52f9106c"
+      }
+    }
+  ],
+  "compiler_sha256": "e36231bcfde19280caa7448df876b5e811ce83fb571c15fdf38511c9ba56b9d5",
+  "api_cases": {
+    "home-ActionCart.debug": "d5a8cd61f0931d5f1033a937ea5c43ec34da3a8a94bd0d090d7c9aad57bf460e",
+    "home-ActionCart.xex": "30c4e3e8d781de894e9632dcfdf41139e747e038f171d82f05ab91b8dde7085c",
+    "home-Standalone.debug": "16b1c92a42a8c52d7fafde5247ae34b5fab06fa56b3f55b890835c66e98057b6",
+    "home-Standalone.xex": "30c4e3e8d781de894e9632dcfdf41139e747e038f171d82f05ab91b8dde7085c",
+    "staging-ActionCart.debug": "09e8ccc4d94b374dcfe13d4ead3e5e9171a67fe6999bf6aa13d33a1b89c16afd",
+    "staging-ActionCart.xex": "df21d2ff3431fab778fe3773631c975e745ca128ed852a338931121805cddef1",
+    "staging-Standalone.debug": "65f7a882b33a3e9b18db5f8512f8df08852f2e86357a2db552aaceebf1bb7b46",
+    "staging-Standalone.xex": "4bba42e2a89ad4dc30c2b44513fdd6320991fab95c35b001088e32ea984e3d89",
+    "home-optimized-ActionCart.xex": "a6a8781222d2a08772a3d3e704b9cc3d4fed5a38484e911e5a012e8c454b00d4",
+    "home-optimized-Standalone.xex": "a6a8781222d2a08772a3d3e704b9cc3d4fed5a38484e911e5a012e8c454b00d4",
+    "home-optimized-Standalone.debug": "52bac6f18073505c1f9fd2ee1aa9e865c3cd0f5f8d5cfc062922f480d95cb459",
+    "ranges-optimized-Standalone.debug": "841d45cf6e489ec3d73dea4ff3d7323711a9cb2c4bbb90052ad5f5a112461526",
+    "home-optimized-ActionCart.debug": "45f8748c43064f5ce9bcba164dacc94cea3f1dca31b56ae47823782e52e43ede",
+    "ranges-optimized-ActionCart.debug": "f66760fcfc9b4ced516efdc897f4363da654ea7fdc7d1d049578bcd7ecfe30bb",
+    "ranges-optimized-Standalone.xex": "53c91dd9481f08009916e9da90e2fc3ebef4156f0e2c13482775123c3b21b6c6",
+    "ranges-optimized-ActionCart.xex": "53c91dd9481f08009916e9da90e2fc3ebef4156f0e2c13482775123c3b21b6c6"
+  }
+}

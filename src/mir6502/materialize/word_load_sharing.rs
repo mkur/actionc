@@ -273,7 +273,7 @@ pub(in crate::mir6502) fn select_costed_traced(
         }
         let mut work = Work {
             trace: trace.clone(),
-            ..Work::default()
+            emissions: 0,
         };
         let Some(memory) = work.physical(&baseline, &baseline, origin) else {
             return Ok(baseline);

@@ -220,6 +220,7 @@ impl MirPreHomeRewriteDriver {
         let parent = self.trace.clone();
         let invocation = parent.child("rewrite-driver", "pre-home-batch");
         self.trace = invocation.clone();
+        self.trace.driver_round(routine, self.generation, "pre-home");
         let result = self.apply_batch_impl(routine, plans);
         self.trace = parent;
         invocation.event("attempt-end", ||serde_json::json!({"scope":"rewrite-driver","status":if result.is_ok(){"completed"}else{"failed"}}));

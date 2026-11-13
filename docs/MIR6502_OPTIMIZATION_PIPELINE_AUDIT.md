@@ -419,9 +419,15 @@ Sources: [spill scan](../src/mir6502/materialize/dead_spills.rs#L8),
 [compatibility barrier rule](../src/mir6502/analysis/effects.rs#L307),
 [analyzed store deletion](../src/mir6502/materialize/peepholes.rs#L443).
 
-This audit has not traced the six reviewed TN spill stores through individual
-phases, proved their physical non-aliasing, or measured the benefit of a final
-cleanup pass. It does establish the checkpoints needed to distinguish:
+The subsequent [phase-tracing qualification](benchmarks/6502-phase-tracing/README.md)
+now follows all six stores through those checkpoints. Each starts as a coupled
+word lane, still has an explicit reader during core cleanup, and loses that
+reader in the accepted T3 pointer-retention transaction. Its store and frame
+allocation survive through final emission. None of these six is explained by
+a zero-byte final MIR load. Physical deadness and the benefit of a cleanup or
+compaction transaction remain separate proof/measurement work.
+
+The checkpoints distinguish:
 
 1. A home created because of genuine liveness or an unsupported register plan.
 2. A store retained because of a conservative effect/alias proof.
@@ -438,7 +444,11 @@ moving passes or adding new optimization semantics. Use the existing shared
 analyses and report machinery.
 
 The [phase tracing implementation plan](MIR6502_PHASE_TRACING_IMPLEMENTATION_PLAN.md)
-turns this follow-up into six diagnostic slices with artifact-invariance checks.
+implements this follow-up in six diagnostic slices with artifact-invariance checks.
+The [trace guide](MIR6502_PHASE_TRACING.md) describes the CLI and API contracts;
+the [qualification report](benchmarks/6502-phase-tracing/README.md) recommends a
+frame-preserving private-store cleanup transaction and a separate placement
+contract before frame compaction.
 
 Capture the same accepted compilation at these boundaries:
 

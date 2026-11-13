@@ -1,0 +1,1840 @@
+{
+  "baseline_revision": "c00f37a84b8c0943c81565723420ace2c0d4f8d2",
+  "compiler_sha256": "34899962c5b5e25f61f63276c3716cfca5d9e8696c8f224c973fa13f378bd6a3",
+  "cases": [
+    {
+      "id": "tn-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": "7e3d5211bc66db3be00bae140c3bd46a3d475f3c624cb9b1e842c422b66c38eb",
+        "asm": "3e490024a17ae54cbcd674993516bcad6c14677f92346b1cbc4ed650cd6275ea",
+        "map": "398de1336f8050d6fc6fb0df32350ae78458d3008eef03379b03094be27e4350"
+      },
+      "journals": {
+        "xex": "d51c271e5a8bda9afdada5551196031f12fbe187a7cdecbfa7e273e96aead7c2",
+        "asm": "d51c271e5a8bda9afdada5551196031f12fbe187a7cdecbfa7e273e96aead7c2",
+        "map": "d51c271e5a8bda9afdada5551196031f12fbe187a7cdecbfa7e273e96aead7c2"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 7.2748758750385605,
+          "on": 8.598806584021077
+        },
+        "asm": {
+          "off": 7.343400750018191,
+          "on": 8.602595250005834
+        },
+        "map": {
+          "off": 7.352208208001684,
+          "on": 9.017655292002019
+        }
+      },
+      "detail_bytes": 16756477,
+      "bundle_bytes": 16848245,
+      "work": {
+        "emission_invocations": 41,
+        "inner_emission_probes": 246,
+        "materializations": 3,
+        "pipeline_attempts": 33,
+        "rewrite_analysis_builds": 24626
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [
+          {
+            "home": {
+              "id": 12,
+              "kind": "spill",
+              "offset": 0,
+              "routine": 72
+            },
+            "stage": "pointer_retention",
+            "before_snapshot": 48882,
+            "after_snapshot": 49020,
+            "before_reads": 1,
+            "after_reads": 0
+          },
+          {
+            "home": {
+              "id": 13,
+              "kind": "spill",
+              "offset": 0,
+              "routine": 72
+            },
+            "stage": "pointer_retention",
+            "before_snapshot": 48882,
+            "after_snapshot": 49020,
+            "before_reads": 1,
+            "after_reads": 0
+          },
+          {
+            "home": {
+              "id": 26,
+              "kind": "spill",
+              "offset": 0,
+              "routine": 72
+            },
+            "stage": "pointer_retention",
+            "before_snapshot": 48882,
+            "after_snapshot": 49020,
+            "before_reads": 1,
+            "after_reads": 0
+          },
+          {
+            "home": {
+              "id": 27,
+              "kind": "spill",
+              "offset": 0,
+              "routine": 72
+            },
+            "stage": "pointer_retention",
+            "before_snapshot": 48882,
+            "after_snapshot": 49020,
+            "before_reads": 1,
+            "after_reads": 0
+          },
+          {
+            "home": {
+              "id": 110,
+              "kind": "spill",
+              "offset": 0,
+              "routine": 73
+            },
+            "stage": "pointer_retention",
+            "before_snapshot": 48882,
+            "after_snapshot": 49020,
+            "before_reads": 1,
+            "after_reads": 0
+          },
+          {
+            "home": {
+              "id": 111,
+              "kind": "spill",
+              "offset": 0,
+              "routine": 73
+            },
+            "stage": "pointer_retention",
+            "before_snapshot": 48882,
+            "after_snapshot": 49020,
+            "before_reads": 1,
+            "after_reads": 0
+          }
+        ],
+        "compat_outcomes": {
+          "retained": 78,
+          "removed": 3
+        },
+        "final_written_homes_without_explicit_reads": 6,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "partial": 1,
+          "accepted": 6
+        },
+        "cleanup_stops": {
+          "explicit-read": 78,
+          "covering-overwrite": 3,
+          "visited-cycle": 6,
+          "no-read-found": 24
+        },
+        "proof_blockers": {
+          "home-definition-live": 129,
+          "record-base-unavailable": 20
+        },
+        "zero_byte_operations": 13
+      },
+      "diagnosis": [
+        {
+          "routine": "FormatDirectoryRow",
+          "home": {
+            "kind": "spill",
+            "routine": 72,
+            "id": 12,
+            "offset": 0
+          },
+          "temp": 6,
+          "lane": 0,
+          "demand_event": 39225,
+          "assignment_event": 39245,
+          "cleanup_stop_event": 46136,
+          "last_consumer": [
+            {
+              "block": 2,
+              "op": 10
+            }
+          ],
+          "before_snapshot": 48882,
+          "after_snapshot": 49020,
+          "selection_event": 49019,
+          "final_snapshot": 49199,
+          "physical_address": 12038,
+          "store_address": 16613,
+          "store_bytes": 3,
+          "allocated_bytes": 1,
+          "cause": "pointer retention removes last explicit reader after core cleanup; frame preserved"
+        },
+        {
+          "routine": "FormatDirectoryRow",
+          "home": {
+            "kind": "spill",
+            "routine": 72,
+            "id": 13,
+            "offset": 0
+          },
+          "temp": 6,
+          "lane": 1,
+          "demand_event": 39226,
+          "assignment_event": 39246,
+          "cleanup_stop_event": 46138,
+          "last_consumer": [
+            {
+              "block": 2,
+              "op": 12
+            }
+          ],
+          "before_snapshot": 48882,
+          "after_snapshot": 49020,
+          "selection_event": 49019,
+          "final_snapshot": 49199,
+          "physical_address": 12039,
+          "store_address": 16621,
+          "store_bytes": 3,
+          "allocated_bytes": 1,
+          "cause": "pointer retention removes last explicit reader after core cleanup; frame preserved"
+        },
+        {
+          "routine": "FormatDirectoryRow",
+          "home": {
+            "kind": "spill",
+            "routine": 72,
+            "id": 26,
+            "offset": 0
+          },
+          "temp": 13,
+          "lane": 0,
+          "demand_event": 39227,
+          "assignment_event": 39247,
+          "cleanup_stop_event": 46140,
+          "last_consumer": [
+            {
+              "block": 4,
+              "op": 13
+            }
+          ],
+          "before_snapshot": 48882,
+          "after_snapshot": 49020,
+          "selection_event": 49019,
+          "final_snapshot": 49199,
+          "physical_address": 12040,
+          "store_address": 16659,
+          "store_bytes": 3,
+          "allocated_bytes": 1,
+          "cause": "pointer retention removes last explicit reader after core cleanup; frame preserved"
+        },
+        {
+          "routine": "FormatDirectoryRow",
+          "home": {
+            "kind": "spill",
+            "routine": 72,
+            "id": 27,
+            "offset": 0
+          },
+          "temp": 13,
+          "lane": 1,
+          "demand_event": 39228,
+          "assignment_event": 39248,
+          "cleanup_stop_event": 46142,
+          "last_consumer": [
+            {
+              "block": 4,
+              "op": 15
+            }
+          ],
+          "before_snapshot": 48882,
+          "after_snapshot": 49020,
+          "selection_event": 49019,
+          "final_snapshot": 49199,
+          "physical_address": 12041,
+          "store_address": 16665,
+          "store_bytes": 3,
+          "allocated_bytes": 1,
+          "cause": "pointer retention removes last explicit reader after core cleanup; frame preserved"
+        },
+        {
+          "routine": "SetWin",
+          "home": {
+            "kind": "spill",
+            "routine": 73,
+            "id": 110,
+            "offset": 0
+          },
+          "temp": 55,
+          "lane": 0,
+          "demand_event": 39601,
+          "assignment_event": 39624,
+          "cleanup_stop_event": 46260,
+          "last_consumer": [
+            {
+              "block": 17,
+              "op": 7
+            }
+          ],
+          "before_snapshot": 48882,
+          "after_snapshot": 49020,
+          "selection_event": 49019,
+          "final_snapshot": 49199,
+          "physical_address": 12100,
+          "store_address": 17325,
+          "store_bytes": 3,
+          "allocated_bytes": 1,
+          "cause": "pointer retention removes last explicit reader after core cleanup; frame preserved"
+        },
+        {
+          "routine": "SetWin",
+          "home": {
+            "kind": "spill",
+            "routine": 73,
+            "id": 111,
+            "offset": 0
+          },
+          "temp": 55,
+          "lane": 1,
+          "demand_event": 39602,
+          "assignment_event": 39625,
+          "cleanup_stop_event": 46262,
+          "last_consumer": [
+            {
+              "block": 17,
+              "op": 9
+            }
+          ],
+          "before_snapshot": 48882,
+          "after_snapshot": 49020,
+          "selection_event": 49019,
+          "final_snapshot": 49199,
+          "physical_address": 12101,
+          "store_address": 17331,
+          "store_bytes": 3,
+          "allocated_bytes": 1,
+          "cause": "pointer retention removes last explicit reader after core cleanup; frame preserved"
+        }
+      ],
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "tn-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": "23fc2cdbe286f1901213e23a190ab59a7dbe10d0b0e91c931e0f21eb02d124db",
+        "asm": "bba8f32c2e52179ba1ebabec65b31801a857dc4055337757e6489b84c6d39031",
+        "map": "fcf376c5678cefaf6c5d49d1421f938c2d39f5bc4d18ee7d19d72dffa870c31a"
+      },
+      "journals": {
+        "xex": "4badc36d72cd42b8cfdc170ff2ea2eee19741e0b9d170da70631353d41a1bc00",
+        "asm": "4badc36d72cd42b8cfdc170ff2ea2eee19741e0b9d170da70631353d41a1bc00",
+        "map": "4badc36d72cd42b8cfdc170ff2ea2eee19741e0b9d170da70631353d41a1bc00"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 7.725390416977461,
+          "on": 8.733256833045743
+        },
+        "asm": {
+          "off": 7.444895334017929,
+          "on": 8.671687708992977
+        },
+        "map": {
+          "off": 7.908251957967877,
+          "on": 9.295180999964941
+        }
+      },
+      "detail_bytes": 16781740,
+      "bundle_bytes": 16873337,
+      "work": {
+        "emission_invocations": 41,
+        "inner_emission_probes": 246,
+        "materializations": 3,
+        "pipeline_attempts": 33,
+        "rewrite_analysis_builds": 24626
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [
+          {
+            "home": {
+              "id": 12,
+              "kind": "spill",
+              "offset": 0,
+              "routine": 72
+            },
+            "stage": "pointer_retention",
+            "before_snapshot": 48882,
+            "after_snapshot": 49020,
+            "before_reads": 1,
+            "after_reads": 0
+          },
+          {
+            "home": {
+              "id": 13,
+              "kind": "spill",
+              "offset": 0,
+              "routine": 72
+            },
+            "stage": "pointer_retention",
+            "before_snapshot": 48882,
+            "after_snapshot": 49020,
+            "before_reads": 1,
+            "after_reads": 0
+          },
+          {
+            "home": {
+              "id": 26,
+              "kind": "spill",
+              "offset": 0,
+              "routine": 72
+            },
+            "stage": "pointer_retention",
+            "before_snapshot": 48882,
+            "after_snapshot": 49020,
+            "before_reads": 1,
+            "after_reads": 0
+          },
+          {
+            "home": {
+              "id": 27,
+              "kind": "spill",
+              "offset": 0,
+              "routine": 72
+            },
+            "stage": "pointer_retention",
+            "before_snapshot": 48882,
+            "after_snapshot": 49020,
+            "before_reads": 1,
+            "after_reads": 0
+          },
+          {
+            "home": {
+              "id": 110,
+              "kind": "spill",
+              "offset": 0,
+              "routine": 73
+            },
+            "stage": "pointer_retention",
+            "before_snapshot": 48882,
+            "after_snapshot": 49020,
+            "before_reads": 1,
+            "after_reads": 0
+          },
+          {
+            "home": {
+              "id": 111,
+              "kind": "spill",
+              "offset": 0,
+              "routine": 73
+            },
+            "stage": "pointer_retention",
+            "before_snapshot": 48882,
+            "after_snapshot": 49020,
+            "before_reads": 1,
+            "after_reads": 0
+          }
+        ],
+        "compat_outcomes": {
+          "retained": 78,
+          "removed": 3
+        },
+        "final_written_homes_without_explicit_reads": 6,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "partial": 1,
+          "accepted": 6
+        },
+        "cleanup_stops": {
+          "explicit-read": 78,
+          "covering-overwrite": 3,
+          "visited-cycle": 6,
+          "no-read-found": 24
+        },
+        "proof_blockers": {
+          "home-definition-live": 129,
+          "record-base-unavailable": 20
+        },
+        "zero_byte_operations": 13
+      },
+      "diagnosis": [
+        {
+          "routine": "FormatDirectoryRow",
+          "home": {
+            "kind": "spill",
+            "routine": 72,
+            "id": 12,
+            "offset": 0
+          },
+          "temp": 6,
+          "lane": 0,
+          "demand_event": 39225,
+          "assignment_event": 39245,
+          "cleanup_stop_event": 46136,
+          "last_consumer": [
+            {
+              "block": 2,
+              "op": 10
+            }
+          ],
+          "before_snapshot": 48882,
+          "after_snapshot": 49020,
+          "selection_event": 49019,
+          "final_snapshot": 49199,
+          "physical_address": 12038,
+          "store_address": 16604,
+          "store_bytes": 3,
+          "allocated_bytes": 1,
+          "cause": "pointer retention removes last explicit reader after core cleanup; frame preserved"
+        },
+        {
+          "routine": "FormatDirectoryRow",
+          "home": {
+            "kind": "spill",
+            "routine": 72,
+            "id": 13,
+            "offset": 0
+          },
+          "temp": 6,
+          "lane": 1,
+          "demand_event": 39226,
+          "assignment_event": 39246,
+          "cleanup_stop_event": 46138,
+          "last_consumer": [
+            {
+              "block": 2,
+              "op": 12
+            }
+          ],
+          "before_snapshot": 48882,
+          "after_snapshot": 49020,
+          "selection_event": 49019,
+          "final_snapshot": 49199,
+          "physical_address": 12039,
+          "store_address": 16612,
+          "store_bytes": 3,
+          "allocated_bytes": 1,
+          "cause": "pointer retention removes last explicit reader after core cleanup; frame preserved"
+        },
+        {
+          "routine": "FormatDirectoryRow",
+          "home": {
+            "kind": "spill",
+            "routine": 72,
+            "id": 26,
+            "offset": 0
+          },
+          "temp": 13,
+          "lane": 0,
+          "demand_event": 39227,
+          "assignment_event": 39247,
+          "cleanup_stop_event": 46140,
+          "last_consumer": [
+            {
+              "block": 4,
+              "op": 13
+            }
+          ],
+          "before_snapshot": 48882,
+          "after_snapshot": 49020,
+          "selection_event": 49019,
+          "final_snapshot": 49199,
+          "physical_address": 12040,
+          "store_address": 16650,
+          "store_bytes": 3,
+          "allocated_bytes": 1,
+          "cause": "pointer retention removes last explicit reader after core cleanup; frame preserved"
+        },
+        {
+          "routine": "FormatDirectoryRow",
+          "home": {
+            "kind": "spill",
+            "routine": 72,
+            "id": 27,
+            "offset": 0
+          },
+          "temp": 13,
+          "lane": 1,
+          "demand_event": 39228,
+          "assignment_event": 39248,
+          "cleanup_stop_event": 46142,
+          "last_consumer": [
+            {
+              "block": 4,
+              "op": 15
+            }
+          ],
+          "before_snapshot": 48882,
+          "after_snapshot": 49020,
+          "selection_event": 49019,
+          "final_snapshot": 49199,
+          "physical_address": 12041,
+          "store_address": 16656,
+          "store_bytes": 3,
+          "allocated_bytes": 1,
+          "cause": "pointer retention removes last explicit reader after core cleanup; frame preserved"
+        },
+        {
+          "routine": "SetWin",
+          "home": {
+            "kind": "spill",
+            "routine": 73,
+            "id": 110,
+            "offset": 0
+          },
+          "temp": 55,
+          "lane": 0,
+          "demand_event": 39601,
+          "assignment_event": 39624,
+          "cleanup_stop_event": 46260,
+          "last_consumer": [
+            {
+              "block": 17,
+              "op": 7
+            }
+          ],
+          "before_snapshot": 48882,
+          "after_snapshot": 49020,
+          "selection_event": 49019,
+          "final_snapshot": 49199,
+          "physical_address": 12100,
+          "store_address": 17316,
+          "store_bytes": 3,
+          "allocated_bytes": 1,
+          "cause": "pointer retention removes last explicit reader after core cleanup; frame preserved"
+        },
+        {
+          "routine": "SetWin",
+          "home": {
+            "kind": "spill",
+            "routine": 73,
+            "id": 111,
+            "offset": 0
+          },
+          "temp": 55,
+          "lane": 1,
+          "demand_event": 39602,
+          "assignment_event": 39625,
+          "cleanup_stop_event": 46262,
+          "last_consumer": [
+            {
+              "block": 17,
+              "op": 9
+            }
+          ],
+          "before_snapshot": 48882,
+          "after_snapshot": 49020,
+          "selection_event": 49019,
+          "final_snapshot": 49199,
+          "physical_address": 12101,
+          "store_address": 17322,
+          "store_bytes": 3,
+          "allocated_bytes": 1,
+          "cause": "pointer retention removes last explicit reader after core cleanup; frame preserved"
+        }
+      ],
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "home-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+        "asm": "d0f253bc7bd825eb31d80622303b4cb8d8dc43079a65fe5a0138fa14e07d9594",
+        "map": "682f928d1073334d91dad8fe9f6658ab0a0aa7a83b7b89873a1e6477211d8e12"
+      },
+      "journals": {
+        "xex": "d6036ac468e0502c5a739eef29c1e79a50d09c93f01d92ff47e0953e9acd82b3",
+        "asm": "d6036ac468e0502c5a739eef29c1e79a50d09c93f01d92ff47e0953e9acd82b3",
+        "map": "d6036ac468e0502c5a739eef29c1e79a50d09c93f01d92ff47e0953e9acd82b3"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.009177125000860542,
+          "on": 0.0549846250214614
+        },
+        "asm": {
+          "off": 0.010020082991104573,
+          "on": 0.05627829203149304
+        },
+        "map": {
+          "off": 0.009000124991871417,
+          "on": 0.056782333995215595
+        }
+      },
+      "detail_bytes": 126913,
+      "bundle_bytes": 131523,
+      "work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 77
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {},
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {},
+        "proof_blockers": {},
+        "zero_byte_operations": 0
+      }
+    },
+    {
+      "id": "home-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+        "asm": "4cce64a0bcd304e8a7b672bd41868dd59f8754cc927bf3e09fbad615c0385dae",
+        "map": "1f8c75369850d017d347758aa9ccae607c075c2adb578b613f8e7dab5f874948"
+      },
+      "journals": {
+        "xex": "88a3cb92cf7dc022f64ab5692320b9ca3b0dbeaa69c09b9552fe7365483e9930",
+        "asm": "88a3cb92cf7dc022f64ab5692320b9ca3b0dbeaa69c09b9552fe7365483e9930",
+        "map": "88a3cb92cf7dc022f64ab5692320b9ca3b0dbeaa69c09b9552fe7365483e9930"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.009126499993726611,
+          "on": 0.08556087501347065
+        },
+        "asm": {
+          "off": 0.008863165974617004,
+          "on": 0.05629908404080197
+        },
+        "map": {
+          "off": 0.009022709040436894,
+          "on": 0.055900582985486835
+        }
+      },
+      "detail_bytes": 126913,
+      "bundle_bytes": 131523,
+      "work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 77
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {},
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {},
+        "proof_blockers": {},
+        "zero_byte_operations": 0
+      }
+    },
+    {
+      "id": "staging-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": "1f71f9e8e0f34cd9dade807e98735a6626e74922ac47c3be5f33844c8957a65e",
+        "asm": "3b768d0903a9d0fdd4ab7b748ed0a3beaa4f699c2b76b9070d2a7b0a94faca50",
+        "map": "088875cbd7332dca946fdf207ff0ef49f609c845ecf3b9883a497d56e94c96ac"
+      },
+      "journals": {
+        "xex": "0f58cbd968adb059a095d04877bfafdb7521e3b86f733b282b8f5fd0fe5aba21",
+        "asm": "0f58cbd968adb059a095d04877bfafdb7521e3b86f733b282b8f5fd0fe5aba21",
+        "map": "0f58cbd968adb059a095d04877bfafdb7521e3b86f733b282b8f5fd0fe5aba21"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.04857379198074341,
+          "on": 0.22444329195423052
+        },
+        "asm": {
+          "off": 0.04844254202907905,
+          "on": 0.2587948750006035
+        },
+        "map": {
+          "off": 0.04793179198168218,
+          "on": 0.22453725000377744
+        }
+      },
+      "detail_bytes": 2123567,
+      "bundle_bytes": 2177498,
+      "work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 24,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 588
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [
+          {
+            "home": {
+              "id": 1,
+              "kind": "virtual-zp",
+              "offset": 0,
+              "routine": 2
+            },
+            "stage": "argument_staging",
+            "before_snapshot": 2181,
+            "after_snapshot": 2228,
+            "before_reads": 1,
+            "after_reads": 0
+          },
+          {
+            "home": {
+              "id": 1,
+              "kind": "virtual-zp",
+              "offset": 0,
+              "routine": 3
+            },
+            "stage": "argument_staging",
+            "before_snapshot": 2181,
+            "after_snapshot": 2228,
+            "before_reads": 1,
+            "after_reads": 0
+          }
+        ],
+        "compat_outcomes": {
+          "retained": 8
+        },
+        "final_written_homes_without_explicit_reads": 2,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 2
+        },
+        "cleanup_stops": {
+          "explicit-read": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 16
+        },
+        "zero_byte_operations": 5
+      }
+    },
+    {
+      "id": "staging-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": "fea69d197bf1bd9e4d0c226ad4f55aeb3367c41d18328f4c2796f971117b7cc5",
+        "asm": "dbe41933ca153c2dc40afb01ee79ff70e17e55b71956fc33bcc1df13105a8b6c",
+        "map": "5114a2adcf882c9f83de899676f5f946b910486c2bd5800980217b3250799df9"
+      },
+      "journals": {
+        "xex": "8f07462eb3bba3e0e97252589bcdf653cafc49c9415bbb3a0a08d85381527a37",
+        "asm": "8f07462eb3bba3e0e97252589bcdf653cafc49c9415bbb3a0a08d85381527a37",
+        "map": "8f07462eb3bba3e0e97252589bcdf653cafc49c9415bbb3a0a08d85381527a37"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.05400704202475026,
+          "on": 0.24151083396282047
+        },
+        "asm": {
+          "off": 0.05153458297718316,
+          "on": 0.24214895797194913
+        },
+        "map": {
+          "off": 0.05218191602034494,
+          "on": 0.23405949998414144
+        }
+      },
+      "detail_bytes": 2218738,
+      "bundle_bytes": 2273458,
+      "work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 24,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 588
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [
+          {
+            "home": {
+              "id": 1,
+              "kind": "virtual-zp",
+              "offset": 0,
+              "routine": 2
+            },
+            "stage": "argument_staging",
+            "before_snapshot": 2181,
+            "after_snapshot": 2228,
+            "before_reads": 1,
+            "after_reads": 0
+          },
+          {
+            "home": {
+              "id": 1,
+              "kind": "virtual-zp",
+              "offset": 0,
+              "routine": 3
+            },
+            "stage": "argument_staging",
+            "before_snapshot": 2181,
+            "after_snapshot": 2228,
+            "before_reads": 1,
+            "after_reads": 0
+          }
+        ],
+        "compat_outcomes": {
+          "retained": 8
+        },
+        "final_written_homes_without_explicit_reads": 2,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 2
+        },
+        "cleanup_stops": {
+          "explicit-read": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 16
+        },
+        "zero_byte_operations": 8
+      }
+    },
+    {
+      "id": "word-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": "7052148ba7ca6bd52a4f1014b65827361e493af716b7884077508a568afcab5f",
+        "asm": "1ccb6c066e4ca13fd2b9836e5ab9729b2ca555b05caf615ed2188b1dbbb7936d",
+        "map": "c7bf7cf4a483e149a2d1424683dbc65be56365b636307ee310f8ee1f52288446"
+      },
+      "journals": {
+        "xex": "6af158a9091a72a7ae3d20f7fda43135f1e8e431fa6fbb8ffa1f933add5e2067",
+        "asm": "6af158a9091a72a7ae3d20f7fda43135f1e8e431fa6fbb8ffa1f933add5e2067",
+        "map": "6af158a9091a72a7ae3d20f7fda43135f1e8e431fa6fbb8ffa1f933add5e2067"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.04312954202760011,
+          "on": 0.17224745801649988
+        },
+        "asm": {
+          "off": 0.04067012498853728,
+          "on": 0.17209800001000986
+        },
+        "map": {
+          "off": 0.04158091597491875,
+          "on": 0.16972291603451595
+        }
+      },
+      "detail_bytes": 1435514,
+      "bundle_bytes": 1480698,
+      "work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 255
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 1,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 8
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {
+          "explicit-read": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 15,
+          "record-base-unavailable": 9
+        },
+        "zero_byte_operations": 3
+      },
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "word-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": "7052148ba7ca6bd52a4f1014b65827361e493af716b7884077508a568afcab5f",
+        "asm": "2dbd5d66bb5b3c7aaabdb881dd2f4b989cecba857d8a9dd37cded5c7f523f549",
+        "map": "ef839bad39e8ba144b0a37012b8ee1b2077642eab490bbafc07aef9a711a661b"
+      },
+      "journals": {
+        "xex": "e0c2e58ba27659f6ec1b9b701f5953c8fa80a0725940dc5fd245cc3879b9a7c7",
+        "asm": "e0c2e58ba27659f6ec1b9b701f5953c8fa80a0725940dc5fd245cc3879b9a7c7",
+        "map": "e0c2e58ba27659f6ec1b9b701f5953c8fa80a0725940dc5fd245cc3879b9a7c7"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.04128562496043742,
+          "on": 0.17313079198356718
+        },
+        "asm": {
+          "off": 0.04504645901033655,
+          "on": 0.1705032919999212
+        },
+        "map": {
+          "off": 0.041089832957368344,
+          "on": 0.1700961669557728
+        }
+      },
+      "detail_bytes": 1435514,
+      "bundle_bytes": 1480698,
+      "work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 255
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 1,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 8
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {
+          "explicit-read": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 15,
+          "record-base-unavailable": 9
+        },
+        "zero_byte_operations": 3
+      },
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "word-cart-0x41C7-modern",
+      "artifacts": {
+        "xex": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+        "asm": "8655bf45e32c94563670fa1be05c3b15dc56480149883d39937441fc29c0cb87",
+        "map": "dfcdd4adc0528b1b5854102c9726899cc00c974e36edd251e99ddf1ea17388d0"
+      },
+      "journals": {
+        "xex": "ab7b847c708b13472a7267801015402817f4ef7fa59f65b5ea419a336c47deb1",
+        "asm": "ab7b847c708b13472a7267801015402817f4ef7fa59f65b5ea419a336c47deb1",
+        "map": "ab7b847c708b13472a7267801015402817f4ef7fa59f65b5ea419a336c47deb1"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.04125237499829382,
+          "on": 0.17192108399467543
+        },
+        "asm": {
+          "off": 0.04214062500977889,
+          "on": 0.1750190409948118
+        },
+        "map": {
+          "off": 0.04270333400927484,
+          "on": 0.1724661669577472
+        }
+      },
+      "detail_bytes": 1435514,
+      "bundle_bytes": 1480698,
+      "work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 255
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 1,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 8
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {
+          "explicit-read": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 15,
+          "record-base-unavailable": 9
+        },
+        "zero_byte_operations": 3
+      },
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "loop-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": "809ae5f6c3549a7cad5bc28aa7b2a8d60ff452b6c207e01cbe1f2e8a450a91ca",
+        "asm": "9a3d485e5536f69b7b540913edae974a0422a75cabcff93c320525fe7efefccd",
+        "map": "ddc7766936d250a5d554aff519bddc01651bad922b51b9ae4e7ddf669fe70069"
+      },
+      "journals": {
+        "xex": "43f193121afadf880ffd5542ae731810768fe20e3c6e1b4b481ff48203d5802a",
+        "asm": "43f193121afadf880ffd5542ae731810768fe20e3c6e1b4b481ff48203d5802a",
+        "map": "43f193121afadf880ffd5542ae731810768fe20e3c6e1b4b481ff48203d5802a"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.02266066602896899,
+          "on": 0.09539445798145607
+        },
+        "asm": {
+          "off": 0.023145916988141835,
+          "on": 0.09586270799627528
+        },
+        "map": {
+          "off": 0.022287959000095725,
+          "on": 0.09374529204797
+        }
+      },
+      "detail_bytes": 506018,
+      "bundle_bytes": 518058,
+      "work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 242
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {},
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {},
+        "proof_blockers": {
+          "record-base-unavailable": 2
+        },
+        "zero_byte_operations": 4
+      }
+    },
+    {
+      "id": "loop-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": "809ae5f6c3549a7cad5bc28aa7b2a8d60ff452b6c207e01cbe1f2e8a450a91ca",
+        "asm": "9ac4a9da565e0712c6e6610fe38aafe437fff5e0ed7c2b26f1db5d8092217c5d",
+        "map": "df3e85c51ea46d6f0b038c6df7307494fea02c8180ccbd58aef8e096a4da5d95"
+      },
+      "journals": {
+        "xex": "bf7f9d705d22ca7b543b5370a1de634c60435bdafafadc1ec148078a9a8199b5",
+        "asm": "bf7f9d705d22ca7b543b5370a1de634c60435bdafafadc1ec148078a9a8199b5",
+        "map": "bf7f9d705d22ca7b543b5370a1de634c60435bdafafadc1ec148078a9a8199b5"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.022636834008153528,
+          "on": 0.09574025002075359
+        },
+        "asm": {
+          "off": 0.022640000039245933,
+          "on": 0.09572358400328085
+        },
+        "map": {
+          "off": 0.023223458032589406,
+          "on": 0.09404195798560977
+        }
+      },
+      "detail_bytes": 506018,
+      "bundle_bytes": 518058,
+      "work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 242
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {},
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {},
+        "proof_blockers": {
+          "record-base-unavailable": 2
+        },
+        "zero_byte_operations": 4
+      }
+    },
+    {
+      "id": "ranges-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+        "asm": "d0f253bc7bd825eb31d80622303b4cb8d8dc43079a65fe5a0138fa14e07d9594",
+        "map": "682f928d1073334d91dad8fe9f6658ab0a0aa7a83b7b89873a1e6477211d8e12"
+      },
+      "journals": {
+        "xex": "0da45af3554628cd317caaef5fc0e949b701ff155d13388824d2902eddb28060",
+        "asm": "0da45af3554628cd317caaef5fc0e949b701ff155d13388824d2902eddb28060",
+        "map": "0da45af3554628cd317caaef5fc0e949b701ff155d13388824d2902eddb28060"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.009971333027351648,
+          "on": 0.05597899999702349
+        },
+        "asm": {
+          "off": 0.01033854199340567,
+          "on": 0.055005500034894794
+        },
+        "map": {
+          "off": 0.009715292020700872,
+          "on": 0.05689433397492394
+        }
+      },
+      "detail_bytes": 126913,
+      "bundle_bytes": 131523,
+      "work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 77
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {},
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {},
+        "proof_blockers": {},
+        "zero_byte_operations": 0
+      },
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "ranges-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+        "asm": "4cce64a0bcd304e8a7b672bd41868dd59f8754cc927bf3e09fbad615c0385dae",
+        "map": "1f8c75369850d017d347758aa9ccae607c075c2adb578b613f8e7dab5f874948"
+      },
+      "journals": {
+        "xex": "1f628f6b80b99c172cacbe454f356eeb53abe85242a5b0eaa0def295cffffad4",
+        "asm": "1f628f6b80b99c172cacbe454f356eeb53abe85242a5b0eaa0def295cffffad4",
+        "map": "1f628f6b80b99c172cacbe454f356eeb53abe85242a5b0eaa0def295cffffad4"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.00926299998536706,
+          "on": 0.05571087502175942
+        },
+        "asm": {
+          "off": 0.010243500000797212,
+          "on": 0.05541199998697266
+        },
+        "map": {
+          "off": 0.009938167000655085,
+          "on": 0.0617269579670392
+        }
+      },
+      "detail_bytes": 126913,
+      "bundle_bytes": 131523,
+      "work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 77
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {},
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {},
+        "proof_blockers": {},
+        "zero_byte_operations": 0
+      },
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "ranges-cart-0x41C7-modern",
+      "artifacts": {
+        "xex": "49977821fcfa638edbedb7811c56bf24827be6b9a083a06bf9ef103fc383e6de",
+        "asm": "95896f3dd36f250c4f3f389a26b59d7777dd1e86e1e572b40e5de0bfbb40c920",
+        "map": "8af839a032f9b9172f27d04fcdec1ea6d7f088ba331010cdc61eb232fa97c99d"
+      },
+      "journals": {
+        "xex": "c6b4b02b284dc5f12face2591a13ec0880aaf7ee870f543001fb1e208b88c915",
+        "asm": "c6b4b02b284dc5f12face2591a13ec0880aaf7ee870f543001fb1e208b88c915",
+        "map": "c6b4b02b284dc5f12face2591a13ec0880aaf7ee870f543001fb1e208b88c915"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.01200849999440834,
+          "on": 0.061642249987926334
+        },
+        "asm": {
+          "off": 0.010163875005673617,
+          "on": 0.05447900004219264
+        },
+        "map": {
+          "off": 0.009740833018440753,
+          "on": 0.056148459028918296
+        }
+      },
+      "detail_bytes": 126913,
+      "bundle_bytes": 131523,
+      "work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 77
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {},
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {},
+        "proof_blockers": {},
+        "zero_byte_operations": 0
+      },
+      "mads_lf_crlf": "equal"
+    },
+    {
+      "id": "captures-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": "e6d5d1a7b16a0a4c00adbfadd3f3eeb8a8e711ef3df1ef85450722df0dc33603",
+        "asm": "1fb75afeb58a1233052dd15f021a03f9c95028cd83139c472b82cd91bc44b600",
+        "map": "32ae9f861db81f1830149273c8eabe1a29db5f0cec9495433d86d18f2fe52379"
+      },
+      "journals": {
+        "xex": "832795920f751a0892c673cc6bb8a48378d1799ba8b1fb00aee500af1cd63e70",
+        "asm": "832795920f751a0892c673cc6bb8a48378d1799ba8b1fb00aee500af1cd63e70",
+        "map": "832795920f751a0892c673cc6bb8a48378d1799ba8b1fb00aee500af1cd63e70"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.07070733304135501,
+          "on": 0.2447001250111498
+        },
+        "asm": {
+          "off": 0.06154458405217156,
+          "on": 0.2542992499656975
+        },
+        "map": {
+          "off": 0.06148337502963841,
+          "on": 0.24898437497904524
+        }
+      },
+      "detail_bytes": 2181853,
+      "bundle_bytes": 2211794,
+      "work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 2,
+        "pipeline_attempts": 37,
+        "rewrite_analysis_builds": 659
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 12,
+          "removed": 4
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {
+          "explicit-read": 12,
+          "no-read-found": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 22,
+          "record-base-unavailable": 2
+        },
+        "zero_byte_operations": 5
+      }
+    },
+    {
+      "id": "captures-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": "19c1064ed65e1ca4b18f33883a4eec095904adb0af5e8b4e3f8bb1f7c46c9e51",
+        "asm": "39c404519dafa86b2774d1855ade2048ca940124614207d9e2804e160f190f01",
+        "map": "a97d1adef7bf8d9799c29823488ee8df655cebf027d92f6ee88ece28ade9bdfb"
+      },
+      "journals": {
+        "xex": "1c466425f6787687a17e68e07cdd049f90b1b93fef3a036c72acd1dc17249470",
+        "asm": "1c466425f6787687a17e68e07cdd049f90b1b93fef3a036c72acd1dc17249470",
+        "map": "1c466425f6787687a17e68e07cdd049f90b1b93fef3a036c72acd1dc17249470"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.0644412079709582,
+          "on": 0.25333787500858307
+        },
+        "asm": {
+          "off": 0.10178966698003933,
+          "on": 0.26072291599120945
+        },
+        "map": {
+          "off": 0.06574416696093976,
+          "on": 0.2613180000334978
+        }
+      },
+      "detail_bytes": 2299866,
+      "bundle_bytes": 2330434,
+      "work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 2,
+        "pipeline_attempts": 37,
+        "rewrite_analysis_builds": 659
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 12,
+          "removed": 4
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {
+          "explicit-read": 12,
+          "no-read-found": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 22,
+          "record-base-unavailable": 2
+        },
+        "zero_byte_operations": 8
+      }
+    },
+    {
+      "id": "rejection-cart-0x3000-modern",
+      "artifacts": {
+        "xex": "b694b850b0201fc5ae2d491393d042a3e9908e923f9e0534704236ae57555c46",
+        "asm": "fdf87225e548c0de162d84c9fbac5d36b40f8f9da53fc4dc739e944c6df1b2dd",
+        "map": "aed1bdbeb42630aff5624b4a604acb3fbe3deea7462fd5c3ac813b3112f769e2"
+      },
+      "journals": {
+        "xex": "1e02a4305c881b51b4bb82478411077d5678a39cf066297c6708b561404a2395",
+        "asm": "1e02a4305c881b51b4bb82478411077d5678a39cf066297c6708b561404a2395",
+        "map": "1e02a4305c881b51b4bb82478411077d5678a39cf066297c6708b561404a2395"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.07892162498319522,
+          "on": 0.30086404096800834
+        },
+        "asm": {
+          "off": 0.07826945802662522,
+          "on": 0.2964964160346426
+        },
+        "map": {
+          "off": 0.07682983396807685,
+          "on": 0.29451350000454113
+        }
+      },
+      "detail_bytes": 2685380,
+      "bundle_bytes": 2733546,
+      "work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 2,
+        "pipeline_attempts": 37,
+        "rewrite_analysis_builds": 816
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 32
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1,
+          "rejected": 1
+        },
+        "cleanup_stops": {
+          "explicit-read": 32
+        },
+        "proof_blockers": {
+          "home-definition-live": 50,
+          "record-base-unavailable": 2
+        },
+        "zero_byte_operations": 5
+      }
+    },
+    {
+      "id": "coloring-cart-0x3000-modern",
+      "artifacts": {
+        "xex": "759ac221533db8c280278e63acb9e364f41ad82fbbb01486745ed6a0574ce5a7",
+        "asm": "da16d463b535d5bdb2c2fa15d76536354e73517c0b9df052f4a808a563295446",
+        "map": "dcca1baaede9e7b4f97f4e32c5db9509b6d5c2db873bb59657e4f3ac52f9106c"
+      },
+      "journals": {
+        "xex": "b317862fbed8ae5dbd0cc8742e699cd1c3166630f6324bace96ec5aed957e96d",
+        "asm": "b317862fbed8ae5dbd0cc8742e699cd1c3166630f6324bace96ec5aed957e96d",
+        "map": "b317862fbed8ae5dbd0cc8742e699cd1c3166630f6324bace96ec5aed957e96d"
+      },
+      "timings_seconds": {
+        "xex": {
+          "off": 0.024051708984188735,
+          "on": 0.1055150410393253
+        },
+        "asm": {
+          "off": 0.0232155830017291,
+          "on": 0.09830129198962823
+        },
+        "map": {
+          "off": 0.022891542001161724,
+          "on": 0.09754045901354402
+        }
+      },
+      "detail_bytes": 592506,
+      "bundle_bytes": 618846,
+      "work": {
+        "emission_invocations": 2,
+        "inner_emission_probes": 8,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 79
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 24
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {
+          "explicit-read": 24
+        },
+        "proof_blockers": {
+          "home-definition-live": 36
+        },
+        "zero_byte_operations": 2
+      }
+    }
+  ],
+  "api_artifacts": {
+    "home-ActionCart.debug": "d5a8cd61f0931d5f1033a937ea5c43ec34da3a8a94bd0d090d7c9aad57bf460e",
+    "home-ActionCart.xex": "30c4e3e8d781de894e9632dcfdf41139e747e038f171d82f05ab91b8dde7085c",
+    "home-Standalone.debug": "16b1c92a42a8c52d7fafde5247ae34b5fab06fa56b3f55b890835c66e98057b6",
+    "home-Standalone.xex": "30c4e3e8d781de894e9632dcfdf41139e747e038f171d82f05ab91b8dde7085c",
+    "staging-ActionCart.debug": "09e8ccc4d94b374dcfe13d4ead3e5e9171a67fe6999bf6aa13d33a1b89c16afd",
+    "staging-ActionCart.xex": "df21d2ff3431fab778fe3773631c975e745ca128ed852a338931121805cddef1",
+    "staging-Standalone.debug": "65f7a882b33a3e9b18db5f8512f8df08852f2e86357a2db552aaceebf1bb7b46",
+    "staging-Standalone.xex": "4bba42e2a89ad4dc30c2b44513fdd6320991fab95c35b001088e32ea984e3d89",
+    "home-optimized-ActionCart.xex": "a6a8781222d2a08772a3d3e704b9cc3d4fed5a38484e911e5a012e8c454b00d4",
+    "home-optimized-Standalone.xex": "a6a8781222d2a08772a3d3e704b9cc3d4fed5a38484e911e5a012e8c454b00d4",
+    "home-optimized-Standalone.debug": "52bac6f18073505c1f9fd2ee1aa9e865c3cd0f5f8d5cfc062922f480d95cb459",
+    "ranges-optimized-Standalone.debug": "841d45cf6e489ec3d73dea4ff3d7323711a9cb2c4bbb90052ad5f5a112461526",
+    "home-optimized-ActionCart.debug": "45f8748c43064f5ce9bcba164dacc94cea3f1dca31b56ae47823782e52e43ede",
+    "ranges-optimized-ActionCart.debug": "f66760fcfc9b4ced516efdc897f4363da654ea7fdc7d1d049578bcd7ecfe30bb",
+    "ranges-optimized-Standalone.xex": "53c91dd9481f08009916e9da90e2fc3ebef4156f0e2c13482775123c3b21b6c6",
+    "ranges-optimized-ActionCart.xex": "53c91dd9481f08009916e9da90e2fc3ebef4156f0e2c13482775123c3b21b6c6"
+  },
+  "api_controls": {
+    "home-ActionCart": {
+      "detail_bytes": 1434573,
+      "work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 6,
+        "rewrite_analysis_builds": 627
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 20,
+          "removed": 7
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {
+          "no-read-found": 73,
+          "visited-cycle": 23,
+          "explicit-read": 20
+        },
+        "proof_blockers": {
+          "home-definition-live": 36
+        },
+        "zero_byte_operations": 10
+      }
+    },
+    "home-Standalone": {
+      "detail_bytes": 1434573,
+      "work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 6,
+        "rewrite_analysis_builds": 627
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 20,
+          "removed": 7
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {
+          "no-read-found": 73,
+          "visited-cycle": 23,
+          "explicit-read": 20
+        },
+        "proof_blockers": {
+          "home-definition-live": 36
+        },
+        "zero_byte_operations": 10
+      }
+    },
+    "home-optimized-ActionCart": {
+      "detail_bytes": 2244008,
+      "work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 663
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 20,
+          "removed": 7
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {
+          "no-read-found": 73,
+          "visited-cycle": 23,
+          "explicit-read": 20
+        },
+        "proof_blockers": {
+          "home-definition-live": 52,
+          "record-base-unavailable": 1
+        },
+        "zero_byte_operations": 10
+      }
+    },
+    "home-optimized-Standalone": {
+      "detail_bytes": 2244008,
+      "work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 26,
+        "rewrite_analysis_builds": 663
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 20,
+          "removed": 7
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 1
+        },
+        "cleanup_stops": {
+          "no-read-found": 73,
+          "visited-cycle": 23,
+          "explicit-read": 20
+        },
+        "proof_blockers": {
+          "home-definition-live": 52,
+          "record-base-unavailable": 1
+        },
+        "zero_byte_operations": 10
+      }
+    },
+    "ranges-optimized-ActionCart": {
+      "detail_bytes": 2879885,
+      "work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 700
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "removed": 3,
+          "retained": 14
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 4
+        },
+        "cleanup_stops": {
+          "no-read-found": 22,
+          "visited-cycle": 9,
+          "explicit-read": 14
+        },
+        "proof_blockers": {
+          "home-definition-live": 18,
+          "record-base-unavailable": 11
+        },
+        "zero_byte_operations": 10
+      },
+      "checked_range_changed_final_mir": true
+    },
+    "ranges-optimized-Standalone": {
+      "detail_bytes": 2879885,
+      "work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 700
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "removed": 3,
+          "retained": 14
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {
+          "accepted": 4
+        },
+        "cleanup_stops": {
+          "no-read-found": 22,
+          "visited-cycle": 9,
+          "explicit-read": 14
+        },
+        "proof_blockers": {
+          "home-definition-live": 18,
+          "record-base-unavailable": 11
+        },
+        "zero_byte_operations": 10
+      },
+      "checked_range_changed_final_mir": true
+    },
+    "staging-ActionCart": {
+      "detail_bytes": 1254344,
+      "work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 6,
+        "rewrite_analysis_builds": 542
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 8
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {
+          "explicit-read": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 16
+        },
+        "zero_byte_operations": 5
+      }
+    },
+    "staging-Standalone": {
+      "detail_bytes": 1273377,
+      "work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 2,
+        "materializations": 1,
+        "pipeline_attempts": 6,
+        "rewrite_analysis_builds": 542
+      },
+      "observations": {
+        "zero_byte_memory_read_operations": 0,
+        "access_count_disappearances": [],
+        "compat_outcomes": {
+          "retained": 8
+        },
+        "final_written_homes_without_explicit_reads": 0,
+        "final_declared_homes_without_explicit_accesses": 0,
+        "selection_outcomes": {},
+        "cleanup_stops": {
+          "explicit-read": 8
+        },
+        "proof_blockers": {
+          "home-definition-live": 16
+        },
+        "zero_byte_operations": 8
+      }
+    }
+  },
+  "peak_encoded_collector_bytes": 16781740,
+  "peak_child_rss_bytes": 227147776,
+  "rss_scope": "maximum child RSS, including compiler, Rust API probe build/run and MADS; not isolated collector heap",
+  "checks": {
+    "final-integration": {
+      "targets": 27,
+      "passed": 124,
+      "ignored": 10
+    },
+    "final-vm": {
+      "targets": 8,
+      "passed": 24,
+      "ignored": 1
+    },
+    "final-mir-unit-recheck": {
+      "targets": 1,
+      "passed": 1282,
+      "ignored": 13
+    },
+    "writer_failure_unit": {
+      "passed": 1
+    },
+    "mads_roundtrips": {
+      "passed": 16,
+      "line_endings": [
+        "LF",
+        "CRLF"
+      ]
+    }
+  },
+  "artifact_trace_status": "complete for every CLI artifact; identical journals across all three emit modes"
+}

@@ -1953,7 +1953,8 @@ fn trace_final_layout(ctx: &MirEmitContext<'_>) {
     let trace = &ctx.trace;
     trace.event("final-layout", || {
         serde_json::json!({"snapshot":trace.final_snapshot(),"origin":ctx.origin,
-        "authority":"final emission; artifact completion is recorded separately"})
+        "authority":"final emission; artifact completion is recorded separately",
+        "storage_symbols":ctx.summary.storage_symbols.iter().map(|s|serde_json::json!({"name":s.name,"scope":format!("{:?}",s.scope),"kind":format!("{:?}",s.kind),"address":s.address,"bytes":s.size})).collect::<Vec<_>>()})
     });
     for r in &ctx.mir.routines {
         if !trace.wants(r.id) {

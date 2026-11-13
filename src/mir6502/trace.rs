@@ -50,6 +50,7 @@ struct State {
     finished: bool,
     failed: bool,
     output_identity: Option<String>,
+    output_sizes: Option<Value>,
     next_attempt: u64,
     work: std::collections::BTreeMap<&'static str, usize>,
 }
@@ -88,6 +89,8 @@ impl Mir6502Trace {
             "work": s.work, "analysis_counter_scope": "shared rewrite drivers only",
             "detail_bytes": s.bytes, "max_bytes": self.inner.options.max_bytes,
             "first_omitted_stage": s.truncated_at, "filter_errors": s.filter_errors,
+            "compilation_event": s.events.iter().find(|e|e.kind == "compilation").map(|e|e.id),
+            "output_sizes": s.output_sizes,
             "output_identity": s.output_identity, "identity_algorithm": "fnv1a64",
             "selected_routines": s.selected.iter().map(|r| r.0).collect::<Vec<_>>(),
             "final_layout": if s.finished && !s.failed { s.events.iter().rev().find(|e|e.kind == "final-layout").map(|e|e.id) } else { None },
@@ -114,10 +117,11 @@ impl Mir6502Trace {
         let mut s = self.inner.state.borrow_mut();
         s.finished = true;
         s.failed = result.is_err();
-        s.output_identity = result
-            .as_ref()
-            .ok()
-            .map(|o| identity_bytes(&crate::codegen::format_load_file(o)));
+        if let Ok(output) = result {
+            let image = crate::codegen::format_load_file(output);
+            s.output_identity = Some(identity_bytes(&image));
+            s.output_sizes = Some(json!({"load_file_bytes":image.len(),"segment_bytes":output.bytes.len(),"relocations":output.relocations.len()}));
+        }
     }
 }
 
@@ -242,7 +246,8 @@ impl Trace {
         };
         child.event(
             "attempt-start",
-            || json!({ "parent": self.attempt, "stage": stage, "purpose": purpose }),
+            || json!({ "parent": self.attempt, "stage": stage, "purpose": purpose,
+                "scope": if matches!(stage,"emission-request"|"final-emission"|"inline-final-rematerialization") {"context"} else {"attempt"} }),
         );
         child
     }
@@ -261,9 +266,13 @@ impl Trace {
             .and_then(|p| child.snapshot("attempt-return", p));
         child.event("attempt-end", || {
             let mut sources = Vec::new();
+            let mut selection = None;
+            let mut unchanged = None;
             if let (Some(session), Some(snapshot)) = (&child.session, snapshot) {
                 let state = session.state.borrow();
+                selection = state.events.iter().rev().find(|e| e.attempt == child.attempt && matches!(e.kind,"selection"|"inline-selection")).map(|e|e.id);
                 let output = &state.events.iter().find(|e| e.id == snapshot).unwrap().data["program_identity"];
+                unchanged = state.events.iter().find(|e|e.attempt == child.attempt && e.kind == "snapshot" && e.data["stage"] == "attempt-input").map(|e|&e.data["program_identity"] == output);
                 let start = state.events.iter().find(|e| e.kind == "attempt-start" && e.attempt == child.attempt).unwrap().id;
                 for e in state.events.iter().filter(|e| e.id > start && e.id < snapshot && e.attempt != child.attempt && e.kind == "snapshot" && e.data["stage"] == "attempt-return" && &e.data["program_identity"] == output) {
                     sources.push(e.id);
@@ -272,6 +281,7 @@ impl Trace {
             json!({ "stage": stage,
                 "status": if result.is_ok() { "returned" } else { "failed" },
                 "returned_snapshot": snapshot, "equivalent_source_snapshots": sources,
+                "selection_event":selection,"unchanged_from_input":unchanged,
                 "selection_scope": "local; speculative until selected by every parent" })
         });
         result
@@ -340,7 +350,7 @@ impl Trace {
             return None;
         }
         self.event("snapshot", || json!({"stage":stage,"scope":"routine",
-            "routine":routine.id.0,"routines":[{"id":routine.id.0,"name":routine.name,"blocks":routine.blocks.iter().map(|b|json!({"id":b.id.0,"ops":b.ops.len()})).collect::<Vec<_>>() }],
+            "routine":routine.id.0,"routines":[{"id":routine.id.0,"name":routine.name,"identity":identity(&format!("{routine:?}")),"blocks":routine.blocks.iter().map(|b|json!({"id":b.id.0,"ops":b.ops.len()})).collect::<Vec<_>>() }],
             "mir":super::printer::format_routine(routine),
             "frames":[homes::frame(routine)],"accesses":[homes::accesses(routine)]}))
     }
@@ -381,7 +391,7 @@ impl Trace {
             let routines = program.routines.iter().filter(|r|self.wants(r.id)).collect::<Vec<_>>();
             json!({ "stage": stage, "scope": "program", "program_identity": identity(&format!("{program:?}")),
                 "mir": super::printer::format_program_filtered(program, |id|self.wants(id)),
-                "routines": routines.iter().map(|r|json!({"id":r.id.0,"name":r.name,"blocks":r.blocks.iter().map(|b|json!({"id":b.id.0,"ops":b.ops.len()})).collect::<Vec<_>>()})).collect::<Vec<_>>(),
+                "routines": routines.iter().map(|r|json!({"id":r.id.0,"name":r.name,"identity":identity(&format!("{r:?}")),"blocks":r.blocks.iter().map(|b|json!({"id":b.id.0,"ops":b.ops.len()})).collect::<Vec<_>>()})).collect::<Vec<_>>(),
                 "frames":routines.iter().map(|r|homes::frame(r)).collect::<Vec<_>>(),
                 "accesses":routines.iter().map(|r|homes::accesses(r)).collect::<Vec<_>>() })
         })
