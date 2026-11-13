@@ -160,7 +160,7 @@ impl Mir6502Config {
             enable_pointer_byte_plus_one_fusion: true,
             enable_pointer_load_sharing: true,
             enable_word_load_sharing: true,
-            enable_late_private_store_cleanup: false,
+            enable_late_private_store_cleanup: true,
             enable_record_base_reuse: true,
             enable_register_copy_forwarding: true,
             enable_pointer_call_retention: true,

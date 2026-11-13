@@ -171,6 +171,7 @@ fn materialize_program_with_origin_and_runtime_preserving(
     verify::verify_program(&program, MirPhase::PreMaterialization)
         .map_err(|diagnostics| phase_diagnostics("resolved pre-materialization", diagnostics))?;
     trace.snapshot("resolved-interfaces", &program);
+    preservation.configure_runtime(&program);
     let mut materialize_config = config.clone();
     // Keep inlining, home selection and their cost trials identical to the
     // feature-off pipeline. Record reuse is a final transaction over that
@@ -201,6 +202,7 @@ fn materialize_program_with_origin_and_runtime_preserving(
             trace,
         )?
     };
+    preservation.begin(&baseline);
     let baseline = if config.enable_peepholes && config.enable_record_base_reuse {
         preservation.select(Family::RecordBases, baseline, |baseline| materialize::record_bases::select_costed_traced(baseline, config, origin, true, trace))?
     } else {
@@ -582,6 +584,12 @@ fn prepare_program_for_emission(
         preservation.select(late_cleanup::preservation::Family::CheckedRanges, mir, |mir|
             materialize::pointer_retention::checked_ranges::select_costed_traced(mir, ranges, origin, config, trace))?
     } else { trace.skipped("checked-range-retention", "feature-gated-or-no-range-candidate"); mir };
+    let mir = if config.enable_peepholes && config.enable_late_private_store_cleanup {
+        late_cleanup::select(mir, &preservation, address_ranges.as_ref(), config, origin, runtime, trace)?
+    } else {
+        trace.skipped("late-private-store-cleanup", "disabled");
+        mir
+    };
     verify::verify_program(&mir, MirPhase::PreEmission)
         .map_err(|diagnostics| phase_diagnostics("pre-emission", diagnostics))?;
     trace.snapshot("pre-emission", &mir);

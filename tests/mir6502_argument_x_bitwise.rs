@@ -24,6 +24,8 @@ fn argument_x_bitwise_baseline_matches_modes_runtimes_and_origins() {
             for origin in [0x3000, 0x41C7] {
                 let config = Mir6502Config {
                     enable_argument_x_bitwise_forwarding: false,
+                    // Measure this family's three-byte saving independently.
+                    enable_late_private_store_cleanup: false,
                     ..Mir6502Config::optimized()
                 };
                 let p = mir6502::materialize_program_with_origin_and_runtime(

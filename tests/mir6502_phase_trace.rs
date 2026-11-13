@@ -27,6 +27,8 @@ fn traced_generation_preserves_artifacts_and_captures_the_actual_final_mir() {
             for enabled in [false, true] {
                 let config = Mir6502Config {
                     enable_checked_range_pointer_retention: enabled,
+                    // Isolate T10's boundary; terminal cleanup is qualified separately.
+                    enable_late_private_store_cleanup: false,
                     ..Mir6502Config::optimized()
                 };
                 let old = mir6502::generate_output_with_config_and_runtime(

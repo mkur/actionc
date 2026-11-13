@@ -109,6 +109,21 @@ to obtain a desired saving. Where private identity alone cannot discharge a
 physical alias obligation, require the corresponding physical proof or retain
 the store.
 
+Physical zero page needs an additional read proof: a numeric source pointer can
+observe a virtual home's backing byte. Follow each candidate definition across
+CFG edges until a definite overwrite; calls' may-write summaries do not kill it.
+Reject indirect or unknown readers, including readers inside called routines.
+Ordinary private frames retain the existing non-escape contract and explicit
+physical-alias checks.
+
+A recognized scalar `SArgs` entry has a narrower ABI read footprint under the
+default runtime binding: argument bytes at `$A0` onward, runtime workspace at
+`$11`/`$82`–`$85`, stack and inline descriptor data. Its three-byte descriptor
+and argument count must agree with the typed scalar signature. Binding
+provenance is retained before helper resolution; an explicit `SET` override
+cannot use this contract. The proof does not depend on display names or source
+locations. Other machine blocks and unrecognized entries remain conservative.
+
 An applied batch invalidates operation-indexed facts and routine generations.
 Rebuild the required analyses before further queries. Trace coordinates are
 diagnostic locations, not persistent optimizer witnesses. Routine-local

@@ -28,6 +28,9 @@ struct SelectedDecision {
 
 pub(in crate::mir6502) struct Preservation {
     enabled: bool,
+    core: Option<MirProgram>,
+    untracked: bool,
+    default_sargs: bool,
     decisions: Vec<SelectedDecision>,
 }
 
@@ -35,8 +38,39 @@ impl Preservation {
     pub fn new(enabled: bool) -> Self {
         Self {
             enabled,
+            core: None,
+            untracked: false,
+            default_sargs: false,
             decisions: Vec::new(),
         }
+    }
+
+    /// Capture binding provenance before materialization resolves defaults.
+    /// An explicit SET override cannot acquire the default helper's contract.
+    pub fn configure_runtime(&mut self, program: &MirProgram) {
+        self.default_sargs = !program.runtime_helpers.iter().any(|d| {
+            d.helper == MirRuntimeHelper::SArgs && d.target != MirRuntimeHelperTarget::Deferred
+        });
+    }
+
+    pub fn default_sargs(&self) -> bool {
+        self.default_sargs
+    }
+
+    pub fn begin(&mut self, core: &MirProgram) {
+        if self.enabled {
+            self.core = Some(core.clone());
+        }
+    }
+
+    pub fn covers(&self, program: &MirProgram) -> bool {
+        !self.untracked
+            && self
+                .decisions
+                .last()
+                .map(|d| &d.selected)
+                .or(self.core.as_ref())
+                == Some(program)
     }
 
     pub fn select(
@@ -47,6 +81,12 @@ impl Preservation {
     ) -> Result<MirProgram, Vec<MirDiagnostic>> {
         if !self.enabled {
             return select(before);
+        }
+        if self.core.is_none() {
+            self.begin(&before);
+        }
+        if !self.covers(&before) {
+            self.untracked = true;
         }
         let witness = before.clone();
         let selected = select(before)?;
@@ -211,5 +251,46 @@ mod tests {
             );
             assert!(log.decisions.is_empty());
         }
+    }
+
+    #[test]
+    fn relational_replay_allows_movement_but_rejects_alias_and_code_overlap() {
+        use crate::mir6502::analysis::word_load_sharing::{shape, tests::window};
+        let before = baseline();
+        let config = Mir6502Config::optimized();
+        let selected = materialize::word_load_sharing::select_costed(
+            before.clone(),
+            &config,
+            0x3000,
+            crate::runtime::Runtime::ActionCart,
+        )
+        .unwrap();
+        let r = before.routines.iter().find(|r| r.name == "Unlink").unwrap();
+        let shape = shape(window(r)).unwrap();
+        let MirMem::Global { id, offset: 0 } = shape.source[0] else {
+            panic!("global source");
+        };
+        let mut map = memory(&before);
+        let alias = map.address(r.id, &shape.first[0]).unwrap();
+        let mut log = Preservation::new(true);
+        log.select(Family::WordLoadSharing, before, |_| Ok(selected))
+            .unwrap();
+        map.global(id, 0x7000, 2, true);
+        map.own_data(0x7000, 2);
+        assert_eq!(
+            log.validate(&map, None, &config, 0x3000, &Trace::disabled()),
+            Ok(())
+        );
+        let mut overlap = map.clone();
+        overlap.global(id, alias, 2, true);
+        assert_eq!(
+            log.validate(&overlap, None, &config, 0x3000, &Trace::disabled()),
+            Err(Family::WordLoadSharing)
+        );
+        map.protect_execution_ranges(vec![(0x7000, 0x7002)]);
+        assert_eq!(
+            log.validate(&map, None, &config, 0x3000, &Trace::disabled()),
+            Err(Family::WordLoadSharing)
+        );
     }
 }

@@ -87,7 +87,7 @@ fn reason(events: &[crate::mir6502::trace::TraceEvent]) -> Option<&str> {
 #[test]
 fn removes_store_keeps_frame_and_producers_with_two_emissions() {
     let p = program(vec![imm(23), store(), imm(7)]);
-    let (selected, manifest, events) = run(&p, &Preservation::new(true));
+    let (selected, manifest, events) = run(&p, &clean(&p));
     assert_eq!(selected.routines[0].blocks[0].ops, [imm(23), imm(7)]);
     assert_eq!(selected.routines[0].frame, p.routines[0].frame);
     assert!(only_private_store_deletions(&p, &selected));
@@ -103,7 +103,7 @@ fn removes_store_keeps_frame_and_producers_with_two_emissions() {
             - result["image_bytes_after"].as_u64().unwrap(),
         3
     );
-    let (again, manifest, _) = run(&selected, &Preservation::new(true));
+    let (again, manifest, _) = run(&selected, &clean(&selected));
     assert_eq!(again, selected);
     assert!(manifest["work"]["emission_invocations"].is_null());
 }
@@ -126,7 +126,7 @@ fn explicit_and_successor_reads_keep_stores_without_cost_emission() {
                 terminator: MirTerminator::Return,
             });
         }
-        let (selected, manifest, events) = run(&p, &Preservation::new(true));
+        let (selected, manifest, events) = run(&p, &clean(&p));
         assert_eq!(selected, p);
         assert_eq!(reason(&events), Some("NoDeadStores"));
         assert!(manifest["work"]["emission_invocations"].is_null());
@@ -148,7 +148,7 @@ fn separately_named_absolute_read_keeps_private_store() {
     p.routines[0].blocks[0]
         .ops
         .push(load(MirMem::Absolute(address)));
-    let (selected, manifest, events) = run(&p, &Preservation::new(true));
+    let (selected, manifest, events) = run(&p, &clean(&p));
     assert_eq!(selected, p);
     assert_eq!(manifest["work"]["emission_invocations"], 1);
     assert_eq!(reason(&events), Some("ObservableAlias"));
@@ -184,4 +184,107 @@ fn change_guard_rejects_producer_frame_and_public_store_deletion() {
     let mut bad = p.clone();
     bad.routines[0].blocks[0].ops.remove(1);
     assert!(!only_private_store_deletions(&p, &bad));
+}
+
+fn clean(program: &MirProgram) -> Preservation {
+    let mut log = Preservation::new(true);
+    log.begin(program);
+    log
+}
+
+#[test]
+fn untracked_transformation_declines_before_costing() {
+    let p = program(vec![imm(23), store(), imm(7)]);
+    let log = clean(&p);
+    let mut changed = p.clone();
+    changed.routines[0].blocks[0].ops[0] = imm(24);
+    let (selected, manifest, events) = run(&changed, &log);
+    assert_eq!(selected, changed);
+    assert_eq!(reason(&events), Some("UntrackedDecision"));
+    assert!(manifest["work"]["emission_invocations"].is_null());
+}
+
+#[test]
+fn published_callee_accumulator_cannot_change() {
+    let mut before = program(vec![imm(23)]);
+    let mut caller = before.routines[0].clone();
+    caller.id = RoutineId(1);
+    caller.name = "Caller".into();
+    caller.blocks[0].ops = vec![MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(0)),
+        abi: MirCallAbi {
+            params: vec![],
+            result: None,
+            additional_results: vec![],
+            clobbers: Default::default(),
+            preserves: Default::default(),
+        },
+        args: vec![],
+        result: None,
+        additional_results: vec![],
+        effects: Default::default(),
+    }];
+    before.routines.push(caller);
+    let mut after = before.clone();
+    after.routines[0].blocks[0].ops[0] = imm(24);
+    assert!(!callee_contracts_preserved(&before, &after));
+    assert!(callee_contracts_preserved(&before, &before));
+}
+
+#[test]
+fn physical_zero_page_definition_survives_unknown_readers_until_definite_overwrite() {
+    let private = MirMem::ZeroPage(MirZpSlot(0));
+    let write = MirOp::Store {
+        dst: MirAddr::Direct(private.clone()),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    };
+    let read = MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::FixedIndirectIndexedY {
+            zp: MirFixedZpSlot(0xa0),
+        },
+        width: MirWidth::Byte,
+    };
+    let mut p = program(vec![write.clone(), read.clone()]);
+    let mut memory = MirPhysicalMemory::default();
+    memory.insert(RoutineId(0), private, 0xe1, true);
+    let known = MirKnownCalleeSummaries::default();
+    assert!(
+        !readers::Readers {
+            program: &p,
+            memory: &memory,
+            known: &known,
+            default_sargs: false,
+            origin: 0x3000
+        }
+        .definition_unobserved(&p.routines[0], MirBlockId(0), 1, 0xe1)
+    );
+    p.routines[0].blocks[0].ops.insert(1, write.clone());
+    assert!(
+        readers::Readers {
+            program: &p,
+            memory: &memory,
+            known: &known,
+            default_sargs: false,
+            origin: 0x3000
+        }
+        .definition_unobserved(&p.routines[0], MirBlockId(0), 1, 0xe1)
+    );
+    // A read on the next iteration observes the definition before its overwrite.
+    p.routines[0].blocks[0].ops = vec![read, write];
+    p.routines[0].blocks[0].terminator = MirTerminator::Jump(MirEdge {
+        target: MirBlockId(0),
+        args: vec![],
+    });
+    assert!(
+        !readers::Readers {
+            program: &p,
+            memory: &memory,
+            known: &known,
+            default_sargs: false,
+            origin: 0x3000
+        }
+        .definition_unobserved(&p.routines[0], MirBlockId(0), 2, 0xe1)
+    );
 }

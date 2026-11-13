@@ -35,6 +35,13 @@ operation identities or a general pass manager. Measurements must expose their
 memory and analysis costs. A future refinement may replace snapshots with smaller
 typed predicates without weakening validation.
 
+Physical zero-page deletion additionally requires a definition-to-overwrite
+read proof, including indirect observers inside callees. Default scalar `SArgs`
+prologues use their bounded ABI footprint only when binding provenance, the
+typed signature and inline descriptor agree. Override bindings and unknown
+readers decline deletion. This proof belongs to terminal cleanup and does not
+relax the generic memory-effect summaries.
+
 ## Slice 1 — contract and plan
 
 - Record this inventory and link the design and plan from the documentation index.

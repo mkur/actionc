@@ -173,7 +173,9 @@ fn argument_staging_matches_entry_bytes_and_host_oracles_with_lf_and_crlf() {
                                         .bus()
                                         .events()
                                         .iter()
-                                        .filter(|e| e.access == BusAccess::Write)
+                                        // Terminal cleanup may remove private scratch stores;
+                                        // public ABI and result writes must remain identical.
+                                        .filter(|e| e.access == BusAccess::Write && !(0xE0..=0xE1).contains(&e.address))
                                         .map(|e| (e.address, e.value))
                                         .collect::<Vec<_>>();
                                     if !crlf {

@@ -1,5 +1,6 @@
 //! Terminal store-only cleanup and preservation of selected late decisions.
 pub(super) mod preservation;
+mod readers;
 
 use super::{
     Mir6502Config, MirDiagnostic,
@@ -21,9 +22,11 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Debug, PartialEq, Eq)]
 enum Declined {
     NoDeadStores,
+    UntrackedDecision,
     Analysis,
     ObservableAlias,
     InvalidChange,
+    Verification,
     CalleeContract,
     CandidateEmission,
     DeletionReplay,
@@ -104,8 +107,8 @@ fn observable_reads(program: &MirProgram, memory: &MirPhysicalMemory) -> Vec<(Op
             && let MirKnownMemoryReads::Exact(cells) = summary.reads()
         {
             for cell in cells {
-                if let MirMem::Absolute(address) = cell {
-                    reads.push((Some(*address), 1));
+                if matches!(cell, MirMem::Absolute(_) | MirMem::FixedZeroPage(_)) {
+                    reads.push((memory.address(r.id, cell), 1));
                 }
             }
         }
@@ -116,6 +119,8 @@ fn observable_reads(program: &MirProgram, memory: &MirPhysicalMemory) -> Vec<(Op
 fn apply(
     baseline: &MirProgram,
     memory: Option<&MirPhysicalMemory>,
+    default_sargs: bool,
+    origin: u16,
     trace: &Trace,
 ) -> Result<MirProgram, Declined> {
     let known = MirKnownCalleeSummaries::analyze_for_rewriting(baseline);
@@ -150,9 +155,36 @@ fn apply(
                         let Some(address) = memory.address(r.id, &home) else {
                             return false;
                         };
-                        !reads.iter().any(|(start, bytes)| {
+                        let reason = if reads.iter().any(|(start, bytes)| {
                             start.is_none_or(|start| address.wrapping_sub(start) < *bytes)
-                        })
+                        }) {
+                            Some("physical-read-alias")
+                        } else if address < 0x100
+                            && !(readers::Readers {
+                                program: baseline,
+                                memory,
+                                known: &known,
+                                default_sargs,
+                                origin,
+                            })
+                            .definition_unobserved(
+                                r,
+                                plan.block,
+                                plan.range.end,
+                                address,
+                            )
+                        {
+                            Some("zero-page-reader-before-overwrite")
+                        } else {
+                            None
+                        };
+                        if let Some(reason) = reason {
+                            trace.event("late-cleanup-store-retained", || serde_json::json!({
+                                "routine": r.id.0, "block": plan.block.0, "op": plan.range.start,
+                                "address": address, "reason": reason,
+                            }));
+                        }
+                        reason.is_none()
                     })
                     .collect()
             })
@@ -172,6 +204,9 @@ fn only_private_store_deletions(before: &MirProgram, after: &MirProgram) -> bool
             return false;
         }
         for (old, new) in a.blocks.iter_mut().zip(&b.blocks) {
+            if old == new {
+                continue;
+            }
             let mut retained = Vec::new();
             let mut indices = Vec::new();
             let mut next = 0;
@@ -251,7 +286,6 @@ fn callee_contracts_preserved(before: &MirProgram, after: &MirProgram) -> bool {
         })
 }
 
-#[allow(dead_code)] // Enabled at the executable boundary in the integration slice.
 pub(super) fn select(
     baseline: MirProgram,
     preservation: &Preservation,
@@ -266,15 +300,19 @@ pub(super) fn select(
         let reject = |reason: Declined| {
             trace.event("late-cleanup-result", || serde_json::json!({"accepted": false, "reason": format!("{reason:?}")}));
         };
+        if !preservation.covers(&baseline) {
+            reject(Declined::UntrackedDecision);
+            return Ok(baseline);
+        }
         // No cost emission for programs whose definitions are all still live.
-        match apply(&baseline, None, trace) {
+        match apply(&baseline, None, preservation.default_sargs(), origin, &trace.child("late-cleanup-analysis", "logical-discovery")) {
             Ok(p) if p == baseline => { reject(Declined::NoDeadStores); return Ok(baseline); }
             Err(reason) => { reject(reason); return Ok(baseline); }
             _ => {}
         }
         let references = preservation.references(&baseline);
         let old = measure(&baseline, &references, origin, runtime, trace)?;
-        let proposed = match apply(&baseline, Some(&old.memory), trace) {
+        let proposed = match apply(&baseline, Some(&old.memory), preservation.default_sargs(), origin, &trace.child("late-cleanup-analysis", "physical-deletion")) {
             Ok(p) if p != baseline => p,
             Ok(_) => { reject(Declined::ObservableAlias); return Ok(baseline); }
             Err(reason) => { reject(reason); return Ok(baseline); }
@@ -283,11 +321,14 @@ pub(super) fn select(
         let affected: BTreeSet<_> = baseline.routines.iter().zip(&proposed.routines)
             .filter_map(|(a, b)| (a != b).then_some(a.id)).collect();
         let checked = (|| {
-            if !only_private_store_deletions(&baseline, &proposed)
-                || super::verify_program(&proposed, MirPhase::PreEmission).is_err() { return Err(Declined::InvalidChange); }
+            if !only_private_store_deletions(&baseline, &proposed) { return Err(Declined::InvalidChange); }
+            if let Err(diagnostics) = super::verify_program(&proposed, MirPhase::PreEmission) {
+                trace.event("late-cleanup-verification", || serde_json::json!({"diagnostics": format!("{diagnostics:?}")}));
+                return Err(Declined::Verification);
+            }
             if !callee_contracts_preserved(&baseline, &proposed) { return Err(Declined::CalleeContract); }
             let new = measure(&proposed, &references, origin, runtime, trace).map_err(|_| Declined::CandidateEmission)?;
-            if apply(&baseline, Some(&new.memory), trace)? != proposed { return Err(Declined::DeletionReplay); }
+            if apply(&baseline, Some(&new.memory), preservation.default_sargs(), origin, &trace.child("late-cleanup-analysis", "final-placement-deletion-replay"))? != proposed { return Err(Declined::DeletionReplay); }
             preservation.validate(&new.memory, ranges, config, origin, trace).map_err(Declined::EarlierDecision)?;
             if new.image_bytes >= old.image_bytes || baseline.routines.iter().any(|r|
                 new.instruction_bytes.get(&r.id).copied().unwrap_or(0) > old.instruction_bytes.get(&r.id).copied().unwrap_or(0)) {
@@ -299,6 +340,7 @@ pub(super) fn select(
         match checked {
             Ok(new) => {
                 trace.event("late-cleanup-result", || serde_json::json!({
+                    "removed_stores": baseline.routines.iter().flat_map(|r| &r.blocks).map(|b| b.ops.len()).sum::<usize>() - proposed.routines.iter().flat_map(|r| &r.blocks).map(|b| b.ops.len()).sum::<usize>(),
                     "accepted": true, "image_bytes_before": old.image_bytes, "image_bytes_after": new.image_bytes,
                     "instruction_bytes_before": old.instruction_bytes.values().sum::<usize>(),
                     "instruction_bytes_after": new.instruction_bytes.values().sum::<usize>(),
