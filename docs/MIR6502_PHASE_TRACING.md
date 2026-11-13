@@ -132,3 +132,13 @@ prefix queries have no candidate key and remain shared analysis. These scopes
 cover local gates only; inherited facts and parent selection still matter.
 `fits-fixed-zero-page-pair` records a resolved pointer-pair choice. Structural
 bounds observations remain separate from numeric queries.
+
+With both spill pruning and the layout census enabled, a rejected core allocation
+can emit `core-allocation-movement`. It links the baseline/proposed snapshots and
+reports whole-program planning-frame changes, including later routines regardless
+of routine-detail filters. Its own `delta.status` and `delta.omitted` must also be
+checked: detail is capped at 2,048 changes. Counts include alias views and are not
+unique physical objects or byte savings. No candidate emission or proof replay is
+performed by this diagnostic. Candidate attribution additionally covers local
+selectors for direct fixed-pointer placement, direct word-to-indirect copying
+and word-array value staging; shared structural analysis remains separate.

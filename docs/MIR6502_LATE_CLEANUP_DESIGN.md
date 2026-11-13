@@ -565,3 +565,71 @@ Observation and candidate counts are bounded. Omitted candidate records mark the
 census truncated, just like omitted observations; the trace byte limit remains
 independent. Disabled/filtered diagnostics must not change decisions or work.
 Candidate tags are diagnostics only and never enter optimizer plans or proofs.
+
+## Concrete spill-movement audit
+
+On a `CoreAllocation` rejection, the opt-in layout census can describe the
+declaration-only proposal using the actual old and proposed `MaterializeLayout`.
+The event links both snapshots and reports erased homes and changed surviving
+frame entries, their typed identities, sizes, scalar widths, descriptor status
+and old/new planning addresses. The scope is the whole program even when routine
+detail is filtered: removing an earlier spill can shift later routines.
+Alias views are entries, not additional allocated objects. Globals, statics,
+origin and adjusted ordinary-storage facts are checked separately.
+
+This comparison is bounded to 2,048 detailed changes; totals and an explicit
+omission/status field remain available. Consumers must require complete trace,
+census and movement records. The diagnostic runs only on the already rejected
+proposal and must add no materialization, emission, replay or selection work.
+It reports planning placement only. The physical-placement guard has not run.
+
+An audit may associate observations with a uniquely matching selected core
+materialization, follow exact home-remap records and identify footprints that
+intersect the proposed movement. Candidate-local gates, rejected candidates,
+shared analysis and outside-driver queries remain distinct. Equivalent source
+identities are diagnostic evidence, not proof witnesses. Unscoped spill epochs,
+missing remaps, retired homes and unknown dependencies must stay explicit.
+Neither round membership nor a matching home establishes a necessary dependency
+of a selected rewrite. No numeric predicate can be replayed by adding a terminal
+address delta to an observation from a different allocation epoch.
+
+### Resolve storage ownership before adding movement proofs
+
+A temporary in an ordinary spill slot and an active compiler scratch pair both
+hold compiler state. Staging through the former does not protect against an
+arbitrary source pointer that is allowed to observe compiler state: that pointer
+could target the temporary too. Physical reachability alone cannot justify a
+stronger preservation requirement for one location than the other.
+
+The current 6502 contracts are inconsistent at this boundary. The
+[runtime effect map](RUNTIME_HELPER_EFFECTS.md#runtime-zero-page) identifies
+`$AC/$AD` as compiler-owned scratch, and `MirHomeDefinitions` excludes escaping
+private spills and virtual-ZP homes. The existing late-cleanup policy above
+nevertheless treats numeric-pointer observation of physical ZP as a blocker.
+That is a conservative implementation policy, not evidence that ordinary source
+pointers must be allowed to observe compiler temporaries.
+
+The proposed ownership rule is the same for both forms of private storage:
+ordinary program accesses cannot observe compiler-private temporaries or active
+compiler scratch. Explicit fixed-address uses, raw assembly, runtime bridges
+and ABI argument/result access retain their declared effects and lifetimes.
+Ownership follows the storage role; it must not classify every fixed-ZP byte,
+or the entire overlapping `$A0..$AF` ABI window, as private at every point.
+The [65816 ABI](MIR65816_PHYSICAL_ABI_V2.md#5-direct-page-ownership-and-reentrancy) already states an
+ordinary-object versus compiler-scratch ownership rule; this audit does not
+silently impose that rule on existing 6502 programs or change code generation.
+
+Address-taking of a program object also does not by itself pin its numerical
+address. Moving an object requires its references, aliases and initializer
+relocations to continue designating that object. In particular, `SetWin`'s
+address-bearing arrays are relocation obligations, not automatically reasons to
+preserve their old addresses. Explicitly fixed storage and externally prescribed
+ABI addresses remain distinct.
+
+The next design decision is to reconcile these ownership rules and identify the
+few genuine address-dependent operations left under that contract. Do that
+before building a general selected-predicate replay framework. An address query
+in the existing implementation does not itself establish a semantic obligation
+to keep the queried number unchanged. Both current equality guards remain in
+place during this diagnostic slice; their implementation does not define the
+intended source-memory semantics.

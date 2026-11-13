@@ -4,8 +4,7 @@ use actionc::{
 };
 
 fn nir(source: &str) -> actionc::nir::NirProgram {
-    let source = source.replace("\r\n", "\n");
-    let ast = actionc::parser::parse(&actionc::lexer::tokenize(&source).unwrap()).unwrap();
+    let ast = actionc::parser::parse(&actionc::lexer::tokenize(source).unwrap()).unwrap();
     let model =
         actionc::semantic::analyze_with_options(&ast, actionc::semantic::SemanticOptions::modern())
             .unwrap();
@@ -92,6 +91,68 @@ fn source_tail_proof_blocker_preserves_output_and_prior_cleanup() {
             assert_eq!(result["candidate_spills"], 1);
             assert_eq!(result["reason"], "ReferencedOrExposed", "{result}");
             assert_eq!(result["removed_spills"], 0);
+        }
+    }
+}
+
+#[test]
+fn rejected_movement_census_preserves_output_work_and_real_lf_crlf_parsing() {
+    use actionc::mir6502::trace::TraceOptions;
+    let lf = include_str!("../fixtures/runtime/late_producer_cleanup.act").replace("\r\n", "\n");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for origin in [0x3000, 0x41c7] {
+            let mut reference = None;
+            for text in [lf.clone(), lf.replace('\n', "\r\n")] {
+                let input = nir(&text);
+                let config = Mir6502Config {
+                    enable_late_spill_pruning: true,
+                    ..Mir6502Config::optimized()
+                };
+                let mut plain = Mir6502Trace::default();
+                let before = mir6502::generate_output_with_trace(
+                    &input, origin, &config, runtime, &mut plain,
+                )
+                .unwrap();
+                let mut census = Mir6502Trace::new(TraceOptions {
+                    core_layout_census: true,
+                    ..Default::default()
+                });
+                let after = mir6502::generate_output_with_trace(
+                    &input,
+                    origin,
+                    &config,
+                    runtime,
+                    &mut census,
+                )
+                .unwrap();
+                assert_eq!(before, after);
+                assert_eq!(plain.manifest()["work"], census.manifest()["work"]);
+                assert_eq!(census.manifest()["status"], "complete");
+                assert_eq!(
+                    census.manifest()["core_layout_census"]["status"],
+                    "complete"
+                );
+                assert!(
+                    !plain
+                        .events()
+                        .iter()
+                        .any(|e| e.kind == "core-allocation-movement")
+                );
+                let events = census.events();
+                let delta = &events
+                    .iter()
+                    .find(|e| e.kind == "core-allocation-movement")
+                    .unwrap()
+                    .data["delta"];
+                assert_eq!(delta["status"], "complete");
+                assert!(delta["moved_survivors"].as_u64().unwrap() > 0);
+                assert_eq!(delta["non_frame_facts_preserved"], true);
+                let image = actionc::codegen::format_load_file(&after);
+                if let Some(old) = &reference {
+                    assert_eq!(old, &image);
+                }
+                reference = Some(image);
+            }
         }
     }
 }

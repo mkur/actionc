@@ -5,6 +5,7 @@ use crate::mir6502::ir::{
 use crate::nir::{LocalId, ParamId, SymbolId};
 
 mod ordinary;
+mod movement;
 use ordinary::OrdinaryStorageBounds;
 
 #[derive(Clone)]

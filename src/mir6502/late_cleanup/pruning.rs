@@ -288,7 +288,7 @@ pub(super) fn select(
     trace: &Trace,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
     trace.run("late-spill-pruning", |trace| {
-        trace.snapshot("attempt-input", &baseline);
+        let before_snapshot = trace.snapshot("attempt-input", &baseline);
         let (removed, candidates) = discover(&baseline, references);
         let result = |reason: Rejection| {
             trace.event("late-spill-pruning-result", || {
@@ -308,10 +308,19 @@ pub(super) fn select(
             return Ok(baseline);
         }
         let proposed = erase(&baseline, &removed);
-        trace.snapshot("proposed", &proposed);
-        if !MaterializeLayout::new(&baseline, origin)
-            .preserves_surviving_storage(&MaterializeLayout::new(&proposed, origin), &removed)
-        {
+        let proposed_snapshot = trace.snapshot("proposed", &proposed);
+        let old_layout = MaterializeLayout::new(&baseline, origin);
+        let new_layout = MaterializeLayout::new(&proposed, origin);
+        if !old_layout.preserves_surviving_storage(&new_layout, &removed) {
+            if trace.layout_census_enabled() {
+                trace.event("core-allocation-movement", || {
+                    serde_json::json!({
+                        "before_snapshot": before_snapshot,
+                        "proposed_snapshot": proposed_snapshot,
+                        "delta": old_layout.spill_pruning_movement(&new_layout, &removed),
+                    })
+                });
+            }
             result(Rejection::CoreAllocation);
             return Ok(baseline);
         }

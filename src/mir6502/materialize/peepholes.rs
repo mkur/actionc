@@ -94,6 +94,24 @@ pub(super) fn fold_structural_machine_tail(
     ops
 }
 
+// Scope only the selector's local layout checks. The shared driver's analyses
+// and later structural proof remain separate preservation obligations.
+fn observed_layout_shape(
+    layout: &MaterializeLayout,
+    routine: RoutineId,
+    block: MirBlockId,
+    index: usize,
+    family: &'static str,
+    discover: impl FnOnce() -> Option<(usize, Vec<MirOp>)>,
+) -> Option<(usize, Vec<MirOp>)> {
+    let scope = layout.census_candidate(routine, family, block, index);
+    let shape = discover();
+    if let Some((consumed, _)) = &shape {
+        scope.shape(index + consumed);
+    }
+    shape
+}
+
 pub(in crate::mir6502) fn discover_rhs_and_adjacent_reloads(
     routine: &MirRoutine,
     context: &PostHomeRewriteContext<'_, '_>,
@@ -144,8 +162,11 @@ pub(in crate::mir6502) fn discover_rhs_and_adjacent_reloads(
             {
                 plans.push(plan);
             }
-            if let Some(replacement) =
-                staged_word_to_fixed_pointer_pair_shape_at(&block.ops, index, routine.id, layout)
+            if let Some((_, replacement)) = observed_layout_shape(
+                layout, routine.id, block.id, index, "direct-fixed-pointer-placement",
+                || staged_word_to_fixed_pointer_pair_shape_at(&block.ops, index, routine.id, layout)
+                    .map(|replacement| (8, replacement)),
+            )
                 && let Some(plan) = structural_plan(
                     routine,
                     context,
@@ -531,7 +552,8 @@ pub(in crate::mir6502) fn discover_indirect_stores_and_compounds(
             let candidates = [
                 indirect_call_field_staging_at(&block.ops, index, routine.id, layout)
                     .map(|candidate| (candidate, "indirect-call-field-staging", 0)),
-                direct_word_to_indirect_copy_at(&block.ops, index, routine.id, layout)
+                observed_layout_shape(layout, routine.id, block.id, index, "direct-word-to-indirect-copy",
+                    || direct_word_to_indirect_copy_at(&block.ops, index, routine.id, layout))
                     .map(|candidate| (candidate, "direct-word-to-indirect-copy", 1)),
                 indirect_byte_direct_transform_store_at(&block.ops, index, routine.id, layout)
                     .map(|candidate| (candidate, "indirect-byte-direct-transform-store", 2)),
@@ -854,8 +876,10 @@ pub(in crate::mir6502) fn discover_word_array_value_staging(
     let mut plans = Vec::new();
     for block in &routine.blocks {
         for index in 0..block.ops.len() {
-            if let Some((consumed, replacement)) =
-                word_array_store_value_staging_at(&block.ops, index, routine.id, layout)
+            if let Some((consumed, replacement)) = observed_layout_shape(
+                layout, routine.id, block.id, index, "word-array-store-value-staging",
+                || word_array_store_value_staging_at(&block.ops, index, routine.id, layout),
+            )
                 && let Some(plan) = structural_plan(
                     routine,
                     context,

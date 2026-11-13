@@ -78,6 +78,99 @@ fn interior_hole_preserves_core_allocation_without_costing() {
 }
 
 #[test]
+fn movement_diagnostic_reports_later_frames_without_changing_selection_or_work() {
+    use crate::mir6502::trace::TraceOptions;
+    let mut p = program(vec![load(MirMem::Spill {
+        id: MirSpillId(1),
+        offset: 0,
+    })]);
+    p.routines[0].frame.spills.push(MirSpillId(1));
+    let mut next = p.routines[0].clone();
+    next.id = RoutineId(1);
+    next.name = "Following".into();
+    next.abi = MirRoutineAbi::Action;
+    next.frame.spills.remove(0);
+    p.routines.push(next);
+    for runtime in [
+        crate::runtime::Runtime::ActionCart,
+        crate::runtime::Runtime::Standalone,
+    ] {
+        for origin in [0x3000u16, 0x41c7] {
+            let mut work = None;
+            for census in [false, true] {
+                let session = Mir6502Trace::new(TraceOptions {
+                    core_layout_census: census,
+                    // Movement is a whole-program diagnostic despite this filter.
+                    routines: vec!["Main".into()],
+                    ..Default::default()
+                });
+                session.context().bind_routines(&p);
+                let after = select(
+                    p.clone(),
+                    &[&p],
+                    &clean(&p),
+                    None,
+                    &Mir6502Config::optimized(),
+                    origin,
+                    runtime,
+                    &session.context(),
+                )
+                .unwrap();
+                assert_eq!(after, p);
+                let events = session.events();
+                assert_eq!(result(&events)["reason"], "CoreAllocation");
+                let current = session.manifest()["work"].clone();
+                if let Some(old) = &work {
+                    assert_eq!(old, &current);
+                }
+                work = Some(current);
+                let delta = events.iter().find(|e| e.kind == "core-allocation-movement");
+                assert_eq!(delta.is_some(), census);
+                if let Some(event) = delta {
+                    assert!(event.data["before_snapshot"].is_number());
+                    assert!(event.data["proposed_snapshot"].is_number());
+                    let delta = &event.data["delta"];
+                    assert_eq!(delta["status"], "complete");
+                    assert_eq!(delta["non_frame_facts_preserved"], true);
+                    assert_eq!(delta["expected_removals"], 1);
+                    assert_eq!(delta["moved_survivors"], 2);
+                    assert_eq!(delta["affected_routines"], serde_json::json!([0, 1]));
+                    let changes = delta["changes"].as_array().unwrap();
+                    assert_eq!(changes[0]["before"]["address"], origin);
+                    assert_eq!(changes[0]["expected_removal"], true);
+                    for (i, change) in changes[1..].iter().enumerate() {
+                        assert_eq!(change["before"]["address"], origin + i as u16 + 1);
+                        assert_eq!(change["after"]["address"], origin + i as u16);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn movement_diagnostic_bounds_are_explicit_and_do_not_hide_other_layout_changes() {
+    let mut p = program(vec![imm(7)]);
+    p.routines[0].frame.spills = (0..2050).map(MirSpillId).collect();
+    let removed = BTreeMap::from([(RoutineId(0), BTreeSet::from([MirSpillId(0)]))]);
+    let proposed = erase(&p, &removed);
+    let old = MaterializeLayout::new(&p, 0x3000);
+    let new = MaterializeLayout::new(&proposed, 0x3000);
+    let delta = old.spill_pruning_movement(&new, &removed);
+    assert_eq!(delta["status"], "truncated");
+    assert_eq!(delta["total_changes"], 2050);
+    assert_eq!(delta["omitted"], 2);
+    assert_eq!(delta["moved_survivors"], 2049);
+    assert_eq!(delta["expected_removals"], 1);
+    assert_eq!(delta["non_frame_facts_preserved"], true);
+    let other_origin = MaterializeLayout::new(&proposed, 0x4000);
+    assert_eq!(
+        old.spill_pruning_movement(&other_origin, &removed)["non_frame_facts_preserved"],
+        false
+    );
+}
+
+#[test]
 fn structured_address_and_historical_frame_exposure_retain_declarations() {
     let address = MirOp::LeaAddr {
         dst: MirDef::Reg(MirReg::A),
