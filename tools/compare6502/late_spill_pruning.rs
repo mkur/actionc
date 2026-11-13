@@ -38,6 +38,9 @@ fn main() {
             true,
         ));
     }
+    if std::env::args().any(|arg| arg == "--tn-only") {
+        cases.retain(|(name, _, _)| *name == "tn");
+    }
     for (name, source, optimized) in cases {
         let loaded = actionc::includes::load_program_with_expanded_source(source).unwrap();
         let model = actionc::semantic::analyze_with_options(

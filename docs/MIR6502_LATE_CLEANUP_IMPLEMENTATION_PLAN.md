@@ -245,3 +245,19 @@ LF/CRLF and actual high-lane-first execution. No shared IR contracts changed.
    execution. Record accepted local gates separately from rejected/shared queries,
    actual image sizes/work, and the remaining interior-spill blockers; commit
    qualification. Compaction remains disabled.
+
+Instrumentation is committed as `31908c9f`; bounds-proof reuse and regression
+coverage as `4f2c7980`. The [qualification report](benchmarks/6502-pointer-setup-proof/README.md)
+records unchanged full output/work across the original, attributed and final
+compilers. TN stays at 9,970 bytes cart / 10,077 standalone. Candidate attribution
+corrects the earlier pointer-family interpretation: TN's 65 local pair queries
+belonged to unselected dereference candidates, not applied direct rematerialization.
+The applied paths are exercised by direct-MIR controls; this slice establishes
+no new accepted local numeric-dependency reduction in TN.
+
+The explicit pruning recheck still stops at `CoreAllocation` for the four eligible
+interior spills; two further candidates remain excluded by frame exposure.
+Next work should identify obligations for that concrete movement before replacing
+either the core or physical surviving-address guard. Validation passed 1,329 unit,
+135 integration and 33 VM tests, 54 frozen CLI artifact comparisons, 24 full API
+comparisons across three versions and four TN pruning-off/on comparisons.

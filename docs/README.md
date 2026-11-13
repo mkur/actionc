@@ -209,6 +209,8 @@ crowding the active reference set.
   diagnostic observations of core address predicates, applied rewrite rounds and coverage gaps.
 - [Ordinary word-result proof](benchmarks/6502-word-result-proof/README.md) -
   typed destination bounds, reduced planning-address dependencies and qualification.
+- [Pointer setup proof](benchmarks/6502-pointer-setup-proof/README.md) -
+  candidate-level attribution, ordinary-storage bounds and TN pruning reassessment.
 - [INLINE routine implementation plan](INLINE_IMPLEMENTATION_PLAN.md) -
   declaration modifier, typed preference propagation, wider scalar
   inlining and Q4.12 wrapper rollout in six slices.

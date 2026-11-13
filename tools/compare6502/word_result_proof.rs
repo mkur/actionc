@@ -12,13 +12,17 @@ fn main() {
     let arg = std::env::args().nth(1).expect("new output directory");
     let root = Path::new(&arg);
     fs::create_dir(root).unwrap();
-    for (name, path) in [
+    let mut cases = vec![
         ("tn", "samples/tn/modern/TN.ACT"),
         ("word", "fixtures/runtime/word_load_sharing.act"),
         ("staging", "fixtures/runtime/argument_staging.act"),
         ("loop", "fixtures/runtime/pointer_invariant_loop.act"),
         ("result", "fixtures/runtime/core_layout_census.act"),
-    ] {
+    ];
+    if std::env::args().any(|arg| arg == "--pointer-setup") {
+        cases.push(("pointer", "fixtures/runtime/pointer_setup_bounds.act"));
+    }
+    for (name, path) in cases {
         let loaded = actionc::includes::load_program_with_expanded_source(path).unwrap();
         let model = actionc::semantic::analyze_with_options(
             &loaded.program,

@@ -1,0 +1,3481 @@
+{
+  "original_revision": "2b0530ac",
+  "attributed_revision": "31908c9f",
+  "implementation_revision": "4f2c7980beef2967e1027d2e4d95fe36de3c7c9d",
+  "compiler_sha256": "68ee924cdfc9876f2576b0528e219be15e0ddf6a062c65f3d5b1b3ee348fc332",
+  "cli_cases": [
+    {
+      "id": "tn-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "bba492444a23811275fb6778925df5362cc0be123078e7ec795a583be2cb4008",
+          "bytes": 9970
+        },
+        "asm": {
+          "sha256": "389fc4cd3364e6c47ea5b7cc068542069ebfd6f37f89f9169de2937442ca78a9",
+          "bytes": 290708
+        },
+        "map": {
+          "sha256": "998624868277f7c3bd0c13a2d509c1ed89e6c0852686c9ffdb893d6ae793115e",
+          "bytes": 10148
+        }
+      }
+    },
+    {
+      "id": "tn-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "0a69f65988bd2ab83a2e2146bcab7857e693692cdeea4d85f0e32fddf59f1527",
+          "bytes": 10077
+        },
+        "asm": {
+          "sha256": "f0c65cbce33e5e529b35da5074450fbc90aad337b80b3567229b9dc735a61e30",
+          "bytes": 295234
+        },
+        "map": {
+          "sha256": "fd0e856760fc6c22d48dc7f6e79cac3d1d493fba13053d1447d0cda359842fae",
+          "bytes": 10997
+        }
+      }
+    },
+    {
+      "id": "home-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "bytes": 21
+        },
+        "asm": {
+          "sha256": "d0f253bc7bd825eb31d80622303b4cb8d8dc43079a65fe5a0138fa14e07d9594",
+          "bytes": 879
+        },
+        "map": {
+          "sha256": "682f928d1073334d91dad8fe9f6658ab0a0aa7a83b7b89873a1e6477211d8e12",
+          "bytes": 73
+        }
+      }
+    },
+    {
+      "id": "home-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "bytes": 21
+        },
+        "asm": {
+          "sha256": "4cce64a0bcd304e8a7b672bd41868dd59f8754cc927bf3e09fbad615c0385dae",
+          "bytes": 885
+        },
+        "map": {
+          "sha256": "1f8c75369850d017d347758aa9ccae607c075c2adb578b613f8e7dab5f874948",
+          "bytes": 79
+        }
+      }
+    },
+    {
+      "id": "staging-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "51b486710953f4fab51a0229439e641b94a65222ad3a01873d55598c1e4738ed",
+          "bytes": 330
+        },
+        "asm": {
+          "sha256": "f077f78527fdaf9251f2a9f081048fda0b46385de9109abcaf6d18116e1e82f3",
+          "bytes": 10957
+        },
+        "map": {
+          "sha256": "8e672fb164055f8b9e176e3acc7ef99f3d7748b8375f61a7002f67832bb4e93c",
+          "bytes": 1049
+        }
+      }
+    },
+    {
+      "id": "staging-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "32850af4c044cdfc67e4ed9d5ef89403f8d2b0a1638a8a405ed18cd32d266ad5",
+          "bytes": 412
+        },
+        "asm": {
+          "sha256": "2192547f4a7038d47b4752b12b7b41d4c03960318029bb2efbc6c00c7c2cad42",
+          "bytes": 14466
+        },
+        "map": {
+          "sha256": "8ed288d3d02d05d914f8cd1c4b0198d318ff419f86279cc8d6dac9b36a904eee",
+          "bytes": 1593
+        }
+      }
+    },
+    {
+      "id": "word-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "7052148ba7ca6bd52a4f1014b65827361e493af716b7884077508a568afcab5f",
+          "bytes": 301
+        },
+        "asm": {
+          "sha256": "1ccb6c066e4ca13fd2b9836e5ab9729b2ca555b05caf615ed2188b1dbbb7936d",
+          "bytes": 9203
+        },
+        "map": {
+          "sha256": "c7bf7cf4a483e149a2d1424683dbc65be56365b636307ee310f8ee1f52288446",
+          "bytes": 199
+        }
+      }
+    },
+    {
+      "id": "word-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "7052148ba7ca6bd52a4f1014b65827361e493af716b7884077508a568afcab5f",
+          "bytes": 301
+        },
+        "asm": {
+          "sha256": "2dbd5d66bb5b3c7aaabdb881dd2f4b989cecba857d8a9dd37cded5c7f523f549",
+          "bytes": 9209
+        },
+        "map": {
+          "sha256": "ef839bad39e8ba144b0a37012b8ee1b2077642eab490bbafc07aef9a711a661b",
+          "bytes": 205
+        }
+      }
+    },
+    {
+      "id": "word-cart-0x41C7-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+          "bytes": 301
+        },
+        "asm": {
+          "sha256": "8655bf45e32c94563670fa1be05c3b15dc56480149883d39937441fc29c0cb87",
+          "bytes": 9203
+        },
+        "map": {
+          "sha256": "dfcdd4adc0528b1b5854102c9726899cc00c974e36edd251e99ddf1ea17388d0",
+          "bytes": 199
+        }
+      }
+    },
+    {
+      "id": "loop-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "809ae5f6c3549a7cad5bc28aa7b2a8d60ff452b6c207e01cbe1f2e8a450a91ca",
+          "bytes": 77
+        },
+        "asm": {
+          "sha256": "9a3d485e5536f69b7b540913edae974a0422a75cabcff93c320525fe7efefccd",
+          "bytes": 2582
+        },
+        "map": {
+          "sha256": "ddc7766936d250a5d554aff519bddc01651bad922b51b9ae4e7ddf669fe70069",
+          "bytes": 268
+        }
+      }
+    },
+    {
+      "id": "loop-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "809ae5f6c3549a7cad5bc28aa7b2a8d60ff452b6c207e01cbe1f2e8a450a91ca",
+          "bytes": 77
+        },
+        "asm": {
+          "sha256": "9ac4a9da565e0712c6e6610fe38aafe437fff5e0ed7c2b26f1db5d8092217c5d",
+          "bytes": 2588
+        },
+        "map": {
+          "sha256": "df3e85c51ea46d6f0b038c6df7307494fea02c8180ccbd58aef8e096a4da5d95",
+          "bytes": 274
+        }
+      }
+    },
+    {
+      "id": "ranges-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "bytes": 21
+        },
+        "asm": {
+          "sha256": "d0f253bc7bd825eb31d80622303b4cb8d8dc43079a65fe5a0138fa14e07d9594",
+          "bytes": 879
+        },
+        "map": {
+          "sha256": "682f928d1073334d91dad8fe9f6658ab0a0aa7a83b7b89873a1e6477211d8e12",
+          "bytes": 73
+        }
+      }
+    },
+    {
+      "id": "ranges-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "8cd58dfe9aea9ed68e575cfdbc3cdf354d39569ea22af1cd711fdf5b0095dd6d",
+          "bytes": 21
+        },
+        "asm": {
+          "sha256": "4cce64a0bcd304e8a7b672bd41868dd59f8754cc927bf3e09fbad615c0385dae",
+          "bytes": 885
+        },
+        "map": {
+          "sha256": "1f8c75369850d017d347758aa9ccae607c075c2adb578b613f8e7dab5f874948",
+          "bytes": 79
+        }
+      }
+    },
+    {
+      "id": "ranges-cart-0x41C7-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "49977821fcfa638edbedb7811c56bf24827be6b9a083a06bf9ef103fc383e6de",
+          "bytes": 21
+        },
+        "asm": {
+          "sha256": "95896f3dd36f250c4f3f389a26b59d7777dd1e86e1e572b40e5de0bfbb40c920",
+          "bytes": 879
+        },
+        "map": {
+          "sha256": "8af839a032f9b9172f27d04fcdec1ea6d7f088ba331010cdc61eb232fa97c99d",
+          "bytes": 73
+        }
+      }
+    },
+    {
+      "id": "captures-cart-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "e6d5d1a7b16a0a4c00adbfadd3f3eeb8a8e711ef3df1ef85450722df0dc33603",
+          "bytes": 227
+        },
+        "asm": {
+          "sha256": "1fb75afeb58a1233052dd15f021a03f9c95028cd83139c472b82cd91bc44b600",
+          "bytes": 7904
+        },
+        "map": {
+          "sha256": "32ae9f861db81f1830149273c8eabe1a29db5f0cec9495433d86d18f2fe52379",
+          "bytes": 699
+        }
+      }
+    },
+    {
+      "id": "captures-standalone-0x2C00-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "19c1064ed65e1ca4b18f33883a4eec095904adb0af5e8b4e3f8bb1f7c46c9e51",
+          "bytes": 309
+        },
+        "asm": {
+          "sha256": "39c404519dafa86b2774d1855ade2048ca940124614207d9e2804e160f190f01",
+          "bytes": 11382
+        },
+        "map": {
+          "sha256": "a97d1adef7bf8d9799c29823488ee8df655cebf027d92f6ee88ece28ade9bdfb",
+          "bytes": 1243
+        }
+      }
+    },
+    {
+      "id": "rejection-cart-0x3000-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "b694b850b0201fc5ae2d491393d042a3e9908e923f9e0534704236ae57555c46",
+          "bytes": 293
+        },
+        "asm": {
+          "sha256": "fdf87225e548c0de162d84c9fbac5d36b40f8f9da53fc4dc739e944c6df1b2dd",
+          "bytes": 9956
+        },
+        "map": {
+          "sha256": "aed1bdbeb42630aff5624b4a604acb3fbe3deea7462fd5c3ac813b3112f769e2",
+          "bytes": 741
+        }
+      }
+    },
+    {
+      "id": "coloring-cart-0x3000-modern",
+      "artifacts": {
+        "xex": {
+          "sha256": "759ac221533db8c280278e63acb9e364f41ad82fbbb01486745ed6a0574ce5a7",
+          "bytes": 164
+        },
+        "asm": {
+          "sha256": "da16d463b535d5bdb2c2fa15d76536354e73517c0b9df052f4a808a563295446",
+          "bytes": 5192
+        },
+        "map": {
+          "sha256": "dcca1baaede9e7b4f97f4e32c5db9509b6d5c2db873bb59657e4f3ac52f9106c",
+          "bytes": 73
+        }
+      }
+    }
+  ],
+  "api": [
+    {
+      "id": "tn-ActionCart-3000",
+      "before": {
+        "bytes": 9970,
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 77,
+            "shape-only": 27
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 44,
+            "shape-only": 21
+          },
+          "ssa-lite-redundant-indexed-address": {
+            "shape-only": 24
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "address-query": 44,
+            "fits-fixed-zero-page-pair": 44
+          },
+          "pointer-temp-deref/shape-only": {
+            "address-query": 21,
+            "fits-fixed-zero-page-pair": 21
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 13288,
+          "disjoint-ranges": 9933,
+          "equal-address": 450,
+          "in-range": 6,
+          "ordinary-range-outside-zero-page:true": 54
+        },
+        "outside_driver_evaluations": {
+          "address-query": 3772,
+          "fits-fixed-zero-page-pair": 74,
+          "equal-address": 2944
+        },
+        "examples": [
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 13035,
+                  "bytes": null,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 479,
+              "predicate": "address-query",
+              "result": null
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "shape-only"
+            },
+            "observation": {
+              "candidate": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 13035,
+                  "bytes": null,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 479,
+              "predicate": "address-query",
+              "result": null
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 13035,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 482,
+              "predicate": "fits-fixed-zero-page-pair",
+              "result": false
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "shape-only"
+            },
+            "observation": {
+              "candidate": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 13035,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 482,
+              "predicate": "fits-fixed-zero-page-pair",
+              "result": false
+            },
+            "routine_name": "Range"
+          }
+        ]
+      },
+      "after": {
+        "bytes": 9970,
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 77,
+            "shape-only": 27
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 44,
+            "shape-only": 21
+          },
+          "ssa-lite-redundant-indexed-address": {
+            "shape-only": 24
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "ordinary-range-outside-zero-page:true": 44
+          },
+          "pointer-temp-deref/shape-only": {
+            "ordinary-range-outside-zero-page:true": 21
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 13288,
+          "disjoint-ranges": 9933,
+          "equal-address": 450,
+          "in-range": 6,
+          "ordinary-range-outside-zero-page:true": 54
+        },
+        "outside_driver_evaluations": {
+          "address-query": 3725,
+          "ordinary-range-outside-zero-page:true": 47,
+          "equal-address": 2944,
+          "ordinary-range-outside-zero-page:false": 27,
+          "fits-fixed-zero-page-pair": 27
+        },
+        "examples": [
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "/Users/michalkurcewicz/action/actionc-public-release/src/mir6502/materialize/layout.rs",
+              "inputs": [
+                {
+                  "address": null,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 126,
+              "predicate": "ordinary-range-outside-zero-page",
+              "result": true
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "shape-only"
+            },
+            "observation": {
+              "candidate": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "/Users/michalkurcewicz/action/actionc-public-release/src/mir6502/materialize/layout.rs",
+              "inputs": [
+                {
+                  "address": null,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 126,
+              "predicate": "ordinary-range-outside-zero-page",
+              "result": true
+            },
+            "routine_name": "Range"
+          }
+        ]
+      },
+      "full_output_sha256": "b4dddc50e493c1a9f6e2f344e1e5b4fb64cc3d9a51d3bcde305ce1005489377e",
+      "image_sha256": "c04305c001a0b2ec70cd17d0b4d316dd86c006d79b71803bfc8f93685500b4bc"
+    },
+    {
+      "id": "tn-ActionCart-41c7",
+      "before": {
+        "bytes": 9970,
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 77,
+            "shape-only": 27
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 44,
+            "shape-only": 21
+          },
+          "ssa-lite-redundant-indexed-address": {
+            "shape-only": 24
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "address-query": 44,
+            "fits-fixed-zero-page-pair": 44
+          },
+          "pointer-temp-deref/shape-only": {
+            "address-query": 21,
+            "fits-fixed-zero-page-pair": 21
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 13288,
+          "disjoint-ranges": 9933,
+          "equal-address": 450,
+          "in-range": 6,
+          "ordinary-range-outside-zero-page:true": 54
+        },
+        "outside_driver_evaluations": {
+          "address-query": 3772,
+          "fits-fixed-zero-page-pair": 74,
+          "equal-address": 2944
+        },
+        "examples": [
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 17586,
+                  "bytes": null,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 479,
+              "predicate": "address-query",
+              "result": null
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "shape-only"
+            },
+            "observation": {
+              "candidate": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 17586,
+                  "bytes": null,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 479,
+              "predicate": "address-query",
+              "result": null
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 17586,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 482,
+              "predicate": "fits-fixed-zero-page-pair",
+              "result": false
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "shape-only"
+            },
+            "observation": {
+              "candidate": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 17586,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 482,
+              "predicate": "fits-fixed-zero-page-pair",
+              "result": false
+            },
+            "routine_name": "Range"
+          }
+        ]
+      },
+      "after": {
+        "bytes": 9970,
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 77,
+            "shape-only": 27
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 44,
+            "shape-only": 21
+          },
+          "ssa-lite-redundant-indexed-address": {
+            "shape-only": 24
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "ordinary-range-outside-zero-page:true": 44
+          },
+          "pointer-temp-deref/shape-only": {
+            "ordinary-range-outside-zero-page:true": 21
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 13288,
+          "disjoint-ranges": 9933,
+          "equal-address": 450,
+          "in-range": 6,
+          "ordinary-range-outside-zero-page:true": 54
+        },
+        "outside_driver_evaluations": {
+          "address-query": 3725,
+          "ordinary-range-outside-zero-page:true": 47,
+          "equal-address": 2944,
+          "ordinary-range-outside-zero-page:false": 27,
+          "fits-fixed-zero-page-pair": 27
+        },
+        "examples": [
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "/Users/michalkurcewicz/action/actionc-public-release/src/mir6502/materialize/layout.rs",
+              "inputs": [
+                {
+                  "address": null,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 126,
+              "predicate": "ordinary-range-outside-zero-page",
+              "result": true
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "shape-only"
+            },
+            "observation": {
+              "candidate": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "/Users/michalkurcewicz/action/actionc-public-release/src/mir6502/materialize/layout.rs",
+              "inputs": [
+                {
+                  "address": null,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 126,
+              "predicate": "ordinary-range-outside-zero-page",
+              "result": true
+            },
+            "routine_name": "Range"
+          }
+        ]
+      },
+      "full_output_sha256": "43ab694c0f17c02f3eb467a91ac9361d20992f2ea8b76e962359731ca6f3ad33",
+      "image_sha256": "5fbe5bd21694888ca70a14413bacbc9a9a2ba8a771da0b788b4c4bceb8e6f1cd"
+    },
+    {
+      "id": "tn-Standalone-3000",
+      "before": {
+        "bytes": 10077,
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 77,
+            "shape-only": 27
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 44,
+            "shape-only": 21
+          },
+          "ssa-lite-redundant-indexed-address": {
+            "shape-only": 24
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "address-query": 44,
+            "fits-fixed-zero-page-pair": 44
+          },
+          "pointer-temp-deref/shape-only": {
+            "address-query": 21,
+            "fits-fixed-zero-page-pair": 21
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 13282,
+          "disjoint-ranges": 9924,
+          "equal-address": 450,
+          "in-range": 6,
+          "ordinary-range-outside-zero-page:true": 54
+        },
+        "outside_driver_evaluations": {
+          "address-query": 3772,
+          "fits-fixed-zero-page-pair": 74,
+          "equal-address": 2944
+        },
+        "examples": [
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 13035,
+                  "bytes": null,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 479,
+              "predicate": "address-query",
+              "result": null
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "shape-only"
+            },
+            "observation": {
+              "candidate": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 13035,
+                  "bytes": null,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 479,
+              "predicate": "address-query",
+              "result": null
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 13035,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 482,
+              "predicate": "fits-fixed-zero-page-pair",
+              "result": false
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "shape-only"
+            },
+            "observation": {
+              "candidate": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 13035,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 482,
+              "predicate": "fits-fixed-zero-page-pair",
+              "result": false
+            },
+            "routine_name": "Range"
+          }
+        ]
+      },
+      "after": {
+        "bytes": 10077,
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 77,
+            "shape-only": 27
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 44,
+            "shape-only": 21
+          },
+          "ssa-lite-redundant-indexed-address": {
+            "shape-only": 24
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "ordinary-range-outside-zero-page:true": 44
+          },
+          "pointer-temp-deref/shape-only": {
+            "ordinary-range-outside-zero-page:true": 21
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 13282,
+          "disjoint-ranges": 9924,
+          "equal-address": 450,
+          "in-range": 6,
+          "ordinary-range-outside-zero-page:true": 54
+        },
+        "outside_driver_evaluations": {
+          "address-query": 3725,
+          "ordinary-range-outside-zero-page:true": 47,
+          "equal-address": 2944,
+          "ordinary-range-outside-zero-page:false": 27,
+          "fits-fixed-zero-page-pair": 27
+        },
+        "examples": [
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "/Users/michalkurcewicz/action/actionc-public-release/src/mir6502/materialize/layout.rs",
+              "inputs": [
+                {
+                  "address": null,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 126,
+              "predicate": "ordinary-range-outside-zero-page",
+              "result": true
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "shape-only"
+            },
+            "observation": {
+              "candidate": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "/Users/michalkurcewicz/action/actionc-public-release/src/mir6502/materialize/layout.rs",
+              "inputs": [
+                {
+                  "address": null,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 126,
+              "predicate": "ordinary-range-outside-zero-page",
+              "result": true
+            },
+            "routine_name": "Range"
+          }
+        ]
+      },
+      "full_output_sha256": "e2a91a8d1ae541dde346c261696ced8c7bb539508765ffc8bf8271e66ff04678",
+      "image_sha256": "17554913b1f6c39992b657c9e2ca9a2983a3204e95275a101e9ee75f8d89d8f0"
+    },
+    {
+      "id": "tn-Standalone-41c7",
+      "before": {
+        "bytes": 10077,
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 77,
+            "shape-only": 27
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 44,
+            "shape-only": 21
+          },
+          "ssa-lite-redundant-indexed-address": {
+            "shape-only": 24
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "address-query": 44,
+            "fits-fixed-zero-page-pair": 44
+          },
+          "pointer-temp-deref/shape-only": {
+            "address-query": 21,
+            "fits-fixed-zero-page-pair": 21
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 13282,
+          "disjoint-ranges": 9924,
+          "equal-address": 450,
+          "in-range": 6,
+          "ordinary-range-outside-zero-page:true": 54
+        },
+        "outside_driver_evaluations": {
+          "address-query": 3772,
+          "fits-fixed-zero-page-pair": 74,
+          "equal-address": 2944
+        },
+        "examples": [
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 17586,
+                  "bytes": null,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 479,
+              "predicate": "address-query",
+              "result": null
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "shape-only"
+            },
+            "observation": {
+              "candidate": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 17586,
+                  "bytes": null,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 479,
+              "predicate": "address-query",
+              "result": null
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 17586,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 482,
+              "predicate": "fits-fixed-zero-page-pair",
+              "result": false
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "shape-only"
+            },
+            "observation": {
+              "candidate": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 17586,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 482,
+              "predicate": "fits-fixed-zero-page-pair",
+              "result": false
+            },
+            "routine_name": "Range"
+          }
+        ]
+      },
+      "after": {
+        "bytes": 10077,
+        "work": {
+          "emission_invocations": 43,
+          "inner_emission_probes": 258,
+          "late_cleanup_preservation_replays": 6,
+          "materializations": 3,
+          "pipeline_attempts": 34,
+          "rewrite_analysis_builds": 24926
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 77,
+            "shape-only": 27
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 44,
+            "shape-only": 21
+          },
+          "ssa-lite-redundant-indexed-address": {
+            "shape-only": 24
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "ordinary-range-outside-zero-page:true": 44
+          },
+          "pointer-temp-deref/shape-only": {
+            "ordinary-range-outside-zero-page:true": 21
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 13282,
+          "disjoint-ranges": 9924,
+          "equal-address": 450,
+          "in-range": 6,
+          "ordinary-range-outside-zero-page:true": 54
+        },
+        "outside_driver_evaluations": {
+          "address-query": 3725,
+          "ordinary-range-outside-zero-page:true": 47,
+          "equal-address": 2944,
+          "ordinary-range-outside-zero-page:false": 27,
+          "fits-fixed-zero-page-pair": 27
+        },
+        "examples": [
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 4,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "/Users/michalkurcewicz/action/actionc-public-release/src/mir6502/materialize/layout.rs",
+              "inputs": [
+                {
+                  "address": null,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 126,
+              "predicate": "ordinary-range-outside-zero-page",
+              "result": true
+            },
+            "routine_name": "Range"
+          },
+          {
+            "routine": 37,
+            "attempt": 1843,
+            "generation": 0,
+            "candidate": {
+              "end": 2,
+              "key": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "outcome": "shape-only"
+            },
+            "observation": {
+              "candidate": {
+                "block": 5,
+                "family": "pointer-temp-deref",
+                "start": 0
+              },
+              "epoch": "initial-core",
+              "file": "/Users/michalkurcewicz/action/actionc-public-release/src/mir6502/materialize/layout.rs",
+              "inputs": [
+                {
+                  "address": null,
+                  "bytes": 2,
+                  "home": {
+                    "id": 2,
+                    "kind": "param",
+                    "offset": 0,
+                    "routine": 37
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 126,
+              "predicate": "ordinary-range-outside-zero-page",
+              "result": true
+            },
+            "routine_name": "Range"
+          }
+        ]
+      },
+      "full_output_sha256": "a3981d507e30e4a5b6cd29467ac4b02f34c8694ec3ec8ead888720d88824948a",
+      "image_sha256": "6e9386f38a756e6ea4a46c1856446942e150f6e7e5984f458a48ef33d313069a"
+    },
+    {
+      "id": "word-ActionCart-3000",
+      "before": {
+        "bytes": 301,
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 200,
+          "disjoint-ranges": 152,
+          "equal-address": 8
+        },
+        "outside_driver_evaluations": {
+          "address-query": 122,
+          "fits-fixed-zero-page-pair": 7,
+          "equal-address": 116
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 301,
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 200,
+          "disjoint-ranges": 152,
+          "equal-address": 8
+        },
+        "outside_driver_evaluations": {
+          "ordinary-range-outside-zero-page:true": 7,
+          "equal-address": 116,
+          "address-query": 115
+        },
+        "examples": []
+      },
+      "full_output_sha256": "bb529c937fbe4b4c05bb10f002daba766565ba9e43da20b0b02b3e75e8937867",
+      "image_sha256": "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94"
+    },
+    {
+      "id": "word-ActionCart-41c7",
+      "before": {
+        "bytes": 301,
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 200,
+          "disjoint-ranges": 152,
+          "equal-address": 8
+        },
+        "outside_driver_evaluations": {
+          "address-query": 122,
+          "fits-fixed-zero-page-pair": 7,
+          "equal-address": 116
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 301,
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 200,
+          "disjoint-ranges": 152,
+          "equal-address": 8
+        },
+        "outside_driver_evaluations": {
+          "ordinary-range-outside-zero-page:true": 7,
+          "equal-address": 116,
+          "address-query": 115
+        },
+        "examples": []
+      },
+      "full_output_sha256": "c4adc7231ffbab6ceaf502dec325c575d5c9023914afba8ad55171feccb6c50b",
+      "image_sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31"
+    },
+    {
+      "id": "word-Standalone-3000",
+      "before": {
+        "bytes": 301,
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 200,
+          "disjoint-ranges": 152,
+          "equal-address": 8
+        },
+        "outside_driver_evaluations": {
+          "address-query": 122,
+          "fits-fixed-zero-page-pair": 7,
+          "equal-address": 116
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 301,
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 200,
+          "disjoint-ranges": 152,
+          "equal-address": 8
+        },
+        "outside_driver_evaluations": {
+          "ordinary-range-outside-zero-page:true": 7,
+          "equal-address": 116,
+          "address-query": 115
+        },
+        "examples": []
+      },
+      "full_output_sha256": "c92d1adb39832183ab3d5a9e03f72ff9a155007bcafb0b2c2a4e43d64492cb34",
+      "image_sha256": "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94"
+    },
+    {
+      "id": "word-Standalone-41c7",
+      "before": {
+        "bytes": 301,
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 200,
+          "disjoint-ranges": 152,
+          "equal-address": 8
+        },
+        "outside_driver_evaluations": {
+          "address-query": 122,
+          "fits-fixed-zero-page-pair": 7,
+          "equal-address": 116
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 301,
+        "work": {
+          "emission_invocations": 12,
+          "inner_emission_probes": 48,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 258
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 200,
+          "disjoint-ranges": 152,
+          "equal-address": 8
+        },
+        "outside_driver_evaluations": {
+          "ordinary-range-outside-zero-page:true": 7,
+          "equal-address": 116,
+          "address-query": 115
+        },
+        "examples": []
+      },
+      "full_output_sha256": "b9b2305ad9e51b5d7ea307dcd0d88b3160a8911965d11cd17c085028ba68ba2d",
+      "image_sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31"
+    },
+    {
+      "id": "staging-ActionCart-3000",
+      "before": {
+        "bytes": 330,
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 221,
+          "disjoint-ranges": 161
+        },
+        "outside_driver_evaluations": {
+          "address-query": 30
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 330,
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 221,
+          "disjoint-ranges": 161
+        },
+        "outside_driver_evaluations": {
+          "address-query": 30
+        },
+        "examples": []
+      },
+      "full_output_sha256": "3de6cf49e966229fefc0a9c3fba0cff5e1380127a4505e8ce31a2f8bcc718c5e",
+      "image_sha256": "9a9d1ca4d3038df22bb79c4d0d7c1f92c9d9011db2f1ab9f36554a5444e22b86"
+    },
+    {
+      "id": "staging-ActionCart-41c7",
+      "before": {
+        "bytes": 330,
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 221,
+          "disjoint-ranges": 161
+        },
+        "outside_driver_evaluations": {
+          "address-query": 30
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 330,
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 221,
+          "disjoint-ranges": 161
+        },
+        "outside_driver_evaluations": {
+          "address-query": 30
+        },
+        "examples": []
+      },
+      "full_output_sha256": "b7499c5146b3ffc4e440581fc3ed30f243cb52c0775fb7c5007d40de839a6c22",
+      "image_sha256": "b68577c7038115260cd10e835391f76cb506e68919940b25f80cad2ec44e07d0"
+    },
+    {
+      "id": "staging-Standalone-3000",
+      "before": {
+        "bytes": 412,
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 221,
+          "disjoint-ranges": 161
+        },
+        "outside_driver_evaluations": {
+          "address-query": 30
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 412,
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 221,
+          "disjoint-ranges": 161
+        },
+        "outside_driver_evaluations": {
+          "address-query": 30
+        },
+        "examples": []
+      },
+      "full_output_sha256": "fe3ce5f4dc8fedccf42fa093dd1d3c92edd561190b5948eb6c475c03cb4e0fd0",
+      "image_sha256": "8bf1d099c51ca217d5bc36ee22b108a1f4107b8d8bf9d1e932a0555e78251b4c"
+    },
+    {
+      "id": "staging-Standalone-41c7",
+      "before": {
+        "bytes": 412,
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 221,
+          "disjoint-ranges": 161
+        },
+        "outside_driver_evaluations": {
+          "address-query": 30
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 412,
+        "work": {
+          "emission_invocations": 14,
+          "inner_emission_probes": 28,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 28,
+          "rewrite_analysis_builds": 625
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 221,
+          "disjoint-ranges": 161
+        },
+        "outside_driver_evaluations": {
+          "address-query": 30
+        },
+        "examples": []
+      },
+      "full_output_sha256": "e1c795b1499dad7d8d1a8fd20c1e2d3ba6d15ed6b363c541e29339217e81e4ce",
+      "image_sha256": "5e54e159556e8e1561a54284a588af6c1f0a895d17f9ebb82e0216c67b25cff9"
+    },
+    {
+      "id": "loop-ActionCart-3000",
+      "before": {
+        "bytes": 77,
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 30,
+          "disjoint-ranges": 28
+        },
+        "outside_driver_evaluations": {
+          "equal-address": 24,
+          "address-query": 37
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 77,
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 30,
+          "disjoint-ranges": 28
+        },
+        "outside_driver_evaluations": {
+          "equal-address": 24,
+          "address-query": 37
+        },
+        "examples": []
+      },
+      "full_output_sha256": "2235d0852042e7023ca1367f0ad864d1054aada4b8498cf4113e9b444b477941",
+      "image_sha256": "7ed326bb9d7342bf7381e69b551df3eb00767cf6ef526bf91568097e0767e45d"
+    },
+    {
+      "id": "loop-ActionCart-41c7",
+      "before": {
+        "bytes": 77,
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 30,
+          "disjoint-ranges": 28
+        },
+        "outside_driver_evaluations": {
+          "equal-address": 24,
+          "address-query": 37
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 77,
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 30,
+          "disjoint-ranges": 28
+        },
+        "outside_driver_evaluations": {
+          "equal-address": 24,
+          "address-query": 37
+        },
+        "examples": []
+      },
+      "full_output_sha256": "28672f3fc503b01f2287eacb0a4dadb60ead0f1af823b308752c9d852fafb490",
+      "image_sha256": "f1bcacb9c985bff703046012c13fd57bdbbf53549623f43f58c2cf0c67fdb1fc"
+    },
+    {
+      "id": "loop-Standalone-3000",
+      "before": {
+        "bytes": 77,
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 30,
+          "disjoint-ranges": 28
+        },
+        "outside_driver_evaluations": {
+          "equal-address": 24,
+          "address-query": 37
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 77,
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 30,
+          "disjoint-ranges": 28
+        },
+        "outside_driver_evaluations": {
+          "equal-address": 24,
+          "address-query": 37
+        },
+        "examples": []
+      },
+      "full_output_sha256": "f07bd84085168f839866a1d2ae1010a7a9d4d1c9c4c28a270c59ca5137bacb77",
+      "image_sha256": "7ed326bb9d7342bf7381e69b551df3eb00767cf6ef526bf91568097e0767e45d"
+    },
+    {
+      "id": "loop-Standalone-41c7",
+      "before": {
+        "bytes": 77,
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 30,
+          "disjoint-ranges": 28
+        },
+        "outside_driver_evaluations": {
+          "equal-address": 24,
+          "address-query": 37
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 77,
+        "work": {
+          "emission_invocations": 8,
+          "inner_emission_probes": 32,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 243
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 30,
+          "disjoint-ranges": 28
+        },
+        "outside_driver_evaluations": {
+          "equal-address": 24,
+          "address-query": 37
+        },
+        "examples": []
+      },
+      "full_output_sha256": "75bfd13192fad1f4a35adb26f4a7c56e596b5b0bcc08367e502049274b20e675",
+      "image_sha256": "f1bcacb9c985bff703046012c13fd57bdbbf53549623f43f58c2cf0c67fdb1fc"
+    },
+    {
+      "id": "result-ActionCart-3000",
+      "before": {
+        "bytes": 50,
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 21,
+          "disjoint-ranges": 20,
+          "ordinary-range-outside-zero-page:true": 1
+        },
+        "outside_driver_evaluations": {
+          "address-query": 2
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 50,
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 21,
+          "disjoint-ranges": 20,
+          "ordinary-range-outside-zero-page:true": 1
+        },
+        "outside_driver_evaluations": {
+          "address-query": 2
+        },
+        "examples": []
+      },
+      "full_output_sha256": "e1a1ab165e927ae5be31130cdde7e35becd7371599a7bfe5668b08d2e77687b3",
+      "image_sha256": "f7c9ffd9d27172533149595ff0f80130d5358c95a9fed20c12c5696613fdf1d3"
+    },
+    {
+      "id": "result-ActionCart-41c7",
+      "before": {
+        "bytes": 50,
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 21,
+          "disjoint-ranges": 20,
+          "ordinary-range-outside-zero-page:true": 1
+        },
+        "outside_driver_evaluations": {
+          "address-query": 2
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 50,
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 21,
+          "disjoint-ranges": 20,
+          "ordinary-range-outside-zero-page:true": 1
+        },
+        "outside_driver_evaluations": {
+          "address-query": 2
+        },
+        "examples": []
+      },
+      "full_output_sha256": "46a176b9a464218d8f4630570ae88e480e1c570b10a9488bcfa6ca282670f3b6",
+      "image_sha256": "ba4bd68828d5f631fc00e61dd68553d642f42b8883213d4bfefadf2010edafbf"
+    },
+    {
+      "id": "result-Standalone-3000",
+      "before": {
+        "bytes": 50,
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 21,
+          "disjoint-ranges": 20,
+          "ordinary-range-outside-zero-page:true": 1
+        },
+        "outside_driver_evaluations": {
+          "address-query": 2
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 50,
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 21,
+          "disjoint-ranges": 20,
+          "ordinary-range-outside-zero-page:true": 1
+        },
+        "outside_driver_evaluations": {
+          "address-query": 2
+        },
+        "examples": []
+      },
+      "full_output_sha256": "54af229335be0cfd019b5e6fee64aec8ce52cd7e521d1e365850606279db88f3",
+      "image_sha256": "f7c9ffd9d27172533149595ff0f80130d5358c95a9fed20c12c5696613fdf1d3"
+    },
+    {
+      "id": "result-Standalone-41c7",
+      "before": {
+        "bytes": 50,
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 21,
+          "disjoint-ranges": 20,
+          "ordinary-range-outside-zero-page:true": 1
+        },
+        "outside_driver_evaluations": {
+          "address-query": 2
+        },
+        "examples": []
+      },
+      "after": {
+        "bytes": 50,
+        "work": {
+          "emission_invocations": 2,
+          "inner_emission_probes": 4,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 161
+        },
+        "status": "complete",
+        "candidate_outcomes": {},
+        "local_gate_evaluations": {},
+        "unscoped_round_evaluations": {
+          "address-query": 21,
+          "disjoint-ranges": 20,
+          "ordinary-range-outside-zero-page:true": 1
+        },
+        "outside_driver_evaluations": {
+          "address-query": 2
+        },
+        "examples": []
+      },
+      "full_output_sha256": "182a575fbcace7fb7b9a5132ab0d158103a612f3fdaf63b5b00a0ffa8ba567af",
+      "image_sha256": "ba4bd68828d5f631fc00e61dd68553d642f42b8883213d4bfefadf2010edafbf"
+    },
+    {
+      "id": "pointer-ActionCart-3000",
+      "before": {
+        "bytes": 60,
+        "work": {
+          "emission_invocations": 5,
+          "inner_emission_probes": 10,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 166
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 1
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 1
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "address-query": 1,
+            "fits-fixed-zero-page-pair": 1
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 28,
+          "disjoint-ranges": 22
+        },
+        "outside_driver_evaluations": {
+          "address-query": 85,
+          "fits-fixed-zero-page-pair": 1,
+          "equal-address": 84
+        },
+        "examples": [
+          {
+            "routine": 0,
+            "attempt": 32,
+            "generation": 0,
+            "candidate": {
+              "end": 8,
+              "key": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 12288,
+                  "bytes": null,
+                  "home": {
+                    "id": 0,
+                    "kind": "global",
+                    "offset": 0,
+                    "routine": null
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 479,
+              "predicate": "address-query",
+              "result": null
+            },
+            "routine_name": "ReadPair"
+          },
+          {
+            "routine": 0,
+            "attempt": 32,
+            "generation": 0,
+            "candidate": {
+              "end": 8,
+              "key": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 12288,
+                  "bytes": 2,
+                  "home": {
+                    "id": 0,
+                    "kind": "global",
+                    "offset": 0,
+                    "routine": null
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 482,
+              "predicate": "fits-fixed-zero-page-pair",
+              "result": false
+            },
+            "routine_name": "ReadPair"
+          }
+        ]
+      },
+      "after": {
+        "bytes": 60,
+        "work": {
+          "emission_invocations": 5,
+          "inner_emission_probes": 10,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 166
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 1
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 1
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "ordinary-range-outside-zero-page:true": 1
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 28,
+          "disjoint-ranges": 22
+        },
+        "outside_driver_evaluations": {
+          "ordinary-range-outside-zero-page:true": 1,
+          "equal-address": 84,
+          "address-query": 84
+        },
+        "examples": [
+          {
+            "routine": 0,
+            "attempt": 32,
+            "generation": 0,
+            "candidate": {
+              "end": 8,
+              "key": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "epoch": "initial-core",
+              "file": "/Users/michalkurcewicz/action/actionc-public-release/src/mir6502/materialize/layout.rs",
+              "inputs": [
+                {
+                  "address": null,
+                  "bytes": 2,
+                  "home": {
+                    "id": 0,
+                    "kind": "global",
+                    "offset": 0,
+                    "routine": null
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 126,
+              "predicate": "ordinary-range-outside-zero-page",
+              "result": true
+            },
+            "routine_name": "ReadPair"
+          }
+        ]
+      },
+      "full_output_sha256": "e6dffa8c94bc3af6d6f81bda3314365c98ec69ff3deb7ed091f58df5f886f695",
+      "image_sha256": "c801dd75ba8d9ff7ce5a6ceb951e18d4b7b3714a8226f15d5102f062fde98eb4"
+    },
+    {
+      "id": "pointer-ActionCart-41c7",
+      "before": {
+        "bytes": 60,
+        "work": {
+          "emission_invocations": 5,
+          "inner_emission_probes": 10,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 166
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 1
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 1
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "address-query": 1,
+            "fits-fixed-zero-page-pair": 1
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 28,
+          "disjoint-ranges": 22
+        },
+        "outside_driver_evaluations": {
+          "address-query": 85,
+          "fits-fixed-zero-page-pair": 1,
+          "equal-address": 84
+        },
+        "examples": [
+          {
+            "routine": 0,
+            "attempt": 32,
+            "generation": 0,
+            "candidate": {
+              "end": 8,
+              "key": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 16839,
+                  "bytes": null,
+                  "home": {
+                    "id": 0,
+                    "kind": "global",
+                    "offset": 0,
+                    "routine": null
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 479,
+              "predicate": "address-query",
+              "result": null
+            },
+            "routine_name": "ReadPair"
+          },
+          {
+            "routine": 0,
+            "attempt": 32,
+            "generation": 0,
+            "candidate": {
+              "end": 8,
+              "key": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 16839,
+                  "bytes": 2,
+                  "home": {
+                    "id": 0,
+                    "kind": "global",
+                    "offset": 0,
+                    "routine": null
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 482,
+              "predicate": "fits-fixed-zero-page-pair",
+              "result": false
+            },
+            "routine_name": "ReadPair"
+          }
+        ]
+      },
+      "after": {
+        "bytes": 60,
+        "work": {
+          "emission_invocations": 5,
+          "inner_emission_probes": 10,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 166
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 1
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 1
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "ordinary-range-outside-zero-page:true": 1
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 28,
+          "disjoint-ranges": 22
+        },
+        "outside_driver_evaluations": {
+          "ordinary-range-outside-zero-page:true": 1,
+          "equal-address": 84,
+          "address-query": 84
+        },
+        "examples": [
+          {
+            "routine": 0,
+            "attempt": 32,
+            "generation": 0,
+            "candidate": {
+              "end": 8,
+              "key": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "epoch": "initial-core",
+              "file": "/Users/michalkurcewicz/action/actionc-public-release/src/mir6502/materialize/layout.rs",
+              "inputs": [
+                {
+                  "address": null,
+                  "bytes": 2,
+                  "home": {
+                    "id": 0,
+                    "kind": "global",
+                    "offset": 0,
+                    "routine": null
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 126,
+              "predicate": "ordinary-range-outside-zero-page",
+              "result": true
+            },
+            "routine_name": "ReadPair"
+          }
+        ]
+      },
+      "full_output_sha256": "1159c9716b4c9e855aaca04acc65bab286319aa6b8c6a94bd71480f2f6db6ce4",
+      "image_sha256": "7832ba47a941158601752991338806e05b78893c566e3475ddeecde301a54f99"
+    },
+    {
+      "id": "pointer-Standalone-3000",
+      "before": {
+        "bytes": 60,
+        "work": {
+          "emission_invocations": 5,
+          "inner_emission_probes": 10,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 166
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 1
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 1
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "address-query": 1,
+            "fits-fixed-zero-page-pair": 1
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 28,
+          "disjoint-ranges": 22
+        },
+        "outside_driver_evaluations": {
+          "address-query": 85,
+          "fits-fixed-zero-page-pair": 1,
+          "equal-address": 84
+        },
+        "examples": [
+          {
+            "routine": 0,
+            "attempt": 32,
+            "generation": 0,
+            "candidate": {
+              "end": 8,
+              "key": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 12288,
+                  "bytes": null,
+                  "home": {
+                    "id": 0,
+                    "kind": "global",
+                    "offset": 0,
+                    "routine": null
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 479,
+              "predicate": "address-query",
+              "result": null
+            },
+            "routine_name": "ReadPair"
+          },
+          {
+            "routine": 0,
+            "attempt": 32,
+            "generation": 0,
+            "candidate": {
+              "end": 8,
+              "key": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 12288,
+                  "bytes": 2,
+                  "home": {
+                    "id": 0,
+                    "kind": "global",
+                    "offset": 0,
+                    "routine": null
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 482,
+              "predicate": "fits-fixed-zero-page-pair",
+              "result": false
+            },
+            "routine_name": "ReadPair"
+          }
+        ]
+      },
+      "after": {
+        "bytes": 60,
+        "work": {
+          "emission_invocations": 5,
+          "inner_emission_probes": 10,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 166
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 1
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 1
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "ordinary-range-outside-zero-page:true": 1
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 28,
+          "disjoint-ranges": 22
+        },
+        "outside_driver_evaluations": {
+          "ordinary-range-outside-zero-page:true": 1,
+          "equal-address": 84,
+          "address-query": 84
+        },
+        "examples": [
+          {
+            "routine": 0,
+            "attempt": 32,
+            "generation": 0,
+            "candidate": {
+              "end": 8,
+              "key": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "epoch": "initial-core",
+              "file": "/Users/michalkurcewicz/action/actionc-public-release/src/mir6502/materialize/layout.rs",
+              "inputs": [
+                {
+                  "address": null,
+                  "bytes": 2,
+                  "home": {
+                    "id": 0,
+                    "kind": "global",
+                    "offset": 0,
+                    "routine": null
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 126,
+              "predicate": "ordinary-range-outside-zero-page",
+              "result": true
+            },
+            "routine_name": "ReadPair"
+          }
+        ]
+      },
+      "full_output_sha256": "19e2b0f0c112281525403c11e040375b1822018ebddae48d023c35c2f0a20d57",
+      "image_sha256": "c801dd75ba8d9ff7ce5a6ceb951e18d4b7b3714a8226f15d5102f062fde98eb4"
+    },
+    {
+      "id": "pointer-Standalone-41c7",
+      "before": {
+        "bytes": 60,
+        "work": {
+          "emission_invocations": 5,
+          "inner_emission_probes": 10,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 166
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 1
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 1
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "address-query": 1,
+            "fits-fixed-zero-page-pair": 1
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 28,
+          "disjoint-ranges": 22
+        },
+        "outside_driver_evaluations": {
+          "address-query": 85,
+          "fits-fixed-zero-page-pair": 1,
+          "equal-address": 84
+        },
+        "examples": [
+          {
+            "routine": 0,
+            "attempt": 32,
+            "generation": 0,
+            "candidate": {
+              "end": 8,
+              "key": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 16839,
+                  "bytes": null,
+                  "home": {
+                    "id": 0,
+                    "kind": "global",
+                    "offset": 0,
+                    "routine": null
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 479,
+              "predicate": "address-query",
+              "result": null
+            },
+            "routine_name": "ReadPair"
+          },
+          {
+            "routine": 0,
+            "attempt": 32,
+            "generation": 0,
+            "candidate": {
+              "end": 8,
+              "key": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "epoch": "initial-core",
+              "file": "src/mir6502/materialize/pointers.rs",
+              "inputs": [
+                {
+                  "address": 16839,
+                  "bytes": 2,
+                  "home": {
+                    "id": 0,
+                    "kind": "global",
+                    "offset": 0,
+                    "routine": null
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 482,
+              "predicate": "fits-fixed-zero-page-pair",
+              "result": false
+            },
+            "routine_name": "ReadPair"
+          }
+        ]
+      },
+      "after": {
+        "bytes": 60,
+        "work": {
+          "emission_invocations": 5,
+          "inner_emission_probes": 10,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 166
+        },
+        "status": "complete",
+        "candidate_outcomes": {
+          "direct-pointer-temp-rematerialization": {
+            "applied": 1
+          },
+          "pointer-temp-deref": {
+            "overlap-rejected": 1
+          }
+        },
+        "local_gate_evaluations": {
+          "pointer-temp-deref/overlap-rejected": {
+            "ordinary-range-outside-zero-page:true": 1
+          }
+        },
+        "unscoped_round_evaluations": {
+          "address-query": 28,
+          "disjoint-ranges": 22
+        },
+        "outside_driver_evaluations": {
+          "ordinary-range-outside-zero-page:true": 1,
+          "equal-address": 84,
+          "address-query": 84
+        },
+        "examples": [
+          {
+            "routine": 0,
+            "attempt": 32,
+            "generation": 0,
+            "candidate": {
+              "end": 8,
+              "key": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "outcome": "overlap-rejected"
+            },
+            "observation": {
+              "candidate": {
+                "block": 0,
+                "family": "pointer-temp-deref",
+                "start": 6
+              },
+              "epoch": "initial-core",
+              "file": "/Users/michalkurcewicz/action/actionc-public-release/src/mir6502/materialize/layout.rs",
+              "inputs": [
+                {
+                  "address": null,
+                  "bytes": 2,
+                  "home": {
+                    "id": 0,
+                    "kind": "global",
+                    "offset": 0,
+                    "routine": null
+                  },
+                  "planning_address": true
+                }
+              ],
+              "line": 126,
+              "predicate": "ordinary-range-outside-zero-page",
+              "result": true
+            },
+            "routine_name": "ReadPair"
+          }
+        ]
+      },
+      "full_output_sha256": "d8e13a07a3c7368e6004a11b1a173b8dc9bd6d867118e2093b02f8a073c9ad0f",
+      "image_sha256": "7832ba47a941158601752991338806e05b78893c566e3475ddeecde301a54f99"
+    }
+  ],
+  "api_rlib_sha256": "3cb102dd3247ced2fc8e1dc9dfd1c59226b637e3d6de252d2a427d63d5d3a337",
+  "tn_pruning_recheck": [
+    {
+      "id": "tn-ActionCart-3000",
+      "before_bytes": 9970,
+      "after_bytes": 9970,
+      "before_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24926
+      },
+      "after_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 24926
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 4
+      }
+    },
+    {
+      "id": "tn-ActionCart-41c7",
+      "before_bytes": 9970,
+      "after_bytes": 9970,
+      "before_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24926
+      },
+      "after_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 24926
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 4
+      }
+    },
+    {
+      "id": "tn-Standalone-3000",
+      "before_bytes": 10077,
+      "after_bytes": 10077,
+      "before_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24926
+      },
+      "after_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 24926
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 4
+      }
+    },
+    {
+      "id": "tn-Standalone-41c7",
+      "before_bytes": 10077,
+      "after_bytes": 10077,
+      "before_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24926
+      },
+      "after_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 24926
+      },
+      "result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 4
+      }
+    }
+  ],
+  "cli_artifact_comparisons": 54,
+  "full_api_cases": 24,
+  "versions_compared": 3,
+  "trace_off_on_cases_per_version": 24,
+  "interpretation": "Local gates of explicitly scoped candidates, including speculative materializations. Shared SSA-prefix facts and other unscoped observations remain separate; no complete preservation certificate or frame compaction is implied.",
+  "date": "2026-11-13",
+  "source_sha256": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "fixtures/runtime/word_load_sharing.act": "cb85766deb8e2b58941e80d9bae2c2d2907297c630d63725dd03dfb297fca00b",
+    "fixtures/runtime/argument_staging.act": "400871bc51dca8577fa9dd16d27c121ff5173968814a1fdc1368d7e557e34c75",
+    "fixtures/runtime/pointer_invariant_loop.act": "0508ad8bf6152cdade795ffd1e85b6adaf694b6cd25c02f4a4011485e93d7aa7",
+    "fixtures/runtime/core_layout_census.act": "1db385f6cddb48056fb9cef61fabcabbf94e26d096ad7c32e3d11fd1d19eb944",
+    "fixtures/runtime/pointer_setup_bounds.act": "ba1fe2d4818edd8ccac9c73cb0d3ef49ab435e5bde04411d81d0694f8fa86c18"
+  },
+  "tool_sha256": {
+    "tools/compare6502/pointer_setup_proof.py": "a4dc62fdd8ced91df70ea14793d1f4b8892ee36b19e88ad4ddaa4573480e0e79",
+    "tools/compare6502/word_result_proof.rs": "ba3857e42c0b7a6187f2eeea863ba3efb43dabfb8cd250bd098938c4c043716c",
+    "tools/compare6502/late_spill_pruning.rs": "c0cf44bc824d0dc97d1bf3a5722e117e6abb02478582e42b8fe6785171473c99"
+  },
+  "original_compiler_sha256": "957d4f02d0476043bfc4192e9473fba34d51f2629706211a869db144d6403e2e",
+  "build_environment": "export CARGO_TARGET_DIR=build/checked-arena/shared-target\nexport CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0\nexport CARGO_PROFILE_DEV_OPT_LEVEL=1 CARGO_PROFILE_TEST_OPT_LEVEL=1\nexport CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=2\n",
+  "qualification_command": "python3 tools/compare6502/pointer_setup_proof.py --original-api build/mir6502-pointer-setup-proof/baseline --attributed-api build/mir6502-pointer-setup-proof/attributed",
+  "summary_refresh": "Existing captures re-summarized after separating successful/failed structural observations outside drivers; local proof assertions also checked against all TN/pointer captures. No compiler rebuild or output changes.",
+  "validation": [
+    {
+      "command": "cargo test --lib mir6502:: -- --test-threads=2",
+      "targets": 1,
+      "passed": 1329,
+      "failed": 0,
+      "ignored": 14,
+      "log_sha256": "7344931359b516dfe04abc5ea63d70f37f87f1db9e9d506e93a6615dff7cac1d",
+      "ignored_tests": [
+        "test mir6502::analysis::entry_flags::tests::census::callee_entry_flags_census ... ignored, opt-in typed flag blocker census; writes ignored build artifacts",
+        "test mir6502::late_cleanup::pruning::tests::pruned_tail_mads_reconstruction_relocation_lf_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+        "test mir6502::materialize::inlining::tests::q4_exhaustive_squares_and_deterministic_floor_products_match_both_configurations ... ignored, exhaustive signed-16 arithmetic audit",
+        "test mir6502::materialize::inlining::tests::q4_inline_matched_artifacts ... ignored, writes matched benchmark artifacts under ignored build/",
+        "test mir6502::materialize::pointer_retention::checked_ranges::qualification::checked_range_mads_relocation ... ignored, requires MADS; assembles actual LF/CRLF listings and relocates enabled images",
+        "test mir6502::materialize::pointer_retention::checked_ranges::qualification::fresh_checked_range_measurements ... ignored, run tools/compare6502/tn/checked_ranges.py to generate/check fresh bindings",
+        "test mir6502::materialize::tests::argument_staging_measurements::argument_staging_measure_corpus ... ignored, opt-in corpus measurement; writes ignored build artifacts",
+        "test mir6502::materialize::tests::argument_x_bitwise_measurements::argument_x_bitwise_measure_corpus ... ignored, opt-in corpus measurement; writes ignored build artifacts",
+        "test mir6502::materialize::tests::argument_x_forwarding_measurements::argument_x_forwarding_measure_corpus ... ignored, opt-in corpus measurement; writes ignored build artifacts",
+        "test mir6502::materialize::tests::callee_entry_flags_measurements::callee_entry_flags_measure_corpus ... ignored, opt-in corpus measurement; writes ignored build artifacts",
+        "test mir6502::materialize::tests::captured_compare_measurements::captured_compare_measure_corpus ... ignored, opt-in corpus measurement; writes ignored build artifacts",
+        "test mir6502::materialize::tests::pointer_byte_plus_one_measurements::pointer_byte_plus_one_measure_corpus ... ignored, opt-in corpus measurement; writes ignored build artifacts",
+        "test mir6502::materialize::tests::pointer_load_sharing_measurements::pointer_load_sharing_measure_corpus ... ignored, opt-in corpus measurement; writes ignored build artifacts",
+        "test mir6502::materialize::word_load_sharing::measurements::word_load_sharing_measure_corpus ... ignored, opt-in corpus export; writes ignored build artifacts"
+      ]
+    },
+    {
+      "command": "cargo test --test mir6502_pointer_setup --test mir6502_layout_census --test mir6502_phase_trace --test mir6502_late_spill_pruning -- --test-threads=2",
+      "targets": 4,
+      "passed": 13,
+      "failed": 0,
+      "ignored": 0,
+      "log_sha256": "f0ddda986eaa26588868dec8c1736fc014f261c150157fdbf072ed3e4831924e",
+      "ignored_tests": []
+    },
+    {
+      "command": "cargo test --test mir6502_argument_staging --test mir6502_argument_x_bitwise --test mir6502_argument_x_forwarding --test mir6502_bounded_call_pointer_retention --test mir6502_call_abi --test mir6502_callee_entry_flags --test mir6502_checked_pointer_ranges --test mir6502_circle_quality --test mir6502_direct_comparisons --test mir6502_fixtures --test mir6502_home_value_invalidation --test mir6502_kalscope_quality --test mir6502_late_cleanup --test mir6502_leaf_inline_cli --test mir6502_loop_consumer --test mir6502_materialization_gap --test mir6502_pointer_byte_plus_one --test mir6502_pointer_load_sharing --test mir6502_pointer_retention --test mir6502_register_copy_forwarding --test mir6502_rewrite_inventory --test mir6502_store_consumer --test mir6502_turtle_quality --test mir6502_warpdem_quality --test mir6502_word_load_sharing --test mir6502_word_move_store --test cli_emit_modes -- --test-threads=2",
+      "targets": 27,
+      "passed": 122,
+      "failed": 0,
+      "ignored": 11,
+      "log_sha256": "619d4abb1145107f9417bf1b01f7f78341c2640222338b306ebcec3dd30c5de6",
+      "ignored_tests": [
+        "test argument_x_bitwise_mads_listings_reconstruct_and_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+        "test argument_x_forwarding_mads_listings_reconstruct_and_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+        "test bounded_call_pointer_retention_keeps_unknown_tn_destinations_unchanged ... ignored, requires the qualified argument-x-bitwise TN images",
+        "test bounded_call_pointer_retention_mads_relocation_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+        "test callee_entry_flags_mads_listings_reconstruct_and_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+        "test home_value_invalidation_mads_listings_reconstruct_and_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+        "test late_producer_listings_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+        "test pointer_byte_plus_one_mads_listings_reconstruct_and_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+        "test pointer_load_sharing_mads_listings_reconstruct_and_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+        "test word_load_sharing_mads_listings_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS",
+        "test word_move_store_mads_listings_reconstruct_and_relocate_with_lf_and_crlf ... ignored, requires MADS assembler on PATH or ACTIONC_MADS"
+      ]
+    },
+    {
+      "command": "cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test pointer_setup_bounds --test pointer_retention --test bounded_call_pointer_retention --test checked_pointer_ranges --test pointer_byte_plus_one --test pointer_load_sharing --test word_load_sharing --test word_result_placement --test late_spill_pruning --test late_private_store_cleanup --test late_dead_producers --test argument_staging --test tn_codegen_reproducers --test tn_checked_arena --test tn_dispatch -- --test-threads=2",
+      "targets": 15,
+      "passed": 33,
+      "failed": 0,
+      "ignored": 1,
+      "log_sha256": "17ab4ea0b1f2abb449ef73a63a9a0bbe2233d0d57b1680484da6e4bc29d3e354",
+      "ignored_tests": [
+        "test unchecked_valid_allocation_cycle_controls ... ignored, requires the frozen unchecked controls; measures only valid allocator calls"
+      ]
+    }
+  ],
+  "validation_scope": "MIR6502 unit tests; all mir6502_* integration targets and cli_emit_modes; 15 affected VM targets. No shared frontend/NIR contract change. Optional MADS rounds not repeated because frozen listings are unchanged.",
+  "pointer_fixture_vm_executions": 80,
+  "pointer_fixture_line_endings": "LF and CRLF through actual parser/instrumented file loader in both runtimes at both origins",
+  "raw_capture_directory": "build/mir6502-pointer-setup-proof/qualification/run-xsh6vcl7"
+}
