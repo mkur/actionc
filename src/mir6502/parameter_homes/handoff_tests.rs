@@ -164,10 +164,10 @@ fn call_consumption_precedes_clobbers_but_cannot_hide_setup_or_postcall_uses() {
         )
         .is_empty()
     );
-    assert!(verify_lifetimes(&program.routines[index]).is_empty());
+    assert!(verify_lifetimes(&program.routines[index], None).is_empty());
     let mut without = program.routines[index].clone();
     without.frame.parameter_handoff = None;
-    assert!(!verify_lifetimes(&without).is_empty());
+    assert!(!verify_lifetimes(&without, None).is_empty());
     let mut clobber = program.routines[index].clone();
     clobber.blocks[0].ops.insert(
         0,
@@ -177,7 +177,7 @@ fn call_consumption_precedes_clobbers_but_cannot_hide_setup_or_postcall_uses() {
             width: MirWidth::Byte,
         },
     );
-    assert!(!verify_lifetimes(&clobber).is_empty());
+    assert!(!verify_lifetimes(&clobber, None).is_empty());
     let mut after = program.clone();
     let read = after.routines[index].blocks[0].ops[0].clone();
     after.routines[index].blocks[0].ops.push(read);
@@ -189,7 +189,7 @@ fn call_consumption_precedes_clobbers_but_cannot_hide_setup_or_postcall_uses() {
         )
         .is_empty()
     );
-    assert!(!verify_lifetimes(&after.routines[index]).is_empty());
+    assert!(!verify_lifetimes(&after.routines[index], None).is_empty());
     let mut stale = program.clone();
     stale.routines[index]
         .frame

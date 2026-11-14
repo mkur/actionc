@@ -64,20 +64,6 @@ impl MirVerifier {
     }
 
     fn verify_program(&mut self, program: &MirProgram) {
-        // All pre-materialization entry points verify retained inputs before
-        // prepend_action_abi_param_prologue; PostHome and later see actual entry
-        // operations, including captures that subsequent cleanup may elide.
-        use super::analysis::known_callees::MirCalleeEntryStage;
-        let entry_stage = match self.phase {
-            MirPhase::PreMaterialization => MirCalleeEntryStage::PlannedCapture,
-            MirPhase::PostHome | MirPhase::PostMaterialization | MirPhase::PreEmission => MirCalleeEntryStage::ActualEntry,
-        };
-        for routine in &program.routines {
-            self.diagnostics.extend(super::parameter_homes::verify_storage(program, routine, entry_stage));
-            if self.phase != MirPhase::PreMaterialization {
-                self.diagnostics.extend(super::parameter_homes::verify_lifetimes(routine));
-            }
-        }
         let static_ids = program
             .statics
             .iter()
@@ -228,6 +214,23 @@ impl MirVerifier {
                 &all_routine_ids,
                 &machine_ids,
             );
+        }
+        // Structural verification precedes analyses of candidate storage/callees.
+        if self.diagnostics.is_empty() {
+            use super::analysis::known_callees::MirCalleeEntryStage;
+            let stage = if self.phase == MirPhase::PreMaterialization {
+                MirCalleeEntryStage::PlannedCapture
+            } else { MirCalleeEntryStage::ActualEntry };
+            let needs_calls = self.phase != MirPhase::PreMaterialization && program.routines.iter().any(|r|
+                r.frame.parameter_homes.is_some() && r.frame.parameter_handoff.is_none()
+                && r.blocks.iter().flat_map(|b| &b.ops).any(|op| matches!(op, MirOp::Call { .. })));
+            let mut calls = needs_calls.then(|| super::parameter_homes::ResidenceCalls::new(program, stage));
+            for routine in &program.routines {
+                self.diagnostics.extend(super::parameter_homes::verify_storage(program, routine, stage));
+                if self.phase != MirPhase::PreMaterialization {
+                    self.diagnostics.extend(super::parameter_homes::verify_lifetimes(routine, calls.as_mut()));
+                }
+            }
         }
     }
 

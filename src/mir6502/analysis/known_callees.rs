@@ -68,6 +68,12 @@ pub(in crate::mir6502) enum MirKnownMemoryWrites {
 }
 
 impl MirKnownMemoryWrites {
+    pub(in crate::mir6502) fn preserves_fixed_byte(&self, slot: MirFixedZpSlot) -> bool {
+        match self {
+            Self::Exact(writes) => writes.iter().all(|write| !mem_may_alias_fixed_slot(write, slot)),
+            Self::Unknown => false,
+        }
+    }
     #[allow(dead_code)] // Retained as the pair-level query for future address consumers.
     pub(in crate::mir6502) fn preserves_fixed_pair(&self, lo: MirFixedZpSlot) -> bool {
         let hi = MirFixedZpSlot(lo.0.saturating_add(1));
@@ -740,10 +746,14 @@ fn summarize_op_writes(
     }
     for range in effects.memory.direct_writes {
         for offset in 0..range.bytes {
-            writes.record(resolve_routine_private_zero_page(
+            if let Some(byte) = resolve_routine_private_zero_page(
                 routine,
                 offset_mem(&range.base, offset),
-            ));
+            ) {
+                writes.record(byte);
+            } else {
+                writes.make_unknown();
+            }
         }
     }
     for home in effects.addresses.pair_writes {
@@ -752,26 +762,36 @@ fn summarize_op_writes(
                 writes.record(MirMem::FixedZeroPage(slot));
             }
             MirHomeByte::VirtualZeroPage { slot, offset } => {
-                writes.record(offset_mem(
-                    &resolve_routine_private_zero_page(routine, MirMem::ZeroPage(slot)),
-                    offset,
-                ));
+                if let Some(byte) = resolve_routine_private_zero_page(routine, MirMem::ZeroPage(slot)) {
+                    writes.record(offset_mem(&byte, offset));
+                } else {
+                    writes.make_unknown();
+                }
             }
             MirHomeByte::Spill { .. } => {}
         }
     }
 }
 
-fn resolve_routine_private_zero_page(routine: &MirRoutine, mem: MirMem) -> MirMem {
+fn resolve_routine_private_zero_page(routine: &MirRoutine, mem: MirMem) -> Option<MirMem> {
+    if let MirMem::Param { id, offset } = mem
+        && routine.frame.parameter_homes.is_some()
+        && !routine.frame.inline_parameter(id)
+    {
+        return match routine.frame.parameter_lane(id, offset)? {
+            crate::mir6502::ir::MirParamLane::ZeroPage(slot) => Some(MirMem::FixedZeroPage(slot)),
+            crate::mir6502::ir::MirParamLane::Reg(_) => None,
+        };
+    }
     let MirMem::ZeroPage(slot) = mem else {
-        return mem;
+        return Some(mem);
     };
     routine
         .frame
         .zero_page_allocations
         .iter()
         .find(|allocation| allocation.slot == slot && allocation.size == 1)
-        .map_or(MirMem::ZeroPage(slot), |allocation| {
+        .map(|allocation| {
             MirMem::FixedZeroPage(allocation.start)
         })
 }

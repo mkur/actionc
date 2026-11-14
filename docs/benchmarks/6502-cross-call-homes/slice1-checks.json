@@ -1,0 +1,61 @@
+{
+  "slice1-homes": {
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "mir6502::parameter_homes"
+    ],
+    "exit_code": 0,
+    "seconds": 1.3638145420118235,
+    "log_sha256": "d1f8d8a134708fb24c1679846b6a99627664fac63dacd8be2a07497569bddb4b",
+    "passed": 32,
+    "ignored": 0
+  },
+  "slice1-callees": {
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "mir6502::analysis::known_callees"
+    ],
+    "exit_code": 0,
+    "seconds": 0.06395758403232321,
+    "log_sha256": "af395620b5921d786fbc581e1e9fa4cbf01ab643f40aedef8d2ec2cd60fdb9fd",
+    "passed": 26,
+    "ignored": 0
+  },
+  "slice1-verify": {
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "mir6502::verify"
+    ],
+    "exit_code": 0,
+    "seconds": 0.054841875040438026,
+    "log_sha256": "3ef43713e763ee45af3ae047b22539171df527003885811c098ae99a70f50f6a",
+    "passed": 44,
+    "ignored": 0
+  },
+  "slice1-integration": {
+    "command": [
+      "cargo",
+      "test",
+      "--test",
+      "mir6502_cross_call_homes",
+      "--test",
+      "mir6502_parameter_homes",
+      "--test",
+      "mir6502_parameter_argument_handoff",
+      "--test",
+      "mir6502_call_abi"
+    ],
+    "exit_code": 0,
+    "seconds": 14.165915541991126,
+    "log_sha256": "98cafab642e2311a98d7e8546aab18af28a16e13c909fbd9ec45ede27798e8d7",
+    "passed": 23,
+    "ignored": 1
+  },
+  "baseline_images": "ACTIONC_CROSS_CALL_BASELINE=build/cross-call-homes/baseline/images"
+}

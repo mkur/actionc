@@ -6,6 +6,7 @@ use super::{diagnostics::MirDiagnostic, ir::*};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 mod lifetimes;
+mod calls;
 mod handoff;
 #[cfg(test)]
 mod mixed_tests;
@@ -13,6 +14,7 @@ mod mixed_tests;
 mod handoff_tests;
 mod zero_page;
 pub(super) use lifetimes::verify as verify_lifetimes;
+pub(super) use calls::ResidenceCalls;
 
 pub(super) fn select_output(
     nir: &crate::nir::NirProgram,
@@ -555,7 +557,7 @@ mod tests {
     fn physical_clobber_cannot_kill_its_own_parameter_liveness_proof() {
         let mut p = input();
         bind(&mut p, MirParamHome::ZeroPage(MirFixedZpSlot(0xa0)));
-        assert!(verify_lifetimes(&p.routines[0]).is_empty());
+        assert!(verify_lifetimes(&p.routines[0], None).is_empty());
         p.routines[0].blocks[0].ops.insert(
             0,
             MirOp::Store {
@@ -564,7 +566,7 @@ mod tests {
                 width: MirWidth::Byte,
             },
         );
-        assert!(!verify_lifetimes(&p.routines[0]).is_empty());
+        assert!(!verify_lifetimes(&p.routines[0], None).is_empty());
     }
 
     #[test]
@@ -599,13 +601,13 @@ mod tests {
             target: entry,
             args: vec![],
         });
-        assert!(verify_lifetimes(r).is_empty());
+        assert!(verify_lifetimes(r, None).is_empty());
         r.blocks[0].ops.push(MirOp::Store {
             dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xab))),
             src: MirValue::ConstU8(99),
             width: MirWidth::Byte,
         });
-        assert!(!verify_lifetimes(r).is_empty());
+        assert!(!verify_lifetimes(r, None).is_empty());
     }
 
     #[test]

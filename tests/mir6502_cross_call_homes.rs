@@ -29,6 +29,10 @@ fn ordinary_call_baseline_has_inline_homes_and_stable_artifacts() {
             let output =
                 mir6502::generate_output_with_trace(&n, origin, &config, runtime, &mut trace)
                     .unwrap();
+            if let Ok(directory) = std::env::var("ACTIONC_CROSS_CALL_BASELINE") {
+                let path = std::path::Path::new(&directory).join(format!("cross-call-{runtime:?}-{origin:04x}.xex"));
+                assert_eq!(actionc::codegen::format_load_file(&output), std::fs::read(path).unwrap());
+            }
             assert_eq!(
                 output,
                 mir6502::generate_output_with_config_and_runtime(&n, origin, &config, runtime)

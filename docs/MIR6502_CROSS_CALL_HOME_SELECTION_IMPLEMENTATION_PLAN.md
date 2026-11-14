@@ -1,6 +1,6 @@
 # MIR6502 ZP homes across ordinary calls: implementation plan
 
-Prepared 2026-11-15. Status: slice 0 complete; slices 1–6 pending.
+Prepared 2026-11-15. Status: slices 0–1 complete; slices 2–6 pending.
 Starting repository revision: `5de3dda4`; compiler behavior: `a77210d8`.
 
 Implements the [ordinary-call and local-home design extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-zp-homes-across-ordinary-calls).
@@ -343,3 +343,18 @@ The independent fixture, integration/VM targets and measurement suite are in
 place. [Baseline receipts](benchmarks/6502-cross-call-homes/README.md) confirm
 the documented TN sizes, inline Ord/Items homes, LF/CRLF behavior and independent
 execution oracles. Compiler behavior is unchanged.
+
+## Slice 1 completion
+
+Residence verification now consumes fresh expanded callee entry/write facts,
+after structural verification. Bound parameter writes resolve to physical ZP;
+unknown allocations remain conservative. Invocation writes never define caller
+objects. Tests cover per-byte clobbers, absolute aliases, changed bindings and
+allocations, setup interference, extra inputs and unknown calls.
+
+Checks passed: 32 parameter-home, 26 known-callee and 44 verifier unit tests;
+23 affected integration tests (one MADS test remains explicitly ignored here).
+The independent source images exactly match slice 0 at both qualified VM lanes.
+`cargo check --lib --tests` also passes. Automatic cross-call selection remains
+disabled. [Check receipts](benchmarks/6502-cross-call-homes/slice1-checks.json)
+record the focused executions.

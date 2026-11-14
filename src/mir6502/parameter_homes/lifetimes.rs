@@ -10,7 +10,7 @@ use crate::mir6502::analysis::{
 };
 use std::collections::BTreeMap;
 
-pub(in crate::mir6502) fn verify(routine: &MirRoutine) -> Vec<MirDiagnostic> {
+pub(in crate::mir6502) fn verify(routine: &MirRoutine, mut calls: Option<&mut ResidenceCalls<'_>>) -> Vec<MirDiagnostic> {
     let Some(bindings) = &routine.frame.parameter_homes else {
         return vec![];
     };
@@ -39,7 +39,7 @@ pub(in crate::mir6502) fn verify(routine: &MirRoutine) -> Vec<MirDiagnostic> {
         }
         _ => None,
     };
-    let transfer = |memory: &MirMemoryEffects, extra_reads: &BTreeSet<MirHomeByte>| {
+    let transfer = |memory: &MirMemoryEffects, extra_reads: &BTreeSet<MirHomeByte>, defines: bool| {
         let mut result = MirHomeTransfer::default();
         for range in &memory.direct_reads {
             for offset in 0..range.bytes {
@@ -59,7 +59,7 @@ pub(in crate::mir6502) fn verify(routine: &MirRoutine) -> Vec<MirDiagnostic> {
         }
         result.reads.extend(extra_reads.intersection(&owned));
         for range in &memory.direct_writes {
-            if let MirMem::Param { id, offset: base } = range.base {
+            if defines && let MirMem::Param { id, offset: base } = range.base {
                 for offset in 0..range.bytes {
                     if let Some(slot) = lanes.get(&(id, base.wrapping_add(offset))) {
                         result.writes.insert(MirHomeByte::FixedZeroPage(*slot));
@@ -77,20 +77,26 @@ pub(in crate::mir6502) fn verify(routine: &MirRoutine) -> Vec<MirDiagnostic> {
         for (op_index, op) in block.ops.iter().enumerate() {
             let site = MirSite::Op { block: block.id, op_index };
             let consumes = terminal == Some(site);
+            let invocation = if matches!(op, MirOp::Call { .. }) && !consumes {
+                match calls.as_mut().ok_or("missing residence call facts").and_then(|c| c.writes(op)) {
+                    Ok(writes) => Some(writes),
+                    Err(reason) => return vec![MirDiagnostic::routine(&routine.name, reason)],
+                }
+            } else { None };
             if matches!(
                 op,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
                     | MirOp::MachineBlock { .. }
                     | MirOp::Barrier { .. }
-            ) && !consumes {
+            ) && !consumes && invocation.is_none() {
                 return vec![MirDiagnostic::routine(
                     &routine.name,
                     "parameter residence acquired an unsupported expanded barrier",
                 )];
             }
             let e = classify_op(op);
-            if (e.memory.opaque || e.memory.indirect_writes) && !consumes {
+            if (e.memory.opaque || e.memory.indirect_writes) && !consumes && invocation.is_none() {
                 return vec![MirDiagnostic::routine(
                     &routine.name,
                     "parameter residence acquired unsupported expanded memory effects",
@@ -102,7 +108,9 @@ pub(in crate::mir6502) fn verify(routine: &MirRoutine) -> Vec<MirDiagnostic> {
                 .union(&e.addresses.pair_reads)
                 .copied()
                 .collect();
-            ops.push(transfer(&e.memory, &reads));
+            // Callee effects cannot define caller source objects, even if a
+            // callee-local ID happens to equal a caller's parameter ID.
+            ops.push(transfer(&e.memory, &reads, !matches!(op, MirOp::Call { .. })));
             let mut writes: BTreeSet<_> = e
                 .homes
                 .writes
@@ -121,6 +129,12 @@ pub(in crate::mir6502) fn verify(routine: &MirRoutine) -> Vec<MirDiagnostic> {
                 // need no footprint when every protected value dies here.
                 writes.extend(&owned);
             }
+            if let Some(invocation) = invocation {
+                writes.extend(owned.iter().filter(|home| match home {
+                    MirHomeByte::FixedZeroPage(slot) => !invocation.preserves_fixed_byte(*slot),
+                    _ => true,
+                }));
+            }
             for home in writes.intersection(&owned) {
                 clobbers.push((
                     MirSite::Op {
@@ -136,7 +150,7 @@ pub(in crate::mir6502) fn verify(routine: &MirRoutine) -> Vec<MirDiagnostic> {
             block.id,
             MirHomeBlockTransfers {
                 ops,
-                terminator: transfer(&e.memory, &BTreeSet::new()),
+                terminator: transfer(&e.memory, &BTreeSet::new(), true),
             },
         );
     }

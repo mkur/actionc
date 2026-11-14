@@ -164,7 +164,7 @@ pub(super) fn analyze(
     })
 }
 
-fn inputs_supplied(
+pub(super) fn inputs_supplied(
     callee: &MirCalleeEntryFact,
     outgoing: &[MirParamLane],
 ) -> Result<(), &'static str> {
