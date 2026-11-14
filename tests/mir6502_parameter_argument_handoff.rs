@@ -77,6 +77,7 @@ fn explicit_source_storage_keeps_its_zero_page_address() {
             0x3000,
             &Mir6502Config {
                 enable_small_leaf_inlining: false,
+                enable_parameter_argument_handoff: true,
                 ..Mir6502Config::optimized()
             },
             Runtime::ActionCart,
@@ -131,27 +132,66 @@ fn gated_no_candidate_adds_no_compiler_work() {
 
 #[test]
 fn direct_handoff_saves_bytes_and_preserves_fallback_shapes() {
-    let source = include_str!("../fixtures/runtime/parameter_argument_handoff.act")
-        .replace("\r\n", "\n");
+    let source =
+        include_str!("../fixtures/runtime/parameter_argument_handoff.act").replace("\r\n", "\n");
     let n = nir(&source);
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         for origin in [0x3000, 0x41c7] {
             for inline in [false, true] {
-                let mut config = Mir6502Config { enable_small_leaf_inlining: inline,
-                    enable_parameter_argument_handoff: false, ..Mir6502Config::optimized() };
+                let mut config = Mir6502Config {
+                    enable_small_leaf_inlining: inline,
+                    enable_parameter_argument_handoff: false,
+                    ..Mir6502Config::optimized()
+                };
                 let mut before = Mir6502Trace::default();
-                let old = mir6502::generate_output_with_trace(&n, origin, &config, runtime, &mut before).unwrap();
+                let old =
+                    mir6502::generate_output_with_trace(&n, origin, &config, runtime, &mut before)
+                        .unwrap();
                 config.enable_parameter_argument_handoff = true;
                 let mut after = Mir6502Trace::default();
-                let new = mir6502::generate_output_with_trace(&n, origin, &config, runtime, &mut after).unwrap();
+                let new =
+                    mir6502::generate_output_with_trace(&n, origin, &config, runtime, &mut after)
+                        .unwrap();
                 assert!(new.bytes.len() < old.bytes.len(), "{:?}", after.manifest());
-                assert_eq!(new, mir6502::generate_output_with_config_and_runtime(&n, origin, &config, runtime).unwrap());
-                for name in ["Mutated", "AfterCall", "Twice", "Exposed", "ExtraEntry", "CopyCounted"] {
-                    let a = old.map.routine_ranges.iter().find(|r| r.name == name).unwrap();
-                    let b = new.map.routine_ranges.iter().find(|r| r.name == name).unwrap();
+                assert_eq!(
+                    new,
+                    mir6502::generate_output_with_config_and_runtime(&n, origin, &config, runtime)
+                        .unwrap()
+                );
+                for name in ["Mutated", "AfterCall", "Twice", "Exposed", "ExtraEntry"] {
+                    let a = old
+                        .map
+                        .routine_ranges
+                        .iter()
+                        .find(|r| r.name == name)
+                        .unwrap();
+                    let b = new
+                        .map
+                        .routine_ranges
+                        .iter()
+                        .find(|r| r.name == name)
+                        .unwrap();
                     assert_eq!(a.end - a.start, b.end - b.start, "{name}");
                 }
-                assert_eq!(after.manifest()["work"]["parameter_argument_handoff_trials"], 1);
+                let copy = new
+                    .map
+                    .routine_ranges
+                    .iter()
+                    .find(|r| r.name == "CopyCounted")
+                    .unwrap();
+                assert_eq!(copy.end - copy.start, 20);
+                assert!(
+                    new.map
+                        .storage_symbols
+                        .iter()
+                        .filter(|s| s.scope
+                            == actionc::codegen::CodegenSymbolScope::Routine("CopyCounted".into()))
+                        .all(|s| s.address < 256)
+                );
+                assert_eq!(
+                    after.manifest()["work"]["parameter_argument_handoff_trials"],
+                    1
+                );
             }
         }
     }

@@ -32,7 +32,7 @@ def main():
     cases = [json.loads(line) for line in result.stdout.splitlines()]
     sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/parameter_homes.act', 'fixtures/runtime/parameter_registers.act', 'fixtures/runtime/parameter_scalars.act', 'fixtures/runtime/mir6502_phase_trace_homes.act', 'fixtures/runtime/late_producer_cleanup.act']
     if args.suite == 'handoff':
-        sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/parameter_argument_handoff.act']
+        sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/parameter_argument_handoff.act', 'fixtures/runtime/parameter_argument_handoff_direct.act']
     receipt = dict(revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                    parameter_home_selection=args.enabled,
                    parameter_argument_handoff=args.handoff,
@@ -47,6 +47,9 @@ def main():
     for row in cases:
         image = output / 'images' / (row['id'] + '.xex')
         row['image_sha256'] = hashlib.sha256(image.read_bytes()).hexdigest()
+        for kind in ['map', 'relocations']:
+            artifact = output / 'images' / (row['id'] + '.' + kind + '.txt')
+            row[kind + '_sha256'] = hashlib.sha256(artifact.read_bytes()).hexdigest()
     (output / 'measurements.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print(output / 'measurements.json')
 

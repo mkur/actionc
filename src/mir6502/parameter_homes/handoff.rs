@@ -127,6 +127,31 @@ pub(super) fn analyze(
             }
         }
     }
+    // A full call argument has an explicit width even when a malformed producer
+    // defined only one lane. Never infer the required width from definitions.
+    let MirOp::Call { args, .. } = &routine.blocks[0].ops[index] else {
+        unreachable!()
+    };
+    for arg in args {
+        if let MirValue::Def(MirDef::VTemp(temp)) = arg.value {
+            let uses = context.uses_at(
+                temp,
+                MirSite::Op {
+                    block,
+                    op_index: index,
+                },
+            );
+            for byte in 0..super::super::abi::action_arg_width_bytes(arg.width) as u8 {
+                let lane = crate::mir6502::analysis::use_def::MirTempLane { temp, byte };
+                let Some(usage) = uses.iter().find(|u| u.requirement.requires(lane)) else {
+                    return Err("incomplete-argument-definition");
+                };
+                if !context.unique_reaching_definition(*usage, lane).is_proven() {
+                    return Err("incomplete-argument-definition");
+                }
+            }
+        }
+    }
     Ok(WrapperFacts {
         source: Arc::new(routine.clone()),
         callee,
@@ -276,23 +301,39 @@ pub(super) fn propose(input: &MirProgram, selected: &MirProgram) -> Option<MirPr
     let mut proposal = None;
     'routines: for (index, routine) in input.routines.iter().enumerate() {
         // Already-elided homes have no storage saving to justify a new capture.
-        let Some(old) = selected.routines.iter().find(|r| r.id == routine.id) else { continue };
-        if !old.frame.params.iter().any(|p| matches!(p.base, MirStorageBase::Param(id)
+        let Some(old) = selected.routines.iter().find(|r| r.id == routine.id) else {
+            continue;
+        };
+        if !old.frame.params.iter().any(|p| {
+            matches!(p.base, MirStorageBase::Param(id)
             if old.frame.parameter_has_memory(id)
-                && matches!(old.frame.parameter_home(id), None | Some(MirParamHome::Inline)))) {
+                && matches!(old.frame.parameter_home(id), None | Some(MirParamHome::Inline)))
+        }) {
             continue;
         }
-        let Ok(facts) = analyze(input, routine) else { continue };
-        if has_pointer_reads(routine) || !facts.is_current(input) { continue; }
+        let Ok(facts) = analyze(input, routine) else {
+            continue;
+        };
+        if !facts.is_current(input) {
+            continue;
+        }
+        let Some(pointer_params) = pointer_parameters(routine) else {
+            continue;
+        };
         let owned = source_zero_page(input, routine);
         let mut offset = 0u8;
         let mut bindings = Vec::new();
         let mut reserved = Vec::new();
         for slot in &routine.frame.params {
-            let MirStorageBase::Param(param) = slot.base else { unreachable!() };
+            let MirStorageBase::Param(param) = slot.base else {
+                unreachable!()
+            };
             let start = 0xa0 + offset;
             if absent_parameter(routine, param) {
-                bindings.push(MirParamBinding { param, home: MirParamHome::Absent });
+                bindings.push(MirParamBinding {
+                    param,
+                    home: MirParamHome::Absent,
+                });
                 offset += slot.storage_size as u8;
                 continue;
             }
@@ -300,33 +341,62 @@ pub(super) fn propose(input: &MirProgram, selected: &MirProgram) -> Option<MirPr
             // lane. A permutation would overwrite it before register reloads;
             // leave that cycle to the original staging strategy.
             if u16::from(offset) + slot.storage_size == 4
-                && !forwards_to_same_home(routine, param, offset as u16, slot.scalar_width.unwrap()) {
+                && !forwards_to_same_home(routine, param, offset as u16, slot.scalar_width.unwrap())
+            {
                 continue 'routines;
             }
             for byte in start..start + slot.storage_size as u8 {
                 reserved.push(MirFixedZpSlot(byte));
             }
-            let mut lanes = (0..slot.storage_size).map(|i|
-                MirParamLane::ZeroPage(MirFixedZpSlot(start + i as u8))).collect::<Vec<_>>();
-            if direct_register_forward(routine, param, offset as u16, slot.scalar_width.unwrap()) {
-                for (lane, incoming) in lanes.iter_mut().zip(super::super::abi::physical_lanes(
-                    &super::super::abi::action_arg_home(offset as u16, slot.scalar_width.unwrap()),
-                    slot.scalar_width.unwrap()).unwrap()) {
-                    if matches!(incoming, MirParamLane::Reg(MirReg::X | MirReg::Y)) {
+            let mut lanes = (0..slot.storage_size)
+                .map(|i| MirParamLane::ZeroPage(MirFixedZpSlot(start + i as u8)))
+                .collect::<Vec<_>>();
+            if !pointer_params.contains(&param)
+                && direct_register_forward(
+                    routine,
+                    param,
+                    offset as u16,
+                    slot.scalar_width.unwrap(),
+                )
+            {
+                for (lane, incoming) in lanes.iter_mut().zip(
+                    super::super::abi::physical_lanes(
+                        &super::super::abi::action_arg_home(
+                            offset as u16,
+                            slot.scalar_width.unwrap(),
+                        ),
+                        slot.scalar_width.unwrap(),
+                    )
+                    .unwrap(),
+                ) {
+                    if incoming == MirParamLane::Reg(MirReg::X)
+                        || (incoming == MirParamLane::Reg(MirReg::Y) && pointer_params.is_empty())
+                    {
                         *lane = incoming;
                     }
                 }
             }
-            bindings.push(MirParamBinding { param, home: MirParamHome::Lanes(lanes) });
+            bindings.push(MirParamBinding {
+                param,
+                home: MirParamHome::Lanes(lanes),
+            });
             offset += slot.storage_size as u8;
         }
-        reserved.retain(|slot| bindings.iter().any(|b| matches!(&b.home,
-            MirParamHome::Lanes(lanes) if lanes.contains(&MirParamLane::ZeroPage(*slot)))));
-        if reserved.iter().any(|s| owned.contains(&s.0)) { continue; }
+        reserved.retain(|slot| {
+            bindings.iter().any(|b| {
+                matches!(&b.home,
+            MirParamHome::Lanes(lanes) if lanes.contains(&MirParamLane::ZeroPage(*slot)))
+            })
+        });
+        if reserved.iter().any(|s| owned.contains(&s.0)) {
+            continue;
+        }
         let result = proposal.get_or_insert_with(|| input.clone());
         let r = &mut result.routines[index];
         for slot in reserved {
-            if !r.frame.fixed_zero_page.contains(&slot) { r.frame.fixed_zero_page.push(slot); }
+            if !r.frame.fixed_zero_page.contains(&slot) {
+                r.frame.fixed_zero_page.push(slot);
+            }
         }
         r.frame.parameter_homes = Some(bindings);
         r.frame.parameter_handoff = Some(facts.contract());
@@ -334,28 +404,115 @@ pub(super) fn propose(input: &MirProgram, selected: &MirProgram) -> Option<MirPr
     proposal
 }
 
-fn direct_register_forward(routine: &MirRoutine, param: crate::nir::ParamId,
-    incoming: u16, width: MirWidth) -> bool {
+fn direct_register_forward(
+    routine: &MirRoutine,
+    param: crate::nir::ParamId,
+    incoming: u16,
+    width: MirWidth,
+) -> bool {
     let ops = &routine.blocks[0].ops;
-    // This closed expansion set does not require X/Y before call transfers.
-    if ops[..ops.len()-1].iter().any(|op| !matches!(op,
-        MirOp::Load { src: MirAddr::Direct(MirMem::Param { .. }), .. }
-        | MirOp::LoadImm { width: MirWidth::Byte, .. }
-        | MirOp::Binary { width: MirWidth::Byte, .. })) { return false; }
+    // This closed expansion set preserves X. Indirect reads need Y, which
+    // selection separately excludes from register residence.
+    if ops[..ops.len() - 1].iter().any(|op| {
+        !matches!(
+            op,
+            MirOp::Load {
+                src: MirAddr::Direct(MirMem::Param { .. }),
+                ..
+            } | MirOp::Load {
+                src: MirAddr::Deref { .. } | MirAddr::PointerCell { .. },
+                width: MirWidth::Byte,
+                ..
+            } | MirOp::LoadImm {
+                width: MirWidth::Byte,
+                ..
+            } | MirOp::Binary {
+                width: MirWidth::Byte,
+                ..
+            }
+        )
+    }) {
+        return false;
+    }
     forwards_to_same_home(routine, param, incoming, width)
 }
 
-fn forwards_to_same_home(routine: &MirRoutine, param: crate::nir::ParamId,
-    incoming: u16, width: MirWidth) -> bool {
+fn forwards_to_same_home(
+    routine: &MirRoutine,
+    param: crate::nir::ParamId,
+    incoming: u16,
+    width: MirWidth,
+) -> bool {
     let ops = &routine.blocks[0].ops;
-    let loads: Vec<_> = ops.iter().filter_map(|op| match op {
-        MirOp::Load { dst, src: MirAddr::Direct(MirMem::Param { id, offset: 0 }), width: w }
-            if *id == param && *w == width => Some(dst), _ => None,
-    }).collect();
-    let [dst] = loads.as_slice() else { return false };
-    let MirOp::Call { args, .. } = ops.last().unwrap() else { return false };
+    let loads: Vec<_> = ops
+        .iter()
+        .filter_map(|op| match op {
+            MirOp::Load {
+                dst,
+                src: MirAddr::Direct(MirMem::Param { id, offset: 0 }),
+                width: w,
+            } if *id == param && *w == width => Some(dst),
+            _ => None,
+        })
+        .collect();
+    let [dst] = loads.as_slice() else {
+        return false;
+    };
+    let MirOp::Call { args, .. } = ops.last().unwrap() else {
+        return false;
+    };
     let home = super::super::abi::action_arg_home(incoming, width);
-    args.iter().filter(|a| a.value == MirValue::Def((*dst).clone())).count() == 1
-        && args.iter().any(|a| a.value == MirValue::Def((*dst).clone())
-            && a.width == width && a.home == home)
+    args.iter()
+        .filter(|a| a.value == MirValue::Def((*dst).clone()))
+        .count()
+        == 1
+        && args
+            .iter()
+            .any(|a| a.value == MirValue::Def((*dst).clone()) && a.width == width && a.home == home)
+}
+
+/// Keep indirect consumers on a coherent parameter pair. Definition uniqueness
+/// was proved by WrapperFacts; no arithmetic pointer reconstruction is added.
+fn pointer_parameters(routine: &MirRoutine) -> Option<BTreeSet<crate::nir::ParamId>> {
+    let ops = &routine.blocks[0].ops;
+    let mut parameters = BTreeSet::new();
+    for op in ops {
+        let MirOp::Load {
+            src,
+            width: MirWidth::Byte,
+            ..
+        } = op
+        else {
+            continue;
+        };
+        match src {
+            MirAddr::Deref {
+                ptr: MirValue::Def(def),
+                offset,
+            } if (0..=255).contains(offset) => {
+                let mut sources = ops.iter().filter_map(|op| match op {
+                    MirOp::Load {
+                        dst,
+                        src: MirAddr::Direct(MirMem::Param { id, offset: 0 }),
+                        width: MirWidth::Word,
+                    } if dst == def => Some(*id),
+                    _ => None,
+                });
+                let id = sources.next()?;
+                if sources.next().is_some() {
+                    return None;
+                }
+                parameters.insert(id);
+            }
+            MirAddr::PointerCell {
+                ptr: MirMem::Param { id, offset: 0 },
+                offset,
+            } if (0..=255).contains(offset) => {
+                parameters.insert(*id);
+            }
+            MirAddr::Deref { .. } | MirAddr::PointerCell { .. } => return None,
+            _ => {}
+        }
+    }
+    Some(parameters)
 }

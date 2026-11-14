@@ -60,3 +60,17 @@ is 11 code + 0 ordinary bytes and ForwardBytes 29 + 0, shrinking the control
 image from 572 to 549 bytes in all eight control configurations. TN is unchanged
 with identical hashes/work counts. No upstream search is replayed; productive
 control cases add one core continuation. Indirect producers are still excluded.
+
+Slice 5's [opt-in receipt](slice5-on.json) reaches compiler-generated Strcpy and
+CopyCounted at **20 code + 0 ordinary bytes**, each with three resident ZP bytes.
+TN becomes **9,853 cart / 9,960 standalone**, saving 25 bytes beyond the existing
+leaf result; Fnamecmp remains 105, Strcat 113 + 4, Key 37 and Next 33 code bytes.
+The original controls shrink from 572 to 524 bytes. The additional direct
+controls retain slice 4's 180-byte image after restricting the resident consumer
+to actual pointer-read uses. All sixteen traced/untraced pairs agree.
+
+The receipt also hashes maps and relocations. TN adds one core continuation
+(4 to 5), with 123 emission invocations, 738 inner probes and 18 preservation
+replays in the resulting pipeline. Upstream selections and attempts are unchanged.
+Slice 5 timing overlaps focused tests/builds and is not a performance comparison;
+slice 6 measures the isolated off/on pair. The gate remains off by default here.

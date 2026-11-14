@@ -985,8 +985,10 @@ Rules:
   missing bindings, exposed-home relocation, source-storage overlap, and residual
   post-home memory uses of register/absent parameters are rejected. Legacy
   parameter remappers do not operate on bound routines. Optimized executable
-  selection retains a selected pre-capture checkpoint and permits one batch
-  continuation through final emission. Register candidates use canonical entry
+  selection retains a selected pre-capture checkpoint and permits one leaf batch
+  continuation plus at most one terminal-wrapper batch through final emission.
+  Each retains the complete selected input and executable for exact fallback.
+  Register candidates use canonical entry
   lanes and existing flag-aware consumer proofs. ZP candidates reserve complete
   objects before temporary allocation; source globals, absolute locals, numeric
   accesses, and wrapping source ranges take precedence. Expanded CFG liveness
@@ -1013,6 +1015,11 @@ Rules:
   Shared callee entry analysis distinguishes fixed-byte reads before overwrite
   from the callee's complete write footprint, and tracks C/N/Z/V independently
   through supported machine control flow. Unknown entry observations fail closed.
+  A resident parameter pair may feed a byte dereference and terminal call through
+  the existing parameter-consumer rewrite. Both word definitions and all uses
+  must be proved; intervening source writes reject the rewrite. Pointee reads
+  retain their original order. Canonical call normalization and pointer consumers
+  resolve the same binding, allowing fixed-slot identity transfers to disappear.
 - `MirZpSlot` is abstract/virtual until a zero-page allocation pass maps it to a
   concrete address.
 - Fixed ABI zero-page locations must use a separate fixed form so they cannot be

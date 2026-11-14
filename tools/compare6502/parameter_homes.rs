@@ -28,6 +28,11 @@ fn main() {
                 "fixtures/runtime/parameter_argument_handoff.act",
                 true,
             ),
+            (
+                "handoff-direct",
+                "fixtures/runtime/parameter_argument_handoff_direct.act",
+                true,
+            ),
         ]
     } else {
         &[
@@ -111,11 +116,26 @@ fn main() {
                 let id = format!("{case}-{runtime:?}-{origin:04x}");
                 let bytes = actionc::codegen::format_load_file(&output);
                 fs::write(destination.join(format!("{id}.xex")), &bytes).unwrap();
+                fs::write(
+                    destination.join(format!("{id}.map.txt")),
+                    format!("{:#?}", output.map),
+                )
+                .unwrap();
+                fs::write(
+                    destination.join(format!("{id}.relocations.txt")),
+                    format!("{:#?}", output.relocations),
+                )
+                .unwrap();
                 let mut rows = Vec::new();
                 for name in [
                     "Fnamecmp",
                     "Strcpy",
                     "Strcat",
+                    "Key",
+                    "Next",
+                    "Swapped",
+                    "Repeated",
+                    "Computed",
                     "ForwardWords",
                     "ForwardBytes",
                     "CopyCounted",
@@ -172,10 +192,16 @@ fn main() {
                     })
                     .map(|e| e.data.to_string())
                     .unwrap_or("null".into());
-                let handoff_outcome = events.iter().rev().find(|e|
-                    e.kind == "parameter-argument-handoff-result"
-                    || (e.kind == "stage" && e.data["stage"] == "parameter-argument-handoff"))
-                    .map(|e| e.data.to_string()).unwrap_or("null".into());
+                let handoff_outcome = events
+                    .iter()
+                    .rev()
+                    .find(|e| {
+                        e.kind == "parameter-argument-handoff-result"
+                            || (e.kind == "stage"
+                                && e.data["stage"] == "parameter-argument-handoff")
+                    })
+                    .map(|e| e.data.to_string())
+                    .unwrap_or("null".into());
                 let upstream = [
                     "inlining",
                     "loop_motion",

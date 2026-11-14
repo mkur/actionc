@@ -3406,6 +3406,11 @@ pub(in crate::mir6502) fn discover_param_home_consumers(
     let mut plans = Vec::new();
     for block in &routine.blocks {
         for index in 0..block.ops.len() {
+            if let Some(plan) =
+                resident_parameter_uses_plan(routine, block.id, &block.ops, index, context)
+            {
+                plans.push(plan);
+            }
             if let Some(plan) = param_word_store_consumer_plan(block.id, &block.ops, index, context)
             {
                 plans.push(plan);
@@ -3449,6 +3454,122 @@ fn value_param_home_count(value: &MirValue) -> usize {
         MirValue::Word { lo, hi } => value_param_home_count(lo) + value_param_home_count(hi),
         _ => 0,
     }
+}
+
+/// Share a bound parameter value between address consumers and the terminal
+/// call. Use the existing definition witness and alias queries; defer only
+/// private home reads, leaving every pointee read in its original position.
+fn resident_parameter_uses_plan(
+    routine: &MirRoutine,
+    block: MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    routine.frame.parameter_handoff.as_ref()?;
+    let MirOp::Load {
+        dst: MirDef::VTemp(temp),
+        src: MirAddr::Direct(mem @ MirMem::Param { id, offset: 0 }),
+        width: MirWidth::Word,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    routine.frame.parameter_pointer_pair(*id)?;
+    let source_site = MirSite::Op {
+        block,
+        op_index: index,
+    };
+    let definitions = context.temp_definitions(*temp);
+    if definitions.len() != 2
+        || definitions.iter().any(|d| d.site != source_site)
+        || definitions[0].lane.byte != 0
+        || definitions[1].lane.byte != 1
+    {
+        return None;
+    }
+    let uses = context.temp_uses(*temp);
+    let mut end = index;
+    let mut has_pointer_read = false;
+    for usage in &uses {
+        let MirSite::Op {
+            block: use_block,
+            op_index,
+        } = usage.site
+        else {
+            return None;
+        };
+        if use_block != block || op_index <= index {
+            return None;
+        }
+        match &ops[op_index] {
+            MirOp::Load {
+                src:
+                    MirAddr::Deref {
+                        ptr: MirValue::Def(MirDef::VTemp(t)),
+                        ..
+                    },
+                width: MirWidth::Byte,
+                ..
+            } if t == temp && routine.frame.parameter_pointer_pair(*id).is_some() => {
+                has_pointer_read = true;
+            }
+            MirOp::Call {
+                target: MirCallTarget::Routine(_),
+                ..
+            } if op_index + 1 == ops.len() => {}
+            _ => return None,
+        }
+        end = end.max(op_index);
+    }
+    if !has_pointer_read
+        || !matches!(ops.get(end), Some(MirOp::Call { .. }))
+        || end == index
+        || end - index > crate::mir6502::analysis::argument_staging::MAX_SETUP_OPS
+    {
+        return None;
+    }
+    if ops[index + 1..end]
+        .iter()
+        .any(|op| op_may_write_mem(op, mem) || op_may_write_mem(op, &offset_mem(mem, 1)))
+    {
+        return None;
+    }
+    let value = pointer_value_from_mem(mem);
+    let mut replacement = ops[index + 1..=end].to_vec();
+    for op in &mut replacement {
+        super::temps::replace_op_temp_values(op, *temp, &value);
+        if let MirOp::Call { args, .. } = op {
+            for arg in args {
+                arg.value = resolve_bound_parameter_value(&arg.value, &routine.frame);
+            }
+        }
+    }
+    let definitions = crate::mir6502::rewrite::pilots::prove_removed_window_definitions(
+        block,
+        ops,
+        index,
+        end + 1,
+        &replacement,
+        context,
+    )?;
+    Some(MirRewritePlan {
+        generation: context.generation(),
+        block,
+        range: index..end + 1,
+        replacement,
+        removed_defs: definitions
+            .into_iter()
+            .map(|definition| MirRemovedDefinition { definition })
+            .collect(),
+        exit_effect_delta: MirEffectDelta::MaterializedCallArguments,
+        change_set: MirChangeSet::prehome_operation_change(),
+        stat: "resident-param-consumers",
+        observations: Vec::new(),
+        family_priority: 0,
+        estimated_byte_saving: 1,
+        estimated_cycle_saving: 1,
+    })
 }
 
 fn param_word_store_consumer_plan(
@@ -3541,43 +3662,73 @@ fn param_call_target_plan(
     index: usize,
     context: &PreHomeRewriteContext<'_, '_>,
 ) -> Option<MirRewritePlan> {
-    let MirOp::Call { target, args, .. } = ops.get(index)? else { return None };
-    let point = context.point(MirSite::Op { block, op_index: index });
+    let MirOp::Call { target, args, .. } = ops.get(index)? else {
+        return None;
+    };
+    let point = context.point(MirSite::Op {
+        block,
+        op_index: index,
+    });
     let mut replacement = ops[index].clone();
-    let MirOp::Call { target: new_target, args: new_args, .. } = &mut replacement else { unreachable!() };
+    let MirOp::Call {
+        target: new_target,
+        args: new_args,
+        ..
+    } = &mut replacement
+    else {
+        unreachable!()
+    };
     if let MirCallTarget::Indirect { target, width } = target {
         *new_target = MirCallTarget::Indirect {
-            target: rewrite_param_value_from_context(target, point, context), width: *width,
+            target: rewrite_param_value_from_context(target, point, context),
+            width: *width,
         };
     }
     // A bound parameter's physical memory identity is authoritative. Sharing
     // it here lets ordinary call transfer lowering recognize an identity copy.
     // Register lanes remain logical until availability proves their actual use.
-    fn resolve(value: &MirValue, frame: &MirFrame) -> MirValue {
-        match value {
-            MirValue::PointerCell(MirMem::Param { id, offset }) => {
-                match frame.parameter_lane(*id, *offset) {
-                    Some(MirParamLane::ZeroPage(slot)) => MirValue::PointerCell(MirMem::FixedZeroPage(slot)),
-                    _ => value.clone(),
-                }
-            }
-            MirValue::Word { lo, hi } => MirValue::Word {
-                lo: Box::new(resolve(lo, frame)), hi: Box::new(resolve(hi, frame)),
-            },
-            _ => value.clone(),
-        }
+    for (old, new) in args.iter().zip(new_args) {
+        new.value = resolve_bound_parameter_value(&old.value, &routine.frame);
     }
-    for (old, new) in args.iter().zip(new_args) { new.value = resolve(&old.value, &routine.frame); }
-    if replacement == ops[index] { return None; }
+    if replacement == ops[index] {
+        return None;
+    }
     Some(MirRewritePlan {
-        generation: context.generation(), block, range: index..index + 1,
-        replacement: vec![replacement], removed_defs: Vec::new(),
+        generation: context.generation(),
+        block,
+        range: index..index + 1,
+        replacement: vec![replacement],
+        removed_defs: Vec::new(),
         exit_effect_delta: MirEffectDelta::MaterializedCallArguments,
         change_set: MirChangeSet::prehome_operation_change(),
-        stat: if routine.frame.parameter_homes.is_some() { "param-call-home-forward" }
-            else { "param-call-target-forward" }, observations: Vec::new(),
-        family_priority: 1, estimated_byte_saving: 1, estimated_cycle_saving: 1,
+        stat: if routine.frame.parameter_homes.is_some() {
+            "param-call-home-forward"
+        } else {
+            "param-call-target-forward"
+        },
+        observations: Vec::new(),
+        family_priority: 1,
+        estimated_byte_saving: 1,
+        estimated_cycle_saving: 1,
     })
+}
+
+fn resolve_bound_parameter_value(value: &MirValue, frame: &MirFrame) -> MirValue {
+    match value {
+        MirValue::PointerCell(MirMem::Param { id, offset }) => {
+            match frame.parameter_lane(*id, *offset) {
+                Some(MirParamLane::ZeroPage(slot)) => {
+                    MirValue::PointerCell(MirMem::FixedZeroPage(slot))
+                }
+                _ => value.clone(),
+            }
+        }
+        MirValue::Word { lo, hi } => MirValue::Word {
+            lo: Box::new(resolve_bound_parameter_value(lo, frame)),
+            hi: Box::new(resolve_bound_parameter_value(hi, frame)),
+        },
+        _ => value.clone(),
+    }
 }
 
 fn rewrite_param_value_from_context(
@@ -5005,3 +5156,7 @@ fn materialize_call_result(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "call_handoff_tests.rs"]
+mod handoff_tests;

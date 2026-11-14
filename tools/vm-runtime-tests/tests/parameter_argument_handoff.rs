@@ -38,6 +38,15 @@ impl VmRunHooks for Observe {
     }
 }
 fn compile(source: &str, runtime: Runtime, origin: u16, handoff: bool) -> CodegenOutput {
+    compile_with_inlining(source, runtime, origin, handoff, false)
+}
+fn compile_with_inlining(
+    source: &str,
+    runtime: Runtime,
+    origin: u16,
+    handoff: bool,
+    inline: bool,
+) -> CodegenOutput {
     let file = support::Source::new(source);
     let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
     let model = actionc::semantic::analyze_with_options(
@@ -53,7 +62,7 @@ fn compile(source: &str, runtime: Runtime, origin: u16, handoff: bool) -> Codege
         &n,
         origin,
         &Mir6502Config {
-            enable_small_leaf_inlining: false,
+            enable_small_leaf_inlining: inline,
             enable_parameter_argument_handoff: handoff,
             ..Mir6502Config::optimized()
         },
@@ -166,57 +175,7 @@ fn check_wrappers(handoff: bool) {
                     assert_eq!(hook.args, vec![vec![a, 0, b, 0, tag]]);
                     assert_eq!(machine::bytes(&vm, 0x680, 5), vec![a, 0, b, 0, tag]);
                 }
-                for address in 0x7000..0x7800 {
-                    vm.bus_mut().add_watchpoint(address);
-                }
-                for (dst, src) in [
-                    (0x7000u16, 0x7500u16),
-                    (0x70ff, 0x75fe),
-                    (0x7000, 0x7001),
-                    (0x7001, 0x7000),
-                    (0x7000, 0x7000),
-                ] {
-                    for length in 0..=255u8 {
-                        let mut model: Vec<_> = (0..0x800usize)
-                            .map(|a| (a as u8).wrapping_mul(37).wrapping_add(11))
-                            .collect();
-                        model[usize::from(src - 0x7000)] = length;
-                        vm.bus_mut().ram_mut().map(0x7000, &model).unwrap();
-                        let mut expected_accesses = vec![(BusAccess::Read, src, length)];
-                        for i in (0..=u16::from(length)).rev() {
-                            let value = model[usize::from(src + i - 0x7000)];
-                            expected_accesses.push((BusAccess::Read, src + i, value));
-                            expected_accesses.push((BusAccess::Write, dst + i, value));
-                            model[usize::from(dst + i - 0x7000)] = value;
-                        }
-                        vm.bus_mut().clear_events();
-                        let mut hook = Observe {
-                            entry: entry(&out, "ReverseCopy"),
-                            args: vec![],
-                            extra: vec![],
-                        };
-                        vm = machine::call(
-                            vm,
-                            &mut hook,
-                            entry(&out, "CopyCounted"),
-                            &words(dst, src),
-                        );
-                        let mut args = words(dst, src);
-                        args.push(length.wrapping_add(1));
-                        assert_eq!(hook.args, vec![args]);
-                        assert_eq!(machine::bytes(&vm, 0x7000, model.len()), model);
-                        let accesses: Vec<_> = vm
-                            .bus()
-                            .events()
-                            .iter()
-                            .map(|e| (e.access, e.address, e.value))
-                            .collect();
-                        assert_eq!(
-                            accesses, expected_accesses,
-                            "dst={dst:x} src={src:x} length={length}"
-                        );
-                    }
-                }
+                check_copy(vm, &out, "CopyCounted", "ReverseCopy");
             }
         }
     }
@@ -237,7 +196,11 @@ fn changed_positions_repeated_values_and_native_producers_are_safe() {
                     for a in [0u16, 1, 0xff, 0x100, 0x7fff, 0x8000, 0xffff] {
                         let b = a ^ 0x5aa5;
                         for name in ["Swapped", "Repeated", "Computed"] {
-                            let mut hook = Observe { entry: entry(&out, "CaptureLanes"), args: vec![], extra: vec![] };
+                            let mut hook = Observe {
+                                entry: entry(&out, "CaptureLanes"),
+                                args: vec![],
+                                extra: vec![],
+                            };
                             vm = machine::call(vm, &mut hook, entry(&out, name), &words(a, b));
                             let (mut expected, tag) = match name {
                                 "Swapped" => (words(b, a), 3),
@@ -245,11 +208,99 @@ fn changed_positions_repeated_values_and_native_producers_are_safe() {
                                 _ => (words(a, b), (a as u8).wrapping_add(17)),
                             };
                             expected.push(tag);
-                            assert_eq!(hook.args, vec![expected.clone()], "{name}: handoff={handoff}");
+                            assert_eq!(
+                                hook.args,
+                                vec![expected.clone()],
+                                "{name}: handoff={handoff}"
+                            );
                             assert_eq!(machine::bytes(&vm, 0x680, 5), expected);
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+fn check_copy(mut vm: CompilerVm, out: &CodegenOutput, wrapper: &str, callee: &str) -> CompilerVm {
+    for address in 0x7000..0x7800 {
+        vm.bus_mut().add_watchpoint(address);
+    }
+    for (dst, src) in [
+        (0x7000u16, 0x7500u16),
+        (0x70ff, 0x75fe),
+        (0x7000, 0x7001),
+        (0x7001, 0x7000),
+        (0x7000, 0x7000),
+    ] {
+        for length in 0..=255u8 {
+            let mut model: Vec<_> = (0..0x800usize)
+                .map(|a| (a as u8).wrapping_mul(37).wrapping_add(11))
+                .collect();
+            model[usize::from(src - 0x7000)] = length;
+            vm.bus_mut().ram_mut().map(0x7000, &model).unwrap();
+            let mut expected_accesses = vec![(BusAccess::Read, src, length)];
+            for i in (0..=u16::from(length)).rev() {
+                let value = model[usize::from(src + i - 0x7000)];
+                expected_accesses.push((BusAccess::Read, src + i, value));
+                expected_accesses.push((BusAccess::Write, dst + i, value));
+                model[usize::from(dst + i - 0x7000)] = value;
+            }
+            vm.bus_mut().clear_events();
+            let mut hook = Observe {
+                entry: entry(out, callee),
+                args: vec![],
+                extra: vec![],
+            };
+            vm = machine::call(vm, &mut hook, entry(out, wrapper), &words(dst, src));
+            let mut args = words(dst, src);
+            args.push(length.wrapping_add(1));
+            assert_eq!(hook.args, vec![args]);
+            assert_eq!(machine::bytes(&vm, 0x7000, model.len()), model);
+            let accesses: Vec<_> = vm
+                .bus()
+                .events()
+                .iter()
+                .map(|e| (e.access, e.address, e.value))
+                .collect();
+            assert_eq!(
+                accesses, expected_accesses,
+                "dst={dst:x} src={src:x} length={length}"
+            );
+        }
+    }
+    vm
+}
+
+#[test]
+fn tn_strcpy_uses_the_same_ordered_copy_contract() {
+    let lf = actionc::includes::load_program_with_expanded_source(
+        root().join("samples/tn/modern/TN.ACT"),
+    )
+    .unwrap()
+    .source
+    .replace("\r\n", "\n");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for origin in [0x3000, 0x41c7] {
+            let mut reference = None;
+            for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+                let out = compile_with_inlining(&source, runtime, origin, true, true);
+                let copy = out
+                    .map
+                    .routine_ranges
+                    .iter()
+                    .find(|r| r.name == "Strcpy")
+                    .unwrap();
+                assert_eq!(copy.end - copy.start, 20);
+                let image = actionc::codegen::format_load_file(&out);
+                if let Some(old) = &reference {
+                    assert_eq!(old, &image);
+                } else {
+                    reference = Some(image.clone());
+                }
+                let (mut vm, profile) = support::vm_for(runtime);
+                vm.load_atari_object_for_execution(profile, &image).unwrap();
+                check_copy(vm, &out, "Strcpy", "MovePage");
             }
         }
     }

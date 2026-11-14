@@ -1,6 +1,6 @@
 # MIR6502 parameter-to-argument handoff implementation plan
 
-Prepared 2026-11-14. Status: slices 0–4 complete; slices 5–6 pending.
+Prepared 2026-11-14. Status: slices 0–5 complete; slice 6 pending.
 Starting compiler: `471ef1c8`, with qualified leaf parameter placement enabled.
 
 Implements the [parameter handoff design extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-parameter-handoff-to-call-arguments).
@@ -425,3 +425,35 @@ continuation. A separate reordered/repeated/computed control passes independent
 VM checks; its swapped cycle is excluded before the batch. Both gates remain
 unchanged by default (handoff off). Three MADS integration cases remain ignored
 in the focused run and are reserved for final qualification.
+
+### Slice 5 completion
+
+Slice 4 is `59607307`. Resident parameter pointers now feed byte reads and the
+terminal call through the existing parameter-consumer rewrite. Complete word
+definitions, supported uses and intervening source writes are checked before
+removing the private word load. Every pointee read stays in place. The pointer
+keeps a coherent pair; another input can retain X while Y performs indexing.
+No new ABI mapper, value tracker or post-layout remapping pass was introduced.
+
+Validation: 24 focused unit tests and 20 active integration tests across six
+targets pass. Three VM tests pass independent entry, ordered-access and stack
+oracles across both runtimes/origins, LF/CRLF loading, all 256 lengths, page
+crossings, overlap and identical buffers. The real unchanged TN Strcpy is tested
+with normal inlining. These focused VM binaries use the current root compiler
+rlib; final qualification rebuilds and runs the VM targets through Cargo.
+
+The first size sweep exposed a direct-only repeated-argument regression relative
+to slice 4. The resident consumer is now restricted to a use set containing an
+actual pointer read, preserving the existing direct forwarding strategy. Final
+backend qualification includes that restriction and the later definition guards.
+Handoff remains opt-in until slice 6. Unsupported scalar callee entry contracts
+remain a conservative coverage restriction, documented in the design.
+
+The [final slice receipt](benchmarks/6502-parameter-handoff/slice5-on.json)
+records Strcpy and CopyCounted at 20 + 0, TN at 9,853 / 9,960 bytes, original
+controls at 524 and direct controls at 180. All sixteen traced/untraced outputs
+agree. The final direct-only guard passes its rebuilt unit and VM checks; TN and
+the original control image hashes are unchanged by that restriction. Fnamecmp,
+Strcat, Key and Next retain their prior sizes. Each productive build adds one
+core continuation and preserves upstream selections. Slice timing overlaps
+tests/builds; final qualification measures isolated compilation cost.

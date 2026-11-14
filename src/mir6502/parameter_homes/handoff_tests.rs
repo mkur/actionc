@@ -206,24 +206,102 @@ fn direct_selection_retains_registers_and_declines_fixed_slot_cycles() {
     let program = controls();
     let proposal = handoff::propose(&program, &program).unwrap();
     let forward = routine(&proposal, "ForwardWords");
-    let lanes: Vec<_> = forward.frame.params.iter().flat_map(|p| {
-        let MirStorageBase::Param(id) = p.base else { panic!() };
-        forward.frame.parameter_lanes(id).unwrap()
-    }).collect();
-    assert_eq!(lanes, vec![MirParamLane::ZeroPage(MirFixedZpSlot(0xa0)),
-        MirParamLane::Reg(MirReg::X), MirParamLane::Reg(MirReg::Y),
-        MirParamLane::ZeroPage(MirFixedZpSlot(0xa3))]);
-    assert!(routine(&proposal, "CopyCounted").frame.parameter_handoff.is_none());
+    let lanes: Vec<_> = forward
+        .frame
+        .params
+        .iter()
+        .flat_map(|p| {
+            let MirStorageBase::Param(id) = p.base else {
+                panic!()
+            };
+            forward.frame.parameter_lanes(id).unwrap()
+        })
+        .collect();
+    assert_eq!(
+        lanes,
+        vec![
+            MirParamLane::ZeroPage(MirFixedZpSlot(0xa0)),
+            MirParamLane::Reg(MirReg::X),
+            MirParamLane::Reg(MirReg::Y),
+            MirParamLane::ZeroPage(MirFixedZpSlot(0xa3))
+        ]
+    );
+    assert!(
+        routine(&proposal, "CopyCounted")
+            .frame
+            .parameter_handoff
+            .is_some()
+    );
     assert!(verify_storage(&proposal, forward).is_empty());
-    let extra = source(&include_str!("../../../fixtures/runtime/parameter_argument_handoff_direct.act")
-        .replace("\r\n", "\n"));
+    let extra = source(
+        &include_str!("../../../fixtures/runtime/parameter_argument_handoff_direct.act")
+            .replace("\r\n", "\n"),
+    );
     let proposed = handoff::propose(&extra, &extra).unwrap();
     assert_eq!(routine(&extra, "Swapped"), routine(&proposed, "Swapped"));
     for name in ["Repeated", "Computed"] {
-        assert!(routine(&proposed, name).frame.parameter_handoff.is_some(), "{name}");
+        assert!(
+            routine(&proposed, name).frame.parameter_handoff.is_some(),
+            "{name}"
+        );
     }
-    let owned = source(&format!("BYTE owned=$A0\n{}",
+    let owned = source(&format!(
+        "BYTE owned=$A0\n{}",
         include_str!("../../../fixtures/runtime/parameter_argument_handoff_direct.act")
-            .replace("\r\n", "\n")));
+            .replace("\r\n", "\n")
+    ));
     assert!(handoff::propose(&owned, &owned).is_none());
+}
+
+#[test]
+fn resident_pointer_selection_requires_a_parameter_definition() {
+    let mut program = controls();
+    let index = program
+        .routines
+        .iter()
+        .position(|r| r.name == "CopyCounted")
+        .unwrap();
+    let r = &mut program.routines[index];
+    let MirOp::Load { dst, .. } = r.blocks[0].ops[1].clone() else {
+        panic!()
+    };
+    r.blocks[0].ops[1] = MirOp::Binary {
+        op: MirBinaryOp::Add,
+        dst,
+        left: MirValue::ConstU16(0x7000),
+        right: MirValue::ConstU16(1),
+        width: MirWidth::Word,
+        carry_in: Some(MirCarryIn::Clear),
+        carry_out: MirCarryOut::Ignore,
+    };
+    assert!(handoff::analyze(&program, &program.routines[index]).is_ok());
+    let proposal = handoff::propose(&program, &program).unwrap();
+    assert!(proposal.routines[index].frame.parameter_handoff.is_none());
+}
+
+#[test]
+fn full_word_argument_cannot_be_proved_from_a_partial_definition() {
+    let mut p = controls();
+    let index = p
+        .routines
+        .iter()
+        .position(|r| r.name == "ForwardWords")
+        .unwrap();
+    let MirOp::Load { dst, width, .. } = &mut p.routines[index].blocks[0].ops[0] else {
+        panic!()
+    };
+    let MirDef::VTemp(id) = *dst else { panic!() };
+    *dst = MirDef::VTempByte { id, byte: 0 };
+    *width = MirWidth::Byte;
+    assert_eq!(
+        handoff::analyze(&p, &p.routines[index]).unwrap_err(),
+        "incomplete-argument-definition"
+    );
+    let mut complete = controls();
+    let MirOp::Call { args, .. } = complete.routines[index].blocks[0].ops.last_mut().unwrap()
+    else {
+        panic!()
+    };
+    args[2].value = MirValue::Def(MirDef::VTempByte { id, byte: 0 });
+    assert!(handoff::analyze(&complete, &complete.routines[index]).is_ok());
 }

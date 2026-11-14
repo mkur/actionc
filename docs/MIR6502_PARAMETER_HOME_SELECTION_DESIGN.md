@@ -600,5 +600,27 @@ binding so ordinary transfer lowering recognizes fixed-slot identity copies.
 Register consumers still require the shared availability proof. An incoming A3
 lane is retained only when the outgoing lane is the same definition; unsupported
 permutation cycles use the original staging strategy. Already-elided homes do
-not trigger another capture proposal. Indirect producers remain outside this
-productive slice; the final-cost transaction can reject the entire batch.
+not trigger another capture proposal. The final-cost transaction can reject the
+entire batch.
+
+### Resident pointer producers
+
+A byte read may consume a parameter pointer whose two lanes form one coherent
+reserved ZP pair. Its pointer definition must come directly from that parameter;
+this does not admit data-dependent pointer reconstruction. Indirect reads use Y,
+so another parameter may retain X but cannot retain Y through such setup.
+
+The existing parameter-consumer rewrite may replace a captured word temp with
+its resident parameter identity at both the indirect read and terminal call.
+It proves both word definitions, checks every use and intervening source write,
+and preserves the position of each pointee read. Shared pointer materialization
+then consumes the pair directly, while shared call lowering omits identity
+transfers. There is no additional value tracker or late address remapping pass.
+The terminal call consumes the last uses before arbitrary invocation clobbers;
+post-call uses, including Strcat's, retain the existing placement.
+
+Entry proofs remain conservative: unsupported machine instructions, opaque
+callees and scalar callees without an available scalar entry contract reject
+selection. A bound scalar callee whose pre-capture working-home reads cannot
+yet be discharged by the entry analysis can also reject a wrapper. This is a
+coverage restriction, not permission to infer entry behavior from formal widths.
