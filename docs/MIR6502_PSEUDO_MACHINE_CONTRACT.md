@@ -984,7 +984,11 @@ Rules:
   objects before temporary allocation; source globals, absolute locals, numeric
   accesses, and wrapping source ranges take precedence. Expanded CFG liveness
   treats only logical parameter writes as parameter definitions: an overlapping
-  scratch/result write cannot kill its own safety obligation. Failed proofs,
+  scratch/result write cannot kill its own safety obligation. Direct and dual
+  pointer consumers resolve resident pairs through the binding; their rewrite
+  effect checks require exact source-pair agreement. Comparison staging cannot
+  overwrite another resident pair. Pointer-reading candidates currently retain
+  legacy placement for non-immediate word arithmetic. Failed proofs,
   routine growth, or no strict packaged-image saving restore the whole fallback.
   Historical materialized-MIR dumps precede this final executable selection;
   the final pre-emission trace records accepted bindings. See the

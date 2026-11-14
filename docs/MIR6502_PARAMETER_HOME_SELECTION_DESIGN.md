@@ -1,7 +1,7 @@
 # MIR6502 parameter home selection
 
-Status: proposed design, 2026-11-14. No compiler behavior changes accompany this
-note. Implementation should proceed in separately qualified slices.
+Status: implemented behind an opt-in gate, 2026-11-14. Backend qualification
+and the optimized-default decision are tracked in the implementation plan.
 
 The [implementation plan](MIR6502_PARAMETER_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
 defines the dependency order, commit boundaries, and qualification gates.
@@ -26,7 +26,7 @@ pointer preparation, and storage deletion currently make overlapping decisions
 about the same parameter. A new cleanup pass after those decisions would leave
 that problem intact.
 
-## Current behavior and motivating example
+## Baseline behavior and motivating example
 
 [Core materialization](../src/mir6502/materialize.rs) currently reserves pointer
 scratch, allocates virtual ZP, prepends the ABI parameter prologue, and constructs
@@ -251,3 +251,35 @@ Shared Y induction, pointee-load elimination, comparison/flag reuse, return-tail
 merging, cross-call parameter residence, and general register allocation are
 separate follow-ups. Placement should make them easier to express without
 depending on them to demonstrate a useful first saving.
+
+## Implemented scope and remaining extensions
+
+The initial register candidate has one live formal, consumed by the first entry
+load in one block; the other formals satisfy the shared absent-home proof.
+Existing consumer forwarding must eliminate every register-bound memory access.
+This is an entry-use optimization, not general register allocation across CFG
+edges. Single-byte entries retain the existing forwarding policy.
+
+Memory candidates reserve complete objects in deterministic order: a compatible
+incoming fixed lane, `$A0–$A3`, then `$E0–$EF`. Pointer-reading bodies can also
+use `$AA/$AB` or `$AE/$AF`; `$AC/$AD` remains copy-and-rebase scratch. Direct and
+dual pointer consumers use the authoritative pair, and comparison setup declines
+when its staging would overwrite another bound object. The effect check resolves
+logical parameter reads through their bindings and requires exact consumer-pair
+agreement. Physical writes remain subject to expanded CFG lifetime checks.
+
+Pointer-reading candidates currently require an immediate operand in every word
+arithmetic operation. Data-dependent pointer adjustments retain their existing
+fused staging strategy: relocating them can increase code despite removing an
+inline home. This is a general shape restriction, not a program-name exception
+or a trial-and-repair subset search. Scalar arithmetic retains the previously
+qualified native scope. Dynamic indexing and further fused pointer consumers
+need separate qualification before widening this boundary.
+
+The retained checkpoint can cross capture-preserving comparison selection: its
+proofs use exact source reads, temp definitions/uses, and dead exit machine state,
+without physical alias or callee-preservation assumptions. Other accepted
+upstream families with untracked placement/callee obligations still discard the
+checkpoint. Resumption reruns core expansion and all downstream preservation
+checks. The cost decision records changed routine costs as well as image size;
+an unrelated routine regression rejects the complete batch.

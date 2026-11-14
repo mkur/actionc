@@ -1,6 +1,6 @@
 # MIR6502 parameter home selection implementation plan
 
-Prepared 2026-11-14. Status: slices 0–4 complete; slices 5–6 pending.
+Prepared 2026-11-14. Status: slices 0–5 complete; slice 6 pending.
 
 Implements the [parameter home selection design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md).
 Work in the dependency order below and commit each slice after its checks pass.
@@ -360,3 +360,31 @@ source storage, and physical writes that must not kill their own liveness proof.
 After the cleanup pause, all 10 focused parameter-home library tests passed,
 including the final source-exclusion refinement; its four integration tests
 had already passed before the pause.
+
+## Slice 5 validation
+
+Pointer bindings survive the audited capture-preserving comparison checkpoint.
+Direct and dual comparison consumers use coherent resident pairs; rewrite
+validation resolves parameter sources through the binding and rejects different
+or shifted pairs. Comparison staging declines collisions. Expanded liveness
+rejects physical clobbers across loop backedges. Non-immediate word arithmetic
+in pointer-reading bodies retains the legacy fused strategy; independent
+controls cover both mutable and returned data-dependent pointer adjustments.
+
+Fnamecmp changes from 185 code + 4 inline parameter bytes to 105 code + 0 inline
+parameter bytes, using `$A0/$A1` and `$A2/$A3`. The complete TN trial passes in
+cart/standalone at `$3000` and `$41C7`, with no routine growth. The general
+arithmetic scope restriction preserves Key and Next's existing sizes rather
+than accepting their earlier trial regressions or searching subsets.
+
+Validation passed 1,367 MIR6502 library tests (15 existing ignored); the final
+eligibility refinement then passed 21 focused ABI, parameter-home,
+parameter-pointer and pointer-setup integration tests. Seven VM tests passed
+across parameter homes, pointer homes and word-result placement. Pointer VM
+coverage includes real LF/CRLF inputs, independent scans and TN Fnamecmp,
+different low bytes, offsets through 700, 16-bit address wraparound in RAM,
+colon handling, all 65,536 byte pairs per comparison body with a terminating
+mismatch, pointee read order/no writes, and TN's optimized Sort caller. Separate
+controls exercise copy-and-rebase offsets, the fourth `$A3` input, and pressure
+that leaves only `$AA/$AB` and `$AE/$AF` available. The feature remains opt-in
+pending the final backend and measurement qualification.

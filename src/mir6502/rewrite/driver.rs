@@ -835,6 +835,7 @@ fn validate_plan(
         &plan.replacement,
         plan.exit_effect_delta,
         &crate::mir6502::materialize::collect_routine_temp_widths(routine),
+        Some(&routine.frame),
     ) {
         return Err(MirRewriteError::InvalidDeclaration {
             stat: plan.stat,
@@ -846,11 +847,12 @@ fn validate_plan(
 
 #[cfg(test)]
 fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEffectDelta) -> bool {
-    effect_delta_is_valid_with_widths(original, replacement, delta, &BTreeMap::new())
+    effect_delta_is_valid_with_widths(original, replacement, delta, &BTreeMap::new(), None)
 }
 
 fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], delta: MirEffectDelta,
-    widths: &BTreeMap<crate::mir6502::ir::MirTempId, MirWidth>) -> bool {
+    widths: &BTreeMap<crate::mir6502::ir::MirTempId, MirWidth>,
+    frame: Option<&crate::mir6502::ir::MirFrame>) -> bool {
     let original_ops = original;
     let replacement_ops = replacement;
     if matches!(delta, MirEffectDelta::DeferredPredicateArguments) {
@@ -943,7 +945,7 @@ fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], 
                 delta,
                 MirEffectDelta::MaterializedRuntimeHelperStoreConsumer
             );
-            if materialized_pointer && !pointer_source_is_preserved(original_ops, replacement_ops) {
+            if materialized_pointer && !pointer_source_is_preserved(original_ops, replacement_ops, frame) {
                 return false;
             }
             if matches!(delta, MirEffectDelta::MaterializedIndexConsumer)
@@ -1124,7 +1126,11 @@ fn strip_runtime_helper_projection(effects: &mut ObservableEffects, ops: &[MirOp
         .retain(|key| !key.starts_with("structured:Regions") && !scratch.contains(key));
 }
 
-fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> bool {
+fn pointer_source_is_preserved(
+    original: &[MirOp],
+    replacement: &[MirOp],
+    frame: Option<&crate::mir6502::ir::MirFrame>,
+) -> bool {
     let sources = original
         .iter()
         .filter_map(|op| match op {
@@ -1147,7 +1153,7 @@ fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> boo
         .iter()
         .map(|source| {
             (0..2)
-                .map(|offset| memory_byte_key(source, offset))
+                .map(|offset| pointer_source_byte_key(source, offset, frame))
                 .collect::<BTreeSet<_>>()
         })
         .collect::<Vec<_>>();
@@ -1160,7 +1166,7 @@ fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> boo
         .filter_map(|op| match op {
             MirOp::MaterializeAddress { consumer, value } => {
                 let mut inputs = BTreeSet::new();
-                collect_value_pointer_reads(value, &mut inputs);
+                collect_pointer_source_reads(value, frame, &mut inputs);
                 Some((*consumer, inputs))
             }
             MirOp::MaterializeIndexedAddress {
@@ -1170,8 +1176,8 @@ fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> boo
                 ..
             } => {
                 let mut inputs = BTreeSet::new();
-                collect_value_pointer_reads(base, &mut inputs);
-                collect_value_pointer_reads(index, &mut inputs);
+                collect_pointer_source_reads(base, frame, &mut inputs);
+                collect_pointer_source_reads(index, frame, &mut inputs);
                 Some((*consumer, inputs))
             }
             _ => None,
@@ -1202,6 +1208,58 @@ fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> boo
         });
     if access_consumers.is_empty() {
         return false;
+    }
+
+    // A consumer may read an explicitly resident pair instead of staging it.
+    // Every consumer must still obtain exactly one original pointer source;
+    // materialized inputs and resident pairs use the same binding projection.
+    let has_resident_parameter = sources.iter().any(|source| match source {
+        MirMem::Param { id, .. } => matches!(
+            frame.and_then(|f| f.parameter_home(*id)),
+            Some(crate::mir6502::ir::MirParamHome::ZeroPage(_))
+        ),
+        _ => false,
+    });
+    if has_resident_parameter
+        && !has_indexed_materialization
+        && materializations
+            .iter()
+            .enumerate()
+            .all(|(i, (consumer, _))| {
+                access_consumers.contains(consumer)
+                    && materializations[..i]
+                        .iter()
+                        .all(|(prior, _)| prior != consumer)
+            })
+    {
+        let inputs = access_consumers
+            .iter()
+            .map(|consumer| {
+                materializations
+                    .iter()
+                    .find(|(c, _)| c == consumer)
+                    .map(|(_, inputs)| inputs.clone())
+                    .unwrap_or_else(|| {
+                        let mut keys = BTreeSet::new();
+                        collect_consumer_keys(*consumer, &mut keys);
+                        keys
+                    })
+            })
+            .collect::<Vec<_>>();
+        let expected = expected_sources
+            .iter()
+            .map(|keys| {
+                keys.iter()
+                    .map(|key| canonical_zero_page_key(key))
+                    .collect::<BTreeSet<_>>()
+            })
+            .collect::<Vec<_>>();
+        if inputs.len() == expected.len()
+            && inputs.iter().all(|input| expected.contains(input))
+            && expected.iter().all(|input| inputs.contains(input))
+        {
+            return true;
+        }
     }
 
     if materializations.len() == expected_sources.len()
@@ -1281,6 +1339,13 @@ fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> boo
         return true;
     }
 
+    // A bound parameter has an authoritative home. It must match exactly;
+    // the legacy layout-selection allowance below cannot override it.
+    if matches!(source, MirMem::Param { .. })
+        && frame.is_some_and(|frame| frame.parameter_homes.is_some())
+    {
+        return false;
+    }
     let source_can_have_a_selected_layout_home = matches!(
         source,
         MirMem::Static { .. }
@@ -1302,6 +1367,40 @@ fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> boo
     source_can_have_a_selected_layout_home
         && selected_is_direct_zero_page
         && !selected_uses_private_staging
+}
+
+// Resolve only explicit parameter bindings. Ordinary layout selection remains
+// unchanged; no historical address or inferred scratch ownership is introduced.
+fn pointer_source_byte_key(
+    mem: &MirMem,
+    delta: u16,
+    frame: Option<&crate::mir6502::ir::MirFrame>,
+) -> String {
+    if let MirMem::Param { id, offset } = mem {
+        if let Some(crate::mir6502::ir::MirParamHome::ZeroPage(start)) =
+            frame.and_then(|frame| frame.parameter_home(*id))
+        {
+            return format!("fixed-zp:{}", u16::from(start.0) + offset + delta);
+        }
+    }
+    memory_byte_key(mem, delta)
+}
+
+fn collect_pointer_source_reads(
+    value: &MirValue,
+    frame: Option<&crate::mir6502::ir::MirFrame>,
+    reads: &mut BTreeSet<String>,
+) {
+    match value {
+        MirValue::PointerCell(mem) => {
+            reads.insert(pointer_source_byte_key(mem, 0, frame));
+        }
+        MirValue::Word { lo, hi } => {
+            collect_pointer_source_reads(lo, frame, reads);
+            collect_pointer_source_reads(hi, frame, reads);
+        }
+        _ => {}
+    }
 }
 
 fn canonical_zero_page_key(key: &str) -> String {
@@ -1381,6 +1480,11 @@ fn store_materialization_address_keys(ops: &[MirOp]) -> (BTreeSet<String>, BTree
             MirOp::AdvanceAddress { consumer, .. } => {
                 collect_consumer_keys(*consumer, &mut reads);
                 collect_consumer_keys(*consumer, &mut writes);
+            }
+            MirOp::CompareIndirectBytes { left, right, .. }
+            | MirOp::CompareIndirectWords { left, right, .. } => {
+                collect_consumer_keys(*left, &mut reads);
+                collect_consumer_keys(*right, &mut reads);
             }
             MirOp::LoadIndirect { consumer, .. } | MirOp::StoreIndirect { consumer, .. } => {
                 collect_consumer_keys(*consumer, &mut reads);
@@ -2521,6 +2625,56 @@ mod tests {
     }
 
     #[test]
+    fn resident_pointer_consumer_requires_the_exact_bound_pair() {
+        use crate::mir6502::ir::{MirFrame, MirParamBinding, MirParamHome};
+        let id = crate::nir::ParamId(0);
+        let original = vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(1)),
+                src: MirAddr::Direct(MirMem::Param { id, offset: 0 }),
+                width: MirWidth::Word,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(2)),
+                src: MirAddr::Deref {
+                    ptr: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+        ];
+        for base in [0xa0, 0xa2, 0xaa, 0xae, 0xe2] {
+            let frame = MirFrame {
+                parameter_homes: Some(vec![MirParamBinding {
+                    param: id,
+                    home: MirParamHome::ZeroPage(MirFixedZpSlot(base)),
+                }]),
+                ..Default::default()
+            };
+            for selected in [base, base + 1, 0xac] {
+                let replacement = vec![MirOp::LoadIndirect {
+                    consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                        lo: MirFixedZpSlot(selected),
+                    }),
+                    dst: MirDef::VTemp(MirTempId(2)),
+                    offset: 0,
+                }];
+                assert_eq!(
+                    effect_delta_is_valid_with_widths(
+                        &original,
+                        &replacement,
+                        MirEffectDelta::MaterializedPointerConsumer,
+                        &BTreeMap::new(),
+                        Some(&frame),
+                    ),
+                    selected == base,
+                    "bound {base:02x}, selected {selected:02x}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn pointer_selection_delta_accepts_two_preserved_sources_and_consumers() {
         let first_mem = MirMem::Param {
             id: crate::nir::ParamId(0),
@@ -2608,6 +2762,27 @@ mod tests {
             &replacement,
             MirEffectDelta::MaterializedPointerConsumer,
         ));
+        use crate::mir6502::ir::{MirFrame, MirParamBinding, MirParamHome};
+        for (left, right) in [(0xa0, 0xa2), (0xaa, 0xae)] {
+            let frame = MirFrame {
+                parameter_homes: Some(vec![
+                    MirParamBinding { param: crate::nir::ParamId(0), home: MirParamHome::ZeroPage(MirFixedZpSlot(left)) },
+                    MirParamBinding { param: crate::nir::ParamId(1), home: MirParamHome::ZeroPage(MirFixedZpSlot(right)) },
+                ]),
+                ..Default::default()
+            };
+            let mut resident = vec![replacement.last().unwrap().clone()];
+            let MirOp::CompareIndirectBytes { left: a, right: b, .. } = &mut resident[0] else { unreachable!() };
+            *a = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: MirFixedZpSlot(left) });
+            *b = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: MirFixedZpSlot(right) });
+            assert!(effect_delta_is_valid_with_widths(&original, &resident,
+                MirEffectDelta::MaterializedPointerConsumer, &BTreeMap::new(), Some(&frame)));
+            let MirOp::CompareIndirectBytes { right: b, .. } = &mut resident[0] else { unreachable!() };
+            *b = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: MirFixedZpSlot(right+1) });
+            assert!(!effect_delta_is_valid_with_widths(&original, &resident,
+                MirEffectDelta::MaterializedPointerConsumer, &BTreeMap::new(), Some(&frame)));
+        }
+
     }
 
     #[test]

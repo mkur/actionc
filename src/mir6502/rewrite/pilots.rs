@@ -373,7 +373,7 @@ fn discover_dual_indirect_compares_impl(
         }
         for index in 0..block.ops.len() {
             let Some(candidate) =
-                crate::mir6502::materialize::dual_indirect_compare_candidate(block, index)
+                crate::mir6502::materialize::dual_indirect_compare_candidate(block, index, &routine.frame)
             else {
                 continue;
             };

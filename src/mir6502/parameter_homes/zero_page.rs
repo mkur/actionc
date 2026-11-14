@@ -33,12 +33,32 @@ pub(super) fn bindings(program: &MirProgram, routine: &MirRoutine) -> Option<Vec
         let home = if absent_parameter(routine, id) {
             MirParamHome::Absent
         } else {
-            // ABI-window bytes precede the virtual pool. Do not use pointer
-            // scratch until its consumers have been qualified in the next slice.
-            let choices = (0xa0..=0xa3u8).chain(0xe0..=0xef);
+            // Reuse an incoming fixed lane first, then ABI-window storage and
+            // the normal virtual pool. Persistent pointer consumers can also
+            // use AA/AB or AE/AF. AC/AD remains the copy-and-rebase scratch pair.
+            let incoming = (0..width).find_map(|lane| {
+                match super::super::abi::action_arg_home(offset + lane, MirWidth::Byte) {
+                    MirArgHome::FixedZeroPage(slot) => slot.0.checked_sub(lane as u8),
+                    _ => None,
+                }
+            });
+            let scratch = [0xaau8, 0xae]
+                .into_iter()
+                .filter(|_| width == 2 && has_pointer_reads(routine));
+            let choices = incoming
+                .into_iter()
+                .chain(0xa0..=0xa3u8)
+                .chain(0xe0..=0xef)
+                .chain(scratch);
             let start = choices
                 .filter(|start| {
-                    u16::from(*start) + width <= if *start < 0xe0 { 0xa4 } else { 0xf0 }
+                    u16::from(*start) + width
+                        <= match *start {
+                            0xa0..=0xa3 => 0xa4,
+                            0xaa => 0xac,
+                            0xae => 0xb0,
+                            _ => 0xf0,
+                        }
                 })
                 .find(|start| {
                     (0..width).all(|lane| {

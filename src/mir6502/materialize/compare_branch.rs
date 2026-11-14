@@ -27,7 +27,7 @@ use crate::mir6502::ir::RoutineId;
 use crate::mir6502::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam, MirCallResult,
     MirCarryIn, MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDef, MirEdge, MirEdgeArg,
-    MirFixedZpSlot, MirFlagTest, MirMem, MirOp, MirPointerPair, MirReg, MirResultHome, MirRoutine,
+    MirFixedZpSlot, MirFlagTest, MirFrame, MirMem, MirOp, MirParamHome, MirPointerPair, MirReg, MirResultHome, MirRoutine, MirStorageBase,
     MirTempId, MirTerminator, MirValue, MirWidth,
 };
 use crate::mir6502::passes::Mir6502Config;
@@ -1863,6 +1863,7 @@ fn indexed_byte_load_for_compare<'a>(
 pub(in crate::mir6502) fn dual_indirect_compare_candidate(
     block: &MirBlock,
     index: usize,
+    frame: &MirFrame,
 ) -> Option<DualIndirectCompareCandidate> {
     if let Some(candidate) = dual_indexed_compare_candidate(block, index, MirWidth::Word, 2)
         .or_else(|| dual_indexed_compare_candidate(block, index, MirWidth::Byte, 1))
@@ -1953,6 +1954,50 @@ pub(in crate::mir6502) fn dual_indirect_compare_candidate(
     let right = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
         lo: MirFixedZpSlot(super::POINTER_SCRATCH_LO),
     });
+    let resident = |mem: &MirMem| match mem {
+        MirMem::Param { id, offset: 0 } => match frame.parameter_home(*id) {
+            Some(MirParamHome::ZeroPage(lo)) => Some(MirAddressConsumer::IndirectIndexedY(
+                MirPointerPair::Fixed { lo: *lo },
+            )),
+            _ => None,
+        },
+        _ => None,
+    };
+    let first_resident = resident(first_pointer_mem);
+    let second_resident = resident(second_pointer_mem);
+    let left = first_resident.unwrap_or(left);
+    let right = second_resident.unwrap_or(right);
+    let mut replacement = Vec::new();
+    for (consumer, mem, resident) in [
+        (left, first_pointer_mem, first_resident),
+        (right, second_pointer_mem, second_resident),
+    ] {
+        if resident.is_none() {
+            // Never stage over a resident pair, including one used by the
+            // other operand. The normal separate-read lowering remains valid.
+            let MirPointerPair::Fixed { lo } = consumer.pointer_pair() else {
+                return None;
+            };
+            if frame.parameter_homes.iter().flatten().any(|b| {
+                let MirParamHome::ZeroPage(start) = b.home else {
+                    return false;
+                };
+                let width = frame
+                    .params
+                    .iter()
+                    .find(|p| p.base == MirStorageBase::Param(b.param))
+                    .map_or(0, |p| p.storage_size);
+                u16::from(lo.0) < u16::from(start.0) + width
+                    && u16::from(start.0) < u16::from(lo.0) + 2
+            }) {
+                return None;
+            }
+            replacement.push(MirOp::MaterializeAddress {
+                consumer,
+                value: pointer_value_from_mem(mem),
+            });
+        }
+    }
     let (op, compare_left, compare_right) = match op {
         MirCompareOp::Eq | MirCompareOp::Ne | MirCompareOp::Lt | MirCompareOp::Ge => {
             (*op, left, right)
@@ -1960,26 +2005,17 @@ pub(in crate::mir6502) fn dual_indirect_compare_candidate(
         MirCompareOp::Gt => (MirCompareOp::Lt, right, left),
         MirCompareOp::Le => (MirCompareOp::Ge, right, left),
     };
+    replacement.push(MirOp::CompareIndirectBytes {
+        dst: MirCondDest::Temp(*compare_temp),
+        op,
+        left: compare_left,
+        right: compare_right,
+        offset: *first_offset,
+        signed: false,
+    });
     Some(DualIndirectCompareCandidate {
         consumed: 5,
-        replacement: vec![
-            MirOp::MaterializeAddress {
-                consumer: left,
-                value: pointer_value_from_mem(first_pointer_mem),
-            },
-            MirOp::MaterializeAddress {
-                consumer: right,
-                value: pointer_value_from_mem(second_pointer_mem),
-            },
-            MirOp::CompareIndirectBytes {
-                dst: MirCondDest::Temp(*compare_temp),
-                op,
-                left: compare_left,
-                right: compare_right,
-                offset: *first_offset,
-                signed: false,
-            },
-        ],
+        replacement,
         stat: "dual-indirect-byte-compare",
         estimated_byte_saving: 10,
         estimated_cycle_saving: 9,

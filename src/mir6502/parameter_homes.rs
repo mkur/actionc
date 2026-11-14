@@ -1,5 +1,5 @@
-//! Parameter identity and placement are separate. Selection is introduced in
-//! subsequent slices; this module owns the common binding invariants.
+//! One parameter binding owns entry capture, working storage, and layout.
+//! Selection resumes one core continuation and accepts only a smaller image.
 use super::{diagnostics::MirDiagnostic, ir::*};
 use std::collections::BTreeSet;
 mod lifetimes;
@@ -100,6 +100,15 @@ fn eligible(program: &MirProgram, routine: &MirRoutine) -> bool {
                     (Some(MirWidth::Byte), 1) | (Some(MirWidth::Word), 2)
                 )
         })
+        // Data-dependent pointer arithmetic has a separate fused staging
+        // strategy. Keep it on the legacy path until that consumer cooperates
+        // with resident homes. This first pointer slice admits immediate word
+        // arithmetic only; scalar routines retain their existing native scope.
+        && (!has_pointer_reads(routine) || routine.blocks.iter().flat_map(|b| &b.ops).all(|op| {
+            !matches!(op, MirOp::Binary { left, right, width: MirWidth::Word, .. }
+                if !matches!(left, MirValue::ConstU8(_) | MirValue::ConstU16(_))
+                && !matches!(right, MirValue::ConstU8(_) | MirValue::ConstU16(_)))
+        }))
         && routine.blocks.iter().all(|b| {
             b.ops.iter().all(|op| {
                 let effects = classify_op(op);
@@ -122,7 +131,9 @@ fn eligible(program: &MirProgram, routine: &MirRoutine) -> bool {
                                 ..
                             }
                             | MirOp::Load {
-                                src: MirAddr::Direct(_),
+                                src: MirAddr::Direct(_)
+                                    | MirAddr::Deref { .. }
+                                    | MirAddr::PointerCell { .. },
                                 ..
                             }
                             | MirOp::Store {
@@ -132,6 +143,18 @@ fn eligible(program: &MirProgram, routine: &MirRoutine) -> bool {
                     )
             })
         })
+}
+
+fn has_pointer_reads(routine: &MirRoutine) -> bool {
+    routine.blocks.iter().flat_map(|b| &b.ops).any(|op| {
+        matches!(
+            op,
+            MirOp::Load {
+                src: MirAddr::Deref { .. } | MirAddr::PointerCell { .. },
+                ..
+            }
+        )
+    })
 }
 
 fn register_bindings(routine: &MirRoutine) -> Option<Vec<MirParamBinding>> {
@@ -224,6 +247,11 @@ fn try_proposal(
     let accepted = trial.as_ref().is_ok_and(|p| p.improves(&baseline));
     child.event("parameter-home-result", || serde_json::json!({
         "accepted": accepted,
+        "routine_cost_changes": trial.as_ref().ok().map(|p| p.program.routines.iter().filter_map(|r| {
+            let before = baseline.costs.get(&r.id)?;
+            let after = p.costs.get(&r.id)?;
+            (before != after).then(|| serde_json::json!({"routine": r.name, "before": before, "after": after}))
+        }).collect::<Vec<_>>()),
         "diagnostics": trial.as_ref().err().map(|errors| format!("{errors:?}")),
         "before_bytes": crate::codegen::format_load_file(&baseline.output).len(),
         "after_bytes": trial.as_ref().ok().map(|p| crate::codegen::format_load_file(&p.output).len()),
@@ -518,6 +546,31 @@ mod tests {
             init: None,
         });
         assert!(!verify_storage(&p, &p.routines[0]).is_empty());
+    }
+
+    #[test]
+    fn physical_clobber_is_rejected_when_parameter_is_live_on_a_backedge() {
+        let mut p = input();
+        let id = bind(&mut p, MirParamHome::ZeroPage(MirFixedZpSlot(0xaa)));
+        let r = &mut p.routines[0];
+        let entry = r.blocks[0].id;
+        r.blocks.truncate(1);
+        r.blocks[0].ops = vec![MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(0)),
+            src: MirAddr::Direct(MirMem::Param { id, offset: 0 }),
+            width: MirWidth::Word,
+        }];
+        r.blocks[0].terminator = MirTerminator::Jump(MirEdge {
+            target: entry,
+            args: vec![],
+        });
+        assert!(verify_lifetimes(r).is_empty());
+        r.blocks[0].ops.push(MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xab))),
+            src: MirValue::ConstU8(99),
+            width: MirWidth::Byte,
+        });
+        assert!(!verify_lifetimes(r).is_empty());
     }
 
     #[test]

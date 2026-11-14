@@ -37,8 +37,13 @@ pub(in crate::mir6502) fn materialize_costed_traced(
     report: bool,
     trace: &crate::mir6502::trace::Trace,
 ) -> Result<crate::mir6502::preparation::PreparedProgram, Vec<MirDiagnostic>> {
-    let mut guarded = false;
-    let result = trace.run("captured_comparisons", |trace| {
+    // This family preserves the capture and the exact source read. Its proof
+    // uses reaching definitions, exclusive temp flow, and dead exit machine
+    // state, never physical aliases or callee preservation. Changing parameter
+    // placement cannot invalidate those logical obligations; core expansion
+    // and machine/home checks run again from the selected input. Its former
+    // cost and occupied-ZP tests are profitability policy, not safety witnesses.
+    trace.run("captured_comparisons", |trace| {
         trace.snapshot("attempt-input", &original);
 
         let mut off = config.clone();
@@ -117,7 +122,6 @@ pub(in crate::mir6502) fn materialize_costed_traced(
         if !final_ok {
             accepted.clear();
         }
-        guarded = !accepted.is_empty();
         trace.decision("captured_comparisons", candidates.iter().copied(), |id| {
             accepted.contains(&id)
         });
@@ -150,8 +154,7 @@ pub(in crate::mir6502) fn materialize_costed_traced(
         } else {
             proposed.unwrap()
         })
-    });
-    result.map(|p| p.guard_checkpoint(guarded))
+    })
 }
 
 #[cfg(test)]

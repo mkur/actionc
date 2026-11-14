@@ -476,6 +476,10 @@ fn pointer_consumer_for_value(
     if offset_mem(lo_mem, 1) != *hi_mem {
         return DEFAULT_POINTER_PAIR;
     }
+    // Bound parameter pairs are already authoritative here. They resolve
+    // through the same layout as capture and mutation and can be consumed
+    // directly across blocks. A nonzero base adjustment still uses the copy
+    // scratch above, so indexing cannot mutate a persistent parameter pair.
     // Complete ordinary pointer cells cannot be a fixed ZP pair. Select the
     // existing scratch strategy without depending on their tentative address.
     if layout.ordinary_range_is_outside_zero_page(routine_id, lo_mem, 2) {
