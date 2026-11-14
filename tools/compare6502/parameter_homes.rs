@@ -9,6 +9,7 @@ use actionc::{
 use std::{fs, path::Path};
 
 fn main() {
+    let enabled = std::env::args().any(|a| a == "--enabled");
     let destination = std::env::args().nth(1).expect("output directory");
     let destination = Path::new(&destination);
     fs::create_dir_all(destination).unwrap();
@@ -34,6 +35,7 @@ fn main() {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41c7] {
                 let config = Mir6502Config {
+                    enable_parameter_home_selection: enabled,
                     enable_small_leaf_inlining: inline,
                     ..Mir6502Config::optimized()
                 };
@@ -62,7 +64,8 @@ fn main() {
                             .storage_symbols
                             .iter()
                             .filter(|s| {
-                                s.scope == actionc::codegen::CodegenSymbolScope::Routine(name.into())
+                                s.scope
+                                    == actionc::codegen::CodegenSymbolScope::Routine(name.into())
                                     && s.kind == actionc::codegen::CodegenSymbolKind::Parameter
                             })
                             .collect();
@@ -70,8 +73,18 @@ fn main() {
                         rows.push(format!("{{\"name\":\"{name}\",\"code_bytes\":{},\"inline_home_bytes\":{homes}}}", r.end - r.start));
                     }
                 }
+                let events = trace.events();
+                let outcome = events
+                    .iter()
+                    .rev()
+                    .find(|e| {
+                        e.kind == "parameter-home-result"
+                            || (e.kind == "stage" && e.data["stage"] == "parameter-homes")
+                    })
+                    .map(|e| e.data.to_string())
+                    .unwrap_or("null".into());
                 println!(
-                    "{{\"id\":\"{id}\",\"image_bytes\":{},\"routines\":[{}],\"work\":{}}}",
+                    "{{\"id\":\"{id}\",\"image_bytes\":{},\"routines\":[{}],\"parameter_home_outcome\":{outcome},\"work\":{}}}",
                     bytes.len(),
                     rows.join(","),
                     trace.manifest()["work"]

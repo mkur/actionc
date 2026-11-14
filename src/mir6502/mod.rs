@@ -11,6 +11,7 @@ mod late_cleanup;
 mod materialize;
 mod passes;
 mod parameter_homes;
+mod preparation;
 mod printer;
 mod rewrite;
 mod runtime;
@@ -146,7 +147,7 @@ fn materialize_program_with_origin_and_runtime_traced(
     trace: &crate::mir6502::trace::Trace,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
     materialize_program_with_origin_and_runtime_preserving(program, config, origin, runtime,
-        trace, &mut late_cleanup::preservation::Preservation::new(false))
+        trace, &mut late_cleanup::preservation::Preservation::new(false), None)
 }
 
 fn materialize_program_with_origin_and_runtime_preserving(
@@ -156,8 +157,8 @@ fn materialize_program_with_origin_and_runtime_preserving(
     runtime: crate::runtime::Runtime,
     trace: &crate::mir6502::trace::Trace,
     preservation: &mut late_cleanup::preservation::Preservation,
+    selected_core: Option<&mut Option<preparation::SelectedCore>>,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    use late_cleanup::preservation::Family;
     verify::verify_program(&program, MirPhase::PreMaterialization)
         .map_err(|diagnostics| phase_diagnostics("pre-materialization", diagnostics))?;
     let staging_routines = if config.enable_peepholes && config.enable_argument_staging_reduction {
@@ -174,6 +175,7 @@ fn materialize_program_with_origin_and_runtime_preserving(
         .map_err(|diagnostics| phase_diagnostics("resolved pre-materialization", diagnostics))?;
     trace.snapshot("resolved-interfaces", &program);
     let mut materialize_config = config.clone();
+    materialize_config.enable_parameter_home_selection &= selected_core.is_some();
     // Keep inlining, home selection and their cost trials identical to the
     // feature-off pipeline. Record reuse is a final transaction over that
     // complete materialized result, with its own final placement/image gate.
@@ -203,6 +205,20 @@ fn materialize_program_with_origin_and_runtime_preserving(
             trace,
         )?
     };
+    if let Some(selected_core) = selected_core {
+        *selected_core = baseline.checkpoint().map(|checkpoint| preparation::SelectedCore {
+            checkpoint, staging_routines: staging_routines.clone(),
+        });
+    }
+    finish_materialization(baseline.program, config, origin, runtime, trace, preservation, &staging_routines)
+}
+
+fn finish_materialization(
+    baseline: MirProgram, config: &Mir6502Config, origin: u16, runtime: crate::runtime::Runtime,
+    trace: &trace::Trace, preservation: &mut late_cleanup::preservation::Preservation,
+    staging_routines: &BTreeSet<RoutineId>,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    use late_cleanup::preservation::Family;
     preservation.begin(&baseline);
     let baseline = if config.enable_peepholes && config.enable_record_base_reuse {
         preservation.select(Family::RecordBases, baseline, |baseline| materialize::record_bases::select_costed_traced(baseline, config, origin, true, trace))?
@@ -286,7 +302,7 @@ fn materialize_resolved_program(
     origin: u16,
     runtime: crate::runtime::Runtime,
     report: bool,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     materialize_resolved_program_traced(program, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
 }
 
@@ -297,7 +313,7 @@ fn materialize_resolved_program_traced(
     runtime: crate::runtime::Runtime,
     report: bool,
     trace: &crate::mir6502::trace::Trace,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     if config.enable_peepholes && config.enable_captured_bound_motion {
         return materialize::loop_motion::materialize_costed_traced(
             program, config, origin, runtime, report, trace,
@@ -312,7 +328,7 @@ fn materialize_resolved_program_traced(
 fn materialize_resolved_program_without_motion_costing(
     program: MirProgram, config: &Mir6502Config, origin: u16,
     runtime: crate::runtime::Runtime, report: bool,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     materialize_resolved_program_without_motion_costing_traced(program, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
 }
 
@@ -323,7 +339,7 @@ fn materialize_resolved_program_without_motion_costing_traced(
     runtime: crate::runtime::Runtime,
     report: bool,
     trace: &crate::mir6502::trace::Trace,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     if config.enable_peepholes && config.enable_comparison_loop_pointers {
         return materialize::comparison_loops::materialize_costed_traced(
             program, config, origin, runtime, report, trace,
@@ -338,7 +354,7 @@ fn materialize_resolved_program_without_motion_costing_traced(
 fn materialize_resolved_program_without_comparison_costing(
     program: MirProgram, config: &Mir6502Config, origin: u16,
     runtime: crate::runtime::Runtime, report: bool,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     materialize_resolved_program_without_comparison_costing_traced(program, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
 }
 
@@ -349,7 +365,7 @@ fn materialize_resolved_program_without_comparison_costing_traced(
     runtime: crate::runtime::Runtime,
     report: bool,
     trace: &crate::mir6502::trace::Trace,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     if config.enable_peepholes && config.enable_call_predicate_arguments {
         return materialize::call_predicates::materialize_costed_traced(
             program, config, origin, runtime, report, trace,
@@ -364,7 +380,7 @@ fn materialize_resolved_program_without_comparison_costing_traced(
 fn materialize_resolved_program_without_call_costing(
     program: MirProgram, config: &Mir6502Config, origin: u16,
     runtime: crate::runtime::Runtime, report: bool,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     materialize_resolved_program_without_call_costing_traced(program, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
 }
 
@@ -375,7 +391,7 @@ fn materialize_resolved_program_without_call_costing_traced(
     runtime: crate::runtime::Runtime,
     report: bool,
     trace: &crate::mir6502::trace::Trace,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     if config.enable_peepholes
         && config.enable_address_values
         && config.enable_indexed_address_values
@@ -393,7 +409,7 @@ fn materialize_resolved_program_without_call_costing_traced(
 fn materialize_resolved_program_without_address_costing(
     program: MirProgram, config: &Mir6502Config, origin: u16,
     runtime: crate::runtime::Runtime, report: bool,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     materialize_resolved_program_without_address_costing_traced(program, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
 }
 
@@ -404,7 +420,7 @@ fn materialize_resolved_program_without_address_costing_traced(
     runtime: crate::runtime::Runtime,
     report: bool,
     trace: &crate::mir6502::trace::Trace,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     if config.enable_peepholes && config.enable_copy_value_forwarding {
         return materialize::copy_values::materialize_costed_traced(
             program, config, origin, runtime, report, trace,
@@ -419,7 +435,7 @@ fn materialize_resolved_program_without_address_costing_traced(
 fn materialize_resolved_program_without_copy_costing(
     program: MirProgram, config: &Mir6502Config, origin: u16,
     runtime: crate::runtime::Runtime, report: bool,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     materialize_resolved_program_without_copy_costing_traced(program, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
 }
 
@@ -430,7 +446,7 @@ fn materialize_resolved_program_without_copy_costing_traced(
     runtime: crate::runtime::Runtime,
     report: bool,
     trace: &crate::mir6502::trace::Trace,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     if config.enable_peepholes
         && (config.enable_argument_capture_forwarding || config.enable_pattern_binding_forwarding)
     {
@@ -447,7 +463,7 @@ fn materialize_resolved_program_without_copy_costing_traced(
 fn materialize_resolved_program_without_scalar_costing(
     program: MirProgram, config: &Mir6502Config, origin: u16,
     runtime: crate::runtime::Runtime, report: bool,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     materialize_resolved_program_without_scalar_costing_traced(program, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
 }
 
@@ -458,7 +474,7 @@ fn materialize_resolved_program_without_scalar_costing_traced(
     runtime: crate::runtime::Runtime,
     report: bool,
     trace: &crate::mir6502::trace::Trace,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     if config.enable_peepholes && config.enable_captured_byte_comparisons {
         return materialize::captured_comparisons::materialize_costed_traced(
             program, config, origin, runtime, report, trace,
@@ -473,7 +489,7 @@ fn materialize_resolved_program_without_scalar_costing_traced(
 fn materialize_resolved_program_without_captured_compare_costing(
     program: MirProgram, config: &Mir6502Config, origin: u16,
     runtime: crate::runtime::Runtime, report: bool,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     materialize_resolved_program_without_captured_compare_costing_traced(program, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
 }
 
@@ -484,9 +500,9 @@ fn materialize_resolved_program_without_captured_compare_costing_traced(
     runtime: crate::runtime::Runtime,
     report: bool,
     trace: &crate::mir6502::trace::Trace,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<preparation::PreparedProgram, Vec<MirDiagnostic>> {
     trace.run("core-with-helpers", |trace| {
-        let mut materialized = materialize::materialize_program_with_reporting_traced(
+        let (mut materialized, input) = materialize::materialize_prepared(
             program, config, origin, report, trace,
         )
         .map_err(|diagnostics| phase_diagnostics("materialization", diagnostics))?;
@@ -495,7 +511,7 @@ fn materialize_resolved_program_without_captured_compare_costing_traced(
         runtime::resolve_helpers(&mut materialized, runtime)
             .map_err(|diagnostics| phase_diagnostics("runtime resolution", diagnostics))?;
         trace.snapshot("helper-resolution", &materialized);
-        Ok(materialized)
+        Ok(preparation::PreparedProgram::new(materialized, input))
     })
 }
 
@@ -568,7 +584,7 @@ fn prepare_program_for_emission(
     config: &Mir6502Config,
     runtime: crate::runtime::Runtime,
     trace: &trace::Trace,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<(MirProgram, Option<preparation::Resume>), Vec<MirDiagnostic>> {
     let mir = lower_program(nir)?;
     trace.bind_routines(&mir);
     trace.snapshot("lowered", &mir);
@@ -576,8 +592,18 @@ fn prepare_program_for_emission(
         && config.enable_checked_range_pointer_retention && !mir.machine_blocks.is_empty()).then(|| mir.clone());
     let mut preservation = late_cleanup::preservation::Preservation::new(
         config.enable_peepholes && config.enable_late_private_store_cleanup);
+    let mut core = None;
     let mir = materialize_program_with_origin_and_runtime_preserving(
-        mir, config, origin, runtime, trace, &mut preservation)?;
+        mir, config, origin, runtime, trace, &mut preservation, Some(&mut core))?;
+    let mir = finish_emission_preparation(nir, mir, &range_source, config, origin, runtime, trace, &mut preservation)?;
+    Ok((mir, core.map(|core| preparation::Resume { core, range_source })))
+}
+
+fn finish_emission_preparation(
+    nir: &NirProgram, mir: MirProgram, range_source: &Option<MirProgram>,
+    config: &Mir6502Config, origin: u16, runtime: crate::runtime::Runtime,
+    trace: &trace::Trace, preservation: &mut late_cleanup::preservation::Preservation,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
     let address_ranges = range_source.as_ref().filter(|_| materialize::pointer_retention::checked_ranges::has_candidate(&mir)).map(|source| {
         analysis::address_ranges::MirAddressRanges::project(nir, source, &mir)
     }).transpose()?;
@@ -604,7 +630,15 @@ fn generate_output_impl(
     runtime: crate::runtime::Runtime,
     trace: &trace::Trace,
 ) -> Result<crate::codegen::CodegenOutput, Vec<MirDiagnostic>> {
-    let mir = prepare_program_for_emission(nir, origin, config, runtime, trace)?;
+    let (mir, resume) = prepare_program_for_emission(nir, origin, config, runtime, trace)?;
+    let baseline = finalize_output(nir, mir, origin, runtime, trace)?;
+    Ok(parameter_homes::select_output(nir, baseline, resume, config, origin, runtime, trace).output)
+}
+
+fn finalize_output(
+    nir: &NirProgram, mir: MirProgram, origin: u16, runtime: crate::runtime::Runtime,
+    trace: &trace::Trace,
+) -> Result<preparation::Executable, Vec<MirDiagnostic>> {
     let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
     let final_emission = trace.child("final-emission", "final-artifact");
     let summary = emit::emit_program_traced(&mir, origin, &mut emitter, &final_emission)?;
@@ -618,6 +652,7 @@ fn generate_output_impl(
             })
             .collect::<Vec<_>>()
     })?;
+    let costs = emit::routine_costs(&mir, &summary);
     let mut output = codegen_output(emission, origin, summary, runtime, &mir);
     // Routine identity survives MIR layout and inlining. Resolve its debug
     // location from verified NIR only after final address ranges are known.
@@ -635,7 +670,7 @@ fn generate_output_impl(
         }
         span.is_some()
     });
-    Ok(output)
+    Ok(preparation::Executable { output, costs, program: mir })
 }
 
 fn codegen_output(

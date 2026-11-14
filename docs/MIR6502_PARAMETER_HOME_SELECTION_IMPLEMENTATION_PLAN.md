@@ -1,6 +1,6 @@
 # MIR6502 parameter home selection implementation plan
 
-Prepared 2026-11-14. Status: slices 0–1 complete; slices 2–6 pending.
+Prepared 2026-11-14. Status: slices 0–2 complete; slices 3–6 pending.
 
 Implements the [parameter home selection design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md).
 Work in the dependency order below and commit each slice after its checks pass.
@@ -298,3 +298,20 @@ the AGENTS.md shared-contract checks apply in full.
   combined optimizations are not counted as implemented gains.
 - The backend checks pass, existing fallback behavior remains covered, and
   each completed slice has its own commit and validation record.
+
+## Slice 2 validation
+
+The executable path retains the selected pre-capture input and permits one
+resumed core continuation. Selection remains opt-in with no production
+candidates. Untracked outer mutations and accepted placement-sensitive
+pre-home families conservatively discard the checkpoint. TN currently reaches
+that guard through captured comparisons; admitting that family requires an
+audit of its proof dependencies before the pointer slice.
+
+Validation: 1,361 MIR6502 library tests passed (15 existing ignored); 29 ABI,
+phase-trace, inlining, layout-census, and late-cleanup integration tests passed
+(one existing ignored). All 12 baseline measurements, with the gate both off
+and on, retain identical executable hashes, routine sizes, and work counters.
+Focused tests cover checkpoint ownership, stale-output rejection, unchanged
+resume, one additional core materialization without upstream search, and exact
+artifact rollback on invalid or growing proposals.

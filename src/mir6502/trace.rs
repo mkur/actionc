@@ -259,18 +259,18 @@ impl Trace {
         child
     }
 
-    pub(crate) fn run(
+    pub(crate) fn run<T: std::borrow::Borrow<MirProgram>>(
         &self,
         stage: &'static str,
-        f: impl FnOnce(&Self) -> Result<MirProgram, Vec<MirDiagnostic>>,
-    ) -> Result<MirProgram, Vec<MirDiagnostic>> {
+        f: impl FnOnce(&Self) -> Result<T, Vec<MirDiagnostic>>,
+    ) -> Result<T, Vec<MirDiagnostic>> {
         let child = self.child(stage, "pipeline-attempt");
         child.count("pipeline_attempts", 1);
         let result = f(&child);
         let snapshot = result
             .as_ref()
             .ok()
-            .and_then(|p| child.snapshot("attempt-return", p));
+            .and_then(|p| child.snapshot("attempt-return", p.borrow()));
         child.event("attempt-end", || {
             let mut sources = Vec::new();
             let mut selection = None;

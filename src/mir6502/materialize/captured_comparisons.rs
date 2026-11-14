@@ -25,7 +25,7 @@ pub(in crate::mir6502) fn materialize_costed(
     origin: u16,
     runtime: crate::runtime::Runtime,
     report: bool,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<crate::mir6502::preparation::PreparedProgram, Vec<MirDiagnostic>> {
     materialize_costed_traced(original, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
 }
 
@@ -36,8 +36,9 @@ pub(in crate::mir6502) fn materialize_costed_traced(
     runtime: crate::runtime::Runtime,
     report: bool,
     trace: &crate::mir6502::trace::Trace,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    trace.run("captured_comparisons", |trace| {
+) -> Result<crate::mir6502::preparation::PreparedProgram, Vec<MirDiagnostic>> {
+    let mut guarded = false;
+    let result = trace.run("captured_comparisons", |trace| {
         trace.snapshot("attempt-input", &original);
 
         let mut off = config.clone();
@@ -116,6 +117,7 @@ pub(in crate::mir6502) fn materialize_costed_traced(
         if !final_ok {
             accepted.clear();
         }
+        guarded = !accepted.is_empty();
         trace.decision("captured_comparisons", candidates.iter().copied(), |id| {
             accepted.contains(&id)
         });
@@ -148,7 +150,8 @@ pub(in crate::mir6502) fn materialize_costed_traced(
         } else {
             proposed.unwrap()
         })
-    })
+    });
+    result.map(|p| p.guard_checkpoint(guarded))
 }
 
 #[cfg(test)]

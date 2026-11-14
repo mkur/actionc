@@ -754,7 +754,7 @@ pub(super) fn improve_traced(
             *emitted = materialized;
         } else {
             *forwarded = selected;
-            *emitted = proposed.unwrap();
+            *emitted = proposed.unwrap().program;
         }
         if config.enable_constructor_payload_forwarding {
             payloads::improve_traced(
@@ -856,7 +856,7 @@ fn elide_homes_traced(
         && occupied(&proposed).is_subset(&occupied(emitted))
         && private_cells::physical_cells_unaliased(emitted, origin, protected)
         && private_cells::physical_cells_unaliased(&proposed, origin, &remaining))
-    .then_some((selected, proposed, removed))
+    .then_some((selected, proposed.program, removed))
 }
 
 fn occupied(p: &MirProgram) -> BTreeSet<u8> {

@@ -121,7 +121,7 @@ pub(super) fn improve_traced(
     }
     if accepted {
         *selected = proposal;
-        *emitted = materialized.unwrap();
+        *emitted = materialized.unwrap().program;
     }
     stats
 }

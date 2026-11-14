@@ -480,7 +480,7 @@ pub(in crate::mir6502) fn materialize(
     config: &Mir6502Config,
     origin: u16,
     runtime: Runtime,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<crate::mir6502::preparation::PreparedProgram, Vec<MirDiagnostic>> {
     materialize_traced(program, census, config, origin, runtime, &crate::mir6502::trace::Trace::disabled())
 }
 
@@ -491,7 +491,7 @@ pub(in crate::mir6502) fn materialize_traced(
     origin: u16,
     runtime: Runtime,
     trace: &crate::mir6502::trace::Trace,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<crate::mir6502::preparation::PreparedProgram, Vec<MirDiagnostic>> {
     trace.run("inlining", |trace| {
     trace.snapshot("attempt-input", &program);
 

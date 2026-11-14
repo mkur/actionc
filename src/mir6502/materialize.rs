@@ -1390,11 +1390,39 @@ pub(super) fn materialize_program_with_reporting(
 }
 
 pub(super) fn materialize_program_with_reporting_traced(
+    program: MirProgram,
+    config: &Mir6502Config,
+    object_origin: u16,
+    report: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    materialize_core(program, config, object_origin, report, trace, None, None)
+}
+
+pub(super) fn materialize_prepared(
+    program: MirProgram, config: &Mir6502Config, origin: u16, report: bool,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<(MirProgram, Option<super::preparation::CoreInput>), Vec<MirDiagnostic>> {
+    let mut input = None;
+    let program = materialize_core(program, config, origin, report, trace, None, Some(&mut input))?;
+    Ok((program, input))
+}
+
+pub(super) fn resume_core(
+    input: super::preparation::CoreInput, origin: u16, trace: &crate::mir6502::trace::Trace,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    super::verify_program(&input.program, MirPhase::PreMaterialization)?;
+    materialize_core(input.program, &input.config, origin, false, trace, Some(input.helpers), None)
+}
+
+fn materialize_core(
     mut program: MirProgram,
     config: &Mir6502Config,
     object_origin: u16,
     report: bool,
     trace: &crate::mir6502::trace::Trace,
+    prepared_helpers: Option<Vec<MirRuntimeHelper>>,
+    checkpoint: Option<&mut Option<super::preparation::CoreInput>>,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
     trace.run("core-materialization", |trace| {
         trace.count("materializations", 1);
@@ -1402,7 +1430,8 @@ pub(super) fn materialize_program_with_reporting_traced(
 
         // Legalization can introduce mandatory helpers before optional rewrites.
         // Discover them even when helper-selection/peephole passes are disabled.
-        let mut helpers = program
+        let resuming = prepared_helpers.is_some();
+        let mut helpers = prepared_helpers.unwrap_or_else(|| program
             .routines
             .iter()
             .flat_map(|routine| &routine.blocks)
@@ -1411,9 +1440,10 @@ pub(super) fn materialize_program_with_reporting_traced(
                 MirOp::RuntimeHelper { helper, .. } => Some(*helper),
                 _ => None,
             })
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>());
         let mut peephole_stats = MirPeepholeStats::with_trace(trace);
         let mut home_fates = BTreeMap::<RoutineId, HomeFateTracker>::new();
+        if !resuming {
         if config.enable_peepholes && config.enable_tiny_constant_fills {
             let selected = tiny_fills::select(&mut program);
             if !selected.is_empty() {
@@ -1437,6 +1467,14 @@ pub(super) fn materialize_program_with_reporting_traced(
             peephole_stats.record_many(routine.id, "aggregate-copy-loop-selected", selected);
         }
         refine_terminal_indirect_jump_effects(&mut program);
+        }
+        if config.enable_peepholes && config.enable_parameter_home_selection
+            && let Some(checkpoint) = checkpoint
+        {
+            *checkpoint = Some(super::preparation::CoreInput {
+                program: program.clone(), config: config.clone(), helpers: helpers.clone(),
+            });
+        }
         reserve_pointer_scratch_slots(&mut program);
         allocate_zero_page_slots(&mut program);
         let source_zero_page = source_zero_page_slots(&program);

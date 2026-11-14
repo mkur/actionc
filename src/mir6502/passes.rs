@@ -1,5 +1,7 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir6502Config {
+    /// Choose leaf parameter homes before capture, with final executable costing.
+    pub enable_parameter_home_selection: bool,
     /// Final-layout, same-block record base reuse with exact exit state repair.
     pub enable_record_base_reuse: bool,
     /// Admit indirect field writes only with complete disjoint destination proofs.
@@ -104,6 +106,7 @@ pub enum MirPeepholeReportMode {
 impl Default for Mir6502Config {
     fn default() -> Self {
         Self {
+            enable_parameter_home_selection: false,
             enable_record_base_reuse: false,
             enable_record_base_writes: false,
             enable_record_base_parameter_origins: false,

@@ -3,6 +3,61 @@
 use super::{diagnostics::MirDiagnostic, ir::*};
 use std::collections::BTreeSet;
 
+pub(super) fn select_output(
+    nir: &crate::nir::NirProgram,
+    baseline: super::preparation::Executable,
+    resume: Option<super::preparation::Resume>,
+    config: &super::Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    trace: &super::trace::Trace,
+) -> super::preparation::Executable {
+    if !config.enable_peepholes || !config.enable_parameter_home_selection {
+        return baseline;
+    }
+    let Some(resume) = resume else {
+        trace.skipped("parameter-homes", "no-current-checkpoint");
+        return baseline;
+    };
+    let Some(proposal) = propose(&resume.core.checkpoint.input.program) else {
+        trace.skipped("parameter-homes", "no-candidates");
+        return baseline;
+    };
+    try_proposal(
+        nir, baseline, resume, proposal, config, origin, runtime, trace,
+    )
+}
+
+fn propose(_input: &MirProgram) -> Option<MirProgram> {
+    // Slice 2 establishes the trial boundary; no production candidate yet.
+    None
+}
+
+fn try_proposal(
+    nir: &crate::nir::NirProgram,
+    baseline: super::preparation::Executable,
+    resume: super::preparation::Resume,
+    proposal: MirProgram,
+    config: &super::Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    trace: &super::trace::Trace,
+) -> super::preparation::Executable {
+    let child = trace.child("parameter-homes", "batch-trial");
+    let trial =
+        super::preparation::resume_output(nir, resume, proposal, config, origin, runtime, &child);
+    let accepted = trial.as_ref().is_ok_and(|p| p.improves(&baseline));
+    child.event("parameter-home-result", || serde_json::json!({
+        "accepted": accepted,
+        "before_bytes": crate::codegen::format_load_file(&baseline.output).len(),
+        "after_bytes": trial.as_ref().ok().map(|p| crate::codegen::format_load_file(&p.output).len()),
+        "reason": if accepted {"smaller-image"} else if trial.is_err() {"invalid-trial"} else {"no-final-saving-or-routine-growth"},
+    }));
+    let selected = if accepted { trial.unwrap() } else { baseline };
+    trace.snapshot("pre-emission", &selected.program);
+    selected
+}
+
 /// Address uses expose the parameter object, unlike dereferencing its value.
 pub(super) fn exposed(program: &MirProgram, routine: &MirRoutine, id: crate::nir::ParamId) -> bool {
     use super::analysis::effects::{classify_op, classify_terminator};
@@ -330,5 +385,57 @@ mod tests {
                 .iter()
                 .any(|e| e.message.contains("source-owned storage"))
         );
+    }
+
+    #[test]
+    fn invalid_and_growing_trials_restore_the_complete_fallback() {
+        let ast = crate::parser::parse(
+            &crate::lexer::tokenize("CARD FUNC Echo(CARD x) RETURN(x)").unwrap(),
+        )
+        .unwrap();
+        let model = crate::semantic::analyze(&ast).unwrap();
+        let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+        let config = super::super::Mir6502Config {
+            enable_parameter_home_selection: true,
+            ..Default::default()
+        };
+        let trace = super::super::trace::Trace::disabled();
+        for invalid in [false, true] {
+            let (program, resume) = super::super::prepare_program_for_emission(
+                &nir,
+                0x3000,
+                &config,
+                crate::runtime::Runtime::ActionCart,
+                &trace,
+            )
+            .unwrap();
+            let baseline = super::super::finalize_output(
+                &nir,
+                program,
+                0x3000,
+                crate::runtime::Runtime::ActionCart,
+                &trace,
+            )
+            .unwrap();
+            let expected = baseline.output.clone();
+            let resume = resume.unwrap();
+            let mut proposal = resume.core.checkpoint.input.program.clone();
+            if invalid {
+                proposal.routines[0].frame.parameter_homes = Some(vec![]);
+            } else {
+                bind(&mut proposal, MirParamHome::Inline);
+            }
+            let result = try_proposal(
+                &nir,
+                baseline,
+                resume,
+                proposal,
+                &config,
+                0x3000,
+                crate::runtime::Runtime::ActionCart,
+                &trace,
+            );
+            assert_eq!(result.output, expected);
+        }
     }
 }

@@ -28,6 +28,22 @@ const SYNTHETIC_SPAN: Span = Span { start: 0, end: 0 };
 const ADDRESS_INDEX_SCRATCH_LO: u8 = 0xAE;
 const ADDRESS_INDEX_SCRATCH_HI: u8 = 0xAF;
 
+/// Cost the actual emitted blocks and ordinary declared objects without another
+/// emission. Register and ZP parameter bindings consume no ordinary data bytes.
+pub(super) fn routine_costs(mir: &MirProgram, summary: &MirEmissionSummary) -> std::collections::BTreeMap<RoutineId, usize> {
+    let mut costs = std::collections::BTreeMap::new();
+    for r in &mir.routines {
+        let homes = r.frame.params.iter().chain(&r.frame.locals).filter(|s| match s.base {
+            MirStorageBase::Param(id) => r.frame.inline_parameter(id),
+            MirStorageBase::Local(_) => true,
+            _ => false,
+        }).map(|s| usize::from(slot_size(s))).sum::<usize>() + r.frame.spills.len();
+        costs.insert(r.id, homes);
+    }
+    for (r, _, range) in &summary.block_ranges { *costs.entry(*r).or_default() += range.len(); }
+    costs
+}
+
 #[derive(Debug, Default, Clone)]
 pub(super) struct MirEmissionSummary {
     pub physical_memory: super::analysis::record_bases::MirPhysicalMemory,

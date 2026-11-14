@@ -40,7 +40,7 @@ pub(in crate::mir6502) fn materialize_costed(
     origin: u16,
     runtime: crate::runtime::Runtime,
     report: bool,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<crate::mir6502::preparation::PreparedProgram, Vec<MirDiagnostic>> {
     materialize_costed_traced(original, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
 }
 
@@ -51,8 +51,9 @@ pub(in crate::mir6502) fn materialize_costed_traced(
     runtime: crate::runtime::Runtime,
     report: bool,
     trace: &crate::mir6502::trace::Trace,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    trace.run("scalar_captures", |trace| {
+) -> Result<crate::mir6502::preparation::PreparedProgram, Vec<MirDiagnostic>> {
+    let mut guarded = false;
+    let result = trace.run("scalar_captures", |trace| {
         trace.snapshot("attempt-input", &original);
 
         let mut off = config.clone();
@@ -132,6 +133,7 @@ pub(in crate::mir6502) fn materialize_costed_traced(
                 && private_cells::physical_cells_unaliased(&baseline, origin, &selection.kept)
                 && private_cells::physical_cells_unaliased(proposed, origin, &selection.kept)
         });
+        guarded = accepted;
         trace.decision("scalar_captures", attempted.iter().copied(), |id| {
             accepted && affected.contains(&id)
         });
@@ -173,30 +175,31 @@ pub(in crate::mir6502) fn materialize_costed_traced(
             report,
             trace,
         )
-    })
+    });
+    result.map(|p| p.guard_checkpoint(guarded))
 }
 
 #[allow(dead_code)]
 fn finish(
     selected: MirProgram,
-    emitted: MirProgram,
+    emitted: crate::mir6502::preparation::PreparedProgram,
     config: &Mir6502Config,
     origin: u16,
     runtime: crate::runtime::Runtime,
     report: bool,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<crate::mir6502::preparation::PreparedProgram, Vec<MirDiagnostic>> {
     finish_traced(selected, emitted, config, origin, runtime, report, &crate::mir6502::trace::Trace::disabled())
 }
 
 fn finish_traced(
     mut selected: MirProgram,
-    mut emitted: MirProgram,
+    mut emitted: crate::mir6502::preparation::PreparedProgram,
     config: &Mir6502Config,
     origin: u16,
     runtime: crate::runtime::Runtime,
     report: bool,
     trace: &crate::mir6502::trace::Trace,
-) -> Result<MirProgram, Vec<MirDiagnostic>> {
+) -> Result<crate::mir6502::preparation::PreparedProgram, Vec<MirDiagnostic>> {
     if config.enable_scalar_capture_call_elision {
         let stats = observations::improve_traced(
             &mut selected,
