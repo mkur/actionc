@@ -37,3 +37,14 @@ files in both runtimes at both origins, checking return ABI, exposed-cell
 contents, wraparound scalar arithmetic, and pointer page crossings through
 offset 512. Ordinary mapped buffers terminate at an explicit mismatch. This
 baseline does not yet claim pointer address-wraparound or volatile-read coverage.
+
+## Binding foundation (slice 1)
+
+The shared binding representation is implemented, with production selection
+still disabled. All 12 final executable hashes and routine/storage measurements
+match the baseline. Validation passed 1,357 MIR6502 unit tests (15 existing
+ignored cases), including five new binding tests, and 76 integration tests in
+`mir6502_call_abi`, `mir6502_materialization_gap`, and `mir6502_pointer_setup`.
+The latter exercises actual LF/CRLF fixture paths. New binding tests compare
+planning and emitted ZP addresses, unchanged inline bytes, missing register
+addresses, and rejection of malformed, exposed, and source-overlapping bindings.

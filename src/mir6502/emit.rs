@@ -1011,6 +1011,17 @@ impl MirObjectLayout {
                     .insert(allocation.slot, allocation.start.0);
             }
             for param in &routine.frame.params {
+                if let MirStorageBase::Param(id) = param.base
+                    && routine.frame.parameter_homes.is_some()
+                    && !routine.frame.inline_parameter(id)
+                {
+                    if let Some(crate::mir6502::ir::MirParamHome::ZeroPage(start)) = routine.frame.parameter_home(id) {
+                        routine_layout.params.insert(id, MirStoragePlacement::Absolute {
+                            address: u16::from(start.0), size: param.storage_size, output_relative: false,
+                        });
+                    }
+                    continue;
+                }
                 if matches!(param.base, MirStorageBase::ParamAbiOnly(_)) {
                     continue;
                 }
@@ -6605,6 +6616,11 @@ fn source_storage_ranges(mir: &MirProgram, layout: &MirObjectLayout) -> Option<V
     }
     for r in &mir.routines {
         for s in r.frame.params.iter().chain(&r.frame.locals) {
+            if let MirStorageBase::Param(id) = s.base
+                && !r.frame.parameter_has_memory(id)
+            {
+                continue;
+            }
             if !matches!(s.base, MirStorageBase::ParamAbiOnly(_)) {
                 add(
                     routine_slot_placement(layout, r.id, s)?,

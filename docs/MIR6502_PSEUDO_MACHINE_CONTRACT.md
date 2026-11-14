@@ -970,6 +970,16 @@ Rules:
   statics, and routines.
 - MIR may assign target storage homes, but it must not resolve names through
   SemIR or source strings.
+- An optional MIR6502 parameter binding table separates formal identity from
+  working placement. When present it covers every parameter and is authoritative
+  for planning and emitted layout: only `Inline` allocates ordinary frame bytes;
+  a reserved ZP binding resolves to its real address, and register/absent bindings
+  have no address. Conflicting legacy ABI-only metadata, malformed lanes/pairs,
+  missing bindings, exposed-home relocation, source-storage overlap, and residual
+  post-home memory uses of register/absent parameters are rejected. Legacy
+  parameter remappers do not operate on bound routines. Production selection is
+  not enabled by this representation foundation; see the
+  [parameter home design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md).
 - `MirZpSlot` is abstract/virtual until a zero-page allocation pass maps it to a
   concrete address.
 - Fixed ABI zero-page locations must use a separate fixed form so they cannot be

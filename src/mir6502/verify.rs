@@ -64,6 +64,9 @@ impl MirVerifier {
     }
 
     fn verify_program(&mut self, program: &MirProgram) {
+        for routine in &program.routines {
+            self.diagnostics.extend(super::parameter_homes::verify_storage(program, routine));
+        }
         let static_ids = program
             .statics
             .iter()
@@ -362,6 +365,7 @@ impl MirVerifier {
         machine_ids: &BTreeSet<MirMachineBlockId>,
     ) {
         self.verify_frame_inits(routine);
+        self.diagnostics.extend(super::parameter_homes::verify_bindings(routine));
         if let Some(signature) = &routine.scalar_signature {
             let scalar = |lanes: &[MirWidth]| matches!(lanes,
                 [MirWidth::Byte] | [MirWidth::Word] | [MirWidth::Word, MirWidth::Word]);
@@ -2915,6 +2919,19 @@ impl MirVerifier {
         static_ids: &BTreeSet<SymbolId>,
         global_ids: &BTreeSet<SymbolId>,
     ) {
+        if let MirMem::Param { id, offset } = mem
+            && frame.parameter_homes.is_some()
+        {
+            let slot = frame.params.iter().find(|s| s.base == MirStorageBase::Param(*id));
+            if slot.is_none_or(|s| *offset >= s.storage_size) {
+                self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                    "parameter binding reference is outside its declared width"));
+            }
+            if !matches!(self.phase, MirPhase::PreMaterialization) && !frame.parameter_has_memory(*id) {
+                self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                    "register/absent parameter has a residual memory reference"));
+            }
+        }
         match mem {
             MirMem::Absolute(_) => {}
             MirMem::Static { id, .. } => {

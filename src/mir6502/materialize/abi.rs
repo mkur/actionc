@@ -48,6 +48,7 @@ pub(super) fn elide_write_only_param_homes(
     routine: &mut crate::mir6502::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) {
+    if routine.frame.parameter_homes.is_some() { return; }
     if !matches!(
         routine.abi,
         MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry
@@ -162,6 +163,7 @@ pub(super) fn coalesce_leaf_word_param_with_result_home(
     routine: &mut MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) {
+    if routine.frame.parameter_homes.is_some() { return; }
     if !matches!(
         routine.abi,
         MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry
@@ -777,7 +779,7 @@ fn action_abi_direct_param_prologue(routine: &crate::mir6502::ir::MirRoutine) ->
     let mut offset = 0u16;
     for param in &routine.frame.params {
         let (id, needs_capture) = match param.base {
-            MirStorageBase::Param(id) => (id, true),
+            MirStorageBase::Param(id) => (id, routine.frame.parameter_has_memory(id)),
             MirStorageBase::ParamAbiOnly(id) => (id, false),
             _ => continue,
         };

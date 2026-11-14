@@ -94,6 +94,13 @@ fn write_routine(out: &mut String, routine: &super::ir::MirRoutine) {
             let _ = writeln!(out, "  local l{}{}", local.id.0, storage_init_summary(init));
         }
     }
+    if let Some(bindings) = &routine.frame.parameter_homes {
+        for binding in bindings {
+            let name = routine.frame.params.iter().find(|s| s.base == super::ir::MirStorageBase::Param(binding.param))
+                .and_then(|s| s.name.as_deref()).unwrap_or("<unnamed>");
+            let _ = writeln!(out, "  param p{} {} -> {:?}", binding.param.0, name, binding.home);
+        }
+    }
     for allocation in &routine.frame.zero_page_allocations {
         let _ = writeln!(
             out,

@@ -10,6 +10,7 @@ mod lower;
 mod late_cleanup;
 mod materialize;
 mod passes;
+mod parameter_homes;
 mod printer;
 mod rewrite;
 mod runtime;
@@ -25,6 +26,7 @@ pub use ir::{
     MirDataRelocationTarget, MirDef, MirEdge, MirEdgeArg, MirEffects, MirFixedZpSlot, MirFlag,
     MirFlagTest, MirFrame, MirGlobal, MirGlobalBacking, MirLabel, MirMachineBlockId, MirMem,
     MirMemoryEffect, MirMemoryRegion, MirMemoryRegionKind, MirOp, MirOpRef, MirPhase,
+    MirParamBinding, MirParamHome,
     MirPointerPair, MirProgram, MirReg, MirRegisterSet, MirResultHome, MirRoutine, MirRoutineAbi,
     MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirSpillId, MirStatic,
     MirStoragePurpose, MirStorageBase, MirStorageClass, MirStorageId, MirStorageSlot, MirTemp, MirTempId,

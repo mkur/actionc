@@ -53,6 +53,11 @@ impl OrdinaryStorageBounds {
         }
         for routine in &program.routines {
             for slot in routine.frame.params.iter().chain(&routine.frame.locals) {
+                if let MirStorageBase::Param(id) = slot.base
+                    && !routine.frame.inline_parameter(id)
+                {
+                    continue;
+                }
                 // Aliases and ABI-only declarations do not allocate roots.
                 let root = match slot.base {
                     MirStorageBase::Param(id) => MirMem::Param { id, offset: 0 },

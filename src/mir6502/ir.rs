@@ -281,11 +281,47 @@ pub enum MirRoutineAbi {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MirFrame {
     pub params: Vec<MirStorageSlot>,
+    /// None retains legacy parameter placement. Some is the sole placement
+    /// authority for every parameter, including parameters with no memory home.
+    pub parameter_homes: Option<Vec<MirParamBinding>>,
     pub locals: Vec<MirStorageSlot>,
     pub spills: Vec<MirSpillId>,
     pub virtual_zero_page: Vec<MirZpSlot>,
     pub fixed_zero_page: Vec<MirFixedZpSlot>,
     pub zero_page_allocations: Vec<MirZpAllocation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MirParamBinding {
+    pub param: ParamId,
+    pub home: MirParamHome,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MirParamHome {
+    Inline,
+    Registers(Vec<MirReg>),
+    /// Complete adjacent bytes, with width supplied by the parameter declaration.
+    ZeroPage(MirFixedZpSlot),
+    Absent,
+}
+
+impl MirFrame {
+    pub fn parameter_home(&self, id: ParamId) -> Option<&MirParamHome> {
+        self.parameter_homes.as_ref()?.iter().find(|b| b.param == id).map(|b| &b.home)
+    }
+
+    pub(crate) fn inline_parameter(&self, id: ParamId) -> bool {
+        if self.parameter_homes.is_some() {
+            matches!(self.parameter_home(id), Some(MirParamHome::Inline))
+        } else {
+            self.params.iter().any(|s| s.base == MirStorageBase::Param(id))
+        }
+    }
+
+    pub(crate) fn parameter_has_memory(&self, id: ParamId) -> bool {
+        self.inline_parameter(id) || matches!(self.parameter_home(id), Some(MirParamHome::ZeroPage(_)))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

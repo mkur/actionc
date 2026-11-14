@@ -755,6 +755,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                     MirRoutineAbi::Action
                 },
                 frame: MirFrame {
+                    parameter_homes: None,
                     params: routine
                         .params
                         .iter()

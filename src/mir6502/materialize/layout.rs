@@ -204,6 +204,15 @@ impl MaterializeLayout {
         for routine in &program.routines {
             let mut storage = MaterializeRoutineStorage::default();
             for param in &routine.frame.params {
+                if let MirStorageBase::Param(id) = param.base
+                    && routine.frame.parameter_homes.is_some()
+                    && !routine.frame.inline_parameter(id)
+                {
+                    if let Some(crate::mir6502::ir::MirParamHome::ZeroPage(start)) = routine.frame.parameter_home(id) {
+                        storage.params.push((id, u16::from(start.0), param.storage_size, param.scalar_width));
+                    }
+                    continue;
+                }
                 if matches!(param.base, MirStorageBase::ParamAbiOnly(_)) {
                     continue;
                 }

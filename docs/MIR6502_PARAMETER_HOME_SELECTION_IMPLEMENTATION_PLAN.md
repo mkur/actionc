@@ -1,6 +1,6 @@
 # MIR6502 parameter home selection implementation plan
 
-Prepared 2026-11-14. Status: slice 0 complete; compiler slices pending.
+Prepared 2026-11-14. Status: slices 0–1 complete; slices 2–6 pending.
 
 Implements the [parameter home selection design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md).
 Work in the dependency order below and commit each slice after its checks pass.
