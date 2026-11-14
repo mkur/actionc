@@ -646,10 +646,12 @@ handwritten reference; it does not establish a general minimum-size theorem.
 
 ### Proposed refinement: callee entry facts through parameter capture
 
-Status: design only, against `72131db3`. Make the existing handoff proof compose
-with ordinary Action callees whose working homes were selected by leaf placement.
-MIR6502 owns this refinement; SemIR/NIR meaning and the public ABI are unchanged.
-Additional TN savings require measurement before an implementation is qualified.
+Status: implemented and qualified at `4ea5886d`, against baseline `72131db3`.
+The shared handoff proof composes with ordinary Action callees whose working homes
+were selected by leaf placement. MIR6502 owns this refinement; SemIR/NIR meaning
+and the public ABI are unchanged. Independent wrappers save 19 bytes each; TN
+remains 9,853 / 9,960 bytes. See the
+[qualification receipts](benchmarks/6502-callee-entry-capture/README.md).
 The [implementation plan](MIR6502_CALLEE_ENTRY_CAPTURE_IMPLEMENTATION_PLAN.md)
 defines the reproducer, shared capture boundary, correction and qualification slices.
 
@@ -665,14 +667,14 @@ uses the home:
 | Capture | Transfers from A to `$A0` and X to `$A1` establish the working word. |
 | Body entry | The body can read the word from `$A0/$A1`. |
 
-The current [scalar entry analysis](../src/mir6502/analysis/known_callees/entry_inputs.rs)
-projects parameter reads onto selected physical homes. On the retained
-pre-capture input, the stores that initialize those homes have not been inserted.
-The analysis can therefore report `$A0/$A1` as extra incoming requirements, and
-[handoff admission](../src/mir6502/parameter_homes/handoff.rs) rejects a caller
-that correctly supplies A/X. This is a conservative rejection, not evidence of
-incorrect generated code. The example specifies the expected proof; a focused
-reproducer must establish the actual missed selection and its size opportunity.
+At the baseline, [scalar entry analysis](../src/mir6502/analysis/known_callees/entry_inputs.rs)
+projected parameter reads onto selected physical homes without their initialization
+on the retained pre-capture input. It could report `$A0/$A1` as extra incoming
+requirements, causing [handoff admission](../src/mir6502/parameter_homes/handoff.rs)
+to reject a caller that correctly supplied A/X. The independent
+[capture fixture](../fixtures/runtime/callee_entry_capture.act) establishes this
+conservative rejection and the resulting size opportunity. It also exposes the
+normal Return's implicit SP dependency, which is separate from extra inputs.
 
 **A callee-entry fact describes requirements immediately before the callee's
 first executed instruction, including any compiler-generated capture.** Reads

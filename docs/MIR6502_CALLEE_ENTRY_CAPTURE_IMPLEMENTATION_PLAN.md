@@ -1,6 +1,7 @@
 # MIR6502 callee entry capture implementation plan
 
-Status: slices 0–2 complete; slice 3 qualification pending. Starting compiler: `72131db3`.
+Status: complete in slices 0–3. Starting compiler: `72131db3`; corrected compiler:
+`4ea5886d`. See [qualification and receipts](benchmarks/6502-callee-entry-capture/README.md).
 Implements the [callee capture boundary refinement](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-refinement-callee-entry-facts-through-parameter-capture).
 The [parameter handoff plan](MIR6502_PARAMETER_ARGUMENT_HANDOFF_IMPLEMENTATION_PLAN.md)
 is complete and supplies the production baseline. Work in the four slices below,
@@ -31,7 +32,7 @@ not a promised result.
 
 | Responsibility | Existing code |
 | --- | --- |
-| Canonical incoming lanes and capture construction | [abi.rs](../src/mir6502/abi.rs), [materialize/abi.rs](../src/mir6502/materialize/abi.rs) |
+| Canonical incoming lanes and capture construction | [abi.rs](../src/mir6502/abi.rs), [abi/param_capture.rs](../src/mir6502/abi/param_capture.rs), [materialize/abi.rs](../src/mir6502/materialize/abi.rs) |
 | Shared entry requirements and fact ownership | [known_callees/entry_inputs.rs](../src/mir6502/analysis/known_callees/entry_inputs.rs) |
 | Definite memory writes, register and flag inputs | [home_liveness.rs](../src/mir6502/analysis/home_liveness.rs), [machine_liveness.rs](../src/mir6502/analysis/machine_liveness.rs), [effects.rs](../src/mir6502/analysis/effects.rs) |
 | Selected input, capture boundary and resumption | [preparation.rs](../src/mir6502/preparation.rs), [materialize.rs](../src/mir6502/materialize.rs) |
@@ -216,3 +217,21 @@ independently checked execution and measured final savings in a general control.
 The previous whole-artifact fallback and one-batch limit must hold. No TN saving
 or newly supported signature may be claimed solely from a forced binding or a
 more permissive admission predicate.
+
+## Qualified result
+
+The shared capture description and explicit planned/actual entry stage are in
+production. Complete MIR declarations admit finite integer/pointer signatures;
+register-store capture discharges working-home requirements while identity
+`$A3`, retained registers and genuine extra inputs remain required. Memory-source
+and helper capture stay outside the certified slice. Return's normal SP use is
+separate from additional stack inputs; general rewrite liveness is unchanged.
+
+The independent fixture shrinks 375 → 337 bytes, with each of two wrappers changing
+from 22 code + four ordinary home bytes to seven code + zero ordinary homes.
+TN remains 9,853 / 9,960 bytes and preserves its Strcpy/Fnamecmp savings. All 36
+existing independent cases and all four TN configurations retain exact artifacts
+and work counts. New candidates use one existing continuation, with no repeated
+upstream search. Full backend qualification passed 1,389 unit, 150 integration,
+60 VM and 11 MADS tests; exact commands, existing skips and receipt hashes are
+recorded in [qualification.json](benchmarks/6502-callee-entry-capture/qualification.json).

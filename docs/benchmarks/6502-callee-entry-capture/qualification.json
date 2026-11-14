@@ -1,0 +1,457 @@
+{
+  "compiler": {
+    "revision": "4ea5886d16879e496fe1a26655d5e9fc8573bb56",
+    "worktree_mir_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "api_rlib_sha256": "d0906cc4f24227e3fbc9f744a98b59368a142c7069efb514cba7341d7bea4f51"
+  },
+  "environment": {
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+    "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)",
+    "build_env": "build/mir6502-layout-census/build-env.sh",
+    "CARGO_TARGET_DIR": "build/checked-arena/shared-target",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "1",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_BUILD_JOBS": "2",
+    "manifest_and_lock_sha256": {
+      "Cargo.toml": "ecd8a5b359794b28aa711e5095868e9ffbf5ef07ad2c5d536f169609895240a1",
+      "Cargo.lock": "a9c55b511f32f2bda90c7588e8fb344c035d4981435e975c5d0bf376c156c7cb",
+      "tools/vm-runtime-tests/Cargo.toml": "f6449cbdc58a154e459cee36cd0399f79dae91601cb79bee261cd3804f1c126e",
+      "tools/vm-runtime-tests/Cargo.lock": "88a5bf40bf2ba08f08641ff159221a3aa34bb1f5068932dbbc0f2b2e71d78c5d"
+    },
+    "timing_scope": "Diagnostic elapsed times only. Builds, tests and comparison processes overlapped; not an isolated performance measurement."
+  },
+  "checks": {
+    "units": {
+      "command": "cargo test --lib mir6502:: -- --quiet",
+      "exit_code": 0,
+      "elapsed_seconds": 11.999940791982226,
+      "targets": 1,
+      "passed": 1389,
+      "failed": 0,
+      "ignored": 15,
+      "targets_detail": {
+        "mir6502 library": {
+          "passed": 1389,
+          "failed": 0,
+          "ignored": 15
+        }
+      },
+      "log_sha256": "6919639995e4d356472e5d2d6d4d8210ac97e6b45a74b7d16a4f7ceabc47e31b"
+    },
+    "integration": {
+      "command": "cargo test --no-fail-fast --test mir6502_argument_staging --test mir6502_argument_x_bitwise --test mir6502_argument_x_forwarding --test mir6502_bounded_call_pointer_retention --test mir6502_call_abi --test mir6502_callee_entry_flags --test mir6502_checked_pointer_ranges --test mir6502_circle_quality --test mir6502_direct_comparisons --test mir6502_fixtures --test mir6502_home_value_invalidation --test mir6502_kalscope_quality --test mir6502_late_cleanup --test mir6502_late_spill_pruning --test mir6502_layout_census --test mir6502_leaf_inline_cli --test mir6502_loop_consumer --test mir6502_materialization_gap --test mir6502_parameter_homes --test mir6502_parameter_pointers --test mir6502_phase_trace --test mir6502_pointer_byte_plus_one --test mir6502_pointer_load_sharing --test mir6502_pointer_retention --test mir6502_pointer_setup --test mir6502_register_copy_forwarding --test mir6502_rewrite_inventory --test mir6502_store_consumer --test mir6502_turtle_quality --test mir6502_warpdem_quality --test mir6502_word_load_sharing --test mir6502_word_move_store --test mir6502_parameter_argument_handoff -- --quiet",
+      "exit_code": 0,
+      "elapsed_seconds": 187.8040077079786,
+      "targets": 33,
+      "passed": 150,
+      "failed": 0,
+      "ignored": 12,
+      "targets_detail": {
+        "mir6502_argument_staging": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_argument_x_bitwise": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 1
+        },
+        "mir6502_argument_x_forwarding": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 1
+        },
+        "mir6502_bounded_call_pointer_retention": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 2
+        },
+        "mir6502_call_abi": {
+          "passed": 11,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_callee_entry_flags": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 1
+        },
+        "mir6502_checked_pointer_ranges": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_circle_quality": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_direct_comparisons": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_fixtures": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_home_value_invalidation": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 1
+        },
+        "mir6502_kalscope_quality": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_late_cleanup": {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 1
+        },
+        "mir6502_late_spill_pruning": {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_layout_census": {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_leaf_inline_cli": {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_loop_consumer": {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_materialization_gap": {
+          "passed": 64,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_parameter_argument_handoff": {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 1
+        },
+        "mir6502_parameter_homes": {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_parameter_pointers": {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_phase_trace": {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_pointer_byte_plus_one": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 1
+        },
+        "mir6502_pointer_load_sharing": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 1
+        },
+        "mir6502_pointer_retention": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_pointer_setup": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_register_copy_forwarding": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_rewrite_inventory": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_store_consumer": {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_turtle_quality": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_warpdem_quality": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_word_load_sharing": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 1
+        },
+        "mir6502_word_move_store": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 1
+        }
+      },
+      "log_sha256": "e20c588949013178390b333b0e823e3988ddf29bc9df396d47a71f71b50ec14e"
+    },
+    "vm": {
+      "command": "cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --no-fail-fast --test parameter_homes --test parameter_pointer_homes --test word_result_placement --test argument_staging --test argument_x_bitwise --test argument_x_forwarding --test callee_entry_flags --test direct_comparisons --test late_dead_producers --test late_private_store_cleanup --test late_spill_pruning --test pointer_byte_plus_one --test pointer_load_sharing --test pointer_retention --test pointer_setup_bounds --test tn_codegen_reproducers --test word_load_sharing --test word_move_store --test aggregate_bounded_forwarding --test bounded_call_pointer_retention --test captured_bounds --test record_base_reuse --test register_copy_forwarding --test parameter_argument_handoff -- --quiet",
+      "exit_code": 0,
+      "elapsed_seconds": 552.9638876669924,
+      "targets": 24,
+      "passed": 60,
+      "failed": 0,
+      "ignored": 0,
+      "targets_detail": {
+        "aggregate_bounded_forwarding": {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        "argument_staging": {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        "argument_x_bitwise": {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        "argument_x_forwarding": {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        "bounded_call_pointer_retention": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "callee_entry_flags": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        "captured_bounds": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "direct_comparisons": {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        "late_dead_producers": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        "late_private_store_cleanup": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        "late_spill_pruning": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "parameter_argument_handoff": {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        "parameter_homes": {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        "parameter_pointer_homes": {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        "pointer_byte_plus_one": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        "pointer_load_sharing": {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        "pointer_retention": {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        "pointer_setup_bounds": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "record_base_reuse": {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        "register_copy_forwarding": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "tn_codegen_reproducers": {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        "word_load_sharing": {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0
+        },
+        "word_move_store": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "word_result_placement": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      },
+      "log_sha256": "911d834518cbbda05ff28ff110c54561e609cb465ba2c978992e7ef248c3f5e5"
+    },
+    "mads": {
+      "command": "ACTIONC_MADS=/usr/local/bin/mads cargo test --no-fail-fast --test mir6502_argument_x_bitwise --test mir6502_argument_x_forwarding --test mir6502_bounded_call_pointer_retention --test mir6502_callee_entry_flags --test mir6502_home_value_invalidation --test mir6502_late_cleanup --test mir6502_parameter_argument_handoff --test mir6502_pointer_byte_plus_one --test mir6502_pointer_load_sharing --test mir6502_word_load_sharing --test mir6502_word_move_store -- --ignored --skip keeps_unknown_tn_destinations_unchanged --quiet",
+      "exit_code": 0,
+      "elapsed_seconds": 64.34729941695696,
+      "targets": 11,
+      "passed": 11,
+      "failed": 0,
+      "ignored": 0,
+      "targets_detail": {
+        "mir6502_argument_x_bitwise": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_argument_x_forwarding": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_bounded_call_pointer_retention": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_callee_entry_flags": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_home_value_invalidation": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_late_cleanup": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_parameter_argument_handoff": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_pointer_byte_plus_one": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_pointer_load_sharing": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_word_load_sharing": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "mir6502_word_move_store": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      },
+      "log_sha256": "1474979a6be3e9a975ea3425574520ab1dc548acb784565912f266c1bb5a8924"
+    }
+  },
+  "comparisons": {
+    "baseline": "baseline.json",
+    "capture_refinement": "slice2.json",
+    "unchanged_handoff_controls": "qualification-handoff.json",
+    "unchanged_leaf_controls": "qualification-leaf.json",
+    "disabled_handoff_controls": "qualification-capture-off.json",
+    "tn_packaged_bytes": {
+      "ActionCart": 9853,
+      "Standalone": 9960
+    },
+    "capture_packaged_bytes": {
+      "baseline": 375,
+      "corrected": 337
+    },
+    "wrapper_code_and_ordinary_homes": {
+      "baseline": [
+        22,
+        4
+      ],
+      "corrected": [
+        7,
+        0
+      ]
+    },
+    "unchanged_existing_controls": 36,
+    "unchanged_tn_configurations": 4,
+    "improved_capture_configurations": 8,
+    "disabled_capture_configurations": 8,
+    "work_bound": "TN and existing controls preserve all work/upstream counts. Each new positive case adds one existing handoff continuation; materializations 2 -> 3, emission invocations 7 -> 9, inner emission probes 14 -> 18, unchanged upstream search."
+  },
+  "scope": "MIR6502 only; shared SemIR/NIR contracts unchanged. Actual LF/CRLF source/loading paths, both runtimes, two origins, inlining on/off, entry-before-capture VM hooks, ordered memory, stack balance, MADS listing reconstruction/relocation.",
+  "limits": [
+    "Memory-sourced capture and SArgs remain unknown.",
+    "Aggregate, variadic, wider and incomplete direct entry declarations are excluded.",
+    "Separate machine and entry-flag contracts are unchanged. Expanded proof may reject an uncertified extra carry requirement and roll back."
+  ]
+}

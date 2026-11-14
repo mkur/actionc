@@ -2028,6 +2028,47 @@ Rules:
   retained address inputs. Absolute and arbitrary pointer-backed indexed loads,
   indirect calls, barriers, and reordered producer groups are ineligible.
 
+### Callee entry analysis boundary
+
+`MirCalleeEntryStage` is an explicit query and fact dependency. `PlannedCapture`
+refers to the retained input before ABI capture; `ActualEntry` refers to the
+operations now present at the entry, including any capture that survived cleanup.
+Changing stages invalidates a fact even for an empty capture. The complete routine
+(including its ABI declarations, bindings and CFG), machine payloads and absolute
+global backings are also dependencies. Capture construction is centralized in
+`abi/param_capture.rs`; materialization and prologue-matching cleanup share its
+ordered description.
+
+The verifier maps `PreMaterialization` to planned capture. Its production callers
+are lowering/runtime resolution, upstream retained-input transformations, and
+`resume_core` before `prepend_action_abi_param_prologue`. The checkpoint is saved
+before that insertion. `PostHome`, `PostMaterialization` and `PreEmission` run
+after insertion and use actual entry operations. These are caller-established
+boundaries, independent of whether a binding exists or a prefix resembles stores.
+A future verifier caller crossing this boundary must supply the appropriate phase
+or introduce explicit provenance; it must not infer the stage from instructions.
+
+`MirFrame::direct_parameter_abi` is an optional, complete declaration of finite
+byte/word integer or pointer parameters with a scalar/void result. MIR lowering
+copies this from verified NIR; the entry proof checks it against the current
+frame. Missing, variadic, aggregate, wider or inconsistent declarations remain
+unknown. The existing integer-only `scalar_signature` and separate entry-flag
+and machine-callee contracts retain their meanings.
+
+Planned entry analysis composes the shared ordered capture with the body before
+running byte-definite memory and physical-state liveness. This slice certifies
+plain A/X/Y stores, omitted homes, retained canonical registers and identity
+fixed-slot lanes. A retained `$A3` remains an incoming byte. Memory-sourced
+capture and SArgs are outside this slice: a pseudo Store alone does not describe
+the hidden A and N/Z effects of their expansion. They retain unknown-contract
+fallback. Actual entry analysis uses the operations present once, and final
+verification can still reject a new requirement exposed by expansion.
+
+Entry liveness excludes Return's implicit SP use, which belongs to the normal
+balanced call/return convention. Rewrite liveness continues to keep that use.
+Explicit stack reads and opaque effects remain dependencies. This distinction
+does not change stack behavior or authorize stack manipulation.
+
 ## Captured word argument carriers
 
 For an admitted scalar WORD/WORD/BYTE direct call, MIR6502 may retain the first
@@ -2309,47 +2350,6 @@ Rules:
 - Unknown helper targets are allowed only before pre-emission MIR.
 - Optimized Action entries capture argument frames of up to four bytes directly;
   larger frames use `SArgs` to bound callee-prologue size.
-
-### Callee entry analysis boundary
-
-`MirCalleeEntryStage` is an explicit query and fact dependency. `PlannedCapture`
-refers to the retained input before ABI capture; `ActualEntry` refers to the
-operations now present at the entry, including any capture that survived cleanup.
-Changing stages invalidates a fact even for an empty capture. The complete routine
-(including its ABI declarations, bindings and CFG), machine payloads and absolute
-global backings are also dependencies. Capture construction is centralized in
-`abi/param_capture.rs`; materialization and prologue-matching cleanup share its
-ordered description.
-
-The verifier maps `PreMaterialization` to planned capture. Its production callers
-are lowering/runtime resolution, upstream retained-input transformations, and
-`resume_core` before `prepend_action_abi_param_prologue`. The checkpoint is saved
-before that insertion. `PostHome`, `PostMaterialization` and `PreEmission` run
-after insertion and use actual entry operations. These are caller-established
-boundaries, independent of whether a binding exists or a prefix resembles stores.
-A future verifier caller crossing this boundary must supply the appropriate phase
-or introduce explicit provenance; it must not infer the stage from instructions.
-
-`MirFrame::direct_parameter_abi` is an optional, complete declaration of finite
-byte/word integer or pointer parameters with a scalar/void result. MIR lowering
-copies this from verified NIR; the entry proof checks it against the current
-frame. Missing, variadic, aggregate, wider or inconsistent declarations remain
-unknown. The existing integer-only `scalar_signature` and separate entry-flag
-and machine-callee contracts retain their meanings.
-
-Planned entry analysis composes the shared ordered capture with the body before
-running byte-definite memory and physical-state liveness. This slice certifies
-plain A/X/Y stores, omitted homes, retained canonical registers and identity
-fixed-slot lanes. A retained `$A3` remains an incoming byte. Memory-sourced
-capture and SArgs are outside this slice: a pseudo Store alone does not describe
-the hidden A and N/Z effects of their expansion. They retain unknown-contract
-fallback. Actual entry analysis uses the operations present once, and final
-verification can still reject a new requirement exposed by expansion.
-
-Entry liveness excludes Return's implicit SP use, which belongs to the normal
-balanced call/return convention. Rewrite liveness continues to keep that use.
-Explicit stack reads and opaque effects remain dependencies. This distinction
-does not change stack behavior or authorize stack manipulation.
 
 ### Atari FPP target services
 

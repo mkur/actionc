@@ -1,5 +1,11 @@
 # Callee entry capture qualification
 
+**Qualified:** the independent capture fixture shrinks from **375 to 337 bytes**;
+TN stays at **9,853 cart / 9,960 standalone bytes**. Baseline reproduction is
+committed at `4542b663`; the corrected compiler is `4ea5886d`. All four planned
+slices are complete. Full results and exact commands are in
+[qualification.json](qualification.json).
+
 The baseline compiler is `72131db3`; the design and plan were committed as
 `b9a76330`. Slice 0 changes only tests and measurement tools. The frozen receipt
 records the actual library hash and MIR source diff (which includes the new test).
@@ -99,3 +105,41 @@ relocation hashes, routine costs and work/upstream counters at both origins.
 The new controls use one existing handoff continuation (two to three total
 materializations); no upstream search is repeated. See [receipt](slice2.json)
 and [checks](slice2-checks.json).
+
+## Final backend qualification
+
+| Scope | Targets | Passed | Existing ignored |
+| --- | ---: | ---: | ---: |
+| MIR6502 unit tests | 1 | 1,389 | 15 |
+| MIR6502 integration tests | 33 | 150 | 12 |
+| Relevant VM consumers | 24 | 60 | 0 |
+| MADS reconstruction and relocation | 11 | 11 | 0 |
+
+There were no failures or compiler changes during qualification. The explicit
+MADS run executes the selected assembler-dependent tests, including the new
+capture fixture and TN, with LF/CRLF listings at both origins/runtimes. It keeps
+the previous inventory's historical `keeps_unknown_tn_destinations_unchanged`
+skip. The 15 existing unit-test ignores remain unchanged.
+The VM target inventory is unchanged; its handoff target adds the new capture
+oracle. Shared SemIR/NIR contracts are unchanged, so this is a backend-scoped
+qualification, not a full repository test run.
+
+The [12 existing handoff cases](qualification-handoff.json) and
+[24 leaf controls](qualification-leaf.json) reproduce their previously qualified
+images, physical maps, relocations, routine costs and work/upstream counters.
+All four TN configurations also match the frozen baseline exactly. The
+[eight handoff-disabled capture controls](qualification-capture-off.json)
+reproduce their original 375-byte artifacts without a handoff trial.
+
+For each new positive case the existing single batch adds one continuation:
+materializations 2 → 3, emission invocations 7 → 9, inner emission probes 14 → 18.
+Upstream search counts remain unchanged. TN and existing controls retain all
+work counters. Capture measurements include traced/untraced equality, inlining
+on/off, both origins and runtimes. Timings in the receipts are diagnostic only:
+builds, tests and comparison processes overlapped under the recorded opt-level-1
+profile; they are not an isolated compiler-performance measurement.
+
+No new production gate or default was introduced. Memory-sourced capture, SArgs,
+aggregate/variadic/wider or incomplete declarations remain conservative. The
+ordinary return-stack distinction does not relax explicit stack dependencies,
+and final expanded proof plus strict cost acceptance and rollback remain mandatory.
