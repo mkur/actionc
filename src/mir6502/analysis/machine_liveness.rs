@@ -406,6 +406,10 @@ fn entry_flag_transfer(op: &MirOp) -> MirMachineTransfer {
         | MirOp::LoadIndirect { .. }
         | MirOp::UpdateMem { width: MirWidth::Byte, .. }
         | MirOp::UpdateReg { .. } => effects.machine.flag_writes,
+        // A native indexed ALU instruction always executes and defines its
+        // documented flags. Initialized carry is internal; FromPrevious still
+        // contributes an incoming C read through op_transfer.
+        MirOp::BinaryDirectIndexedByte { .. } => effects.machine.flag_writes,
         MirOp::Move { dst: MirDef::Reg(dst),
             src: MirValue::Def(MirDef::Reg(src)),
             width: MirWidth::Byte } if dst != src => effects.machine.flag_writes,
@@ -577,6 +581,30 @@ mod tests {
             dst: MirDef::Reg(reg),
             value,
             width: MirWidth::Byte,
+        }
+    }
+
+    #[test]
+    fn native_indexed_arithmetic_certifies_initialized_carry_at_entry() {
+        use crate::mir6502::ir::{MirBinaryOp, MirByteIndexedSource, MirCarryIn, MirCarryOut, MirFixedZpSlot};
+        for (op, carry, required) in [
+            (MirBinaryOp::Add, Some(MirCarryIn::Clear), false),
+            (MirBinaryOp::Sub, Some(MirCarryIn::Set), false),
+            (MirBinaryOp::Add, Some(MirCarryIn::FromPrevious), true),
+            (MirBinaryOp::And, None, true),
+            (MirBinaryOp::Or, None, true),
+            (MirBinaryOp::Xor, None, true),
+        ] {
+            let r = routine(vec![block(0, vec![
+                MirOp::BinaryDirectIndexedByte { op,
+                    source: MirByteIndexedSource::FixedIndirectY { zp: MirFixedZpSlot(0xe0) },
+                    carry_in: carry, carry_out: MirCarryOut::Ignore },
+                MirOp::Binary { op: MirBinaryOp::Add, dst: MirDef::Reg(MirReg::A),
+                    left: MirValue::Def(MirDef::Reg(MirReg::A)), right: MirValue::ConstU8(0),
+                    width: MirWidth::Byte, carry_in: Some(MirCarryIn::FromPrevious), carry_out: MirCarryOut::Ignore },
+            ], MirTerminator::Return)]);
+            let cfg = MirCfg::from_routine(&r).unwrap();
+            assert_eq!(MirMachineLiveness::entry_flag_inputs(&r, &cfg).unwrap().c, required, "{op:?} {carry:?}");
         }
     }
 

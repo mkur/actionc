@@ -7,8 +7,12 @@ pub(super) fn bindings(program: &MirProgram, routine: &MirRoutine) -> Option<Vec
     if routine.frame.params.len() == 1 && routine.frame.params[0].storage_size == 1 {
         return None;
     }
+    bindings_avoiding(program, routine, &BTreeSet::new())
+}
+
+pub(super) fn bindings_avoiding(program: &MirProgram, routine: &MirRoutine, forbidden: &BTreeSet<u8>) -> Option<Vec<MirParamBinding>> {
     let mut used = [false; 256];
-    for byte in source_zero_page(program, routine) {
+    for byte in source_zero_page(program, routine).into_iter().chain(forbidden.iter().copied()) {
         used[byte as usize] = true;
     }
     for slot in &routine.frame.fixed_zero_page {

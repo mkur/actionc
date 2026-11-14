@@ -735,10 +735,15 @@ fn summarize_op_writes(
     }
 
     let effects = classify_op(op);
+    // This native recipe has an unbounded pointee read, but its only writes
+    // are the two declared destination bytes. Preserve conservative read and
+    // flag facts while making its complete write footprint available before
+    // terminal instruction exposure.
+    let complete_pointer_writes = matches!(op, MirOp::OffsetPointerByIndirectByte { .. });
     if effects.memory.indirect_writes
         || effects.memory.opaque
         || effects.memory.may_write_any
-        || effects.memory.has_unknown_effects
+        || (effects.memory.has_unknown_effects && !complete_pointer_writes)
         || effects.homes.unknown_writes
     {
         writes.make_unknown();
@@ -1836,6 +1841,24 @@ mod tests {
                 terminator,
             }],
             effects: MirEffects::default(),
+        }
+    }
+
+    #[test]
+    fn pointer_offset_recipe_has_exact_writes_but_unknown_pointee_reads() {
+        use crate::mir6502::ir::{MirAddressConsumer, MirBinaryOp, MirPointerPair};
+        for op in [MirBinaryOp::Add, MirBinaryOp::Sub] {
+            let p = program(vec![routine(0, vec![MirOp::OffsetPointerByIndirectByte {
+                op, dst: MirMem::FixedZeroPage(MirFixedZpSlot(0xe2)),
+                source: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: MirFixedZpSlot(0xe0) }),
+                offset: 0,
+            }], MirTerminator::Return)], vec![]);
+            let facts = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+            let exit = facts.get(RoutineId(0)).unwrap();
+            for slot in 0xe0..=0xe5 {
+                assert_eq!(exit.writes().preserves_fixed_byte(MirFixedZpSlot(slot)), !matches!(slot, 0xe2 | 0xe3));
+            }
+            assert!(matches!(exit.reads(), MirKnownMemoryReads::Unknown));
         }
     }
 

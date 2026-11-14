@@ -4,6 +4,8 @@ pub struct Mir6502Config {
     pub enable_parameter_home_selection: bool,
     /// Extend selected parameter placement through one terminal call setup.
     pub enable_parameter_argument_handoff: bool,
+    /// Keep source homes in preserved ZP across a qualified ordinary call.
+    pub enable_cross_call_home_selection: bool,
     /// Final-layout, same-block record base reuse with exact exit state repair.
     pub enable_record_base_reuse: bool,
     /// Admit indirect field writes only with complete disjoint destination proofs.
@@ -112,6 +114,7 @@ impl Default for Mir6502Config {
         Self {
             enable_parameter_home_selection: false,
             enable_parameter_argument_handoff: false,
+            enable_cross_call_home_selection: false,
             enable_record_base_reuse: false,
             enable_record_base_writes: false,
             enable_record_base_parameter_origins: false,
@@ -169,6 +172,7 @@ impl Mir6502Config {
         Self {
             enable_parameter_home_selection: true,
             enable_parameter_argument_handoff: true,
+            enable_cross_call_home_selection: false,
             enable_captured_byte_comparisons: true,
             enable_argument_staging_reduction: true,
             enable_argument_x_forwarding: true,

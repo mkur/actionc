@@ -1,0 +1,38 @@
+{
+  "known": {
+    "passed": 27,
+    "ignored": 0,
+    "log_sha256": "db3735e6b235eac21464fbc97753b453a03ced0e56b73f59ea94cffca47bcb16"
+  },
+  "flags": {
+    "passed": 10,
+    "ignored": 0,
+    "log_sha256": "c99e95c49068126ffb32c25f0923904945ec232d72612f73aa02a337397d861a"
+  },
+  "entry": {
+    "passed": 1,
+    "ignored": 1,
+    "log_sha256": "b6effeb9783eb453be4b5f88f2e18f9250784568d5d104155e8995d7f902762b"
+  },
+  "homes": {
+    "passed": 32,
+    "ignored": 0,
+    "log_sha256": "718a9119f5271f5cfef4a81582df06dcfebd70559601f33ced5cea7721daa287"
+  },
+  "verify": {
+    "passed": 44,
+    "ignored": 0,
+    "log_sha256": "c56616849b615bf401ca1f17e9b46890f44920db904776803faad1f042c95a47"
+  },
+  "integration": {
+    "passed": 3,
+    "ignored": 0,
+    "log_sha256": "a363303feb8ea5fb76b8f75a0bdaea058b851c045d9f7cd9c6021720801a96e0"
+  },
+  "vm": {
+    "passed": 1,
+    "ignored": 0,
+    "log_sha256": "a3010063c05b820549f9cb7265adb6b3a665df799ebc023f6c7258470e25fc89"
+  },
+  "scope": "MIR6502 known-callee, machine-liveness, parameter-home and verifier units; callee-entry and cross-call integrations; cross-call VM (gate off/on, LF/CRLF, cart/standalone)."
+}

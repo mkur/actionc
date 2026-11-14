@@ -1,6 +1,6 @@
 # MIR6502 ZP homes across ordinary calls: implementation plan
 
-Prepared 2026-11-15. Status: slices 0–1 complete; slices 2–6 pending.
+Prepared 2026-11-15. Status: slices 0–2 complete; slices 3–6 pending.
 Starting repository revision: `5de3dda4`; compiler behavior: `a77210d8`.
 
 Implements the [ordinary-call and local-home design extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-zp-homes-across-ordinary-calls).
@@ -358,3 +358,21 @@ The independent source images exactly match slice 0 at both qualified VM lanes.
 `cargo check --lib --tests` also passes. Automatic cross-call selection remains
 disabled. [Check receipts](benchmarks/6502-cross-call-homes/slice1-checks.json)
 record the focused executions.
+
+## Slice 2 completion
+
+The cross-call gate now adds one deterministic parameter batch after selected
+leaf/handoff placement. Existing callee writes exclude candidate bytes; actual
+expanded proofs, preservation replay and strict final-cost acceptance decide the
+result. Unsupported or rejected trials return the selected complete artifact.
+Already-elided parameter storage is kept on its existing path.
+
+Two shared facts needed refinement: native indexed arithmetic now certifies its
+explicit carry initialization, and the native two-byte pointer-offset recipe has
+an exact destination write summary while retaining unknown pointee reads. Tests
+cover both boundaries; no callee-local selector heuristic replaces those facts.
+
+Independent parameter controls save final bytes with one extra materialization;
+LF/CRLF VM checks exercise both feature settings. TN qualification, including a
+trial rejected for downstream caller growth, is recorded in slice 3. The gate
+remains off in both default configurations.

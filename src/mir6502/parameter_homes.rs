@@ -7,6 +7,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 mod lifetimes;
 mod calls;
+mod cross_call;
 mod handoff;
 #[cfg(test)]
 mod mixed_tests;
@@ -59,6 +60,14 @@ pub(super) fn select_output(
             trace.skipped("parameter-argument-handoff", "no-candidates");
         }
     }
+    if config.enable_cross_call_home_selection {
+        if let Some(proposal) = cross_call::propose(&selected.input, &selected.executable.program, trace) {
+            selected = try_proposal(nir, selected, &resume, proposal,
+                "cross-call-homes", config, origin, runtime, trace);
+        } else {
+            trace.skipped("cross-call-homes", "no-candidates");
+        }
+    }
     selected.executable
 }
 
@@ -72,44 +81,52 @@ fn propose(input: &MirProgram) -> Option<MirProgram> {
         if let Some(bindings) =
             register_bindings(routine).or_else(|| zero_page::bindings(input, routine))
         {
-            let absent: BTreeSet<_> = bindings
-                .iter()
-                .filter_map(|b| (b.home == MirParamHome::Absent).then_some(b.param))
-                .collect();
-            for block in &mut routine.blocks {
-                block.ops.retain(|op| {
-                    !matches!(op,
-                    MirOp::Store { dst: MirAddr::Direct(MirMem::Param { id, .. }), .. }
-                    if absent.contains(id))
-                });
-            }
-            for binding in &bindings {
-                if let MirParamHome::ZeroPage(start) = binding.home {
-                    let width = routine
-                        .frame
-                        .params
-                        .iter()
-                        .find(|p| p.base == MirStorageBase::Param(binding.param))
-                        .unwrap()
-                        .storage_size;
-                    for lane in 0..width {
-                        let slot = MirFixedZpSlot(start.0 + lane as u8);
-                        if !routine.frame.fixed_zero_page.contains(&slot) {
-                            routine.frame.fixed_zero_page.push(slot);
-                        }
-                    }
-                }
-            }
-            routine.frame.parameter_homes = Some(bindings);
+            install_bindings(routine, bindings);
             changed = true;
         }
     }
     changed.then_some(proposal)
 }
 
+fn install_bindings(routine: &mut MirRoutine, bindings: Vec<MirParamBinding>) {
+    let absent: BTreeSet<_> = bindings
+        .iter()
+        .filter_map(|b| (b.home == MirParamHome::Absent).then_some(b.param))
+        .collect();
+    for block in &mut routine.blocks {
+        block.ops.retain(|op| {
+            !matches!(op,
+            MirOp::Store { dst: MirAddr::Direct(MirMem::Param { id, .. }), .. }
+            if absent.contains(id))
+        });
+    }
+    for binding in &bindings {
+        if let MirParamHome::ZeroPage(start) = binding.home {
+            let width = routine
+                .frame
+                .params
+                .iter()
+                .find(|p| p.base == MirStorageBase::Param(binding.param))
+                .unwrap()
+                .storage_size;
+            for lane in 0..width {
+                let slot = MirFixedZpSlot(start.0 + lane as u8);
+                if !routine.frame.fixed_zero_page.contains(&slot) {
+                    routine.frame.fixed_zero_page.push(slot);
+                }
+            }
+        }
+    }
+    routine.frame.parameter_homes = Some(bindings);
+}
+
 /// Deliberately closed expansion set. Additional shapes must establish their
 /// hidden helper, scratch, and observable-memory behavior before admission.
 fn eligible(program: &MirProgram, routine: &MirRoutine) -> bool {
+    eligible_with_calls(program, routine, false)
+}
+
+fn eligible_with_calls(program: &MirProgram, routine: &MirRoutine, calls: bool) -> bool {
     use super::analysis::effects::classify_op;
     routine.abi == MirRoutineAbi::Action
         && routine.frame.parameter_homes.is_none()
@@ -142,6 +159,7 @@ fn eligible(program: &MirProgram, routine: &MirRoutine) -> bool {
         }))
         && routine.blocks.iter().all(|b| {
             b.ops.iter().all(|op| {
+                if matches!(op, MirOp::Call { .. }) { return calls; }
                 let effects = classify_op(op);
                 !effects.memory.opaque
                     && !effects.memory.indirect_writes
@@ -277,6 +295,9 @@ fn try_proposal(
     if stage == "parameter-argument-handoff" {
         child.count("parameter_argument_handoff_trials", 1);
     }
+    if stage == "cross-call-homes" {
+        child.count("cross_call_home_trials", 1);
+    }
     let input = Arc::new(proposal);
     let baseline = &selected.executable;
     let trial = super::preparation::resume_output(
@@ -289,7 +310,7 @@ fn try_proposal(
         &child,
     );
     let accepted = trial.as_ref().is_ok_and(|p| p.improves(&baseline));
-    child.event(if stage == "parameter-homes" { "parameter-home-result" } else { "parameter-argument-handoff-result" }, || serde_json::json!({
+    child.event(match stage { "parameter-homes" => "parameter-home-result", "cross-call-homes" => "cross-call-home-result", _ => "parameter-argument-handoff-result" }, || serde_json::json!({
         "accepted": accepted,
         "routine_cost_changes": trial.as_ref().ok().map(|p| p.program.routines.iter().filter_map(|r| {
             let before = baseline.costs.get(&r.id)?;

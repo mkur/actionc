@@ -16,6 +16,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--enabled', action='store_true')
     parser.add_argument('--handoff', action='store_true')
+    parser.add_argument('--cross-call', action='store_true')
     parser.add_argument('--skip-tn', action='store_true')
     parser.add_argument('--suite', choices=['leaf', 'handoff', 'capture', 'cross-call'], default='leaf')
     args = parser.parse_args()
@@ -27,7 +28,7 @@ def main():
                     '--extern', f'actionc={rlib}', '-L', f'dependency={rlib.parent}', '-o', str(probe)],
                    cwd=ROOT, check=True)
     started = time.monotonic()
-    result = subprocess.run(['/usr/bin/time', '-l', str(probe), str(output / 'images')] + (['--enabled'] if args.enabled else []) + (['--handoff'] if args.handoff else []) + ([f'--suite-{args.suite}'] if args.suite != 'leaf' else []) + (['--skip-tn'] if args.skip_tn else []), cwd=ROOT, check=True,
+    result = subprocess.run(['/usr/bin/time', '-l', str(probe), str(output / 'images')] + (['--enabled'] if args.enabled else []) + (['--handoff'] if args.handoff else []) + (['--cross-call'] if args.cross_call else []) + ([f'--suite-{args.suite}'] if args.suite != 'leaf' else []) + (['--skip-tn'] if args.skip_tn else []), cwd=ROOT, check=True,
                             text=True, capture_output=True)
     elapsed = time.monotonic() - started
     cases = [json.loads(line) for line in result.stdout.splitlines()]
@@ -41,6 +42,7 @@ def main():
     receipt = dict(revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                    parameter_home_selection=args.enabled,
                    parameter_argument_handoff=args.handoff,
+                   cross_call_home_selection=args.cross_call,
                    suite=args.suite,
                    skip_tn=args.skip_tn,
                    probe_elapsed_seconds=elapsed,

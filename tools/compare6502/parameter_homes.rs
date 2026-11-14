@@ -11,6 +11,7 @@ use std::{fs, path::Path};
 fn main() {
     let enabled = std::env::args().any(|a| a == "--enabled");
     let handoff = std::env::args().any(|a| a == "--handoff");
+    let cross = std::env::args().any(|a| a == "--cross-call");
     let destination = std::env::args().nth(1).expect("output directory");
     let destination = Path::new(&destination);
     fs::create_dir_all(destination).unwrap();
@@ -102,6 +103,7 @@ fn main() {
                 let config = Mir6502Config {
                     enable_parameter_home_selection: enabled,
                     enable_parameter_argument_handoff: handoff,
+                    enable_cross_call_home_selection: cross,
                     enable_small_leaf_inlining: inline,
                     ..Mir6502Config::optimized()
                 };
@@ -146,7 +148,8 @@ fn main() {
                 let bytes = actionc::codegen::format_load_file(&output);
                 fs::write(destination.join(format!("{id}.xex")), &bytes).unwrap();
                 if cross_suite {
-                    let decisions: Vec<_> = trace.events().iter().filter(|e| e.kind.ends_with("-result")).collect();
+    let events = trace.events();
+    let decisions: Vec<_> = events.iter().filter(|e| e.kind.ends_with("-result") || e.kind == "cross-call-candidate").collect();
                     fs::write(destination.join(format!("{id}.decisions.txt")), format!("{decisions:#?}")).unwrap();
                     fs::write(destination.join(format!("{id}.manifest.json")), trace.manifest().to_string()).unwrap();
                 }
@@ -250,6 +253,8 @@ fn main() {
                     })
                     .map(|e| e.data.to_string())
                     .unwrap_or("null".into());
+                let cross_outcome = events.iter().rev().find(|e| e.kind == "cross-call-home-result")
+                    .map(|e| e.data.to_string()).unwrap_or("null".into());
                 let upstream = [
                     "inlining",
                     "loop_motion",
@@ -282,7 +287,7 @@ fn main() {
                 .collect::<Vec<_>>()
                 .join(",");
                 println!(
-                    "{{\"id\":\"{id}\",\"image_bytes\":{},\"routines\":[{}],\"parameter_home_outcome\":{outcome},\"handoff_outcome\":{handoff_outcome},\"work\":{},\"upstream\":{{{upstream}}},\"traced_micros\":{traced_micros},\"untraced_micros\":{untraced_micros},\"trace_matches_untraced\":true}}",
+                    "{{\"id\":\"{id}\",\"image_bytes\":{},\"routines\":[{}],\"parameter_home_outcome\":{outcome},\"handoff_outcome\":{handoff_outcome},\"cross_call_outcome\":{cross_outcome},\"work\":{},\"upstream\":{{{upstream}}},\"traced_micros\":{traced_micros},\"untraced_micros\":{untraced_micros},\"trace_matches_untraced\":true}}",
                     bytes.len(),
                     rows.join(","),
                     trace.manifest()["work"]
