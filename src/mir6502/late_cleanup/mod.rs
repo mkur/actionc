@@ -253,20 +253,33 @@ fn apply(
     Ok(proposed)
 }
 
+struct CleanupCandidate {
+    program: MirProgram,
+    deletions: MirProgram,
+    reuse: register_reuse::ReuseStats,
+}
+
 fn apply_traced(
     baseline: &MirProgram,
     memory: Option<&MirPhysicalMemory>,
     remove_producers: bool,
+    reuse_registers: bool,
     trace: &Trace,
     purpose: &'static str,
-) -> Result<MirProgram, Declined> {
+) -> Result<CleanupCandidate, Declined> {
     let t = trace.child("late-cleanup-analysis", purpose);
     let result = apply(
         baseline,
         memory,
         remove_producers,
         &t,
-    );
+    ).and_then(|deletions| {
+        let mut program = deletions.clone();
+        let reuse = if reuse_registers {
+            register_reuse::apply(&mut program, memory, &t)?
+        } else { register_reuse::ReuseStats::default() };
+        Ok(CleanupCandidate { program, deletions, reuse })
+    });
     t.event("attempt-end", || {
         serde_json::json!({
             "stage": "late-cleanup-analysis",
@@ -451,6 +464,7 @@ fn select_definitions(
     trace.run("late-private-store-cleanup", |trace| {
         trace.snapshot("attempt-input", &baseline);
         let remove_producers = config.enable_late_dead_register_cleanup;
+        let reuse_registers = config.enable_late_register_reuse;
         let reject = |reason: Declined| {
             trace.event("late-cleanup-result", || serde_json::json!({"accepted": false, "reason": format!("{reason:?}")}));
         };
@@ -459,15 +473,15 @@ fn select_definitions(
             return Ok(baseline);
         }
         // No cost emission for programs whose definitions are all still live.
-        match apply_traced(&baseline, None, remove_producers, trace, "logical-discovery") {
-            Ok(p) if p == baseline => { reject(if remove_producers { Declined::NoDeadDefinitions } else { Declined::NoDeadStores }); return Ok(baseline); }
+        match apply_traced(&baseline, None, remove_producers, reuse_registers, trace, "logical-discovery") {
+            Ok(p) if p.program == baseline => { reject(if remove_producers { Declined::NoDeadDefinitions } else { Declined::NoDeadStores }); return Ok(baseline); }
             Err(reason) => { reject(reason); return Ok(baseline); }
             _ => {}
         }
         let references = preservation.references(&baseline);
         let old = measure(&baseline, &references, origin, runtime, trace)?;
-        let proposed = match apply_traced(&baseline, Some(&old.memory), remove_producers, trace, "physical-deletion") {
-            Ok(p) if p != baseline => p,
+        let CleanupCandidate { program: proposed, deletions, reuse } = match apply_traced(&baseline, Some(&old.memory), remove_producers, reuse_registers, trace, "physical-deletion") {
+            Ok(p) if p.program != baseline => p,
             Ok(_) => { reject(Declined::ObservableAlias); return Ok(baseline); }
             Err(reason) => { reject(reason); return Ok(baseline); }
         };
@@ -475,14 +489,14 @@ fn select_definitions(
         let affected: BTreeSet<_> = baseline.routines.iter().zip(&proposed.routines)
             .filter_map(|(a, b)| (a != b).then_some(a.id)).collect();
         let checked = (|| {
-            if !only_cleanup_deletions(&baseline, &proposed, remove_producers, Some(&old.memory)) { return Err(Declined::InvalidChange); }
+            if !only_cleanup_deletions(&baseline, &deletions, remove_producers, Some(&old.memory)) { return Err(Declined::InvalidChange); }
             if let Err(diagnostics) = super::verify_program(&proposed, MirPhase::PreEmission) {
                 trace.event("late-cleanup-verification", || serde_json::json!({"diagnostics": format!("{diagnostics:?}")}));
                 return Err(Declined::Verification);
             }
             if !callee_contracts_preserved(&baseline, &proposed) { return Err(Declined::CalleeContract); }
             let new = measure(&proposed, &references, origin, runtime, trace).map_err(|_| Declined::CandidateEmission)?;
-            if apply_traced(&baseline, Some(&new.memory), remove_producers, trace, "final-placement-deletion-replay")? != proposed { return Err(Declined::DeletionReplay); }
+            if apply_traced(&baseline, Some(&new.memory), remove_producers, reuse_registers, trace, "final-placement-deletion-replay")?.program != proposed { return Err(Declined::DeletionReplay); }
             preservation.validate(&new.memory, ranges, config, origin, trace).map_err(Declined::EarlierDecision)?;
             if !improves_cost(&baseline, &old, &new) {
                 return Err(Declined::Cost);
@@ -493,8 +507,11 @@ fn select_definitions(
         match checked {
             Ok(new) => {
                 trace.event("late-cleanup-result", || serde_json::json!({
-                    "removed_stores": count_stores(&baseline) - count_stores(&proposed),
-                    "removed_producers": count_ops(&baseline) - count_ops(&proposed) - (count_stores(&baseline) - count_stores(&proposed)),
+                    "removed_stores": count_stores(&baseline) - count_stores(&deletions),
+                    "removed_producers": count_ops(&baseline) - count_ops(&deletions) - (count_stores(&baseline) - count_stores(&deletions)),
+                    "expanded_operations": reuse.expanded_operations,
+                    "removed_reloads": reuse.removed_reloads,
+                    "register_transfers": reuse.register_transfers,
                     "accepted": true, "image_bytes_before": old.image_bytes, "image_bytes_after": new.image_bytes,
                     "instruction_bytes_before": old.instruction_bytes.values().sum::<usize>(),
                     "instruction_bytes_after": new.instruction_bytes.values().sum::<usize>(),

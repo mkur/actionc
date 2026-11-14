@@ -1,9 +1,176 @@
 //! Expose fixed-pair carry chains to the shared post-home value analyses.
 use super::*;
+use crate::mir6502::{
+    analysis::{
+        machine_values::{MirMachineMemoryMap, MirMachineValue},
+        sites::MirSite,
+    },
+    rewrite::{
+        context::{MirExitStateChange, MirProof, PostHomeRewriteContext},
+        plan::MirPostHomeRewritePlan,
+        posthome::structural_plan,
+    },
+};
+
+#[derive(Default)]
+pub(super) struct ReuseStats {
+    pub expanded_operations: usize,
+    pub removed_reloads: usize,
+    pub register_transfers: usize,
+}
+
+pub(super) fn apply(
+    program: &mut MirProgram,
+    memory: Option<&MirPhysicalMemory>,
+    trace: &Trace,
+) -> Result<ReuseStats, Declined> {
+    let known = MirKnownCalleeSummaries::analyze_for_rewriting(program);
+    let mut stats = ReuseStats::default();
+    for routine in &mut program.routines {
+        if !routine
+            .blocks
+            .iter()
+            .flat_map(|b| &b.ops)
+            .any(|op| expansion(op).is_some())
+        {
+            continue;
+        }
+        let original = routine.clone();
+        let expanded = expand(routine);
+        // Every rewrite removes a load or replaces one with a native transfer.
+        // Neither rule introduces a load, so this bounds the fixed point.
+        let rounds = routine.blocks.iter().map(|b| b.ops.len()).sum::<usize>() + 1;
+        let result = MirPostHomeRewriteDriver::with_max_rounds(rounds)
+            .with_trace(trace)
+            .run_fixed_point_with_memory_map(
+                routine,
+                &known,
+                |r| {
+                    MirMachineMemoryMap::from_routine(r, |mem| match mem {
+                        MirMem::FixedZeroPage(slot) => Some(u16::from(slot.0)),
+                        MirMem::Absolute(address) => Some(*address),
+                        _ => memory.and_then(|m| m.address(r.id, mem)),
+                    })
+                },
+                |r, c| {
+                    discover_register_reuse(r, c, memory)
+                        .into_iter()
+                        .take(1)
+                        .collect()
+                },
+            )
+            .map_err(|_| Declined::Analysis)?;
+        if result.applied == 0 {
+            *routine = original;
+        } else {
+            stats.expanded_operations += expanded;
+            stats.removed_reloads += result
+                .applied_by_stat
+                .get("late-redundant-register-load")
+                .copied()
+                .unwrap_or(0);
+            stats.register_transfers += result
+                .applied_by_stat
+                .get("late-register-load-transfer")
+                .copied()
+                .unwrap_or(0);
+        }
+    }
+    Ok(stats)
+}
+
+fn expand(routine: &mut MirRoutine) -> usize {
+    let mut count = 0;
+    for block in &mut routine.blocks {
+        let mut indices = Vec::with_capacity(block.ops.len());
+        let mut ops = Vec::new();
+        for op in &block.ops {
+            indices.push(ops.len());
+            if let Some(expanded) = expansion(op) {
+                count += 1;
+                ops.extend(expanded);
+            } else {
+                ops.push(op.clone());
+            }
+        }
+        if let MirTerminator::Branch {
+            cond: MirCond::FusedCompare { producer, .. },
+            ..
+        } = &mut block.terminator
+        {
+            // Verified producers belong to this block; expansion changes indices.
+            producer.op_index = indices[producer.op_index];
+        }
+        block.ops = ops;
+    }
+    count
+}
+
+fn discover_register_reuse(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    memory: Option<&MirPhysicalMemory>,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for (index, op) in block.ops.iter().enumerate() {
+            let MirOp::Load {
+                dst: MirDef::Reg(dst),
+                src: MirAddr::Direct(mem @ MirMem::FixedZeroPage(slot)),
+                width: MirWidth::Byte,
+            } = op
+            else {
+                continue;
+            };
+            // Fixed ZP is ordinary RAM. It need not be privately owned: this
+            // removes a read, never a store. Execution aliases remain excluded.
+            if memory.is_some_and(|m| !m.execution_disjoint(u16::from(slot.0))) {
+                continue;
+            }
+            let point = context.point(MirSite::Op {
+                block: block.id,
+                op_index: index,
+            });
+            let value = MirMachineValue::DirectMem(mem.clone());
+            let matches = |reg| matches!(context.register_value_at(reg, point), MirProof::Proven(ref v) if *v == value);
+            let mut exit = MirExitStateChange::default();
+            let (replacement, stat) = if matches(*dst) {
+                exit.flags = classify_op(op).machine.flag_writes;
+                (vec![], "late-redundant-register-load")
+            } else if *dst == MirReg::A {
+                let Some(src) = [MirReg::X, MirReg::Y].into_iter().find(|reg| matches(*reg)) else {
+                    continue;
+                };
+                (
+                    vec![MirOp::Move {
+                        dst: MirDef::Reg(MirReg::A),
+                        src: MirValue::Def(MirDef::Reg(src)),
+                        width: MirWidth::Byte,
+                    }],
+                    "late-register-load-transfer",
+                )
+            } else {
+                continue;
+            };
+            if let Some(plan) = structural_plan(
+                routine,
+                context,
+                block.id,
+                index..index + 1,
+                replacement,
+                exit,
+                stat,
+                0,
+            ) {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
 
 /// Exactly the ordered instructions emitted for the compound operation.
 /// Admission is intentionally independent of source names and allocation.
-#[allow(dead_code)]
 fn expansion(op: &MirOp) -> Option<Vec<MirOp>> {
     let MirOp::OffsetPointerByIndirectByte {
         op,
@@ -71,6 +238,9 @@ fn expansion(op: &MirOp) -> Option<Vec<MirOp>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mir6502::analysis::{
+        posthome::PostHomeAnalysisSnapshot, sites::MirRoutineGeneration,
+    };
 
     fn operation(op: MirBinaryOp, offset: u16) -> MirOp {
         MirOp::OffsetPointerByIndirectByte {
@@ -102,6 +272,188 @@ mod tests {
         )
         .unwrap();
         emitter.finish().unwrap()
+    }
+
+    fn store(slot: u8, reg: MirReg) -> MirOp {
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(slot))),
+            src: MirValue::Def(MirDef::Reg(reg)),
+            width: MirWidth::Byte,
+        }
+    }
+
+    fn entry() -> MirProgram {
+        program(vec![
+            store(0xAE, MirReg::A),
+            store(0xAF, MirReg::X),
+            operation(MirBinaryOp::Add, 0),
+        ])
+    }
+
+    fn plans(p: &MirProgram) -> Vec<MirPostHomeRewritePlan> {
+        let r = &p.routines[0];
+        let map = MirMachineMemoryMap::from_routine(r, |m| match m {
+            MirMem::FixedZeroPage(s) => Some(s.0 as u16),
+            MirMem::Absolute(a) => Some(*a),
+            _ => None,
+        });
+        let known = MirKnownCalleeSummaries::default();
+        let snapshot = PostHomeAnalysisSnapshot::new_with_known_callees_and_memory_map(
+            r,
+            MirRoutineGeneration::initial(),
+            &known,
+            &map,
+        )
+        .unwrap();
+        discover_register_reuse(r, &PostHomeRewriteContext::new(&snapshot), None)
+    }
+
+    #[test]
+    fn terminal_transaction_removes_reload_and_uses_x_with_fixed_frames() {
+        let p = entry();
+        let trace = crate::mir6502::trace::Mir6502Trace::default();
+        let selected = super::super::select(
+            p.clone(),
+            &super::super::tests::clean(&p),
+            None,
+            &Mir6502Config {
+                enable_late_register_reuse: true,
+                ..Mir6502Config::optimized()
+            },
+            0x3000,
+            crate::runtime::Runtime::ActionCart,
+            &trace.context(),
+        )
+        .unwrap();
+        assert_eq!(bytes(&p).len() - bytes(&selected).len(), 3);
+        assert_eq!(p.routines[0].frame, selected.routines[0].frame);
+        let events = trace.events();
+        let result = &events
+            .iter()
+            .find(|e| e.kind == "late-cleanup-result")
+            .unwrap()
+            .data;
+        assert_eq!(result["accepted"], true, "{result}");
+        assert_eq!(result["expanded_operations"], 1);
+        assert_eq!(result["removed_reloads"], 1);
+        assert_eq!(result["register_transfers"], 1);
+        assert_eq!(trace.manifest()["work"]["emission_invocations"], 2);
+        super::super::tests::assert_closed_attempts(&events);
+        let mut again = selected.clone();
+        assert_eq!(
+            apply(&mut again, None, &Trace::disabled())
+                .unwrap()
+                .expanded_operations,
+            0
+        );
+        assert_eq!(again, selected);
+    }
+
+    #[test]
+    fn reuse_keeps_live_flags_and_invalidates_physical_aliases_and_barriers() {
+        let load = super::super::tests::load(MirMem::FixedZeroPage(MirFixedZpSlot(0xAE)));
+        let mut p = program(vec![
+            store(0xAE, MirReg::A),
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::Y),
+                value: 0,
+                width: MirWidth::Byte,
+            },
+            load.clone(),
+        ]);
+        p.routines[0].blocks[0].terminator = MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::ZSet),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(1)),
+        };
+        p.routines[0].blocks.push(MirBlock {
+            id: MirBlockId(1),
+            label: "exit".into(),
+            params: vec![],
+            ops: vec![],
+            terminator: MirTerminator::Return,
+        });
+        assert!(plans(&p).is_empty(), "LDY changed the live N/Z result");
+        for clobber in [
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Absolute(0xAE)),
+                src: MirValue::Def(MirDef::Reg(MirReg::Y)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Barrier {
+                effects: MirEffects {
+                    opaque: true,
+                    memory_writes: MirMemoryEffect::Unknown,
+                    ..Default::default()
+                },
+            },
+            MirOp::Store {
+                dst: MirAddr::FixedIndirectIndexedY {
+                    zp: MirFixedZpSlot(0xAC),
+                },
+                src: MirValue::Def(MirDef::Reg(MirReg::Y)),
+                width: MirWidth::Byte,
+            },
+        ] {
+            let p = program(vec![store(0xAE, MirReg::X), clobber, load.clone()]);
+            assert!(plans(&p).is_empty());
+        }
+        // Transfers reproduce N/Z even when those flags are live.
+        p.routines[0].blocks[0].ops[0] = store(0xAE, MirReg::X);
+        let found = plans(&p);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].stat, "late-register-load-transfer");
+        p.routines[0].blocks[0].ops[0] = store(0xAE, MirReg::Y);
+        p.routines[0].blocks[0].ops.remove(1);
+        assert_eq!(
+            plans(&p)[0].replacement,
+            [MirOp::Move {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirValue::Def(MirDef::Reg(MirReg::Y)),
+                width: MirWidth::Byte
+            }]
+        );
+    }
+
+    #[test]
+    fn missing_reuse_preserves_compound_form_and_joins_forget_conflicting_values() {
+        let mut p = program(vec![operation(MirBinaryOp::Add, 0)]);
+        let old = p.clone();
+        assert_eq!(
+            apply(&mut p, None, &Trace::disabled())
+                .unwrap()
+                .expanded_operations,
+            0
+        );
+        assert_eq!(old, p);
+        let mut p = entry();
+        p.routines[0].blocks[0].ops.pop();
+        p.routines[0].blocks[0].terminator = MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::ZSet),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
+        };
+        p.routines[0].blocks.push(MirBlock {
+            id: MirBlockId(1),
+            label: "clobber".into(),
+            params: vec![],
+            ops: vec![MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::X),
+                value: 7,
+                width: MirWidth::Byte,
+            }],
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(2))),
+        });
+        p.routines[0].blocks.push(MirBlock {
+            id: MirBlockId(2),
+            label: "join".into(),
+            params: vec![],
+            ops: vec![super::super::tests::load(MirMem::FixedZeroPage(
+                MirFixedZpSlot(0xAF),
+            ))],
+            terminator: MirTerminator::Return,
+        });
+        assert!(plans(&p).is_empty());
     }
 
     #[test]

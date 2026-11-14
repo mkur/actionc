@@ -141,7 +141,7 @@ Implementation slices:
    source newline variants and listing reconstruction. Enable the optimized
    default only after measuring actual savings and completing backend checks.
 
-## Producer-deletion rules
+## Producer-deletion extension
 
 Status: implemented in `97b50d4d`, enabled in optimized builds by `075aa821`.
 See the [producer qualification](benchmarks/6502-late-producers/README.md).
