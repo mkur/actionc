@@ -376,11 +376,13 @@ coarse retained snapshots, provided their preservation checks remain equivalent.
 ## Allocation-pruning experiment
 
 Status: implemented as an opt-in experiment, disabled in both default and
-optimized configurations. TN retains all six candidate spill bytes and has no
-additional image saving. The [qualification report](benchmarks/6502-late-spills/README.md)
-records the address-stable control, conservative blockers and remaining gaps.
+optimized configurations. The single-private-byte control shrinks from 99 to 97
+bytes; TN retains all six candidate spill bytes and has no additional saving.
+The [current qualification](benchmarks/6502-private-compaction/qualification.json)
+records both results. The [earlier report](benchmarks/6502-late-spills/README.md)
+covers the address-stable control and original blockers.
 
-The first allocation slice removes only completely unreferenced one-byte
+The allocation experiment removes only completely unreferenced one-byte
 `frame.spills` declarations. It retains live storage IDs, order, parameters,
 locals, data declarations, fixed backing, ABI, virtual-ZP allocations and every
 operation. Reuse the core spill-pruning candidate scan, intersected with the

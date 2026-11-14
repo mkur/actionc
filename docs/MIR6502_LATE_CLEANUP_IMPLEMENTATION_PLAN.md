@@ -455,3 +455,41 @@ keep physical-address queries unresolved. Qualify origin invalidation, unknown
 captures, CFG joins, certificate scope and address-query rejection alongside the
 source control. This introduces no ghost allocation or exception to exact
 selected-rewrite replay.
+
+
+Completed in `fbdf7e76`. The independent source control now deletes two unused
+spill declarations and moves its sole live private byte down by two addresses.
+Source symbols stay fixed, all existing operations remain, and pointer-retention
+replay succeeds with symbolic retired captures. Instruction bytes remain 81;
+the packaged saving is two data bytes. The configuration remains opt-in.
+
+| Case | Pruning off | Pruning on | Saving |
+| --- | ---: | ---: | ---: |
+| Independent producer control, either runtime | 99 | 97 | 2 |
+| TN, ActionCart | 9,962 | 9,962 | 0 |
+| TN, standalone | 10,069 | 10,069 | 0 |
+
+Each result holds at `$3000` and `$41C7`. The 32-case comparison against
+`eaa44f82` preserves all pruning-off complete outputs and images. With pruning
+on, only the four producer-control builds change; the other 28 complete outputs
+remain equal. All 32 trace-off/on comparisons pass. TN still has six eligible
+unused bytes and declines at `CoreAllocation` because its proposal moves multiple
+live/source objects. The accepted case adds two cost emissions, one selected
+replay and two analysis builds, with no additional full materialization. Work
+is unchanged for the other 28 cases.
+
+Validation passed 1,352 MIR6502 unit tests, 133 integration tests across all 30
+MIR6502 integration targets, and 19 VM tests across eight affected targets.
+The two explicit MADS tests passed 16 LF/CRLF reconstruction/relocation
+comparisons. The new source-level VM control executes 8,192 calls across all
+byte values, page-crossing/non-crossing source pointers, both runtimes/origins,
+pruning off/on and real LF/CRLF input files. It checks output bytes, public write
+order, source-storage addresses, live-spill movement and return registers/flags.
+The independent MIR byte oracle also covers all byte values. Shared frontend/NIR
+contracts and other backends were unchanged, so local validation stayed within
+MIR6502 and its runtime consumers.
+
+The [qualification receipt](benchmarks/6502-private-compaction/qualification.json)
+records compiler-source hashes, baseline/current output hashes, work, outcomes
+and validation commands. Large artifacts remain under ignored
+`build/mir6502-private-compaction/`.
