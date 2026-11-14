@@ -179,7 +179,7 @@ impl Mir6502Config {
             enable_word_load_sharing: true,
             enable_late_private_store_cleanup: true,
             enable_late_dead_register_cleanup: true,
-            enable_late_register_reuse: false,
+            enable_late_register_reuse: true,
             enable_late_spill_pruning: false,
             enable_record_base_reuse: true,
             enable_register_copy_forwarding: true,

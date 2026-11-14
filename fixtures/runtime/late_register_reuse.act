@@ -1,0 +1,18 @@
+MODULE
+
+CARD result=$0680,input=$0690
+
+CARD FUNC Advance(CHAR POINTER p)
+RETURN(p+p^+5)
+
+CARD FUNC Retreat(CHAR POINTER p)
+RETURN(p-p^-5)
+
+CARD FUNC Plain(CHAR POINTER p)
+RETURN(p+5)
+
+PROC Main()
+  result=Advance(input)
+  result=Retreat(input)
+  result=Plain(input)
+RETURN

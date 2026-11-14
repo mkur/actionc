@@ -1,0 +1,99 @@
+{
+  "qualified_base_revision": "0c8403c35bd8eee078c34f26a843e0cbf40e89bf",
+  "compiler_diff_sha256": "f619dfd9d73fa7d10e2ddf660de0cb235eab44937fa2b548e3e70e8545be7efb",
+  "compiler_change_since_base": "Enable enable_late_register_reuse in the optimized configuration.",
+  "api_rlib_sha256": "bca1faf8e98fa47709cd4c64acd84b75e53faf1bfc18d428bdfa67d4294d68a5",
+  "environment": {
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+    "CARGO_TARGET_DIR": "build/checked-arena/shared-target",
+    "opt_level": 1,
+    "debug": 0,
+    "incremental": false,
+    "jobs": 2,
+    "timing_scope": "Elapsed times include compilation, Cargo lock waits and overlapping qualification processes; not compiler-performance measurements."
+  },
+  "checks": {
+    "units": {
+      "command": "cargo test --lib mir6502:: -- --quiet",
+      "exit_code": 0,
+      "seconds": 158.7919172499678,
+      "log_sha256": "4c25b8f7f531ced80dea4ef21514e3850a50a892c6dbb76461f840faf7301db8",
+      "targets": 1,
+      "passed": 1394,
+      "failed": 0,
+      "ignored": 15,
+      "status": "passed"
+    },
+    "integration": {
+      "status": "passed",
+      "passed": 151,
+      "ignored": 13,
+      "initial_run": {
+        "command": "cargo test --no-fail-fast --test mir6502_argument_staging --test mir6502_argument_x_bitwise --test mir6502_argument_x_forwarding --test mir6502_bounded_call_pointer_retention --test mir6502_call_abi --test mir6502_callee_entry_flags --test mir6502_checked_pointer_ranges --test mir6502_circle_quality --test mir6502_direct_comparisons --test mir6502_fixtures --test mir6502_home_value_invalidation --test mir6502_kalscope_quality --test mir6502_late_cleanup --test mir6502_late_spill_pruning --test mir6502_layout_census --test mir6502_leaf_inline_cli --test mir6502_loop_consumer --test mir6502_materialization_gap --test mir6502_parameter_homes --test mir6502_parameter_pointers --test mir6502_phase_trace --test mir6502_pointer_byte_plus_one --test mir6502_pointer_load_sharing --test mir6502_pointer_retention --test mir6502_pointer_setup --test mir6502_register_copy_forwarding --test mir6502_rewrite_inventory --test mir6502_store_consumer --test mir6502_turtle_quality --test mir6502_warpdem_quality --test mir6502_word_load_sharing --test mir6502_word_move_store --test mir6502_parameter_argument_handoff --test mir6502_late_register_reuse -- --quiet",
+        "exit_code": 101,
+        "seconds": 177.93713541596662,
+        "log_sha256": "c0c466210320aa64bdda718e35687daf083b66020d821c3b04fd0ac66482cc7e",
+        "targets": 34,
+        "passed": 150,
+        "failed": 1,
+        "ignored": 13
+      },
+      "recheck": {
+        "command": "cargo test --test mir6502_pointer_byte_plus_one -- --quiet",
+        "log_sha256": "91384cfabbed579b4f13cfabec97dc1c955165dd4c70f5c8d1afa9c531765615",
+        "targets": 1,
+        "passed": 1,
+        "failed": 0,
+        "ignored": 1
+      },
+      "adjustment": "The fusion-specific test now disables terminal reuse; combined fusion and reuse reduce the unfused baseline by three bytes, changing the marginal fusion saving from five to two."
+    },
+    "vm": {
+      "status": "passed",
+      "passed": 63,
+      "ignored": 0,
+      "initial_run": {
+        "command": "cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --no-fail-fast --test parameter_homes --test parameter_pointer_homes --test word_result_placement --test argument_staging --test argument_x_bitwise --test argument_x_forwarding --test callee_entry_flags --test direct_comparisons --test late_dead_producers --test late_private_store_cleanup --test late_spill_pruning --test pointer_byte_plus_one --test pointer_load_sharing --test pointer_retention --test pointer_setup_bounds --test tn_codegen_reproducers --test word_load_sharing --test word_move_store --test aggregate_bounded_forwarding --test bounded_call_pointer_retention --test captured_bounds --test record_base_reuse --test register_copy_forwarding --test parameter_argument_handoff --test late_register_reuse -- --quiet",
+        "exit_code": 101,
+        "seconds": 804.2719975000364,
+        "log_sha256": "e4d5ca3240f5d0069d130654f074f1b4b2ffd26691410a26c708700e52143cd3",
+        "targets": 25,
+        "passed": 60,
+        "failed": 2,
+        "ignored": 0
+      },
+      "recheck": {
+        "command": "cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test pointer_byte_plus_one -- --quiet",
+        "log_sha256": "f938d59434a2b1c8cee518966abd50d5ac2a6acf875992247030eba6b70ebef3",
+        "targets": 1,
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0
+      },
+      "combined_control": {
+        "command": "cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test late_register_reuse combined_pointer_fusion -- --quiet",
+        "log_sha256": "e84010ea6371eb225da6e413b8316d53195da4e0e8eef2888f3af5e6fef3e23f",
+        "targets": 1,
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      },
+      "adjustment": "The fusion-specific VM tests freeze internal carrier reads, so now disable terminal reuse. The added combined control checks public arguments and ordered source reads with reuse on and fusion off/on.",
+      "measured_image_check": "ACTIONC_LATE_REUSE_IMAGES points at the off/on measurement images; real TN Key/Next execution checks byte equality with optimized-default images."
+    },
+    "mads": {
+      "command": "cargo test --no-fail-fast --test mir6502_argument_x_bitwise --test mir6502_argument_x_forwarding --test mir6502_bounded_call_pointer_retention --test mir6502_callee_entry_flags --test mir6502_home_value_invalidation --test mir6502_late_cleanup --test mir6502_parameter_argument_handoff --test mir6502_pointer_byte_plus_one --test mir6502_pointer_load_sharing --test mir6502_word_load_sharing --test mir6502_word_move_store --test mir6502_late_register_reuse -- --ignored --skip keeps_unknown_tn_destinations_unchanged --quiet",
+      "ACTIONC_MADS": "/usr/local/bin/mads",
+      "exit_code": 0,
+      "seconds": 310.14007054199465,
+      "log_sha256": "de3b343d8a63f925146450e4150a9e44b02e69853861c54c1c9d38971ff680ce",
+      "targets": 12,
+      "passed": 12,
+      "failed": 0,
+      "ignored": 0,
+      "status": "passed"
+    }
+  },
+  "fixture_handling": "LF/CRLF sources pass through real include loading in VM tests; listing reconstruction covers LF/CRLF and relocation. Binaries are compared byte-for-byte.",
+  "scope": "MIR6502 only; no shared NIR or frontend changes. Existing ignored tests are retained; MADS tests listed separately were explicitly enabled."
+}

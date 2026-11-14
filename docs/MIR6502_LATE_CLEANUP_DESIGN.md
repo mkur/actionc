@@ -141,6 +141,9 @@ Implementation slices:
    source newline variants and listing reconstruction. Enable the optimized
    default only after measuring actual savings and completing backend checks.
 
+The [qualification record](benchmarks/6502-late-register-reuse/README.md)
+records measured savings and the implemented coverage boundary.
+
 ## Producer-deletion extension
 
 Status: implemented in `97b50d4d`, enabled in optimized builds by `075aa821`.

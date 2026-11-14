@@ -26,6 +26,8 @@ fn pointer_byte_plus_one_baseline_verifies_both_nir_modes_runtimes_and_origins()
                 let mir = mir6502::materialize_program_with_origin_and_runtime(
                     mir6502::lower_program(nir).unwrap(),
                     &Mir6502Config {
+                        // Isolate plus-one fusion from terminal register reuse.
+                        enable_late_register_reuse: false,
                         enable_argument_x_forwarding: false,
                         enable_pointer_load_sharing: false,
                         enable_pointer_byte_plus_one_fusion: false,
@@ -48,6 +50,8 @@ fn pointer_byte_plus_one_baseline_verifies_both_nir_modes_runtimes_and_origins()
                     nir,
                     origin,
                     &Mir6502Config {
+                        // Isolate plus-one fusion from terminal register reuse.
+                        enable_late_register_reuse: false,
                         enable_argument_x_forwarding: false,
                         enable_pointer_load_sharing: false,
                         enable_pointer_byte_plus_one_fusion: false,
@@ -61,6 +65,8 @@ fn pointer_byte_plus_one_baseline_verifies_both_nir_modes_runtimes_and_origins()
                     nir,
                     origin,
                     &Mir6502Config {
+                        // Isolate plus-one fusion from terminal register reuse.
+                        enable_late_register_reuse: false,
                         enable_argument_x_forwarding: false,
                         enable_pointer_load_sharing: false,
                         enable_pointer_byte_plus_one_fusion: true,

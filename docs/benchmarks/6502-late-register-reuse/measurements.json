@@ -1,0 +1,1039 @@
+{
+  "implementation_revision": "0c8403c35bd8eee078c34f26a843e0cbf40e89bf",
+  "measurement_scope": "Feature off/on with explicit configuration; default activation is qualified separately. All images use optimized NIR. Arithmetic controls disable inlining; other cases retain optimized defaults.",
+  "probe_sha256": "f973584c1b1af1e5fc3fb1b6229c1acbf363785491e516c9c45d8e1e9dd7b44b",
+  "source_sha256_lf": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "fixtures/runtime/late_register_reuse.act": "7deb1b0606e7c403600d2e23d03f6a5a9409edde96568233b84d826fc268b598",
+    "fixtures/runtime/pointer_byte_plus_one.act": "57f3439eec5f262d28a32415ac52f9146060cc98ca0455b8d4980031707c6823",
+    "fixtures/runtime/argument_staging.act": "400871bc51dca8577fa9dd16d27c121ff5173968814a1fdc1368d7e557e34c75",
+    "fixtures/runtime/word_load_sharing.act": "cb85766deb8e2b58941e80d9bae2c2d2907297c630d63725dd03dfb297fca00b"
+  },
+  "cases": [
+    {
+      "case": "tn",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "before_bytes": 9853,
+      "after_bytes": 9847,
+      "changed_routines": {
+        "Key": {
+          "before": 37,
+          "after": 34
+        },
+        "Next": {
+          "before": 33,
+          "after": 30
+        }
+      },
+      "before_work": {
+        "emission_invocations": 123,
+        "inner_emission_probes": 738,
+        "late_cleanup_preservation_replays": 18,
+        "materializations": 5,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 56,
+        "rewrite_analysis_builds": 42145
+      },
+      "after_work": {
+        "emission_invocations": 123,
+        "inner_emission_probes": 738,
+        "late_cleanup_preservation_replays": 18,
+        "materializations": 5,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 56,
+        "rewrite_analysis_builds": 42199
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 2,
+        "image_bytes_after": 9847,
+        "image_bytes_before": 9891,
+        "instruction_bytes_after": 8968,
+        "instruction_bytes_before": 9012,
+        "register_transfers": 2,
+        "removed_producers": 4,
+        "removed_reloads": 2,
+        "removed_stores": 10,
+        "routines": [
+          39,
+          40,
+          45,
+          59,
+          69,
+          70,
+          72,
+          73
+        ]
+      },
+      "image_sha256": {
+        "False": "d61578a614271507d1a769e2089a38600ecbe8e5e863c575633ebd40e229aeb0",
+        "True": "c008ca85834920ac5704d17e5f267007b2c2413a8b246b0d676f4b67376e7a0e"
+      }
+    },
+    {
+      "case": "tn",
+      "runtime": "ActionCart",
+      "origin": 16839,
+      "before_bytes": 9853,
+      "after_bytes": 9847,
+      "changed_routines": {
+        "Key": {
+          "before": 37,
+          "after": 34
+        },
+        "Next": {
+          "before": 33,
+          "after": 30
+        }
+      },
+      "before_work": {
+        "emission_invocations": 123,
+        "inner_emission_probes": 738,
+        "late_cleanup_preservation_replays": 18,
+        "materializations": 5,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 56,
+        "rewrite_analysis_builds": 42145
+      },
+      "after_work": {
+        "emission_invocations": 123,
+        "inner_emission_probes": 738,
+        "late_cleanup_preservation_replays": 18,
+        "materializations": 5,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 56,
+        "rewrite_analysis_builds": 42199
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 2,
+        "image_bytes_after": 9847,
+        "image_bytes_before": 9891,
+        "instruction_bytes_after": 8968,
+        "instruction_bytes_before": 9012,
+        "register_transfers": 2,
+        "removed_producers": 4,
+        "removed_reloads": 2,
+        "removed_stores": 10,
+        "routines": [
+          39,
+          40,
+          45,
+          59,
+          69,
+          70,
+          72,
+          73
+        ]
+      },
+      "image_sha256": {
+        "False": "635ca2ddc2ccc72ed41aeab014618f9b378d2098f3d523ce7362aee2b8d56756",
+        "True": "f7870803f250d04bf0b961f656e7cf8e5aef0854448975c1856c1e15a8e2b1df"
+      }
+    },
+    {
+      "case": "tn",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "before_bytes": 9960,
+      "after_bytes": 9954,
+      "changed_routines": {
+        "Key": {
+          "before": 37,
+          "after": 34
+        },
+        "Next": {
+          "before": 33,
+          "after": 30
+        }
+      },
+      "before_work": {
+        "emission_invocations": 123,
+        "inner_emission_probes": 738,
+        "late_cleanup_preservation_replays": 18,
+        "materializations": 5,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 56,
+        "rewrite_analysis_builds": 42145
+      },
+      "after_work": {
+        "emission_invocations": 123,
+        "inner_emission_probes": 738,
+        "late_cleanup_preservation_replays": 18,
+        "materializations": 5,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 56,
+        "rewrite_analysis_builds": 42199
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 2,
+        "image_bytes_after": 9954,
+        "image_bytes_before": 9998,
+        "instruction_bytes_after": 9074,
+        "instruction_bytes_before": 9118,
+        "register_transfers": 2,
+        "removed_producers": 4,
+        "removed_reloads": 2,
+        "removed_stores": 10,
+        "routines": [
+          39,
+          40,
+          45,
+          59,
+          69,
+          70,
+          72,
+          73
+        ]
+      },
+      "image_sha256": {
+        "False": "9e8efb17301ca7c0ada1635c9cfc5d3598cd60cd11f75667226d75d35bb54ef3",
+        "True": "9f3637aff70d11a765003f4356fae69ac6671226fdf278f94cade587381605cd"
+      }
+    },
+    {
+      "case": "tn",
+      "runtime": "Standalone",
+      "origin": 16839,
+      "before_bytes": 9960,
+      "after_bytes": 9954,
+      "changed_routines": {
+        "Key": {
+          "before": 37,
+          "after": 34
+        },
+        "Next": {
+          "before": 33,
+          "after": 30
+        }
+      },
+      "before_work": {
+        "emission_invocations": 123,
+        "inner_emission_probes": 738,
+        "late_cleanup_preservation_replays": 18,
+        "materializations": 5,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 56,
+        "rewrite_analysis_builds": 42145
+      },
+      "after_work": {
+        "emission_invocations": 123,
+        "inner_emission_probes": 738,
+        "late_cleanup_preservation_replays": 18,
+        "materializations": 5,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 56,
+        "rewrite_analysis_builds": 42199
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 2,
+        "image_bytes_after": 9954,
+        "image_bytes_before": 9998,
+        "instruction_bytes_after": 9074,
+        "instruction_bytes_before": 9118,
+        "register_transfers": 2,
+        "removed_producers": 4,
+        "removed_reloads": 2,
+        "removed_stores": 10,
+        "routines": [
+          39,
+          40,
+          45,
+          59,
+          69,
+          70,
+          72,
+          73
+        ]
+      },
+      "image_sha256": {
+        "False": "6e0732617a59d8ba95beeae4dd37f05a0103efc82bb29cfaf4a557e70dc87fa3",
+        "True": "8d2bcd49a93d7bbc5c781eaa92c22e7370d80d993085d5293c32098e3aaa8add"
+      }
+    },
+    {
+      "case": "arithmetic",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "before_bytes": 151,
+      "after_bytes": 145,
+      "changed_routines": {
+        "Advance": {
+          "before": 33,
+          "after": 30
+        },
+        "Retreat": {
+          "before": 33,
+          "after": 30
+        }
+      },
+      "before_work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 16,
+        "materializations": 2,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 646
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 24,
+        "materializations": 2,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 694
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 2,
+        "image_bytes_after": 145,
+        "image_bytes_before": 151,
+        "instruction_bytes_after": 133,
+        "instruction_bytes_before": 139,
+        "register_transfers": 2,
+        "removed_producers": 0,
+        "removed_reloads": 2,
+        "removed_stores": 0,
+        "routines": [
+          0,
+          1
+        ]
+      },
+      "image_sha256": {
+        "False": "86fce7ea8b1a405b455ac25d1949afeeb1b4da386ac8a2de88d202d72e600739",
+        "True": "5ac0d86bb2a5bc589dd52f222ccefa3250e5a4660ca5b82fcdf7e85532ccdbc8"
+      }
+    },
+    {
+      "case": "arithmetic",
+      "runtime": "ActionCart",
+      "origin": 16839,
+      "before_bytes": 151,
+      "after_bytes": 145,
+      "changed_routines": {
+        "Advance": {
+          "before": 33,
+          "after": 30
+        },
+        "Retreat": {
+          "before": 33,
+          "after": 30
+        }
+      },
+      "before_work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 16,
+        "materializations": 2,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 646
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 24,
+        "materializations": 2,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 694
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 2,
+        "image_bytes_after": 145,
+        "image_bytes_before": 151,
+        "instruction_bytes_after": 133,
+        "instruction_bytes_before": 139,
+        "register_transfers": 2,
+        "removed_producers": 0,
+        "removed_reloads": 2,
+        "removed_stores": 0,
+        "routines": [
+          0,
+          1
+        ]
+      },
+      "image_sha256": {
+        "False": "6422fb7d8332461209e11259b9920b7c89d97523510d6bc6faca5ad51b5f9e14",
+        "True": "a99f3caf056e36019256f1358642de29ee8971c3644fe038be15e4294e87019d"
+      }
+    },
+    {
+      "case": "arithmetic",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "before_bytes": 151,
+      "after_bytes": 145,
+      "changed_routines": {
+        "Advance": {
+          "before": 33,
+          "after": 30
+        },
+        "Retreat": {
+          "before": 33,
+          "after": 30
+        }
+      },
+      "before_work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 16,
+        "materializations": 2,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 646
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 24,
+        "materializations": 2,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 694
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 2,
+        "image_bytes_after": 145,
+        "image_bytes_before": 151,
+        "instruction_bytes_after": 133,
+        "instruction_bytes_before": 139,
+        "register_transfers": 2,
+        "removed_producers": 0,
+        "removed_reloads": 2,
+        "removed_stores": 0,
+        "routines": [
+          0,
+          1
+        ]
+      },
+      "image_sha256": {
+        "False": "86fce7ea8b1a405b455ac25d1949afeeb1b4da386ac8a2de88d202d72e600739",
+        "True": "5ac0d86bb2a5bc589dd52f222ccefa3250e5a4660ca5b82fcdf7e85532ccdbc8"
+      }
+    },
+    {
+      "case": "arithmetic",
+      "runtime": "Standalone",
+      "origin": 16839,
+      "before_bytes": 151,
+      "after_bytes": 145,
+      "changed_routines": {
+        "Advance": {
+          "before": 33,
+          "after": 30
+        },
+        "Retreat": {
+          "before": 33,
+          "after": 30
+        }
+      },
+      "before_work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 16,
+        "materializations": 2,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 646
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 24,
+        "materializations": 2,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 694
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 2,
+        "image_bytes_after": 145,
+        "image_bytes_before": 151,
+        "instruction_bytes_after": 133,
+        "instruction_bytes_before": 139,
+        "register_transfers": 2,
+        "removed_producers": 0,
+        "removed_reloads": 2,
+        "removed_stores": 0,
+        "routines": [
+          0,
+          1
+        ]
+      },
+      "image_sha256": {
+        "False": "6422fb7d8332461209e11259b9920b7c89d97523510d6bc6faca5ad51b5f9e14",
+        "True": "a99f3caf056e36019256f1358642de29ee8971c3644fe038be15e4294e87019d"
+      }
+    },
+    {
+      "case": "pointer",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "before_bytes": 628,
+      "after_bytes": 616,
+      "changed_routines": {
+        "Address": {
+          "before": 33,
+          "after": 30
+        },
+        "PlusTwo": {
+          "before": 88,
+          "after": 85
+        },
+        "PlusZero": {
+          "before": 88,
+          "after": 85
+        },
+        "Subtract": {
+          "before": 88,
+          "after": 85
+        }
+      },
+      "before_work": {
+        "emission_invocations": 27,
+        "inner_emission_probes": 54,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 722
+      },
+      "after_work": {
+        "emission_invocations": 29,
+        "inner_emission_probes": 58,
+        "late_cleanup_preservation_replays": 4,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 798
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 4,
+        "image_bytes_after": 616,
+        "image_bytes_before": 628,
+        "instruction_bytes_after": 579,
+        "instruction_bytes_before": 591,
+        "register_transfers": 4,
+        "removed_producers": 0,
+        "removed_reloads": 4,
+        "removed_stores": 0,
+        "routines": [
+          2,
+          3,
+          4,
+          6
+        ]
+      },
+      "image_sha256": {
+        "False": "1a244127c02ac9b5c4925c1c241722e46840959463f6a2beaccde9513eb764cc",
+        "True": "d2d64028896a332ae88f8ade4fc74aedadf36d3c00a647ce210122914c3e135b"
+      }
+    },
+    {
+      "case": "pointer",
+      "runtime": "ActionCart",
+      "origin": 16839,
+      "before_bytes": 628,
+      "after_bytes": 616,
+      "changed_routines": {
+        "Address": {
+          "before": 33,
+          "after": 30
+        },
+        "PlusTwo": {
+          "before": 88,
+          "after": 85
+        },
+        "PlusZero": {
+          "before": 88,
+          "after": 85
+        },
+        "Subtract": {
+          "before": 88,
+          "after": 85
+        }
+      },
+      "before_work": {
+        "emission_invocations": 27,
+        "inner_emission_probes": 54,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 722
+      },
+      "after_work": {
+        "emission_invocations": 29,
+        "inner_emission_probes": 58,
+        "late_cleanup_preservation_replays": 4,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 798
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 4,
+        "image_bytes_after": 616,
+        "image_bytes_before": 628,
+        "instruction_bytes_after": 579,
+        "instruction_bytes_before": 591,
+        "register_transfers": 4,
+        "removed_producers": 0,
+        "removed_reloads": 4,
+        "removed_stores": 0,
+        "routines": [
+          2,
+          3,
+          4,
+          6
+        ]
+      },
+      "image_sha256": {
+        "False": "b7560571946e2088f1f9fa5a39fb9cc1159fc37249f3a300e222a06169502076",
+        "True": "5b88203513162e54b2e03d6f1a2b6c1a89d6e2cd59dd9d617e8adae192c339c7"
+      }
+    },
+    {
+      "case": "pointer",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "before_bytes": 710,
+      "after_bytes": 698,
+      "changed_routines": {
+        "Address": {
+          "before": 33,
+          "after": 30
+        },
+        "PlusTwo": {
+          "before": 88,
+          "after": 85
+        },
+        "PlusZero": {
+          "before": 88,
+          "after": 85
+        },
+        "Subtract": {
+          "before": 88,
+          "after": 85
+        }
+      },
+      "before_work": {
+        "emission_invocations": 27,
+        "inner_emission_probes": 54,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 722
+      },
+      "after_work": {
+        "emission_invocations": 29,
+        "inner_emission_probes": 58,
+        "late_cleanup_preservation_replays": 4,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 798
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 4,
+        "image_bytes_after": 698,
+        "image_bytes_before": 710,
+        "instruction_bytes_after": 660,
+        "instruction_bytes_before": 672,
+        "register_transfers": 4,
+        "removed_producers": 0,
+        "removed_reloads": 4,
+        "removed_stores": 0,
+        "routines": [
+          2,
+          3,
+          4,
+          6
+        ]
+      },
+      "image_sha256": {
+        "False": "ddbc2a43168bb194d49795125d841166a0c5315dc586030b7aaaf0f32ca86f1e",
+        "True": "bb5f401b14c513e7e7b3031ada0cde7ae2adf784b5c8c27f0a65742a40bec676"
+      }
+    },
+    {
+      "case": "pointer",
+      "runtime": "Standalone",
+      "origin": 16839,
+      "before_bytes": 710,
+      "after_bytes": 698,
+      "changed_routines": {
+        "Address": {
+          "before": 33,
+          "after": 30
+        },
+        "PlusTwo": {
+          "before": 88,
+          "after": 85
+        },
+        "PlusZero": {
+          "before": 88,
+          "after": 85
+        },
+        "Subtract": {
+          "before": 88,
+          "after": 85
+        }
+      },
+      "before_work": {
+        "emission_invocations": 27,
+        "inner_emission_probes": 54,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 722
+      },
+      "after_work": {
+        "emission_invocations": 29,
+        "inner_emission_probes": 58,
+        "late_cleanup_preservation_replays": 4,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 798
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 4,
+        "image_bytes_after": 698,
+        "image_bytes_before": 710,
+        "instruction_bytes_after": 660,
+        "instruction_bytes_before": 672,
+        "register_transfers": 4,
+        "removed_producers": 0,
+        "removed_reloads": 4,
+        "removed_stores": 0,
+        "routines": [
+          2,
+          3,
+          4,
+          6
+        ]
+      },
+      "image_sha256": {
+        "False": "46a72f1058d7e00c750417d4cbcbb5d450daf7dd384e6a749a1d3816989d6850",
+        "True": "358f833c6b464d1ab235dc2260fa4c940f01eb9d6911e0a338cce517a25348f5"
+      }
+    },
+    {
+      "case": "staging",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "before_bytes": 314,
+      "after_bytes": 314,
+      "changed_routines": {},
+      "before_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 56,
+        "late_cleanup_preservation_replays": 4,
+        "materializations": 3,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 40,
+        "rewrite_analysis_builds": 1785
+      },
+      "after_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 56,
+        "late_cleanup_preservation_replays": 4,
+        "materializations": 3,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 40,
+        "rewrite_analysis_builds": 1785
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 0,
+        "image_bytes_after": 314,
+        "image_bytes_before": 318,
+        "instruction_bytes_after": 278,
+        "instruction_bytes_before": 282,
+        "register_transfers": 0,
+        "removed_producers": 0,
+        "removed_reloads": 0,
+        "removed_stores": 2,
+        "routines": [
+          2,
+          3
+        ]
+      },
+      "image_sha256": {
+        "False": "00fe856991d3a58aee1c03f0a7a6cc01ba833df9172aa636838d39d8264f1427",
+        "True": "00fe856991d3a58aee1c03f0a7a6cc01ba833df9172aa636838d39d8264f1427"
+      }
+    },
+    {
+      "case": "staging",
+      "runtime": "ActionCart",
+      "origin": 16839,
+      "before_bytes": 314,
+      "after_bytes": 314,
+      "changed_routines": {},
+      "before_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 56,
+        "late_cleanup_preservation_replays": 4,
+        "materializations": 3,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 40,
+        "rewrite_analysis_builds": 1785
+      },
+      "after_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 56,
+        "late_cleanup_preservation_replays": 4,
+        "materializations": 3,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 40,
+        "rewrite_analysis_builds": 1785
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 0,
+        "image_bytes_after": 314,
+        "image_bytes_before": 318,
+        "instruction_bytes_after": 278,
+        "instruction_bytes_before": 282,
+        "register_transfers": 0,
+        "removed_producers": 0,
+        "removed_reloads": 0,
+        "removed_stores": 2,
+        "routines": [
+          2,
+          3
+        ]
+      },
+      "image_sha256": {
+        "False": "6e1f877a41ed581a2b83ac9e46bfe6bdf6eb2b1a1fd016c8209e633abe7f568f",
+        "True": "6e1f877a41ed581a2b83ac9e46bfe6bdf6eb2b1a1fd016c8209e633abe7f568f"
+      }
+    },
+    {
+      "case": "staging",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "before_bytes": 396,
+      "after_bytes": 396,
+      "changed_routines": {},
+      "before_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 56,
+        "late_cleanup_preservation_replays": 4,
+        "materializations": 3,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 40,
+        "rewrite_analysis_builds": 1785
+      },
+      "after_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 56,
+        "late_cleanup_preservation_replays": 4,
+        "materializations": 3,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 40,
+        "rewrite_analysis_builds": 1785
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 0,
+        "image_bytes_after": 396,
+        "image_bytes_before": 400,
+        "instruction_bytes_after": 359,
+        "instruction_bytes_before": 363,
+        "register_transfers": 0,
+        "removed_producers": 0,
+        "removed_reloads": 0,
+        "removed_stores": 2,
+        "routines": [
+          2,
+          3
+        ]
+      },
+      "image_sha256": {
+        "False": "6ddf2b1d6e1d3f6d3f339f04031e202f7c4f197dce428fca11d3a1ab4008ca32",
+        "True": "6ddf2b1d6e1d3f6d3f339f04031e202f7c4f197dce428fca11d3a1ab4008ca32"
+      }
+    },
+    {
+      "case": "staging",
+      "runtime": "Standalone",
+      "origin": 16839,
+      "before_bytes": 396,
+      "after_bytes": 396,
+      "changed_routines": {},
+      "before_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 56,
+        "late_cleanup_preservation_replays": 4,
+        "materializations": 3,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 40,
+        "rewrite_analysis_builds": 1785
+      },
+      "after_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 56,
+        "late_cleanup_preservation_replays": 4,
+        "materializations": 3,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 40,
+        "rewrite_analysis_builds": 1785
+      },
+      "last_cleanup_result": {
+        "accepted": true,
+        "expanded_operations": 0,
+        "image_bytes_after": 396,
+        "image_bytes_before": 400,
+        "instruction_bytes_after": 359,
+        "instruction_bytes_before": 363,
+        "register_transfers": 0,
+        "removed_producers": 0,
+        "removed_reloads": 0,
+        "removed_stores": 2,
+        "routines": [
+          2,
+          3
+        ]
+      },
+      "image_sha256": {
+        "False": "56884df3802f91678f24fca36476d95d1edda903afc7ff078a434d7e09e8dc5c",
+        "True": "56884df3802f91678f24fca36476d95d1edda903afc7ff078a434d7e09e8dc5c"
+      }
+    },
+    {
+      "case": "word",
+      "runtime": "ActionCart",
+      "origin": 12288,
+      "before_bytes": 301,
+      "after_bytes": 301,
+      "changed_routines": {},
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "last_cleanup_result": {
+        "accepted": false,
+        "reason": "NoDeadDefinitions"
+      },
+      "image_sha256": {
+        "False": "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94",
+        "True": "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94"
+      }
+    },
+    {
+      "case": "word",
+      "runtime": "ActionCart",
+      "origin": 16839,
+      "before_bytes": 301,
+      "after_bytes": 301,
+      "changed_routines": {},
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "last_cleanup_result": {
+        "accepted": false,
+        "reason": "NoDeadDefinitions"
+      },
+      "image_sha256": {
+        "False": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+        "True": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31"
+      }
+    },
+    {
+      "case": "word",
+      "runtime": "Standalone",
+      "origin": 12288,
+      "before_bytes": 301,
+      "after_bytes": 301,
+      "changed_routines": {},
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "last_cleanup_result": {
+        "accepted": false,
+        "reason": "NoDeadDefinitions"
+      },
+      "image_sha256": {
+        "False": "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94",
+        "True": "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94"
+      }
+    },
+    {
+      "case": "word",
+      "runtime": "Standalone",
+      "origin": 16839,
+      "before_bytes": 301,
+      "after_bytes": 301,
+      "changed_routines": {},
+      "before_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "after_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "last_cleanup_result": {
+        "accepted": false,
+        "reason": "NoDeadDefinitions"
+      },
+      "image_sha256": {
+        "False": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+        "True": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31"
+      }
+    }
+  ]
+}

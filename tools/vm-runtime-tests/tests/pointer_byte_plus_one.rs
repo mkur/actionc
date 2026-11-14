@@ -47,6 +47,9 @@ fn compile(
         &nir,
         origin,
         &Mir6502Config {
+            // This fusion oracle freezes internal carrier reads as well as
+            // public data reads. Terminal reuse has its own execution controls.
+            enable_late_register_reuse: false,
             enable_argument_x_forwarding: false,
             enable_pointer_load_sharing: false,
             enable_pointer_byte_plus_one_fusion: enabled,
