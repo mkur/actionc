@@ -62,6 +62,9 @@ fn main() {
         ]
     };
     for &(case, source, inline) in cases {
+        if case == "tn" && std::env::args().any(|a| a == "--skip-tn") {
+            continue;
+        }
         let loaded = actionc::includes::load_program_with_expanded_source(source).unwrap();
         let model = actionc::semantic::analyze_with_options(
             &loaded.program,
@@ -179,7 +182,12 @@ fn main() {
                             .filter(|s| s.address < 256)
                             .map(|s| s.size)
                             .sum();
-                        rows.push(format!("{{\"name\":\"{name}\",\"code_bytes\":{},\"inline_home_bytes\":{homes},\"zp_home_bytes\":{zp}}}", r.end - r.start));
+                        let fragments = symbols
+                            .iter()
+                            .map(|s| format!("{{\"address\":{},\"bytes\":{}}}", s.address, s.size))
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        rows.push(format!("{{\"name\":\"{name}\",\"code_bytes\":{},\"inline_home_bytes\":{homes},\"zp_home_bytes\":{zp},\"home_fragments\":[{fragments}]}}", r.end - r.start));
                     }
                 }
                 let events = trace.events();

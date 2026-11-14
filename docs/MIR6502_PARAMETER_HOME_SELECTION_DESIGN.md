@@ -1,13 +1,13 @@
 # MIR6502 parameter home selection
 
-Status: leaf parameter placement is implemented and qualified, 2026-11-14.
+Status: leaf placement and terminal parameter handoff are implemented and qualified.
 Enabled for optimized builds; the conservative configuration remains disabled.
 The [entry-to-call handoff extension](#proposed-extension-parameter-handoff-to-call-arguments)
-below is under implementation; production wrapper selection remains disabled.
+below has its own gate, subordinate to parameter placement and peepholes.
 
 The completed [leaf implementation plan](MIR6502_PARAMETER_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
 covers the leaf scope. The [handoff implementation plan](MIR6502_PARAMETER_ARGUMENT_HANDOFF_IMPLEMENTATION_PLAN.md)
-defines the slices and qualification gates for the proposed extension.
+records the completed slices and qualification gates for the extension.
 
 ## Decision
 
@@ -74,7 +74,7 @@ following roles; the ABI and call plans supply the boundary locations:
 | --- | --- |
 | Incoming ABI locations | Canonical byte positions supplied by the caller; immutable description of entry. |
 | Working home | Inline storage, register lane(s), reserved ZP byte/pair, or no home when all accesses are proven unnecessary. |
-| Outgoing call argument locations | Required locations at a particular call, supplied by its typed call plan; sharing with working homes is the proposed extension below. |
+| Outgoing call argument locations | Required locations at a particular call, supplied by its typed call plan; terminal handoff can share them with working homes. |
 | Outgoing result locations | Existing result ABI, with its own lifetime and required writes. |
 
 The [canonical ABI](../src/mir6502/abi.rs) supplies argument bytes 0–2 in A/X/Y
@@ -364,9 +364,8 @@ neither `Strcpy` nor `MovePage` may receive a name-based exception.
 
 ### One placement authority, byte-level locations
 
-The current `MirParamHome` supports inline storage, registers, a coherent ZP
-object, or absent storage. It cannot express the working word
-`s = [Zp($A0), Reg(X)]`. The typed representation is
+`MirParamHome` supports inline storage, registers, a coherent ZP object, absent
+storage, and mixed working words such as `s = [Zp($A0), Reg(X)]`. The mixed form is
 `MirParamHome::Lanes(Vec<MirParamLane>)`, where a lane is `Reg(MirReg)` or
 `ZeroPage(MirFixedZpSlot)`. The declaration supplies the checked BYTE/WORD width;
 vector position supplies the byte offset. Uniform bindings normalize to the
@@ -376,7 +375,7 @@ symbol APIs and report memory fragments as `name+offset`, one byte each;
 register lanes have no memory symbol. Physical ownership, layout certificates,
 and trace records use those same fragments. Retained registers are seeded from
 the canonical ABI, while capture establishes memory/register copy availability.
-Production wrapper discovery remains a separate, disabled selection stage.
+Wrapper discovery follows leaf selection under its own configuration gate.
 Use one checked byte-location vocabulary for it and flattened `MirArgHome`
 requirements, retaining the canonical ABI helper as the only argument-offset
 mapping. Uniform register/ZP forms and mixed forms must normalize to one
@@ -449,8 +448,8 @@ working location, and a clobber must not count as a new parameter definition.
 Extend the existing logical-to-physical liveness projection for this ordering;
 do not globally make calls harmless barriers or stop verifying at their opcode.
 
-Current selection and ZP lifetime verification reject calls. The extension may
-admit a proved terminal call after establishing the entry obligations and the absence
+Leaf selection rejects calls. Terminal handoff admits a proved terminal call
+after establishing the entry obligations and the absence
 of protected values after it. Callee indirect writes may remain conservative:
 `MovePage` writes through its destination and need not preserve the consumed
 pointer carriers. Opaque setup, unaccounted entry observations, or a parameter
@@ -593,7 +592,7 @@ preservation contracts are replayed by the continuation.
 
 ### Direct-wrapper selection policy
 
-The opt-in extension makes one deterministic batch after leaf selection. Direct
+The extension makes one deterministic batch after leaf selection. Direct
 forwarding may retain incoming X/Y lanes; other live lanes use reserved working
 ZP. The existing parameter call consumer resolves memory lanes through the frame
 binding so ordinary transfer lowering recognizes fixed-slot identity copies.
@@ -624,3 +623,20 @@ callees and scalar callees without an available scalar entry contract reject
 selection. A bound scalar callee whose pre-capture working-home reads cannot
 yet be discharged by the entry analysis can also reject a wrapper. This is a
 coverage restriction, not permission to infer entry behavior from formal widths.
+
+### Qualified production policy
+
+`Mir6502Config::optimized()` enables terminal handoff; conservative configuration
+does not. Both the peephole master gate and parameter-home selection must also
+be enabled. Unsupported shapes and unsuccessful final-cost trials retain the
+complete leaf-qualified artifact. This is a size-oriented policy: one additional
+core continuation can cause substantial downstream emission and preservation
+work. The [qualification receipts](benchmarks/6502-parameter-handoff/README.md)
+report that cost separately from upstream search, which is not repeated.
+
+Compiler-generated TN Strcpy and independent CopyCounted reach 20 code bytes
+with no ordinary parameter storage, saving 25 bytes each. TN retains its prior
+leaf savings. Qualification covers the full affected backend, both runtimes and
+origins, actual LF/CRLF paths, MADS reassembly, ordered-memory VM oracles and
+independent leaf nonregression controls. This evidence supplements the initial
+handwritten reference; it does not establish a general minimum-size theorem.

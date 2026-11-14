@@ -74,3 +74,63 @@ The receipt also hashes maps and relocations. TN adds one core continuation
 replays in the resulting pipeline. Upstream selections and attempts are unchanged.
 Slice 5 timing overlaps focused tests/builds and is not a performance comparison;
 slice 6 measures the isolated off/on pair. The gate remains off by default here.
+
+## Final qualification
+
+Terminal handoff is enabled in `Mir6502Config::optimized()` and remains off in
+the conservative configuration. It also requires the peephole master gate and
+parameter-home selection. This policy prioritizes final executable size; the
+independent handoff switch remains available to avoid its compilation cost.
+
+| Subject | Leaf-qualified baseline | Handoff enabled |
+| --- | ---: | ---: |
+| TN cart image | 9,878 | 9,853 |
+| TN standalone image | 9,985 | 9,960 |
+| Strcpy code + ordinary homes | 41 + 4 | 20 + 0 |
+| CopyCounted code + ordinary homes | 41 + 4 | 20 + 0 |
+| Original control image, inlining off/on | 572 | 524 |
+| Repeated/computed/permuted control image | 213 | 180 |
+
+The [qualification record](qualification.json) contains exact commands, compiler
+provenance, per-target outcomes and log hashes. It consolidates 1,381 passing
+unit tests, 149 integration tests in 33 targets, 59 VM tests in 24 targets, and
+11 explicit MADS checks. The first register-copy runs exposed an obsolete
+incremental-saving assumption: handoff already removes that traffic. The strict
+pass-only oracle remains, and rebuilt combined-mode checks cover values, guards,
+size and cycles. No compiler correction followed the optimized-default change.
+
+The [off](qualification-off.json) / [on](qualification-on.json) receipts record
+sixteen full handoff builds each; the [leaf off](qualification-leaf-off.json) /
+[leaf on](qualification-leaf-on.json) receipts add 24 independent cases each,
+omitting the already-measured TN matrix. All 80 traced/untraced artifact pairs
+agree. All 24 leaf image/map/relocation hashes, parameter fragments and work
+counts are identical with handoff toggled. The twelve original baseline image
+hashes are preserved with handoff off. Every comparison preserves upstream
+search attempts and choices, with at most one additional core continuation.
+
+TN retains Fnamecmp at 105 + 0, Strcat at 113 + 4, Key at 37 and Next at 33
+code bytes. Strcpy's parameter fragments occupy `$A0`, `$A2`, `$A3`; X retains
+the remaining byte. The callee still receives the canonical arguments, including
+the produced fifth byte in `$A4`. Final-cost acceptance rejects routine growth
+in code plus ordinary homes and requires a strictly smaller packaged image.
+
+TN's downstream work increases from 83 to 123 emission invocations, 498 to 738
+inner probes, and 12 to 18 preservation replays; core materializations rise from
+4 to 5. The extra continuation is bounded but substantial. Unknown callee-entry
+contracts, unsupported pointer reconstruction, permutation cycles and post-call
+uses continue through the existing fallback.
+
+Sequential off/on measurements ran after all builds and tests finished, using
+the recorded opt-level-1, no-debug compiler build. These are single matrix runs,
+including traced and untraced compilations, not statistical performance claims:
+
+| Compile-cost measure | Handoff off | Handoff on |
+| --- | ---: | ---: |
+| Full 16-case probe elapsed | 99.61 s | 129.32 s |
+| Median untraced TN compilation, four cases | 11.67 s | 15.39 s |
+| Probe maximum RSS | 301.84 MiB | 345.05 MiB |
+
+The observed TN compilation increase is about 32%; the whole probe takes about
+30% longer. That cost is accepted for the optimized preset's size priority and
+is not described as negligible. The leaf-only probes overlap final tests and are
+used for artifact/work nonregression, not for this timing comparison.

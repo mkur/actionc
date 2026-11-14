@@ -110,6 +110,14 @@ reads; speculative records remain available as history. A missing snapshot after
 trace truncation is never replaced by an earlier trial's ID. This selection uses
 the existing emitted artifact and does not request another emission.
 
+Parameter placement has two bounded trials: leaf selection and the optional
+terminal parameter-to-argument handoff. `parameter_home_trials` counts both;
+`parameter_argument_handoff_trials` identifies the handoff subset. Its
+`parameter-argument-handoff-result` records final acceptance or fallback relative
+to the selected leaf artifact. An empty candidate set records a skipped stage
+and adds no continuation. Follow final artifact identity after either trial;
+an accepted leaf result is not necessarily the final selected executable.
+
 Zero explicit reads, opaque effects, and zero emitted bytes are separate facts.
 The summary retains attempt IDs and does not count speculative removals as final
 savings. Use final snapshots and selection records when following its references.

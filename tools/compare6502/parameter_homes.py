@@ -16,6 +16,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--enabled', action='store_true')
     parser.add_argument('--handoff', action='store_true')
+    parser.add_argument('--skip-tn', action='store_true')
     parser.add_argument('--suite', choices=['leaf', 'handoff'], default='leaf')
     args = parser.parse_args()
     output = args.output.resolve()
@@ -26,7 +27,7 @@ def main():
                     '--extern', f'actionc={rlib}', '-L', f'dependency={rlib.parent}', '-o', str(probe)],
                    cwd=ROOT, check=True)
     started = time.monotonic()
-    result = subprocess.run(['/usr/bin/time', '-l', str(probe), str(output / 'images')] + (['--enabled'] if args.enabled else []) + (['--handoff'] if args.handoff else []) + (['--suite-handoff'] if args.suite == 'handoff' else []), cwd=ROOT, check=True,
+    result = subprocess.run(['/usr/bin/time', '-l', str(probe), str(output / 'images')] + (['--enabled'] if args.enabled else []) + (['--handoff'] if args.handoff else []) + (['--suite-handoff'] if args.suite == 'handoff' else []) + (['--skip-tn'] if args.skip_tn else []), cwd=ROOT, check=True,
                             text=True, capture_output=True)
     elapsed = time.monotonic() - started
     cases = [json.loads(line) for line in result.stdout.splitlines()]
@@ -37,6 +38,7 @@ def main():
                    parameter_home_selection=args.enabled,
                    parameter_argument_handoff=args.handoff,
                    suite=args.suite,
+                   skip_tn=args.skip_tn,
                    probe_elapsed_seconds=elapsed,
                    probe_time_report=result.stderr,
                    timing_scope='One sequential process, all cases traced and untraced; not a statistical performance claim.',

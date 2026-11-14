@@ -1,0 +1,867 @@
+{
+  "environment": {
+    "CARGO_TARGET_DIR": "build/checked-arena/shared-target",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "1",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_BUILD_JOBS": "2"
+  },
+  "compiler": {
+    "revision": "383d080f8f9f9d984726d187d3de02d0aaef75d3",
+    "worktree_diff_sha256": "5497325fd902e9fd53a711cdb048c995f98c0bf8e150fe08dd79de5d0d85df86",
+    "api_rlib_sha256": "7ad41d42885a105ef5e541015923eff6ab203488a546ebe92169a0c8adbd156f"
+  },
+  "default_policy": {
+    "optimized": true,
+    "conservative": false,
+    "requires_peepholes": true,
+    "requires_parameter_home_selection": true
+  },
+  "reproduction_commands": {
+    "units": "cargo test --lib mir6502:: -- --quiet",
+    "integration": "cargo test --no-fail-fast --test mir6502_argument_staging --test mir6502_argument_x_bitwise --test mir6502_argument_x_forwarding --test mir6502_bounded_call_pointer_retention --test mir6502_call_abi --test mir6502_callee_entry_flags --test mir6502_checked_pointer_ranges --test mir6502_circle_quality --test mir6502_direct_comparisons --test mir6502_fixtures --test mir6502_home_value_invalidation --test mir6502_kalscope_quality --test mir6502_late_cleanup --test mir6502_late_spill_pruning --test mir6502_layout_census --test mir6502_leaf_inline_cli --test mir6502_loop_consumer --test mir6502_materialization_gap --test mir6502_parameter_homes --test mir6502_parameter_pointers --test mir6502_phase_trace --test mir6502_pointer_byte_plus_one --test mir6502_pointer_load_sharing --test mir6502_pointer_retention --test mir6502_pointer_setup --test mir6502_register_copy_forwarding --test mir6502_rewrite_inventory --test mir6502_store_consumer --test mir6502_turtle_quality --test mir6502_warpdem_quality --test mir6502_word_load_sharing --test mir6502_word_move_store --test mir6502_parameter_argument_handoff -- --quiet",
+    "vm": "cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --no-fail-fast --test parameter_homes --test parameter_pointer_homes --test word_result_placement --test argument_staging --test argument_x_bitwise --test argument_x_forwarding --test callee_entry_flags --test direct_comparisons --test late_dead_producers --test late_private_store_cleanup --test late_spill_pruning --test pointer_byte_plus_one --test pointer_load_sharing --test pointer_retention --test pointer_setup_bounds --test tn_codegen_reproducers --test word_load_sharing --test word_move_store --test aggregate_bounded_forwarding --test bounded_call_pointer_retention --test captured_bounds --test record_base_reuse --test register_copy_forwarding --test parameter_argument_handoff -- --quiet",
+    "register_copy_reruns": "cargo test --test mir6502_register_copy_forwarding -- --quiet; cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test register_copy_forwarding -- --quiet",
+    "mads": "ACTIONC_MADS=/usr/local/bin/mads cargo test --no-fail-fast --test mir6502_argument_x_bitwise --test mir6502_argument_x_forwarding --test mir6502_bounded_call_pointer_retention --test mir6502_callee_entry_flags --test mir6502_home_value_invalidation --test mir6502_late_cleanup --test mir6502_parameter_argument_handoff --test mir6502_pointer_byte_plus_one --test mir6502_pointer_load_sharing --test mir6502_word_load_sharing --test mir6502_word_move_store -- --ignored --skip keeps_unknown_tn_destinations_unchanged --quiet",
+    "handoff_measurements": "python3 tools/compare6502/parameter_homes.py --api-rlib build/checked-arena/shared-target/debug/deps/libactionc-bf811c1ef8b2df31.rlib --enabled --suite handoff [--handoff] --output DIRECTORY",
+    "leaf_measurements": "python3 tools/compare6502/parameter_homes.py --api-rlib build/checked-arena/shared-target/debug/deps/libactionc-bf811c1ef8b2df31.rlib --enabled --suite leaf --skip-tn [--handoff] --output DIRECTORY"
+  },
+  "result_summary": {
+    "units": {
+      "targets": 1,
+      "passed": 1381,
+      "failed": 0,
+      "ignored": 15
+    },
+    "integration": {
+      "targets": 33,
+      "passed": 149,
+      "failed": 0,
+      "ignored": 12,
+      "targets_detail": {
+        "mir6502_argument_staging": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_argument_x_bitwise": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 1,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_argument_x_forwarding": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 1,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_bounded_call_pointer_retention": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 2,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_call_abi": {
+          "status": "ok",
+          "passed": 11,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_callee_entry_flags": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 1,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_checked_pointer_ranges": {
+          "status": "ok",
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_circle_quality": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_direct_comparisons": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_fixtures": {
+          "status": "ok",
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_home_value_invalidation": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 1,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_kalscope_quality": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_late_cleanup": {
+          "status": "ok",
+          "passed": 5,
+          "failed": 0,
+          "ignored": 1,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_late_spill_pruning": {
+          "status": "ok",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_layout_census": {
+          "status": "ok",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_leaf_inline_cli": {
+          "status": "ok",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_loop_consumer": {
+          "status": "ok",
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_materialization_gap": {
+          "status": "ok",
+          "passed": 64,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_parameter_argument_handoff": {
+          "status": "ok",
+          "passed": 5,
+          "failed": 0,
+          "ignored": 1,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_parameter_homes": {
+          "status": "ok",
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_parameter_pointers": {
+          "status": "ok",
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_phase_trace": {
+          "status": "ok",
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_pointer_byte_plus_one": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 1,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_pointer_load_sharing": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 1,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_pointer_retention": {
+          "status": "ok",
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_pointer_setup": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_register_copy_forwarding": {
+          "status": "ok",
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-register-copy-integration.log"
+        },
+        "mir6502_rewrite_inventory": {
+          "status": "ok",
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_store_consumer": {
+          "status": "ok",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_turtle_quality": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_warpdem_quality": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_word_load_sharing": {
+          "status": "ok",
+          "passed": 2,
+          "failed": 0,
+          "ignored": 1,
+          "log": "slice6-integration.log"
+        },
+        "mir6502_word_move_store": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 1,
+          "log": "slice6-integration.log"
+        }
+      }
+    },
+    "vm": {
+      "targets": 24,
+      "passed": 59,
+      "failed": 0,
+      "ignored": 0,
+      "targets_detail": {
+        "aggregate_bounded_forwarding": {
+          "status": "ok",
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "argument_staging": {
+          "status": "ok",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "argument_x_bitwise": {
+          "status": "ok",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "argument_x_forwarding": {
+          "status": "ok",
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "bounded_call_pointer_retention": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "callee_entry_flags": {
+          "status": "ok",
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "captured_bounds": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "direct_comparisons": {
+          "status": "ok",
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "late_dead_producers": {
+          "status": "ok",
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "late_private_store_cleanup": {
+          "status": "ok",
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "late_spill_pruning": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "parameter_argument_handoff": {
+          "status": "ok",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "parameter_homes": {
+          "status": "ok",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "parameter_pointer_homes": {
+          "status": "ok",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "pointer_byte_plus_one": {
+          "status": "ok",
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "pointer_load_sharing": {
+          "status": "ok",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "pointer_retention": {
+          "status": "ok",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "pointer_setup_bounds": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "record_base_reuse": {
+          "status": "ok",
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "register_copy_forwarding": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-register-copy-vm.log"
+        },
+        "tn_codegen_reproducers": {
+          "status": "ok",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "word_load_sharing": {
+          "status": "ok",
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "word_move_store": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        },
+        "word_result_placement": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-vm.log"
+        }
+      }
+    },
+    "mads": {
+      "targets": 11,
+      "passed": 11,
+      "failed": 0,
+      "ignored": 0,
+      "targets_detail": {
+        "mir6502_argument_x_bitwise": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-mads.log"
+        },
+        "mir6502_argument_x_forwarding": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-mads.log"
+        },
+        "mir6502_bounded_call_pointer_retention": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-mads.log"
+        },
+        "mir6502_callee_entry_flags": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-mads.log"
+        },
+        "mir6502_home_value_invalidation": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-mads.log"
+        },
+        "mir6502_late_cleanup": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-mads.log"
+        },
+        "mir6502_parameter_argument_handoff": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-mads.log"
+        },
+        "mir6502_pointer_byte_plus_one": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-mads.log"
+        },
+        "mir6502_pointer_load_sharing": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-mads.log"
+        },
+        "mir6502_word_load_sharing": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-mads.log"
+        },
+        "mir6502_word_move_store": {
+          "status": "ok",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "log": "slice6-mads.log"
+        }
+      }
+    }
+  },
+  "log_directory": "build/mir6502-parameter-handoff",
+  "log_sha256": {
+    "slice6-units.log": "4cd97c445ca06bcdcf28d5d5c0bd8ecb326cd9c2888313061a9e0596f8283c08",
+    "slice6-integration.log": "20943d06f8fdfa1f3880d34ae6877845794b05e32c7ae570ffe1b8c391726204",
+    "slice6-register-copy-integration.log": "6bc3e622bab0d60b6647e471aa63f3f19e55808891df97d6c40a2882131797a6",
+    "slice6-vm.log": "7fb3ccb5d623d6ab93d4282f7debfb2259931974944f79710fccfb65a8f7df62",
+    "slice6-register-copy-vm.log": "7a4542009f1130967ac963dc2bf0d91fbf48ed61149ba8572f741c0125ce228d",
+    "slice6-mads.log": "5efbfd10233884e2179c74d10f5f72a42aa018988c87489782a8fc238aac5f7f"
+  },
+  "measurement_comparisons": [
+    {
+      "id": "tn-ActionCart-3000",
+      "before": 9878,
+      "after": 9853,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "tn-ActionCart-41c7",
+      "before": 9878,
+      "after": 9853,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "tn-Standalone-3000",
+      "before": 9985,
+      "after": 9960,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "tn-Standalone-41c7",
+      "before": 9985,
+      "after": 9960,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "handoff-ActionCart-3000",
+      "before": 572,
+      "after": 524,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "handoff-ActionCart-41c7",
+      "before": 572,
+      "after": 524,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "handoff-Standalone-3000",
+      "before": 572,
+      "after": 524,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "handoff-Standalone-41c7",
+      "before": 572,
+      "after": 524,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "handoff-inline-ActionCart-3000",
+      "before": 572,
+      "after": 524,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "handoff-inline-ActionCart-41c7",
+      "before": 572,
+      "after": 524,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "handoff-inline-Standalone-3000",
+      "before": 572,
+      "after": 524,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "handoff-inline-Standalone-41c7",
+      "before": 572,
+      "after": 524,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "handoff-direct-ActionCart-3000",
+      "before": 213,
+      "after": 180,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "handoff-direct-ActionCart-41c7",
+      "before": 213,
+      "after": 180,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "handoff-direct-Standalone-3000",
+      "before": 213,
+      "after": 180,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "handoff-direct-Standalone-41c7",
+      "before": 213,
+      "after": 180,
+      "additional_materializations": 1,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "scalars-ActionCart-3000",
+      "before": 256,
+      "after": 256,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "scalars-ActionCart-41c7",
+      "before": 256,
+      "after": 256,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "scalars-Standalone-3000",
+      "before": 256,
+      "after": 256,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "scalars-Standalone-41c7",
+      "before": 256,
+      "after": 256,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "registers-ActionCart-3000",
+      "before": 106,
+      "after": 106,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "registers-ActionCart-41c7",
+      "before": 106,
+      "after": 106,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "registers-Standalone-3000",
+      "before": 106,
+      "after": 106,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "registers-Standalone-41c7",
+      "before": 106,
+      "after": 106,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "controls-ActionCart-3000",
+      "before": 267,
+      "after": 267,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "controls-ActionCart-41c7",
+      "before": 267,
+      "after": 267,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "controls-Standalone-3000",
+      "before": 411,
+      "after": 411,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "controls-Standalone-41c7",
+      "before": 411,
+      "after": 411,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "trace-controls-ActionCart-3000",
+      "before": 164,
+      "after": 164,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "trace-controls-ActionCart-41c7",
+      "before": 164,
+      "after": 164,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "trace-controls-Standalone-3000",
+      "before": 164,
+      "after": 164,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "trace-controls-Standalone-41c7",
+      "before": 164,
+      "after": 164,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "cleanup-controls-ActionCart-3000",
+      "before": 99,
+      "after": 99,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "cleanup-controls-ActionCart-41c7",
+      "before": 99,
+      "after": 99,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "cleanup-controls-Standalone-3000",
+      "before": 99,
+      "after": 99,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "cleanup-controls-Standalone-41c7",
+      "before": 99,
+      "after": 99,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "controls-inline-ActionCart-3000",
+      "before": 267,
+      "after": 267,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "controls-inline-ActionCart-41c7",
+      "before": 267,
+      "after": 267,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "controls-inline-Standalone-3000",
+      "before": 411,
+      "after": 411,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    },
+    {
+      "id": "controls-inline-Standalone-41c7",
+      "before": 411,
+      "after": 411,
+      "additional_materializations": 0,
+      "unchanged_upstream": true
+    }
+  ],
+  "receipt_sha256": {
+    "qualification-off.json": "1836dbfc5b78e766de6f6a6ce391369df02a6d86e869bb988bcb89385861f20c",
+    "qualification-on.json": "48bac54c257d9e079144a10c33e491719f9d76442d3c13d23eb7e1d6ce34a914",
+    "qualification-leaf-off.json": "621998f7e3ae41bf829a0d8a4ab3161413f6f62eab887f48c0d2ab9f2a3d3692",
+    "qualification-leaf-on.json": "dc9ffbbbe24113743b38b5e692ccdbe72bfb085479358adbfb3ed16bc7b306a2"
+  },
+  "timing_note": "Handoff off/on probes ran sequentially after all build/test processes completed. Leaf probes overlap final tests; use the handoff pair for compile-cost comparison. All timings are single samples, not statistical claims.",
+  "scope_note": "MIR6502 only. No NIR, semantic, or shared frontend contract changed.",
+  "coverage": [
+    "Both runtimes and origins $3000/$41C7; normal inlining and isolated wrappers.",
+    "Actual LF/CRLF source loading and MADS listing reassembly/relocation.",
+    "Canonical argument entry bytes, all 256 copy lengths, page crossings, identical/overlapping buffers, ordered public accesses and stack balance.",
+    "Mixed working lanes, source ZP ownership, definition guards, unsupported-shape fallback, parent gates and selected artifact identity.",
+    "24 independent leaf cases preserve images, maps, relocations and work counts exactly.",
+    "40 off/on measurement pairs, each traced/untraced equivalent; unchanged upstream searches; at most one extra core continuation."
+  ],
+  "execution_notes": [
+    "Qualification consolidates the broad runs and successful focused register-copy reruns. No production correction was needed after enabling the optimized default.",
+    "The initial register-copy integration size and VM cycle assertions failed because handoff had already removed their target traffic. Strict pass checks now disable handoff; combined mode retains public-value, guard, and nonregression oracles. The rebuilt root and VM targets pass.",
+    "The leaf-specific TN integration test explicitly disables handoff to preserve its isolated trial-count oracle; new integration and VM tests exercise combined mode.",
+    "Eleven normally ignored MADS tests ran explicitly. The historical TN-image comparison requiring superseded external baseline artifacts remains skipped; fifteen diagnostic unit cases remain ignored.",
+    "Slice 5 narrowed resident consumption after a direct-only repeated-argument size regression. The rebuilt regression assertion, final size receipts and final full suites include that guard."
+  ],
+  "compilation_cost": {
+    "off": {
+      "matrix_seconds": 99.60950779198902,
+      "tn_untraced_median_seconds": 11.673199,
+      "maximum_rss_bytes": 316506112,
+      "peak_memory_footprint_bytes": 278545984
+    },
+    "on": {
+      "matrix_seconds": 129.31849554099608,
+      "tn_untraced_median_seconds": 15.38786,
+      "maximum_rss_bytes": 361807872,
+      "peak_memory_footprint_bytes": 341444352
+    }
+  }
+}

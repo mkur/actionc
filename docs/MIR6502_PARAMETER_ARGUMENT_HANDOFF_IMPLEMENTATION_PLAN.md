@@ -1,6 +1,6 @@
 # MIR6502 parameter-to-argument handoff implementation plan
 
-Prepared 2026-11-14. Status: slices 0–5 complete; slice 6 pending.
+Prepared 2026-11-14. Status: slices 0–6 complete.
 Starting compiler: `471ef1c8`, with qualified leaf parameter placement enabled.
 
 Implements the [parameter handoff design extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-parameter-handoff-to-call-arguments).
@@ -457,3 +457,35 @@ the original control image hashes are unchanged by that restriction. Fnamecmp,
 Strcat, Key and Next retain their prior sizes. Each productive build adds one
 core continuation and preserves upstream selections. Slice timing overlaps
 tests/builds; final qualification measures isolated compilation cost.
+
+### Slice 6 completion
+
+Slice 5 is `383d080f`. Terminal handoff is enabled in the optimized configuration,
+off in the conservative configuration, and subordinate to both parent gates.
+The default decision prioritizes final size while retaining the independent
+handoff switch. The [qualification record](benchmarks/6502-parameter-handoff/qualification.json)
+contains exact commands, target results, log hashes, compiler provenance and
+off/on measurement comparisons; the [measurement summary](benchmarks/6502-parameter-handoff/README.md)
+reports final sizes and compile cost.
+
+All 1,381 active MIR6502 unit tests, 149 integration tests across 33 targets,
+59 VM tests across 24 targets, and 11 explicit MADS checks pass. The initial
+register-copy integration and VM runs failed strict incremental-saving assertions
+because handoff had already removed the copy traffic. Rebuilt tests preserve the
+exact isolated pass oracle with handoff off and add combined-mode value, guard,
+size and cycle nonregression checks. No production correction followed the
+default change. The leaf-specific TN trial-count test stays explicitly isolated;
+handoff integration/VM tests cover combined placement.
+
+Cross-platform coverage exercises actual LF/CRLF source loading and assembled
+listings. MADS rebuilds TN and independent controls at both origins/runtimes.
+Fifteen diagnostic unit cases remain ignored; eleven normally ignored MADS cases
+ran explicitly, leaving the historical external-TN-baseline test skipped.
+No shared frontend/NIR contract changed, so qualification stayed within MIR6502.
+
+The 24 independent leaf cases retain exact images, maps, relocations, parameter
+fragments, upstream choices and work counts. The full handoff matrix preserves
+existing leaf savings, trace/untraced agreement, unchanged upstream search and
+the one-additional-continuation bound. Final Strcpy is 20 code + 0 ordinary bytes;
+the proposed compiler-generated target is met. Unsupported pointer reconstruction,
+call-entry contracts, cycles and post-call uses still retain safe fallback.

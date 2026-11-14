@@ -1,5 +1,5 @@
 //! One parameter binding owns entry capture, working storage, and layout.
-//! Selection resumes one core continuation and accepts only a smaller image.
+//! Each placement batch resumes one core continuation and requires a smaller image.
 use super::preparation::{Resume, SelectedPlacement};
 use super::{diagnostics::MirDiagnostic, ir::*};
 use std::collections::BTreeSet;

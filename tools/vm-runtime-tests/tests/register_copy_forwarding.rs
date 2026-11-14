@@ -122,96 +122,112 @@ fn direct_bytes_and_counted_copies_preserve_values_and_guards() {
             .unwrap()
             .replace("\r\n", "\n");
     let mut lf_images = BTreeMap::new();
-    for crlf in [false, true] {
-        let file = support::Source::new(&if crlf {
-            source.replace('\n', "\r\n")
-        } else {
-            source.clone()
-        });
-        let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
-        let model = actionc::semantic::analyze_with_options(
-            &loaded.program,
-            actionc::semantic::SemanticOptions::modern(),
-        )
-        .unwrap();
-        let raw = actionc::nir::lower_program(&actionc::semantic::ir::lower_program(
-            &loaded.program,
-            &model,
-        ));
-        for optimized_nir in [false, true] {
-            let nir = if optimized_nir {
-                actionc::nir::optimize_program(&raw).unwrap()
+    for handoff in [false, true] {
+        for crlf in [false, true] {
+            let file = support::Source::new(&if crlf {
+                source.replace('\n', "\r\n")
             } else {
-                raw.clone()
-            };
-            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-                for origin in [0x3000, 0x41C7] {
-                    let mut controls = None;
-                    let mut old_private = None;
-                    for enabled in [false, true] {
-                        let mut config = mir6502::Mir6502Config::optimized();
-                        config.enable_register_copy_forwarding = enabled;
-                        let output = mir6502::generate_output_with_config_and_runtime(
-                            &nir, origin, &config, runtime,
-                        )
-                        .unwrap();
-                        let mir = mir6502::materialize_program_with_origin_and_runtime(
-                            mir6502::lower_program(&nir).unwrap(),
-                            &config,
-                            origin,
-                            runtime,
-                        )
-                        .unwrap();
-                        let private: BTreeSet<_> = mir
-                            .routines
-                            .iter()
-                            .flat_map(|r| &r.frame.zero_page_allocations)
-                            .flat_map(|a| {
-                                (0..a.size)
-                                    .map(move |offset| u16::from(a.start.0) + u16::from(offset))
-                            })
-                            .collect();
-                        let image = codegen::format_load_file(&output);
-                        let key = format!("{runtime:?}/{optimized_nir}/{origin}/{enabled}");
-                        if crlf {
-                            assert_eq!(&image, &lf_images[&key]);
-                        } else {
-                            lf_images.insert(key, image);
-                        }
-                        let measured = exercise(&output, &private);
-                        if let Some(old) = &controls {
-                            let old: &BTreeMap<(String, u16, u8), (u64, usize, usize)> = old;
-                            assert_eq!(
-                                Some(&private),
-                                old_private.as_ref(),
-                                "occupied zero page changed"
-                            );
-                            for (key, &(cycles, reads, writes)) in &measured {
-                                let (old_cycles, old_reads, old_writes) = old[key];
-                                assert!(cycles < old_cycles, "{key:?}: {old_cycles} -> {cycles}");
-                                if key.0 != "SaveBytes" {
-                                    assert_eq!((reads, writes), (0, 0));
-                                    assert!(reads <= old_reads && writes <= old_writes);
-                                    if optimized_nir {
-                                        assert_eq!(
-                                            (old_cycles - cycles, old_reads, old_writes),
-                                            (18, 2, 2)
+                source.clone()
+            });
+            let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+            let model = actionc::semantic::analyze_with_options(
+                &loaded.program,
+                actionc::semantic::SemanticOptions::modern(),
+            )
+            .unwrap();
+            let raw = actionc::nir::lower_program(&actionc::semantic::ir::lower_program(
+                &loaded.program,
+                &model,
+            ));
+            for optimized_nir in [false, true] {
+                let nir = if optimized_nir {
+                    actionc::nir::optimize_program(&raw).unwrap()
+                } else {
+                    raw.clone()
+                };
+                for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                    for origin in [0x3000, 0x41C7] {
+                        let mut controls = None;
+                        let mut old_private = None;
+                        for enabled in [false, true] {
+                            let mut config = mir6502::Mir6502Config::optimized();
+                            config.enable_register_copy_forwarding = enabled;
+                            config.enable_parameter_argument_handoff = handoff;
+                            let output = mir6502::generate_output_with_config_and_runtime(
+                                &nir, origin, &config, runtime,
+                            )
+                            .unwrap();
+                            let mir = mir6502::materialize_program_with_origin_and_runtime(
+                                mir6502::lower_program(&nir).unwrap(),
+                                &config,
+                                origin,
+                                runtime,
+                            )
+                            .unwrap();
+                            let private: BTreeSet<_> = mir
+                                .routines
+                                .iter()
+                                .flat_map(|r| &r.frame.zero_page_allocations)
+                                .flat_map(|a| {
+                                    (0..a.size)
+                                        .map(move |offset| u16::from(a.start.0) + u16::from(offset))
+                                })
+                                .collect();
+                            let image = codegen::format_load_file(&output);
+                            let key =
+                                format!("{runtime:?}/{optimized_nir}/{origin}/{enabled}/{handoff}");
+                            if crlf {
+                                assert_eq!(&image, &lf_images[&key]);
+                            } else {
+                                lf_images.insert(key, image);
+                            }
+                            let measured = exercise(&output, &private);
+                            if let Some(old) = &controls {
+                                let old: &BTreeMap<(String, u16, u8), (u64, usize, usize)> = old;
+                                assert_eq!(
+                                    Some(&private),
+                                    old_private.as_ref(),
+                                    "occupied zero page changed"
+                                );
+                                for (key, &(cycles, reads, writes)) in &measured {
+                                    let (old_cycles, old_reads, old_writes) = old[key];
+                                    if handoff {
+                                        // Public results and guards were checked by exercise().
+                                        // Handoff can already remove this pass's copy traffic.
+                                        assert!(
+                                            cycles <= old_cycles,
+                                            "{key:?}: {old_cycles} -> {cycles}"
                                         );
+                                        continue;
+                                    }
+                                    assert!(
+                                        cycles < old_cycles,
+                                        "{key:?}: {old_cycles} -> {cycles}"
+                                    );
+                                    if key.0 != "SaveBytes" {
+                                        assert_eq!((reads, writes), (0, 0));
+                                        assert!(reads <= old_reads && writes <= old_writes);
+                                        if optimized_nir {
+                                            assert_eq!(
+                                                (old_cycles - cycles, old_reads, old_writes),
+                                                (18, 2, 2)
+                                            );
+                                        }
                                     }
                                 }
+                            } else {
+                                old_private = Some(private);
+                                controls = Some(measured.clone());
                             }
-                        } else {
-                            old_private = Some(private);
-                            controls = Some(measured.clone());
-                        }
-                        if !crlf && optimized_nir && origin == 0x3000 {
-                            for ((name, input, length), (cycles, reads, writes)) in measured {
-                                if input == 0x5000 && [0, 255].contains(&length)
-                                    || name == "SaveBytes" && length == 0
-                                {
-                                    println!(
-                                        "register-copy,{runtime:?},{enabled},{name},length={length},cycles={cycles},scratch-reads={reads},scratch-writes={writes}"
-                                    );
+                            if !handoff && !crlf && optimized_nir && origin == 0x3000 {
+                                for ((name, input, length), (cycles, reads, writes)) in measured {
+                                    if input == 0x5000 && [0, 255].contains(&length)
+                                        || name == "SaveBytes" && length == 0
+                                    {
+                                        println!(
+                                            "register-copy,{runtime:?},{enabled},{name},length={length},cycles={cycles},scratch-reads={reads},scratch-writes={writes}"
+                                        );
+                                    }
                                 }
                             }
                         }
