@@ -1,10 +1,13 @@
 # MIR6502 parameter home selection
 
-Status: implemented and qualified, 2026-11-14. Enabled for optimized builds;
-the conservative configuration remains disabled.
+Status: leaf parameter placement is implemented and qualified, 2026-11-14.
+Enabled for optimized builds; the conservative configuration remains disabled.
+The [entry-to-call handoff extension](#proposed-extension-parameter-handoff-to-call-arguments)
+below is proposed, not implemented.
 
-The [implementation plan](MIR6502_PARAMETER_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
-defines the dependency order, commit boundaries, and qualification gates.
+The completed [leaf implementation plan](MIR6502_PARAMETER_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
+covers the leaf scope. The [handoff implementation plan](MIR6502_PARAMETER_ARGUMENT_HANDOFF_IMPLEMENTATION_PLAN.md)
+defines the slices and qualification gates for the proposed extension.
 
 ## Decision
 
@@ -28,16 +31,16 @@ that problem intact.
 
 ## Baseline behavior and motivating example
 
-[Core materialization](../src/mir6502/materialize.rs) currently reserves pointer
+[Core materialization](../src/mir6502/materialize.rs) reserves pointer
 scratch, allocates virtual ZP, prepends the ABI parameter prologue, and constructs
 an initial layout. Later passes forward incoming registers, elide write-only
 homes, or coalesce a narrow leaf word parameter with the result pair.
 
-The [prologue and parameter passes](../src/mir6502/materialize/abi.rs) ordinarily
+On the legacy path, the [prologue and parameter passes](../src/mir6502/materialize/abi.rs)
 capture arguments into inline parameter storage. General ZP promotion targets
 spills, not these parameter objects. Furthermore,
 [parameter availability](../src/mir6502/analysis/param_availability.rs) learns
-register/home equality from capture stores; entry starts with no such facts.
+register/home equality from capture stores; legacy entry starts with no such facts.
 Removing the captures without changing that analysis would lose useful facts.
 
 The current [Fnamecmp source](../samples/tn/modern/TN.ACT) illustrates the cost:
@@ -47,7 +50,7 @@ pointer pairs. Measurements at revision `8039b30b`, MIR6502/ActionCart, origin
 
 | Variant | Routine code | Inline parameter bytes |
 | --- | ---: | ---: |
-| Current compiler | 185 | 4 |
+| Baseline compiler at `8039b30b` | 185 | 4 |
 | Handwritten, working pairs `$A0/$A1` and `$A2/$A3` | 47 | 0 |
 | Handwritten, working pairs `$AE/$AF` and `$AC/$AD` | 51 | 0 |
 
@@ -58,18 +61,20 @@ RAM buffers, byte comparisons, colon handling, page crossings, and Y rollover;
 it did not establish arbitrary volatile-read or callee-preservation equivalence.
 The first slice must report its own emitted savings.
 
-## One identity, three different roles
+## Parameter identity and location roles
 
 Retain parameter identity as `(RoutineId, ParamId, byte offset)`. Its source
 name remains diagnostic metadata. A parameter holding a pointer is distinct
 from the pointee, and mutation creates a new value of the same parameter.
 
-Each routine has one parameter binding table, with three separate components:
+Each routine has one parameter binding table. Its contract distinguishes the
+following roles; the ABI and call plans supply the boundary locations:
 
 | Component | Contract |
 | --- | --- |
 | Incoming ABI locations | Canonical byte positions supplied by the caller; immutable description of entry. |
 | Working home | Inline storage, register lane(s), reserved ZP byte/pair, or no home when all accesses are proven unnecessary. |
+| Outgoing call argument locations | Required locations at a particular call, supplied by its typed call plan; sharing with working homes is the proposed extension below. |
 | Outgoing result locations | Existing result ABI, with its own lifetime and required writes. |
 
 The [canonical ABI](../src/mir6502/abi.rs) supplies argument bytes 0–2 in A/X/Y
@@ -288,3 +293,273 @@ Final trace identities travel with executable artifacts as diagnostic metadata.
 Acceptance never reads those IDs. After the batch decision, the manifest and
 home summary select the corresponding existing snapshot/layout; they do not
 infer selection from the latest speculative emission or emit the program again.
+
+## Proposed extension: parameter handoff to call arguments
+
+Prepared 2026-11-14 against compiler `471ef1c8`. Connect entry capture, working
+placement, and outgoing argument setup through the existing parameter binding
+and value-availability analyses. A parameter whose last use supplies a call
+argument needs a valid location through setup and consumption at entry to that
+callee. It need not survive the callee's execution.
+
+This extends the placement authority above and the scheduling contract in
+[argument staging reduction](MIR6502_ARGUMENT_STAGING_DESIGN.md). Keep logical
+parameter identity, current value identity, and ABI destinations distinct.
+Sharing a physical location does not alias two formal parameter objects or
+change the calling convention. SemIR and verified NIR remain unchanged;
+MIR6502 owns selection, lane placement, scheduling, and all required proofs.
+
+### Evidence: Strcpy
+
+TN's [Strcpy](../samples/tn/modern/TN.ACT) forwards its parameters:
+
+```action
+PROC Strcpy(CHAR POINTER s, t)
+  MovePage(s, t, t^+1)
+RETURN
+```
+
+At `471ef1c8`, optimized MIR6502/ActionCart at `$3000` emits 41 code bytes plus
+four ordinary parameter bytes. It captures both words, copies `t` into
+`$AC/$AD`, computes the length, reloads three argument bytes, and tail-jumps to
+[MovePage](../samples/tn/modern/LIB.ACT). X already retains `s.high` throughout.
+
+A shared placement can use these locations:
+
+| Value | Incoming ABI | Working location | Outgoing MovePage ABI |
+| --- | --- | --- | --- |
+| `s.low` | A | `$A0` | A |
+| `s.high` | X | X | X |
+| `t.low` | Y | `$A2` | Y |
+| `t.high` | `$A3` | `$A3` | `$A3` |
+| `t^+1`, byte result | Computed in the body | A, then `$A4` | `$A4` |
+
+```asm
+Strcpy:
+    sta $A0
+    sty $A2
+    ldy #0
+    lda ($A2),y
+    clc
+    adc #1
+    sta $A4
+    ldy $A2
+    lda $A0
+    jmp MovePage
+```
+
+This is 20 code bytes with no ordinary parameter allocation: 21 fewer code
+bytes and four fewer storage bytes. `$A0`, `$A2`, and `$A3` carry parameter
+bytes; `$A4` carries the computed outgoing byte. No `$A1` working cell or
+`$AC/$AD` scratch pair is needed in the wrapper. `$A0` and `$A2` become valid
+only after the explicit stores; they are not incoming ABI mirrors.
+
+The assembled reference matched the generated wrapper in 2,560 VM calls over
+all 256 length bytes, page crossings, both overlap directions, and identical
+buffers. The comparison covered the complete buffer region and stack balance.
+This is exploratory evidence for ordinary RAM under the existing scratch
+contract, not compiler qualification, a minimum-size proof, or a promise of a
+25-byte whole-image saving. General admission must come from typed facts;
+neither `Strcpy` nor `MovePage` may receive a name-based exception.
+
+### One placement authority, byte-level locations
+
+The current `MirParamHome` supports inline storage, registers, a coherent ZP
+object, or absent storage. It cannot express the working word
+`s = [Zp($A0), Reg(X)]`. Extend this binding with a typed mixed-lane form.
+Use one checked byte-location vocabulary for it and flattened `MirArgHome`
+requirements, retaining the canonical ABI helper as the only argument-offset
+mapping. Uniform register/ZP forms and mixed forms must normalize to one
+unambiguous lane mapping; they must not create competing placement tables.
+
+Each lane retains `(RoutineId, ParamId, byte offset)` and the reaching value
+definition. A location is not a value identity. Entry facts come from the ABI;
+actual captures establish the selected working locations. Existing availability
+analysis tracks additional copies and invalidates them on clobber or mutation.
+Do not introduce a second register-content tracker in call materialization.
+
+Choose one working location per lane for the entry-to-call interval. Incoming
+and outgoing transfers are boundary operations; arbitrary mid-body spill
+insertion and live-range splitting remain outside this extension. This lets
+X carry `s.high` for the whole interval while only `s.low` needs a ZP capture.
+
+A dereference still requires a coherent adjacent ZP pair at its read site.
+`t = [$A2, $A3]` satisfies that constraint. A mixed word has no whole-object
+memory address; it can be passed lane by lane but cannot be treated as a
+contiguous pointer cell. A consumer that cannot resolve it must use a separately
+proved pair copy or reject the candidate. Taking a parameter's address retains
+the existing addressable representation.
+
+Reserve the actual occupied ZP bytes through the existing reservation machinery.
+Respect source globals, absolute locals/accesses, wrapping source ranges,
+uncaptured fixed inputs, temporaries, pointer scratch, and result locations.
+Maps may report real memory fragments and printed MIR may show register lanes;
+neither may invent an address or contiguous allocation for a mixed word.
+
+### Entry and call setup use the same values
+
+A typed handoff plan identifies the routine, call site, source definitions and
+lanes, chosen working locations, outgoing destinations, and required boundary
+transfers. It belongs to the selected preparation artifact and its analysis
+generation. Reconstruct stale plans; never recover them from trace text,
+physical-address coincidence, or the last speculative callback.
+
+The call materializer consumes the binding and current availability facts:
+
+- A byte already in the required destination needs no transfer. This is a
+  value-equality proof, not just matching register or memory names.
+- Captures and outgoing transfers obey parallel-copy dependencies. A write
+  cannot destroy an unread source lane, pointer component, callee target, or
+  another argument. Unsupported cycles retain staging or decline the trial.
+- Computing another argument can destroy A, X, Y, flags, or a scratch pair.
+  Model the complete expansion of that computation, including implicit
+  effects; callee preservation says nothing about these setup operations.
+- Keep source reads, writes, faults, and their order/count fixed. A current
+  register copy may replace a reload from private working storage; it does
+  not authorize moving or eliminating the source dereference that produced
+  a value. Preserve word byte order and carry dependencies.
+
+In the example, capture `s.low` before using A, capture `t.low` before clearing
+Y, leave X and `$A3` untouched, then establish `$A4`, Y, and A. This establishes
+all five outgoing bytes without retaining two independent copies of each word.
+
+### Consuming a value at a call
+
+Separate three proof boundaries:
+
+| Boundary | Obligation |
+| --- | --- |
+| Before the call | Every live parameter byte survives all intervening setup and memory effects. |
+| Callee entry | Every canonical argument and additional observable input has the correct value. |
+| After the call | Only values actually live afterwards require a callee-preservation or save/restore proof. |
+
+At the call, argument consumption precedes the invocation's clobbers. A last
+argument use must not disappear merely because an outgoing store overwrites its
+working location, and a clobber must not count as a new parameter definition.
+Extend the existing logical-to-physical liveness projection for this ordering;
+do not globally make calls harmless barriers or stop verifying at their opcode.
+
+Current selection and ZP lifetime verification reject calls. The extension may
+admit a proved terminal call after establishing the entry obligations and the absence
+of protected values after it. Callee indirect writes may remain conservative:
+`MovePage` writes through its destination and need not preserve the consumed
+pointer carriers. Opaque setup, unaccounted entry observations, or a parameter
+live after the call still block the candidate.
+
+Use shared callee/entry analyses to cover noncanonical register, flag, and fixed
+memory inputs, including reads before overwrite. A direct machine callee is
+eligible only when its structured contract or bounded analysis establishes the
+needed facts. The caller itself still contains no machine block in the first
+scope. Broad write effects do not alone prohibit terminal handoff; an unknown
+read/entry dependency cannot be ignored. Missing shared facts require a focused
+analysis extension or fallback, not an ad hoc scan in parameter selection.
+
+Retain the existing source-observation rules for active compiler scratch and
+unexposed parameter storage. Removing a home still requires its exposure and
+observation proof. Explicit source ownership and assembly references win over
+ABI-window preferences; no numeric ZP range is universally private. Keep public
+memory accesses, call target/count, result ABI, and stack behavior unchanged.
+
+Changed wrapper effects also matter to its own callers. Build candidate callee
+summaries and replay every already-consumed preservation obligation. A wrapper
+may now write `$A2` instead of `$AC/$AD`; matching its ordinary arguments and
+buffer result does not establish that all optimized callers remain valid.
+
+### Initial admission and exclusions
+
+Start with a straight-line ordinary Action wrapper with at most four incoming
+argument bytes, unexposed scalar BYTE/WORD parameters, and one known direct call
+as their last use. The outgoing canonical argument list may contain up to five
+bytes, including a computed byte as in `Strcpy`. Parameters are read-only in
+this first wrapper scope; existing mutable leaf coverage stays unchanged.
+
+Initially the call is followed only by a void return. Retain the existing
+tail-call decision: a `Call; Return` may become a jump only through its normal
+ABI/stack proof. Do not require an early tail-call opcode or infer permission
+solely from source syntax. Set up the same arguments for either final form.
+
+Allow only already-qualified native computations and indirect-read consumers
+whose expanded effects can be checked against the lane reservations. No earlier
+call/helper, indirect write, opaque barrier, or machine block occurs in setup.
+Loops, joins, parameter mutation, multiple calls, indirect callees, aggregate or
+variadic arguments, SArgs, and observable wrapper entry conventions keep the
+current path. Returning a call result needs a later explicit result-lifetime
+extension. General residence across calls remains separate: `Strcat`, which
+uses its pointers after `MovePage`, is a required fallback control.
+
+### Integration, bounded work, and rollback
+
+Extend the existing selector, ABI capture builder, and call materializer;
+do not add a late parameter-remapping peephole. The placement decision remains
+before scratch allocation, capture, and layout, with upstream choices frozen.
+Downstream forwarding and terminal cleanup consume the selected bindings.
+
+The fallback is the **current optimized artifact, including accepted leaf
+placement**. A failed wrapper proposal must not discard `Fnamecmp`'s existing
+saving by falling back to the artifact before parameter selection. Retain the
+accepted leaf proposal's typed input/bindings with its executable result and
+the selected core checkpoint; do not reconstruct them from emitted addresses.
+
+After current leaf selection, consider one deterministic batch of wrapper
+bindings while retaining the accepted leaf bindings. Resume the same core
+continuation once for this extension. Reuse the already-finalized fallback
+output. This permits at most one additional core materialization relative to
+today's optimized path; with both leaf and wrapper trials it means at most two
+additional materializations relative to disabling parameter placement entirely.
+There is no subset search, repeated upstream search, or iterative schedule
+repair. An empty candidate set adds no materialization. Measure downstream
+emissions and preservation work separately; the extra continuation can be costly.
+
+Run candidate-specific helper resolution, effects, layout-sensitive rewrites,
+terminal cleanup, preservation replay, verification, and final emission. Require
+a strictly smaller packaged image and no routine growth in code plus ordinary
+homes relative to the leaf-qualified fallback. Any unsupported expansion,
+conflict, stale obligation, equality, or growth restores that complete artifact,
+including its maps, relocations, summaries, and reservations. An untracked
+upstream dependency continues to make the checkpoint unusable.
+
+Freeze bindings before authoritative downstream layout. Retain the exact
+selected emitted artifact and trace identity on acceptance or rollback. Report
+admitted/rejected shapes, mixed lanes, retained incoming bytes, omitted captures,
+call transfers, final bytes and work counts; tracing cannot affect decisions.
+Gate this new scope independently during qualification without disabling the
+existing leaf optimization. Its production default is a qualification decision.
+
+### Verifier and qualification requirements
+
+In addition to the existing binding checks, require complete lane coverage,
+legal widths/order, no duplicate simultaneous physical ownership, and consistent
+normalization of register/ZP/mixed bindings. Ownership follows lifetimes: an ABI
+destination may reuse a working byte after its last required source read, or
+retain that byte when the required value is already present. Availability copies
+do not constitute new independent owners. No memory operand or relocation may
+address a register lane. Planning layout, consumer effects, final maps, and
+emitted operands must agree on every memory fragment and coherent pointer pair.
+
+Check entry capture and outgoing call establishment against actual expanded
+effects, including register/flag clobbers, last-use ordering, and any additional
+callee entry inputs. Check parameter deadness through the closed CFG and result
+or return paths even though initial candidates are straight-line. Retain exact
+rejection for unsupported calls; do not weaken leaf lifetime verification.
+
+Qualification must include independent forwarding wrappers as well as TN:
+
+- Distinct low/high bytes; X retained while A is reused; Y captured before an
+  indexed read; fourth byte already in `$A3`; fifth byte produced into `$A4`.
+- Changed outgoing positions, partial overlap, duplicated arguments, copy cycles,
+  later setup clobbers, source-owned ZP, insufficient scratch, and exposed homes.
+- Equal numeric values from different definitions, parameter mutation, and
+  subsequent call/result uses, demonstrating that shape similarity is no proof.
+- Machine callees with extra entry flags/register/fixed-byte reads, changed
+  wrapper clobbers observed by optimized callers, and unknown-call fallback.
+- All byte lengths, scalar boundaries, page crossings, overlapping and identical
+  buffers, ordered pointee reads/writes, arguments, result ABI and stack balance.
+- Cart/standalone, shifted origins, actual LF/CRLF fixture paths, maps and MADS
+  reassembly, trace equivalence, exact rollback, and bounded compiler work.
+
+Keep leaf-only optimized output as the feature-off control. Retain TN's 84-byte
+leaf saving, exercise independent nonregression controls, and report wrapper
+code, ordinary storage, occupied ZP, whole-image size, compile time, and memory.
+The 20-byte reference is a measurable target for the unchanged-ABI `Strcpy`
+shape; a generated result must earn it through these general proofs. Full
+MIR6502 qualification is required before enabling this scope by default.

@@ -9,6 +9,11 @@ for extending existing call-argument selection.
 The [implementation plan](MIR6502_ARGUMENT_STAGING_IMPLEMENTATION_PLAN.md)
 defines four commit-sized slices and their acceptance checks.
 
+The proposed [parameter handoff extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-parameter-handoff-to-call-arguments)
+connects entry capture and mixed working locations to outgoing argument setup.
+It defines a separate bounded wrapper scope, including terminal calls, while
+retaining this note's ordered-access, dependency, and callee-entry obligations.
+
 Prepare call arguments in their final ABI locations when a proven schedule
 can preserve them there. Retain protective captures whenever later evaluation,
 physical aliases or observable memory effects require them. The goal is fewer

@@ -13,31 +13,49 @@ fn main() {
     let destination = std::env::args().nth(1).expect("output directory");
     let destination = Path::new(&destination);
     fs::create_dir_all(destination).unwrap();
-    for (case, source, inline) in [
-        ("tn", "samples/tn/modern/TN.ACT", true),
-        ("scalars", "fixtures/runtime/parameter_scalars.act", false),
-        (
-            "registers",
-            "fixtures/runtime/parameter_registers.act",
-            false,
-        ),
-        ("controls", "fixtures/runtime/parameter_homes.act", false),
-        (
-            "trace-controls",
-            "fixtures/runtime/mir6502_phase_trace_homes.act",
-            true,
-        ),
-        (
-            "cleanup-controls",
-            "fixtures/runtime/late_producer_cleanup.act",
-            true,
-        ),
-        (
-            "controls-inline",
-            "fixtures/runtime/parameter_homes.act",
-            true,
-        ),
-    ] {
+    let handoff_suite = std::env::args().any(|a| a == "--suite-handoff");
+    let cases: &[(&str, &str, bool)] = if handoff_suite {
+        &[
+            ("tn", "samples/tn/modern/TN.ACT", true),
+            (
+                "handoff",
+                "fixtures/runtime/parameter_argument_handoff.act",
+                false,
+            ),
+            (
+                "handoff-inline",
+                "fixtures/runtime/parameter_argument_handoff.act",
+                true,
+            ),
+        ]
+    } else {
+        &[
+            ("tn", "samples/tn/modern/TN.ACT", true),
+            ("scalars", "fixtures/runtime/parameter_scalars.act", false),
+            (
+                "registers",
+                "fixtures/runtime/parameter_registers.act",
+                false,
+            ),
+            ("controls", "fixtures/runtime/parameter_homes.act", false),
+            (
+                "trace-controls",
+                "fixtures/runtime/mir6502_phase_trace_homes.act",
+                true,
+            ),
+            (
+                "cleanup-controls",
+                "fixtures/runtime/late_producer_cleanup.act",
+                true,
+            ),
+            (
+                "controls-inline",
+                "fixtures/runtime/parameter_homes.act",
+                true,
+            ),
+        ]
+    };
+    for &(case, source, inline) in cases {
         let loaded = actionc::includes::load_program_with_expanded_source(source).unwrap();
         let model = actionc::semantic::analyze_with_options(
             &loaded.program,
@@ -62,7 +80,13 @@ fn main() {
                         .filter(|r| {
                             matches!(
                                 r.name.as_str(),
-                                "Fnamecmp" | "ComparePointers" | "AdvanceBoth" | "First"
+                                "Fnamecmp"
+                                    | "ComparePointers"
+                                    | "AdvanceBoth"
+                                    | "First"
+                                    | "CopyCounted"
+                                    | "ForwardWords"
+                                    | "Strcpy"
                             )
                         })
                         .map(|r| r.name.clone())
@@ -88,6 +112,16 @@ fn main() {
                 let mut rows = Vec::new();
                 for name in [
                     "Fnamecmp",
+                    "Strcpy",
+                    "Strcat",
+                    "ForwardWords",
+                    "ForwardBytes",
+                    "CopyCounted",
+                    "Mutated",
+                    "AfterCall",
+                    "Twice",
+                    "Exposed",
+                    "ExtraEntry",
                     "AdvanceBoth",
                     "ReadWord",
                     "CountDown",

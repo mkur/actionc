@@ -2,6 +2,9 @@
 
 Prepared 2026-11-14. Status: slices 0–6 complete.
 
+The proposed entry-to-call extension has a separate
+[parameter handoff implementation plan](MIR6502_PARAMETER_ARGUMENT_HANDOFF_IMPLEMENTATION_PLAN.md).
+
 Implements the [parameter home selection design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md).
 Work in the dependency order below and commit each slice after its checks pass.
 Keep unrelated working-tree changes outside those commits.

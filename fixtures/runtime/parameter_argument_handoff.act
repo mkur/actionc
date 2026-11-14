@@ -1,0 +1,91 @@
+; Ordinary wrappers around explicit observers and an independent reverse copy.
+CARD input=$0690,after=$0688
+
+PROC Observe=*(CARD first,second BYTE tag)
+ASM
+  sta $0680
+  stx $0681
+  sty $0682
+  lda $A3
+  sta $0683
+  lda $A4
+  sta $0684
+  rts
+ENDASM
+
+PROC ObserveExtra=*(CARD first,second BYTE tag)
+ASM
+  sta $0680
+  stx $0681
+  sty $0682
+  lda $AC
+  sta $0685
+  lda $A3
+  sta $0683
+  lda $A4
+  sta $0684
+  rts
+ENDASM
+
+PROC ReverseCopy=*(CARD destination,source BYTE count)
+ASM
+  sta $A0
+  stx $A1
+  sty $A2
+  ldy $A4
+  dey
+again:
+  lda ($A2),y
+  sta ($A0),y
+  dey
+  cpy #$FF
+  bne again
+  rts
+ENDASM
+
+PROC ForwardWords(CARD first,second)
+  Observe(first,second,7)
+RETURN
+
+PROC ForwardBytes(BYTE first,second,tag)
+  Observe(CARD(first),CARD(second),tag)
+RETURN
+
+PROC CopyCounted(BYTE POINTER destination,source)
+  ReverseCopy(destination,source,source^+1)
+RETURN
+
+PROC Mutated(CARD first,second)
+  first==+1
+  Observe(first,second,7)
+RETURN
+
+PROC AfterCall(CARD first,second)
+  Observe(first,second,7)
+  after=first
+RETURN
+
+PROC Twice(CARD first,second)
+  Observe(first,second,7)
+  Observe(first,second,8)
+RETURN
+
+PROC Exposed(CARD first,second)
+  Observe(@first,second,7)
+RETURN
+
+PROC ExtraEntry(CARD first,second)
+  ObserveExtra(first,second,7)
+RETURN
+
+PROC Main()
+  ForwardWords(input,input+1)
+  ForwardBytes(input,73,149)
+  CopyCounted($7000,$7500)
+  Mutated(input,input+1)
+  AfterCall(input,input+1)
+  Twice(input,input+1)
+  Exposed(input,input+1)
+  ExtraEntry(input,input+1)
+  DO OD
+RETURN

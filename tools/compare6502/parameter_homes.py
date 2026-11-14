@@ -15,6 +15,7 @@ def main():
     parser.add_argument('--api-rlib', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--enabled', action='store_true')
+    parser.add_argument('--suite', choices=['leaf', 'handoff'], default='leaf')
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -24,13 +25,16 @@ def main():
                     '--extern', f'actionc={rlib}', '-L', f'dependency={rlib.parent}', '-o', str(probe)],
                    cwd=ROOT, check=True)
     started = time.monotonic()
-    result = subprocess.run(['/usr/bin/time', '-l', str(probe), str(output / 'images')] + (['--enabled'] if args.enabled else []), cwd=ROOT, check=True,
+    result = subprocess.run(['/usr/bin/time', '-l', str(probe), str(output / 'images')] + (['--enabled'] if args.enabled else []) + (['--suite-handoff'] if args.suite == 'handoff' else []), cwd=ROOT, check=True,
                             text=True, capture_output=True)
     elapsed = time.monotonic() - started
     cases = [json.loads(line) for line in result.stdout.splitlines()]
     sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/parameter_homes.act', 'fixtures/runtime/parameter_registers.act', 'fixtures/runtime/parameter_scalars.act', 'fixtures/runtime/mir6502_phase_trace_homes.act', 'fixtures/runtime/late_producer_cleanup.act']
+    if args.suite == 'handoff':
+        sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/parameter_argument_handoff.act']
     receipt = dict(revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                    parameter_home_selection=args.enabled,
+                   suite=args.suite,
                    probe_elapsed_seconds=elapsed,
                    probe_time_report=result.stderr,
                    timing_scope='One sequential process, all cases traced and untraced; not a statistical performance claim.',
