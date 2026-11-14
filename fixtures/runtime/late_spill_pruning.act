@@ -1,6 +1,6 @@
 ; Ordinary-RAM argument capture under zero-page pressure. Late cleanup leaves
-; an unused tail spill. ABI descriptor references expose the frame; the narrow
-; pruner must preserve the already-cleaned output on that rejection.
+; an unused tail spill. Keep this control for allocation and ABI preservation;
+; taking a source parameter's address does not expose unrelated private spills.
 MODULE
 CARD observedFirst=$0680,observedSecond=$0682
 BYTE observedTag=$0684

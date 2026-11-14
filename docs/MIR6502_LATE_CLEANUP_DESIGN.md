@@ -388,11 +388,31 @@ structured effect/reference inventory. Address references, including references
 in immutable earlier-decision witnesses, retain a spill. Structured reads and
 writes, terminators, call results and frame-slot backing also count as uses;
 a missing explicit load is insufficient. Data relocations cannot name spills.
-The allocation experiment still conservatively rejects unknown or indirect
-readers/writers unless existing callee summaries provide exact footprints. It
-has not adopted the terminal definition-cleanup ownership proof: deleting an
-allocation needs separate movement and relocation validation. This restriction
-does not establish source-level observability of compiler-private bytes.
+
+Pruning uses the same `StorageOwnership` classifier as definition cleanup.
+Current and retained historical address references, typed machine references
+and source-slot backing protect the particular spill they expose. Taking a
+source local's or parameter's address, including through a data relocation,
+does not expose neighboring compiler allocations. Unresolved machine storage
+names still retain the frame because their references cannot be enumerated.
+Ordinary loads/stores present only in earlier-decision witnesses remain subject
+to preservation replay; a missing address needed by a proof rejects pruning.
+
+Generic source-memory `Unknown`/`All` effects and ordinary indirect reads/writes
+do not expose non-escaping compiler allocations. Explicit numeric accesses,
+structured physical regions, ABI homes and exact machine read/write footprints
+remain observers. Raw machine blocks still require inspectable read/write
+footprints: their numeric operands need not occur in typed MIR references.
+An unresolved footprint conservatively declines pruning. This is a low-level
+reference-coverage limit, not permission for source pointers to observe private
+compiler state.
+
+The baseline final map must prove each removed byte disjoint from all declared
+source storage, including unused objects, aliases and descriptor backing. Reuse
+emission's complete inventory; an absent inventory grants no ownership proof.
+Allocation ownership does not certify movement: both surviving-address equality
+guards, callee contracts, preservation replay and final-cost acceptance remain
+unchanged.
 
 ### Core allocation preservation
 

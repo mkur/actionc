@@ -1,7 +1,7 @@
 //! Opt-in, address-stable pruning of unused ordinary private spill declarations.
 use super::*;
 use crate::mir6502::{
-    analysis::{effects::classify_terminator, private_cells},
+    analysis::effects::classify_terminator,
     materialize::{MaterializeLayout, unused_spill_candidates},
 };
 
@@ -26,9 +26,9 @@ fn count(removed: &Removed) -> usize {
     removed.values().map(BTreeSet::len).sum()
 }
 
-/// The compatibility pruner supplies candidates; structured effects close its
-/// gaps (e.g. address-only references, wide result lanes and terminators).
-fn machine_frame_exposed(program: &MirProgram, routine: &MirRoutine) -> bool {
+/// Unresolved assembly names have no closed storage-reference inventory.
+/// Typed relocations are handled per home by `StorageOwnership`.
+fn unresolved_machine_storage(program: &MirProgram, routine: &MirRoutine) -> bool {
     // Machine storage names resolve in their owning routine (or globals).
     // An opaque name in this frame has no closed typed exposure inventory.
     routine.blocks.iter().flat_map(|b| &b.ops).any(|op| {
@@ -49,14 +49,6 @@ fn machine_frame_exposed(program: &MirProgram, routine: &MirRoutine) -> bool {
                                 atom: MirMachineAtom::Name(_),
                                 ..
                             }
-                            | MirMachineItem::Relocation {
-                                target: MirInlineAsmTarget::Memory(
-                                    MirMem::Spill { .. }
-                                        | MirMem::Local { .. }
-                                        | MirMem::Param { .. }
-                                ),
-                                ..
-                            }
                     )
                 })
             })
@@ -66,6 +58,12 @@ fn machine_frame_exposed(program: &MirProgram, routine: &MirRoutine) -> bool {
 fn discover(program: &MirProgram, references: &[&MirProgram]) -> (Removed, usize) {
     let mut removed = Removed::new();
     let mut candidates = 0;
+    // Historical address-taking, typed machine references and source backing
+    // retain their ownership even after the executable use has disappeared.
+    let ownership: Vec<_> = std::iter::once(program)
+        .chain(references.iter().copied())
+        .map(|p| (p, StorageOwnership::new(p)))
+        .collect();
     for r in &program.routines {
         let ids = unused_spill_candidates(r);
         candidates += ids.len();
@@ -88,41 +86,22 @@ fn discover(program: &MirProgram, references: &[&MirProgram]) -> (Removed, usize
                 }
             }
         }
-        for s in r.frame.params.iter().chain(&r.frame.locals) {
-            if let MirStorageBase::Spill(id) = s.base {
-                used.insert(id);
-            }
-        }
-        // A pointer to any source frame cell could reach a neighboring spill.
-        // Preserve historical escapes even if late transformations erased them.
-        let exposed = std::iter::once(&program).chain(references.iter()).any(|p| {
-            private_cells::frame_exposed_in_data(p, r.id)
-                || p.routines
-                    .iter()
-                    .find(|old| old.id == r.id)
-                    .is_some_and(|old| {
-                        machine_frame_exposed(p, old)
-                            || old.blocks.iter().any(|b| {
-                                let effects = b.ops.iter().map(|op| classify_op(op).memory).chain(
-                                    std::iter::once(classify_terminator(&b.terminator).memory),
-                                );
-                                effects.into_iter().any(|e| {
-                                    e.address_references.iter().any(|m| {
-                                        matches!(
-                                            m,
-                                            MirMem::Local { .. }
-                                                | MirMem::Param { .. }
-                                                | MirMem::Spill { .. }
-                                        )
-                                    })
-                                })
-                            })
-                    })
+        let unresolved = ownership.iter().any(|(p, _)| {
+            p.routines
+                .iter()
+                .find(|old| old.id == r.id)
+                .is_some_and(|old| unresolved_machine_storage(p, old))
         });
-        if !exposed {
+        if !unresolved {
             let ids = ids
                 .into_iter()
-                .filter(|id| !used.contains(id))
+                .filter(|id| {
+                    !used.contains(id)
+                        && ownership.iter().all(|(_, owner)| {
+                            owner.role(r.id, &MirMem::Spill { id: *id, offset: 0 })
+                                == StorageRole::Temporary
+                        })
+                })
                 .collect::<BTreeSet<_>>();
             if !ids.is_empty() {
                 removed.insert(r.id, ids);
@@ -161,57 +140,23 @@ fn unobserved_allocations(program: &MirProgram, old: &Measurement, removed: &Rem
         return false;
     };
     let callees = MirKnownCalleeSummaries::analyze_for_rewriting(program);
-    // Deallocation changes zero-initialized storage into another part of the
-    // image. An unknown reader/writer cannot be dismissed as a dead MIR use.
+    // Generic source-memory effects cannot expose a non-escaping compiler
+    // allocation. Raw assembly still needs an inspectable physical footprint:
+    // its numeric operands may not appear in the operation's typed references.
     for r in &program.routines {
-        for op in r.blocks.iter().flat_map(|b| &b.ops) {
-            let e = classify_op(op).memory;
-            let summary = match op {
-                MirOp::Call { target, .. } => callees.for_target(target),
-                MirOp::MachineBlock { .. } => callees.get(r.id),
-                _ => None,
-            };
-            if e.indirect_reads
-                || e.indirect_writes
-                || e.has_unknown_effects
-                || e.opaque
-                || matches!(
-                    op,
-                    MirOp::Call { .. } | MirOp::MachineBlock { .. } | MirOp::RuntimeHelper { .. }
-                )
-            {
-                if !summary.is_some_and(|s| {
-                    matches!(s.reads(), MirKnownMemoryReads::Exact(_))
-                        && matches!(s.writes(), MirKnownMemoryWrites::Exact(_))
-                }) {
-                    return false;
-                }
-            }
+        if r.blocks
+            .iter()
+            .flat_map(|b| &b.ops)
+            .any(|op| matches!(op, MirOp::MachineBlock { .. }))
+            && !callees.get(r.id).is_some_and(|s| {
+                matches!(s.reads(), MirKnownMemoryReads::Exact(_))
+                    && matches!(s.writes(), MirKnownMemoryWrites::Exact(_))
+            })
+        {
+            return false;
         }
     }
     let mut observations = observable_reads(program, &old.memory);
-    // Named fixed storage is an observer even if its current MIR has no read.
-    for g in &program.globals {
-        if g.storage_size > 0 {
-            observations.push((
-                old.memory.address(
-                    RoutineId(0),
-                    &MirMem::Global {
-                        id: g.id,
-                        offset: 0,
-                    },
-                ),
-                g.storage_size,
-            ));
-        }
-    }
-    for r in &program.routines {
-        for s in r.frame.params.iter().chain(&r.frame.locals) {
-            if let MirStorageBase::Absolute(address) = s.base {
-                observations.push((address.checked_add(s.offset), s.storage_size));
-            }
-        }
-    }
     for r in &program.routines {
         for op in r.blocks.iter().flat_map(|b| &b.ops) {
             let effects = classify_op(op).memory;
@@ -269,6 +214,7 @@ fn unobserved_allocations(program: &MirProgram, old: &Measurement, removed: &Rem
             layout.spill_address(r, id).is_some_and(|address| {
                 (0x400..0x8000).contains(&address)
                     && old.memory.execution_disjoint(address)
+                    && old.memory.source_storage_disjoint(address)
                     && !observations.iter().any(|(start, bytes)| {
                         start.is_none_or(|start| address.wrapping_sub(start) < *bytes)
                     })

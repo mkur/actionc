@@ -1,0 +1,1533 @@
+{
+  "baseline_revision": "514b5ca5",
+  "scope": "Slice 1: share ownership rules with pruning; retain both movement guards and opt-in configuration",
+  "baseline_artifact": {
+    "revision": "514b5ca5",
+    "rlib": "build/checked-arena/shared-target/debug/deps/libactionc-165c1bc4d616f852.rlib",
+    "sha256": "995a500c5700a11d6b82cc4cf66a0a8a444f2d0083dceb72e1f472aaed572031"
+  },
+  "current_artifact": {
+    "rlib": "build/checked-arena/shared-target/debug/deps/libactionc-bf811c1ef8b2df31.rlib",
+    "sha256": "e9aed0601a8eeec2ea6ea05657e87ee9c5c6ecb5bf4191b61ebeb9033feaa9ca",
+    "pruning_source_sha256": "6dfb5b7650126a139e526311690e3eb3c3a5b763a23ffb52b2194c738dd9d698"
+  },
+  "probe": "tools/compare6502/late_spill_pruning.rs",
+  "probe_sha256": "c0cf44bc824d0dc97d1bf3a5722e117e6abb02478582e42b8fe6785171473c99",
+  "configuration": "8 source/NIR-mode cases, ActionCart and Standalone, origins 0x3000 and 0x41c7; terminal store/producer cleanup enabled; pruning off/on",
+  "summary": {
+    "cases": 32,
+    "baseline_current_complete_output_comparisons": 64,
+    "baseline_current_work_equal_cases": 32,
+    "pruning_trace_off_on_equal_cases": 32,
+    "additional_saved_bytes": 0,
+    "tn_eligible_spills_before": 4,
+    "tn_eligible_spills_after": 6,
+    "tn_rejection": "CoreAllocation",
+    "tn_cart_bytes": 9962,
+    "tn_standalone_bytes": 10069
+  },
+  "validation": {
+    "unit": {
+      "command": "cargo test --lib mir6502::late_cleanup::",
+      "suites": 1,
+      "passed": 46,
+      "ignored": 1,
+      "log_sha256": "8144677a05747bd7284239765b198894763e36835790b89ec4ac75f59ec9376d"
+    },
+    "integration": {
+      "command": "cargo test --test mir6502_late_spill_pruning --test mir6502_late_cleanup --no-fail-fast",
+      "suites": 2,
+      "passed": 8,
+      "ignored": 1,
+      "log_sha256": "ba77450ecec4a071ba70f3cb1602302c80c551dfd0dfe7a543bfcc35fd48dc51"
+    },
+    "vm": {
+      "command": "cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test late_spill_pruning --test late_private_store_cleanup --test late_dead_producers --no-fail-fast",
+      "suites": 3,
+      "passed": 5,
+      "ignored": 0,
+      "log_sha256": "0dc2ddcfa07c022f699e38b3b1edf61a4c7aa6e9dc704dd4d3fb829b9b01265a"
+    },
+    "mads": {
+      "command": "cargo test --lib mir6502::late_cleanup::pruning::tests::pruned_tail_mads_reconstruction_relocation_lf_crlf -- --ignored (fresh test binary executed directly)",
+      "suites": 1,
+      "passed": 1,
+      "ignored": 0,
+      "log_sha256": "324a4317297433e60904c5cb81ddc30ba982a2c22eefc1310dd14b1053a576f5"
+    }
+  },
+  "cases": [
+    {
+      "id": "home-default-ActionCart-3000",
+      "pruning_off_bytes": 408,
+      "pruning_on_bytes": 408,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 7,
+        "rewrite_analysis_builds": 635
+      },
+      "pruning_on_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 8,
+        "rewrite_analysis_builds": 635
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "93b2aca5f0e834b124f6ca5e84adb469eb7eabc45b0d5d1ef3c03e3f167e792a",
+          "complete_output_sha256": "bf06dbaf2f9ae5a9abe979b1a058ddc64d9bafdea2bf2828c5ae9804e89d5eb8"
+        },
+        "after": {
+          "image_sha256": "93b2aca5f0e834b124f6ca5e84adb469eb7eabc45b0d5d1ef3c03e3f167e792a",
+          "complete_output_sha256": "bf06dbaf2f9ae5a9abe979b1a058ddc64d9bafdea2bf2828c5ae9804e89d5eb8"
+        }
+      }
+    },
+    {
+      "id": "home-default-ActionCart-41c7",
+      "pruning_off_bytes": 408,
+      "pruning_on_bytes": 408,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 7,
+        "rewrite_analysis_builds": 635
+      },
+      "pruning_on_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 8,
+        "rewrite_analysis_builds": 635
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "1999e9b5caaa965ffe2901de383fbe3f67bcece066fe37b84a651e9df7e6c0e6",
+          "complete_output_sha256": "d2ad07e32811a43d0f90d7dff4fc35a094556309a8086d7a2434f27dc0f37b89"
+        },
+        "after": {
+          "image_sha256": "1999e9b5caaa965ffe2901de383fbe3f67bcece066fe37b84a651e9df7e6c0e6",
+          "complete_output_sha256": "d2ad07e32811a43d0f90d7dff4fc35a094556309a8086d7a2434f27dc0f37b89"
+        }
+      }
+    },
+    {
+      "id": "home-default-Standalone-3000",
+      "pruning_off_bytes": 408,
+      "pruning_on_bytes": 408,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 7,
+        "rewrite_analysis_builds": 635
+      },
+      "pruning_on_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 8,
+        "rewrite_analysis_builds": 635
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "93b2aca5f0e834b124f6ca5e84adb469eb7eabc45b0d5d1ef3c03e3f167e792a",
+          "complete_output_sha256": "f64578bcabe34e78d0308bf1413fea3a6d747366c2ad1c0bc89d1f1d7cb0463e"
+        },
+        "after": {
+          "image_sha256": "93b2aca5f0e834b124f6ca5e84adb469eb7eabc45b0d5d1ef3c03e3f167e792a",
+          "complete_output_sha256": "f64578bcabe34e78d0308bf1413fea3a6d747366c2ad1c0bc89d1f1d7cb0463e"
+        }
+      }
+    },
+    {
+      "id": "home-default-Standalone-41c7",
+      "pruning_off_bytes": 408,
+      "pruning_on_bytes": 408,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 7,
+        "rewrite_analysis_builds": 635
+      },
+      "pruning_on_work": {
+        "emission_invocations": 1,
+        "inner_emission_probes": 4,
+        "materializations": 1,
+        "pipeline_attempts": 8,
+        "rewrite_analysis_builds": 635
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "1999e9b5caaa965ffe2901de383fbe3f67bcece066fe37b84a651e9df7e6c0e6",
+          "complete_output_sha256": "cbe2dd6f07cd78166708431c1b287ce2832c7b34c163e3c11c2d0434bed3d48b"
+        },
+        "after": {
+          "image_sha256": "1999e9b5caaa965ffe2901de383fbe3f67bcece066fe37b84a651e9df7e6c0e6",
+          "complete_output_sha256": "cbe2dd6f07cd78166708431c1b287ce2832c7b34c163e3c11c2d0434bed3d48b"
+        }
+      }
+    },
+    {
+      "id": "home-ActionCart-3000",
+      "pruning_off_bytes": 411,
+      "pruning_on_bytes": 411,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 670
+      },
+      "pruning_on_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 670
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "a6a8781222d2a08772a3d3e704b9cc3d4fed5a38484e911e5a012e8c454b00d4",
+          "complete_output_sha256": "45f8748c43064f5ce9bcba164dacc94cea3f1dca31b56ae47823782e52e43ede"
+        },
+        "after": {
+          "image_sha256": "a6a8781222d2a08772a3d3e704b9cc3d4fed5a38484e911e5a012e8c454b00d4",
+          "complete_output_sha256": "45f8748c43064f5ce9bcba164dacc94cea3f1dca31b56ae47823782e52e43ede"
+        }
+      }
+    },
+    {
+      "id": "home-ActionCart-41c7",
+      "pruning_off_bytes": 411,
+      "pruning_on_bytes": 411,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 670
+      },
+      "pruning_on_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 670
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "987ec4948fb78d0bd355e936dfceb9f291a5846e1cb8904f602be5c9aeecf035",
+          "complete_output_sha256": "a13e467815a121dc0fae6dd4f48f088447a30d8db5f96b203e20198ca598d761"
+        },
+        "after": {
+          "image_sha256": "987ec4948fb78d0bd355e936dfceb9f291a5846e1cb8904f602be5c9aeecf035",
+          "complete_output_sha256": "a13e467815a121dc0fae6dd4f48f088447a30d8db5f96b203e20198ca598d761"
+        }
+      }
+    },
+    {
+      "id": "home-Standalone-3000",
+      "pruning_off_bytes": 411,
+      "pruning_on_bytes": 411,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 670
+      },
+      "pruning_on_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 670
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "a6a8781222d2a08772a3d3e704b9cc3d4fed5a38484e911e5a012e8c454b00d4",
+          "complete_output_sha256": "52bac6f18073505c1f9fd2ee1aa9e865c3cd0f5f8d5cfc062922f480d95cb459"
+        },
+        "after": {
+          "image_sha256": "a6a8781222d2a08772a3d3e704b9cc3d4fed5a38484e911e5a012e8c454b00d4",
+          "complete_output_sha256": "52bac6f18073505c1f9fd2ee1aa9e865c3cd0f5f8d5cfc062922f480d95cb459"
+        }
+      }
+    },
+    {
+      "id": "home-Standalone-41c7",
+      "pruning_off_bytes": 411,
+      "pruning_on_bytes": 411,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 670
+      },
+      "pruning_on_work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 36,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 670
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "987ec4948fb78d0bd355e936dfceb9f291a5846e1cb8904f602be5c9aeecf035",
+          "complete_output_sha256": "62d296e12a9f67b7082adc4815d522273cf6fb6d0f46d8cf512951ba06775b5c"
+        },
+        "after": {
+          "image_sha256": "987ec4948fb78d0bd355e936dfceb9f291a5846e1cb8904f602be5c9aeecf035",
+          "complete_output_sha256": "62d296e12a9f67b7082adc4815d522273cf6fb6d0f46d8cf512951ba06775b5c"
+        }
+      }
+    },
+    {
+      "id": "staging-ActionCart-3000",
+      "pruning_off_bytes": 330,
+      "pruning_on_bytes": 330,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 625
+      },
+      "pruning_on_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 625
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "9a9d1ca4d3038df22bb79c4d0d7c1f92c9d9011db2f1ab9f36554a5444e22b86",
+          "complete_output_sha256": "3de6cf49e966229fefc0a9c3fba0cff5e1380127a4505e8ce31a2f8bcc718c5e"
+        },
+        "after": {
+          "image_sha256": "9a9d1ca4d3038df22bb79c4d0d7c1f92c9d9011db2f1ab9f36554a5444e22b86",
+          "complete_output_sha256": "3de6cf49e966229fefc0a9c3fba0cff5e1380127a4505e8ce31a2f8bcc718c5e"
+        }
+      }
+    },
+    {
+      "id": "staging-ActionCart-41c7",
+      "pruning_off_bytes": 330,
+      "pruning_on_bytes": 330,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 625
+      },
+      "pruning_on_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 625
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "b68577c7038115260cd10e835391f76cb506e68919940b25f80cad2ec44e07d0",
+          "complete_output_sha256": "b7499c5146b3ffc4e440581fc3ed30f243cb52c0775fb7c5007d40de839a6c22"
+        },
+        "after": {
+          "image_sha256": "b68577c7038115260cd10e835391f76cb506e68919940b25f80cad2ec44e07d0",
+          "complete_output_sha256": "b7499c5146b3ffc4e440581fc3ed30f243cb52c0775fb7c5007d40de839a6c22"
+        }
+      }
+    },
+    {
+      "id": "staging-Standalone-3000",
+      "pruning_off_bytes": 412,
+      "pruning_on_bytes": 412,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 625
+      },
+      "pruning_on_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 625
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "8bf1d099c51ca217d5bc36ee22b108a1f4107b8d8bf9d1e932a0555e78251b4c",
+          "complete_output_sha256": "fe3ce5f4dc8fedccf42fa093dd1d3c92edd561190b5948eb6c475c03cb4e0fd0"
+        },
+        "after": {
+          "image_sha256": "8bf1d099c51ca217d5bc36ee22b108a1f4107b8d8bf9d1e932a0555e78251b4c",
+          "complete_output_sha256": "fe3ce5f4dc8fedccf42fa093dd1d3c92edd561190b5948eb6c475c03cb4e0fd0"
+        }
+      }
+    },
+    {
+      "id": "staging-Standalone-41c7",
+      "pruning_off_bytes": 412,
+      "pruning_on_bytes": 412,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 625
+      },
+      "pruning_on_work": {
+        "emission_invocations": 14,
+        "inner_emission_probes": 28,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 625
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "5e54e159556e8e1561a54284a588af6c1f0a895d17f9ebb82e0216c67b25cff9",
+          "complete_output_sha256": "e1c795b1499dad7d8d1a8fd20c1e2d3ba6d15ed6b363c541e29339217e81e4ce"
+        },
+        "after": {
+          "image_sha256": "5e54e159556e8e1561a54284a588af6c1f0a895d17f9ebb82e0216c67b25cff9",
+          "complete_output_sha256": "e1c795b1499dad7d8d1a8fd20c1e2d3ba6d15ed6b363c541e29339217e81e4ce"
+        }
+      }
+    },
+    {
+      "id": "ranges-ActionCart-3000",
+      "pruning_off_bytes": 612,
+      "pruning_on_bytes": 612,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 706
+      },
+      "pruning_on_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 706
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "53c91dd9481f08009916e9da90e2fc3ebef4156f0e2c13482775123c3b21b6c6",
+          "complete_output_sha256": "f66760fcfc9b4ced516efdc897f4363da654ea7fdc7d1d049578bcd7ecfe30bb"
+        },
+        "after": {
+          "image_sha256": "53c91dd9481f08009916e9da90e2fc3ebef4156f0e2c13482775123c3b21b6c6",
+          "complete_output_sha256": "f66760fcfc9b4ced516efdc897f4363da654ea7fdc7d1d049578bcd7ecfe30bb"
+        }
+      }
+    },
+    {
+      "id": "ranges-ActionCart-41c7",
+      "pruning_off_bytes": 612,
+      "pruning_on_bytes": 612,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 706
+      },
+      "pruning_on_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 706
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "f23cc26f02a36eebcd4c23d598a0812de8e20ece37d657b1de84842e1c75577c",
+          "complete_output_sha256": "5f9d4cba7ba4832e5e2c2900b66265548582478abe71d3c97e4292e7686cfedd"
+        },
+        "after": {
+          "image_sha256": "f23cc26f02a36eebcd4c23d598a0812de8e20ece37d657b1de84842e1c75577c",
+          "complete_output_sha256": "5f9d4cba7ba4832e5e2c2900b66265548582478abe71d3c97e4292e7686cfedd"
+        }
+      }
+    },
+    {
+      "id": "ranges-Standalone-3000",
+      "pruning_off_bytes": 612,
+      "pruning_on_bytes": 612,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 706
+      },
+      "pruning_on_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 706
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "53c91dd9481f08009916e9da90e2fc3ebef4156f0e2c13482775123c3b21b6c6",
+          "complete_output_sha256": "841d45cf6e489ec3d73dea4ff3d7323711a9cb2c4bbb90052ad5f5a112461526"
+        },
+        "after": {
+          "image_sha256": "53c91dd9481f08009916e9da90e2fc3ebef4156f0e2c13482775123c3b21b6c6",
+          "complete_output_sha256": "841d45cf6e489ec3d73dea4ff3d7323711a9cb2c4bbb90052ad5f5a112461526"
+        }
+      }
+    },
+    {
+      "id": "ranges-Standalone-41c7",
+      "pruning_off_bytes": 612,
+      "pruning_on_bytes": 612,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 706
+      },
+      "pruning_on_work": {
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 706
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "f23cc26f02a36eebcd4c23d598a0812de8e20ece37d657b1de84842e1c75577c",
+          "complete_output_sha256": "7545ce45afc8f6ae7a41dae4ccd5ec6d2be5327b13e8d6a66ce433b5a4c3a173"
+        },
+        "after": {
+          "image_sha256": "f23cc26f02a36eebcd4c23d598a0812de8e20ece37d657b1de84842e1c75577c",
+          "complete_output_sha256": "7545ce45afc8f6ae7a41dae4ccd5ec6d2be5327b13e8d6a66ce433b5a4c3a173"
+        }
+      }
+    },
+    {
+      "id": "word-ActionCart-3000",
+      "pruning_off_bytes": 301,
+      "pruning_on_bytes": 301,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "pruning_on_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 258
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94",
+          "complete_output_sha256": "bb529c937fbe4b4c05bb10f002daba766565ba9e43da20b0b02b3e75e8937867"
+        },
+        "after": {
+          "image_sha256": "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94",
+          "complete_output_sha256": "bb529c937fbe4b4c05bb10f002daba766565ba9e43da20b0b02b3e75e8937867"
+        }
+      }
+    },
+    {
+      "id": "word-ActionCart-41c7",
+      "pruning_off_bytes": 301,
+      "pruning_on_bytes": 301,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "pruning_on_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 258
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+          "complete_output_sha256": "c4adc7231ffbab6ceaf502dec325c575d5c9023914afba8ad55171feccb6c50b"
+        },
+        "after": {
+          "image_sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+          "complete_output_sha256": "c4adc7231ffbab6ceaf502dec325c575d5c9023914afba8ad55171feccb6c50b"
+        }
+      }
+    },
+    {
+      "id": "word-Standalone-3000",
+      "pruning_off_bytes": 301,
+      "pruning_on_bytes": 301,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "pruning_on_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 258
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94",
+          "complete_output_sha256": "c92d1adb39832183ab3d5a9e03f72ff9a155007bcafb0b2c2a4e43d64492cb34"
+        },
+        "after": {
+          "image_sha256": "daae0397567569e6b1d1e113e278dab4dcbc0004cdc6a5eea05969f97c272a94",
+          "complete_output_sha256": "c92d1adb39832183ab3d5a9e03f72ff9a155007bcafb0b2c2a4e43d64492cb34"
+        }
+      }
+    },
+    {
+      "id": "word-Standalone-41c7",
+      "pruning_off_bytes": 301,
+      "pruning_on_bytes": 301,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 0,
+        "reason": "NoUnusedSpills",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 258
+      },
+      "pruning_on_work": {
+        "emission_invocations": 12,
+        "inner_emission_probes": 48,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 258
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+          "complete_output_sha256": "b9b2305ad9e51b5d7ea307dcd0d88b3160a8911965d11cd17c085028ba68ba2d"
+        },
+        "after": {
+          "image_sha256": "868514b82f148314b4ec33d5fe614d1eb8ab26d6b55e9fb0470ddd1606153b31",
+          "complete_output_sha256": "b9b2305ad9e51b5d7ea307dcd0d88b3160a8911965d11cd17c085028ba68ba2d"
+        }
+      }
+    },
+    {
+      "id": "producers-ActionCart-3000",
+      "pruning_off_bytes": 99,
+      "pruning_on_bytes": 99,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 2,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 2
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 2,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 2
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 260
+      },
+      "pruning_on_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 260
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "ee559d33e7f81bd92474ea24a6d166876dbe524a2f3b42df667d67eb15ce31de",
+          "complete_output_sha256": "1eb56581192155bca360d09f14af8d76074f37bac4d6adf2d26ff168c3c7740c"
+        },
+        "after": {
+          "image_sha256": "ee559d33e7f81bd92474ea24a6d166876dbe524a2f3b42df667d67eb15ce31de",
+          "complete_output_sha256": "1eb56581192155bca360d09f14af8d76074f37bac4d6adf2d26ff168c3c7740c"
+        }
+      }
+    },
+    {
+      "id": "producers-ActionCart-41c7",
+      "pruning_off_bytes": 99,
+      "pruning_on_bytes": 99,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 2,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 2
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 2,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 2
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 260
+      },
+      "pruning_on_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 260
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "45f01c1f5481194c6e4f2cd20631ddb38f57c9eefaa03366b153f751c59b54b9",
+          "complete_output_sha256": "4418c8edff45d0717f8912e33914f34e8f85957c698f0d99ca3a39921d64c4c6"
+        },
+        "after": {
+          "image_sha256": "45f01c1f5481194c6e4f2cd20631ddb38f57c9eefaa03366b153f751c59b54b9",
+          "complete_output_sha256": "4418c8edff45d0717f8912e33914f34e8f85957c698f0d99ca3a39921d64c4c6"
+        }
+      }
+    },
+    {
+      "id": "producers-Standalone-3000",
+      "pruning_off_bytes": 99,
+      "pruning_on_bytes": 99,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 2,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 2
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 2,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 2
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 260
+      },
+      "pruning_on_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 260
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "ee559d33e7f81bd92474ea24a6d166876dbe524a2f3b42df667d67eb15ce31de",
+          "complete_output_sha256": "0cff267e3c462a72803ee958b838706a2fa66b95958e8eaf710adfc65eb5f507"
+        },
+        "after": {
+          "image_sha256": "ee559d33e7f81bd92474ea24a6d166876dbe524a2f3b42df667d67eb15ce31de",
+          "complete_output_sha256": "0cff267e3c462a72803ee958b838706a2fa66b95958e8eaf710adfc65eb5f507"
+        }
+      }
+    },
+    {
+      "id": "producers-Standalone-41c7",
+      "pruning_off_bytes": 99,
+      "pruning_on_bytes": 99,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 2,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 2
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 2,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 2
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 260
+      },
+      "pruning_on_work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 260
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "45f01c1f5481194c6e4f2cd20631ddb38f57c9eefaa03366b153f751c59b54b9",
+          "complete_output_sha256": "87a04e160f93c5199492d1cb9956a990366a9b31b7698ef33ea7c393379dde6b"
+        },
+        "after": {
+          "image_sha256": "45f01c1f5481194c6e4f2cd20631ddb38f57c9eefaa03366b153f751c59b54b9",
+          "complete_output_sha256": "87a04e160f93c5199492d1cb9956a990366a9b31b7698ef33ea7c393379dde6b"
+        }
+      }
+    },
+    {
+      "id": "tn-ActionCart-3000",
+      "pruning_off_bytes": 9962,
+      "pruning_on_bytes": 9962,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 4
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 6
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24940
+      },
+      "pruning_on_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 24940
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "c43787858d36c12132979c4e5ed6e7a1687ed75ff697fbce8fc67ab30184d3ed",
+          "complete_output_sha256": "e6c67d61748be784f1973d063e56e4eccf33475e46244b6622c9bc0888a332c3"
+        },
+        "after": {
+          "image_sha256": "c43787858d36c12132979c4e5ed6e7a1687ed75ff697fbce8fc67ab30184d3ed",
+          "complete_output_sha256": "e6c67d61748be784f1973d063e56e4eccf33475e46244b6622c9bc0888a332c3"
+        }
+      }
+    },
+    {
+      "id": "tn-ActionCart-41c7",
+      "pruning_off_bytes": 9962,
+      "pruning_on_bytes": 9962,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 4
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 6
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24940
+      },
+      "pruning_on_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 24940
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "585d20b3bdbee937d745a80541510182147a41b541ec8ae68626bbadb80e4ad4",
+          "complete_output_sha256": "37dbf635155110cc52444fe8c61b5c1820fb816a40a8c0a386b63a16e790b772"
+        },
+        "after": {
+          "image_sha256": "585d20b3bdbee937d745a80541510182147a41b541ec8ae68626bbadb80e4ad4",
+          "complete_output_sha256": "37dbf635155110cc52444fe8c61b5c1820fb816a40a8c0a386b63a16e790b772"
+        }
+      }
+    },
+    {
+      "id": "tn-Standalone-3000",
+      "pruning_off_bytes": 10069,
+      "pruning_on_bytes": 10069,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 4
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 6
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24940
+      },
+      "pruning_on_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 24940
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "6b7c61bc52697aa01a69661f6e10b6f7676887b9180929388cc099a01ef77487",
+          "complete_output_sha256": "68766f150f358544f8e116fc7da062ba5b2d8ac0ff3a87b76fbd10146502867b"
+        },
+        "after": {
+          "image_sha256": "6b7c61bc52697aa01a69661f6e10b6f7676887b9180929388cc099a01ef77487",
+          "complete_output_sha256": "68766f150f358544f8e116fc7da062ba5b2d8ac0ff3a87b76fbd10146502867b"
+        }
+      }
+    },
+    {
+      "id": "tn-Standalone-41c7",
+      "pruning_off_bytes": 10069,
+      "pruning_on_bytes": 10069,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 4
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 6,
+        "reason": "CoreAllocation",
+        "removed_spills": 0,
+        "unreferenced_spills": 6
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24940
+      },
+      "pruning_on_work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 24940
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "3a7012093ba2caf27df3c873b502b9c6ac90e719cbfb6d4118842b1b6134ad22",
+          "complete_output_sha256": "04b524b344b80e4c5fa6f497e4966f47dcbdb1f3a60c0392d4256f08c3595cc3"
+        },
+        "after": {
+          "image_sha256": "3a7012093ba2caf27df3c873b502b9c6ac90e719cbfb6d4118842b1b6134ad22",
+          "complete_output_sha256": "04b524b344b80e4c5fa6f497e4966f47dcbdb1f3a60c0392d4256f08c3595cc3"
+        }
+      }
+    },
+    {
+      "id": "spill-pressure-ActionCart-3000",
+      "pruning_off_bytes": 118,
+      "pruning_on_bytes": 118,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 1,
+        "reason": "ReferencedOrExposed",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 1,
+        "reason": "ReferencedOrExposed",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 259
+      },
+      "pruning_on_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 259
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "b0ea3152cd598b66ca44ec3a06f4b95748360416c88984d6b95eb1a48e45e15d",
+          "complete_output_sha256": "ec86d398bc70b24a67b22db2095073e8173b6ee2b1af24c3cf97868df1636e55"
+        },
+        "after": {
+          "image_sha256": "b0ea3152cd598b66ca44ec3a06f4b95748360416c88984d6b95eb1a48e45e15d",
+          "complete_output_sha256": "ec86d398bc70b24a67b22db2095073e8173b6ee2b1af24c3cf97868df1636e55"
+        }
+      }
+    },
+    {
+      "id": "spill-pressure-ActionCart-41c7",
+      "pruning_off_bytes": 118,
+      "pruning_on_bytes": 118,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 1,
+        "reason": "ReferencedOrExposed",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 1,
+        "reason": "ReferencedOrExposed",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 259
+      },
+      "pruning_on_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 259
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "7325dd133040697a92551990acd8aa2a9277ded901f744eed7dba870f29cf5b1",
+          "complete_output_sha256": "18996d8e55c12a9c7cae992bf78f5aec1c72a34af5264db5290756b248f47d38"
+        },
+        "after": {
+          "image_sha256": "7325dd133040697a92551990acd8aa2a9277ded901f744eed7dba870f29cf5b1",
+          "complete_output_sha256": "18996d8e55c12a9c7cae992bf78f5aec1c72a34af5264db5290756b248f47d38"
+        }
+      }
+    },
+    {
+      "id": "spill-pressure-Standalone-3000",
+      "pruning_off_bytes": 200,
+      "pruning_on_bytes": 200,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 1,
+        "reason": "ReferencedOrExposed",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 1,
+        "reason": "ReferencedOrExposed",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 259
+      },
+      "pruning_on_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 259
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "288a90492f7775bbc0333b876ea77314aed2ce33aaf9e073f3a512dde1d048bf",
+          "complete_output_sha256": "6ec766cb02de3929b77bf1c94ff3560743b6731a64d64748e45ddc8ed221084c"
+        },
+        "after": {
+          "image_sha256": "288a90492f7775bbc0333b876ea77314aed2ce33aaf9e073f3a512dde1d048bf",
+          "complete_output_sha256": "6ec766cb02de3929b77bf1c94ff3560743b6731a64d64748e45ddc8ed221084c"
+        }
+      }
+    },
+    {
+      "id": "spill-pressure-Standalone-41c7",
+      "pruning_off_bytes": 200,
+      "pruning_on_bytes": 200,
+      "baseline_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 1,
+        "reason": "ReferencedOrExposed",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "current_pruning_result": {
+        "accepted": false,
+        "candidate_spills": 1,
+        "reason": "ReferencedOrExposed",
+        "removed_spills": 0,
+        "unreferenced_spills": 0
+      },
+      "baseline_current_output_equal": true,
+      "baseline_current_work_equal": true,
+      "pruning_off_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 28,
+        "rewrite_analysis_builds": 259
+      },
+      "pruning_on_work": {
+        "emission_invocations": 11,
+        "inner_emission_probes": 22,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 29,
+        "rewrite_analysis_builds": 259
+      },
+      "hashes": {
+        "before": {
+          "image_sha256": "e18871a828c30b3ac632cdeec6740931f9305bf2a75dcb6c22122e5f7c78d30a",
+          "complete_output_sha256": "f8e5867495c66b6636713a66a9b4d896779ce06a974d45a10c526f68409a47a2"
+        },
+        "after": {
+          "image_sha256": "e18871a828c30b3ac632cdeec6740931f9305bf2a75dcb6c22122e5f7c78d30a",
+          "complete_output_sha256": "f8e5867495c66b6636713a66a9b4d896779ce06a974d45a10c526f68409a47a2"
+        }
+      }
+    }
+  ]
+}

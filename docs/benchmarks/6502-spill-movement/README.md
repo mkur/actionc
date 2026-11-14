@@ -109,7 +109,7 @@ those checks pass or fail for the proposed physical layout.
 should not observe compiler-private temporaries or active compiler scratch,
 regardless of their allocation. Low-level/ABI accesses retain their explicit
 contracts. Liveness, overlapping compiler scratch roles, helper clobbers and ABI
-reads remain real obligations. The [design addendum](../../MIR6502_LATE_CLEANUP_DESIGN.md#resolve-storage-ownership-before-adding-movement-proofs)
+reads remain real obligations. The [design addendum](../../MIR6502_LATE_CLEANUP_DESIGN.md#storage-ownership-before-movement-proofs)
 distinguishes this proposed rule from existing 6502 behavior and notes the
 corresponding explicit rule in the 65816 ABI.
 

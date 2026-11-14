@@ -1,6 +1,9 @@
 use super::*;
 use crate::mir6502::{late_cleanup::tests::*, trace::Mir6502Trace};
 
+#[path = "ownership_tests.rs"]
+mod ownership;
+
 fn run(
     p: &MirProgram,
     log: &Preservation,
@@ -171,7 +174,7 @@ fn movement_diagnostic_bounds_are_explicit_and_do_not_hide_other_layout_changes(
 }
 
 #[test]
-fn structured_address_and_historical_frame_exposure_retain_declarations() {
+fn structured_address_and_historical_spill_exposure_retain_declarations() {
     let address = MirOp::LeaAddr {
         dst: MirDef::Reg(MirReg::A),
         target: home(),
@@ -362,8 +365,19 @@ fn shared_terminal_boundary_preserves_prior_cleanup_on_pruning_rejection() {
 }
 
 fn oracle_program() -> MirProgram {
-    program(vec![
-        load(MirMem::Absolute(0x600)),
+    let consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+        lo: MirFixedZpSlot(0xac),
+    });
+    let mut p = program(vec![
+        MirOp::MaterializeAddress {
+            consumer: consumer.clone(),
+            value: MirValue::ConstU16(0x600),
+        },
+        MirOp::LoadIndirect {
+            consumer: consumer.clone(),
+            dst: MirDef::Reg(MirReg::A),
+            offset: 0,
+        },
         MirOp::Binary {
             op: MirBinaryOp::Xor,
             dst: MirDef::Reg(MirReg::A),
@@ -373,12 +387,14 @@ fn oracle_program() -> MirProgram {
             carry_in: None,
             carry_out: MirCarryOut::Ignore,
         },
-        MirOp::Store {
-            dst: MirAddr::Direct(MirMem::Absolute(0x601)),
+        MirOp::StoreIndirect {
+            consumer,
             src: MirValue::Def(MirDef::Reg(MirReg::A)),
-            width: MirWidth::Byte,
+            offset: 1,
         },
-    ])
+    ]);
+    p.routines[0].frame.fixed_zero_page = vec![MirFixedZpSlot(0xac), MirFixedZpSlot(0xad)];
+    p
 }
 
 fn emit_output(

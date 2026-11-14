@@ -378,3 +378,47 @@ ABI observation tests retain concrete value and machine-state assertions.
 Caller fixture instrumentation and parsing both exercise LF and CRLF input.
 Documentation links and whitespace checks pass. Shared NIR/frontend contracts
 and other backends were unchanged; local validation is scoped accordingly.
+
+## Pruning ownership follow-up — slice 1
+
+Apply the same home-ownership rule to allocation pruning while retaining the
+core and final surviving-address equality guards. Reuse `StorageOwnership` for
+current and historical address/machine references and source backing. Remove
+frame-wide exposure caused by source-object addresses or initializer relocations.
+Use emission's complete source-storage inventory instead of a separate partial
+list of globals and absolute locals. Generic source-memory effects do not expose
+private allocations; explicit physical accesses and ABI homes remain protected.
+Unresolved assembly names or uninspectable raw-machine footprints still decline.
+
+Regression coverage must distinguish source-address exposure from actual spill
+exposure, retain historical typed assembly and source backing, reject source
+aliases and missing inventories, and preserve explicit physical/ABI accesses.
+Extend the existing exhaustive byte oracle to indirect source reads and writes;
+run its MADS reconstruction/relocation check in both text encodings. Keep the
+existing core-movement, deferred-storage movement and preservation rollback tests.
+Qualify pruning off/on against TN and independent controls, measuring actual
+output and work. Pruning remains opt-in; this slice grants no permission to move
+surviving storage.
+
+Completed: TN now has six eligible unused spill bytes instead of four; the two
+in `SetWin` are no longer excluded by neighboring source-address exposure. Both
+movement guards remain intact, and `CoreAllocation` still rejects the proposal.
+TN stays at 9,962 bytes cart / 10,069 standalone. This slice saves no additional
+bytes in the measured corpus.
+
+The existing [`late_spill_pruning.rs`](../tools/compare6502/late_spill_pruning.rs)
+harness compared the compiler at `514b5ca5` with this implementation over eight
+source/NIR-mode cases, both runtimes and origins `$3000`/`$41C7`. All 64 complete
+outputs and images (pruning off/on) match the baseline. Compiler work is unchanged
+in all 32 cases, and all 32 pruning trace-off/on comparisons pass. The
+[qualification receipt](benchmarks/6502-pruning-ownership/qualification.json)
+records hashes, work, outcomes and validation commands. Large artifacts remain
+under ignored `build/mir6502-pruning-ownership/`.
+
+Validation passed 46 affected unit tests, eight integration tests and five VM
+tests, plus the explicit MADS check with eight LF/CRLF reconstruction/relocation
+comparisons. The private-tail oracle executes 2,048 original/selected programs
+across every byte input, both runtimes and both origins using indirect reads and
+writes. The integration and VM controls parse actual LF and CRLF source. Local
+checks are scoped to pruning, terminal cleanup and their runtime consumers;
+shared frontend/NIR contracts and other backends did not change.
