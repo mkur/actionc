@@ -1,6 +1,6 @@
 # MIR6502 callee entry capture implementation plan
 
-Status: proposed; implementation has not started. Starting compiler: `72131db3`.
+Status: slice 0 complete; slices 1–3 pending. Starting compiler: `72131db3`.
 Implements the [callee capture boundary refinement](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-refinement-callee-entry-facts-through-parameter-capture).
 The [parameter handoff plan](MIR6502_PARAMETER_ARGUMENT_HANDOFF_IMPLEMENTATION_PLAN.md)
 is complete and supplies the production baseline. Work in the four slices below,
@@ -49,6 +49,10 @@ Add an independent ordinary Action caller/callee fixture. Retain a real call and
 make the callee use a selected ZP word home. Disable inlining for the isolated
 reproducer; also examine normal optimized callers. Use distinct low/high bytes
 and observable results so constants or dead-code removal cannot hide the case.
+
+Also distinguish the implicit balanced call/return stack requirement from an
+extra incoming stack dependency; ordinary Return currently makes SP live and
+therefore masks the fixed-byte rejection. Retain actual stack-operation checks.
 
 At the selected pre-capture checkpoint, record the actual callee binding, the
 reported extra fixed-byte inputs and the handoff rejection. Analyze the same

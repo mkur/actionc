@@ -1,0 +1,17 @@
+{
+  "units": {
+    "result": "test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 3393 filtered out; finished in 0.74s",
+    "log_sha256": "18b6319284960e8b419c2788f216561f79e77b5910d4e68b3797620fdae86fc0"
+  },
+  "integration": {
+    "result": "test result: ok. 6 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 7.86s",
+    "log_sha256": "2c4055d3d707922be88339053899836762ce0e631a723eacc1ff7b14bc176524"
+  },
+  "vm": {
+    "result": "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 147.17s",
+    "log_sha256": "461ab5bb75568274cf0e473357c1d3b53fcfc778ae8f6584c30a99cdd9e5d8b7"
+  },
+  "entry_evidence": [
+    "capture baseline before=Inputs { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: false }, fixed: {160, 161, 162, 163} } after=Inputs { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: false }, fixed: {163} } extra=Inputs { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: false }, fixed: {163, 172} }"
+  ]
+}

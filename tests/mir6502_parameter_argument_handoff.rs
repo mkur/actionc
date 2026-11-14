@@ -303,3 +303,66 @@ fn optimized_default_and_parent_gates_apply_to_productive_wrappers() {
         assert_eq!(before.manifest()["work"], after.manifest()["work"]);
     }
 }
+
+#[test]
+fn ordinary_action_capture_baseline_and_cross_newline_artifacts() {
+    let lf = include_str!("../fixtures/runtime/callee_entry_capture.act").replace("\r\n", "\n");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for origin in [0x3000, 0x41c7] {
+            for inline in [false, true] {
+                let mut expected: Option<actionc::codegen::CodegenOutput> = None;
+                for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+                    let n = nir(&source);
+                    let config = Mir6502Config {
+                        enable_small_leaf_inlining: inline,
+                        ..Mir6502Config::optimized()
+                    };
+                    let mut trace = Mir6502Trace::default();
+                    let out = mir6502::generate_output_with_trace(
+                        &n, origin, &config, runtime, &mut trace,
+                    )
+                    .unwrap();
+                    assert_eq!(
+                        out,
+                        mir6502::generate_output_with_config_and_runtime(
+                            &n, origin, &config, runtime
+                        )
+                        .unwrap()
+                    );
+                    if let Some(old) = &expected {
+                        assert_eq!(out.bytes, old.bytes);
+                        assert_eq!(out.map.storage_symbols, old.map.storage_symbols);
+                        assert_eq!(out.relocations, old.relocations);
+                    } else {
+                        expected = Some(out.clone());
+                    }
+                    assert_eq!(actionc::codegen::format_load_file(&out).len(), 375);
+                    assert!(
+                        trace.manifest()["work"]["parameter_argument_handoff_trials"].is_null()
+                    );
+                    for name in ["ForwardWords", "ForwardPointers", "ForwardExtra"] {
+                        let r = out
+                            .map
+                            .routine_ranges
+                            .iter()
+                            .find(|r| r.name == name)
+                            .unwrap();
+                        assert_eq!(r.end - r.start, 22, "{name}");
+                        let homes: u16 = out
+                            .map
+                            .storage_symbols
+                            .iter()
+                            .filter(|s| {
+                                s.scope
+                                    == actionc::codegen::CodegenSymbolScope::Routine(name.into())
+                                    && s.address >= 256
+                            })
+                            .map(|s| s.size)
+                            .sum();
+                        assert_eq!(homes, 4);
+                    }
+                }
+            }
+        }
+    }
+}

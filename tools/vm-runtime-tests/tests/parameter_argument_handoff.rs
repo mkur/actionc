@@ -305,3 +305,82 @@ fn tn_strcpy_uses_the_same_ordered_copy_contract() {
         }
     }
 }
+
+#[test]
+fn ordinary_action_callees_receive_abi_values_before_capture() {
+    let lf =
+        include_str!("../../../fixtures/runtime/callee_entry_capture.act").replace("\r\n", "\n");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for origin in [0x3000, 0x41c7] {
+            for inline in [false, true] {
+                let mut expected = None;
+                for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+                    let out = compile_with_inlining(&source, runtime, origin, true, inline);
+                    let image = actionc::codegen::format_load_file(&out);
+                    if let Some(old) = &expected {
+                        assert_eq!(&image, old);
+                    } else {
+                        expected = Some(image.clone());
+                    }
+                    let (mut vm, profile) = support::vm_for(runtime);
+                    vm.load_atari_object_for_execution(profile, &image).unwrap();
+                    for a in [0u16, 1, 0xff, 0x100, 0x12fe, 0x7fff, 0x8000, 0xff00, 0xffff] {
+                        let b = a ^ 0x5aa5;
+                        for (wrapper, callee) in [
+                            ("ForwardWord", "CaptureWord"),
+                            ("ForwardWords", "CaptureWords"),
+                            ("ForwardExtra", "ExtraFixed"),
+                            ("AfterCall", "CaptureWords"),
+                        ] {
+                            vm.bus_mut().ram_mut().write(0xac, 37);
+                            let mut hook = Observe {
+                                entry: entry(&out, callee),
+                                args: vec![],
+                                extra: vec![],
+                            };
+                            vm = machine::call(vm, &mut hook, entry(&out, wrapper), &words(a, b));
+                            let width = if wrapper == "ForwardWord" { 2 } else { 4 };
+                            assert_eq!(hook.args.len(), 1);
+                            assert_eq!(&hook.args[0][..width], &words(a, b)[..width]);
+                            let (first, second) = match wrapper {
+                                "ForwardWord" => (a.wrapping_add(1), a.wrapping_add(257)),
+                                "ForwardExtra" => (a.wrapping_add(37), b.wrapping_add(257)),
+                                "AfterCall" => (a.wrapping_add(b), b.wrapping_add(257)),
+                                _ => (a.wrapping_add(1), b.wrapping_add(257)),
+                            };
+                            assert_eq!(
+                                machine::bytes(&vm, 0x680, 4),
+                                words(first, second),
+                                "{wrapper}"
+                            );
+                        }
+                    }
+                    for (left, right) in
+                        [(0x70ffu16, 0x7100u16), (0x71ff, 0x7201), (0x70fe, 0x70fe)]
+                    {
+                        vm.bus_mut().ram_mut().write(left, 0x93);
+                        if right != left {
+                            vm.bus_mut().ram_mut().write(right, 0x27);
+                        }
+                        let mut hook = Observe {
+                            entry: entry(&out, "ReadPointers"),
+                            args: vec![],
+                            extra: vec![],
+                        };
+                        vm = machine::call(
+                            vm,
+                            &mut hook,
+                            entry(&out, "ForwardPointers"),
+                            &words(left, right),
+                        );
+                        assert_eq!(&hook.args[0][..4], &words(left, right));
+                        assert_eq!(
+                            machine::bytes(&vm, 0x680, 4),
+                            words(0x93, if right == left { 0x93 } else { 0x27 })
+                        );
+                    }
+                }
+            }
+        }
+    }
+}

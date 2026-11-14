@@ -305,3 +305,74 @@ fn full_word_argument_cannot_be_proved_from_a_partial_definition() {
     args[2].value = MirValue::Def(MirDef::VTempByte { id, byte: 0 });
     assert!(handoff::analyze(&complete, &complete.routines[index]).is_ok());
 }
+
+#[test]
+fn capture_boundary_baseline_exposes_false_working_home_inputs() {
+    let text =
+        include_str!("../../../fixtures/runtime/callee_entry_capture.act").replace("\r\n", "\n");
+    let ast = crate::parser::parse(&crate::lexer::tokenize(&text).unwrap()).unwrap();
+    let model =
+        crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
+            .unwrap();
+    let nir = crate::nir::optimize_program(&crate::nir::lower_program(
+        &crate::semantic::ir::lower_program(&ast, &model),
+    ))
+    .unwrap();
+    let config = super::super::Mir6502Config {
+        enable_small_leaf_inlining: false,
+        ..super::super::Mir6502Config::optimized()
+    };
+    let runtime = crate::runtime::Runtime::ActionCart;
+    let session = super::super::trace::Mir6502Trace::default();
+    let trace = session.context();
+    let (program, resume) =
+        super::super::prepare_program_for_emission(&nir, 0x3000, &config, runtime, &trace).unwrap();
+    let resume = resume.unwrap();
+    let baseline = super::super::finalize_output(&nir, program, 0x3000, runtime, &trace).unwrap();
+    let selected = SelectedPlacement {
+        input: Arc::new(resume.core.checkpoint.input.program.clone()),
+        executable: baseline,
+    };
+    let proposal = propose(&selected.input).unwrap();
+    let selected = try_proposal(
+        &nir,
+        selected,
+        &resume,
+        proposal,
+        "parameter-homes",
+        &config,
+        0x3000,
+        runtime,
+        &trace,
+    );
+    let callee = routine(&selected.input, "CaptureWords");
+    assert!(callee.frame.parameter_homes.is_some());
+    let before = MirCalleeEntryFact::analyze(&selected.input, callee.id).unwrap();
+    assert_eq!(
+        before.inputs.fixed,
+        BTreeSet::from([0xa0, 0xa1, 0xa2, 0xa3])
+    );
+    assert_eq!(
+        handoff::analyze(&selected.input, routine(&selected.input, "ForwardWords")).unwrap_err(),
+        "extra-entry-flags-or-stack"
+    );
+    assert!(before.inputs.registers.sp); // Normal Return, not a non-ABI stack input.
+    let after = MirCalleeEntryFact::analyze(&selected.executable.program, callee.id).unwrap();
+    assert_eq!(after.inputs.fixed, BTreeSet::from([0xa3]));
+    assert!(after.inputs.registers.a && after.inputs.registers.x && after.inputs.registers.y);
+    assert!(!after.inputs.flags.any());
+    let extra = MirCalleeEntryFact::analyze(
+        &selected.executable.program,
+        routine(&selected.input, "ExtraFixed").id,
+    )
+    .unwrap();
+    assert_eq!(extra.inputs.fixed, BTreeSet::from([0xa3, 0xac]));
+    assert!(
+        MirCalleeEntryFact::analyze(&selected.input, routine(&selected.input, "ReadPointers").id)
+            .is_none()
+    );
+    println!(
+        "capture baseline before={:?} after={:?} extra={:?}",
+        before.inputs, after.inputs, extra.inputs
+    );
+}

@@ -15,7 +15,22 @@ fn main() {
     let destination = Path::new(&destination);
     fs::create_dir_all(destination).unwrap();
     let handoff_suite = std::env::args().any(|a| a == "--suite-handoff");
-    let cases: &[(&str, &str, bool)] = if handoff_suite {
+    let capture_suite = std::env::args().any(|a| a == "--suite-capture");
+    let cases: &[(&str, &str, bool)] = if capture_suite {
+        &[
+            ("tn", "samples/tn/modern/TN.ACT", true),
+            (
+                "capture",
+                "fixtures/runtime/callee_entry_capture.act",
+                false,
+            ),
+            (
+                "capture-inline",
+                "fixtures/runtime/callee_entry_capture.act",
+                true,
+            ),
+        ]
+    } else if handoff_suite {
         &[
             ("tn", "samples/tn/modern/TN.ACT", true),
             (
@@ -90,7 +105,10 @@ fn main() {
                         .filter(|r| {
                             matches!(
                                 r.name.as_str(),
-                                "Fnamecmp"
+                                "CaptureWords"
+                                    | "ReadPointers"
+                                    | "ForwardPointers"
+                                    | "Fnamecmp"
                                     | "ComparePointers"
                                     | "AdvanceBoth"
                                     | "First"
@@ -131,6 +149,13 @@ fn main() {
                 .unwrap();
                 let mut rows = Vec::new();
                 for name in [
+                    "CaptureWord",
+                    "ForwardWord",
+                    "CaptureWords",
+                    "ReadPointers",
+                    "ForwardPointers",
+                    "ExtraFixed",
+                    "ForwardExtra",
                     "Fnamecmp",
                     "Strcpy",
                     "Strcat",

@@ -1,0 +1,53 @@
+; Ordinary Action callees establish their working homes after ABI entry.
+CARD first=$0680,second=$0682,seed=$0684
+BYTE extra=$AC
+
+PROC CaptureWord(CARD value)
+  first=value+1
+  second=value+257
+RETURN
+
+PROC ForwardWord(CARD value)
+  CaptureWord(value)
+RETURN
+
+PROC CaptureWords(CARD left,right)
+  first=left+1
+  second=right+257
+RETURN
+
+PROC ForwardWords(CARD left,right)
+  CaptureWords(left,right)
+RETURN
+
+PROC ReadPointers(CHAR POINTER left,right)
+  first=left^
+  second=right^
+RETURN
+
+PROC ForwardPointers(CHAR POINTER left,right)
+  ReadPointers(left,right)
+RETURN
+
+PROC ExtraFixed(CARD left,right)
+  first=left+extra
+  second=right+257
+RETURN
+
+PROC ForwardExtra(CARD left,right)
+  ExtraFixed(left,right)
+RETURN
+
+PROC AfterCall(CARD left,right)
+  CaptureWords(left,right)
+  first=left+right
+RETURN
+
+PROC Main()
+  ForwardWord(seed)
+  ForwardWords(seed,seed+17)
+  ForwardPointers($7000,$7100)
+  ForwardExtra(seed,seed+17)
+  AfterCall(seed,seed+17)
+  DO OD
+RETURN
