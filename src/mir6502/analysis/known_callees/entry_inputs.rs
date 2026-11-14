@@ -57,7 +57,6 @@ impl MirCalleeEntryFact {
             inputs,
         })
     }
-    #[allow(dead_code)] // Used by opt-in wrapper discovery in the next slice.
     pub fn is_current(&self, program: &MirProgram) -> bool {
         program.routines.iter().any(|r| r == self.source.as_ref())
             && self

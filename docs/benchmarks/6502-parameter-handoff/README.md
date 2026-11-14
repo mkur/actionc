@@ -54,3 +54,9 @@ mixed bindings are covered separately by execution tests: `[ZP($A0), X]` emits
 one real memory fragment, retains the high byte in X, and returns 256 distinct
 words correctly across both runtimes/origins and LF/CRLF input. This is a
 representation test; automatic wrapper placement is still disabled.
+
+Slice 4's [opt-in receipt](slice4-on.json) selects direct wrappers: ForwardWords
+is 11 code + 0 ordinary bytes and ForwardBytes 29 + 0, shrinking the control
+image from 572 to 549 bytes in all eight control configurations. TN is unchanged
+with identical hashes/work counts. No upstream search is replayed; productive
+control cases add one core continuation. Indirect producers are still excluded.

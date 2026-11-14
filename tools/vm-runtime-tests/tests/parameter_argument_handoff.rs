@@ -37,7 +37,7 @@ impl VmRunHooks for Observe {
         Ok(())
     }
 }
-fn compile(source: &str, runtime: Runtime, origin: u16) -> CodegenOutput {
+fn compile(source: &str, runtime: Runtime, origin: u16, handoff: bool) -> CodegenOutput {
     let file = support::Source::new(source);
     let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
     let model = actionc::semantic::analyze_with_options(
@@ -54,6 +54,7 @@ fn compile(source: &str, runtime: Runtime, origin: u16) -> CodegenOutput {
         origin,
         &Mir6502Config {
             enable_small_leaf_inlining: false,
+            enable_parameter_argument_handoff: handoff,
             ..Mir6502Config::optimized()
         },
         runtime,
@@ -73,13 +74,19 @@ fn words(a: u16, b: u16) -> Vec<u8> {
 
 #[test]
 fn forwarding_and_copy_wrappers_follow_independent_oracles() {
+    for handoff in [false, true] {
+        check_wrappers(handoff);
+    }
+}
+
+fn check_wrappers(handoff: bool) {
     let lf = include_str!("../../../fixtures/runtime/parameter_argument_handoff.act")
         .replace("\r\n", "\n");
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         for origin in [0x3000, 0x41c7] {
             let mut reference = None;
             for source in [lf.clone(), lf.replace('\n', "\r\n")] {
-                let out = compile(&source, runtime, origin);
+                let out = compile(&source, runtime, origin, handoff);
                 let image = actionc::codegen::format_load_file(&out);
                 if let Some(old) = &reference {
                     assert_eq!(old, &image);
@@ -208,6 +215,39 @@ fn forwarding_and_copy_wrappers_follow_independent_oracles() {
                             accesses, expected_accesses,
                             "dst={dst:x} src={src:x} length={length}"
                         );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn changed_positions_repeated_values_and_native_producers_are_safe() {
+    let lf = include_str!("../../../fixtures/runtime/parameter_argument_handoff_direct.act")
+        .replace("\r\n", "\n");
+    for handoff in [false, true] {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for origin in [0x3000, 0x41c7] {
+                for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+                    let out = compile(&source, runtime, origin, handoff);
+                    let image = actionc::codegen::format_load_file(&out);
+                    let (mut vm, profile) = support::vm_for(runtime);
+                    vm.load_atari_object_for_execution(profile, &image).unwrap();
+                    for a in [0u16, 1, 0xff, 0x100, 0x7fff, 0x8000, 0xffff] {
+                        let b = a ^ 0x5aa5;
+                        for name in ["Swapped", "Repeated", "Computed"] {
+                            let mut hook = Observe { entry: entry(&out, "CaptureLanes"), args: vec![], extra: vec![] };
+                            vm = machine::call(vm, &mut hook, entry(&out, name), &words(a, b));
+                            let (mut expected, tag) = match name {
+                                "Swapped" => (words(b, a), 3),
+                                "Repeated" => (words(a, a), 4),
+                                _ => (words(a, b), (a as u8).wrapping_add(17)),
+                            };
+                            expected.push(tag);
+                            assert_eq!(hook.args, vec![expected.clone()], "{name}: handoff={handoff}");
+                            assert_eq!(machine::bytes(&vm, 0x680, 5), expected);
+                        }
                     }
                 }
             }

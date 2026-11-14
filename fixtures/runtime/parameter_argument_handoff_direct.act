@@ -1,0 +1,32 @@
+; Changed positions, repeated arguments and a native computed fifth byte.
+CARD input=$0690
+PROC CaptureLanes=*(CARD first,second BYTE tag)
+ASM
+  sta $0680
+  stx $0681
+  sty $0682
+  lda $A3
+  sta $0683
+  lda $A4
+  sta $0684
+  rts
+ENDASM
+
+PROC Swapped(CARD first,second)
+  CaptureLanes(second,first,3)
+RETURN
+
+PROC Repeated(CARD first,second)
+  CaptureLanes(first,first,4)
+RETURN
+
+PROC Computed(CARD first,second)
+  CaptureLanes(first,second,BYTE(first)+17)
+RETURN
+
+PROC Main()
+  Swapped(input,input+1)
+  Repeated(input,input+1)
+  Computed(input,input+1)
+  DO OD
+RETURN

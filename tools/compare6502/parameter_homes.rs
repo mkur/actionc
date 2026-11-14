@@ -172,6 +172,10 @@ fn main() {
                     })
                     .map(|e| e.data.to_string())
                     .unwrap_or("null".into());
+                let handoff_outcome = events.iter().rev().find(|e|
+                    e.kind == "parameter-argument-handoff-result"
+                    || (e.kind == "stage" && e.data["stage"] == "parameter-argument-handoff"))
+                    .map(|e| e.data.to_string()).unwrap_or("null".into());
                 let upstream = [
                     "inlining",
                     "loop_motion",
@@ -204,7 +208,7 @@ fn main() {
                 .collect::<Vec<_>>()
                 .join(",");
                 println!(
-                    "{{\"id\":\"{id}\",\"image_bytes\":{},\"routines\":[{}],\"parameter_home_outcome\":{outcome},\"work\":{},\"upstream\":{{{upstream}}},\"traced_micros\":{traced_micros},\"untraced_micros\":{untraced_micros},\"trace_matches_untraced\":true}}",
+                    "{{\"id\":\"{id}\",\"image_bytes\":{},\"routines\":[{}],\"parameter_home_outcome\":{outcome},\"handoff_outcome\":{handoff_outcome},\"work\":{},\"upstream\":{{{upstream}}},\"traced_micros\":{traced_micros},\"untraced_micros\":{untraced_micros},\"trace_matches_untraced\":true}}",
                     bytes.len(),
                     rows.join(","),
                     trace.manifest()["work"]

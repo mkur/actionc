@@ -1,7 +1,6 @@
 //! Bounded entry-to-terminal-call consumption. Discovery owns its input bodies;
 //! expanded verification reconstructs the call identity instead of replaying an
 //! instruction index from before materialization.
-#![allow(dead_code)] // Discovery is enabled only after the productive selection slice.
 use super::*;
 use crate::mir6502::analysis::{
     known_callees::MirCalleeEntryFact,
@@ -17,7 +16,9 @@ use crate::mir6502::analysis::argument_staging::MAX_SETUP_OPS;
 pub(super) struct WrapperFacts {
     source: Arc<MirRoutine>,
     callee: MirCalleeEntryFact,
+    #[allow(dead_code)] // Retained generation/site witness, exercised by proof tests.
     pub call: MirProgramPoint,
+    #[allow(dead_code)]
     pub definitions: Vec<MirDefSite>,
     pub outgoing: Vec<MirParamLane>,
 }
@@ -268,4 +269,93 @@ pub(super) fn verify(program: &MirProgram, routine: &MirRoutine) -> Vec<MirDiagn
             )]
         })
         .unwrap_or_default()
+}
+
+/// One deterministic batch, retaining every already-selected leaf binding.
+pub(super) fn propose(input: &MirProgram, selected: &MirProgram) -> Option<MirProgram> {
+    let mut proposal = None;
+    'routines: for (index, routine) in input.routines.iter().enumerate() {
+        // Already-elided homes have no storage saving to justify a new capture.
+        let Some(old) = selected.routines.iter().find(|r| r.id == routine.id) else { continue };
+        if !old.frame.params.iter().any(|p| matches!(p.base, MirStorageBase::Param(id)
+            if old.frame.parameter_has_memory(id)
+                && matches!(old.frame.parameter_home(id), None | Some(MirParamHome::Inline)))) {
+            continue;
+        }
+        let Ok(facts) = analyze(input, routine) else { continue };
+        if has_pointer_reads(routine) || !facts.is_current(input) { continue; }
+        let owned = source_zero_page(input, routine);
+        let mut offset = 0u8;
+        let mut bindings = Vec::new();
+        let mut reserved = Vec::new();
+        for slot in &routine.frame.params {
+            let MirStorageBase::Param(param) = slot.base else { unreachable!() };
+            let start = 0xa0 + offset;
+            if absent_parameter(routine, param) {
+                bindings.push(MirParamBinding { param, home: MirParamHome::Absent });
+                offset += slot.storage_size as u8;
+                continue;
+            }
+            // Retaining the fourth input in A3 requires an identity outgoing
+            // lane. A permutation would overwrite it before register reloads;
+            // leave that cycle to the original staging strategy.
+            if u16::from(offset) + slot.storage_size == 4
+                && !forwards_to_same_home(routine, param, offset as u16, slot.scalar_width.unwrap()) {
+                continue 'routines;
+            }
+            for byte in start..start + slot.storage_size as u8 {
+                reserved.push(MirFixedZpSlot(byte));
+            }
+            let mut lanes = (0..slot.storage_size).map(|i|
+                MirParamLane::ZeroPage(MirFixedZpSlot(start + i as u8))).collect::<Vec<_>>();
+            if direct_register_forward(routine, param, offset as u16, slot.scalar_width.unwrap()) {
+                for (lane, incoming) in lanes.iter_mut().zip(super::super::abi::physical_lanes(
+                    &super::super::abi::action_arg_home(offset as u16, slot.scalar_width.unwrap()),
+                    slot.scalar_width.unwrap()).unwrap()) {
+                    if matches!(incoming, MirParamLane::Reg(MirReg::X | MirReg::Y)) {
+                        *lane = incoming;
+                    }
+                }
+            }
+            bindings.push(MirParamBinding { param, home: MirParamHome::Lanes(lanes) });
+            offset += slot.storage_size as u8;
+        }
+        reserved.retain(|slot| bindings.iter().any(|b| matches!(&b.home,
+            MirParamHome::Lanes(lanes) if lanes.contains(&MirParamLane::ZeroPage(*slot)))));
+        if reserved.iter().any(|s| owned.contains(&s.0)) { continue; }
+        let result = proposal.get_or_insert_with(|| input.clone());
+        let r = &mut result.routines[index];
+        for slot in reserved {
+            if !r.frame.fixed_zero_page.contains(&slot) { r.frame.fixed_zero_page.push(slot); }
+        }
+        r.frame.parameter_homes = Some(bindings);
+        r.frame.parameter_handoff = Some(facts.contract());
+    }
+    proposal
+}
+
+fn direct_register_forward(routine: &MirRoutine, param: crate::nir::ParamId,
+    incoming: u16, width: MirWidth) -> bool {
+    let ops = &routine.blocks[0].ops;
+    // This closed expansion set does not require X/Y before call transfers.
+    if ops[..ops.len()-1].iter().any(|op| !matches!(op,
+        MirOp::Load { src: MirAddr::Direct(MirMem::Param { .. }), .. }
+        | MirOp::LoadImm { width: MirWidth::Byte, .. }
+        | MirOp::Binary { width: MirWidth::Byte, .. })) { return false; }
+    forwards_to_same_home(routine, param, incoming, width)
+}
+
+fn forwards_to_same_home(routine: &MirRoutine, param: crate::nir::ParamId,
+    incoming: u16, width: MirWidth) -> bool {
+    let ops = &routine.blocks[0].ops;
+    let loads: Vec<_> = ops.iter().filter_map(|op| match op {
+        MirOp::Load { dst, src: MirAddr::Direct(MirMem::Param { id, offset: 0 }), width: w }
+            if *id == param && *w == width => Some(dst), _ => None,
+    }).collect();
+    let [dst] = loads.as_slice() else { return false };
+    let MirOp::Call { args, .. } = ops.last().unwrap() else { return false };
+    let home = super::super::abi::action_arg_home(incoming, width);
+    args.iter().filter(|a| a.value == MirValue::Def((*dst).clone())).count() == 1
+        && args.iter().any(|a| a.value == MirValue::Def((*dst).clone())
+            && a.width == width && a.home == home)
 }

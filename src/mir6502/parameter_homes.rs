@@ -48,10 +48,13 @@ pub(super) fn select_output(
     } else {
         trace.skipped("parameter-homes", "no-candidates");
     }
-    // Production discovery is deliberately disabled until the lane and terminal
-    // consumption proofs are implemented. No candidate means no continuation.
     if config.enable_parameter_argument_handoff {
-        trace.skipped("parameter-argument-handoff", "no-candidates");
+        if let Some(proposal) = handoff::propose(&selected.input, &selected.executable.program) {
+            selected = try_proposal(nir, selected, &resume, proposal,
+                "parameter-argument-handoff", config, origin, runtime, trace);
+        } else {
+            trace.skipped("parameter-argument-handoff", "no-candidates");
+        }
     }
     selected.executable
 }

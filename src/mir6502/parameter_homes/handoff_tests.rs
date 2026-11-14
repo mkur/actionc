@@ -200,3 +200,30 @@ fn wrapper_definition_witness_rejects_a_missing_producer() {
         Err("missing-argument-definition")
     ));
 }
+
+#[test]
+fn direct_selection_retains_registers_and_declines_fixed_slot_cycles() {
+    let program = controls();
+    let proposal = handoff::propose(&program, &program).unwrap();
+    let forward = routine(&proposal, "ForwardWords");
+    let lanes: Vec<_> = forward.frame.params.iter().flat_map(|p| {
+        let MirStorageBase::Param(id) = p.base else { panic!() };
+        forward.frame.parameter_lanes(id).unwrap()
+    }).collect();
+    assert_eq!(lanes, vec![MirParamLane::ZeroPage(MirFixedZpSlot(0xa0)),
+        MirParamLane::Reg(MirReg::X), MirParamLane::Reg(MirReg::Y),
+        MirParamLane::ZeroPage(MirFixedZpSlot(0xa3))]);
+    assert!(routine(&proposal, "CopyCounted").frame.parameter_handoff.is_none());
+    assert!(verify_storage(&proposal, forward).is_empty());
+    let extra = source(&include_str!("../../../fixtures/runtime/parameter_argument_handoff_direct.act")
+        .replace("\r\n", "\n"));
+    let proposed = handoff::propose(&extra, &extra).unwrap();
+    assert_eq!(routine(&extra, "Swapped"), routine(&proposed, "Swapped"));
+    for name in ["Repeated", "Computed"] {
+        assert!(routine(&proposed, name).frame.parameter_handoff.is_some(), "{name}");
+    }
+    let owned = source(&format!("BYTE owned=$A0\n{}",
+        include_str!("../../../fixtures/runtime/parameter_argument_handoff_direct.act")
+            .replace("\r\n", "\n")));
+    assert!(handoff::propose(&owned, &owned).is_none());
+}

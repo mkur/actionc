@@ -1,6 +1,6 @@
 # MIR6502 parameter-to-argument handoff implementation plan
 
-Prepared 2026-11-14. Status: slices 0–3 complete; slices 4–6 pending.
+Prepared 2026-11-14. Status: slices 0–4 complete; slices 5–6 pending.
 Starting compiler: `471ef1c8`, with qualified leaf parameter placement enabled.
 
 Implements the [parameter handoff design extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-parameter-handoff-to-call-arguments).
@@ -395,3 +395,33 @@ overwrite-before-read, setup clobbers and terminal consumption. Initial tests
 exposed absent scalar signatures for pointer parameters and opaque raw assembly;
 the signature guard now rejects only an explicit non-void result, and the flag
 fixture uses analyzed ASM. Production selection is still disabled.
+
+### Slice 4 completion
+
+Slice 3 is `b802dfea`. Opt-in discovery selects one deterministic direct-wrapper
+batch after leaf selection. It retains surviving X/Y lanes, captures other live
+bytes in reserved ZP, and removes absent homes. The existing parameter call
+consumer resolves bound memory lanes, letting shared call lowering omit identity
+transfers. The fourth incoming byte stays in A3 only for a proved identity
+outgoing lane; unsupported permutation cycles keep their original staging.
+Final expansion/lifetime checks and strict whole-image/per-routine acceptance
+remain authoritative, with exact rollback. Indirect producers remain excluded.
+
+Validation: 21 parameter-home and five parameter-consumer unit tests, 24 active
+integration tests across seven targets, and two VM tests pass. VM tests cover
+both gates/runtimes/origins and actual LF/CRLF loading, canonical callee inputs,
+byte widening, native computation, repeated/permuted arguments, all 256 copy
+lengths, overlap, ordered accesses and stack balance. For this focused run the VM
+test was compiled with rustc against the just-built root actionc rlib and existing
+actionc-vm rlib, avoiding another compiler build; final qualification uses Cargo.
+An initial unit binary still contained a too-broad A2 exclusion assertion; the
+corrected A0 exclusion was rebuilt and passes. No production proof was weakened.
+
+The [slice 4 receipt](benchmarks/6502-parameter-handoff/slice4-on.json) records
+549-byte controls versus 572: ForwardWords becomes 11 code + 0 inline bytes,
+ForwardBytes 29 + 0. All four TN hashes and work counts are unchanged. All twelve
+upstream selections are unchanged, and productive cases add exactly one core
+continuation. A separate reordered/repeated/computed control passes independent
+VM checks; its swapped cycle is excluded before the batch. Both gates remain
+unchanged by default (handoff off). Three MADS integration cases remain ignored
+in the focused run and are reserved for final qualification.

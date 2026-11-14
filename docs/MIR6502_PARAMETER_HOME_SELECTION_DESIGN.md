@@ -590,3 +590,15 @@ read before definite overwrite through closed control flow. An unknown entry
 observation rejects the proposal. A known terminal callee may have unbounded
 pointee writes; it still must receive every required input, and existing wrapper
 preservation contracts are replayed by the continuation.
+
+### Direct-wrapper selection policy
+
+The opt-in extension makes one deterministic batch after leaf selection. Direct
+forwarding may retain incoming X/Y lanes; other live lanes use reserved working
+ZP. The existing parameter call consumer resolves memory lanes through the frame
+binding so ordinary transfer lowering recognizes fixed-slot identity copies.
+Register consumers still require the shared availability proof. An incoming A3
+lane is retained only when the outgoing lane is the same definition; unsupported
+permutation cycles use the original staging strategy. Already-elided homes do
+not trigger another capture proposal. Indirect producers remain outside this
+productive slice; the final-cost transaction can reject the entire batch.
