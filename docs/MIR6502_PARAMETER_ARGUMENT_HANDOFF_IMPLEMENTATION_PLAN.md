@@ -1,6 +1,6 @@
 # MIR6502 parameter-to-argument handoff implementation plan
 
-Prepared 2026-11-14. Status: slice 0 complete; slices 1–6 pending.
+Prepared 2026-11-14. Status: slices 0–1 complete; slices 2–6 pending.
 Starting compiler: `471ef1c8`, with qualified leaf parameter placement enabled.
 
 Implements the [parameter handoff design extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-parameter-handoff-to-call-arguments).
@@ -323,3 +323,21 @@ and actual LF/CRLF source loading. Cross-newline executable/storage comparison
 intentionally excludes source spans, whose byte offsets differ with CRLF.
 Tracing versus untraced compilation still compares the entire output.
 Compiler source is unchanged in this slice.
+
+### Slice 1 completion
+
+Slice 0 is `c3307cf7`. Selected placement now retains its exact input alongside
+its executable; continuation state is borrowed and immutable. The extension gate
+is off in both configurations and subordinate to the existing two gates.
+Production discovery remains disabled pending the lane/consumption proof slices.
+
+Validation: 12 parameter-home and 3 preparation unit tests, plus 14 integration
+checks across handoff, phase tracing and layout census pass. Forced second trials
+cover unchanged/equal-cost, invalid and growing proposals after original,
+accepted-leaf and rejected-leaf selection; rollback retains input identity,
+program, full output, costs and trace selection. No-candidate gate combinations
+add no work. The [gate-off receipt](benchmarks/6502-parameter-handoff/slice1-off.json)
+matches all 12 baseline image hashes, routine sizes, work counts and upstream
+decisions. The initial unit attempt used an overbroad assertion that also banned
+required downstream continuation work; the corrected upstream-only assertion and
+all artifact assertions pass. No compiler behavior changed to satisfy that test.

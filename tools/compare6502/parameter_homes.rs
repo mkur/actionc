@@ -10,6 +10,7 @@ use std::{fs, path::Path};
 
 fn main() {
     let enabled = std::env::args().any(|a| a == "--enabled");
+    let handoff = std::env::args().any(|a| a == "--handoff");
     let destination = std::env::args().nth(1).expect("output directory");
     let destination = Path::new(&destination);
     fs::create_dir_all(destination).unwrap();
@@ -70,6 +71,7 @@ fn main() {
             for origin in [0x3000, 0x41c7] {
                 let config = Mir6502Config {
                     enable_parameter_home_selection: enabled,
+                    enable_parameter_argument_handoff: handoff,
                     enable_small_leaf_inlining: inline,
                     ..Mir6502Config::optimized()
                 };

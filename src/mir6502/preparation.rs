@@ -82,6 +82,13 @@ pub(super) struct Resume {
     pub range_source: Option<MirProgram>,
 }
 
+/// The accepted input and executable advance together. A later placement trial
+/// must start here, including prior reservations and removed absent-home stores.
+pub(super) struct SelectedPlacement {
+    pub input: Arc<MirProgram>,
+    pub executable: Executable,
+}
+
 #[derive(Clone)]
 pub(super) struct Executable {
     pub program: MirProgram,
@@ -105,7 +112,7 @@ impl Executable {
 
 pub(super) fn resume_output(
     nir: &crate::nir::NirProgram,
-    resume: Resume,
+    resume: &Resume,
     proposal: MirProgram,
     config: &Mir6502Config,
     origin: u16,
@@ -113,8 +120,12 @@ pub(super) fn resume_output(
     trace: &super::trace::Trace,
 ) -> Result<Executable, Vec<super::MirDiagnostic>> {
     trace.count("parameter_home_trials", 1);
-    let mut input = resume.core.checkpoint.input.clone();
-    input.program = proposal;
+    let original = &resume.core.checkpoint.input;
+    let input = CoreInput {
+        program: proposal,
+        config: original.config.clone(),
+        helpers: original.helpers.clone(),
+    };
     let mut program = super::materialize::resume_core(input, origin, trace)?;
     super::verify_program(&program, MirPhase::PostMaterialization)?;
     super::runtime::resolve_helpers(&mut program, runtime)?;
@@ -176,8 +187,20 @@ mod tests {
         });
         assert!(rejected.checkpoint().is_none());
         assert!(selected.checkpoint().is_some());
-        assert!(selected.clone().guard_checkpoint(true).checkpoint().is_none());
-        assert!(selected.clone().guard_checkpoint(false).checkpoint().is_some());
+        assert!(
+            selected
+                .clone()
+                .guard_checkpoint(true)
+                .checkpoint()
+                .is_none()
+        );
+        assert!(
+            selected
+                .clone()
+                .guard_checkpoint(false)
+                .checkpoint()
+                .is_some()
+        );
         assert_eq!(selected.checkpoint().unwrap().input.program, p);
     }
 
@@ -217,7 +240,7 @@ mod tests {
                 .unwrap();
             let event_start = session.events().len();
             let result =
-                resume_output(&n, resume, proposal, &config, 0x3000, runtime, &trace).unwrap();
+                resume_output(&n, &resume, proposal, &config, 0x3000, runtime, &trace).unwrap();
             assert_eq!(baseline.output, result.output);
             assert_eq!(baseline.costs, result.costs);
             assert!(!result.improves(&baseline));

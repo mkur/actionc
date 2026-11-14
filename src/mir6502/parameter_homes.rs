@@ -1,7 +1,9 @@
 //! One parameter binding owns entry capture, working storage, and layout.
 //! Selection resumes one core continuation and accepts only a smaller image.
+use super::preparation::{Resume, SelectedPlacement};
 use super::{diagnostics::MirDiagnostic, ir::*};
 use std::collections::BTreeSet;
+use std::sync::Arc;
 mod lifetimes;
 mod zero_page;
 pub(super) use lifetimes::verify as verify_lifetimes;
@@ -22,13 +24,31 @@ pub(super) fn select_output(
         trace.skipped("parameter-homes", "no-current-checkpoint");
         return baseline;
     };
-    let Some(proposal) = propose(&resume.core.checkpoint.input.program) else {
-        trace.skipped("parameter-homes", "no-candidates");
-        return baseline;
+    let mut selected = SelectedPlacement {
+        input: Arc::new(resume.core.checkpoint.input.program.clone()),
+        executable: baseline,
     };
-    try_proposal(
-        nir, baseline, resume, proposal, config, origin, runtime, trace,
-    )
+    if let Some(proposal) = propose(&selected.input) {
+        selected = try_proposal(
+            nir,
+            selected,
+            &resume,
+            proposal,
+            "parameter-homes",
+            config,
+            origin,
+            runtime,
+            trace,
+        );
+    } else {
+        trace.skipped("parameter-homes", "no-candidates");
+    }
+    // Production discovery is deliberately disabled until the lane and terminal
+    // consumption proofs are implemented. No candidate means no continuation.
+    if config.enable_parameter_argument_handoff {
+        trace.skipped("parameter-argument-handoff", "no-candidates");
+    }
+    selected.executable
 }
 
 fn propose(input: &MirProgram) -> Option<MirProgram> {
@@ -233,19 +253,32 @@ fn absent_parameter(routine: &MirRoutine, id: crate::nir::ParamId) -> bool {
 
 fn try_proposal(
     nir: &crate::nir::NirProgram,
-    baseline: super::preparation::Executable,
-    resume: super::preparation::Resume,
+    selected: SelectedPlacement,
+    resume: &Resume,
     proposal: MirProgram,
+    stage: &'static str,
     config: &super::Mir6502Config,
     origin: u16,
     runtime: crate::runtime::Runtime,
     trace: &super::trace::Trace,
-) -> super::preparation::Executable {
-    let child = trace.child("parameter-homes", "batch-trial");
-    let trial =
-        super::preparation::resume_output(nir, resume, proposal, config, origin, runtime, &child);
+) -> SelectedPlacement {
+    let child = trace.child(stage, "batch-trial");
+    if stage == "parameter-argument-handoff" {
+        child.count("parameter_argument_handoff_trials", 1);
+    }
+    let input = Arc::new(proposal);
+    let baseline = &selected.executable;
+    let trial = super::preparation::resume_output(
+        nir,
+        resume,
+        (*input).clone(),
+        config,
+        origin,
+        runtime,
+        &child,
+    );
     let accepted = trial.as_ref().is_ok_and(|p| p.improves(&baseline));
-    child.event("parameter-home-result", || serde_json::json!({
+    child.event(if stage == "parameter-homes" { "parameter-home-result" } else { "parameter-argument-handoff-result" }, || serde_json::json!({
         "accepted": accepted,
         "routine_cost_changes": trial.as_ref().ok().map(|p| p.program.routines.iter().filter_map(|r| {
             let before = baseline.costs.get(&r.id)?;
@@ -257,7 +290,14 @@ fn try_proposal(
         "after_bytes": trial.as_ref().ok().map(|p| crate::codegen::format_load_file(&p.output).len()),
         "reason": if accepted {"smaller-image"} else if trial.is_err() {"invalid-trial"} else {"no-final-saving-or-routine-growth"},
     }));
-    if accepted { trial.unwrap() } else { baseline }
+    if accepted {
+        SelectedPlacement {
+            input,
+            executable: trial.unwrap(),
+        }
+    } else {
+        selected
+    }
 }
 
 /// Address uses expose the parameter object, unlike dereferencing its value.
@@ -747,6 +787,130 @@ mod tests {
     }
 
     #[test]
+    fn later_trials_keep_the_exact_selected_input_and_executable() {
+        let ast = crate::parser::parse(
+            &crate::lexer::tokenize(
+                &include_str!("../../fixtures/runtime/parameter_registers.act")
+                    .replace("\r\n", "\n"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let model =
+            crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
+                .unwrap();
+        let nir = crate::nir::optimize_program(&crate::nir::lower_program(
+            &crate::semantic::ir::lower_program(&ast, &model),
+        ))
+        .unwrap();
+        let config = super::super::Mir6502Config {
+            enable_small_leaf_inlining: false,
+            enable_parameter_argument_handoff: true,
+            ..super::super::Mir6502Config::optimized()
+        };
+        let runtime = crate::runtime::Runtime::ActionCart;
+        for leaf_path in 0..3 {
+            let session = super::super::trace::Mir6502Trace::default();
+            let trace = session.context();
+            let (program, resume) =
+                super::super::prepare_program_for_emission(&nir, 0x3000, &config, runtime, &trace)
+                    .unwrap();
+            let resume = resume.unwrap();
+            let baseline =
+                super::super::finalize_output(&nir, program, 0x3000, runtime, &trace).unwrap();
+            let original_size = baseline.output.bytes.len();
+            let mut selected = SelectedPlacement {
+                input: Arc::new(resume.core.checkpoint.input.program.clone()),
+                executable: baseline,
+            };
+            if leaf_path != 0 {
+                let mut proposal = propose(&selected.input).expect("leaf controls qualify");
+                if leaf_path == 2 {
+                    proposal.routines[0].frame.parameter_homes = Some(vec![]);
+                }
+                selected = try_proposal(
+                    &nir,
+                    selected,
+                    &resume,
+                    proposal,
+                    "parameter-homes",
+                    &config,
+                    0x3000,
+                    runtime,
+                    &trace,
+                );
+            }
+            assert_eq!(
+                selected.executable.output.bytes.len() < original_size,
+                leaf_path == 1
+            );
+            // The accepted leaf input includes its removed absent stores, not
+            // just a copied binding table. Exact resumption must reproduce it.
+            for trial_kind in 0..3 {
+                let expected_input = Arc::clone(&selected.input);
+                let expected = selected.executable.clone();
+                let mut proposal = (*selected.input).clone();
+                if trial_kind == 1 {
+                    proposal.routines[0].frame.parameter_homes = Some(vec![]);
+                } else if trial_kind == 2 {
+                    for i in 0..20 {
+                        proposal.routines[0].blocks[0].ops.insert(
+                            0,
+                            MirOp::Store {
+                                dst: MirAddr::Direct(MirMem::Absolute(0x600 + i)),
+                                src: MirValue::ConstU8(i as u8),
+                                width: MirWidth::Byte,
+                            },
+                        );
+                    }
+                }
+                let before = session.manifest()["work"]["materializations"]
+                    .as_u64()
+                    .unwrap();
+                let event_start = session.events().len();
+                selected = try_proposal(
+                    &nir,
+                    selected,
+                    &resume,
+                    proposal,
+                    "parameter-argument-handoff",
+                    &config,
+                    0x3000,
+                    runtime,
+                    &trace,
+                );
+                assert!(Arc::ptr_eq(&selected.input, &expected_input));
+                assert_eq!(selected.executable.output, expected.output);
+                assert_eq!(selected.executable.program, expected.program);
+                assert_eq!(selected.executable.costs, expected.costs);
+                assert_eq!(selected.executable.trace_snapshot, expected.trace_snapshot);
+                let after = session.manifest()["work"]["materializations"]
+                    .as_u64()
+                    .unwrap();
+                assert!(after <= before + 1);
+                assert!(
+                    !session.events()[event_start..]
+                        .iter()
+                        .any(|e| e.kind == "attempt-start"
+                            && matches!(
+                                e.data["stage"].as_str(),
+                                Some(
+                                    "inlining"
+                                        | "loop_motion"
+                                        | "comparison_loops"
+                                        | "call_predicates"
+                                        | "address_values"
+                                        | "copy_values"
+                                        | "scalar_captures"
+                                        | "captured_comparisons"
+                                )
+                            ))
+                );
+            }
+        }
+    }
+
+    #[test]
     fn invalid_and_growing_trials_restore_the_complete_fallback() {
         let ast = crate::parser::parse(
             &crate::lexer::tokenize("CARD FUNC Echo(CARD x) RETURN(x)").unwrap(),
@@ -786,15 +950,19 @@ mod tests {
             }
             let result = try_proposal(
                 &nir,
-                baseline,
-                resume,
+                SelectedPlacement {
+                    input: Arc::new(resume.core.checkpoint.input.program.clone()),
+                    executable: baseline,
+                },
+                &resume,
                 proposal,
+                "parameter-homes",
                 &config,
                 0x3000,
                 crate::runtime::Runtime::ActionCart,
                 &trace,
             );
-            assert_eq!(result.output, expected);
+            assert_eq!(result.executable.output, expected);
         }
     }
 }

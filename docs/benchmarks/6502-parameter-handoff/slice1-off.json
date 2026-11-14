@@ -1,0 +1,1242 @@
+{
+  "revision": "c3307cf768ebc814bebe52a6ebcfc2c1d4a11300",
+  "parameter_home_selection": true,
+  "parameter_argument_handoff": false,
+  "suite": "handoff",
+  "probe_elapsed_seconds": 101.58347645797767,
+  "probe_time_report": "      101.57 real        97.56 user         1.09 sys\n           298795008  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n              180680  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   5  voluntary context switches\n               62961  involuntary context switches\n       1283170366443  instructions retired\n        305055595916  cycles elapsed\n           282576576  peak memory footprint\n",
+  "timing_scope": "One sequential process, all cases traced and untraced; not a statistical performance claim.",
+  "worktree_diff_sha256": "86a25db98707ca3cdcfa6a449f73a6c2e8c5c0cdd918b66fe04d898abff41231",
+  "api_rlib_sha256": "f1b56e185ceb3fc55e73a0e4db43aec15121633db7fe16ed15d63fd3c66ff2c0",
+  "source_sha256_lf": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "fixtures/runtime/parameter_argument_handoff.act": "8adc33b3f9f22c36826fb0963ef1a2adc4ae42c4c8dd2a85826a34ffb07617e7"
+  },
+  "cases": [
+    {
+      "id": "tn-ActionCart-3000",
+      "image_bytes": 9878,
+      "routines": [
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 105,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4
+        },
+        {
+          "name": "Strcpy",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Strcat",
+          "code_bytes": 113,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 9878,
+        "before_bytes": 9962,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 105,
+            "before": 189,
+            "routine": "Fnamecmp"
+          }
+        ]
+      },
+      "work": {
+        "emission_invocations": 83,
+        "inner_emission_probes": 498,
+        "late_cleanup_preservation_replays": 12,
+        "materializations": 4,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 45,
+        "rewrite_analysis_builds": 33556
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": [
+            {
+              "accepted_routines": [
+                14,
+                50,
+                51
+              ],
+              "outcome": "partial",
+              "rejected_routines": [
+                56
+              ],
+              "stage": "captured_comparisons"
+            }
+          ]
+        }
+      },
+      "traced_micros": 12665548,
+      "untraced_micros": 11674762,
+      "trace_matches_untraced": true,
+      "image_sha256": "b5bc7247e03da63714c0986b348ec371ce574798a6dd832f51bb30b8f4db1eef"
+    },
+    {
+      "id": "tn-ActionCart-41c7",
+      "image_bytes": 9878,
+      "routines": [
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 105,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4
+        },
+        {
+          "name": "Strcpy",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Strcat",
+          "code_bytes": 113,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 9878,
+        "before_bytes": 9962,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 105,
+            "before": 189,
+            "routine": "Fnamecmp"
+          }
+        ]
+      },
+      "work": {
+        "emission_invocations": 83,
+        "inner_emission_probes": 498,
+        "late_cleanup_preservation_replays": 12,
+        "materializations": 4,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 45,
+        "rewrite_analysis_builds": 33556
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": [
+            {
+              "accepted_routines": [
+                14,
+                50,
+                51
+              ],
+              "outcome": "partial",
+              "rejected_routines": [
+                56
+              ],
+              "stage": "captured_comparisons"
+            }
+          ]
+        }
+      },
+      "traced_micros": 12445775,
+      "untraced_micros": 12289660,
+      "trace_matches_untraced": true,
+      "image_sha256": "f0d054a329c7c195115f2d737d97a3d3cce0d925db2433e15eb063726c7574ee"
+    },
+    {
+      "id": "tn-Standalone-3000",
+      "image_bytes": 9985,
+      "routines": [
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 105,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4
+        },
+        {
+          "name": "Strcpy",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Strcat",
+          "code_bytes": 113,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 9985,
+        "before_bytes": 10069,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 105,
+            "before": 189,
+            "routine": "Fnamecmp"
+          }
+        ]
+      },
+      "work": {
+        "emission_invocations": 83,
+        "inner_emission_probes": 498,
+        "late_cleanup_preservation_replays": 12,
+        "materializations": 4,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 45,
+        "rewrite_analysis_builds": 33556
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": [
+            {
+              "accepted_routines": [
+                14,
+                50,
+                51
+              ],
+              "outcome": "partial",
+              "rejected_routines": [
+                56
+              ],
+              "stage": "captured_comparisons"
+            }
+          ]
+        }
+      },
+      "traced_micros": 12651725,
+      "untraced_micros": 12379702,
+      "trace_matches_untraced": true,
+      "image_sha256": "9e163b0707b52c68583ff951e0b131dfd1aa92cb8c9fb6b73b9421880503e144"
+    },
+    {
+      "id": "tn-Standalone-41c7",
+      "image_bytes": 9985,
+      "routines": [
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 105,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4
+        },
+        {
+          "name": "Strcpy",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Strcat",
+          "code_bytes": 113,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 9985,
+        "before_bytes": 10069,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 105,
+            "before": 189,
+            "routine": "Fnamecmp"
+          }
+        ]
+      },
+      "work": {
+        "emission_invocations": 83,
+        "inner_emission_probes": 498,
+        "late_cleanup_preservation_replays": 12,
+        "materializations": 4,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 45,
+        "rewrite_analysis_builds": 33556
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": [
+            {
+              "accepted_routines": [
+                14,
+                50,
+                51
+              ],
+              "outcome": "partial",
+              "rejected_routines": [
+                56
+              ],
+              "stage": "captured_comparisons"
+            }
+          ]
+        }
+      },
+      "traced_micros": 12872072,
+      "untraced_micros": 11788237,
+      "trace_matches_untraced": true,
+      "image_sha256": "2f18af9818060cb0eb36c96b252d1e8e527f7a2d418f68fb43df2fcb1cf3bc19"
+    },
+    {
+      "id": "handoff-ActionCart-3000",
+      "image_bytes": 572,
+      "routines": [
+        {
+          "name": "ForwardWords",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ForwardBytes",
+          "code_bytes": 30,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "CopyCounted",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Mutated",
+          "code_bytes": 56,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "AfterCall",
+          "code_bytes": 39,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Twice",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Exposed",
+          "code_bytes": 27,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ExtraEntry",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        }
+      ],
+      "parameter_home_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-homes"
+      },
+      "work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 18,
+        "materializations": 1,
+        "pipeline_attempts": 25,
+        "rewrite_analysis_builds": 1008
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 0,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 98141,
+      "untraced_micros": 62852,
+      "trace_matches_untraced": true,
+      "image_sha256": "8fc6bcf85870c5afd72964b8bc817f07ddae9c9fc47817f72e1ce177239d9bf6"
+    },
+    {
+      "id": "handoff-ActionCart-41c7",
+      "image_bytes": 572,
+      "routines": [
+        {
+          "name": "ForwardWords",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ForwardBytes",
+          "code_bytes": 30,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "CopyCounted",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Mutated",
+          "code_bytes": 56,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "AfterCall",
+          "code_bytes": 39,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Twice",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Exposed",
+          "code_bytes": 27,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ExtraEntry",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        }
+      ],
+      "parameter_home_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-homes"
+      },
+      "work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 18,
+        "materializations": 1,
+        "pipeline_attempts": 25,
+        "rewrite_analysis_builds": 1008
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 0,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 102267,
+      "untraced_micros": 64719,
+      "trace_matches_untraced": true,
+      "image_sha256": "ef1eb01bf7d55dd4024d52b4cd4ceeb202c1415bc9e0221dd2315545793a1ecd"
+    },
+    {
+      "id": "handoff-Standalone-3000",
+      "image_bytes": 572,
+      "routines": [
+        {
+          "name": "ForwardWords",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ForwardBytes",
+          "code_bytes": 30,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "CopyCounted",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Mutated",
+          "code_bytes": 56,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "AfterCall",
+          "code_bytes": 39,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Twice",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Exposed",
+          "code_bytes": 27,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ExtraEntry",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        }
+      ],
+      "parameter_home_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-homes"
+      },
+      "work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 18,
+        "materializations": 1,
+        "pipeline_attempts": 25,
+        "rewrite_analysis_builds": 1008
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 0,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 98182,
+      "untraced_micros": 63486,
+      "trace_matches_untraced": true,
+      "image_sha256": "8fc6bcf85870c5afd72964b8bc817f07ddae9c9fc47817f72e1ce177239d9bf6"
+    },
+    {
+      "id": "handoff-Standalone-41c7",
+      "image_bytes": 572,
+      "routines": [
+        {
+          "name": "ForwardWords",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ForwardBytes",
+          "code_bytes": 30,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "CopyCounted",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Mutated",
+          "code_bytes": 56,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "AfterCall",
+          "code_bytes": 39,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Twice",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Exposed",
+          "code_bytes": 27,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ExtraEntry",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        }
+      ],
+      "parameter_home_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-homes"
+      },
+      "work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 18,
+        "materializations": 1,
+        "pipeline_attempts": 25,
+        "rewrite_analysis_builds": 1008
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 0,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 97041,
+      "untraced_micros": 64114,
+      "trace_matches_untraced": true,
+      "image_sha256": "ef1eb01bf7d55dd4024d52b4cd4ceeb202c1415bc9e0221dd2315545793a1ecd"
+    },
+    {
+      "id": "handoff-inline-ActionCart-3000",
+      "image_bytes": 572,
+      "routines": [
+        {
+          "name": "ForwardWords",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ForwardBytes",
+          "code_bytes": 30,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "CopyCounted",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Mutated",
+          "code_bytes": 56,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "AfterCall",
+          "code_bytes": 39,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Twice",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Exposed",
+          "code_bytes": 27,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ExtraEntry",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        }
+      ],
+      "parameter_home_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-homes"
+      },
+      "work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 18,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 1008
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 97591,
+      "untraced_micros": 63743,
+      "trace_matches_untraced": true,
+      "image_sha256": "8fc6bcf85870c5afd72964b8bc817f07ddae9c9fc47817f72e1ce177239d9bf6"
+    },
+    {
+      "id": "handoff-inline-ActionCart-41c7",
+      "image_bytes": 572,
+      "routines": [
+        {
+          "name": "ForwardWords",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ForwardBytes",
+          "code_bytes": 30,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "CopyCounted",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Mutated",
+          "code_bytes": 56,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "AfterCall",
+          "code_bytes": 39,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Twice",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Exposed",
+          "code_bytes": 27,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ExtraEntry",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        }
+      ],
+      "parameter_home_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-homes"
+      },
+      "work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 18,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 1008
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 99329,
+      "untraced_micros": 63180,
+      "trace_matches_untraced": true,
+      "image_sha256": "ef1eb01bf7d55dd4024d52b4cd4ceeb202c1415bc9e0221dd2315545793a1ecd"
+    },
+    {
+      "id": "handoff-inline-Standalone-3000",
+      "image_bytes": 572,
+      "routines": [
+        {
+          "name": "ForwardWords",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ForwardBytes",
+          "code_bytes": 30,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "CopyCounted",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Mutated",
+          "code_bytes": 56,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "AfterCall",
+          "code_bytes": 39,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Twice",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Exposed",
+          "code_bytes": 27,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ExtraEntry",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        }
+      ],
+      "parameter_home_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-homes"
+      },
+      "work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 18,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 1008
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 98109,
+      "untraced_micros": 63822,
+      "trace_matches_untraced": true,
+      "image_sha256": "8fc6bcf85870c5afd72964b8bc817f07ddae9c9fc47817f72e1ce177239d9bf6"
+    },
+    {
+      "id": "handoff-inline-Standalone-41c7",
+      "image_bytes": 572,
+      "routines": [
+        {
+          "name": "ForwardWords",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ForwardBytes",
+          "code_bytes": 30,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "CopyCounted",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Mutated",
+          "code_bytes": 56,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "AfterCall",
+          "code_bytes": 39,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Twice",
+          "code_bytes": 41,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "Exposed",
+          "code_bytes": 27,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        {
+          "name": "ExtraEntry",
+          "code_bytes": 26,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        }
+      ],
+      "parameter_home_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-homes"
+      },
+      "work": {
+        "emission_invocations": 9,
+        "inner_emission_probes": 18,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 1008
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 95835,
+      "untraced_micros": 63486,
+      "trace_matches_untraced": true,
+      "image_sha256": "ef1eb01bf7d55dd4024d52b4cd4ceeb202c1415bc9e0221dd2315545793a1ecd"
+    }
+  ]
+}

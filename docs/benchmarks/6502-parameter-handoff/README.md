@@ -42,3 +42,8 @@ partially overlapping buffers, and stack balance. Additional controls cover
 byte widening, parameter mutation/exposure, extra calls, post-call uses, source
 ZP ownership and an extra callee entry read. Source offsets differ across
 line endings; executable bytes, relocations and storage placement do not.
+
+Slice 1's [gate-off receipt](slice1-off.json) matches all twelve baseline image
+hashes, routine sizes, compiler work counts and upstream selections exactly.
+`--handoff` independently enables the new extension in the measurement harness;
+`--enabled` continues to control the existing leaf placement feature.

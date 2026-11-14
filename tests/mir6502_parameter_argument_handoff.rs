@@ -104,3 +104,27 @@ fn explicit_source_storage_keeps_its_zero_page_address() {
         assert!(copy.iter().all(|s| s.address > 255));
     }
 }
+
+#[test]
+fn gated_no_candidate_adds_no_compiler_work() {
+    let n = nir("BYTE FUNC Identity(BYTE value) RETURN(value)");
+    for (peepholes, homes) in [(true, true), (true, false), (false, true)] {
+        let mut off = Mir6502Trace::default();
+        let mut on = Mir6502Trace::default();
+        let mut config = Mir6502Config {
+            enable_peepholes: peepholes,
+            enable_parameter_home_selection: homes,
+            enable_parameter_argument_handoff: false,
+            ..Mir6502Config::optimized()
+        };
+        let expected =
+            mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut off)
+                .unwrap();
+        config.enable_parameter_argument_handoff = true;
+        let actual =
+            mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut on)
+                .unwrap();
+        assert_eq!(expected, actual);
+        assert_eq!(off.manifest()["work"], on.manifest()["work"]);
+    }
+}
