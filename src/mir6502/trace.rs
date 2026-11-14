@@ -56,8 +56,26 @@ struct State {
     failed: bool,
     output_identity: Option<String>,
     output_sizes: Option<Value>,
+    final_selection_recorded: bool,
+    selected_artifact_snapshot: Option<u64>,
     next_attempt: u64,
     work: std::collections::BTreeMap<&'static str, usize>,
+}
+
+impl State {
+    fn final_snapshot(&self) -> Option<u64> {
+        if self.final_selection_recorded {
+            self.selected_artifact_snapshot
+        } else {
+            self.events.iter().rev().find(|e| e.kind == "snapshot"
+                && e.data["stage"] == "pre-emission").map(|e| e.id)
+        }
+    }
+    fn final_layout(&self) -> Option<u64> {
+        let snapshot = self.final_snapshot()?;
+        self.events.iter().rev().find(|e| e.kind == "final-layout"
+            && e.data["snapshot"] == snapshot).map(|e| e.id)
+    }
 }
 
 /// A caller-owned bounded collector. A generation call resets it before use.
@@ -99,8 +117,8 @@ impl Mir6502Trace {
             "output_identity": s.output_identity, "identity_algorithm": "fnv1a64",
             "selected_routines": s.selected.iter().map(|r| r.0).collect::<Vec<_>>(),
             "core_layout_census": s.layout.summary(self.inner.options.core_layout_census),
-            "final_layout": if s.finished && !s.failed { s.events.iter().rev().find(|e|e.kind == "final-layout").map(|e|e.id) } else { None },
-            "final_snapshot": s.events.iter().rev().find(|e| e.kind == "snapshot" && e.data["stage"] == "pre-emission").map(|e| e.id)
+            "final_layout": if s.finished && !s.failed { s.final_layout() } else { None },
+            "final_snapshot": s.final_snapshot()
         })
     }
 
@@ -112,6 +130,7 @@ impl Mir6502Trace {
             session: Some(Rc::clone(&self.inner)),
             attempt: 0,
             final_artifact: false,
+            artifact_snapshot: None,
             #[cfg(test)]
             observer: None,
         }
@@ -144,6 +163,7 @@ pub(crate) struct Trace {
     session: Option<Rc<Collector>>,
     attempt: u64,
     final_artifact: bool,
+    artifact_snapshot: Option<u64>,
     #[cfg(test)]
     observer: Option<Rc<RefCell<std::collections::BTreeMap<&'static str, usize>>>>,
 }
@@ -154,6 +174,7 @@ impl Trace {
             session: None,
             attempt: 0,
             final_artifact: false,
+            artifact_snapshot: None,
             #[cfg(test)]
             observer: None,
         }
@@ -161,16 +182,23 @@ impl Trace {
     pub(crate) fn final_artifact(&self) -> bool {
         self.final_artifact && self.enabled()
     }
+    pub(crate) fn with_artifact_snapshot(mut self, snapshot: Option<u64>) -> Self {
+        self.artifact_snapshot = snapshot;
+        self
+    }
+    pub(crate) fn select_final_artifact(&self, snapshot: Option<u64>) {
+        self.event("final-artifact-selection", || json!({"snapshot":snapshot}));
+        if let Some(session) = &self.session {
+            let mut state = session.state.borrow_mut();
+            state.final_selection_recorded = true;
+            state.selected_artifact_snapshot = snapshot;
+        }
+    }
     pub(crate) fn final_snapshot(&self) -> Option<u64> {
-        self.session
-            .as_ref()?
-            .state
-            .borrow()
-            .events
-            .iter()
-            .rev()
-            .find(|e| e.kind == "snapshot" && e.data["stage"] == "pre-emission")
-            .map(|e| e.id)
+        // Emission gets the snapshot from its own artifact, including None
+        // when tracing was truncated. Never borrow a previous trial's ID.
+        if self.final_artifact { return self.artifact_snapshot; }
+        self.session.as_ref()?.state.borrow().final_snapshot()
     }
     pub(crate) fn emitted_range(
         &self,
@@ -440,6 +468,22 @@ mod tests {
         assert!(s.events().is_empty());
         assert_eq!(s.manifest()["first_omitted_stage"], "first");
     }
+    #[test]
+    fn missing_trial_snapshot_never_inherits_a_previous_artifact() {
+        let session = Mir6502Trace::default();
+        let trace = session.context();
+        let old = trace.event("snapshot", || json!({"stage":"pre-emission"}));
+        assert!(old.is_some());
+        let trial = trace.child("final-emission", "final-artifact")
+            .with_artifact_snapshot(None);
+        assert_eq!(trial.final_snapshot(), None);
+        trial.emitted_range(RoutineId(0), super::super::MirBlockId(0), None, 0, 1, false);
+        assert!(session.events().last().unwrap().data["snapshot"].is_null());
+        trace.select_final_artifact(None);
+        assert!(session.manifest()["final_snapshot"].is_null());
+        assert!(session.manifest()["final_layout"].is_null());
+    }
+
     #[test]
     fn trace_does_not_add_compiler_work() {
         fn nir(source: &str) -> crate::nir::NirProgram {

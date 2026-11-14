@@ -1,6 +1,6 @@
 # MIR6502 parameter home selection implementation plan
 
-Prepared 2026-11-14. Status: slices 0–5 complete; slice 6 pending.
+Prepared 2026-11-14. Status: slices 0–6 complete.
 
 Implements the [parameter home selection design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md).
 Work in the dependency order below and commit each slice after its checks pass.
@@ -388,3 +388,39 @@ mismatch, pointee read order/no writes, and TN's optimized Sort caller. Separate
 controls exercise copy-and-rebase offsets, the fourth `$A3` input, and pressure
 that leaves only `$AA/$AB` and `$AE/$AF` available. The feature remains opt-in
 pending the final backend and measurement qualification.
+
+## Slice 6 qualification and default policy
+
+Parameter home selection is enabled by `Mir6502Config::optimized()` and remains
+disabled by the conservative default. The peephole master gate still disables
+it. Its historical materialized-MIR endpoint is unchanged. TN saves 84 packaged
+bytes in both runtimes/origins; independent pointer, scalar and register programs
+save 56, 52 and 48 bytes respectively. No accepted routine grows. Published
+[measurements and work counts](benchmarks/6502-parameter-homes/README.md) include
+feature-off/on and trace-on/off equivalence, complete source hashes, and measured
+compilation overhead. Data-dependent pointer arithmetic remains a follow-up.
+
+The final qualification passed 1,368 MIR6502 unit tests, 144 integration tests
+across all 32 MIR6502 integration targets, and 56 VM tests across 23 targets.
+Existing declarations leave 15 unit and 11 integration artifact/measurement tests
+ignored. The [qualification receipt](benchmarks/6502-parameter-homes/qualification.json)
+lists target names, commands, results and validation scope. Coverage includes
+both runtimes/origins, real LF/CRLF paths, public ABI/flags, preservation, source
+ZP conflicts, rollback, CLI configuration, MADS reassembly, maps and relocations.
+No shared NIR/semantic contract changed; other backend suites were not run.
+
+Qualification exposed a diagnostic ownership bug: a speculative emission could
+be treated as final by range and home consumers. Final snapshot identity now
+travels with the executable artifact, and selection joins its existing ranges
+and layout after acceptance or rollback. Truncation cannot borrow an earlier
+artifact's identity. This metadata never participates in optimizer decisions
+and causes no extra materialization or emission.
+
+Strict forwarding cycle/scratch-write oracles now pin terminal cleanup and
+parameter placement off to isolate their pass. Additional combined-mode oracles
+keep the optimized defaults and verify public writes, argument values, explicit
+flag observations and pointee read order. The scratch-traffic mismatch reproduced
+with parameter placement disabled and was caused by terminal cleanup; no public
+value/flag/read check was relaxed. Cleanup-only emission-count tests separately
+pin parameter placement off. Trace tests cover both accepted trials and exact
+rollback, including selected home summaries.

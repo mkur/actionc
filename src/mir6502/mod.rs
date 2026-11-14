@@ -619,7 +619,6 @@ fn finish_emission_preparation(
     };
     verify::verify_program(&mir, MirPhase::PreEmission)
         .map_err(|diagnostics| phase_diagnostics("pre-emission", diagnostics))?;
-    trace.snapshot("pre-emission", &mir);
     Ok(mir)
 }
 
@@ -632,7 +631,9 @@ fn generate_output_impl(
 ) -> Result<crate::codegen::CodegenOutput, Vec<MirDiagnostic>> {
     let (mir, resume) = prepare_program_for_emission(nir, origin, config, runtime, trace)?;
     let baseline = finalize_output(nir, mir, origin, runtime, trace)?;
-    Ok(parameter_homes::select_output(nir, baseline, resume, config, origin, runtime, trace).output)
+    let selected = parameter_homes::select_output(nir, baseline, resume, config, origin, runtime, trace);
+    trace.select_final_artifact(selected.trace_snapshot);
+    Ok(selected.output)
 }
 
 fn finalize_output(
@@ -640,7 +641,9 @@ fn finalize_output(
     trace: &trace::Trace,
 ) -> Result<preparation::Executable, Vec<MirDiagnostic>> {
     let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
-    let final_emission = trace.child("final-emission", "final-artifact");
+    let trace_snapshot = trace.snapshot("pre-emission", &mir);
+    let final_emission = trace.child("final-emission", "final-artifact")
+        .with_artifact_snapshot(trace_snapshot);
     let summary = emit::emit_program_traced(&mir, origin, &mut emitter, &final_emission)?;
     let emission = emitter.finish_with_relocations().map_err(|diagnostics| {
         diagnostics
@@ -670,7 +673,7 @@ fn finalize_output(
         }
         span.is_some()
     });
-    Ok(preparation::Executable { output, costs, program: mir })
+    Ok(preparation::Executable { output, costs, program: mir, trace_snapshot })
 }
 
 fn codegen_output(

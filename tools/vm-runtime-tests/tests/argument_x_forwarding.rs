@@ -29,6 +29,17 @@ fn compile_flags(
     enabled: bool,
     predecessors: [bool; 3],
 ) -> CodegenOutput {
+    compile_with_homes(text, opt, rt, origin, enabled, predecessors, false)
+}
+fn compile_with_homes(
+    text: &str,
+    opt: bool,
+    rt: Runtime,
+    origin: u16,
+    enabled: bool,
+    predecessors: [bool; 3],
+    parameter_homes: bool,
+) -> CodegenOutput {
     let source = support::Source::new(text);
     let loaded = actionc::includes::load_program_with_expanded_source(&source.0).unwrap();
     let model = actionc::semantic::analyze_with_options(
@@ -50,6 +61,10 @@ fn compile_flags(
         &nir,
         origin,
         &Mir6502Config {
+            // Isolate exact traffic/cycle deltas from terminal store deletion.
+            // The combined oracle also runs with both default features enabled.
+            enable_late_private_store_cleanup: parameter_homes,
+            enable_parameter_home_selection: parameter_homes,
             enable_argument_x_bitwise_forwarding: false,
             enable_precise_callee_entry_flags: false,
             enable_argument_x_forwarding: enabled,
@@ -111,6 +126,15 @@ impl VmRunHooks for Observe {
 }
 #[test]
 fn argument_x_forwarding_matches_runtime_oracles_with_lf_and_crlf() {
+    check_forwarding(false);
+}
+
+#[test]
+fn parameter_homes_compose_with_argument_x_forwarding() {
+    check_forwarding(true);
+}
+
+fn check_forwarding(parameter_homes: bool) {
     let lf =
         include_str!("../../../fixtures/runtime/argument_x_forwarding.act").replace("\r\n", "\n");
     for opt in [false, true] {
@@ -125,14 +149,22 @@ fn argument_x_forwarding_matches_runtime_oracles_with_lf_and_crlf() {
                         } else {
                             lf.clone()
                         };
-                        let out = compile(&text, opt, rt, origin, enabled);
+                        let out = compile_with_homes(
+                            &text,
+                            opt,
+                            rt,
+                            origin,
+                            enabled,
+                            [true; 3],
+                            parameter_homes,
+                        );
                         let image = actionc::codegen::format_load_file(&out);
                         if crlf {
                             assert_eq!(lf_image.as_ref(), Some(&image));
                         } else {
                             lf_image = Some(image.clone());
                         }
-                        if opt && !crlf {
+                        if opt && !crlf && !parameter_homes {
                             if let Some(dir) =
                                 std::env::var_os("ACTIONC_ARGUMENT_X_MEASURED_IMAGES")
                             {
@@ -145,7 +177,7 @@ fn argument_x_forwarding_matches_runtime_oracles_with_lf_and_crlf() {
                                 );
                             }
                         }
-                        if opt && !crlf && !enabled {
+                        if opt && !crlf && !enabled && !parameter_homes {
                             if let Some(dir) = std::env::var_os("ACTIONC_ARGUMENT_X_BASELINE") {
                                 let rt = if rt == Runtime::ActionCart {
                                     "cart"
@@ -260,18 +292,23 @@ fn argument_x_forwarding_matches_runtime_oracles_with_lf_and_crlf() {
                                             );
                                         } else {
                                             let old = &baseline[&key];
-                                            assert_eq!(hooks.states, old.1);
-                                            assert_eq!(hooks.writes, old.2);
                                             assert_eq!(hooks.reads, old.3);
-                                            assert_eq!(
-                                                cycles
-                                                    + match name {
-                                                        "ForwardByte" => 2,
-                                                        "Plain" => 0,
-                                                        _ => 1,
-                                                    },
-                                                old.0
-                                            );
+                                            // Exact scratch traffic/cycles isolate this pass.
+                                            // The combined placement run above still checks
+                                            // callee arguments, public results and read order.
+                                            if !parameter_homes {
+                                                assert_eq!(hooks.states, old.1);
+                                                assert_eq!(hooks.writes, old.2);
+                                                assert_eq!(
+                                                    cycles
+                                                        + match name {
+                                                            "ForwardByte" => 2,
+                                                            "Plain" => 0,
+                                                            _ => 1,
+                                                        },
+                                                    old.0
+                                                );
+                                            }
                                         }
                                     }
                                     if std::env::var_os("ACTIONC_ARGUMENT_X_METRICS").is_some()

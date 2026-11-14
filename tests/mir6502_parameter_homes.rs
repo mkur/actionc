@@ -22,6 +22,7 @@ fn register_parameters_save_final_bytes_without_upstream_search() {
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         for origin in [0x3000, 0x41c7] {
             let mut config = Mir6502Config {
+                enable_parameter_home_selection: false,
                 enable_small_leaf_inlining: false,
                 ..Mir6502Config::optimized()
             };
@@ -76,6 +77,7 @@ fn unsupported_register_lifetimes_keep_complete_fallback() {
     ] {
         let n = nir(&format!("{body}\nPROC Main() DO OD RETURN"));
         let off = Mir6502Config {
+            enable_parameter_home_selection: false,
             enable_small_leaf_inlining: false,
             ..Mir6502Config::optimized()
         };
@@ -102,6 +104,7 @@ fn mutable_word_uses_a_reserved_pair_without_inline_storage() {
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         for origin in [0x3000, 0x41c7] {
             let mut config = Mir6502Config {
+                enable_parameter_home_selection: false,
                 enable_small_leaf_inlining: false,
                 ..Mir6502Config::optimized()
             };
@@ -156,6 +159,7 @@ fn source_exclusions_and_exhaustion_choose_safe_pairs_or_fallback() {
         };
         let n = nir(&source);
         let off = Mir6502Config {
+            enable_parameter_home_selection: false,
             enable_small_leaf_inlining: false,
             ..Mir6502Config::optimized()
         };
@@ -195,4 +199,42 @@ fn source_exclusions_and_exhaustion_choose_safe_pairs_or_fallback() {
             }
         }
     }
+}
+
+#[test]
+fn optimized_policy_respects_the_master_gate_and_historical_dump_boundary() {
+    assert!(!Mir6502Config::default().enable_parameter_home_selection);
+    assert!(Mir6502Config::optimized().enable_parameter_home_selection);
+    let n = nir(include_str!("../fixtures/runtime/parameter_registers.act"));
+    let on = Mir6502Config {
+        enable_small_leaf_inlining: false,
+        ..Mir6502Config::optimized()
+    };
+    let off = Mir6502Config {
+        enable_parameter_home_selection: false,
+        ..on.clone()
+    };
+    let lower = mir6502::lower_program(&n).unwrap();
+    assert_eq!(
+        mir6502::materialize_program_with_origin(lower.clone(), &on, 0x3000).unwrap(),
+        mir6502::materialize_program_with_origin(lower, &off, 0x3000).unwrap(),
+    );
+    let compile = |enabled| {
+        let mut trace = Mir6502Trace::default();
+        let output = mir6502::generate_output_with_trace(
+            &n,
+            0x3000,
+            &Mir6502Config {
+                enable_peepholes: false,
+                enable_parameter_home_selection: enabled,
+                ..on.clone()
+            },
+            Runtime::ActionCart,
+            &mut trace,
+        )
+        .unwrap();
+        assert!(trace.manifest()["work"]["parameter_home_trials"].is_null());
+        output
+    };
+    assert_eq!(compile(true), compile(false));
 }

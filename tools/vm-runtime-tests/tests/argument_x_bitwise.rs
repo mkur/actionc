@@ -18,15 +18,6 @@ struct Hooks;
 impl VmRunHooks for Hooks {
     type Error = String;
 }
-fn compile(
-    text: &str,
-    opt: bool,
-    rt: Runtime,
-    origin: u16,
-    enabled: bool,
-) -> actionc::codegen::CodegenOutput {
-    compile_flags(text, opt, rt, origin, enabled, [true; 3])
-}
 fn compile_flags(
     text: &str,
     opt: bool,
@@ -34,6 +25,17 @@ fn compile_flags(
     origin: u16,
     enabled: bool,
     predecessors: [bool; 3],
+) -> actionc::codegen::CodegenOutput {
+    compile_with_homes(text, opt, rt, origin, enabled, predecessors, false)
+}
+fn compile_with_homes(
+    text: &str,
+    opt: bool,
+    rt: Runtime,
+    origin: u16,
+    enabled: bool,
+    predecessors: [bool; 3],
+    parameter_homes: bool,
 ) -> actionc::codegen::CodegenOutput {
     let source = support::Source::new(text);
     let loaded = actionc::includes::load_program_with_expanded_source(&source.0).unwrap();
@@ -56,6 +58,10 @@ fn compile_flags(
         &nir,
         origin,
         &Mir6502Config {
+            // Isolate exact traffic/cycle deltas from terminal store deletion.
+            // The combined oracle also runs with both default features enabled.
+            enable_late_private_store_cleanup: parameter_homes,
+            enable_parameter_home_selection: parameter_homes,
             enable_argument_x_bitwise_forwarding: enabled,
             enable_argument_staging_reduction: predecessors[0],
             enable_pointer_byte_plus_one_fusion: predecessors[1],
@@ -68,6 +74,15 @@ fn compile_flags(
 }
 #[test]
 fn argument_x_bitwise_values_flags_and_images_with_lf_and_crlf() {
+    check_bitwise(false);
+}
+
+#[test]
+fn parameter_homes_compose_with_argument_x_bitwise() {
+    check_bitwise(true);
+}
+
+fn check_bitwise(parameter_homes: bool) {
     let lf = include_str!("../../../fixtures/runtime/argument_x_bitwise.act").replace("\r\n", "\n");
     for opt in [false, true] {
         for rt in [Runtime::ActionCart, Runtime::Standalone] {
@@ -81,14 +96,22 @@ fn argument_x_bitwise_values_flags_and_images_with_lf_and_crlf() {
                         } else {
                             lf.clone()
                         };
-                        let out = compile(&text, opt, rt, origin, enabled);
+                        let out = compile_with_homes(
+                            &text,
+                            opt,
+                            rt,
+                            origin,
+                            enabled,
+                            [true; 3],
+                            parameter_homes,
+                        );
                         let image = actionc::codegen::format_load_file(&out);
                         if crlf {
                             assert_eq!(lf_image.as_ref(), Some(&image));
                         } else {
                             lf_image = Some(image.clone());
                         }
-                        if opt && !crlf {
+                        if opt && !crlf && !parameter_homes {
                             if let Some(dir) =
                                 std::env::var_os("ACTIONC_ARGUMENT_X_BITWISE_MEASURED_IMAGES")
                             {
@@ -101,7 +124,7 @@ fn argument_x_bitwise_values_flags_and_images_with_lf_and_crlf() {
                                 );
                             }
                         }
-                        if opt && !crlf && !enabled {
+                        if opt && !crlf && !enabled && !parameter_homes {
                             if let Some(dir) =
                                 std::env::var_os("ACTIONC_ARGUMENT_X_BITWISE_BASELINE")
                             {
@@ -225,7 +248,23 @@ fn argument_x_bitwise_values_flags_and_images_with_lf_and_crlf() {
                                     let state = (writes, (r.a, r.x, r.y, r.status, r.sp));
                                     let key = (crlf, flags, tag, name);
                                     if enabled {
-                                        assert_eq!(baseline.get(&key), Some(&state));
+                                        if parameter_homes {
+                                            // Placement may delete private scratch stores.
+                                            // Public writes, pointee reads and explicitly
+                                            // observed flags retain their full oracle.
+                                            let public = |writes: &Vec<(usize, u8)>| {
+                                                writes
+                                                    .iter()
+                                                    .copied()
+                                                    .filter(|(a, _)| (0x680..=0x683).contains(a))
+                                                    .collect::<Vec<_>>()
+                                            };
+                                            let old: &(Vec<(usize, u8)>, (u8, u8, u8, u8, u8)) =
+                                                baseline.get(&key).unwrap();
+                                            assert_eq!(public(&old.0), public(&state.0));
+                                        } else {
+                                            assert_eq!(baseline.get(&key), Some(&state));
+                                        }
                                     } else {
                                         baseline.insert(key, state);
                                     }
@@ -236,7 +275,9 @@ fn argument_x_bitwise_values_flags_and_images_with_lf_and_crlf() {
                                         && std::env::var_os("ACTIONC_ARGUMENT_X_BITWISE_METRICS")
                                             .is_some()
                                     {
-                                        eprintln!("bitwise,{name},{rt:?},{origin:04X},{enabled},cycles={cycles}");
+                                        eprintln!(
+                                            "bitwise,{name},{rt:?},{origin:04X},{enabled},cycles={cycles}"
+                                        );
                                     }
                                 }
                             }

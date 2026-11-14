@@ -22,9 +22,15 @@ fn late_cleanup_shrinks_argument_staging_and_preserves_trace_equivalence() {
         for origin in [0x3000, 0x41c7] {
             let off = Mir6502Config {
                 enable_late_private_store_cleanup: false,
+                ..Mir6502Config {
+                    enable_parameter_home_selection: false,
+                    ..Mir6502Config::optimized()
+                }
+            };
+            let on = Mir6502Config {
+                enable_parameter_home_selection: false,
                 ..Mir6502Config::optimized()
             };
-            let on = Mir6502Config::optimized();
             let mut before_trace = Mir6502Trace::default();
             let before = mir6502::generate_output_with_trace(
                 &input,
@@ -120,7 +126,10 @@ fn tn_late_cleanup_removes_six_stores_without_extra_materialization() {
     mir6502::generate_output_with_trace(
         &input,
         0x2c00,
-        &Mir6502Config::optimized(),
+        &Mir6502Config {
+            enable_parameter_home_selection: false,
+            ..Mir6502Config::optimized()
+        },
         Runtime::ActionCart,
         &mut trace,
     )
@@ -134,7 +143,10 @@ fn tn_late_cleanup_removes_six_stores_without_extra_materialization() {
         0x2c00,
         &Mir6502Config {
             enable_late_private_store_cleanup: false,
-            ..Mir6502Config::optimized()
+            ..Mir6502Config {
+                enable_parameter_home_selection: false,
+                ..Mir6502Config::optimized()
+            }
         },
         Runtime::ActionCart,
         &mut off_trace,

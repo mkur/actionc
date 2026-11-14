@@ -334,9 +334,14 @@ fn final_ranges_join_the_exact_mir_and_expose_zero_byte_consumers() {
             .sum();
         let ranges: Vec<_> = events
             .iter()
-            .filter(|e| e.kind == "emitted-range")
+            .filter(|e| e.kind == "emitted-range" && e.data["snapshot"] == final_id)
             .collect();
         assert_eq!(ranges.len(), expected);
+        let layout_id = trace.manifest()["final_layout"].as_u64().unwrap();
+        assert_eq!(
+            events.iter().find(|e| e.id == layout_id).unwrap().data["snapshot"],
+            final_id
+        );
         for range in ranges {
             assert_eq!(range.data["snapshot"], final_id);
             assert!(
@@ -511,5 +516,71 @@ mod cli {
         let failed = dir.path("failed");
         assert!(!emit(&source, &[], Some(&failed), false).status.success());
         assert_eq!(manifest(&failed)["status"], "compilation-failed");
+    }
+}
+
+#[test]
+fn selected_artifact_ranges_and_homes_follow_acceptance_and_rollback() {
+    let registers =
+        include_str!("../fixtures/runtime/parameter_registers.act").replace("\r\n", "\n");
+    for (source, accepted) in [
+        (registers.as_str(), true),
+        ("CARD FUNC Echo(CARD x) x==+1 RETURN(x)", false),
+    ] {
+        let mut trace = Mir6502Trace::default();
+        mir6502::generate_output_with_trace(
+            &nir(source),
+            0x3000,
+            &Mir6502Config {
+                enable_small_leaf_inlining: false,
+                ..Mir6502Config::optimized()
+            },
+            Runtime::ActionCart,
+            &mut trace,
+        )
+        .unwrap();
+        let events = trace.events();
+        let outcome = events
+            .iter()
+            .find(|e| e.kind == "parameter-home-result")
+            .unwrap();
+        assert_eq!(outcome.data["accepted"], accepted);
+        let selected = trace.manifest()["final_snapshot"].as_u64().unwrap();
+        let latest = events
+            .iter()
+            .rev()
+            .find(|e| e.kind == "snapshot" && e.data["stage"] == "pre-emission")
+            .unwrap()
+            .id;
+        assert_eq!(selected == latest, accepted);
+        let layout = trace.manifest()["final_layout"].as_u64().unwrap();
+        assert_eq!(
+            events.iter().find(|e| e.id == layout).unwrap().data["snapshot"],
+            selected
+        );
+        let summary = trace.home_summary();
+        assert_eq!(summary["final_snapshot"], selected);
+        for routine in summary["routines"].as_array().unwrap() {
+            for home in routine["homes"].as_array().unwrap() {
+                let ids = home["placements"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|p| p["event"].as_u64().unwrap())
+                    .chain(
+                        home["zero_byte_read_events"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .map(|id| id.as_u64().unwrap()),
+                    );
+                for id in ids {
+                    assert_eq!(
+                        events.iter().find(|e| e.id == id).unwrap().data["snapshot"],
+                        selected
+                    );
+                }
+            }
+        }
     }
 }

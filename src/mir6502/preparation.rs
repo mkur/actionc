@@ -87,6 +87,8 @@ pub(super) struct Executable {
     pub program: MirProgram,
     pub output: crate::codegen::CodegenOutput,
     pub costs: std::collections::BTreeMap<RoutineId, usize>,
+    /// Diagnostic identity only; never consulted for acceptance or rollback.
+    pub trace_snapshot: Option<u64>,
 }
 
 impl Executable {
@@ -247,7 +249,10 @@ mod tests {
     fn no_candidate_keeps_output_and_materialization_count_identical() {
         let n = nir("BYTE FUNC Echo(BYTE x) RETURN(x)");
         let mut off = super::super::trace::Mir6502Trace::new(Default::default());
-        let config = Mir6502Config::optimized();
+        let config = Mir6502Config {
+            enable_parameter_home_selection: false,
+            ..Mir6502Config::optimized()
+        };
         let expected = super::super::generate_output_with_trace(
             &n,
             0x3000,

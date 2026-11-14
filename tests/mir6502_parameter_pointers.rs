@@ -102,7 +102,7 @@ fn actual_tn_uses_resident_pointer_pairs_and_saves_final_bytes() {
     let n = nir(&loaded.source);
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         for origin in [0x3000, 0x41c7] {
-            let (old, _) = output(&n, false, runtime, origin);
+            let (old, off) = output(&n, false, runtime, origin);
             let (new, trace) = output(&n, true, runtime, origin);
             assert!(
                 size(&new) < size(&old),
@@ -143,6 +143,15 @@ fn actual_tn_uses_resident_pointer_pairs_and_saves_final_bytes() {
                 .collect();
             assert_eq!(homes, vec![(0xa0, 2), (0xa2, 2)]);
             assert_eq!(trace.manifest()["work"]["parameter_home_trials"], 1);
+            let inline_choices = |t: &Mir6502Trace| {
+                t.events()
+                    .into_iter()
+                    .filter(|e| e.kind == "inline-selection")
+                    .map(|e| e.data)
+                    .collect::<Vec<_>>()
+            };
+
+            assert_eq!(inline_choices(&off), inline_choices(&trace));
         }
     }
 }

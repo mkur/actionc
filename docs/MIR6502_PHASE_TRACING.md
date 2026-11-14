@@ -101,6 +101,15 @@ they do not establish general deadness. `final-home` uses the final emitter's
 own layout, including declarations with no explicit accesses. Final layout is
 qualified by successful relocation and output construction in the manifest.
 
+Executable placement trials can contribute several complete emissions to the
+journal. The manifest's `final_snapshot` and `final_layout`, together with
+`final-artifact-selection`, identify the selected artifact, including rollback
+to an earlier emission. Filter `emitted-range` and `final-home` by that snapshot
+ID. The home summary performs this join for final placements and zero-byte
+reads; speculative records remain available as history. A missing snapshot after
+trace truncation is never replaced by an earlier trial's ID. This selection uses
+the existing emitted artifact and does not request another emission.
+
 Zero explicit reads, opaque effects, and zero emitted bytes are separate facts.
 The summary retains attempt IDs and does not count speculative removals as final
 savings. Use final snapshots and selection records when following its references.

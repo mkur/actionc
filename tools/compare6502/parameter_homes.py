@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import time
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -22,12 +23,18 @@ def main():
     subprocess.run(['rustc', '--edition=2024', str(ROOT / 'tools/compare6502/parameter_homes.rs'),
                     '--extern', f'actionc={rlib}', '-L', f'dependency={rlib.parent}', '-o', str(probe)],
                    cwd=ROOT, check=True)
-    result = subprocess.run([str(probe), str(output / 'images')] + (['--enabled'] if args.enabled else []), cwd=ROOT, check=True,
+    started = time.monotonic()
+    result = subprocess.run(['/usr/bin/time', '-l', str(probe), str(output / 'images')] + (['--enabled'] if args.enabled else []), cwd=ROOT, check=True,
                             text=True, capture_output=True)
+    elapsed = time.monotonic() - started
     cases = [json.loads(line) for line in result.stdout.splitlines()]
-    sources = ['samples/tn/modern/TN.ACT', 'fixtures/runtime/parameter_homes.act', 'fixtures/runtime/parameter_registers.act', 'fixtures/runtime/parameter_scalars.act']
+    sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/parameter_homes.act', 'fixtures/runtime/parameter_registers.act', 'fixtures/runtime/parameter_scalars.act', 'fixtures/runtime/mir6502_phase_trace_homes.act', 'fixtures/runtime/late_producer_cleanup.act']
     receipt = dict(revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                    parameter_home_selection=args.enabled,
+                   probe_elapsed_seconds=elapsed,
+                   probe_time_report=result.stderr,
+                   timing_scope='One sequential process, all cases traced and untraced; not a statistical performance claim.',
+                   worktree_diff_sha256=hashlib.sha256(subprocess.check_output(['git', 'diff', '--', 'src/mir6502'], cwd=ROOT)).hexdigest(),
                    api_rlib_sha256=hashlib.sha256(rlib.read_bytes()).hexdigest(),
                    source_sha256_lf={s: hashlib.sha256((ROOT / s).read_bytes().replace(b'\r\n', b'\n')).hexdigest() for s in sources},
                    cases=cases)

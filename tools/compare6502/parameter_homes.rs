@@ -23,6 +23,16 @@ fn main() {
         ),
         ("controls", "fixtures/runtime/parameter_homes.act", false),
         (
+            "trace-controls",
+            "fixtures/runtime/mir6502_phase_trace_homes.act",
+            true,
+        ),
+        (
+            "cleanup-controls",
+            "fixtures/runtime/late_producer_cleanup.act",
+            true,
+        ),
+        (
             "controls-inline",
             "fixtures/runtime/parameter_homes.act",
             true,
@@ -46,12 +56,32 @@ fn main() {
                     ..Mir6502Config::optimized()
                 };
                 let mut trace = Mir6502Trace::new(TraceOptions {
-                    routines: vec!["Fnamecmp".into(), "ComparePointers".into()],
+                    routines: nir
+                        .routines
+                        .iter()
+                        .filter(|r| {
+                            matches!(
+                                r.name.as_str(),
+                                "Fnamecmp" | "ComparePointers" | "AdvanceBoth" | "First"
+                            )
+                        })
+                        .map(|r| r.name.clone())
+                        .collect(),
                     ..Default::default()
                 });
+                let started = std::time::Instant::now();
                 let output =
                     mir6502::generate_output_with_trace(&nir, origin, &config, runtime, &mut trace)
                         .unwrap();
+                let traced_micros = started.elapsed().as_micros();
+                assert_eq!(trace.manifest()["status"], "complete");
+                let started = std::time::Instant::now();
+                let untraced = mir6502::generate_output_with_config_and_runtime(
+                    &nir, origin, &config, runtime,
+                )
+                .unwrap();
+                let untraced_micros = started.elapsed().as_micros();
+                assert_eq!(output, untraced, "tracing changed the executable");
                 let id = format!("{case}-{runtime:?}-{origin:04x}");
                 let bytes = actionc::codegen::format_load_file(&output);
                 fs::write(destination.join(format!("{id}.xex")), &bytes).unwrap();
@@ -106,8 +136,39 @@ fn main() {
                     })
                     .map(|e| e.data.to_string())
                     .unwrap_or("null".into());
+                let upstream = [
+                    "inlining",
+                    "loop_motion",
+                    "comparison_loops",
+                    "call_predicates",
+                    "address_values",
+                    "copy_values",
+                    "scalar_captures",
+                    "captured_comparisons",
+                ]
+                .iter()
+                .map(|stage| {
+                    let starts = events
+                        .iter()
+                        .filter(|e| e.kind == "attempt-start" && e.data["stage"] == *stage)
+                        .count();
+                    let choices: Vec<_> = events
+                        .iter()
+                        .filter(|e| {
+                            (e.kind == "selection" && e.data["stage"] == *stage)
+                                || (*stage == "inlining" && e.kind == "inline-selection")
+                        })
+                        .map(|e| e.data.to_string())
+                        .collect();
+                    format!(
+                        "\"{stage}\":{{\"attempts\":{starts},\"choices\":[{}]}}",
+                        choices.join(",")
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",");
                 println!(
-                    "{{\"id\":\"{id}\",\"image_bytes\":{},\"routines\":[{}],\"parameter_home_outcome\":{outcome},\"work\":{}}}",
+                    "{{\"id\":\"{id}\",\"image_bytes\":{},\"routines\":[{}],\"parameter_home_outcome\":{outcome},\"work\":{},\"upstream\":{{{upstream}}},\"traced_micros\":{traced_micros},\"untraced_micros\":{untraced_micros},\"trace_matches_untraced\":true}}",
                     bytes.len(),
                     rows.join(","),
                     trace.manifest()["work"]

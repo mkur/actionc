@@ -1,7 +1,7 @@
 # MIR6502 parameter home selection
 
-Status: implemented behind an opt-in gate, 2026-11-14. Backend qualification
-and the optimized-default decision are tracked in the implementation plan.
+Status: implemented and qualified, 2026-11-14. Enabled for optimized builds;
+the conservative configuration remains disabled.
 
 The [implementation plan](MIR6502_PARAMETER_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
 defines the dependency order, commit boundaries, and qualification gates.
@@ -283,3 +283,8 @@ upstream families with untracked placement/callee obligations still discard the
 checkpoint. Resumption reruns core expansion and all downstream preservation
 checks. The cost decision records changed routine costs as well as image size;
 an unrelated routine regression rejects the complete batch.
+
+Final trace identities travel with executable artifacts as diagnostic metadata.
+Acceptance never reads those IDs. After the batch decision, the manifest and
+home summary select the corresponding existing snapshot/layout; they do not
+infer selection from the latest speculative emission or emit the program again.

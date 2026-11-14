@@ -977,7 +977,7 @@ Rules:
   have no address. Conflicting legacy ABI-only metadata, malformed lanes/pairs,
   missing bindings, exposed-home relocation, source-storage overlap, and residual
   post-home memory uses of register/absent parameters are rejected. Legacy
-  parameter remappers do not operate on bound routines. Opt-in executable
+  parameter remappers do not operate on bound routines. Optimized executable
   selection retains a selected pre-capture checkpoint and permits one batch
   continuation through final emission. Register candidates use canonical entry
   lanes and existing flag-aware consumer proofs. ZP candidates reserve complete

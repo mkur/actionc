@@ -1,0 +1,474 @@
+{
+  "date": "2026-11-14",
+  "compiler": {
+    "revision": "e1f19ff538a0bdc6fa5d8e3a730e4e6662830c90",
+    "worktree_diff_sha256": "f195a449d8cd273f8bc2e088a3565b220ac999004c74cc5a47041b7a44d7edd0",
+    "api_rlib_sha256": "063177fca9dd06cfc183048486fcdee647a47a6704a25283e4e3e87facf718bf"
+  },
+  "compiler_note": "Base revision plus the MIR6502 working-tree diff in the qualification commit. VM codegen checks preceded the final diagnostic-only artifact identity fix; final root tests and all traced/untraced measurement pairs include that fix.",
+  "default_policy": {
+    "optimized": true,
+    "conservative": false,
+    "peephole_master_gate_required": true
+  },
+  "environment": {
+    "CARGO_TARGET_DIR": "build/checked-arena/shared-target",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "1",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_BUILD_JOBS": "2"
+  },
+  "reproduction_commands": {
+    "units": "cargo test --lib mir6502:: -- --quiet",
+    "integration": "cargo test --no-fail-fast --test mir6502_argument_staging --test mir6502_argument_x_bitwise --test mir6502_argument_x_forwarding --test mir6502_bounded_call_pointer_retention --test mir6502_call_abi --test mir6502_callee_entry_flags --test mir6502_checked_pointer_ranges --test mir6502_circle_quality --test mir6502_direct_comparisons --test mir6502_fixtures --test mir6502_home_value_invalidation --test mir6502_kalscope_quality --test mir6502_late_cleanup --test mir6502_late_spill_pruning --test mir6502_layout_census --test mir6502_leaf_inline_cli --test mir6502_loop_consumer --test mir6502_materialization_gap --test mir6502_parameter_homes --test mir6502_parameter_pointers --test mir6502_phase_trace --test mir6502_pointer_byte_plus_one --test mir6502_pointer_load_sharing --test mir6502_pointer_retention --test mir6502_pointer_setup --test mir6502_register_copy_forwarding --test mir6502_rewrite_inventory --test mir6502_store_consumer --test mir6502_turtle_quality --test mir6502_warpdem_quality --test mir6502_word_load_sharing --test mir6502_word_move_store -- --quiet",
+    "vm": "cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --no-fail-fast --test parameter_homes --test parameter_pointer_homes --test word_result_placement --test argument_staging --test argument_x_bitwise --test argument_x_forwarding --test callee_entry_flags --test direct_comparisons --test late_dead_producers --test late_private_store_cleanup --test late_spill_pruning --test pointer_byte_plus_one --test pointer_load_sharing --test pointer_retention --test pointer_setup_bounds --test tn_codegen_reproducers --test word_load_sharing --test word_move_store --test aggregate_bounded_forwarding --test bounded_call_pointer_retention --test captured_bounds --test record_base_reuse --test register_copy_forwarding -- --quiet"
+  },
+  "result_summary": {
+    "units": {
+      "passed": 1368,
+      "ignored": 15,
+      "other_backend_filtered": 2020
+    },
+    "integration": {
+      "targets": 32,
+      "passed": 144,
+      "ignored": 11
+    },
+    "vm": {
+      "targets": 23,
+      "passed": 56,
+      "ignored": 0
+    }
+  },
+  "latest_target_results": {
+    "integration": {
+      "mir6502_argument_staging": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_argument_x_bitwise": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 1,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_argument_x_forwarding": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 1,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_bounded_call_pointer_retention": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 2,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_call_abi": {
+        "status": "ok",
+        "passed": 11,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_callee_entry_flags": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 1,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_checked_pointer_ranges": {
+        "status": "ok",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_circle_quality": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_direct_comparisons": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_fixtures": {
+        "status": "ok",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_home_value_invalidation": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 1,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_kalscope_quality": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_late_cleanup": {
+        "status": "ok",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 1,
+        "log": "slice6-trace-final.log"
+      },
+      "mir6502_late_spill_pruning": {
+        "status": "ok",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_layout_census": {
+        "status": "ok",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-trace-final.log"
+      },
+      "mir6502_leaf_inline_cli": {
+        "status": "ok",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_loop_consumer": {
+        "status": "ok",
+        "passed": 7,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_materialization_gap": {
+        "status": "ok",
+        "passed": 64,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_parameter_homes": {
+        "status": "ok",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-trace-final.log"
+      },
+      "mir6502_parameter_pointers": {
+        "status": "ok",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-trace-final.log"
+      },
+      "mir6502_phase_trace": {
+        "status": "ok",
+        "passed": 8,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-trace-final.log"
+      },
+      "mir6502_pointer_byte_plus_one": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 1,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_pointer_load_sharing": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 1,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_pointer_retention": {
+        "status": "ok",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_pointer_setup": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_register_copy_forwarding": {
+        "status": "ok",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_rewrite_inventory": {
+        "status": "ok",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_store_consumer": {
+        "status": "ok",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_turtle_quality": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_warpdem_quality": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_word_load_sharing": {
+        "status": "ok",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 1,
+        "log": "slice6-integrations.log"
+      },
+      "mir6502_word_move_store": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 1,
+        "log": "slice6-integrations.log"
+      }
+    },
+    "vm": {
+      "parameter_homes": {
+        "status": "ok",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice5-vm-final.log"
+      },
+      "parameter_pointer_homes": {
+        "status": "ok",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice5-vm-final.log"
+      },
+      "word_result_placement": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm.log"
+      },
+      "argument_staging": {
+        "status": "ok",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm.log"
+      },
+      "argument_x_bitwise": {
+        "status": "ok",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-forwarding-final.log"
+      },
+      "argument_x_forwarding": {
+        "status": "ok",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-forwarding-final.log"
+      },
+      "callee_entry_flags": {
+        "status": "ok",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm.log"
+      },
+      "direct_comparisons": {
+        "status": "ok",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm.log"
+      },
+      "late_dead_producers": {
+        "status": "ok",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm.log"
+      },
+      "late_private_store_cleanup": {
+        "status": "ok",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm.log"
+      },
+      "late_spill_pruning": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm.log"
+      },
+      "pointer_byte_plus_one": {
+        "status": "ok",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm.log"
+      },
+      "pointer_load_sharing": {
+        "status": "ok",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm.log"
+      },
+      "pointer_retention": {
+        "status": "ok",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm.log"
+      },
+      "pointer_setup_bounds": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm.log"
+      },
+      "tn_codegen_reproducers": {
+        "status": "ok",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm.log"
+      },
+      "word_load_sharing": {
+        "status": "ok",
+        "passed": 6,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm.log"
+      },
+      "word_move_store": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm.log"
+      },
+      "aggregate_bounded_forwarding": {
+        "status": "ok",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm-preservation.log"
+      },
+      "bounded_call_pointer_retention": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm-preservation.log"
+      },
+      "captured_bounds": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm-preservation.log"
+      },
+      "record_base_reuse": {
+        "status": "ok",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm-preservation.log"
+      },
+      "register_copy_forwarding": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "log": "slice6-vm-preservation.log"
+      }
+    }
+  },
+  "log_directory": "build/mir6502-parameter-homes (ignored local build artifacts)",
+  "log_sha256": {
+    "slice5-vm-final.log": "1a2d4b13fc8baf12ade069cd7083201041209076a143d91d6d6667370634d1c3",
+    "slice6-forwarding-final.log": "30ef24eb39b8b755c7f0433b150c590ff39f620931019b206f698124a8ea8590",
+    "slice6-integrations.log": "e5f8cbc3413aaaa087e2bb4237552bc88a8cf5c4dd8cc0f62f17784aca8533e5",
+    "slice6-trace-final.log": "78d2aa1360a009ae0135c8898410477128bc7928a0693c7adb78fb275e87afca",
+    "slice6-units-final.log": "348207d4f2ac4a622f9b894cfc2bf1792777e5503466b35e1065f4d71b5e0c1c",
+    "slice6-vm-preservation.log": "23d930c595300ddf55f40b8f5ebcd5a04aa4cdc2c71308eff6d9ccb0756d9e66",
+    "slice6-vm.log": "294f8697841c1ec3133e03620647c8b77b4fa2c80a5d6208041f8f4aca1150b8"
+  },
+  "execution_notes": [
+    "Results consolidate the broad backend runs with successful focused reruns after fixes; they are not a claim that the initial broad runs passed without failures.",
+    "Initial integration failures in terminal cleanup work-count expectations and speculative trace ownership were resolved and rerun in slice6-trace-final.log.",
+    "Initial forwarding VM scratch-traffic failures reproduced with parameter home selection disabled. Strict per-pass checks now disable terminal cleanup and parameter placement; additional combined-mode checks preserve public value, observed flag and read-order oracles. Both full forwarding targets passed in slice6-forwarding-final.log.",
+    "The slice 5 parameter home and pointer VM targets explicitly enable the feature, so changing the optimized default did not change their configuration.",
+    "No shared NIR or semantic contract changed. Qualification was scoped to MIR6502; other backend and repository-wide frontend suites were not run."
+  ],
+  "coverage": [
+    "ActionCart and standalone runtimes; origins $3000 and $41C7.",
+    "LF and CRLF through actual source loading/instrumentation paths.",
+    "Register/scalar/pointer homes, public ABI, observed flags, source ZP exclusions, pair exhaustion, clobber liveness, complete rollback and master gate.",
+    "Independent pointer scans and real TN Fnamecmp, offsets through 700, page crossings, 16-bit RAM address wrap, all 65536 byte pairs per comparison body, pointee read order, no pointee writes and optimized Sort caller.",
+    "Physical maps and relocations, MADS reassembly, CLI configuration, preservation and terminal cleanup composition.",
+    "Accepted and rolled-back artifact trace identity, home summaries and missing identity after truncation."
+  ],
+  "measurement_checks": {
+    "feature_off_cases": 28,
+    "feature_on_cases": 28,
+    "trace_untraced_output_equal_pairs": 56,
+    "original_baseline_image_hashes_preserved": 12,
+    "upstream_attempts_and_choices_unchanged_pairs": 28,
+    "max_additional_core_materializations": 1,
+    "no_accepted_routine_growth": true,
+    "receipt_sha256": {
+      "qualification-off.json": "5c94133a509dbf21fda9a58c0622e1ad778291d0b7ac663136d2344de4fcb583",
+      "qualification-on.json": "cb0eef4865bd51746f2ea35098ccc62478faf748809aa644baec5c605e2c02a9"
+    }
+  }
+}

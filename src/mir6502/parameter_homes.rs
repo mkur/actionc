@@ -257,9 +257,7 @@ fn try_proposal(
         "after_bytes": trial.as_ref().ok().map(|p| crate::codegen::format_load_file(&p.output).len()),
         "reason": if accepted {"smaller-image"} else if trial.is_err() {"invalid-trial"} else {"no-final-saving-or-routine-growth"},
     }));
-    let selected = if accepted { trial.unwrap() } else { baseline };
-    trace.snapshot("pre-emission", &selected.program);
-    selected
+    if accepted { trial.unwrap() } else { baseline }
 }
 
 /// Address uses expose the parameter object, unlike dereferencing its value.
