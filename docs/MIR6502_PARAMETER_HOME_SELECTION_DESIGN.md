@@ -4,6 +4,8 @@ Status: leaf placement and terminal parameter handoff are implemented and qualif
 Enabled for optimized builds; the conservative configuration remains disabled.
 The [entry-to-call handoff extension](#proposed-extension-parameter-handoff-to-call-arguments)
 below has its own gate, subordinate to parameter placement and peepholes.
+The [callee capture boundary refinement](#proposed-refinement-callee-entry-facts-through-parameter-capture)
+is a proposed follow-up; its additional coverage and savings are not yet qualified.
 
 The completed [leaf implementation plan](MIR6502_PARAMETER_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
 covers the leaf scope. The [handoff implementation plan](MIR6502_PARAMETER_ARGUMENT_HANDOFF_IMPLEMENTATION_PLAN.md)
@@ -623,6 +625,7 @@ callees and scalar callees without an available scalar entry contract reject
 selection. A bound scalar callee whose pre-capture working-home reads cannot
 yet be discharged by the entry analysis can also reject a wrapper. This is a
 coverage restriction, not permission to infer entry behavior from formal widths.
+The refinement below addresses the capture-boundary part of this restriction.
 
 ### Qualified production policy
 
@@ -640,3 +643,124 @@ leaf savings. Qualification covers the full affected backend, both runtimes and
 origins, actual LF/CRLF paths, MADS reassembly, ordered-memory VM oracles and
 independent leaf nonregression controls. This evidence supplements the initial
 handwritten reference; it does not establish a general minimum-size theorem.
+
+### Proposed refinement: callee entry facts through parameter capture
+
+Status: design only, against `72131db3`. Make the existing handoff proof compose
+with ordinary Action callees whose working homes were selected by leaf placement.
+MIR6502 owns this refinement; SemIR/NIR meaning and the public ABI are unchanged.
+Additional TN savings require measurement before an implementation is qualified.
+The [implementation plan](MIR6502_CALLEE_ENTRY_CAPTURE_IMPLEMENTATION_PLAN.md)
+defines the reproducer, shared capture boundary, correction and qualification slices.
+
+#### Concrete failure and required meaning
+
+Suppose a callee receives one word in A/X and has selected `$A0/$A1` as its
+working home. Its entry capture copies those incoming bytes before the body
+uses the home:
+
+| Boundary | Required or established values |
+| --- | --- |
+| Before callee capture | The caller supplies the word in A/X. The old contents of `$A0/$A1` are irrelevant. |
+| Capture | Transfers from A to `$A0` and X to `$A1` establish the working word. |
+| Body entry | The body can read the word from `$A0/$A1`. |
+
+The current [scalar entry analysis](../src/mir6502/analysis/known_callees/entry_inputs.rs)
+projects parameter reads onto selected physical homes. On the retained
+pre-capture input, the stores that initialize those homes have not been inserted.
+The analysis can therefore report `$A0/$A1` as extra incoming requirements, and
+[handoff admission](../src/mir6502/parameter_homes/handoff.rs) rejects a caller
+that correctly supplies A/X. This is a conservative rejection, not evidence of
+incorrect generated code. The example specifies the expected proof; a focused
+reproducer must establish the actual missed selection and its size opportunity.
+
+**A callee-entry fact describes requirements immediately before the callee's
+first executed instruction, including any compiler-generated capture.** Reads
+of working homes after capture are body requirements. They become caller
+requirements only if the capture does not establish the needed values. Canonical
+arguments remain governed by the typed call ABI, even if the body ignores one.
+
+#### Shared capture effects and representation ownership
+
+Before capture is materialized, compose the planned capture's ordered effects
+with the body analysis. Derive that capture from the same typed description
+used by [ABI prologue generation](../src/mir6502/materialize/abi.rs), using the
+[canonical ABI mapping](../src/mir6502/abi.rs) and selected parameter lanes.
+Share or factor that description rather than implement a second capture policy
+inside handoff discovery. This analysis requires no emitted addresses or trial
+compilation of the callee.
+
+After materialization, analyze the actual entry operations and body. Do not
+prepend another hypothetical capture. The query and returned fact must identify
+which representation they describe through typed provenance. A binding table,
+an apparent instruction prefix, or an old operation index cannot establish
+whether capture has already happened. Final handoff verification recomputes the
+requirements on the actual expanded callee before accepting the trial.
+
+The composition must account for:
+
+- Reads of incoming ABI lanes and definite writes to individual working bytes,
+  in the capture's actual order. Partial writes discharge only their own bytes.
+- Retained register lanes and identity fixed-slot lanes. Keeping an incoming
+  byte in `$A3` requires that entry byte; it does not create a store or make the
+  byte independent of its incoming value. Absent homes create no capture.
+- A/X/Y and individual flag effects of capture and expansion. In particular,
+  plain stores preserve flags, so a body read of an incoming flag still matters.
+  Unproved scratch, helper or machine effects make the entry contract unknown.
+- Any fixed-memory or register read before its definite overwrite. Never erase
+  requirements merely because an address belongs to the ABI window or appears
+  in a parameter binding. All control-flow paths contributing to the read must
+  have the required definition.
+
+Only compiler-owned capture participates in this composition. Machine callees
+and observable entry conventions keep their existing shared entry analysis;
+formal declarations alone do not authorize inventing a prologue. Source-owned
+storage, exposure and reservation checks continue to govern placement.
+
+Keep the correction in shared callee-entry analysis. It must consume complete
+typed MIR ABI/declaration, binding and effect facts. Pointer parameters require
+the same completeness; the presence or absence of `scalar_signature` alone
+does not establish a safe entry contract. Missing facts retain the conservative
+fallback. No SemIR lookup or source-name inference is permitted.
+
+#### Fact validity and acceptance
+
+An entry fact belongs to the selected callee and its representation. Its validity
+depends on the routine body/entry CFG, ABI declarations, parameter bindings and
+capture description, plus the existing machine-payload and global-backing
+dependencies. Changing any dependency invalidates the fact. Materializing,
+eliding or rewriting capture requires a new fact for the resulting body, even
+when a physical address happens to remain equal. Facts from rejected placement
+trials cannot qualify the selected fallback.
+
+Discovery may use a conservative pre-capture contract. Final acceptance checks
+the current expanded contract against the actual outgoing arguments; it must
+not simply compare an old summary with itself. Newly exposed flag, register or
+fixed-byte inputs reject the trial unless the existing handoff proof supplies
+them. Exit-preservation replay remains a separate obligation.
+
+Use the existing handoff gate, single wrapper batch, final code/home/image cost
+acceptance and complete rollback. This refinement adds no core continuation or
+callee-emission search. It does not extend wrapper lifetimes across calls, add
+call-result forwarding, or admit unknown effects and unsupported call forms.
+
+#### Required evidence
+
+Start with an independent ordinary Action caller/callee pair demonstrating the
+false requirement and a possible final-byte saving. Cover BYTE/WORD, inline,
+ZP and mixed homes, retained registers, and an incoming fixed-slot identity.
+For supported capture forms, verify that the pre-capture contract conservatively
+covers the corresponding materialized entry requirements without the false
+`$A0/$A1` requirements in the example. Also check capture omission and stale
+facts after binding, body, phase or global-backing changes.
+
+Negative controls must preserve genuine extra fixed-byte/register/flag inputs,
+partial or conditional definitions, source ZP conflicts, unknown callees and
+post-call uses. VM oracles must observe arguments before capture and check public
+results, ordered memory accesses and stack balance. Include optimized callers,
+both runtimes/origins, actual LF/CRLF loading and trace/untraced agreement.
+
+Measure TN and independent controls against the qualified handoff baseline.
+Report actual gains or unchanged output, candidate rejections, and continuation
+counts. Existing Strcpy, Fnamecmp and leaf savings are nonregression controls;
+their current results do not establish a benefit from this proposed refinement.
