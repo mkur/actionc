@@ -99,6 +99,52 @@ cleanup group or materialize the program again.
 
 ## Producer-deletion extension
 
+## Instruction exposure and register reuse
+
+The terminal transaction may expose a selected compound operation as explicit
+MIR6502 instructions before register-value cleanup. The first family is
+`OffsetPointerByIndirectByte` with disjoint, non-wrapping fixed source and
+destination pairs. Expansion preserves the emitter's ordered reads, writes,
+carry chain and register results, including Y initialization. Other addressing
+forms and the separate plus-one fusion retain their existing implementation.
+
+The existing `BinaryDirectIndexedByte` fixed-indirect form represents the
+native ADC/SBC instruction with explicit initialized input carry and produced
+output carry. Absolute indexed arithmetic keeps its existing contract. This
+is a MIR6502 boundary; SemIR and NIR do not change.
+
+Register reuse consumes the existing post-home machine-value and liveness
+analyses. A direct byte reload may disappear only when the destination already
+holds that memory value and its N/Z effects are dead. A load into A may become
+TXA/TYA when the corresponding register holds that value; transfers preserve
+the load's N/Z result and leave carry unchanged. The first slice admits only
+fixed zero-page RAM loads in routines with an exposed operation. Calls, joins,
+aliasing writes and unknown effects retain the existing invalidation policy.
+Indirect reads remain explicit and cannot be removed by these rules.
+
+Expansion and reuse belong to the existing terminal transaction, after its
+store/producer deletion discovery. No new allocation or upstream search runs.
+Frames remain fixed. The deletion-only intermediate is checked by the existing
+delta validator; expansion uses a closed typed recipe and reuse uses the shared
+rewrite driver, one rewrite per analysis snapshot. Final verification, callee
+contracts, final-placement replay, earlier-decision preservation and strict
+packaged-cost acceptance apply to the complete candidate. Rejection restores
+the original compound form as well as all original instructions. Expansion
+without an accepted reuse opportunity is not retained.
+
+Implementation slices:
+
+1. Expose the fixed-pair operation and validate byte-identical emission against
+   the original operation, including addition/subtraction and carry boundaries.
+2. Integrate reload removal and register substitution into the terminal
+   transaction behind a qualification gate. Cover flags, aliases, barriers,
+   joins, unchanged frames, exact-cost rejection and rollback.
+3. Qualify TN and independent execution controls, both runtimes and origins,
+   source newline variants and listing reconstruction. Enable the optimized
+   default only after measuring actual savings and completing backend checks.
+
+## Producer-deletion rules
+
 Status: implemented in `97b50d4d`, enabled in optimized builds by `075aa821`.
 See the [producer qualification](benchmarks/6502-late-producers/README.md).
 
