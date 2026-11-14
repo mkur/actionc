@@ -1,0 +1,30 @@
+; Independent parameter-placement controls. Main retains every subject.
+CARD input=$0680,observed=$0690
+
+BYTE FUNC KeepByte(BYTE value)
+RETURN(value)
+
+CARD FUNC StepWord(CARD value)
+  value==+1
+RETURN(value)
+
+BYTE FUNC ComparePointers(CHAR POINTER left,right)
+  WHILE left^=right^ DO
+    left==+1 right==+1
+  OD
+RETURN(left^>right^)
+
+CARD FUNC ExposeWord(CARD value)
+RETURN(@value)
+
+CARD FUNC MultiplyWords(CARD value,factor)
+RETURN(value*factor)
+
+PROC Main()
+  observed=KeepByte(input)
+  observed=StepWord(input)
+  observed=ComparePointers($7000,$7500)
+  observed=ExposeWord(input)
+  observed=MultiplyWords(input,3)
+  DO OD
+RETURN

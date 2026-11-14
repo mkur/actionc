@@ -7,6 +7,10 @@ adds a frame-preserving store-deletion transaction after T10 and validates
 selected late decisions against final placement. The schedule and findings below
 remain the historical audit of the revision above.
 
+The proposed [parameter home selection design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md)
+addresses the earlier capture/placement boundary by giving ABI capture, pointer
+setup, and storage layout one shared parameter binding.
+
 This is a source audit of the production MIR6502 path, including its shared
 NIR input and tracked emitter. It records the implemented schedule, rather
 than a proposed replacement pipeline. Classic 6502, MIR65816 and MIR68K are

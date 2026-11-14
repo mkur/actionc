@@ -1,0 +1,402 @@
+{
+  "revision": "8039b30b1b7349e62b69502092f9096271fc46af",
+  "api_rlib_sha256": "8e8f70632554eeddf7ee3144f32b07974515357eb61878036acca019369d147e",
+  "source_sha256_lf": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "fixtures/runtime/parameter_homes.act": "5077f7a9cffa5f478b217f7c237ae05baf6a03c89e37b08d010c8f776f375d22"
+  },
+  "cases": [
+    {
+      "id": "tn-ActionCart-3000",
+      "image_bytes": 9962,
+      "routines": [
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 185,
+          "inline_home_bytes": 4
+        }
+      ],
+      "work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24940
+      },
+      "image_sha256": "c43787858d36c12132979c4e5ed6e7a1687ed75ff697fbce8fc67ab30184d3ed"
+    },
+    {
+      "id": "tn-ActionCart-41c7",
+      "image_bytes": 9962,
+      "routines": [
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 185,
+          "inline_home_bytes": 4
+        }
+      ],
+      "work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24940
+      },
+      "image_sha256": "585d20b3bdbee937d745a80541510182147a41b541ec8ae68626bbadb80e4ad4"
+    },
+    {
+      "id": "tn-Standalone-3000",
+      "image_bytes": 10069,
+      "routines": [
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 185,
+          "inline_home_bytes": 4
+        }
+      ],
+      "work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24940
+      },
+      "image_sha256": "6b7c61bc52697aa01a69661f6e10b6f7676887b9180929388cc099a01ef77487"
+    },
+    {
+      "id": "tn-Standalone-41c7",
+      "image_bytes": 10069,
+      "routines": [
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 185,
+          "inline_home_bytes": 4
+        }
+      ],
+      "work": {
+        "emission_invocations": 43,
+        "inner_emission_probes": 258,
+        "late_cleanup_preservation_replays": 6,
+        "materializations": 3,
+        "pipeline_attempts": 34,
+        "rewrite_analysis_builds": 24940
+      },
+      "image_sha256": "3a7012093ba2caf27df3c873b502b9c6ac90e719cbfb6d4118842b1b6134ad22"
+    },
+    {
+      "id": "controls-ActionCart-3000",
+      "image_bytes": 323,
+      "routines": [
+        {
+          "name": "KeepByte",
+          "code_bytes": 3,
+          "inline_home_bytes": 0
+        },
+        {
+          "name": "StepWord",
+          "code_bytes": 32,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "ComparePointers",
+          "code_bytes": 111,
+          "inline_home_bytes": 4
+        },
+        {
+          "name": "ExposeWord",
+          "code_bytes": 15,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "MultiplyWords",
+          "code_bytes": 29,
+          "inline_home_bytes": 4
+        }
+      ],
+      "work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 1,
+        "pipeline_attempts": 25,
+        "rewrite_analysis_builds": 500
+      },
+      "image_sha256": "df4ab70e4252c4aa0c1a27945d6d87f3e3514750594c91ad51fc6979a3903a6e"
+    },
+    {
+      "id": "controls-ActionCart-41c7",
+      "image_bytes": 323,
+      "routines": [
+        {
+          "name": "KeepByte",
+          "code_bytes": 3,
+          "inline_home_bytes": 0
+        },
+        {
+          "name": "StepWord",
+          "code_bytes": 32,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "ComparePointers",
+          "code_bytes": 111,
+          "inline_home_bytes": 4
+        },
+        {
+          "name": "ExposeWord",
+          "code_bytes": 15,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "MultiplyWords",
+          "code_bytes": 29,
+          "inline_home_bytes": 4
+        }
+      ],
+      "work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 1,
+        "pipeline_attempts": 25,
+        "rewrite_analysis_builds": 500
+      },
+      "image_sha256": "dfc3329e8a2caf6d6918f83cb1fd873ebf7f06f8da31fedc42f9729291f229ba"
+    },
+    {
+      "id": "controls-Standalone-3000",
+      "image_bytes": 467,
+      "routines": [
+        {
+          "name": "KeepByte",
+          "code_bytes": 3,
+          "inline_home_bytes": 0
+        },
+        {
+          "name": "StepWord",
+          "code_bytes": 32,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "ComparePointers",
+          "code_bytes": 111,
+          "inline_home_bytes": 4
+        },
+        {
+          "name": "ExposeWord",
+          "code_bytes": 15,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "MultiplyWords",
+          "code_bytes": 29,
+          "inline_home_bytes": 4
+        }
+      ],
+      "work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 1,
+        "pipeline_attempts": 25,
+        "rewrite_analysis_builds": 500
+      },
+      "image_sha256": "d05ae9eab8e70600e8db34f46c3519f0ac2aca64a8d9e1befb24ddc7a93e3ebf"
+    },
+    {
+      "id": "controls-Standalone-41c7",
+      "image_bytes": 467,
+      "routines": [
+        {
+          "name": "KeepByte",
+          "code_bytes": 3,
+          "inline_home_bytes": 0
+        },
+        {
+          "name": "StepWord",
+          "code_bytes": 32,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "ComparePointers",
+          "code_bytes": 111,
+          "inline_home_bytes": 4
+        },
+        {
+          "name": "ExposeWord",
+          "code_bytes": 15,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "MultiplyWords",
+          "code_bytes": 29,
+          "inline_home_bytes": 4
+        }
+      ],
+      "work": {
+        "emission_invocations": 8,
+        "inner_emission_probes": 32,
+        "materializations": 1,
+        "pipeline_attempts": 25,
+        "rewrite_analysis_builds": 500
+      },
+      "image_sha256": "5378bb1db5861f1e1126d8e4a331822c0e8bb6c6daf1598105c5fe0213c6009b"
+    },
+    {
+      "id": "controls-inline-ActionCart-3000",
+      "image_bytes": 323,
+      "routines": [
+        {
+          "name": "KeepByte",
+          "code_bytes": 3,
+          "inline_home_bytes": 0
+        },
+        {
+          "name": "StepWord",
+          "code_bytes": 32,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "ComparePointers",
+          "code_bytes": 111,
+          "inline_home_bytes": 4
+        },
+        {
+          "name": "ExposeWord",
+          "code_bytes": 15,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "MultiplyWords",
+          "code_bytes": 29,
+          "inline_home_bytes": 4
+        }
+      ],
+      "work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "materializations": 3,
+        "pipeline_attempts": 60,
+        "rewrite_analysis_builds": 1467
+      },
+      "image_sha256": "df4ab70e4252c4aa0c1a27945d6d87f3e3514750594c91ad51fc6979a3903a6e"
+    },
+    {
+      "id": "controls-inline-ActionCart-41c7",
+      "image_bytes": 323,
+      "routines": [
+        {
+          "name": "KeepByte",
+          "code_bytes": 3,
+          "inline_home_bytes": 0
+        },
+        {
+          "name": "StepWord",
+          "code_bytes": 32,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "ComparePointers",
+          "code_bytes": 111,
+          "inline_home_bytes": 4
+        },
+        {
+          "name": "ExposeWord",
+          "code_bytes": 15,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "MultiplyWords",
+          "code_bytes": 29,
+          "inline_home_bytes": 4
+        }
+      ],
+      "work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "materializations": 3,
+        "pipeline_attempts": 60,
+        "rewrite_analysis_builds": 1467
+      },
+      "image_sha256": "dfc3329e8a2caf6d6918f83cb1fd873ebf7f06f8da31fedc42f9729291f229ba"
+    },
+    {
+      "id": "controls-inline-Standalone-3000",
+      "image_bytes": 467,
+      "routines": [
+        {
+          "name": "KeepByte",
+          "code_bytes": 3,
+          "inline_home_bytes": 0
+        },
+        {
+          "name": "StepWord",
+          "code_bytes": 32,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "ComparePointers",
+          "code_bytes": 111,
+          "inline_home_bytes": 4
+        },
+        {
+          "name": "ExposeWord",
+          "code_bytes": 15,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "MultiplyWords",
+          "code_bytes": 29,
+          "inline_home_bytes": 4
+        }
+      ],
+      "work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "materializations": 3,
+        "pipeline_attempts": 60,
+        "rewrite_analysis_builds": 1467
+      },
+      "image_sha256": "d05ae9eab8e70600e8db34f46c3519f0ac2aca64a8d9e1befb24ddc7a93e3ebf"
+    },
+    {
+      "id": "controls-inline-Standalone-41c7",
+      "image_bytes": 467,
+      "routines": [
+        {
+          "name": "KeepByte",
+          "code_bytes": 3,
+          "inline_home_bytes": 0
+        },
+        {
+          "name": "StepWord",
+          "code_bytes": 32,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "ComparePointers",
+          "code_bytes": 111,
+          "inline_home_bytes": 4
+        },
+        {
+          "name": "ExposeWord",
+          "code_bytes": 15,
+          "inline_home_bytes": 2
+        },
+        {
+          "name": "MultiplyWords",
+          "code_bytes": 29,
+          "inline_home_bytes": 4
+        }
+      ],
+      "work": {
+        "emission_invocations": 10,
+        "inner_emission_probes": 40,
+        "materializations": 3,
+        "pipeline_attempts": 60,
+        "rewrite_analysis_builds": 1467
+      },
+      "image_sha256": "5378bb1db5861f1e1126d8e4a331822c0e8bb6c6daf1598105c5fe0213c6009b"
+    }
+  ]
+}
