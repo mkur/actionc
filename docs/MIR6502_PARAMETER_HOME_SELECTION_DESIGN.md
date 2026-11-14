@@ -783,6 +783,9 @@ their current results do not establish a benefit from this proposed refinement.
 
 ## Proposed extension: ZP homes across ordinary calls
 
+The [implementation plan](MIR6502_CROSS_CALL_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
+defines parameter-first delivery, local binding support and final qualification.
+
 Extend the existing placement contract to ordinary calls followed by further
 computation, including calls inside loops. First place parameters in ZP; then
 admit eligible source locals through the same placement authority. Keep one
