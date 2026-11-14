@@ -3402,16 +3402,17 @@ fn emit_op(
                     );
                 }
                 MirByteIndexedSource::FixedIndirectY { zp } => {
-                    if *op != MirBinaryOp::Add {
-                        unsupported(
+                    let operand = IndirectIndexedY::new(ZeroPage::new(zp.0));
+                    match op {
+                        MirBinaryOp::Add => emitter.emit_adc_indirect_indexed_y(operand),
+                        MirBinaryOp::Sub => emitter.emit_sbc_indirect_indexed_y(operand),
+                        _ => unsupported(
                             ctx,
                             routine,
                             block,
-                            "fixed indirect indexed byte binary only supports addition",
-                        );
-                        return;
+                            "fixed indirect indexed byte binary only supports addition/subtraction",
+                        ),
                     }
-                    emitter.emit_adc_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(zp.0)));
                 }
             }
         }

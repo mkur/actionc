@@ -1621,14 +1621,23 @@ impl MirVerifier {
                         routine_ids,
                     ),
                 }
-                if *op != MirBinaryOp::Add
-                    || !matches!(carry_in, Some(MirCarryIn::Clear))
-                    || *carry_out != super::ir::MirCarryOut::Ignore
-                {
+                let valid = match source {
+                    MirByteIndexedSource::Absolute { .. } => {
+                        *op == MirBinaryOp::Add
+                            && *carry_in == Some(MirCarryIn::Clear)
+                            && *carry_out == super::ir::MirCarryOut::Ignore
+                    }
+                    MirByteIndexedSource::FixedIndirectY { zp } => {
+                        zp.0 < 255 && matches!((op, carry_in),
+                            (MirBinaryOp::Add, Some(MirCarryIn::Clear))
+                            | (MirBinaryOp::Sub, Some(MirCarryIn::Set)))
+                    }
+                };
+                if !valid {
                     self.diagnostics.push(MirDiagnostic::block(
                         &routine.name,
                         block,
-                        "direct indexed byte binary requires add, clear carry input, and ignored carry output",
+                        "direct indexed byte binary requires add, clear carry input, and ignored carry output; fixed indirect permits initialized add/sub carry chains with a non-wrapping pair",
                     ));
                 }
                 if !matches!(

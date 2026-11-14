@@ -97,8 +97,6 @@ transaction. The optional allocation experiment has its own declaration-only
 acceptance and rollback boundary, described below. Do not invoke the whole core
 cleanup group or materialize the program again.
 
-## Producer-deletion extension
-
 ## Instruction exposure and register reuse
 
 The terminal transaction may expose a selected compound operation as explicit

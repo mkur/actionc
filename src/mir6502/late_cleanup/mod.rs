@@ -2,6 +2,7 @@
 pub(super) mod preservation;
 mod producers;
 mod pruning;
+mod register_reuse;
 
 use super::{
     Mir6502Config, MirDiagnostic,

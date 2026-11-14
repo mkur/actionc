@@ -604,8 +604,8 @@ pub enum MirOp {
     },
     /// Native byte arithmetic with A as both the left operand and result and
     /// a directly addressable byte selected through X or Y as the right
-    /// operand. Selection currently admits only addition with ignored output
-    /// carry; the explicit fields keep flag behavior verifier-visible.
+    /// operand. Absolute indexing admits addition with ignored output carry;
+    /// fixed indirect indexing also admits initialized add/sub carry chains.
     BinaryDirectIndexedByte {
         op: MirBinaryOp,
         source: MirByteIndexedSource,
