@@ -1000,6 +1000,19 @@ Rules:
   Historical materialized-MIR dumps precede this final executable selection;
   the final pre-emission trace records accepted bindings. See the
   [parameter home design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md).
+- A bound wrapper may carry `MirParamHandoff { target, argument_bytes }`.
+  This is a revalidated terminal-consumption boundary, not permission to keep
+  arbitrary values across calls. The verifier reconstructs the unique direct
+  call followed by a void return, checks its canonical argument window and
+  current callee entry obligations, and rejects earlier barriers or later uses.
+  Argument reads precede invocation clobbers. Every protected ZP byte is treated
+  as potentially clobbered by invocation; safety requires it dead afterwards.
+  Setup writes still cannot kill their own parameter-liveness obligation.
+  Discovery facts own their original routine/callee bodies and global placement
+  dependencies; expansion never reuses their original instruction indices.
+  Shared callee entry analysis distinguishes fixed-byte reads before overwrite
+  from the callee's complete write footprint, and tracks C/N/Z/V independently
+  through supported machine control flow. Unknown entry observations fail closed.
 - `MirZpSlot` is abstract/virtual until a zero-page allocation pass maps it to a
   concrete address.
 - Fixed ABI zero-page locations must use a separate fixed form so they cannot be

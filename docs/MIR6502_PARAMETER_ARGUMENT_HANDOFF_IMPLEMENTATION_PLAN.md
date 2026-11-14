@@ -1,6 +1,6 @@
 # MIR6502 parameter-to-argument handoff implementation plan
 
-Prepared 2026-11-14. Status: slices 0–2 complete; slices 3–6 pending.
+Prepared 2026-11-14. Status: slices 0–3 complete; slices 4–6 pending.
 Starting compiler: `471ef1c8`, with qualified leaf parameter placement enabled.
 
 Implements the [parameter handoff design extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-parameter-handoff-to-call-arguments).
@@ -370,3 +370,28 @@ for `materialize::abi` matched no tests; the explicit ABI/binding-consumer cases
 and call-ABI integration target provide that coverage instead. The final unit
 rerun changed only those synthetic test frames; passing production checks were
 retained rather than rebuilding the measurement matrix again.
+
+### Slice 3 completion
+
+Slice 2 is `d94d307c`. Wrapper discovery now owns generation-scoped call and
+definition witnesses and checks the shared 64-operation setup budget. A frame
+contract records the target and canonical input width; expanded verification
+reconstructs the terminal site. Lifetime verification consumes arguments before
+invocation clobbers, while preserving protection against setup overwrites.
+
+Shared callee-entry facts cover registers, individual flags and fixed bytes read
+before overwrite. The existing bounded machine decoder supplies a definite-write
+analysis through closed loops without requiring an exact pointee-write footprint.
+Facts are invalidated by body, machine-payload or global-backing changes. Unknown
+entry observations, source exposure and post-call uses retain the fallback.
+
+Validation: all 20 parameter-home unit tests, 26 known-callee tests, six active
+entry-flag tests and three preservation tests pass. The handoff (three), callee
+entry (one active) and bounded-pointer (one active) integration tests pass. Three
+external-artifact/MADS integration cases and the diagnostic census remain ignored
+in this focused run; final qualification covers the applicable external checks.
+Tests exercise stale facts, missing definitions, extra flags/fixed inputs,
+overwrite-before-read, setup clobbers and terminal consumption. Initial tests
+exposed absent scalar signatures for pointer parameters and opaque raw assembly;
+the signature guard now rejects only an explicit non-void result, and the flag
+fixture uses analyzed ASM. Production selection is still disabled.

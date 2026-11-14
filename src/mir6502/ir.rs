@@ -284,11 +284,19 @@ pub struct MirFrame {
     /// None retains legacy parameter placement. Some is the sole placement
     /// authority for every parameter, including parameters with no memory home.
     pub parameter_homes: Option<Vec<MirParamBinding>>,
+    /// Revalidated terminal consumption; no pre-expansion instruction index.
+    pub parameter_handoff: Option<MirParamHandoff>,
     pub locals: Vec<MirStorageSlot>,
     pub spills: Vec<MirSpillId>,
     pub virtual_zero_page: Vec<MirZpSlot>,
     pub fixed_zero_page: Vec<MirFixedZpSlot>,
     pub zero_page_allocations: Vec<MirZpAllocation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MirParamHandoff {
+    pub target: RoutineId,
+    pub argument_bytes: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

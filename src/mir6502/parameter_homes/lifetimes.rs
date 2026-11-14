@@ -71,23 +71,26 @@ pub(in crate::mir6502) fn verify(routine: &MirRoutine) -> Vec<MirDiagnostic> {
     };
     let mut transfers = BTreeMap::new();
     let mut clobbers = Vec::new();
+    let terminal = super::handoff::terminal_site(routine);
     for block in &routine.blocks {
         let mut ops = Vec::new();
         for (op_index, op) in block.ops.iter().enumerate() {
+            let site = MirSite::Op { block: block.id, op_index };
+            let consumes = terminal == Some(site);
             if matches!(
                 op,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
                     | MirOp::MachineBlock { .. }
                     | MirOp::Barrier { .. }
-            ) {
+            ) && !consumes {
                 return vec![MirDiagnostic::routine(
                     &routine.name,
                     "parameter residence acquired an unsupported expanded barrier",
                 )];
             }
             let e = classify_op(op);
-            if e.memory.opaque || e.memory.indirect_writes {
+            if (e.memory.opaque || e.memory.indirect_writes) && !consumes {
                 return vec![MirDiagnostic::routine(
                     &routine.name,
                     "parameter residence acquired unsupported expanded memory effects",
@@ -112,6 +115,11 @@ pub(in crate::mir6502) fn verify(routine: &MirRoutine) -> Vec<MirDiagnostic> {
                         writes.insert(MirHomeByte::FixedZeroPage(slot));
                     }
                 }
+            }
+            if consumes {
+                // Inputs are read before invocation effects. Unknown writes
+                // need no footprint when every protected value dies here.
+                writes.extend(&owned);
             }
             for home in writes.intersection(&owned) {
                 clobbers.push((

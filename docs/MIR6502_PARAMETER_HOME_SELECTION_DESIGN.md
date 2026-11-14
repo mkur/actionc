@@ -573,3 +573,20 @@ code, ordinary storage, occupied ZP, whole-image size, compile time, and memory.
 The 20-byte reference is a measurable target for the unchanged-ABI `Strcpy`
 shape; a generated result must earn it through these general proofs. Full
 MIR6502 qualification is required before enabling this scope by default.
+
+### Terminal consumption proof boundary
+
+The handoff frame contract retains the direct target and canonical argument
+width, not a pre-expansion instruction index. Discovery owns the source body,
+generation-scoped reaching definitions and a shared callee-entry fact. Expanded
+verification reconstructs the unique terminal call and recomputes entry inputs.
+Call argument reads precede invocation clobbers; only parameters dead after those
+reads may lose their working locations. Setup writes never discharge their own
+liveness obligations.
+
+Entry obligations are separate from exit preservation and exact write footprints.
+The shared machine decoder computes registers, individual flags and fixed bytes
+read before definite overwrite through closed control flow. An unknown entry
+observation rejects the proposal. A known terminal callee may have unbounded
+pointee writes; it still must receive every required input, and existing wrapper
+preservation contracts are replayed by the continuation.

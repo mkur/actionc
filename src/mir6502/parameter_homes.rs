@@ -5,8 +5,11 @@ use super::{diagnostics::MirDiagnostic, ir::*};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 mod lifetimes;
+mod handoff;
 #[cfg(test)]
 mod mixed_tests;
+#[cfg(test)]
+mod handoff_tests;
 mod zero_page;
 pub(super) use lifetimes::verify as verify_lifetimes;
 
@@ -382,10 +385,10 @@ fn source_zero_page(program: &MirProgram, routine: &MirRoutine) -> BTreeSet<u8> 
 }
 
 pub(super) fn verify_storage(program: &MirProgram, routine: &MirRoutine) -> Vec<MirDiagnostic> {
+    let mut errors = handoff::verify(program, routine);
     let Some(bindings) = &routine.frame.parameter_homes else {
-        return vec![];
+        return errors;
     };
-    let mut errors = Vec::new();
     let owned = source_zero_page(program, routine);
     for b in bindings {
         if b.home == MirParamHome::Inline {

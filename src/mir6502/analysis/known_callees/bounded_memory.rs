@@ -4,6 +4,7 @@ use super::*;
 use crate::mir6502::analysis::record_bases::MirPhysicalMemory;
 use std::collections::VecDeque;
 mod ranged_inputs;
+mod entry_inputs;
 use crate::mir6502::analysis::address_ranges::CoherentWordRange;
 use ranged_inputs::WordLanes;
 
