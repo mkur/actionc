@@ -723,6 +723,16 @@ the same completeness; the presence or absence of `scalar_signature` alone
 does not establish a safe entry contract. Missing facts retain the conservative
 fallback. No SemIR lookup or source-name inference is permitted.
 
+The initial implementation certifies register-store capture, retained register
+lanes and identity fixed slots. Memory-sourced capture remains unknown because
+its pseudo Store omits expansion effects on A and N/Z. SArgs remains excluded.
+The typed `MirFrame::direct_parameter_abi` declaration supplies completeness for
+finite byte/word integer and pointer signatures without changing the meaning of
+`scalar_signature`. The entry query validates it against current frame slots.
+An ordinary Return's implicit SP use is part of the balanced ABI, while explicit
+stack dependencies remain extra entry requirements. General rewrite liveness
+continues to preserve Return's SP use.
+
 #### Fact validity and acceptance
 
 An entry fact belongs to the selected callee and its representation. Its validity

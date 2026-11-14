@@ -1,6 +1,6 @@
 # MIR6502 callee entry capture implementation plan
 
-Status: slices 0–1 complete; slices 2–3 pending. Starting compiler: `72131db3`.
+Status: slices 0–2 complete; slice 3 qualification pending. Starting compiler: `72131db3`.
 Implements the [callee capture boundary refinement](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-refinement-callee-entry-facts-through-parameter-capture).
 The [parameter handoff plan](MIR6502_PARAMETER_ARGUMENT_HANDOFF_IMPLEMENTATION_PLAN.md)
 is complete and supplies the production baseline. Work in the four slices below,

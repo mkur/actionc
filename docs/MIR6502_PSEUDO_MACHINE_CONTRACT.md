@@ -2330,6 +2330,27 @@ boundaries, independent of whether a binding exists or a prefix resembles stores
 A future verifier caller crossing this boundary must supply the appropriate phase
 or introduce explicit provenance; it must not infer the stage from instructions.
 
+`MirFrame::direct_parameter_abi` is an optional, complete declaration of finite
+byte/word integer or pointer parameters with a scalar/void result. MIR lowering
+copies this from verified NIR; the entry proof checks it against the current
+frame. Missing, variadic, aggregate, wider or inconsistent declarations remain
+unknown. The existing integer-only `scalar_signature` and separate entry-flag
+and machine-callee contracts retain their meanings.
+
+Planned entry analysis composes the shared ordered capture with the body before
+running byte-definite memory and physical-state liveness. This slice certifies
+plain A/X/Y stores, omitted homes, retained canonical registers and identity
+fixed-slot lanes. A retained `$A3` remains an incoming byte. Memory-sourced
+capture and SArgs are outside this slice: a pseudo Store alone does not describe
+the hidden A and N/Z effects of their expansion. They retain unknown-contract
+fallback. Actual entry analysis uses the operations present once, and final
+verification can still reject a new requirement exposed by expansion.
+
+Entry liveness excludes Return's implicit SP use, which belongs to the normal
+balanced call/return convention. Rewrite liveness continues to keep that use.
+Explicit stack reads and opaque effects remain dependencies. This distinction
+does not change stack behavior or authorize stack manipulation.
+
 ### Atari FPP target services
 
 Native `REAL` arithmetic uses a distinct structured call target:

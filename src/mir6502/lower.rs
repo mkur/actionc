@@ -755,6 +755,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                     MirRoutineAbi::Action
                 },
                 frame: MirFrame {
+                    direct_parameter_abi: direct_parameter_abi(&routine.signature),
                     parameter_homes: None,
                     parameter_handoff: None,
                     params: routine
@@ -996,6 +997,16 @@ fn routine_has_observable_action_entry(routine: &nir::NirRoutine) -> bool {
 
 fn routine_is_program_entry(routine: &nir::NirRoutine) -> bool {
     routine.entry.program
+}
+
+fn direct_parameter_abi(signature: &nir::NirCallableSignature) -> Option<Vec<MirWidth>> {
+    if signature.variadic.is_some() { return None; }
+    let lane = |ty: &nir::NirType| {
+        (ty.kind.integer().is_some() || matches!(ty.kind, NirTypeKind::Pointer { .. }))
+            .then(|| mir_width(ty)).flatten()
+    };
+    if let Some(result) = &signature.result { lane(result)?; }
+    signature.params.iter().map(lane).collect()
 }
 
 fn scalar_signature(signature: &nir::NirCallableSignature) -> Option<super::ir::MirScalarSignature> {
@@ -4571,5 +4582,23 @@ mod tests {
         let slot = &mir.routines[0].frame.locals[0];
         assert_eq!(slot.storage_size, 6);
         assert_eq!(slot.scalar_width, None);
+    }
+}
+
+#[cfg(test)]
+mod direct_parameter_abi_tests {
+    #[test]
+    fn pointer_entry_declaration_is_complete_but_variadic_and_aggregate_are_not() {
+        let ast=crate::parser::parse(&crate::lexer::tokenize("PROC Sink(CHAR POINTER p) RETURN").unwrap()).unwrap();
+        let model=crate::semantic::analyze_with_options(&ast,crate::semantic::SemanticOptions::modern()).unwrap();
+        let nir=crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast,&model));
+        let mut sig=nir.routines[0].signature.clone();
+        assert_eq!(super::direct_parameter_abi(&sig),Some(vec![super::MirWidth::Word]));
+        assert!(super::scalar_signature(&sig).is_none());
+        sig.variadic=Some(sig.params[0].clone());
+        assert!(super::direct_parameter_abi(&sig).is_none());
+        sig.variadic=None;
+        sig.params[0].kind=crate::nir::NirTypeKind::Record {definition:None,name:"Pair".into(),size:sig.params[0].width};
+        assert!(super::direct_parameter_abi(&sig).is_none());
     }
 }

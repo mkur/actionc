@@ -347,7 +347,7 @@ fn full_word_argument_cannot_be_proved_from_a_partial_definition() {
 }
 
 #[test]
-fn capture_boundary_baseline_exposes_false_working_home_inputs() {
+fn capture_boundary_supplies_working_homes_from_canonical_inputs() {
     let text =
         include_str!("../../../fixtures/runtime/callee_entry_capture.act").replace("\r\n", "\n");
     let ast = crate::parser::parse(&crate::lexer::tokenize(&text).unwrap()).unwrap();
@@ -393,15 +393,10 @@ fn capture_boundary_baseline_exposes_false_working_home_inputs() {
         MirCalleeEntryStage::PlannedCapture,
     )
     .unwrap();
-    assert_eq!(
-        before.inputs.fixed,
-        BTreeSet::from([0xa0, 0xa1, 0xa2, 0xa3])
-    );
-    assert_eq!(
-        handoff::analyze(&selected.input, routine(&selected.input, "ForwardWords")).unwrap_err(),
-        "extra-entry-flags-or-stack"
-    );
-    assert!(before.inputs.registers.sp); // Normal Return, not a non-ABI stack input.
+    assert_eq!(before.inputs.fixed, BTreeSet::from([0xa3]));
+    assert!(handoff::analyze(&selected.input, routine(&selected.input, "ForwardWords")).is_ok());
+    assert!(!before.inputs.registers.sp);
+    assert!(before.inputs.registers.a && before.inputs.registers.x && before.inputs.registers.y);
     let after = MirCalleeEntryFact::analyze(
         &selected.executable.program,
         callee.id,
@@ -424,10 +419,10 @@ fn capture_boundary_baseline_exposes_false_working_home_inputs() {
             routine(&selected.input, "ReadPointers").id,
             MirCalleeEntryStage::PlannedCapture
         )
-        .is_none()
+        .is_some()
     );
     println!(
-        "capture baseline before={:?} after={:?} extra={:?}",
+        "capture composed before={:?} after={:?} extra={:?}",
         before.inputs, after.inputs, extra.inputs
     );
 }
@@ -558,4 +553,270 @@ fn entry_facts_require_the_same_capture_stage_and_definition() {
     let fact =
         MirCalleeEntryFact::analyze(&empty, routine(&empty, "Sink").id, PlannedCapture).unwrap();
     assert!(!fact.is_current(&empty, ActualEntry));
+}
+
+fn entry_probe() -> (MirProgram, usize, crate::nir::ParamId) {
+    let mut p =
+        source("CARD out\nPROC Sink(CARD value) out=value RETURN\nPROC Main() Sink(1) RETURN");
+    let index = p.routines.iter().position(|r| r.name == "Sink").unwrap();
+    let r = &mut p.routines[index];
+    let MirStorageBase::Param(id) = r.frame.params[0].base else {
+        panic!()
+    };
+    r.frame.parameter_homes = Some(vec![MirParamBinding {
+        param: id,
+        home: MirParamHome::ZeroPage(MirFixedZpSlot(0xa0)),
+    }]);
+    r.frame
+        .fixed_zero_page
+        .extend([MirFixedZpSlot(0xa0), MirFixedZpSlot(0xa1)]);
+    (p, index, id)
+}
+
+#[test]
+fn composed_capture_keeps_extra_registers_fixed_bytes_and_each_flag() {
+    use MirCalleeEntryStage::PlannedCapture;
+    let (base, index, _) = entry_probe();
+    for flag in [
+        MirFlagTest::CSet,
+        MirFlagTest::ZSet,
+        MirFlagTest::NSet,
+        MirFlagTest::VSet,
+    ] {
+        let mut p = base.clone();
+        let r = &mut p.routines[index];
+        let mut exit = r.blocks[0].clone();
+        exit.id = MirBlockId(991);
+        exit.label = "exit".into();
+        exit.ops.clear();
+        exit.terminator = MirTerminator::Return;
+        r.blocks[0].ops.clear();
+        r.blocks[0].terminator = MirTerminator::Branch {
+            cond: MirCond::FlagTest(flag.clone()),
+            then_edge: MirEdge::plain(exit.id),
+            else_edge: MirEdge::plain(exit.id),
+        };
+        r.blocks.push(exit);
+        let inputs = MirCalleeEntryFact::analyze(&p, r_id(&p, index), PlannedCapture)
+            .unwrap()
+            .inputs;
+        assert_eq!(
+            (
+                inputs.flags.c,
+                inputs.flags.z,
+                inputs.flags.n,
+                inputs.flags.v
+            ),
+            (
+                flag == MirFlagTest::CSet,
+                flag == MirFlagTest::ZSet,
+                flag == MirFlagTest::NSet,
+                flag == MirFlagTest::VSet
+            )
+        );
+    }
+    let mut p = base;
+    p.routines[index].blocks[0].ops = vec![
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x680)),
+            src: MirValue::Def(MirDef::Reg(MirReg::Y)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xac))),
+            width: MirWidth::Byte,
+        },
+    ];
+    let fact = MirCalleeEntryFact::analyze(&p, r_id(&p, index), PlannedCapture).unwrap();
+    assert!(fact.inputs.registers.a && fact.inputs.registers.x && fact.inputs.registers.y);
+    assert_eq!(fact.inputs.fixed, BTreeSet::from([0xac]));
+    p.routines[index].effects.reads.sp = true;
+    assert!(
+        MirCalleeEntryFact::analyze(&p, r_id(&p, index), PlannedCapture)
+            .unwrap()
+            .inputs
+            .registers
+            .sp
+    );
+}
+fn r_id(p: &MirProgram, index: usize) -> RoutineId {
+    p.routines[index].id
+}
+
+#[test]
+fn actual_entry_does_not_invent_missing_or_conditional_capture() {
+    use MirCalleeEntryStage::{ActualEntry, PlannedCapture};
+    let (mut p, index, id) = entry_probe();
+    let capture_low = MirOp::Store {
+        dst: MirAddr::Direct(MirMem::Param { id, offset: 0 }),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    };
+    let read = MirOp::Load {
+        dst: MirDef::VTemp(MirTempId(0)),
+        src: MirAddr::Direct(MirMem::Param { id, offset: 0 }),
+        width: MirWidth::Word,
+    };
+    let r = &mut p.routines[index];
+    r.blocks[0].ops = vec![capture_low.clone(), read.clone()];
+    assert_eq!(
+        MirCalleeEntryFact::analyze(&p, r_id(&p, index), ActualEntry)
+            .unwrap()
+            .inputs
+            .fixed,
+        BTreeSet::from([0xa1])
+    );
+    assert!(
+        MirCalleeEntryFact::analyze(&p, r_id(&p, index), PlannedCapture)
+            .unwrap()
+            .inputs
+            .fixed
+            .is_empty()
+    );
+    let r = &mut p.routines[index];
+    let mut overwrite = r.blocks[0].clone();
+    overwrite.id = MirBlockId(990);
+    overwrite.label = "overwrite".into();
+    overwrite.ops = vec![capture_low];
+    let mut join = overwrite.clone();
+    join.id = MirBlockId(991);
+    join.label = "join".into();
+    join.ops = vec![read];
+    join.terminator = MirTerminator::Return;
+    overwrite.terminator = MirTerminator::Jump(MirEdge::plain(join.id));
+    r.blocks[0].ops.clear();
+    r.blocks[0].terminator = MirTerminator::Branch {
+        cond: MirCond::FlagTest(MirFlagTest::CSet),
+        then_edge: MirEdge::plain(overwrite.id),
+        else_edge: MirEdge::plain(join.id),
+    };
+    r.blocks.extend([overwrite, join]);
+    let inputs = MirCalleeEntryFact::analyze(&p, r_id(&p, index), ActualEntry)
+        .unwrap()
+        .inputs;
+    assert_eq!(inputs.fixed, BTreeSet::from([0xa0, 0xa1]));
+    assert!(inputs.flags.c);
+}
+
+#[test]
+fn incomplete_aggregate_helper_and_uncertified_capture_contracts_stay_unknown() {
+    use MirCalleeEntryStage::PlannedCapture;
+    let (base, index, _) = entry_probe();
+    for variant in 0..5 {
+        let mut p = base.clone();
+        let r = &mut p.routines[index];
+        match variant {
+            0 => r.frame.direct_parameter_abi = None,
+            1 => r.frame.params[0].storage = MirStorageClass::Record,
+            2 => r.frame.direct_parameter_abi = Some(vec![MirWidth::Byte]),
+            3 => r.abi = MirRoutineAbi::ActionObservable,
+            _ => r.blocks[0].ops.push(MirOp::Barrier {
+                effects: MirEffects::default(),
+            }),
+        }
+        assert!(
+            MirCalleeEntryFact::analyze(&p, r_id(&p, index), PlannedCapture).is_none(),
+            "{variant}"
+        );
+    }
+    let p =
+        source("CARD out\nPROC Sink(CARD a,b) out=a out=b RETURN\nPROC Main() Sink(1,2) RETURN");
+    // Inline fourth-byte capture is memory sourced. It must not be mistaken for
+    // a flag-preserving store until its expansion has a shared proof.
+    assert!(MirCalleeEntryFact::analyze(&p, routine(&p, "Sink").id, PlannedCapture).is_none());
+    let p = source(
+        "CARD out\nPROC Sink(CARD a,b,c) out=a out=b out=c RETURN\nPROC Main() Sink(1,2,3) RETURN",
+    );
+    assert!(MirCalleeEntryFact::analyze(&p, routine(&p, "Sink").id, PlannedCapture).is_none());
+}
+
+#[test]
+fn an_extra_expanded_entry_requirement_restores_the_complete_selected_artifact() {
+    let text = "CARD first=$680,second=$682,seed=$684\nPROC Sum(CARD left,right) first=left+right second=right+257 RETURN\nPROC Forward(CARD left,right) Sum(left,right) RETURN\nPROC Main() Forward(seed,seed+17) DO OD RETURN";
+    let ast = crate::parser::parse(&crate::lexer::tokenize(text).unwrap()).unwrap();
+    let model =
+        crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
+            .unwrap();
+    let nir = crate::nir::optimize_program(&crate::nir::lower_program(
+        &crate::semantic::ir::lower_program(&ast, &model),
+    ))
+    .unwrap();
+    let config = super::super::Mir6502Config {
+        enable_small_leaf_inlining: false,
+        ..super::super::Mir6502Config::optimized()
+    };
+    let runtime = crate::runtime::Runtime::ActionCart;
+    let session = super::super::trace::Mir6502Trace::default();
+    let trace = session.context();
+    let (program, resume) =
+        super::super::prepare_program_for_emission(&nir, 0x3000, &config, runtime, &trace).unwrap();
+    let resume = resume.unwrap();
+    let baseline = super::super::finalize_output(&nir, program, 0x3000, runtime, &trace).unwrap();
+    let selected = SelectedPlacement {
+        input: Arc::new(resume.core.checkpoint.input.program.clone()),
+        executable: baseline,
+    };
+    let leaf = propose(&selected.input).unwrap();
+    let selected = try_proposal(
+        &nir,
+        selected,
+        &resume,
+        leaf,
+        "parameter-homes",
+        &config,
+        0x3000,
+        runtime,
+        &trace,
+    );
+    let callee = routine(&selected.input, "Sum").id;
+    let planned =
+        MirCalleeEntryFact::analyze(&selected.input, callee, MirCalleeEntryStage::PlannedCapture)
+            .unwrap();
+    let actual = MirCalleeEntryFact::analyze(
+        &selected.executable.program,
+        callee,
+        MirCalleeEntryStage::ActualEntry,
+    )
+    .unwrap();
+    assert!(!planned.inputs.flags.any());
+    // The shared flag proof does not certify the low-byte memory ADC as a
+    // definition for the high-byte carry read. Final proof remains conservative.
+    assert!(actual.inputs.flags.c);
+    let proposal = handoff::propose(&selected.input, &selected.executable.program).unwrap();
+    super::super::verify_program(&proposal, MirPhase::PreMaterialization).unwrap();
+    let expected_input = Arc::clone(&selected.input);
+    let expected = selected.executable.clone();
+    let before = session.manifest()["work"]["materializations"]
+        .as_u64()
+        .unwrap();
+    let selected = try_proposal(
+        &nir,
+        selected,
+        &resume,
+        proposal,
+        "parameter-argument-handoff",
+        &config,
+        0x3000,
+        runtime,
+        &trace,
+    );
+    assert!(Arc::ptr_eq(&selected.input, &expected_input));
+    assert_eq!(selected.executable.output, expected.output);
+    assert_eq!(selected.executable.program, expected.program);
+    assert_eq!(selected.executable.costs, expected.costs);
+    assert_eq!(selected.executable.trace_snapshot, expected.trace_snapshot);
+    assert!(
+        session.manifest()["work"]["materializations"]
+            .as_u64()
+            .unwrap()
+            <= before + 1
+    );
+    assert!(
+        session
+            .events()
+            .iter()
+            .any(|e| e.kind == "parameter-argument-handoff-result"
+                && e.data.to_string().contains("extra-entry-flags-or-stack"))
+    );
 }

@@ -280,6 +280,10 @@ pub enum MirRoutineAbi {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MirFrame {
+    /// Complete non-variadic byte/word integer or pointer parameter ABI from
+    /// verified NIR, with a scalar/void result. None is an unknown contract.
+    /// This is distinct from the integer-only logical scalar_signature.
+    pub direct_parameter_abi: Option<Vec<MirWidth>>,
     pub params: Vec<MirStorageSlot>,
     /// None retains legacy parameter placement. Some is the sole placement
     /// authority for every parameter, including parameters with no memory home.

@@ -68,3 +68,34 @@ Slice 1 passed 814 focused unit tests (12 existing ignored) and
 91 integration tests (one existing MADS test deferred). All 12 frozen
 cases match in bytes, maps, relocations, selected homes, placement outcomes and
 work/upstream counts: [receipt](slice1.json), [checks](slice1-checks.json).
+
+## Capture composition
+
+The independent fixture now occupies **337 packaged bytes**, versus 375 with the
+same handoff-enabled baseline compiler. Each of `ForwardWords` and
+`ForwardPointers` changes from 22 code bytes + four ordinary home bytes to
+seven code bytes + zero ordinary homes: **19 bytes saved per wrapper, 38 total**.
+The two physical fragments are `$A0` and `$A3`; X and Y stay in their canonical
+registers. Both runtimes, origins and inlining settings produce the same saving.
+`ForwardWord`, the extra-$AC control and the post-call-use control retain their
+previous costs. This is measured production selection, not a forced binding.
+
+The shared entry fact now composes register-store capture with body liveness.
+The required inputs for `CaptureWords` are A/X/Y and `$A3`, with no additional
+stack or flag requirement. Pointer eligibility comes from a complete finite
+`direct_parameter_abi` declaration, independently of the integer-only signature.
+Memory-sourced capture and SArgs remain unknown; no expansion effects are guessed.
+
+A separate `Sum` regression intentionally reaches an uncertified expanded carry
+requirement. The existing flag proof does not certify its low-byte memory ADC
+for the later high-byte carry use. The trial is rejected, restoring the selected
+input identity, program, image/maps/relocations, costs and trace identity. This
+keeps final verification authoritative without broadening flag certification.
+
+Slice 2 passed 72 focused proof/unit tests (one existing census ignored), six
+handoff integration tests (MADS deferred) and all four handoff VM tests. The TN
+cart/standalone images remain **9,853 / 9,960 bytes**, with identical image/map/
+relocation hashes, routine costs and work/upstream counters at both origins.
+The new controls use one existing handoff continuation (two to three total
+materializations); no upstream search is repeated. See [receipt](slice2.json)
+and [checks](slice2-checks.json).

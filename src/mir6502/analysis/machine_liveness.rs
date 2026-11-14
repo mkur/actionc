@@ -155,12 +155,19 @@ impl MirMachineLiveness {
     /// Incoming flags observed before certified definitions. Calls/helpers and
     /// barriers always observe all flags, independently of callee declarations.
     pub(in crate::mir6502) fn entry_flag_inputs(routine: &MirRoutine, cfg: &MirCfg) -> Option<MirFlagSet> {
+        Self::entry_inputs(routine, cfg).map(|live| live.flags)
+    }
+
+    /// Requirements beyond the ordinary balanced call/return contract. Unlike
+    /// rewrite liveness, an entry query does not expose Return's implicit SP use.
+    /// Explicit stack reads, opaque effects and certified flag dependencies stay.
+    pub(in crate::mir6502) fn entry_inputs(routine: &MirRoutine, cfg: &MirCfg) -> Option<MirMachineLiveSet> {
         let entry = cfg.entry()?;
         let facts = Self::analyze_with_policy(routine, cfg, MirRegisterSet::default(),
             &MirKnownCalleeSummaries::default(), true);
         #[cfg(test)]
         super::entry_flags::record_evaluations(facts.evaluations());
-        facts.live_in(entry).map(|live| live.flags)
+        facts.live_in(entry)
     }
 
     fn analyze_with_policy(
@@ -194,7 +201,7 @@ impl MirMachineLiveness {
                 )
             })
             .map(|block| {
-                let mut uses = action_return_machine_uses();
+                let mut uses = if entry_flags { MirMachineLiveSet::default() } else { action_return_machine_uses() };
                 merge_registers(&mut uses.registers, return_registers);
                 (block.id, uses)
             })

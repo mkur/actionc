@@ -6,7 +6,9 @@ use crate::mir6502::analysis::{
     home_liveness::{MirHomeBlockTransfers, MirHomeLiveness, MirHomeTransfer},
     machine_liveness::MirMachineLiveness,
 };
-use crate::mir6502::ir::MirParamLane;
+use crate::mir6502::ir::{
+    MirDef, MirFlag, MirParamLane, MirRoutineAbi, MirStorageClass, MirValue, MirWidth,
+};
 use std::sync::Arc;
 
 /// The caller establishes this boundary; bindings and operation prefixes cannot.
@@ -56,7 +58,7 @@ impl MirCalleeEntryFact {
         let inputs = if !machines.is_empty() {
             BoundedMachine::analyze(routine, program)?.entry_inputs()?
         } else {
-            scalar_inputs(program, routine)?
+            scalar_inputs(program, routine, stage)?
         };
         Some(Self {
             source: Arc::new(routine.clone()),
@@ -86,8 +88,12 @@ impl MirCalleeEntryFact {
     }
 }
 
-fn scalar_inputs(program: &MirProgram, routine: &MirRoutine) -> Option<Inputs> {
-    if routine.scalar_signature.is_none()
+fn scalar_inputs(
+    program: &MirProgram,
+    routine: &MirRoutine,
+    stage: MirCalleeEntryStage,
+) -> Option<Inputs> {
+    if !direct_parameter_abi_is_complete(routine)
         || routine.blocks.iter().flat_map(|b| &b.ops).any(|o| {
             matches!(
                 o,
@@ -100,6 +106,33 @@ fn scalar_inputs(program: &MirProgram, routine: &MirRoutine) -> Option<Inputs> {
     {
         return None;
     }
+    // Only certified register-store capture participates in this slice. A
+    // memory-sourced capture expands through A and changes N/Z: treating its
+    // pseudo Store as flag-preserving would be unsound. SArgs is excluded by
+    // the complete direct ABI check, and machine entries use their own proof.
+    let mut captured;
+    let routine = if stage == MirCalleeEntryStage::PlannedCapture {
+        let mut capture = crate::mir6502::abi::direct_param_capture(routine);
+        if capture.iter().any(|op| {
+            !matches!(
+                op,
+                MirOp::Store {
+                    src: MirValue::Def(MirDef::Reg(_)),
+                    width: MirWidth::Byte,
+                    ..
+                }
+            )
+        }) {
+            return None;
+        }
+        captured = routine.clone();
+        let entry = captured.blocks.first_mut()?;
+        capture.append(&mut entry.ops);
+        entry.ops = capture;
+        &captured
+    } else {
+        routine
+    };
     let cfg = MirCfg::from_routine(routine).ok()?;
     let entry = cfg.entry()?;
     let physical = |mem: &MirMem, delta: u16| -> Option<u8> {
@@ -177,17 +210,37 @@ fn scalar_inputs(program: &MirProgram, routine: &MirRoutine) -> Option<Inputs> {
         );
     }
     let homes = MirHomeLiveness::analyze_transfers(routine, &cfg, transfers);
-    let machines = MirMachineLiveness::analyze(routine, &cfg);
-    let live = machines.live_in(entry)?;
+    let live = MirMachineLiveness::entry_inputs(routine, &cfg)?;
+    // A retained lane has no memory capture. Conservatively require its
+    // canonical register even if this body happens not to observe it.
+    let retained = |reg| {
+        routine
+            .frame
+            .parameter_homes
+            .as_ref()
+            .is_some_and(|bindings| {
+                bindings.iter().any(|b| {
+                    routine
+                        .frame
+                        .parameter_lanes(b.param)
+                        .is_some_and(|lanes| lanes.contains(&MirParamLane::Reg(reg)))
+                })
+            })
+    };
     Some(Inputs {
         registers: MirRegisterSet {
-            a: live.register_live(MirReg::A),
-            x: live.register_live(MirReg::X),
-            y: live.register_live(MirReg::Y),
-            sp: live.stack_pointer_live(),
+            a: live.register_live(MirReg::A) || retained(MirReg::A),
+            x: live.register_live(MirReg::X) || retained(MirReg::X),
+            y: live.register_live(MirReg::Y) || retained(MirReg::Y),
+            sp: live.stack_pointer_live() || routine.effects.reads.sp,
             flags: false,
         },
-        flags: MirMachineLiveness::entry_flag_inputs(routine, &cfg)?,
+        flags: MirFlagSet {
+            c: live.flag_live(MirFlag::C),
+            z: live.flag_live(MirFlag::Z),
+            n: live.flag_live(MirFlag::N),
+            v: live.flag_live(MirFlag::V),
+        },
         fixed: homes
             .live_in(entry)?
             .iter()
@@ -200,4 +253,37 @@ fn scalar_inputs(program: &MirProgram, routine: &MirRoutine) -> Option<Inputs> {
             })
             .collect(),
     })
+}
+
+/// Byte widths alone cannot distinguish a pointer from an aggregate or a
+/// variadic declaration. Lowering carries the complete finite ABI explicitly;
+/// validate it against the current frame rather than consulting source meaning.
+fn direct_parameter_abi_is_complete(routine: &MirRoutine) -> bool {
+    let Some(widths) = &routine.frame.direct_parameter_abi else {
+        return false;
+    };
+    matches!(
+        routine.abi,
+        MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry
+    ) && widths.len() == routine.frame.params.len()
+        && widths
+            .iter()
+            .copied()
+            .map(crate::mir6502::abi::action_arg_width_bytes)
+            .sum::<u16>()
+            <= crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES
+        && widths
+            .iter()
+            .zip(&routine.frame.params)
+            .all(|(width, slot)| {
+                slot.storage == MirStorageClass::Scalar
+                    && slot.scalar_width == Some(*width)
+                    && slot.storage_size == crate::mir6502::abi::action_arg_width_bytes(*width)
+                    && slot.offset == 0
+                    && slot.init.is_none()
+                    && matches!(
+                        slot.base,
+                        MirStorageBase::Param(_) | MirStorageBase::ParamAbiOnly(_)
+                    )
+            })
 }

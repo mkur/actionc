@@ -204,6 +204,7 @@ fn handoff_mads_listings_reconstruct_and_relocate_with_lf_and_crlf() {
     for path in [
         "fixtures/runtime/parameter_argument_handoff.act",
         "fixtures/runtime/parameter_argument_handoff_direct.act",
+        "fixtures/runtime/callee_entry_capture.act",
         "samples/tn/modern/TN.ACT",
     ] {
         let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(path);
@@ -305,7 +306,7 @@ fn optimized_default_and_parent_gates_apply_to_productive_wrappers() {
 }
 
 #[test]
-fn ordinary_action_capture_baseline_and_cross_newline_artifacts() {
+fn ordinary_action_capture_saves_final_bytes_and_cross_newline_artifacts() {
     let lf = include_str!("../fixtures/runtime/callee_entry_capture.act").replace("\r\n", "\n");
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         for origin in [0x3000, 0x41c7] {
@@ -336,10 +337,8 @@ fn ordinary_action_capture_baseline_and_cross_newline_artifacts() {
                     } else {
                         expected = Some(out.clone());
                     }
-                    assert_eq!(actionc::codegen::format_load_file(&out).len(), 375);
-                    assert!(
-                        trace.manifest()["work"]["parameter_argument_handoff_trials"].is_null()
-                    );
+                    assert!(actionc::codegen::format_load_file(&out).len() < 375);
+                    assert!(trace.manifest()["work"]["parameter_argument_handoff_trials"] == 1);
                     for name in ["ForwardWords", "ForwardPointers", "ForwardExtra"] {
                         let r = out
                             .map
@@ -347,7 +346,11 @@ fn ordinary_action_capture_baseline_and_cross_newline_artifacts() {
                             .iter()
                             .find(|r| r.name == name)
                             .unwrap();
-                        assert_eq!(r.end - r.start, 22, "{name}");
+                        if name == "ForwardExtra" {
+                            assert_eq!(r.end - r.start, 22);
+                        } else {
+                            assert!(r.end - r.start < 22, "{name}");
+                        }
                         let homes: u16 = out
                             .map
                             .storage_symbols
@@ -359,7 +362,7 @@ fn ordinary_action_capture_baseline_and_cross_newline_artifacts() {
                             })
                             .map(|s| s.size)
                             .sum();
-                        assert_eq!(homes, 4);
+                        assert_eq!(homes, if name == "ForwardExtra" { 4 } else { 0 }, "{name}");
                     }
                 }
             }

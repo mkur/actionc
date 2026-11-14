@@ -1,0 +1,24 @@
+{
+  "units": {
+    "passed": 72,
+    "failed": 0,
+    "ignored": 1,
+    "log_sha256": "0a2b856e6e8eb91d0acf1c9d9bebd208a10a656f558ff0b5368a60bbc79af1f3"
+  },
+  "integration": {
+    "passed": 6,
+    "failed": 0,
+    "ignored": 1,
+    "log_sha256": "a7a54017565b5665542b071ede2ada2b9ffcdae4f41b95365c174e169c41b1c1"
+  },
+  "vm": {
+    "passed": 4,
+    "failed": 0,
+    "ignored": 0,
+    "log_sha256": "8bb8acca48566a43bd5990090eefbed80f6b110c85e27a838b10a4df8bd2c6f3"
+  },
+  "comparison": "All four TN images/maps/relocations/routine costs/work/upstream counts unchanged. Eight controls save 38 bytes each, use one existing handoff continuation, and preserve upstream work.",
+  "entry_evidence": [
+    "capture composed before=Inputs { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false }, fixed: {163} } after=Inputs { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false }, fixed: {163} } extra=Inputs { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }, flags: MirFlagSet { c: true, z: false, n: false, v: false }, fixed: {163, 172} }"
+  ]
+}

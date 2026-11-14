@@ -362,6 +362,9 @@ fn ordinary_action_callees_receive_abi_values_before_capture() {
                         if right != left {
                             vm.bus_mut().ram_mut().write(right, 0x27);
                         }
+                        vm.bus_mut().add_watchpoint(left);
+                        vm.bus_mut().add_watchpoint(right);
+                        vm.bus_mut().clear_events();
                         let mut hook = Observe {
                             entry: entry(&out, "ReadPointers"),
                             args: vec![],
@@ -374,6 +377,23 @@ fn ordinary_action_callees_receive_abi_values_before_capture() {
                             &words(left, right),
                         );
                         assert_eq!(&hook.args[0][..4], &words(left, right));
+                        let reads: Vec<_> = vm
+                            .bus()
+                            .events()
+                            .iter()
+                            .map(|e| (e.access, e.address, e.value))
+                            .collect();
+                        assert_eq!(
+                            reads,
+                            vec![
+                                (BusAccess::Read, left, 0x93),
+                                (
+                                    BusAccess::Read,
+                                    right,
+                                    if left == right { 0x93 } else { 0x27 }
+                                )
+                            ]
+                        );
                         assert_eq!(
                             machine::bytes(&vm, 0x680, 4),
                             words(0x93, if right == left { 0x93 } else { 0x27 })
