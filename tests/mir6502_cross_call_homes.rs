@@ -4,14 +4,20 @@ use actionc::{
 };
 
 fn nir(source: &str) -> actionc::nir::NirProgram {
+    nir_mode(source, true)
+}
+
+fn nir_mode(source: &str, optimize: bool) -> actionc::nir::NirProgram {
     let ast = actionc::parser::parse(&actionc::lexer::tokenize(source).unwrap()).unwrap();
     let model =
         actionc::semantic::analyze_with_options(&ast, actionc::semantic::SemanticOptions::modern())
             .unwrap();
-    actionc::nir::optimize_program(&actionc::nir::lower_program(
-        &actionc::semantic::ir::lower_program(&ast, &model),
-    ))
-    .unwrap()
+    let n = actionc::nir::lower_program(&actionc::semantic::ir::lower_program(&ast, &model));
+    if optimize {
+        actionc::nir::optimize_program(&n).unwrap()
+    } else {
+        n
+    }
 }
 
 #[test]
@@ -135,6 +141,9 @@ fn unsupported_calls_exposed_objects_and_exhaustion_retain_the_fallback() {
         "CARD FUNC Leaf(CARD x) RETURN(x+1) CARD FUNC Exposed(CARD x) x=Leaf(x) RETURN(@x)",
         "BYTE ARRAY window(4)=$A0,pool(16)=$E0 CARD FUNC Leaf(CARD x) RETURN(x+1) CARD FUNC Subject(CARD x,y) RETURN(Leaf(x)+y)",
         "CARD FUNC Leaf(CARD x) RETURN(x+1)",
+        "CARD FUNC Recurse(CARD x) IF x THEN x=Recurse(x-1) FI RETURN(x)",
+        "CARD FUNC Helper(CARD x,y) RETURN(x*y) CARD FUNC Caller(CARD x,y) RETURN(Helper(x,3)+y)",
+        "PROC Machine(BYTE x)\nASM\n rts\nENDASM\nBYTE FUNC Caller(BYTE x) Machine(x) RETURN(x)",
     ] {
         let n = nir(source);
         let config = Mir6502Config {
@@ -169,4 +178,44 @@ fn unsupported_calls_exposed_objects_and_exhaustion_retain_the_fallback() {
             old_trace.manifest()["work"]["materializations"]
         );
     }
+}
+
+#[test]
+fn raw_nir_keeps_the_same_bounded_proof_and_output_contract() {
+    let n = nir_mode(
+        &include_str!("../fixtures/runtime/cross_call_homes.act").replace("\r\n", "\n"),
+        false,
+    );
+    let config = Mir6502Config {
+        enable_small_leaf_inlining: false,
+        enable_cross_call_home_selection: true,
+        ..Mir6502Config::optimized()
+    };
+    let mut trace = Mir6502Trace::default();
+    let output =
+        mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace)
+            .unwrap();
+    assert_eq!(
+        output,
+        mir6502::generate_output_with_config_and_runtime(&n, 0x3000, &config, Runtime::ActionCart)
+            .unwrap()
+    );
+    assert!(
+        trace.manifest()["work"]["cross_call_home_trials"]
+            .as_u64()
+            .unwrap_or(0)
+            <= 1
+    );
+}
+
+#[test]
+fn nested_callee_remains_inline_even_when_its_own_leaf_call_qualifies() {
+    let n = nir("CARD FUNC Leaf(CARD x) RETURN(x+1) CARD FUNC Nested(CARD x) x=Leaf(x) RETURN(x) CARD FUNC Caller(CARD x,y) RETURN(Nested(x)+y)");
+    let config = Mir6502Config { enable_small_leaf_inlining: false, enable_cross_call_home_selection: true, ..Mir6502Config::optimized() };
+    let mut trace = Mir6502Trace::default();
+    let output = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
+    let homes: Vec<_> = output.map.storage_symbols.iter().filter(|s| s.scope == actionc::codegen::CodegenSymbolScope::Routine("Caller".into())).collect();
+    assert_eq!(homes.len(), 2);
+    assert!(homes.iter().all(|s| s.address >= 256));
+    assert!(trace.events().iter().any(|e| e.kind == "cross-call-candidate" && e.data["routine"] == "Caller" && e.data["reason"] == "unsupported residence callee"));
 }

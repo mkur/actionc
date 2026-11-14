@@ -1,0 +1,36 @@
+{
+  "integration": {
+    "passed": 5,
+    "log_sha256": "6b6bb696071de336c4936c316dcc05815845209d270647852a6f7ad3343c912a"
+  },
+  "vm": {
+    "passed": 1,
+    "log_sha256": "50d6c1e5dcfabf87fc7da2318d9c7b9bb7eb82131324a824ea029ad982fc5473"
+  },
+  "tn_exact_rollback": [
+    {
+      "id": "tn-ActionCart-3000",
+      "image_equal": true,
+      "map_equal": true,
+      "relocations_equal": true
+    },
+    {
+      "id": "tn-ActionCart-41c7",
+      "image_equal": true,
+      "map_equal": true,
+      "relocations_equal": true
+    },
+    {
+      "id": "tn-Standalone-3000",
+      "image_equal": true,
+      "map_equal": true,
+      "relocations_equal": true
+    },
+    {
+      "id": "tn-Standalone-41c7",
+      "image_equal": true,
+      "map_equal": true,
+      "relocations_equal": true
+    }
+  ]
+}

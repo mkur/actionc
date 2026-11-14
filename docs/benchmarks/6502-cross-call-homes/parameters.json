@@ -1,0 +1,2512 @@
+{
+  "revision": "175f5db3554556900b6ae3b0d0cabdf4b1205b15",
+  "parameter_home_selection": true,
+  "parameter_argument_handoff": true,
+  "cross_call_home_selection": true,
+  "suite": "cross-call",
+  "skip_tn": false,
+  "probe_elapsed_seconds": 173.87586737499805,
+  "probe_time_report": "      173.90 real       169.18 user         1.66 sys\n           519667712  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n              299838  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                  11  voluntary context switches\n               67764  involuntary context switches\n       2231037813895  instructions retired\n        530675654559  cycles elapsed\n           467568512  peak memory footprint\n",
+  "timing_scope": "One sequential process, all cases traced and untraced; not a statistical performance claim.",
+  "worktree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "api_rlib_sha256": "ff1f3c781ccb3720d4c25607796069cb849e026d662eabf164dc25f422ec9a9f",
+  "source_sha256_lf": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "fixtures/runtime/cross_call_homes.act": "af5731149306b7f6cc2545fc283a0578c5316851bf1553347ce381186d35d3c7"
+  },
+  "cases": [
+    {
+      "id": "tn-ActionCart-3000",
+      "image_bytes": 9847,
+      "routines": [
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 105,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Strcpy",
+          "code_bytes": 20,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 3,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 1
+            },
+            {
+              "address": 162,
+              "bytes": 1
+            },
+            {
+              "address": 163,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Strcat",
+          "code_bytes": 113,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13029,
+              "bytes": 2
+            },
+            {
+              "address": 13031,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Key",
+          "code_bytes": 34,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Next",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Ord",
+          "code_bytes": 80,
+          "inline_home_bytes": 5,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12999,
+              "bytes": 2
+            },
+            {
+              "address": 13001,
+              "bytes": 2
+            },
+            {
+              "address": 13003,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Items",
+          "code_bytes": 56,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13004,
+              "bytes": 2
+            },
+            {
+              "address": 13006,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 9872,
+        "before_bytes": 9956,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 105,
+            "before": 189,
+            "routine": "Fnamecmp"
+          }
+        ]
+      },
+      "handoff_outcome": {
+        "accepted": true,
+        "after_bytes": 9847,
+        "before_bytes": 9872,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 20,
+            "before": 45,
+            "routine": "Strcpy"
+          }
+        ]
+      },
+      "cross_call_outcome": {
+        "accepted": false,
+        "after_bytes": 9807,
+        "before_bytes": 9847,
+        "diagnostics": null,
+        "reason": "no-final-saving-or-routine-growth",
+        "routine_cost_changes": [
+          {
+            "after": 55,
+            "before": 85,
+            "routine": "Ord"
+          },
+          {
+            "after": 41,
+            "before": 59,
+            "routine": "Items"
+          },
+          {
+            "after": 121,
+            "before": 119,
+            "routine": "MoveMenuBar"
+          },
+          {
+            "after": 148,
+            "before": 146,
+            "routine": "Draw"
+          },
+          {
+            "after": 92,
+            "before": 90,
+            "routine": "Tag"
+          },
+          {
+            "after": 89,
+            "before": 87,
+            "routine": "TagAll"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 163,
+        "inner_emission_probes": 978,
+        "late_cleanup_preservation_replays": 24,
+        "materializations": 6,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 3,
+        "pipeline_attempts": 67,
+        "rewrite_analysis_builds": 50792
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": [
+            {
+              "accepted_routines": [
+                14,
+                50,
+                51
+              ],
+              "outcome": "partial",
+              "rejected_routines": [
+                56
+              ],
+              "stage": "captured_comparisons"
+            }
+          ]
+        }
+      },
+      "traced_micros": 21103746,
+      "untraced_micros": 20180163,
+      "trace_matches_untraced": true,
+      "image_sha256": "c008ca85834920ac5704d17e5f267007b2c2413a8b246b0d676f4b67376e7a0e",
+      "map_sha256": "16b93c7b3111df636467b689642e4ed0ee2f1be7524fbf4c22d8b5ded99eeb56",
+      "relocations_sha256": "97e49d111ffd3a4f75b0418d91696bda1f36617911f71e15f863811c3544c2c4"
+    },
+    {
+      "id": "tn-ActionCart-41c7",
+      "image_bytes": 9847,
+      "routines": [
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 105,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Strcpy",
+          "code_bytes": 20,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 3,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 1
+            },
+            {
+              "address": 162,
+              "bytes": 1
+            },
+            {
+              "address": 163,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Strcat",
+          "code_bytes": 113,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 17580,
+              "bytes": 2
+            },
+            {
+              "address": 17582,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Key",
+          "code_bytes": 34,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Next",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Ord",
+          "code_bytes": 80,
+          "inline_home_bytes": 5,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 17550,
+              "bytes": 2
+            },
+            {
+              "address": 17552,
+              "bytes": 2
+            },
+            {
+              "address": 17554,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Items",
+          "code_bytes": 56,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 17555,
+              "bytes": 2
+            },
+            {
+              "address": 17557,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 9872,
+        "before_bytes": 9956,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 105,
+            "before": 189,
+            "routine": "Fnamecmp"
+          }
+        ]
+      },
+      "handoff_outcome": {
+        "accepted": true,
+        "after_bytes": 9847,
+        "before_bytes": 9872,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 20,
+            "before": 45,
+            "routine": "Strcpy"
+          }
+        ]
+      },
+      "cross_call_outcome": {
+        "accepted": false,
+        "after_bytes": 9807,
+        "before_bytes": 9847,
+        "diagnostics": null,
+        "reason": "no-final-saving-or-routine-growth",
+        "routine_cost_changes": [
+          {
+            "after": 55,
+            "before": 85,
+            "routine": "Ord"
+          },
+          {
+            "after": 41,
+            "before": 59,
+            "routine": "Items"
+          },
+          {
+            "after": 121,
+            "before": 119,
+            "routine": "MoveMenuBar"
+          },
+          {
+            "after": 148,
+            "before": 146,
+            "routine": "Draw"
+          },
+          {
+            "after": 92,
+            "before": 90,
+            "routine": "Tag"
+          },
+          {
+            "after": 89,
+            "before": 87,
+            "routine": "TagAll"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 163,
+        "inner_emission_probes": 978,
+        "late_cleanup_preservation_replays": 24,
+        "materializations": 6,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 3,
+        "pipeline_attempts": 67,
+        "rewrite_analysis_builds": 50792
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": [
+            {
+              "accepted_routines": [
+                14,
+                50,
+                51
+              ],
+              "outcome": "partial",
+              "rejected_routines": [
+                56
+              ],
+              "stage": "captured_comparisons"
+            }
+          ]
+        }
+      },
+      "traced_micros": 20872357,
+      "untraced_micros": 20748209,
+      "trace_matches_untraced": true,
+      "image_sha256": "f7870803f250d04bf0b961f656e7cf8e5aef0854448975c1856c1e15a8e2b1df",
+      "map_sha256": "6523a87c796bf7758a2c7748edbe25f02d2c9fb10686edeea3491c98645d9079",
+      "relocations_sha256": "97e49d111ffd3a4f75b0418d91696bda1f36617911f71e15f863811c3544c2c4"
+    },
+    {
+      "id": "tn-Standalone-3000",
+      "image_bytes": 9954,
+      "routines": [
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 105,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Strcpy",
+          "code_bytes": 20,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 3,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 1
+            },
+            {
+              "address": 162,
+              "bytes": 1
+            },
+            {
+              "address": 163,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Strcat",
+          "code_bytes": 113,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13029,
+              "bytes": 2
+            },
+            {
+              "address": 13031,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Key",
+          "code_bytes": 34,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Next",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Ord",
+          "code_bytes": 80,
+          "inline_home_bytes": 5,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12999,
+              "bytes": 2
+            },
+            {
+              "address": 13001,
+              "bytes": 2
+            },
+            {
+              "address": 13003,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Items",
+          "code_bytes": 56,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13004,
+              "bytes": 2
+            },
+            {
+              "address": 13006,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 9979,
+        "before_bytes": 10063,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 105,
+            "before": 189,
+            "routine": "Fnamecmp"
+          }
+        ]
+      },
+      "handoff_outcome": {
+        "accepted": true,
+        "after_bytes": 9954,
+        "before_bytes": 9979,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 20,
+            "before": 45,
+            "routine": "Strcpy"
+          }
+        ]
+      },
+      "cross_call_outcome": {
+        "accepted": false,
+        "after_bytes": 9914,
+        "before_bytes": 9954,
+        "diagnostics": null,
+        "reason": "no-final-saving-or-routine-growth",
+        "routine_cost_changes": [
+          {
+            "after": 55,
+            "before": 85,
+            "routine": "Ord"
+          },
+          {
+            "after": 41,
+            "before": 59,
+            "routine": "Items"
+          },
+          {
+            "after": 121,
+            "before": 119,
+            "routine": "MoveMenuBar"
+          },
+          {
+            "after": 148,
+            "before": 146,
+            "routine": "Draw"
+          },
+          {
+            "after": 92,
+            "before": 90,
+            "routine": "Tag"
+          },
+          {
+            "after": 89,
+            "before": 87,
+            "routine": "TagAll"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 163,
+        "inner_emission_probes": 978,
+        "late_cleanup_preservation_replays": 24,
+        "materializations": 6,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 3,
+        "pipeline_attempts": 67,
+        "rewrite_analysis_builds": 50792
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": [
+            {
+              "accepted_routines": [
+                14,
+                50,
+                51
+              ],
+              "outcome": "partial",
+              "rejected_routines": [
+                56
+              ],
+              "stage": "captured_comparisons"
+            }
+          ]
+        }
+      },
+      "traced_micros": 21547431,
+      "untraced_micros": 19995510,
+      "trace_matches_untraced": true,
+      "image_sha256": "9f3637aff70d11a765003f4356fae69ac6671226fdf278f94cade587381605cd",
+      "map_sha256": "7aa56a9ebf624e55d1ee75e9b5fb07f0f06ab8e689be7a35e3459fec8f13d987",
+      "relocations_sha256": "253e7af52b6ff5238addf133df0198bd9d50743785484627adabdf5a7092fafc"
+    },
+    {
+      "id": "tn-Standalone-41c7",
+      "image_bytes": 9954,
+      "routines": [
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 105,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Strcpy",
+          "code_bytes": 20,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 3,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 1
+            },
+            {
+              "address": 162,
+              "bytes": 1
+            },
+            {
+              "address": 163,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Strcat",
+          "code_bytes": 113,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 17580,
+              "bytes": 2
+            },
+            {
+              "address": 17582,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Key",
+          "code_bytes": 34,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Next",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Ord",
+          "code_bytes": 80,
+          "inline_home_bytes": 5,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 17550,
+              "bytes": 2
+            },
+            {
+              "address": 17552,
+              "bytes": 2
+            },
+            {
+              "address": 17554,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Items",
+          "code_bytes": 56,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 17555,
+              "bytes": 2
+            },
+            {
+              "address": 17557,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 9979,
+        "before_bytes": 10063,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 105,
+            "before": 189,
+            "routine": "Fnamecmp"
+          }
+        ]
+      },
+      "handoff_outcome": {
+        "accepted": true,
+        "after_bytes": 9954,
+        "before_bytes": 9979,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 20,
+            "before": 45,
+            "routine": "Strcpy"
+          }
+        ]
+      },
+      "cross_call_outcome": {
+        "accepted": false,
+        "after_bytes": 9914,
+        "before_bytes": 9954,
+        "diagnostics": null,
+        "reason": "no-final-saving-or-routine-growth",
+        "routine_cost_changes": [
+          {
+            "after": 55,
+            "before": 85,
+            "routine": "Ord"
+          },
+          {
+            "after": 41,
+            "before": 59,
+            "routine": "Items"
+          },
+          {
+            "after": 121,
+            "before": 119,
+            "routine": "MoveMenuBar"
+          },
+          {
+            "after": 148,
+            "before": 146,
+            "routine": "Draw"
+          },
+          {
+            "after": 92,
+            "before": 90,
+            "routine": "Tag"
+          },
+          {
+            "after": 89,
+            "before": 87,
+            "routine": "TagAll"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 163,
+        "inner_emission_probes": 978,
+        "late_cleanup_preservation_replays": 24,
+        "materializations": 6,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 3,
+        "pipeline_attempts": 67,
+        "rewrite_analysis_builds": 50792
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": [
+            {
+              "accepted_routines": [
+                14,
+                50,
+                51
+              ],
+              "outcome": "partial",
+              "rejected_routines": [
+                56
+              ],
+              "stage": "captured_comparisons"
+            }
+          ]
+        }
+      },
+      "traced_micros": 20375797,
+      "untraced_micros": 20204978,
+      "trace_matches_untraced": true,
+      "image_sha256": "8d2bcd49a93d7bbc5c781eaa92c22e7370d80d993085d5293c32098e3aaa8add",
+      "map_sha256": "013861ec19e3da6fe6536afa24225cb6d297b6bc55adb1c5b5a19624cd397454",
+      "relocations_sha256": "253e7af52b6ff5238addf133df0198bd9d50743785484627adabdf5a7092fafc"
+    },
+    {
+      "id": "cross-call-ActionCart-3000",
+      "image_bytes": 230,
+      "routines": [
+        {
+          "name": "AdvanceRecord",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "FindRecord",
+          "code_bytes": 54,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 12288,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "CountRecords",
+          "code_bytes": 40,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 12289,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "KeepWord",
+          "code_bytes": 35,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Conditional",
+          "code_bytes": 19,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 161,
+              "bytes": 1
+            },
+            {
+              "address": 162,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Persistent",
+          "code_bytes": 15,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12290,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": false,
+        "after_bytes": 294,
+        "before_bytes": 294,
+        "diagnostics": null,
+        "reason": "no-final-saving-or-routine-growth",
+        "routine_cost_changes": []
+      },
+      "handoff_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-argument-handoff"
+      },
+      "cross_call_outcome": {
+        "accepted": true,
+        "after_bytes": 230,
+        "before_bytes": 294,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 55,
+            "before": 85,
+            "routine": "FindRecord"
+          },
+          {
+            "after": 41,
+            "before": 59,
+            "routine": "CountRecords"
+          },
+          {
+            "after": 35,
+            "before": 48,
+            "routine": "KeepWord"
+          },
+          {
+            "after": 19,
+            "before": 22,
+            "routine": "Conditional"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 20,
+        "inner_emission_probes": 80,
+        "materializations": 3,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 45,
+        "rewrite_analysis_builds": 2285
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 0,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 294701,
+      "untraced_micros": 178790,
+      "trace_matches_untraced": true,
+      "image_sha256": "c0bc370d2e6f5290e84855020764c53125c127818e615e6834e67be62b504fbc",
+      "map_sha256": "95643ad68bf4c8842bec00dd6b62dbfc6fae5195538c5b20e50da2ad042e3685",
+      "relocations_sha256": "ff23fa1b4fa7880d12f4806ed7e59162668d41e919ba6848efcd638eef3ffe3b"
+    },
+    {
+      "id": "cross-call-ActionCart-41c7",
+      "image_bytes": 230,
+      "routines": [
+        {
+          "name": "AdvanceRecord",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "FindRecord",
+          "code_bytes": 54,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 16839,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "CountRecords",
+          "code_bytes": 40,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 16840,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "KeepWord",
+          "code_bytes": 35,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Conditional",
+          "code_bytes": 19,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 161,
+              "bytes": 1
+            },
+            {
+              "address": 162,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Persistent",
+          "code_bytes": 15,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 16841,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": false,
+        "after_bytes": 294,
+        "before_bytes": 294,
+        "diagnostics": null,
+        "reason": "no-final-saving-or-routine-growth",
+        "routine_cost_changes": []
+      },
+      "handoff_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-argument-handoff"
+      },
+      "cross_call_outcome": {
+        "accepted": true,
+        "after_bytes": 230,
+        "before_bytes": 294,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 55,
+            "before": 85,
+            "routine": "FindRecord"
+          },
+          {
+            "after": 41,
+            "before": 59,
+            "routine": "CountRecords"
+          },
+          {
+            "after": 35,
+            "before": 48,
+            "routine": "KeepWord"
+          },
+          {
+            "after": 19,
+            "before": 22,
+            "routine": "Conditional"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 20,
+        "inner_emission_probes": 80,
+        "materializations": 3,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 45,
+        "rewrite_analysis_builds": 2285
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 0,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 288986,
+      "untraced_micros": 180278,
+      "trace_matches_untraced": true,
+      "image_sha256": "86e20e02a4f0fc99adc267711a14c3d027c3c4d89111b09b017deb1954de2903",
+      "map_sha256": "e49a951a4a2544ca506020568391aab384b5cf92c01bc058861285153fcc752b",
+      "relocations_sha256": "ff23fa1b4fa7880d12f4806ed7e59162668d41e919ba6848efcd638eef3ffe3b"
+    },
+    {
+      "id": "cross-call-Standalone-3000",
+      "image_bytes": 230,
+      "routines": [
+        {
+          "name": "AdvanceRecord",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "FindRecord",
+          "code_bytes": 54,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 12288,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "CountRecords",
+          "code_bytes": 40,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 12289,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "KeepWord",
+          "code_bytes": 35,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Conditional",
+          "code_bytes": 19,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 161,
+              "bytes": 1
+            },
+            {
+              "address": 162,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Persistent",
+          "code_bytes": 15,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12290,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": false,
+        "after_bytes": 294,
+        "before_bytes": 294,
+        "diagnostics": null,
+        "reason": "no-final-saving-or-routine-growth",
+        "routine_cost_changes": []
+      },
+      "handoff_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-argument-handoff"
+      },
+      "cross_call_outcome": {
+        "accepted": true,
+        "after_bytes": 230,
+        "before_bytes": 294,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 55,
+            "before": 85,
+            "routine": "FindRecord"
+          },
+          {
+            "after": 41,
+            "before": 59,
+            "routine": "CountRecords"
+          },
+          {
+            "after": 35,
+            "before": 48,
+            "routine": "KeepWord"
+          },
+          {
+            "after": 19,
+            "before": 22,
+            "routine": "Conditional"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 20,
+        "inner_emission_probes": 80,
+        "materializations": 3,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 45,
+        "rewrite_analysis_builds": 2285
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 0,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 291283,
+      "untraced_micros": 176833,
+      "trace_matches_untraced": true,
+      "image_sha256": "c0bc370d2e6f5290e84855020764c53125c127818e615e6834e67be62b504fbc",
+      "map_sha256": "b7f44bc363d4378d2357992e2e4f98d2e7fcee23ab362d7357b64d626d303f1e",
+      "relocations_sha256": "ff23fa1b4fa7880d12f4806ed7e59162668d41e919ba6848efcd638eef3ffe3b"
+    },
+    {
+      "id": "cross-call-Standalone-41c7",
+      "image_bytes": 230,
+      "routines": [
+        {
+          "name": "AdvanceRecord",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "FindRecord",
+          "code_bytes": 54,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 16839,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "CountRecords",
+          "code_bytes": 40,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 16840,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "KeepWord",
+          "code_bytes": 35,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Conditional",
+          "code_bytes": 19,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 161,
+              "bytes": 1
+            },
+            {
+              "address": 162,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Persistent",
+          "code_bytes": 15,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 16841,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": false,
+        "after_bytes": 294,
+        "before_bytes": 294,
+        "diagnostics": null,
+        "reason": "no-final-saving-or-routine-growth",
+        "routine_cost_changes": []
+      },
+      "handoff_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-argument-handoff"
+      },
+      "cross_call_outcome": {
+        "accepted": true,
+        "after_bytes": 230,
+        "before_bytes": 294,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 55,
+            "before": 85,
+            "routine": "FindRecord"
+          },
+          {
+            "after": 41,
+            "before": 59,
+            "routine": "CountRecords"
+          },
+          {
+            "after": 35,
+            "before": 48,
+            "routine": "KeepWord"
+          },
+          {
+            "after": 19,
+            "before": 22,
+            "routine": "Conditional"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 20,
+        "inner_emission_probes": 80,
+        "materializations": 3,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 45,
+        "rewrite_analysis_builds": 2285
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 0,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 293564,
+      "untraced_micros": 176594,
+      "trace_matches_untraced": true,
+      "image_sha256": "86e20e02a4f0fc99adc267711a14c3d027c3c4d89111b09b017deb1954de2903",
+      "map_sha256": "e9349a679e09d9f15db0b3b95d3e274c4ab13e1de8572dba14b43e2d7aa793d2",
+      "relocations_sha256": "ff23fa1b4fa7880d12f4806ed7e59162668d41e919ba6848efcd638eef3ffe3b"
+    },
+    {
+      "id": "cross-call-inline-ActionCart-3000",
+      "image_bytes": 234,
+      "routines": [
+        {
+          "name": "AdvanceRecord",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "FindRecord",
+          "code_bytes": 54,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 12288,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "CountRecords",
+          "code_bytes": 40,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 12289,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "KeepWord",
+          "code_bytes": 35,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Conditional",
+          "code_bytes": 21,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 1
+            },
+            {
+              "address": 161,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Persistent",
+          "code_bytes": 17,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12290,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 295,
+        "before_bytes": 298,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 21,
+            "before": 24,
+            "routine": "Conditional"
+          }
+        ]
+      },
+      "handoff_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-argument-handoff"
+      },
+      "cross_call_outcome": {
+        "accepted": true,
+        "after_bytes": 234,
+        "before_bytes": 295,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 55,
+            "before": 85,
+            "routine": "FindRecord"
+          },
+          {
+            "after": 41,
+            "before": 59,
+            "routine": "CountRecords"
+          },
+          {
+            "after": 35,
+            "before": 48,
+            "routine": "KeepWord"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 23,
+        "inner_emission_probes": 92,
+        "materializations": 6,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 97,
+        "rewrite_analysis_builds": 4468
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": [
+            {
+              "callee": 5,
+              "caller": 6,
+              "estimated_cycles_saved": 12,
+              "growth_bytes": 2,
+              "outcome": "applied"
+            },
+            {
+              "callee": 5,
+              "caller": 7,
+              "estimated_cycles_saved": 12,
+              "growth_bytes": 2,
+              "outcome": "applied"
+            }
+          ]
+        },
+        "loop_motion": {
+          "attempts": 4,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 4,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 4,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 4,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 4,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 4,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 4,
+          "choices": []
+        }
+      },
+      "traced_micros": 559554,
+      "untraced_micros": 344416,
+      "trace_matches_untraced": true,
+      "image_sha256": "59df11beeec53b260c9f614549e8bbda4fc48d4febe62174088bd9f1e2cad1f0",
+      "map_sha256": "ae3d34abf6fca3fcb214817c1025b3801f7b107d87bbab3dd8066c5e95322ffe",
+      "relocations_sha256": "a593b50a08bbbb8e512b991f49c401e994f3212556e3fdb1ed6e89c16fc6b4b8"
+    },
+    {
+      "id": "cross-call-inline-ActionCart-41c7",
+      "image_bytes": 234,
+      "routines": [
+        {
+          "name": "AdvanceRecord",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "FindRecord",
+          "code_bytes": 54,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 16839,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "CountRecords",
+          "code_bytes": 40,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 16840,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "KeepWord",
+          "code_bytes": 35,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Conditional",
+          "code_bytes": 21,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 1
+            },
+            {
+              "address": 161,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Persistent",
+          "code_bytes": 17,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 16841,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 295,
+        "before_bytes": 298,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 21,
+            "before": 24,
+            "routine": "Conditional"
+          }
+        ]
+      },
+      "handoff_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-argument-handoff"
+      },
+      "cross_call_outcome": {
+        "accepted": true,
+        "after_bytes": 234,
+        "before_bytes": 295,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 55,
+            "before": 85,
+            "routine": "FindRecord"
+          },
+          {
+            "after": 41,
+            "before": 59,
+            "routine": "CountRecords"
+          },
+          {
+            "after": 35,
+            "before": 48,
+            "routine": "KeepWord"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 23,
+        "inner_emission_probes": 92,
+        "materializations": 6,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 97,
+        "rewrite_analysis_builds": 4468
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": [
+            {
+              "callee": 5,
+              "caller": 6,
+              "estimated_cycles_saved": 12,
+              "growth_bytes": 2,
+              "outcome": "applied"
+            },
+            {
+              "callee": 5,
+              "caller": 7,
+              "estimated_cycles_saved": 12,
+              "growth_bytes": 2,
+              "outcome": "applied"
+            }
+          ]
+        },
+        "loop_motion": {
+          "attempts": 4,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 4,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 4,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 4,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 4,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 4,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 4,
+          "choices": []
+        }
+      },
+      "traced_micros": 557963,
+      "untraced_micros": 343001,
+      "trace_matches_untraced": true,
+      "image_sha256": "cedbecb2e9023b3e34f7dd767aca30d1d1065a9491fa7c576beb5510cd2c0388",
+      "map_sha256": "7be34304dfe4d3152e0a91b1b6eb543fe20ff952ad27e1dd979771c7c1ed4628",
+      "relocations_sha256": "a593b50a08bbbb8e512b991f49c401e994f3212556e3fdb1ed6e89c16fc6b4b8"
+    },
+    {
+      "id": "cross-call-inline-Standalone-3000",
+      "image_bytes": 234,
+      "routines": [
+        {
+          "name": "AdvanceRecord",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "FindRecord",
+          "code_bytes": 54,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 12288,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "CountRecords",
+          "code_bytes": 40,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 12289,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "KeepWord",
+          "code_bytes": 35,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Conditional",
+          "code_bytes": 21,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 1
+            },
+            {
+              "address": 161,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Persistent",
+          "code_bytes": 17,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12290,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 295,
+        "before_bytes": 298,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 21,
+            "before": 24,
+            "routine": "Conditional"
+          }
+        ]
+      },
+      "handoff_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-argument-handoff"
+      },
+      "cross_call_outcome": {
+        "accepted": true,
+        "after_bytes": 234,
+        "before_bytes": 295,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 55,
+            "before": 85,
+            "routine": "FindRecord"
+          },
+          {
+            "after": 41,
+            "before": 59,
+            "routine": "CountRecords"
+          },
+          {
+            "after": 35,
+            "before": 48,
+            "routine": "KeepWord"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 23,
+        "inner_emission_probes": 92,
+        "materializations": 6,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 97,
+        "rewrite_analysis_builds": 4468
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": [
+            {
+              "callee": 5,
+              "caller": 6,
+              "estimated_cycles_saved": 12,
+              "growth_bytes": 2,
+              "outcome": "applied"
+            },
+            {
+              "callee": 5,
+              "caller": 7,
+              "estimated_cycles_saved": 12,
+              "growth_bytes": 2,
+              "outcome": "applied"
+            }
+          ]
+        },
+        "loop_motion": {
+          "attempts": 4,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 4,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 4,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 4,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 4,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 4,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 4,
+          "choices": []
+        }
+      },
+      "traced_micros": 556886,
+      "untraced_micros": 338981,
+      "trace_matches_untraced": true,
+      "image_sha256": "59df11beeec53b260c9f614549e8bbda4fc48d4febe62174088bd9f1e2cad1f0",
+      "map_sha256": "2127239b4f9372cff5bf38c83c204fe265dc8a7d80f312192c8590e701c3fff9",
+      "relocations_sha256": "a593b50a08bbbb8e512b991f49c401e994f3212556e3fdb1ed6e89c16fc6b4b8"
+    },
+    {
+      "id": "cross-call-inline-Standalone-41c7",
+      "image_bytes": 234,
+      "routines": [
+        {
+          "name": "AdvanceRecord",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "FindRecord",
+          "code_bytes": 54,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 16839,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "CountRecords",
+          "code_bytes": 40,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 16840,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "KeepWord",
+          "code_bytes": 35,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 224,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Conditional",
+          "code_bytes": 21,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 1
+            },
+            {
+              "address": 161,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Persistent",
+          "code_bytes": 17,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 16841,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 295,
+        "before_bytes": 298,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 21,
+            "before": 24,
+            "routine": "Conditional"
+          }
+        ]
+      },
+      "handoff_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-argument-handoff"
+      },
+      "cross_call_outcome": {
+        "accepted": true,
+        "after_bytes": 234,
+        "before_bytes": 295,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 55,
+            "before": 85,
+            "routine": "FindRecord"
+          },
+          {
+            "after": 41,
+            "before": 59,
+            "routine": "CountRecords"
+          },
+          {
+            "after": 35,
+            "before": 48,
+            "routine": "KeepWord"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 23,
+        "inner_emission_probes": 92,
+        "materializations": 6,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 97,
+        "rewrite_analysis_builds": 4468
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": [
+            {
+              "callee": 5,
+              "caller": 6,
+              "estimated_cycles_saved": 12,
+              "growth_bytes": 2,
+              "outcome": "applied"
+            },
+            {
+              "callee": 5,
+              "caller": 7,
+              "estimated_cycles_saved": 12,
+              "growth_bytes": 2,
+              "outcome": "applied"
+            }
+          ]
+        },
+        "loop_motion": {
+          "attempts": 4,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 4,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 4,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 4,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 4,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 4,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 4,
+          "choices": []
+        }
+      },
+      "traced_micros": 555200,
+      "untraced_micros": 343112,
+      "trace_matches_untraced": true,
+      "image_sha256": "cedbecb2e9023b3e34f7dd767aca30d1d1065a9491fa7c576beb5510cd2c0388",
+      "map_sha256": "add5b3f8098ac1e62426fc46f85243d8b7c30346b15d7479872eb6ded905104b",
+      "relocations_sha256": "a593b50a08bbbb8e512b991f49c401e994f3212556e3fdb1ed6e89c16fc6b4b8"
+    }
+  ]
+}

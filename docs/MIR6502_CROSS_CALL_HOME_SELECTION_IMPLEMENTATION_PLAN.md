@@ -1,6 +1,6 @@
 # MIR6502 ZP homes across ordinary calls: implementation plan
 
-Prepared 2026-11-15. Status: slices 0–2 complete; slices 3–6 pending.
+Prepared 2026-11-15. Status: slices 0–3 complete; slices 4–6 pending.
 Starting repository revision: `5de3dda4`; compiler behavior: `a77210d8`.
 
 Implements the [ordinary-call and local-home design extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-zp-homes-across-ordinary-calls).
@@ -376,3 +376,12 @@ Independent parameter controls save final bytes with one extra materialization;
 LF/CRLF VM checks exercise both feature settings. TN qualification, including a
 trial rejected for downstream caller growth, is recorded in slice 3. The gate
 remains off in both default configurations.
+
+## Slice 3 completion
+
+The parameter scope is qualified against independent execution controls and TN.
+[Receipts](benchmarks/6502-cross-call-homes/README.md#parameter-qualification-slices-23)
+record 64/61-byte independent savings and exact TN rollback when four downstream
+callers grow. Raw NIR, recursive/nested/helper/machine fallbacks and the existing
+byte-level clobber controls pass. Local selection is still disabled; final MADS
+and full backend qualification remain in slice 6.

@@ -34,3 +34,30 @@ for `value=AddOne(value); RETURN(value+keep)`; the independent control uses
 a call also failed its VM oracle in the unchanged compiler; the persistent-value
 control seeds its inline cell explicitly and reads it over successive calls.
 These findings are outside the placement change and are not claimed as fixed.
+
+## Parameter qualification (slices 2–3)
+
+[Gate off](parameters-off.json) and [gate on](parameters.json) receipts use the
+same compiler and sources, both runtimes and both origins. The independent
+fixture shrinks **294 → 230 bytes** with inlining disabled and **295 → 234** with
+normal inlining. `FindRecord` becomes 54 code + 1 inline local + 4 ZP bytes;
+`CountRecords` becomes 40 + 1 + 2; `KeepWord` becomes 35 + 0 + 4. The initialized
+counters remain inline. Pointer results still copy explicitly from `$A0/$A1`.
+
+TN stays **9,847 / 9,954 bytes**. Its trial would reduce `Ord` from 85 to 55 total
+code/ordinary bytes and `Items` from 59 to 41, but `MoveMenuBar`, `Draw`, `Tag` and
+`TagAll` each grow two bytes. The whole trial is rejected despite a net 40-byte
+image reduction. Image, map and relocation hashes exactly equal gate-off output.
+No acceptance policy was relaxed and no per-routine retry was added.
+
+Five root controls and the independent VM target pass, including raw/optimized
+NIR, feature off/on, actual LF/CRLF loading, page crossings, wrapping word values,
+canonical call arguments, ordered pointee reads and persistent local storage.
+Fallback controls cover multiple/nested/recursive calls, a helper, machine code,
+exposure and exhausted/source-owned ZP. Manual MIR tests from slice 1 cover
+partial-word/absolute clobbers, changed bindings and stale allocation assumptions.
+[Check receipts](slice3-checks.json) include TN's exact rollback. Full backend
+and MADS qualification is reserved for the combined implementation in slice 6.
+
+Reproduce the enabled measurement by adding `--cross-call` to the baseline
+command. Each admitted batch adds one continuation; empty batches add none.
