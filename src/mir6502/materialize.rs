@@ -304,13 +304,12 @@ use zp::{
     reserve_used_fixed_zero_page_slots, resolve_virtual_address_consumers, source_zero_page_slots,
 };
 
-const POINTER_SCRATCH_LO: u8 = 0xAC;
-const POINTER_SCRATCH_HI: u8 = 0xAD;
-const POINTER_INDEX_SCRATCH_LO: u8 = 0xAE;
-const POINTER_INDEX_SCRATCH_HI: u8 = 0xAF;
+use crate::mir6502::analysis::storage_ownership::{
+    DEST_POINTER_SCRATCH_LO, POINTER_INDEX_SCRATCH_HI, POINTER_INDEX_SCRATCH_LO, POINTER_SCRATCH_HI,
+    POINTER_SCRATCH_LO,
+};
 const INDIRECT_CALL_TARGET_LO: u8 = 0xE4;
 const INDIRECT_CALL_TARGET_HI: u8 = 0xE5;
-const DEST_POINTER_SCRATCH_LO: u8 = 0xAA;
 // Keep the unrolled carry chain bounded: four bits covers nibble alignment
 // without expanding general constant shifts into long instruction sequences.
 const MAX_INLINE_WORD_CONSTANT_SHIFT: u16 = 4;

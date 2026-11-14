@@ -1,6 +1,9 @@
 use super::*;
 use crate::mir6502::trace::{Mir6502Trace, TraceOptions};
 
+#[path = "ownership_tests.rs"]
+mod ownership;
+
 pub(super) fn home() -> MirMem {
     MirMem::Spill {
         id: MirSpillId(0),
@@ -262,125 +265,6 @@ fn published_callee_accumulator_cannot_change() {
     after.routines[0].blocks[0].ops[0] = imm(24);
     assert!(!callee_contracts_preserved(&before, &after));
     assert!(callee_contracts_preserved(&before, &before));
-}
-
-#[test]
-fn physical_zero_page_definition_survives_unknown_readers_until_definite_overwrite() {
-    let private = MirMem::ZeroPage(MirZpSlot(0));
-    let write = MirOp::Store {
-        dst: MirAddr::Direct(private.clone()),
-        src: MirValue::Def(MirDef::Reg(MirReg::A)),
-        width: MirWidth::Byte,
-    };
-    let read = MirOp::Load {
-        dst: MirDef::Reg(MirReg::A),
-        src: MirAddr::FixedIndirectIndexedY {
-            zp: MirFixedZpSlot(0xa0),
-        },
-        width: MirWidth::Byte,
-    };
-    let mut p = program(vec![write.clone(), read.clone()]);
-    let mut memory = MirPhysicalMemory::default();
-    memory.insert(RoutineId(0), private, 0xe1, true);
-    let known = MirKnownCalleeSummaries::default();
-    assert!(
-        !readers::Readers {
-            program: &p,
-            memory: &memory,
-            known: &known,
-            default_sargs: false,
-            origin: 0x3000
-        }
-        .definition_unobserved(&p.routines[0], MirBlockId(0), 1, 0xe1)
-    );
-    p.routines[0].blocks[0].ops.insert(1, write.clone());
-    assert!(
-        readers::Readers {
-            program: &p,
-            memory: &memory,
-            known: &known,
-            default_sargs: false,
-            origin: 0x3000
-        }
-        .definition_unobserved(&p.routines[0], MirBlockId(0), 1, 0xe1)
-    );
-    // A read on the next iteration observes the definition before its overwrite.
-    p.routines[0].blocks[0].ops = vec![read, write];
-    p.routines[0].blocks[0].terminator = MirTerminator::Jump(MirEdge {
-        target: MirBlockId(0),
-        args: vec![],
-    });
-    assert!(
-        !readers::Readers {
-            program: &p,
-            memory: &memory,
-            known: &known,
-            default_sargs: false,
-            origin: 0x3000
-        }
-        .definition_unobserved(&p.routines[0], MirBlockId(0), 2, 0xe1)
-    );
-}
-
-#[test]
-fn physical_zero_page_definition_is_observable_after_return_to_caller() {
-    let private = MirMem::ZeroPage(MirZpSlot(0));
-    let write = MirOp::Store {
-        dst: MirAddr::Direct(private.clone()),
-        src: MirValue::Def(MirDef::Reg(MirReg::A)),
-        width: MirWidth::Byte,
-    };
-    let mut p = program(vec![write]);
-    let mut caller = p.routines[0].clone();
-    caller.id = RoutineId(1);
-    caller.blocks[0].ops = vec![
-        MirOp::Call {
-            target: MirCallTarget::Routine(RoutineId(0)),
-            abi: MirCallAbi {
-                params: vec![],
-                result: None,
-                additional_results: vec![],
-                clobbers: Default::default(),
-                preserves: Default::default(),
-            },
-            args: vec![],
-            result: None,
-            additional_results: vec![],
-            effects: Default::default(),
-        },
-        MirOp::Load {
-            dst: MirDef::Reg(MirReg::A),
-            src: MirAddr::FixedIndirectIndexedY {
-                zp: MirFixedZpSlot(0xa0),
-            },
-            width: MirWidth::Byte,
-        },
-    ];
-    p.routines.push(caller);
-    let mut memory = MirPhysicalMemory::default();
-    memory.insert(RoutineId(0), private, 0xe1, true);
-    let known = MirKnownCalleeSummaries::default();
-    let check = |p: &MirProgram| {
-        readers::Readers {
-            program: p,
-            memory: &memory,
-            known: &known,
-            default_sargs: false,
-            origin: 0x3000,
-        }
-        .definition_unobserved(&p.routines[0], MirBlockId(0), 1, 0xe1)
-    };
-    assert!(!check(&p));
-    // A definite caller overwrite ends the lifetime, unlike a may-write call.
-    p.routines[1].blocks[0].ops.insert(
-        1,
-        MirOp::Store {
-            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xe1))),
-            src: MirValue::Def(MirDef::Reg(MirReg::A)),
-            width: MirWidth::Byte,
-        },
-    );
-    assert!(check(&p));
 }
 
 fn sink() -> MirOp {

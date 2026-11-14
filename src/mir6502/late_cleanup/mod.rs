@@ -2,7 +2,6 @@
 pub(super) mod preservation;
 mod producers;
 mod pruning;
-mod readers;
 
 use super::{
     Mir6502Config, MirDiagnostic,
@@ -11,6 +10,7 @@ use super::{
         effects::classify_op,
         known_callees::{MirKnownCalleeSummaries, MirKnownMemoryReads, MirKnownMemoryWrites},
         record_bases::MirPhysicalMemory,
+        storage_ownership::{StorageOwnership, StorageRole},
     },
     emit,
     ir::*,
@@ -106,11 +106,57 @@ fn improves_cost(program: &MirProgram, old: &Measurement, new: &Measurement) -> 
 }
 
 fn observable_reads(program: &MirProgram, memory: &MirPhysicalMemory) -> Vec<(Option<u16>, u16)> {
+    read_aliases(program, memory, false)
+}
+
+fn read_aliases(
+    program: &MirProgram,
+    memory: &MirPhysicalMemory,
+    scratch_lifetimes: bool,
+) -> Vec<(Option<u16>, u16)> {
+    let ownership = StorageOwnership::new(program);
     let mut reads = Vec::new();
     for r in &program.routines {
         for op in r.blocks.iter().flat_map(|b| &b.ops) {
-            for read in classify_op(op).memory.direct_reads {
-                if !matches!(read.base, MirMem::Spill { .. } | MirMem::ZeroPage(_)) {
+            let effects = classify_op(op);
+            if scratch_lifetimes {
+                for home in effects.addresses.pair_reads {
+                    if let super::analysis::effects::MirHomeByte::FixedZeroPage(slot) = home
+                        && ownership.role(r.id, &MirMem::FixedZeroPage(slot))
+                            != StorageRole::PointerScratch
+                    {
+                        reads.push((Some(u16::from(slot.0)), 1));
+                    }
+                }
+                match effects.memory.structured_reads {
+                    MirMemoryEffect::Regions(regions) => {
+                        for region in regions {
+                            if matches!(
+                                region.kind,
+                                MirMemoryRegionKind::ZeroPage | MirMemoryRegionKind::AbsoluteRange
+                            ) {
+                                reads.push((Some(region.offset), region.size));
+                            } else if region.kind == MirMemoryRegionKind::Stack {
+                                reads.push((Some(0x100), 0x100));
+                            }
+                        }
+                    }
+                    // Unknown source-memory effects do not expose non-escaping
+                    // compiler homes. Preserve the shared home-analysis policy.
+                    MirMemoryEffect::None | MirMemoryEffect::Unknown | MirMemoryEffect::All => {}
+                }
+            }
+            for read in effects.memory.direct_reads {
+                let pointer_scratch_read = scratch_lifetimes
+                    && matches!(read.base, MirMem::FixedZeroPage(slot) if (0..read.bytes).all(|offset| {
+                        u16::from(slot.0).checked_add(offset).filter(|&a| a < 0x100).is_some_and(|a| {
+                            ownership.role(r.id, &MirMem::FixedZeroPage(MirFixedZpSlot(a as u8))) == StorageRole::PointerScratch
+                                && memory.source_storage_disjoint(a)
+                        })
+                    }));
+                if !matches!(read.base, MirMem::Spill { .. } | MirMem::ZeroPage(_))
+                    && !pointer_scratch_read
+                {
                     reads.push((memory.address(r.id, &read.base), read.bytes));
                 }
             }
@@ -119,7 +165,12 @@ fn observable_reads(program: &MirProgram, memory: &MirPhysicalMemory) -> Vec<(Op
     // Inspectable machine routines may expose absolute reads behind a call.
     let callees = MirKnownCalleeSummaries::analyze_for_rewriting(program);
     for r in &program.routines {
-        if let Some(summary) = callees.get(r.id)
+        if (!scratch_lifetimes
+            || r.blocks
+                .iter()
+                .flat_map(|b| &b.ops)
+                .any(|op| matches!(op, MirOp::MachineBlock { .. })))
+            && let Some(summary) = callees.get(r.id)
             && let MirKnownMemoryReads::Exact(cells) = summary.reads()
         {
             for cell in cells {
@@ -135,19 +186,18 @@ fn observable_reads(program: &MirProgram, memory: &MirPhysicalMemory) -> Vec<(Op
 fn apply(
     baseline: &MirProgram,
     memory: Option<&MirPhysicalMemory>,
-    default_sargs: bool,
     remove_producers: bool,
-    origin: u16,
     trace: &Trace,
 ) -> Result<MirProgram, Declined> {
     let known = MirKnownCalleeSummaries::analyze_for_rewriting(baseline);
+    let ownership = StorageOwnership::new(baseline);
     let reads = memory
-        .map(|m| observable_reads(baseline, m))
+        .map(|m| read_aliases(baseline, m, true))
         .unwrap_or_default();
     let mut proposed = baseline.clone();
     for r in &mut proposed.routines {
         if !r.blocks.iter().flat_map(|b| &b.ops).any(|op| {
-            peepholes::store_direct_private_scratch_byte(op).is_some()
+            ownership.private_store(r.id, op, memory).is_some()
                 || (remove_producers && producers::pure_register(op, r.id, memory).is_some())
         }) {
             continue;
@@ -157,15 +207,15 @@ fn apply(
             .with_trace(trace)
             .run_fixed_point_with_known_callees(r, &known, |r, c| {
                 let mut plans =
-                    peepholes::discover_dead_private_scratch_stores(r, c)
+                    peepholes::discover_dead_scratch_stores_matching(r, c, |op| ownership.private_store(r.id, op, memory).is_some())
                         .into_iter()
                         .filter(|plan| {
                             let Some(memory) = memory else {
                                 return true;
                             };
                             let block = r.blocks.iter().find(|b| b.id == plan.block).unwrap();
-                            let home = peepholes::store_direct_private_scratch_byte(
-                                &block.ops[plan.range.start],
+                            let home = ownership.private_store(
+                                r.id, &block.ops[plan.range.start], Some(memory),
                             )
                             .unwrap();
                             let Some(address) = memory.address(r.id, &home) else {
@@ -176,17 +226,6 @@ fn apply(
                                     start.is_none_or(|start| address.wrapping_sub(start) < *bytes)
                                 }) {
                                     Some("physical-read-alias")
-                                } else if address < 0x100
-                                    && !(readers::Readers {
-                                        program: baseline,
-                                        memory,
-                                        known: &known,
-                                        default_sargs,
-                                        origin,
-                                    })
-                                    .definition_unobserved(r, plan.block, plan.range.end, address)
-                                {
-                                    Some("zero-page-reader-before-overwrite")
                                 } else {
                                     None
                                 };
@@ -216,9 +255,7 @@ fn apply(
 fn apply_traced(
     baseline: &MirProgram,
     memory: Option<&MirPhysicalMemory>,
-    default_sargs: bool,
     remove_producers: bool,
-    origin: u16,
     trace: &Trace,
     purpose: &'static str,
 ) -> Result<MirProgram, Declined> {
@@ -226,9 +263,7 @@ fn apply_traced(
     let result = apply(
         baseline,
         memory,
-        default_sargs,
         remove_producers,
-        origin,
         &t,
     );
     t.event("attempt-end", || {
@@ -252,6 +287,7 @@ fn only_cleanup_deletions(
         return false;
     }
     let mut expected = before.clone();
+    let ownership = StorageOwnership::new(before);
     for (a, b) in expected.routines.iter_mut().zip(&after.routines) {
         if a.blocks.len() != b.blocks.len() {
             return false;
@@ -268,7 +304,7 @@ fn only_cleanup_deletions(
                 if new.ops.get(next) == Some(op) {
                     retained.push(op.clone());
                     next += 1;
-                } else if peepholes::store_direct_private_scratch_byte(op).is_none()
+                } else if ownership.private_store(a.id, op, memory).is_none()
                     && !(remove_producers && producers::pure_register(op, a.id, memory).is_some())
                 {
                     return false;
@@ -355,7 +391,7 @@ fn count_stores(program: &MirProgram) -> usize {
         .iter()
         .flat_map(|r| &r.blocks)
         .flat_map(|b| &b.ops)
-        .filter(|op| peepholes::store_direct_private_scratch_byte(op).is_some())
+        .filter(|op| matches!(op, MirOp::Store { .. }))
         .count()
 }
 
@@ -422,14 +458,14 @@ fn select_definitions(
             return Ok(baseline);
         }
         // No cost emission for programs whose definitions are all still live.
-        match apply_traced(&baseline, None, preservation.default_sargs(), remove_producers, origin, trace, "logical-discovery") {
+        match apply_traced(&baseline, None, remove_producers, trace, "logical-discovery") {
             Ok(p) if p == baseline => { reject(if remove_producers { Declined::NoDeadDefinitions } else { Declined::NoDeadStores }); return Ok(baseline); }
             Err(reason) => { reject(reason); return Ok(baseline); }
             _ => {}
         }
         let references = preservation.references(&baseline);
         let old = measure(&baseline, &references, origin, runtime, trace)?;
-        let proposed = match apply_traced(&baseline, Some(&old.memory), preservation.default_sargs(), remove_producers, origin, trace, "physical-deletion") {
+        let proposed = match apply_traced(&baseline, Some(&old.memory), remove_producers, trace, "physical-deletion") {
             Ok(p) if p != baseline => p,
             Ok(_) => { reject(Declined::ObservableAlias); return Ok(baseline); }
             Err(reason) => { reject(reason); return Ok(baseline); }
@@ -445,7 +481,7 @@ fn select_definitions(
             }
             if !callee_contracts_preserved(&baseline, &proposed) { return Err(Declined::CalleeContract); }
             let new = measure(&proposed, &references, origin, runtime, trace).map_err(|_| Declined::CandidateEmission)?;
-            if apply_traced(&baseline, Some(&new.memory), preservation.default_sargs(), remove_producers, origin, trace, "final-placement-deletion-replay")? != proposed { return Err(Declined::DeletionReplay); }
+            if apply_traced(&baseline, Some(&new.memory), remove_producers, trace, "final-placement-deletion-replay")? != proposed { return Err(Declined::DeletionReplay); }
             preservation.validate(&new.memory, ranges, config, origin, trace).map_err(Declined::EarlierDecision)?;
             if !improves_cost(&baseline, &old, &new) {
                 return Err(Declined::Cost);

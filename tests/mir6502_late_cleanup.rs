@@ -199,6 +199,23 @@ fn tn_producer_extension_saves_beyond_store_only_cleanup() {
     let after =
         mir6502::generate_output_with_trace(&input, 0x2c00, &on, Runtime::ActionCart, &mut trace)
             .unwrap();
+    for (name, address) in [
+        ("i", 0xe0),
+        ("j", 0xe1),
+        ("screen", 0xe6),
+        ("scl", 0xe6),
+        ("sch", 0xe7),
+        ("allocp", 0xe8),
+    ] {
+        assert!(
+            after
+                .map
+                .storage_symbols
+                .iter()
+                .any(|s| s.name == name && s.address == address),
+            "source ZP home {name} at ${address:02X}"
+        );
+    }
     let events = trace.events();
     let result = &events
         .iter()

@@ -39,6 +39,16 @@ The named compiler temporaries intentionally overlap the high end of the
 zero-page byte writes and derived flags such as "writes args" or "writes
 array address."
 
+For MIR6502, these addresses describe roles, not exclusive ownership of a
+numerical range. Source declarations and explicit ABI/assembly effects remain
+observable. Ordinary pointers do not expose active compiler temporaries or
+pointer scratch; the same rule applies to ordinary spills and allocated ZP
+homes. The `$E0-$EF` allocation pool excludes source-declared cells, including
+TN's `$E0/$E1` and `$E6-$E9`. The
+[late-cleanup contract](MIR6502_LATE_CLEANUP_DESIGN.md#cleanup-invalidation-and-fact-lifetimes)
+requires a per-definition proof and final physical alias checks before a store
+can be deleted.
+
 ## Runtime Helper Targets
 
 `samples/tn/modern/LIB.ACT` carries standalone implementations of the Action!

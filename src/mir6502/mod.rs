@@ -171,7 +171,6 @@ fn materialize_program_with_origin_and_runtime_preserving(
     verify::verify_program(&program, MirPhase::PreMaterialization)
         .map_err(|diagnostics| phase_diagnostics("resolved pre-materialization", diagnostics))?;
     trace.snapshot("resolved-interfaces", &program);
-    preservation.configure_runtime(&program);
     let mut materialize_config = config.clone();
     // Keep inlining, home selection and their cost trials identical to the
     // feature-off pipeline. Record reuse is a final transaction over that

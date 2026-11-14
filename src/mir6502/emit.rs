@@ -170,6 +170,9 @@ pub(super) fn emit_program_with_reference_programs_traced(
         }
         if physical_memory {
             ctx.summary.storage_layout = Some(MirStorageLayoutProof::from_layout(&ctx.layout));
+            ctx.summary
+                .physical_memory
+                .protect_source_storage(source_storage_ranges(mir, &ctx.layout));
             // Data allocations come from actual placement, independently of any
             // pointer type. Numeric pointers into code or foreign RAM are not
             // certificates for retaining memory-dependent machine facts.
@@ -6548,6 +6551,45 @@ fn storage_symbol(
         }),
         MirStoragePlacement::Unresolved => None,
     }
+}
+
+/// Publish declared storage from authoritative placement, independently of
+/// whether a current instruction still references its first byte.
+fn source_storage_ranges(mir: &MirProgram, layout: &MirObjectLayout) -> Option<Vec<(u16, u16)>> {
+    let mut ranges = Vec::new();
+    let mut add = |placement: MirStoragePlacement, backing: u16| -> Option<()> {
+        let MirStoragePlacement::Absolute { address, size, .. } = placement else {
+            return None;
+        };
+        ranges.push((address.checked_sub(backing)?, size.checked_add(backing)?));
+        Some(())
+    };
+    for g in &mir.globals {
+        add(
+            *layout.globals.get(&g.id)?,
+            g.init
+                .as_ref()
+                .and_then(global_descriptor_backing_size)
+                .unwrap_or(0),
+        )?;
+    }
+    for s in &mir.statics {
+        add(*layout.statics.get(&s.id)?, 0)?;
+    }
+    for r in &mir.routines {
+        for s in r.frame.params.iter().chain(&r.frame.locals) {
+            if !matches!(s.base, MirStorageBase::ParamAbiOnly(_)) {
+                add(
+                    routine_slot_placement(layout, r.id, s)?,
+                    s.init
+                        .as_ref()
+                        .and_then(slot_descriptor_backing_size)
+                        .unwrap_or(0),
+                )?;
+            }
+        }
+    }
+    Some(ranges)
 }
 
 fn routine_slot_placement(

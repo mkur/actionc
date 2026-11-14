@@ -465,10 +465,20 @@ pub(in crate::mir6502) fn discover_dead_private_scratch_stores(
     routine: &MirRoutine,
     context: &PostHomeRewriteContext<'_, '_>,
 ) -> Vec<MirPostHomeRewritePlan> {
+    discover_dead_scratch_stores_matching(routine, context, |op| {
+        store_direct_private_scratch_byte(op).is_some()
+    })
+}
+
+pub(in crate::mir6502) fn discover_dead_scratch_stores_matching(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    eligible: impl Fn(&MirOp) -> bool,
+) -> Vec<MirPostHomeRewritePlan> {
     let mut plans = Vec::new();
     for block in &routine.blocks {
         for index in 0..block.ops.len() {
-            if store_direct_private_scratch_byte(&block.ops[index]).is_some()
+            if eligible(&block.ops[index])
                 && let Some(mut plan) = structural_plan(
                     routine,
                     context,

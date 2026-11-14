@@ -30,7 +30,6 @@ pub(in crate::mir6502) struct Preservation {
     enabled: bool,
     core: Option<MirProgram>,
     untracked: bool,
-    default_sargs: bool,
     decisions: Vec<SelectedDecision>,
 }
 
@@ -40,21 +39,8 @@ impl Preservation {
             enabled,
             core: None,
             untracked: false,
-            default_sargs: false,
             decisions: Vec::new(),
         }
-    }
-
-    /// Capture binding provenance before materialization resolves defaults.
-    /// An explicit SET override cannot acquire the default helper's contract.
-    pub fn configure_runtime(&mut self, program: &MirProgram) {
-        self.default_sargs = !program.runtime_helpers.iter().any(|d| {
-            d.helper == MirRuntimeHelper::SArgs && d.target != MirRuntimeHelperTarget::Deferred
-        });
-    }
-
-    pub fn default_sargs(&self) -> bool {
-        self.default_sargs
     }
 
     pub fn begin(&mut self, core: &MirProgram) {

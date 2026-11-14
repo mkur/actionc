@@ -115,8 +115,10 @@ impl VmRunHooks for ReadAlias {
 }
 
 #[test]
-fn argument_staging_keeps_memory_observable_through_a_callee_pointer() {
-    let source = "MODULE\nCARD observedFirst=$0680,observedSecond=$0682\nBYTE observedTag=$0684,observedByte=$0685\n\
+fn argument_staging_keeps_source_and_abi_memory_observable_through_a_callee_pointer() {
+    // These bytes belong to this program, so neither allocation nor cleanup
+    // may treat them as compiler-private merely because they are in its ZP pool.
+    let source = "MODULE\nBYTE probeE0=$E0,probeE1=$E1\nCARD observedFirst=$0680,observedSecond=$0682\nBYTE observedTag=$0684,observedByte=$0685\n\
         PROC Capture(CARD first,second BYTE tag)\nBYTE POINTER p\n\
           observedFirst=first observedSecond=second observedTag=tag\np=second observedByte=p^\nRETURN\n\
         PROC Forward(CARD first,second BYTE tag)\nCapture(first+1,second,tag)\nRETURN\nPROC Main()\nRETURN\n";

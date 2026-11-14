@@ -1,0 +1,374 @@
+use super::*;
+
+fn write(mem: MirMem) -> MirOp {
+    MirOp::Store {
+        dst: MirAddr::Direct(mem),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    }
+}
+
+fn consumer(lo: u8) -> MirAddressConsumer {
+    MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+        lo: MirFixedZpSlot(lo),
+    })
+}
+
+fn fixture(mem: &MirMem) -> MirProgram {
+    let mut p = program(vec![
+        MirOp::MaterializeAddress {
+            consumer: consumer(0xac),
+            value: MirValue::ConstU16(0x680),
+        },
+        MirOp::MaterializeAddress {
+            consumer: consumer(0xae),
+            value: MirValue::ConstU16(0x681),
+        },
+        imm(23),
+        write(mem.clone()),
+        MirOp::LoadIndirect {
+            consumer: consumer(0xae),
+            dst: MirDef::Reg(MirReg::A),
+            offset: 0,
+        },
+        imm(128),
+        write(mem.clone()),
+        load(mem.clone()),
+        sink(),
+    ]);
+    p.routines[0].frame.fixed_zero_page = (0xac..=0xaf).map(MirFixedZpSlot).collect();
+    p.routines[0].frame.virtual_zero_page.push(MirZpSlot(0));
+    p.routines[0]
+        .frame
+        .zero_page_allocations
+        .push(MirZpAllocation {
+            slot: MirZpSlot(0),
+            start: MirFixedZpSlot(0xe2),
+            size: 1,
+        });
+    p
+}
+
+#[test]
+fn same_definition_lifetime_rule_for_spill_allocated_zp_and_fixed_pointer_scratch() {
+    for mem in [
+        home(),
+        MirMem::ZeroPage(MirZpSlot(0)),
+        MirMem::FixedZeroPage(MirFixedZpSlot(0xac)),
+    ] {
+        let p = fixture(&mem);
+        let (selected, _, events) = run(&p, &clean(&p));
+        let mut expected = p.clone();
+        expected.routines[0].blocks[0].ops.remove(3);
+        assert_eq!(selected, expected, "{mem:?}: {events:?}");
+        assert_eq!(selected.routines[0].frame, p.routines[0].frame);
+        let result = &events
+            .iter()
+            .find(|e| e.kind == "late-cleanup-result")
+            .unwrap()
+            .data;
+        assert_eq!(result["removed_stores"], 1);
+        assert_eq!(
+            result["image_bytes_before"].as_u64().unwrap()
+                - result["image_bytes_after"].as_u64().unwrap(),
+            if mem == home() { 3 } else { 2 }
+        );
+        // A real home read before the overwrite keeps the first definition.
+        let mut read = p.clone();
+        read.routines[0].blocks[0].ops[4] = load(mem.clone());
+        assert_eq!(run(&read, &clean(&read)).0, read, "{mem:?}");
+    }
+}
+
+fn fixed_global(address: u16, bytes: u16) -> MirGlobal {
+    MirGlobal {
+        id: crate::nir::SymbolId(0),
+        name: "source_cell".into(),
+        kind: "BYTE".into(),
+        width: Some(MirWidth::Byte),
+        storage_size: bytes,
+        backing: MirGlobalBacking::Absolute(address),
+        init: None,
+    }
+}
+
+#[test]
+fn declared_source_zp_overrides_private_placement_including_tn_cells() {
+    for address in [0xe0, 0xe1, 0xe6, 0xe7, 0xe8, 0xe9, 0xac, 0xad] {
+        let mem = if address >= 0xe0 {
+            MirMem::ZeroPage(MirZpSlot(0))
+        } else {
+            MirMem::FixedZeroPage(MirFixedZpSlot(address as u8))
+        };
+        let mut p = fixture(&mem);
+        p.globals.push(fixed_global(address, 1));
+        if address >= 0xe0 {
+            p.routines[0].frame.zero_page_allocations[0].start = MirFixedZpSlot(address as u8);
+        }
+        // The declaration has no MIR reads: emission must still publish it in
+        // the source-storage inventory, independently of the reference map.
+        let measured = measure(
+            &p,
+            &[&p],
+            0x3000,
+            crate::runtime::Runtime::ActionCart,
+            &Trace::disabled(),
+        )
+        .unwrap();
+        let ownership = StorageOwnership::new(&p);
+        assert!(
+            ownership
+                .private_store(RoutineId(0), &write(mem), Some(&measured.memory))
+                .is_none(),
+            "{address:x}"
+        );
+    }
+}
+
+#[test]
+fn missing_source_inventory_cannot_certify_private_storage() {
+    let p = fixture(&home());
+    let mut memory = MirPhysicalMemory::default();
+    memory.insert(RoutineId(0), home(), 0x3000, true);
+    assert!(
+        StorageOwnership::new(&p)
+            .private_store(RoutineId(0), &store(), Some(&memory))
+            .is_none()
+    );
+}
+
+#[test]
+fn ownership_cleanup_executes_all_bytes_in_both_runtimes_and_origins() {
+    use crate::runtime::Runtime;
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for origin in [0x3000, 0x41c7] {
+            for mem in [
+                home(),
+                MirMem::ZeroPage(MirZpSlot(0)),
+                MirMem::FixedZeroPage(MirFixedZpSlot(0xac)),
+            ] {
+                let mut p = fixture(&mem);
+                p.routines[0].blocks[0]
+                    .ops
+                    .insert(5, write(MirMem::Absolute(0x7001)));
+                let selected = select(
+                    p.clone(),
+                    &clean(&p),
+                    None,
+                    &Mir6502Config {
+                        enable_late_dead_register_cleanup: false,
+                        ..Mir6502Config::optimized()
+                    },
+                    origin,
+                    runtime,
+                    &Trace::disabled(),
+                )
+                .unwrap();
+                assert_eq!(count_ops(&p) - count_ops(&selected), 1);
+                for program in [&p, &selected] {
+                    let mut emitter =
+                        crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
+                    let summary = emit::emit_program(program, origin, &mut emitter).unwrap();
+                    let output = crate::mir6502::codegen_output(
+                        emitter.finish_with_relocations().unwrap(),
+                        origin,
+                        summary,
+                        runtime,
+                        program,
+                    );
+                    for input in 0..=255u8 {
+                        let mut ram = [0u8; 65536];
+                        let start = usize::from(origin);
+                        ram[start..start + output.bytes.len()].copy_from_slice(&output.bytes);
+                        ram[0x681] = input;
+                        for a in [0xe0, 0xe1, 0xe6, 0xe7, 0xe8, 0xe9] {
+                            ram[a] = 0xa5;
+                        }
+                        crate::mir6502::materialize::leaf_test_cpu::run_memory(
+                            &mut ram,
+                            usize::from(output.routine_addresses[0].address),
+                        );
+                        assert_eq!((ram[0x7000], ram[0x7001], ram[0x681]), (128, input, input));
+                        for a in [0xe0, 0xe1, 0xe6, 0xe7, 0xe8, 0xe9] {
+                            assert_eq!(ram[a], 0xa5);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn role_requires_a_declared_home_or_reserved_typed_pointer_use() {
+    let mut p = fixture(&home());
+    let own = StorageOwnership::new(&p);
+    for slot in [0xa0, 0xa1, 0xa3, 0xaa, 0xe0, 0xe6, 0xe8] {
+        assert_eq!(
+            own.role(RoutineId(0), &MirMem::FixedZeroPage(MirFixedZpSlot(slot))),
+            StorageRole::ProgramOrAbi
+        );
+    }
+    assert_eq!(
+        own.role(RoutineId(0), &MirMem::Absolute(0xac)),
+        StorageRole::ProgramOrAbi
+    );
+    assert_eq!(
+        own.role(RoutineId(0), &MirMem::FixedZeroPage(MirFixedZpSlot(0xac))),
+        StorageRole::PointerScratch
+    );
+    p.routines[0].frame.fixed_zero_page.clear();
+    assert_eq!(
+        StorageOwnership::new(&p).role(RoutineId(0), &MirMem::FixedZeroPage(MirFixedZpSlot(0xac))),
+        StorageRole::ProgramOrAbi
+    );
+    p.routines[0].blocks[0].ops.push(MirOp::LeaAddr {
+        dst: MirDef::Reg(MirReg::A),
+        target: home(),
+        width: MirWidth::Word,
+    });
+    assert_eq!(
+        StorageOwnership::new(&p).role(RoutineId(0), &home()),
+        StorageRole::ProgramOrAbi
+    );
+}
+
+#[test]
+fn explicit_physical_and_abi_readers_keep_all_private_placements() {
+    for mem in [
+        home(),
+        MirMem::ZeroPage(MirZpSlot(0)),
+        MirMem::FixedZeroPage(MirFixedZpSlot(0xac)),
+    ] {
+        let mut p = fixture(&mem);
+        p.routines[0].blocks[0].ops[4] = MirOp::Barrier {
+            effects: MirEffects {
+                memory_reads: MirMemoryEffect::Regions(vec![MirMemoryRegion {
+                    kind: MirMemoryRegionKind::AbsoluteRange,
+                    offset: 0,
+                    size: u16::MAX,
+                }]),
+                opaque: true,
+                ..Default::default()
+            },
+        };
+        assert_eq!(run(&p, &clean(&p)).0, p, "{mem:?}");
+        let measured = measure(
+            &p,
+            &[&p],
+            0x3000,
+            crate::runtime::Runtime::ActionCart,
+            &Trace::disabled(),
+        )
+        .unwrap();
+        let address = measured.memory.address(RoutineId(0), &mem).unwrap();
+        p.routines[0].blocks[0].ops[4] = MirOp::Barrier {
+            effects: MirEffects {
+                memory_reads: MirMemoryEffect::Regions(vec![MirMemoryRegion {
+                    kind: if address < 0x100 {
+                        MirMemoryRegionKind::ZeroPage
+                    } else {
+                        MirMemoryRegionKind::AbsoluteRange
+                    },
+                    offset: address,
+                    size: 1,
+                }]),
+                ..Default::default()
+            },
+        };
+        assert_eq!(run(&p, &clean(&p)).0, p, "explicit physical region {mem:?}");
+    }
+    let mem = MirMem::FixedZeroPage(MirFixedZpSlot(0xac));
+    let mut p = fixture(&mem);
+    // A helper explicitly consumes this physical ABI byte even when its other
+    // memory effects are empty. Being used as pointer scratch elsewhere does
+    // not erase that argument use.
+    p.routines[0].blocks[0].ops[4] = MirOp::RuntimeHelper {
+        helper: MirRuntimeHelper::SArgs,
+        args: vec![MirArgHome::FixedZeroPage(MirFixedZpSlot(0xac))],
+        result: None,
+        additional_results: vec![],
+        effects: Default::default(),
+    };
+    // Logical discovery must retain it, without attempting helper emission.
+    assert_eq!(apply(&p, None, false, &Trace::disabled()).unwrap(), p);
+}
+
+#[test]
+fn unknown_source_memory_does_not_expose_non_escaping_temporaries() {
+    for mem in [home(), MirMem::ZeroPage(MirZpSlot(0))] {
+        for effect in [MirMemoryEffect::Unknown, MirMemoryEffect::All] {
+            let mut p = fixture(&mem);
+            p.routines[0].blocks[0].ops[4] = MirOp::Barrier {
+                effects: MirEffects {
+                    memory_reads: effect,
+                    opaque: true,
+                    ..Default::default()
+                },
+            };
+            let mut expected = p.clone();
+            expected.routines[0].blocks[0].ops.remove(3);
+            assert_eq!(run(&p, &clean(&p)).0, expected);
+        }
+    }
+}
+
+#[test]
+fn typed_machine_reference_exposes_a_temporary_even_with_unknown_reads() {
+    let mut p = fixture(&home());
+    p.routines[0].blocks[0].ops[4] = MirOp::MachineBlock {
+        id: MirMachineBlockId(0),
+        effects: MirEffects {
+            memory_reads: MirMemoryEffect::Unknown,
+            ..Default::default()
+        },
+    };
+    p.machine_blocks.push(MirMachineBlock {
+        id: MirMachineBlockId(0),
+        source_span: None,
+        items: vec![
+            MirMachineItem::Byte(0xad),
+            MirMachineItem::Relocation {
+                kind: crate::asm6502::InlineAsmRelocationKind::Absolute16,
+                target: MirInlineAsmTarget::Memory(home()),
+                addend: 0,
+                requires_zero_page: false,
+                span: crate::source::Span { start: 0, end: 0 },
+            },
+        ],
+    });
+    assert_eq!(run(&p, &clean(&p)).0, p);
+}
+
+#[test]
+fn explicit_numeric_alias_and_called_pointer_pair_keep_definitions() {
+    let mem = MirMem::FixedZeroPage(MirFixedZpSlot(0xac));
+    let mut p = fixture(&mem);
+    p.routines[0].blocks[0].ops[4] = load(MirMem::Absolute(0xac));
+    assert_eq!(run(&p, &clean(&p)).0, p);
+    let mut callee = fixture(&mem).routines.remove(0);
+    callee.id = RoutineId(1);
+    callee.name = "ObservePair".into();
+    callee.abi = MirRoutineAbi::Action;
+    callee.blocks[0].ops = vec![MirOp::LoadIndirect {
+        consumer: consumer(0xac),
+        dst: MirDef::Reg(MirReg::A),
+        offset: 0,
+    }];
+    p.routines.push(callee);
+    p.routines[0].blocks[0].ops[4] = MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(1)),
+        abi: MirCallAbi {
+            params: vec![],
+            result: None,
+            additional_results: vec![],
+            clobbers: Default::default(),
+            preserves: Default::default(),
+        },
+        args: vec![],
+        result: None,
+        additional_results: vec![],
+        effects: Default::default(),
+    };
+    assert_eq!(run(&p, &clean(&p)).0, p);
+}

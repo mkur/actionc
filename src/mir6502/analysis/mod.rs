@@ -29,5 +29,6 @@ pub(super) mod prehome;
 pub(super) mod reaching_defs;
 pub(super) mod record_bases;
 pub(super) mod sites;
+pub(super) mod storage_ownership;
 pub(super) mod temp_liveness;
 pub(super) mod use_def;

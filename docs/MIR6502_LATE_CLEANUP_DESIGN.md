@@ -67,11 +67,20 @@ All executable output modes must select the same final MIR.
 
 ## Store-deletion scope
 
-Eligible candidates are the existing direct byte stores from a machine
-register into `MirMem::Spill` or virtual `MirMem::ZeroPage` storage, as recognized
-by [`store_direct_private_scratch_byte`](../src/mir6502/materialize/peepholes.rs).
-Fixed zero-page ABI slots, source variables, globals, statics, absolute
-addresses, indirect stores and hardware accesses are outside this scope.
+Eligible candidates are direct byte stores from a machine register into a
+compiler-owned home, as classified by
+[`StorageOwnership`](../src/mir6502/analysis/storage_ownership.rs). Declared
+`MirMem::Spill` and virtual `MirMem::ZeroPage` temporaries qualify unless exposed
+or used as source storage. Fixed pointer scratch qualifies only when a typed
+pointer operation and a materializer reservation establish that role. The first
+fixed-scratch consumer covers the destination, pointer and index pairs at
+`$AA/$AB`, `$AC/$AD` and `$AE/$AF`; an address in this range alone is insufficient.
+It requires block-local initialization before reads, with calls and machine
+boundaries ending that evidence. Incoming or cross-block fixed values retain
+public/ABI treatment; this slice does not infer their ownership from liveness.
+ABI homes, source variables, globals, statics, absolute stores, indirect stores
+and hardware accesses are outside this deletion scope. Final physical alias
+checks give source declarations precedence over compiler scratch identities.
 
 With producer cleanup disabled, the transaction deletes only eligible stores
 and preserves:
@@ -173,30 +182,45 @@ home-definition deadness proof, covering control-flow successors, backedges,
 overwrites and allocated private aliases. Do not introduce a second deletion
 rule based on counts or on the absence of assembly loads.
 
-Preserve existing conservative effect rules. In particular, the analyzed home
-model distinguishes compiler-private homes from public fixed-ZP storage;
-unknown effects do not imply identical treatment of both. Cleanup must retain
-that established distinction without relaxing call or machine-block effects
-to obtain a desired saving. Where private identity alone cannot discharge a
-physical alias obligation, require the corresponding physical proof or retain
-the store.
+Ownership belongs to a storage role and the particular definition's lifetime.
+Ordinary program pointer accesses cannot observe compiler-private temporaries
+or active pointer scratch, whether allocated in ordinary RAM or zero page.
+`$E0..$EF` is an allocation search range, not a private-memory declaration.
+For example TN owns `i`/`j` at `$E0/$E1`, `screen` at `$E6/$E7`, and `allocp` at
+`$E8/$E9`. These bytes remain program storage. This rule concerns compiler
+implementation homes; it does not narrow aliasing between source objects.
 
-Physical zero page needs an additional read proof: a numeric source pointer can
-observe a virtual home's backing byte. Follow each candidate definition across
-CFG edges until a definite overwrite; calls' may-write summaries do not kill it.
-Reject indirect or unknown readers, including readers inside called routines
-and in caller continuations after return. Context merging conservatively visits
-all direct callers; only a definite overwrite ends the definition lifetime.
-Ordinary private frames retain the existing non-escape contract and explicit
-physical-alias checks.
+Apply the existing definition-deadness proof to all eligible placements. It
+follows concrete definitions across CFG edges, successors and backedges, and
+handles overwrites and return boundaries. Direct home/pointer-pair reads and
+ABI argument/result uses retain their existing effects. Unknown source-memory
+effects do not expose non-escaping spill or virtual-ZP homes; the shared analysis
+continues to conservatively retain fixed homes around unknown ABI boundaries.
+Register/flag clobbers, call contracts and ordering effects are unchanged.
 
-A recognized scalar `SArgs` entry has a narrower ABI read footprint under the
-default runtime binding: argument bytes at `$A0` onward, runtime workspace at
-`$11`/`$82`–`$85`, stack and inline descriptor data. Its three-byte descriptor
-and argument count must agree with the typed scalar signature. Binding
-provenance is retained before helper resolution; an explicit `SET` override
-cannot use this contract. The proof does not depend on display names or source
-locations. Other machine blocks and unrecognized entries remain conservative.
+Final physical checks retain explicit numeric read aliases, incoming fixed-pair
+reads, exact machine-routine read footprints and declared zero-page/absolute
+read regions (including the stack page). Named source regions are covered by
+the complete source-storage inventory. Generic `Unknown`/`All` effects describe
+source memory; volatile barriers also use `All`. They do not themselves expose
+non-escaping compiler homes. This distinguishes unknown program-memory access
+from an explicit physical-storage contract; it
+does not reinterpret an ABI or assembly read as an ordinary private home.
+
+Before emission, ownership is only a candidate filter. With both baseline and
+candidate final maps, reject overlap with any declared source object (including
+aliases and SET placement), or missing placement evidence. Emission publishes
+all declared source ranges, including unused
+declarations and descriptor backing; the instruction-reference map alone is
+not a complete ownership inventory. Recompute operation-indexed facts
+after edits. The ownership classifier supplies no initialization, value, register,
+flag, callee-preservation or movement proof. Existing home liveness remains a
+conservative prerequisite; it need not exploit every private fixed-scratch case.
+
+There is no additional physical-ZP reader walk, caller-continuation scan or
+special `SArgs` exemption. The shared home-definition analysis owns lifetime
+proofs. Keeping a second call-reader policy here would give identical compiler
+temporaries different behavior according to placement and duplicate ABI logic.
 
 An applied batch invalidates operation-indexed facts and routine generations.
 Rebuild the required analyses before further queries. Trace coordinates are
@@ -364,9 +388,11 @@ structured effect/reference inventory. Address references, including references
 in immutable earlier-decision witnesses, retain a spill. Structured reads and
 writes, terminators, call results and frame-slot backing also count as uses;
 a missing explicit load is insufficient. Data relocations cannot name spills.
-Unknown or indirect readers/writers retain storage unless existing callee
-summaries provide exact footprints. Compiler-private identity alone does not
-justify discarding zero-initialized bytes that unknown code might observe.
+The allocation experiment still conservatively rejects unknown or indirect
+readers/writers unless existing callee summaries provide exact footprints. It
+has not adopted the terminal definition-cleanup ownership proof: deleting an
+allocation needs separate movement and relocation validation. This restriction
+does not establish source-level observability of compiler-private bytes.
 
 ### Core allocation preservation
 
@@ -593,7 +619,7 @@ Neither round membership nor a matching home establishes a necessary dependency
 of a selected rewrite. No numeric predicate can be replayed by adding a terminal
 address delta to an observation from a different allocation epoch.
 
-### Resolve storage ownership before adding movement proofs
+### Storage ownership before movement proofs
 
 A temporary in an ordinary spill slot and an active compiler scratch pair both
 hold compiler state. Staging through the former does not protect against an
@@ -601,23 +627,25 @@ arbitrary source pointer that is allowed to observe compiler state: that pointer
 could target the temporary too. Physical reachability alone cannot justify a
 stronger preservation requirement for one location than the other.
 
-The current 6502 contracts are inconsistent at this boundary. The
+The audit found inconsistent 6502 contracts at this boundary. The
 [runtime effect map](RUNTIME_HELPER_EFFECTS.md#runtime-zero-page) identifies
 `$AC/$AD` as compiler-owned scratch, and `MirHomeDefinitions` excludes escaping
-private spills and virtual-ZP homes. The existing late-cleanup policy above
-nevertheless treats numeric-pointer observation of physical ZP as a blocker.
-That is a conservative implementation policy, not evidence that ordinary source
+private spills and virtual-ZP homes. The former late-cleanup policy
+nevertheless treated numeric-pointer observation of physical ZP as a blocker.
+That was a conservative implementation policy, not evidence that ordinary source
 pointers must be allowed to observe compiler temporaries.
 
-The proposed ownership rule is the same for both forms of private storage:
+The implemented terminal-cleanup ownership rule is the same for both forms of
+private storage:
 ordinary program accesses cannot observe compiler-private temporaries or active
 compiler scratch. Explicit fixed-address uses, raw assembly, runtime bridges
 and ABI argument/result access retain their declared effects and lifetimes.
 Ownership follows the storage role; it must not classify every fixed-ZP byte,
 or the entire overlapping `$A0..$AF` ABI window, as private at every point.
-The [65816 ABI](MIR65816_PHYSICAL_ABI_V2.md#5-direct-page-ownership-and-reentrancy) already states an
-ordinary-object versus compiler-scratch ownership rule; this audit does not
-silently impose that rule on existing 6502 programs or change code generation.
+The [65816 ABI](MIR65816_PHYSICAL_ABI_V2.md#5-direct-page-ownership-and-reentrancy) states a
+similar ordinary-object versus compiler-scratch ownership rule. The 6502
+implementation above uses its own typed roles, declarations and effects;
+it does not import 65816 reservations or ABI details.
 
 Address-taking of a program object also does not by itself pin its numerical
 address. Moving an object requires its references, aliases and initializer
@@ -626,10 +654,10 @@ address-bearing arrays are relocation obligations, not automatically reasons to
 preserve their old addresses. Explicitly fixed storage and externally prescribed
 ABI addresses remain distinct.
 
-The next design decision is to reconcile these ownership rules and identify the
-few genuine address-dependent operations left under that contract. Do that
-before building a general selected-predicate replay framework. An address query
+Further movement work must identify the genuine address-dependent operations
+left under this contract before building a general selected-predicate replay
+framework. An address query
 in the existing implementation does not itself establish a semantic obligation
 to keep the queried number unchanged. Both current equality guards remain in
-place during this diagnostic slice; their implementation does not define the
+place after the ownership slice; their implementation does not define the
 intended source-memory semantics.
