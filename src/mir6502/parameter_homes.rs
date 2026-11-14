@@ -5,6 +5,8 @@ use super::{diagnostics::MirDiagnostic, ir::*};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 mod lifetimes;
+#[cfg(test)]
+mod mixed_tests;
 mod zero_page;
 pub(super) use lifetimes::verify as verify_lifetimes;
 
@@ -400,19 +402,15 @@ pub(super) fn verify_storage(program: &MirProgram, routine: &MirRoutine) -> Vec<
                 "exposed parameter cannot change its inline home",
             ));
         }
-        if let MirParamHome::ZeroPage(start) = b.home {
-            let width = routine
-                .frame
-                .params
+        if routine.frame.parameter_lanes(b.param).is_some_and(|lanes| {
+            lanes
                 .iter()
-                .find(|s| s.base == MirStorageBase::Param(b.param))
-                .map_or(0, |s| s.storage_size);
-            if (0..width).any(|lane| owned.contains(&start.0.wrapping_add(lane as u8))) {
-                errors.push(MirDiagnostic::routine(
-                    &routine.name,
-                    "parameter binding overlaps source-owned storage",
-                ));
-            }
+                .any(|lane| matches!(lane, MirParamLane::ZeroPage(slot) if owned.contains(&slot.0)))
+        }) {
+            errors.push(MirDiagnostic::routine(
+                &routine.name,
+                "parameter binding overlaps source-owned storage",
+            ));
         }
     }
     errors
@@ -452,50 +450,42 @@ pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
         {
             fail("parameter binding requires an uninitialized scalar byte or word at offset zero");
         }
-        match &binding.home {
-            MirParamHome::Inline | MirParamHome::Absent => {}
-            MirParamHome::Registers(regs) => {
-                if regs.len() != usize::from(width)
-                    || regs
-                        .iter()
-                        .any(|r| !matches!(r, MirReg::A | MirReg::X | MirReg::Y))
-                {
-                    fail("parameter register binding requires one A/X/Y register per byte");
-                }
-                let start = routine
-                    .frame
-                    .params
-                    .iter()
-                    .take_while(|p| p.base != slot.base)
-                    .map(|p| p.abi_byte_width().unwrap_or(0))
-                    .sum::<u16>();
-                if regs.iter().enumerate().any(|(lane, reg)| {
-                    super::abi::action_arg_home(start + lane as u16, MirWidth::Byte)
-                        != MirArgHome::Reg(*reg)
-                }) {
-                    fail("register binding must retain its canonical incoming ABI lanes");
-                }
-                let mut lanes = Vec::new();
-                for reg in regs {
-                    if lanes.contains(reg) {
+        if matches!(binding.home, MirParamHome::Inline | MirParamHome::Absent) {
+            continue;
+        }
+        let Some(lanes) = binding.home.lanes(width) else {
+            fail("parameter binding requires exactly one physical lane per byte within zero page");
+            continue;
+        };
+        let start = routine
+            .frame
+            .params
+            .iter()
+            .take_while(|p| p.base != slot.base)
+            .map(|p| p.abi_byte_width().unwrap_or(0))
+            .sum::<u16>();
+        let mut registers = Vec::new();
+        for (offset, lane) in lanes.into_iter().enumerate() {
+            match lane {
+                MirParamLane::Reg(reg) => {
+                    if super::abi::physical_lanes(
+                        &super::abi::action_arg_home(start + offset as u16, MirWidth::Byte),
+                        MirWidth::Byte,
+                    ) != Some(vec![MirParamLane::Reg(reg)])
+                    {
+                        fail("register binding must retain its canonical incoming ABI lanes");
+                    }
+                    if registers.contains(&reg) {
                         fail("parameter register lanes overlap");
                     }
-                    lanes.push(*reg);
+                    registers.push(reg);
                 }
-            }
-            MirParamHome::ZeroPage(start) => {
-                if u16::from(start.0) + width > 256 {
-                    fail("parameter pair crosses the zero-page boundary");
-                }
-                for byte in u16::from(start.0)..u16::from(start.0).saturating_add(width).min(256) {
+                MirParamLane::ZeroPage(slot) => {
+                    let byte = u16::from(slot.0);
                     if !occupied.insert(byte) {
                         fail("parameter zero-page bindings overlap");
                     }
-                    if !routine
-                        .frame
-                        .fixed_zero_page
-                        .contains(&MirFixedZpSlot(byte as u8))
-                    {
+                    if !routine.frame.fixed_zero_page.contains(&slot) {
                         fail("parameter zero-page binding is not reserved");
                     }
                     if routine.frame.zero_page_allocations.iter().any(|a| {

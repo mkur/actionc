@@ -301,12 +301,57 @@ pub struct MirParamBinding {
 pub enum MirParamHome {
     Inline,
     Registers(Vec<MirReg>),
+    /// One working location per byte in low/high order. Register lanes have no
+    /// address; only adjacent memory lanes can form a resident pointer pair.
+    Lanes(Vec<MirParamLane>),
     /// Complete adjacent bytes, with width supplied by the parameter declaration.
     ZeroPage(MirFixedZpSlot),
     Absent,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MirParamLane {
+    Reg(MirReg),
+    ZeroPage(MirFixedZpSlot),
+}
+
+impl MirParamHome {
+    pub(crate) fn lanes(&self, width: u16) -> Option<Vec<MirParamLane>> {
+        if !(1..=2).contains(&width) { return None; }
+        let lanes = match self {
+            Self::Registers(regs) => regs.iter().copied().map(MirParamLane::Reg).collect(),
+            Self::ZeroPage(start) => (0..width).map(|offset|
+                start.0.checked_add(offset as u8).map(|b| MirParamLane::ZeroPage(MirFixedZpSlot(b)))
+            ).collect::<Option<Vec<_>>>()?,
+            Self::Lanes(lanes) => lanes.clone(),
+            Self::Inline | Self::Absent => return None,
+        };
+        (lanes.len() == usize::from(width)).then_some(lanes)
+    }
+}
+
 impl MirFrame {
+    pub(crate) fn parameter_lanes(&self, id: ParamId) -> Option<Vec<MirParamLane>> {
+        let width = self.params.iter().find(|s| s.base == MirStorageBase::Param(id))?.storage_size;
+        self.parameter_home(id)?.lanes(width)
+    }
+
+    pub(crate) fn parameter_lane(&self, id: ParamId, offset: u16) -> Option<MirParamLane> {
+        self.parameter_lanes(id)?.get(usize::from(offset)).copied()
+    }
+
+    pub(crate) fn parameter_byte_has_memory(&self, id: ParamId, offset: u16) -> bool {
+        self.inline_parameter(id) || matches!(self.parameter_lane(id, offset), Some(MirParamLane::ZeroPage(_)))
+    }
+
+    pub(crate) fn parameter_pointer_pair(&self, id: ParamId) -> Option<MirFixedZpSlot> {
+        let lanes = self.parameter_lanes(id)?;
+        match lanes.as_slice() {
+            [MirParamLane::ZeroPage(lo), MirParamLane::ZeroPage(hi)] if lo.0.checked_add(1) == Some(hi.0) => Some(*lo),
+            _ => None,
+        }
+    }
+
     pub fn parameter_home(&self, id: ParamId) -> Option<&MirParamHome> {
         self.parameter_homes.as_ref()?.iter().find(|b| b.param == id).map(|b| &b.home)
     }
@@ -320,7 +365,7 @@ impl MirFrame {
     }
 
     pub(crate) fn parameter_has_memory(&self, id: ParamId) -> bool {
-        self.inline_parameter(id) || matches!(self.parameter_home(id), Some(MirParamHome::ZeroPage(_)))
+        self.inline_parameter(id) || self.parameter_lanes(id).is_some_and(|lanes| lanes.iter().any(|l| matches!(l, MirParamLane::ZeroPage(_))))
     }
 }
 

@@ -1214,10 +1214,7 @@ fn pointer_source_is_preserved(
     // Every consumer must still obtain exactly one original pointer source;
     // materialized inputs and resident pairs use the same binding projection.
     let has_resident_parameter = sources.iter().any(|source| match source {
-        MirMem::Param { id, .. } => matches!(
-            frame.and_then(|f| f.parameter_home(*id)),
-            Some(crate::mir6502::ir::MirParamHome::ZeroPage(_))
-        ),
+        MirMem::Param { id, .. } => frame.and_then(|f| f.parameter_pointer_pair(*id)).is_some(),
         _ => false,
     });
     if has_resident_parameter
@@ -1377,10 +1374,10 @@ fn pointer_source_byte_key(
     frame: Option<&crate::mir6502::ir::MirFrame>,
 ) -> String {
     if let MirMem::Param { id, offset } = mem {
-        if let Some(crate::mir6502::ir::MirParamHome::ZeroPage(start)) =
-            frame.and_then(|frame| frame.parameter_home(*id))
+        if let Some(crate::mir6502::ir::MirParamLane::ZeroPage(slot)) =
+            frame.and_then(|frame| frame.parameter_lane(*id, offset.saturating_add(delta)))
         {
-            return format!("fixed-zp:{}", u16::from(start.0) + offset + delta);
+            return format!("fixed-zp:{}", slot.0);
         }
     }
     memory_byte_key(mem, delta)
@@ -2624,6 +2621,17 @@ mod tests {
         ));
     }
 
+    fn word_parameter(id: u32) -> crate::mir6502::ir::MirStorageSlot {
+        use crate::mir6502::ir::*;
+        MirStorageSlot {
+            purpose: MirStoragePurpose::Storage,
+            id: MirStorageId(id), name: None, storage: MirStorageClass::Scalar,
+            storage_size: 2, scalar_width: Some(MirWidth::Word),
+            base: MirStorageBase::Param(crate::nir::ParamId(id)), offset: 0,
+            mutable: false, init: None,
+        }
+    }
+
     #[test]
     fn resident_pointer_consumer_requires_the_exact_bound_pair() {
         use crate::mir6502::ir::{MirFrame, MirParamBinding, MirParamHome};
@@ -2645,6 +2653,8 @@ mod tests {
         ];
         for base in [0xa0, 0xa2, 0xaa, 0xae, 0xe2] {
             let frame = MirFrame {
+                params: vec![word_parameter(0)],
+                fixed_zero_page: vec![MirFixedZpSlot(base), MirFixedZpSlot(base + 1)],
                 parameter_homes: Some(vec![MirParamBinding {
                     param: id,
                     home: MirParamHome::ZeroPage(MirFixedZpSlot(base)),
@@ -2765,6 +2775,8 @@ mod tests {
         use crate::mir6502::ir::{MirFrame, MirParamBinding, MirParamHome};
         for (left, right) in [(0xa0, 0xa2), (0xaa, 0xae)] {
             let frame = MirFrame {
+                params: vec![word_parameter(0), word_parameter(1)],
+                fixed_zero_page: [left, left + 1, right, right + 1].map(MirFixedZpSlot).to_vec(),
                 parameter_homes: Some(vec![
                     MirParamBinding { param: crate::nir::ParamId(0), home: MirParamHome::ZeroPage(MirFixedZpSlot(left)) },
                     MirParamBinding { param: crate::nir::ParamId(1), home: MirParamHome::ZeroPage(MirFixedZpSlot(right)) },

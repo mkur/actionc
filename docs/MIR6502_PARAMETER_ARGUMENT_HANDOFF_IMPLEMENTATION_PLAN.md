@@ -1,6 +1,6 @@
 # MIR6502 parameter-to-argument handoff implementation plan
 
-Prepared 2026-11-14. Status: slices 0–1 complete; slices 2–6 pending.
+Prepared 2026-11-14. Status: slices 0–2 complete; slices 3–6 pending.
 Starting compiler: `471ef1c8`, with qualified leaf parameter placement enabled.
 
 Implements the [parameter handoff design extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-parameter-handoff-to-call-arguments).
@@ -341,3 +341,32 @@ matches all 12 baseline image hashes, routine sizes, work counts and upstream
 decisions. The initial unit attempt used an overbroad assertion that also banned
 required downstream continuation work; the corrected upstream-only assertion and
 all artifact assertions pass. No compiler behavior changed to satisfy that test.
+
+### Slice 2 completion
+
+Slice 1 is `31916958`. Mixed physical lanes now cross capture, availability,
+planning layout, pointer/effect projection, emission, ownership, allocation
+certificates and diagnostics. Register lanes have no address; maps publish only
+real memory fragments. Canonical argument and parameter normalization share the
+same lane vocabulary. Verification rejects malformed/reservation-conflicting
+bindings and memory accesses spanning non-memory lanes. The public map API and
+SemIR/NIR contracts are unchanged; production wrapper selection remains disabled.
+
+Validation: 75 focused unit cases pass across parameter homes, availability,
+layout, ABI/binding consumers and rewrite drivers. The eight affected integration
+targets pass 100 tests (call ABI, materialization gap, parameter homes/pointers,
+handoff, phase trace, layout census and pointer setup). Mixed bindings execute
+2,048 independently checked word cases across both runtimes/origins and LF/CRLF
+inputs; clobber, malformed-lane, source overlap and memory-fragment checks pass.
+A dead constant clobber was legitimately optimized away, so that negative oracle
+now uses an observable hardware read. Two older synthetic pointer-effect frames
+were supplied with the declarations/reservations required by checked normalization.
+These are test-fixture corrections, not a weaker production proof.
+
+The [slice 2 receipt](benchmarks/6502-parameter-handoff/slice2-off.json) matches all
+12 baseline image hashes, routine sizes, upstream choices and work counts.
+Checks used the existing shared opt-level-1, no-debug build directory. A filter
+for `materialize::abi` matched no tests; the explicit ABI/binding-consumer cases
+and call-ABI integration target provide that coverage instead. The final unit
+rerun changed only those synthetic test frames; passing production checks were
+retained rather than rebuilding the measurement matrix again.

@@ -128,6 +128,13 @@ pub(crate) fn frame(r: &MirRoutine) -> Value {
         })
         .collect::<Vec<_>>();
     json!({"routine":r.id.0,"slots":slots,
+        "parameter_bindings":r.frame.parameter_homes.as_ref().map(|bindings|bindings.iter().map(|b|json!({
+            "param":b.param.0,"placement":format!("{:?}",b.home),
+            "lanes":r.frame.parameter_lanes(b.param).map(|lanes|lanes.into_iter().enumerate().map(|(offset,lane)|match lane {
+                MirParamLane::Reg(reg)=>json!({"offset":offset,"register":format!("{reg:?}")}),
+                MirParamLane::ZeroPage(slot)=>json!({"offset":offset,"address":slot.0,"bytes":1}),
+            }).collect::<Vec<_>>())
+        })).collect::<Vec<_>>()),
         "spills":r.frame.spills.iter().map(|id|memory(r.id,&MirMem::Spill{id:*id,offset:0})).collect::<Vec<_>>(),
         "virtual_zp":r.frame.virtual_zero_page.iter().map(|id|memory(r.id,&MirMem::ZeroPage(*id))).collect::<Vec<_>>(),
         "fixed_zp":r.frame.fixed_zero_page.iter().map(|id|memory(r.id,&MirMem::FixedZeroPage(*id))).collect::<Vec<_>>(),

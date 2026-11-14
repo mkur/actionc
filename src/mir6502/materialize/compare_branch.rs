@@ -27,7 +27,7 @@ use crate::mir6502::ir::RoutineId;
 use crate::mir6502::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam, MirCallResult,
     MirCarryIn, MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDef, MirEdge, MirEdgeArg,
-    MirFixedZpSlot, MirFlagTest, MirFrame, MirMem, MirOp, MirParamHome, MirPointerPair, MirReg, MirResultHome, MirRoutine, MirStorageBase,
+    MirFixedZpSlot, MirFlagTest, MirFrame, MirMem, MirOp, MirPointerPair, MirReg, MirResultHome, MirRoutine,
     MirTempId, MirTerminator, MirValue, MirWidth,
 };
 use crate::mir6502::passes::Mir6502Config;
@@ -1955,12 +1955,8 @@ pub(in crate::mir6502) fn dual_indirect_compare_candidate(
         lo: MirFixedZpSlot(super::POINTER_SCRATCH_LO),
     });
     let resident = |mem: &MirMem| match mem {
-        MirMem::Param { id, offset: 0 } => match frame.parameter_home(*id) {
-            Some(MirParamHome::ZeroPage(lo)) => Some(MirAddressConsumer::IndirectIndexedY(
-                MirPointerPair::Fixed { lo: *lo },
-            )),
-            _ => None,
-        },
+        MirMem::Param { id, offset: 0 } => frame.parameter_pointer_pair(*id).map(|lo|
+            MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo })),
         _ => None,
     };
     let first_resident = resident(first_pointer_mem);
@@ -1979,16 +1975,9 @@ pub(in crate::mir6502) fn dual_indirect_compare_candidate(
                 return None;
             };
             if frame.parameter_homes.iter().flatten().any(|b| {
-                let MirParamHome::ZeroPage(start) = b.home else {
-                    return false;
-                };
-                let width = frame
-                    .params
-                    .iter()
-                    .find(|p| p.base == MirStorageBase::Param(b.param))
-                    .map_or(0, |p| p.storage_size);
-                u16::from(lo.0) < u16::from(start.0) + width
-                    && u16::from(start.0) < u16::from(lo.0) + 2
+                frame.parameter_lanes(b.param).is_some_and(|lanes| lanes.iter().any(|lane|
+                    matches!(lane, crate::mir6502::ir::MirParamLane::ZeroPage(slot)
+                        if u16::from(slot.0) >= u16::from(lo.0) && u16::from(slot.0) < u16::from(lo.0) + 2)))
             }) {
                 return None;
             }

@@ -47,3 +47,10 @@ Slice 1's [gate-off receipt](slice1-off.json) matches all twelve baseline image
 hashes, routine sizes, compiler work counts and upstream selections exactly.
 `--handoff` independently enables the new extension in the measurement harness;
 `--enabled` continues to control the existing leaf placement feature.
+
+Slice 2's [gate-off receipt](slice2-off.json) again matches all baseline image
+hashes, routine sizes, upstream selections and compiler work counts. Forced
+mixed bindings are covered separately by execution tests: `[ZP($A0), X]` emits
+one real memory fragment, retains the high byte in X, and returns 256 distinct
+words correctly across both runtimes/origins and LF/CRLF input. This is a
+representation test; automatic wrapper placement is still disabled.

@@ -1008,6 +1008,18 @@ impl MirVerifier {
         routine_ids: &BTreeSet<RoutineId>,
         machine_ids: &BTreeSet<MirMachineBlockId>,
     ) {
+        if !matches!(self.phase, MirPhase::PreMaterialization) && routine.frame.parameter_homes.is_some() {
+            let memory = super::analysis::effects::classify_op(op).memory;
+            for range in memory.direct_reads.iter().chain(&memory.direct_writes) {
+                if let MirMem::Param { id, offset } = range.base
+                    && (0..range.bytes).any(|lane| offset.checked_add(lane).is_none_or(|byte|
+                        !routine.frame.parameter_byte_has_memory(id, byte)))
+                {
+                    self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                        "parameter memory access spans a register/absent lane"));
+                }
+            }
+        }
         match op {
             MirOp::LoadImm { dst, width, .. } => {
                 self.verify_pre_emission_width(routine, block, *width);
@@ -2930,7 +2942,7 @@ impl MirVerifier {
                 self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
                     "parameter binding reference is outside its declared width"));
             }
-            if !matches!(self.phase, MirPhase::PreMaterialization) && !frame.parameter_has_memory(*id) {
+            if !matches!(self.phase, MirPhase::PreMaterialization) && !frame.parameter_byte_has_memory(*id, *offset) {
                 self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
                     "register/absent parameter has a residual memory reference"));
             }

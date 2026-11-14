@@ -16,20 +16,11 @@ pub(in crate::mir6502) fn verify(routine: &MirRoutine) -> Vec<MirDiagnostic> {
     };
     let mut lanes = BTreeMap::new();
     for binding in bindings {
-        if let MirParamHome::ZeroPage(start) = binding.home {
-            let Some(slot) = routine
-                .frame
-                .params
-                .iter()
-                .find(|p| p.base == MirStorageBase::Param(binding.param))
-            else {
-                continue;
-            };
-            for offset in 0..slot.storage_size {
-                lanes.insert(
-                    (binding.param, offset),
-                    MirFixedZpSlot(start.0.wrapping_add(offset as u8)),
-                );
+        if let Some(locations) = routine.frame.parameter_lanes(binding.param) {
+            for (offset, location) in locations.into_iter().enumerate() {
+                if let MirParamLane::ZeroPage(slot) = location {
+                    lanes.insert((binding.param, offset as u16), slot);
+                }
             }
         }
     }

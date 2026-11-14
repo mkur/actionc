@@ -29,6 +29,24 @@ pub(super) fn action_arg_home(offset: u16, width: MirWidth) -> MirArgHome {
     }
 }
 
+/// Normalize the physical scalar subset shared by parameter working bindings
+/// and outgoing canonical requirements. This does not allocate ABI mirrors.
+pub(super) fn physical_lanes(home: &MirArgHome, width: MirWidth) -> Option<Vec<super::ir::MirParamLane>> {
+    use super::ir::MirParamLane;
+    let lanes = match (home, width) {
+        (MirArgHome::Reg(reg), MirWidth::Byte) => vec![MirParamLane::Reg(*reg)],
+        (MirArgHome::FixedZeroPage(slot), _) => super::ir::MirParamHome::ZeroPage(*slot).lanes(action_arg_width_bytes(width))?,
+        (MirArgHome::RegisterPair { lo, hi }, MirWidth::Word) => vec![MirParamLane::Reg(*lo), MirParamLane::Reg(*hi)],
+        (MirArgHome::BytePair { lo, hi }, MirWidth::Word) => {
+            let mut lanes = physical_lanes(lo, MirWidth::Byte)?;
+            lanes.extend(physical_lanes(hi, MirWidth::Byte)?);
+            lanes
+        }
+        _ => return None,
+    };
+    super::ir::MirParamHome::Lanes(lanes).lanes(action_arg_width_bytes(width))
+}
+
 pub(super) const fn action_arg_width_bytes(width: MirWidth) -> u16 {
     match width {
         MirWidth::Byte => 1,

@@ -227,11 +227,13 @@ impl DataflowProblem<MirCfg> for ParamAvailabilityProblem<'_> {
             let mut state = MirParamAvailabilityState::reachable_empty();
             if let Some(bindings) = &self.routine.frame.parameter_homes {
                 for binding in bindings {
-                    if let crate::mir6502::ir::MirParamHome::Registers(regs) = &binding.home {
-                        for (offset, reg) in regs.iter().enumerate() {
-                            state.available.homes.insert(MirParamHomeByte {
-                                param: binding.param, offset: offset as u16,
-                            }, *reg);
+                    if let Some(lanes) = self.routine.frame.parameter_lanes(binding.param) {
+                        for (offset, lane) in lanes.into_iter().enumerate() {
+                            if let crate::mir6502::ir::MirParamLane::Reg(reg) = lane {
+                                state.available.homes.insert(MirParamHomeByte {
+                                    param: binding.param, offset: offset as u16,
+                                }, reg);
+                            }
                         }
                     }
                 }

@@ -3,7 +3,7 @@
 Status: leaf parameter placement is implemented and qualified, 2026-11-14.
 Enabled for optimized builds; the conservative configuration remains disabled.
 The [entry-to-call handoff extension](#proposed-extension-parameter-handoff-to-call-arguments)
-below is proposed, not implemented.
+below is under implementation; production wrapper selection remains disabled.
 
 The completed [leaf implementation plan](MIR6502_PARAMETER_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
 covers the leaf scope. The [handoff implementation plan](MIR6502_PARAMETER_ARGUMENT_HANDOFF_IMPLEMENTATION_PLAN.md)
@@ -366,7 +366,17 @@ neither `Strcpy` nor `MovePage` may receive a name-based exception.
 
 The current `MirParamHome` supports inline storage, registers, a coherent ZP
 object, or absent storage. It cannot express the working word
-`s = [Zp($A0), Reg(X)]`. Extend this binding with a typed mixed-lane form.
+`s = [Zp($A0), Reg(X)]`. The typed representation is
+`MirParamHome::Lanes(Vec<MirParamLane>)`, where a lane is `Reg(MirReg)` or
+`ZeroPage(MirFixedZpSlot)`. The declaration supplies the checked BYTE/WORD width;
+vector position supplies the byte offset. Uniform bindings normalize to the
+same lane mapping. Mixed storage resolves bytes individually, reserves only
+memory lanes, and has no fabricated contiguous address. Maps retain existing
+symbol APIs and report memory fragments as `name+offset`, one byte each;
+register lanes have no memory symbol. Physical ownership, layout certificates,
+and trace records use those same fragments. Retained registers are seeded from
+the canonical ABI, while capture establishes memory/register copy availability.
+Production wrapper discovery remains a separate, disabled selection stage.
 Use one checked byte-location vocabulary for it and flattened `MirArgHome`
 requirements, retaining the canonical ABI helper as the only argument-offset
 mapping. Uniform register/ZP forms and mixed forms must normalize to one

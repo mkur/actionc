@@ -213,6 +213,16 @@ pub(super) fn emit_program_with_reference_programs_traced(
             }
             for routine in &mir.routines {
                 for slot in routine.frame.params.iter().chain(&routine.frame.locals) {
+                    if let MirStorageBase::Param(id) = slot.base
+                        && matches!(routine.frame.parameter_home(id), Some(crate::mir6502::ir::MirParamHome::Lanes(_)))
+                    {
+                        for lane in routine.frame.parameter_lanes(id).into_iter().flatten() {
+                            if let crate::mir6502::ir::MirParamLane::ZeroPage(slot) = lane {
+                                ctx.summary.physical_memory.own_data(u16::from(slot.0), 1);
+                            }
+                        }
+                        continue;
+                    }
                     let mem = match slot.base {
                         MirStorageBase::Param(id) => Some(MirMem::Param { id, offset: 0 }),
                         MirStorageBase::Local(id) => Some(MirMem::Local { id, offset: 0 }),
@@ -677,6 +687,7 @@ impl MirLayoutPlan {
 #[derive(Debug, Default, Clone)]
 struct MirRoutineStorageLayout {
     params: HashMap<ParamId, MirStoragePlacement>,
+    param_lanes: HashMap<(ParamId, u16), MirStoragePlacement>,
     locals: HashMap<LocalId, MirStoragePlacement>,
     spills: HashMap<super::ir::MirSpillId, MirStoragePlacement>,
     zero_page: HashMap<MirZpSlot, u8>,
@@ -708,6 +719,7 @@ pub(super) struct MirStorageLayoutProof {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct MirRoutineStorageProof {
     params: HashMap<ParamId, MirStoragePlacement>,
+    param_lanes: HashMap<(ParamId, u16), MirStoragePlacement>,
     locals: HashMap<LocalId, MirStoragePlacement>,
     spills: HashMap<MirSpillId, MirStoragePlacement>,
     zero_page: HashMap<MirZpSlot, u8>,
@@ -743,6 +755,7 @@ impl MirStorageLayoutProof {
                         id,
                         MirRoutineStorageProof {
                             params: r.params.clone(),
+                            param_lanes: r.param_lanes.clone(),
                             locals: r.locals.clone(),
                             spills: r.spills.clone(),
                             zero_page: r.zero_page.clone(),
@@ -1036,6 +1049,12 @@ impl MirObjectLayout {
                         routine_layout.params.insert(id, MirStoragePlacement::ZeroPage {
                             address: u16::from(start.0), size: param.storage_size,
                         });
+                    } else if let Some(lanes) = routine.frame.parameter_lanes(id) {
+                        for (offset, lane) in lanes.into_iter().enumerate() {
+                            if let crate::mir6502::ir::MirParamLane::ZeroPage(slot) = lane {
+                                routine_layout.param_lanes.insert((id, offset as u16), MirStoragePlacement::ZeroPage { address: u16::from(slot.0), size: 1 });
+                            }
+                        }
                     }
                     continue;
                 }
@@ -1112,7 +1131,11 @@ impl MirObjectLayout {
             }
             MirMem::Param { id, offset } => {
                 let storage = self.routine_storage.get(&routine)?;
-                self.resolve_offset(storage.params.get(id).copied(), *offset)
+                if let Some(placement) = storage.param_lanes.get(&(*id, *offset)) {
+                    self.resolve_offset(Some(*placement), 0)
+                } else {
+                    self.resolve_offset(storage.params.get(id).copied(), *offset)
+                }
             }
             MirMem::Spill { id, offset } => {
                 let storage = self.routine_storage.get(&routine)?;
@@ -1396,6 +1419,15 @@ fn push_routine_storage_symbol(
     symbols: &mut Vec<CodegenStorageSymbol>,
 ) {
     let name = routine_slot_name(slot);
+    if let MirStorageBase::Param(id) = slot.base
+        && matches!(routine.frame.parameter_home(id), Some(crate::mir6502::ir::MirParamHome::Lanes(_)))
+    {
+        for offset in 0..slot.storage_size {
+            let placement = layout.routine_storage.get(&routine.id).and_then(|s| s.param_lanes.get(&(id, offset))).copied();
+            if let Some(symbol) = storage_symbol(format!("{name}+{offset}"), CodegenSymbolScope::Routine(routine.name.clone()), CodegenSymbolKind::Parameter, placement) { symbols.push(symbol); }
+        }
+        return;
+    }
     if let Some(symbol) = storage_symbol(
         name,
         CodegenSymbolScope::Routine(routine.name.clone()),
@@ -2142,6 +2174,16 @@ fn trace_final_layout(ctx: &MirEmitContext<'_>) {
                 .or_insert((mem, bytes));
         };
         for s in r.frame.params.iter().chain(&r.frame.locals) {
+            if let MirStorageBase::Param(id) = s.base
+                && matches!(r.frame.parameter_home(id), Some(crate::mir6502::ir::MirParamHome::Lanes(_)))
+            {
+                for offset in 0..s.storage_size {
+                    if r.frame.parameter_byte_has_memory(id, offset) {
+                        add(MirMem::Param { id, offset }, 1);
+                    }
+                }
+                continue;
+            }
             let mem = match s.base {
                 MirStorageBase::Param(id) | MirStorageBase::ParamAbiOnly(id) => MirMem::Param {
                     id,
@@ -6637,6 +6679,14 @@ fn source_storage_ranges(mir: &MirProgram, layout: &MirObjectLayout) -> Option<V
     }
     for r in &mir.routines {
         for s in r.frame.params.iter().chain(&r.frame.locals) {
+            if let MirStorageBase::Param(id) = s.base
+                && matches!(r.frame.parameter_home(id), Some(crate::mir6502::ir::MirParamHome::Lanes(_)))
+            {
+                for offset in 0..s.storage_size {
+                    if let Some(placement) = layout.routine_storage.get(&r.id)?.param_lanes.get(&(id, offset)) { add(*placement, 0)?; }
+                }
+                continue;
+            }
             if let MirStorageBase::Param(id) = s.base
                 && !r.frame.parameter_has_memory(id)
             {

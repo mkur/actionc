@@ -33,6 +33,7 @@ impl Eq for MaterializeLayout {}
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 struct MaterializeRoutineStorage {
     params: Vec<(ParamId, u16, u16, Option<MirWidth>)>,
+    param_lanes: std::collections::BTreeMap<(ParamId, u16), u16>,
     locals: Vec<(LocalId, u16, u16, Option<MirWidth>)>,
     spills: Vec<(MirSpillId, u16, u16)>,
     descriptor_params: Vec<ParamId>,
@@ -210,6 +211,12 @@ impl MaterializeLayout {
                 {
                     if let Some(crate::mir6502::ir::MirParamHome::ZeroPage(start)) = routine.frame.parameter_home(id) {
                         storage.params.push((id, u16::from(start.0), param.storage_size, param.scalar_width));
+                    } else if let Some(lanes) = routine.frame.parameter_lanes(id) {
+                        for (offset, lane) in lanes.into_iter().enumerate() {
+                            if let crate::mir6502::ir::MirParamLane::ZeroPage(slot) = lane {
+                                storage.param_lanes.insert((id, offset as u16), u16::from(slot.0));
+                            }
+                        }
                     }
                     continue;
                 }
@@ -538,7 +545,7 @@ fn global_init_object_size(init: &MirGlobalInit, storage_size: u16) -> u16 {
 
 impl MaterializeRoutineStorage {
     fn param_address(&self, id: ParamId, offset: u16) -> Option<u16> {
-        find_materialize_slot(&self.params, id, offset)
+        self.param_lanes.get(&(id, offset)).copied().or_else(|| find_materialize_slot(&self.params, id, offset))
     }
 
     fn is_byte_scalar_param(&self, id: ParamId) -> bool {

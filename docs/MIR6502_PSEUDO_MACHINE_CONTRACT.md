@@ -974,7 +974,14 @@ Rules:
   working placement. When present it covers every parameter and is authoritative
   for planning and emitted layout: only `Inline` allocates ordinary frame bytes;
   a reserved ZP binding resolves to its real address, and register/absent bindings
-  have no address. Conflicting legacy ABI-only metadata, malformed lanes/pairs,
+  have no address. `MirParamHome::Lanes(Vec<MirParamLane>)` represents mixed
+  BYTE/WORD placement in low/high order; each lane is `Reg` or `ZeroPage`.
+  Binding normalization and canonical argument normalization share this lane
+  vocabulary and width checks. A mixed word has no whole-object address: scalar
+  memory references resolve byte by byte, and pointer consumers require two
+  adjacent memory lanes. Maps publish actual one-byte fragments as `name+offset`;
+  register lanes produce no storage symbol. Physical ownership, final allocation
+  certificates, and trace layout observations retain the same fragments. Conflicting legacy ABI-only metadata, malformed lanes/pairs,
   missing bindings, exposed-home relocation, source-storage overlap, and residual
   post-home memory uses of register/absent parameters are rejected. Legacy
   parameter remappers do not operate on bound routines. Optimized executable

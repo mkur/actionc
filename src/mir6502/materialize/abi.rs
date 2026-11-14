@@ -796,10 +796,11 @@ fn action_abi_direct_param_prologue(routine: &crate::mir6502::ir::MirRoutine) ->
         let width = parameter_byte_width(param);
         if needs_capture {
             for byte in 0..width {
+                if !routine.frame.parameter_byte_has_memory(id, byte) { continue; }
                 let incoming = action_abi_byte_home(start + byte);
-                let same_slot = matches!((routine.frame.parameter_home(id), &incoming),
-                    (Some(crate::mir6502::ir::MirParamHome::ZeroPage(home)), MirArgHome::FixedZeroPage(source))
-                    if u16::from(home.0) + byte == u16::from(source.0));
+                let same_slot = matches!((routine.frame.parameter_lane(id, byte), &incoming),
+                    (Some(crate::mir6502::ir::MirParamLane::ZeroPage(home)), MirArgHome::FixedZeroPage(source))
+                    if home == *source);
                 if !same_slot { bytes.push(store_param_byte_from_abi_home(id, byte, incoming)); }
             }
         }
