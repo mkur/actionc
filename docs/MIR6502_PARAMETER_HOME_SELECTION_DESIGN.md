@@ -5,11 +5,15 @@ Enabled for optimized builds; the conservative configuration remains disabled.
 The [entry-to-call handoff extension](#proposed-extension-parameter-handoff-to-call-arguments)
 below has its own gate, subordinate to parameter placement and peepholes.
 The [callee capture boundary refinement](#proposed-refinement-callee-entry-facts-through-parameter-capture)
-is a proposed follow-up; its additional coverage and savings are not yet qualified.
+is also implemented and qualified. The
+[ordinary-call and local-home extension](#proposed-extension-zp-homes-across-ordinary-calls)
+below is proposed; its savings remain to be measured.
 
 The completed [leaf implementation plan](MIR6502_PARAMETER_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
 covers the leaf scope. The [handoff implementation plan](MIR6502_PARAMETER_ARGUMENT_HANDOFF_IMPLEMENTATION_PLAN.md)
 records the completed slices and qualification gates for the extension.
+The [capture implementation plan](MIR6502_CALLEE_ENTRY_CAPTURE_IMPLEMENTATION_PLAN.md)
+records the completed entry-fact refinement.
 
 ## Decision
 
@@ -776,3 +780,225 @@ Measure TN and independent controls against the qualified handoff baseline.
 Report actual gains or unchanged output, candidate rejections, and continuation
 counts. Existing Strcpy, Fnamecmp and leaf savings are nonregression controls;
 their current results do not establish a benefit from this proposed refinement.
+
+## Proposed extension: ZP homes across ordinary calls
+
+Extend the existing placement contract to ordinary calls followed by further
+computation, including calls inside loops. First place parameters in ZP; then
+admit eligible source locals through the same placement authority. Keep one
+working home per object, coherent pointer pairs, the public ABI, and the existing
+fallback. This extension does not introduce register allocation across calls,
+split lifetimes, save/restore insertion, or a second late allocator.
+
+MIR6502 owns the new placement and preservation proofs. SemIR/NIR continue to
+provide typed storage identity, exposure, initialization and call facts; they
+do not choose physical homes. Emission resolves and checks final placement.
+No executable source-name tests or lookups back into SemIR are permitted.
+
+### Motivation and current boundary
+
+[Ord and Items](../samples/tn/modern/LIB.ACT) repeatedly inspect a pointer, call
+`Next`, and replace the pointer with its result. At `a77210d8`, optimized
+MIR6502/ActionCart at `$3000` emits 80 code bytes plus five inline storage bytes
+for `Ord`, and 56 plus three for `Items`. The inline pointer requires repeated
+copies into an indirect-addressing pair; other accesses use absolute addressing.
+
+These objects are excluded before placement or costing. The
+[leaf selector](../src/mir6502/parameter_homes.rs) excludes calls, the
+[handoff selector](../src/mir6502/parameter_homes/handoff.rs) requires a terminal
+void call, and the [ZP selector](../src/mir6502/parameter_homes/zero_page.rs)
+considers parameters rather than source locals. This is not evidence of ZP
+exhaustion. Loops themselves already participate in leaf lifetime verification;
+the new boundary is residence around an ordinary call on those CFG paths.
+
+The three objects in `Ord` have different obligations:
+
+| Object | Obligation at `menu = Next(menu)` |
+| --- | --- |
+| `menu`, a pointer parameter | Its old value supplies the argument. That value is dead after consumption; the assignment defines the next value used at the loop header. |
+| `item`, a pointer parameter | Its current value must survive the call for the next comparison. |
+| `c`, a byte local | Its incremented value must survive the call, both for later iterations and for the return. |
+
+At this baseline, `Next` writes `$AE/$AF`, `$AC/$AD` and `$A0/$A1`. Those pairs
+cannot hold a value that must survive this invocation under a no-write proof.
+This observation motivates candidate filtering; actual callee facts must authorize
+placement, including after either routine changes. Neither those pairs nor the
+remaining ZP bytes are universally private or available.
+
+### Logical definitions and call boundaries
+
+Extend the existing [logical-home lifetime projection](../src/mir6502/parameter_homes/lifetimes.rs)
+and [CFG liveness](../src/mir6502/analysis/home_liveness.rs). Logical reads and
+definitions retain `(RoutineId, ParamId/LocalId, byte offset)` identity. Project
+them onto selected physical bytes for interference checks. A definite write to
+the logical object kills the previous value of its written lanes; a scratch,
+ABI or callee write to the same address is a potential clobber, never such a
+definition. Calls must not make their own preservation obligations disappear.
+
+Use the existing ordered call expansion to distinguish:
+
+1. Argument evaluation and setup, including every source read and temporary or
+   outgoing-lane write. A home cannot be overwritten before its final required
+   read, even if the object is dead after invocation.
+2. Callee entry, where canonical arguments and any additional register, flag or
+   fixed-memory inputs must have their required values. Use the shared capture
+   composition described above.
+3. Invocation, where every object value live afterwards needs a preservation
+   proof for each occupied byte.
+4. Result delivery and assignment, which establish the returned value and then
+   the new logical destination. Result-copy scratch must also respect all other
+   live objects.
+
+For the first scope, preserve explicit result delivery and assignment. The old
+`menu` need not survive `Next`; its complete new value must be established before
+the next dereference or comparison. A physical result write does not implicitly
+implement the source assignment merely because its address matches a home.
+
+Solve liveness over the closed CFG to its normal fixed point. Include zero-trip
+loops, backedges, conditional calls, early exits and joins. A conditional
+definition kills an incoming value only on the paths where it executes; partial
+word writes affect only their lanes. Availability facts at a join require
+agreement on all incoming paths, and register copies remain subject to ordinary
+call clobbers even when their memory home survives.
+
+### Callee contracts and ZP reservations
+
+Reuse [known-callee summaries](../src/mir6502/analysis/known_callees.rs) for entry
+requirements and conservative memory-write coverage. A selected byte live across
+a call must be disjoint from all possible invocation writes. A pointer needs
+this proof for both bytes. The initial proof accepts absence of writes; it does
+not infer preservation from a callee apparently restoring a value later.
+
+Coverage includes entry capture, callee working homes, allocated temporaries,
+implicit scratch, result homes and any summarized nested calls. Resolve bound
+logical storage and virtual ZP allocations to their actual physical bytes.
+Unallocated virtual slots, unresolved backing and unknown effects cannot be
+treated as non-aliasing. Absolute and fixed-ZP spellings of the same address
+alias. A private-inline-RAM preservation query is not a proof for shared ZP.
+
+Check outgoing setup separately from invocation preservation: a callee can
+preserve a byte that argument setup destroys. Also retain entry-input and
+source-observation checks; absence of writes alone does not authorize changing
+an observable fixed-memory input. Keep calls as ordering barriers except for
+the specific facts established by the shared analyses.
+
+Candidate selection excludes source-owned bytes, other live objects, caller
+scratch requirements and relevant callee writes through the existing reservation
+machinery. In the first scope, use conservative whole-object reservations and
+exclude invocation writes even for a parameter redefined immediately afterwards.
+This permits a preserved pair plus an explicit result copy without requiring
+call/result overlap. Later lifetime-based overlap must have its own proof.
+Keep the existing slot policy, including `$AC/$AD` as copy-and-rebase scratch;
+do not expand the available range as part of this work.
+
+Start with one known direct ordinary Action call site per routine, which may
+execute repeatedly in a loop, and otherwise already-qualified native operations.
+Retain the four-byte incoming-parameter limit and unexposed BYTE/WORD scalar and
+pointer scope. Callees must have complete supported entry and write contracts.
+Multiple call sites and acyclic nested callees can use the same contract once
+qualified: each live byte must survive every relevant call, including transitive
+writes. Recursive cycles, indirect or unknown calls, SArgs, machine bodies,
+unsupported helpers and opaque or indirect-write effects retain the fallback
+for this new scope. Existing terminal handoff keeps its independently qualified
+admission rules.
+
+### Source locals use the same authority
+
+After parameter residence is qualified, extend the binding/reservation queries
+to source locals identified by `(RoutineId, LocalId)`. Parameters retain their
+ABI entry transfer; locals acquire values from their actual source definitions.
+There is no synthetic parameter capture for a local and no second value tracker
+or separate local ZP allocator. Generalize shared storage queries where needed
+without an unrelated module or IR migration.
+
+Initially admit unexposed BYTE/WORD scalar and pointer locals whose complete
+value is definitely assigned during every invocation before any read. `c = 0`
+in `Ord` and `Items` establishes that property. A declaration is not evidence of
+per-invocation initialization: entry reads, partial or conditional initialization,
+and values retained between invocations must keep their existing storage unless
+their semantics are separately proved. Fixed-address objects, aliases,
+initializer-backed storage and exposed cells remain outside this first scope.
+
+Every load, mutation, effect query, pointer consumer and map must resolve through
+the selected binding. Only inline bindings allocate ordinary frame bytes; a ZP
+local has its reserved bytes and no shadow inline cell. Address-taking or machine
+references cannot silently change target. The existing source-observation rule
+for compiler-owned storage applies only after the object's relocation proof;
+moving a pointer cell does not authorize removing or reordering pointee accesses.
+
+### Result-home coalescing is a separate extension
+
+After parameters and locals are qualified, consider a working pair at the
+canonical word result home `$A0/$A1`. For `menu = Next(menu)`, this could remove
+the copy back to a preserved pair. It requires an explicit identity between the
+typed call result, the source assignment and both home lanes, not merely matching
+addresses or the fact that the old value is dead.
+
+The proof must cover final argument consumption before overwrite, definite result
+delivery on every returning path, absence of intervening conflicting uses, and
+the assignment's complete word semantics. Any omitted copies must preserve live
+registers and flags. Subsequent calls, pointer scratch and loop joins must respect
+the new value. Returning `c` may overwrite `$A0` only after `menu` is dead.
+Keep explicit result copies in the initial parameter/local implementation; do
+not add a special case for `Next` or introduce a new calling convention.
+
+### Selection, invalidation and acceptance
+
+Add this scope to the existing pre-capture selector and retained core continuation.
+Use the current optimized artifact, including accepted leaf placement, terminal
+handoff and terminal cleanup, as the fallback. Do not rematerialize upstream
+strategies per object or trial-compile callees to discover usable slots.
+
+Discovery may consume the selected materialized callee contracts. They are
+candidate filters, not final certificates: rematerialization or another routine's
+proposal can change capture, homes, temporary allocation and scratch. Recompute
+contracts from the expanded candidate and verify all resident callers against
+that candidate. Two routines cannot independently claim a byte when the caller
+needs its value during the callee's use. Unknown or invalidated contracts reject
+the batch; do not add a placement fixed-point search to repair them.
+
+Use one deterministic proposal batch and at most one additional core continuation
+for this extension. Adding local candidates later joins that batch rather than
+adding a second search. An empty batch adds no materialization. Keep bindings
+fixed for downstream layout-sensitive work and terminal cleanup; check physical
+aliases against authoritative placement and replay all already-consumed callee
+preservation obligations. Recomputing a summary does not repair a caller rewrite
+that relied on the old one.
+
+Acceptance requires valid bindings, expanded lifetime/entry proofs, final
+preservation replay, no affected routine growth in code plus ordinary homes,
+and a strictly smaller complete packaged image. Include captures, argument and
+result copies, branches, helpers and removed inline storage in the cost. Report
+occupied ZP separately; using more ZP is a resource cost, not an image saving.
+Any failed proof, unknown cost, equality or growth restores the complete selected
+artifact, bindings, maps, reservations and facts. Trace output must explain
+rejections and costs without affecting selection. Qualify behind a separate gate
+before deciding the optimized default.
+
+### Qualification and delivery order
+
+Deliver parameter residence first, local residence second, and result-home
+coalescing separately. Each uses the same storage/lifetime authority. Qualification
+must include independent controls alongside `Ord`, `Items` and whole TN:
+
+- Byte, word and pointer values live across a call, consumed by it, or redefined
+  afterwards; distinct lane values; one-lane clobbers; argument-setup and
+  result-copy interference despite a preserving callee.
+- Backedges, zero and multiple iterations, conditional definitions/calls,
+  partial writes, joins and early exits. Local controls distinguish definite
+  per-invocation initialization from entry reads and persistent values.
+- Callee capture and scratch conflicts, changed callee placement, absolute/ZP
+  aliases, source reservations, exposure and ZP exhaustion. Multiple/nested calls
+  exercise either proved coverage or the documented initial fallback; recursion
+  and unknown effects must remain conservative.
+- Optimized callers that consumed changed callee contracts, exact rollback,
+  trace/untraced agreement and the additional continuation/emission counts.
+
+VM oracles must check arguments, results, ordered observable memory accesses,
+return ABI and stack balance, including pointer page crossings and applicable
+wraparound. Preserve existing leaf, Strcpy handoff and late-cleanup gains. Measure
+feature-off/on final routine code, ordinary storage, ZP use and packaged image
+size, and record compiler work. A source-shape expectation or handwritten target
+is not a saving. Complete affected MIR6502 integration, VM/runtime and assembly
+qualification, including cart/standalone, shifted origins and actual LF/CRLF
+fixture paths, before enabling the new scope by default.
