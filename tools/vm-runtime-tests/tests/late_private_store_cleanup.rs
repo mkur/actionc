@@ -139,10 +139,19 @@ fn terminal_cleanup_preserves_argument_bytes_public_writes_and_returns() {
 }
 
 #[test]
-fn caller_pointer_observes_scratch_after_a_generated_routine_returns() {
-    let text = include_str!("../../../fixtures/runtime/argument_staging.act")
-        .replace("\r\n", "\n")
-        .replace("PROC Main()\n", "PROC ObserveAfter(CARD first,second BYTE tag)\nBYTE POINTER p\nForwardAdd(first,second,tag)\np=second observedTag=p^\nRETURN\nPROC Main()\n");
+fn caller_pointer_observes_source_and_abi_storage_after_a_generated_routine_returns() {
+    // Give the observed pool bytes source ownership. Undeclared compiler
+    // temporaries have no source-visible value after their definition dies.
+    let fixture = include_str!("../../../fixtures/runtime/argument_staging.act")
+        .replace("\r\n", "\n");
+    let instrument = |source: &str| {
+        source
+            .replace("\r\n", "\n")
+            .replacen("MODULE\n", "MODULE\nBYTE probeE0=$E0,probeE1=$E1\n", 1)
+            .replace("PROC Main()\n", "PROC ObserveAfter(CARD first,second BYTE tag)\nBYTE POINTER p\nForwardAdd(first,second,tag)\np=second observedTag=p^\nRETURN\nPROC Main()\n")
+    };
+    let text = instrument(&fixture);
+    assert_eq!(text, instrument(&fixture.replace('\n', "\r\n")));
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         for crlf in [false, true] {
             let source = if crlf {
@@ -173,6 +182,10 @@ fn caller_pointer_observes_scratch_after_a_generated_routine_returns() {
                         machine::bytes(&vm, 0x680, 4),
                         vec![0, 1, address as u8, (address >> 8) as u8]
                     );
+                    if matches!(address, 0xe0 | 0xe1 | 0x7000) {
+                        assert_eq!(vm.bus().ram().read(address), 0x72);
+                        assert_eq!(vm.bus().ram().read(0x684), 0x72);
+                    }
                     let r = vm.cpu().registers();
                     results.push((vm.bus().ram().read(0x684), r.a, r.x, r.y, r.sp, r.status));
                 }

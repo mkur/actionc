@@ -35,12 +35,11 @@ operation identities or a general pass manager. Measurements must expose their
 memory and analysis costs. A future refinement may replace snapshots with smaller
 typed predicates without weakening validation.
 
-Physical zero-page deletion additionally requires a definition-to-overwrite
-read proof, including indirect observers inside callees. Default scalar `SArgs`
-prologues use their bounded ABI footprint only when binding provenance, the
-typed signature and inline descriptor agree. Override bindings and unknown
-readers decline deletion. This proof belongs to terminal cleanup and does not
-relax the generic memory-effect summaries.
+The original implementation added a separate physical-ZP reader walk and a
+scalar `SArgs` exemption. The ownership correction below supersedes that policy:
+the shared home-definition analysis supplies lifetime proofs, while explicit
+source storage and physical ABI/assembly effects remain protected. There is no
+second rule making a private temporary observable solely because it occupies ZP.
 
 ## Slice 1 — contract and plan
 
@@ -284,3 +283,98 @@ moving storage; unresolved spill references and inherited facts remain explicit
 coverage gaps. No semantic ownership rule, guard relaxation or compaction is
 implemented by this slice. Validation passed 452 scoped unit tests, 78 integration
 tests, three VM tests, two audit tests and 12 full-output/census comparisons.
+
+## Storage ownership implementation
+
+The implementation uses two slices:
+
+1. Classify compiler homes by typed role and exposure. Publish all declared
+   source ranges from final emission, including unused declarations, aliases and
+   descriptor backing. Use the shared definition-deadness proof for terminal
+   deletion of spills, allocated ZP and locally initialized pointer scratch.
+   Retain explicit numeric/assembly/ABI readers, fixed frames, callee contracts,
+   preservation replay, final-cost acceptance and rollback. Remove the redundant
+   physical-ZP reader walk and its special `SArgs` handling; commit implementation,
+   contract documentation and regressions.
+2. Qualify both runtimes and shifted origins against the frozen pre-change
+   compiler, execute source-ZP/ABI alias controls, and check LF/CRLF parsing and
+   MADS reconstruction/relocation. Record output, work and actual savings in a
+   separate receipt; commit qualification.
+
+The first fixed-scratch consumer is deliberately narrow: a materializer
+reservation and typed pointer use establish the role for `$AA..$AF`, and each
+block must initialize the relevant byte before a read. Calls, machine blocks
+and barriers end that initialization evidence. Incoming and cross-block values
+remain public/ABI. The shared home analysis still conservatively handles fixed
+homes around opaque ABI boundaries. This changes terminal cleanup eligibility;
+it introduces no global liveness relaxation or frame compaction.
+
+Source declarations take precedence over compiler placement. TN's `$E0/$E1`
+and `$E6..$E9` stay program-owned. The callee-pointer and caller-after-return VM
+fixtures now explicitly declare the `$E0/$E1` cells they observe, and continue
+checking those cells alongside ABI bytes, parameter homes and ordinary numeric
+addresses. Generic source-memory
+`Unknown`/`All` effects do not expose non-escaping implementation homes; explicit
+physical regions and typed machine references do.
+
+The frozen comparison uses the compiler at `203560ed` (compiler code from
+`a898ac04`) and the existing
+[`word_result_proof.rs`](../tools/compare6502/word_result_proof.rs) harness without
+extra flags. The same sources are compiled with the optimized configuration,
+pruning disabled, ActionCart/Standalone runtimes, and origins `$3000`/`$41C7`.
+Results are identical in size at both origins:
+
+| Program | Cart before → after | Standalone before → after |
+| --- | ---: | ---: |
+| TN | 9,970 → 9,962 | 10,077 → 10,069 |
+| Word-load sharing | 301 → 301 | 301 → 301 |
+| Argument staging | 330 → 330 | 412 → 412 |
+| Pointer-invariant loop | 77 → 77 | 77 → 77 |
+| Word-result control | 50 → 50 | 50 → 50 |
+
+Implementation is committed as `d2acf831`. These are packaged XEX bytes. TN saves
+**eight additional bytes** from one dead ZP store each in `MoveMenuBar`, `Draw`,
+`Tag` and `TagAll`; producer deletion is unchanged. Its complete terminal
+transaction now removes ten stores and four producers, saving 38 bytes against
+the pre-cleanup candidate. All 16 independent-control outputs, including full
+`CodegenOutput` debug representations, remain identical. Each of the 20 cases
+also checks complete output/work equality with the census disabled/enabled.
+TN retains 3 materializations, 43 emission invocations, 258 inner probes and
+6 preservation replays; rewrite-analysis builds increase from 24,926 to 24,940.
+Independent-control work is unchanged.
+
+Reproduce the current corpus with the repository's build profile, then link the
+existing harness against that library:
+
+```sh
+export CARGO_TARGET_DIR=build/checked-arena/shared-target
+export CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_DEV_OPT_LEVEL=1
+export CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=2
+mkdir -p build/mir6502-storage-ownership
+cargo build --lib
+rustc --edition=2024 tools/compare6502/word_result_proof.rs \
+  --extern actionc="$CARGO_TARGET_DIR/debug/libactionc.rlib" \
+  -L "dependency=$CARGO_TARGET_DIR/debug/deps" \
+  -o build/mir6502-storage-ownership/probe
+build/mir6502-storage-ownership/probe build/mir6502-storage-ownership/reproduced
+```
+
+The output directory must be new. Run the same harness against the baseline
+revision to compare; the frozen baseline executable for this run was
+`build/mir6502-spill-movement/final-probe`. The committed
+[qualification receipt](benchmarks/6502-storage-ownership/qualification.json)
+records image hashes, full-output equality, cleanup outcomes and compiler work.
+Large traces and binaries remain local under
+`build/mir6502-storage-ownership/`.
+
+Validation passed 1,336 MIR6502 unit tests, 133 integration tests across all
+30 `mir6502_*` targets, and 35 VM tests across 16 affected targets. Fourteen
+optional unit checks and eleven optional integration checks were initially
+ignored; the relevant MADS unit and integration checks were then run explicitly
+and passed. One frozen unchecked-allocator measurement remains ignored. The new
+ownership fixture also executes 6,144 original/selected programs across every
+byte input, three home kinds, both runtimes and both origins. Source-ZP and
+ABI observation tests retain concrete value and machine-state assertions.
+Caller fixture instrumentation and parsing both exercise LF and CRLF input.
+Documentation links and whitespace checks pass. Shared NIR/frontend contracts
+and other backends were unchanged; local validation is scoped accordingly.
