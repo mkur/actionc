@@ -9,6 +9,10 @@ use crate::mir6502::analysis::known_callees::{
 pub(in crate::mir6502) use compound::{CompoundRegionProof, prove_compound_region};
 use std::collections::BTreeSet;
 
+#[cfg(test)]
+#[path = "retention/retired_private_tests.rs"]
+mod retired_private_tests;
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct CallWrites {
     routines: BTreeMap<RoutineId, Option<BTreeSet<u16>>>,
@@ -594,6 +598,9 @@ impl ResidentFacts<'_> {
         };
         for value in [lo.as_ref(), hi.as_ref()] {
             match value {
+                // A certified retired capture has no address. Its known value
+                // is still compared below; it cannot alias the physical pair.
+                MirValue::PointerCell(mem) if memory.retired_home(r.id, mem).is_some() => {}
                 MirValue::PointerCell(mem)
                     if memory.ordinary(r.id, mem)
                         && memory
@@ -787,6 +794,8 @@ impl DataflowProblem<MirCfg> for ResidentProblem<'_> {
         }
         into.cells
             .retain(|cell, value| other.cells.get(cell) == Some(value));
+        into.private_cells
+            .retain(|cell, value| other.private_cells.get(cell) == Some(value));
         into.pairs
             .retain(|slot, (value, _)| other.pairs.get(slot).is_some_and(|(v, _)| v == value));
         // Definition positions are local to legacy block proofs. CFG equality

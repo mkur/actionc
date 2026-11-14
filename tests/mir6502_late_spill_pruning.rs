@@ -96,7 +96,7 @@ fn source_tail_proof_blocker_preserves_output_and_prior_cleanup() {
 }
 
 #[test]
-fn rejected_movement_census_preserves_output_work_and_real_lf_crlf_parsing() {
+fn private_compaction_saves_two_bytes_with_identical_census_work_and_lf_crlf_parsing() {
     use actionc::mir6502::trace::TraceOptions;
     let lf = include_str!("../fixtures/runtime/late_producer_cleanup.act").replace("\r\n", "\n");
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
@@ -104,6 +104,13 @@ fn rejected_movement_census_preserves_output_work_and_real_lf_crlf_parsing() {
             let mut reference = None;
             for text in [lf.clone(), lf.replace('\n', "\r\n")] {
                 let input = nir(&text);
+                let original = mir6502::generate_output_with_config_and_runtime(
+                    &input,
+                    origin,
+                    &Mir6502Config::optimized(),
+                    runtime,
+                )
+                .unwrap();
                 let config = Mir6502Config {
                     enable_late_spill_pruning: true,
                     ..Mir6502Config::optimized()
@@ -139,15 +146,19 @@ fn rejected_movement_census_preserves_output_work_and_real_lf_crlf_parsing() {
                         .any(|e| e.kind == "core-allocation-movement")
                 );
                 let events = census.events();
-                let delta = &events
+                let result = &events
                     .iter()
-                    .find(|e| e.kind == "core-allocation-movement")
+                    .find(|e| e.kind == "late-spill-pruning-result")
                     .unwrap()
-                    .data["delta"];
-                assert_eq!(delta["status"], "complete");
-                assert!(delta["moved_survivors"].as_u64().unwrap() > 0);
-                assert_eq!(delta["non_frame_facts_preserved"], true);
+                    .data;
+                assert_eq!(result["accepted"], true, "{result}");
+                assert_eq!(result["removed_spills"], 2);
+                assert_eq!(result["moved_spills"], 1);
                 let image = actionc::codegen::format_load_file(&after);
+                assert_eq!(
+                    actionc::codegen::format_load_file(&original).len() - image.len(),
+                    2
+                );
                 if let Some(old) = &reference {
                     assert_eq!(old, &image);
                 }

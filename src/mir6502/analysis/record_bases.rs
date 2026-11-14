@@ -15,8 +15,28 @@ pub(in crate::mir6502) struct MirPhysicalMemory {
     globals: BTreeMap<crate::nir::SymbolId, (u16, u16, bool)>,
     execution_ranges: Option<Vec<(u16, u16)>>,
     source_storage: Option<Vec<(u16, u16)>>,
+    // Proof-only identities after declaration pruning; never physical addresses.
+    retired_private: std::collections::BTreeSet<(RoutineId, MirSpillId)>,
 }
 impl MirPhysicalMemory {
+    /// The pruning transaction must first prove this deleted byte unexposed,
+    /// unobserved and absent from the candidate. Missing placement alone is not
+    /// such a certificate. Only symbolic value replay consumes this fact.
+    pub(in crate::mir6502) fn retire_private_spill(&mut self, owner: RoutineId, id: MirSpillId) -> bool {
+        if self.address(owner, &MirMem::Spill { id, offset: 0 }).is_some() {
+            return false;
+        }
+        self.retired_private.insert((owner, id));
+        true
+    }
+    fn retired_home(&self, owner: RoutineId, mem: &MirMem) -> Option<(RoutineId, MirSpillId)> {
+        match mem {
+            MirMem::Spill { id, offset: 0 } if self.retired_private.contains(&(owner, *id)) => {
+                Some((owner, *id))
+            }
+            _ => None,
+        }
+    }
     /// All declared source objects, including unused declarations, aliases and
     /// descriptor backing. An incomplete inventory grants no ownership proof.
     pub(in crate::mir6502) fn protect_source_storage(&mut self, ranges: Option<Vec<(u16, u16)>>) {
@@ -152,6 +172,9 @@ struct State {
     registers: [Option<ByteValue>; 3],
     pairs: BTreeMap<u8, (ByteValue, usize)>,
     cells: BTreeMap<u16, ByteValue>,
+    // Retain known origins only; an unknown store creates no invented address
+    // or identity. Physical writes invalidate captured origins as usual.
+    private_cells: BTreeMap<(RoutineId, MirSpillId), ByteValue>,
 }
 fn reg(reg: MirReg) -> usize {
     match reg {
@@ -180,6 +203,9 @@ impl State {
                 .address(routine, mem)
                 .map(|a| ByteValue::Constant(a.to_le_bytes()[*byte as usize])),
             MirValue::PointerCell(mem) => {
+                if let Some(home) = memory.retired_home(routine, mem) {
+                    return self.private_cells.get(&home).copied();
+                }
                 if !memory.ordinary(routine, mem) {
                     return None;
                 }
@@ -204,6 +230,7 @@ impl State {
         self.cells.retain(|cell, value| {
             cell.wrapping_sub(address) >= bytes && !value.affected(address, bytes)
         });
+        self.private_cells.retain(|_, value| !value.affected(address, bytes));
         for value in &mut self.registers {
             if value.is_some_and(|v| v.affected(address, bytes)) {
                 *value = None;
@@ -218,6 +245,19 @@ impl State {
         memory: &MirPhysicalMemory,
         options: RecordBaseOptions,
     ) {
+        if let MirOp::Store {
+            dst: MirAddr::Direct(mem),
+            src: MirValue::Def(MirDef::Reg(source)),
+            width: MirWidth::Byte,
+        } = op
+            && let Some(home) = memory.retired_home(routine, mem)
+        {
+            self.private_cells.remove(&home);
+            if let Some(value) = self.registers[reg(*source)] {
+                self.private_cells.insert(home, value);
+            }
+            return;
+        }
         let effect = classify_op(op);
         // A physical/absolute-backed input can hide behind a param/local ID
         // or a store's RHS. Its read is a barrier independently of the named
@@ -225,6 +265,7 @@ impl State {
         if effect.memory.direct_reads.iter().any(|range| {
             !matches!(range.base, MirMem::FixedZeroPage(_))
                 && !memory.ordinary(routine, &range.base)
+                && !(range.bytes == 1 && memory.retired_home(routine, &range.base).is_some())
         }) {
             *self = Self::default();
         }
@@ -234,7 +275,7 @@ impl State {
                 src: MirAddr::Direct(mem),
                 width: MirWidth::Byte,
             } => {
-                if !memory.ordinary(routine, mem) {
+                if !memory.ordinary(routine, mem) && memory.retired_home(routine, mem).is_none() {
                     *self = Self::default();
                 }
                 Some((

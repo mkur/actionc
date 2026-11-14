@@ -4,6 +4,9 @@ use crate::mir6502::{late_cleanup::tests::*, trace::Mir6502Trace};
 #[path = "ownership_tests.rs"]
 mod ownership;
 
+#[path = "movement_tests.rs"]
+mod movement_checks;
+
 fn run(
     p: &MirProgram,
     log: &Preservation,
@@ -68,16 +71,27 @@ fn prunes_unused_tail_with_exact_delta_and_bounded_work() {
 }
 
 #[test]
-fn interior_hole_preserves_core_allocation_without_costing() {
-    let mut p = program(vec![load(MirMem::Spill {
+fn interior_hole_moves_one_private_byte_with_bounded_costing() {
+    let home = MirMem::Spill {
         id: MirSpillId(1),
         offset: 0,
-    })]);
+    };
+    let mut p = program(vec![
+        imm(42),
+        MirOp::Store {
+            dst: MirAddr::Direct(home.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        load(home),
+    ]);
     p.routines[0].frame.spills.push(MirSpillId(1));
     let (after, manifest, events) = run(&p, &clean(&p));
-    assert_eq!(after, p);
-    assert_eq!(result(&events)["reason"], "CoreAllocation");
-    assert!(manifest["work"]["emission_invocations"].is_null());
+    assert_eq!(after.routines[0].frame.spills, vec![MirSpillId(1)]);
+    assert_eq!(after.routines[0].blocks, p.routines[0].blocks);
+    assert_eq!(result(&events)["accepted"], true, "{events:?}");
+    assert_eq!(result(&events)["moved_spills"], 1);
+    assert_eq!(manifest["work"]["emission_invocations"], 2);
 }
 
 #[test]
@@ -343,6 +357,25 @@ fn shared_terminal_boundary_preserves_prior_cleanup_on_pruning_rejection() {
         },
     ]);
     p.routines[0].frame.spills.push(MirSpillId(1));
+    let mut following = p.routines[0].clone();
+    following.id = RoutineId(1);
+    following.name = "FollowingSource".into();
+    following.abi = MirRoutineAbi::Action;
+    following.frame.spills.clear();
+    following.frame.locals.push(MirStorageSlot {
+        purpose: MirStoragePurpose::Storage,
+        id: MirStorageId(0),
+        name: None,
+        storage: MirStorageClass::Scalar,
+        storage_size: 1,
+        scalar_width: Some(MirWidth::Byte),
+        base: MirStorageBase::Local(crate::nir::LocalId(0)),
+        offset: 0,
+        mutable: true,
+        init: None,
+    });
+    following.blocks[0].ops.clear();
+    p.routines.push(following);
     let preservation = clean(&p);
     let session = Mir6502Trace::default();
     let selected = super::super::select(

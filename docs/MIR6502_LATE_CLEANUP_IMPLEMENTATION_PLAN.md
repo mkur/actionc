@@ -422,3 +422,36 @@ across every byte input, both runtimes and both origins using indirect reads and
 writes. The integration and VM controls parse actual LF and CRLF source. Local
 checks are scoped to pruning, terminal cleanup and their runtime consumers;
 shared frontend/NIR contracts and other backends did not change.
+
+## Move one live private byte — implementation and qualification
+
+Implement a narrow interior-compaction slice under the existing opt-in gate:
+
+1. Admit exactly one downward-moving ordinary private byte whose uses remain
+   symbolic native byte loads/stores. Keep every source/ABI object, other live
+   home and storage attribute fixed in both planning and final layouts. Reuse
+   ownership, reference classification and the complete source inventory.
+2. Check old/new ordinary-memory bounds and explicit physical observations in
+   current and retained historical programs. Retain the exact declaration-only
+   delta, earlier-decision replay, callee contracts, final-cost acceptance and
+   complete rollback. Add no full materialization or diagnostic dependency.
+3. Qualify the independent producer control (two dead declarations before one
+   live spill), negative movement cases, byte execution, source writes and return
+   state. Compare TN and independent controls against the previous compiler, both
+   runtimes and origins, with pruning off/on and trace off/on. Exercise actual
+   LF/CRLF parsing and MADS reconstruction/relocation.
+
+The [storage-substitution contract](MIR6502_LATE_CLEANUP_DESIGN.md#core-allocation-preservation)
+records why ordinary symbolic byte references and unchanged separation/bounds
+permit this movement without a general core replay framework. Multiple moving
+live bytes and source-object movement remain outside the slice.
+
+
+The source control also exposed a replay dependency on its two retired pointer
+capture slots. The movement proof alone was insufficient: pointer-retention
+replay correctly rolled back when their physical placements disappeared. Extend
+only symbolic capture-value replay for certified retired private identities;
+keep physical-address queries unresolved. Qualify origin invalidation, unknown
+captures, CFG joins, certificate scope and address-query rejection alongside the
+source control. This introduces no ghost allocation or exception to exact
+selected-rewrite replay.

@@ -93,18 +93,42 @@ impl MaterializeLayout {
                 && !matches!(mem, MirMem::ZeroPage(_) | MirMem::FixedZeroPage(_)),
         )
     }
-    /// Only erased private spills may disappear. Every surviving planning-layout
-    /// address, size and storage attribute must remain exactly equal.
+    /// Preserve all storage except deleted spills and one caller-certified
+    /// private byte's address. Attributes and all source placements stay exact.
     pub(in crate::mir6502) fn preserves_surviving_storage(
         &self,
         candidate: &Self,
         removed: &std::collections::BTreeMap<RoutineId, std::collections::BTreeSet<MirSpillId>>,
+        moved: Option<(RoutineId, MirSpillId)>,
     ) -> bool {
         let mut expected = self.clone();
         for (id, storage) in &mut expected.routine_storage {
             if let Some(ids) = removed.get(id) {
                 storage.spills.retain(|(id, _, _)| !ids.contains(id));
             }
+        }
+        if let Some((owner, spill)) = moved {
+            let Some((_, storage)) = expected
+                .routine_storage
+                .iter_mut()
+                .find(|(r, _)| *r == owner)
+            else {
+                return false;
+            };
+            let Some((_, address, 1)) = storage.spills.iter_mut().find(|(id, _, _)| *id == spill)
+            else {
+                return false;
+            };
+            let Some(new_address) = candidate.mem_address(
+                owner,
+                &MirMem::Spill {
+                    id: spill,
+                    offset: 0,
+                },
+            ) else {
+                return false;
+            };
+            *address = new_address;
         }
         expected
             .ordinary_bounds

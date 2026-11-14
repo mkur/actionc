@@ -1,9 +1,11 @@
-//! Opt-in, address-stable pruning of unused ordinary private spill declarations.
+//! Opt-in pruning with fixed source storage and bounded private-byte movement.
+mod movement;
 use super::*;
 use crate::mir6502::{
     analysis::effects::classify_terminator,
     materialize::{MaterializeLayout, unused_spill_candidates},
 };
+use movement::PrivateByteMove;
 
 type Removed = BTreeMap<RoutineId, BTreeSet<MirSpillId>>;
 
@@ -18,6 +20,7 @@ enum Rejection {
     ObservableAllocation,
     CandidateEmission,
     PhysicalAllocation,
+    PrivateMovement,
     EarlierDecision(Family),
     Cost,
 }
@@ -139,6 +142,17 @@ fn unobserved_allocations(program: &MirProgram, old: &Measurement, removed: &Rem
     let Some(layout) = &old.storage_layout else {
         return false;
     };
+    let Some(addresses) = removed
+        .iter()
+        .flat_map(|(&r, ids)| ids.iter().map(move |&id| layout.spill_address(r, id)))
+        .collect::<Option<Vec<_>>>()
+    else {
+        return false;
+    };
+    unobserved_bytes(program, old, &addresses)
+}
+
+fn unobserved_bytes(program: &MirProgram, old: &Measurement, addresses: &[u16]) -> bool {
     let callees = MirKnownCalleeSummaries::analyze_for_rewriting(program);
     // Generic source-memory effects cannot expose a non-escaping compiler
     // allocation. Raw assembly still needs an inspectable physical footprint:
@@ -209,17 +223,13 @@ fn unobserved_allocations(program: &MirProgram, old: &Measurement, removed: &Rem
             }
         }
     }
-    removed.iter().all(|(&r, ids)| {
-        ids.iter().all(|&id| {
-            layout.spill_address(r, id).is_some_and(|address| {
-                (0x400..0x8000).contains(&address)
-                    && old.memory.execution_disjoint(address)
-                    && old.memory.source_storage_disjoint(address)
-                    && !observations.iter().any(|(start, bytes)| {
-                        start.is_none_or(|start| address.wrapping_sub(start) < *bytes)
-                    })
+    addresses.iter().all(|&address| {
+        (0x400..0x8000).contains(&address)
+            && old.memory.execution_disjoint(address)
+            && old.memory.source_storage_disjoint(address)
+            && !observations.iter().any(|(start, bytes)| {
+                start.is_none_or(|start| address.wrapping_sub(start) < *bytes)
             })
-        })
     })
 }
 
@@ -257,7 +267,10 @@ pub(super) fn select(
         let proposed_snapshot = trace.snapshot("proposed", &proposed);
         let old_layout = MaterializeLayout::new(&baseline, origin);
         let new_layout = MaterializeLayout::new(&proposed, origin);
-        if !old_layout.preserves_surviving_storage(&new_layout, &removed) {
+        let movement =
+            PrivateByteMove::discover(&baseline, references, &old_layout, &new_layout, &removed);
+        let moved = movement.as_ref().map(PrivateByteMove::identity);
+        if !old_layout.preserves_surviving_storage(&new_layout, &removed, moved) {
             if trace.layout_census_enabled() {
                 trace.event("core-allocation-movement", || {
                     serde_json::json!({
@@ -284,18 +297,42 @@ pub(super) fn select(
             if !unobserved_allocations(&baseline, &old, &removed) {
                 return Err(Rejection::ObservableAllocation);
             }
+            if movement.as_ref().is_some_and(|m| {
+                !m.baseline_safe(&baseline, references, &old)
+                    || references
+                        .iter()
+                        .any(|p| !unobserved_allocations(p, &old, &removed))
+            }) {
+                return Err(Rejection::PrivateMovement);
+            }
             let new = measure(&proposed, references, origin, runtime, trace)
                 .map_err(|_| Rejection::CandidateEmission)?;
             if !old
                 .storage_layout
                 .as_ref()
                 .zip(new.storage_layout.as_ref())
-                .is_some_and(|(a, b)| a.preserves_surviving_storage(b, &removed))
+                .is_some_and(|(a, b)| a.preserves_surviving_storage(b, &removed, moved))
             {
                 return Err(Rejection::PhysicalAllocation);
             }
+            if movement
+                .as_ref()
+                .is_some_and(|m| !m.candidate_safe(&baseline, references, &old, &new))
+            {
+                return Err(Rejection::PrivateMovement);
+            }
+            let mut replay_memory = new.memory.clone();
+            if movement.is_some() {
+                for (&owner, ids) in &removed {
+                    for &id in ids {
+                        if !replay_memory.retire_private_spill(owner, id) {
+                            return Err(Rejection::PrivateMovement);
+                        }
+                    }
+                }
+            }
             preservation
-                .validate(&new.memory, ranges, config, origin, trace)
+                .validate(&replay_memory, ranges, config, origin, trace)
                 .map_err(Rejection::EarlierDecision)?;
             if !improves_cost(&baseline, &old, &new) {
                 return Err(Rejection::Cost);
@@ -311,6 +348,7 @@ pub(super) fn select(
                     serde_json::json!({
                         "accepted": true, "candidate_spills": candidates,
                         "unreferenced_spills": count(&removed), "removed_spills": count(&removed),
+                        "moved_spills": usize::from(movement.is_some()),
                         "image_bytes_before": old.image_bytes, "image_bytes_after": new.image_bytes,
                         "instruction_bytes_before": old.instruction_bytes.values().sum::<usize>(),
                         "instruction_bytes_after": new.instruction_bytes.values().sum::<usize>(),

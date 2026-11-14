@@ -52,7 +52,7 @@ core materialization and cleanup
   -> selected late transactions T1–T9
   -> checked-range pointer retention T10
   -> shared late private-store cleanup transaction
-  -> optional address-stable spill-declaration pruning transaction
+  -> optional guarded spill-declaration pruning transaction
   -> PreEmission verification and exact pre-emission snapshot
   -> final emission
 ```
@@ -396,7 +396,7 @@ source local's or parameter's address, including through a data relocation,
 does not expose neighboring compiler allocations. Unresolved machine storage
 names still retain the frame because their references cannot be enumerated.
 Ordinary loads/stores present only in earlier-decision witnesses remain subject
-to preservation replay; a missing address needed by a proof rejects pruning.
+to preservation replay; a missing physical address needed by a proof rejects pruning.
 
 Generic source-memory `Unknown`/`All` effects and ordinary indirect reads/writes
 do not expose non-escaping compiler allocations. Explicit numeric accesses,
@@ -410,29 +410,87 @@ compiler state.
 The baseline final map must prove each removed byte disjoint from all declared
 source storage, including unused objects, aliases and descriptor backing. Reuse
 emission's complete inventory; an absent inventory grants no ownership proof.
-Allocation ownership does not certify movement: both surviving-address equality
-guards, callee contracts, preservation replay and final-cost acceptance remain
-unchanged.
+Allocation ownership alone does not certify movement. Planning and physical
+layout guards permit only the explicitly certified private-byte movement below;
+all other surviving addresses stay fixed. Callee contracts, preservation replay
+and final-cost acceptance remain required.
 
 ### Core allocation preservation
 
-The existing sidecar starts after core materialization. It cannot certify a
-change to assumptions made by core alias checks, captured comparisons, scalar
-captures, constructor storage or zero-page selection. The initial experiment
-therefore requires exact equality of all surviving `MaterializeLayout` storage
-addresses and attributes, and unchanged zero-page allocations. Removing only
-unreferenced ordinary declarations cannot change source typing, descriptor
-facts, logical alias identities or storage widths. The address-equality guard
-preserves the remaining allocation-dependent core inputs. Removed spills must
-be private, unexposed and absent from executable references; they supply no
-surviving value or address.
+The existing sidecar starts after core materialization. It cannot reconstruct
+assumptions erased by core alias checks, captured comparisons, scalar captures,
+constructor storage or zero-page selection. The original address-stable case
+requires exact equality of all surviving `MaterializeLayout` addresses and
+attributes. Removed spills must be private, unexposed and absent from executable
+references; they supply no surviving value or address.
 
-This is deliberately an address-stable subset of compaction. It usually admits
-unused storage at the end of ordinary allocation. It does not authorize moving
-live cells to fill interior holes. TN's six holes precede live storage, so the
-experiment must report a core-allocation blocker if equality fails. General
-interior compaction needs retained, replayable core allocation predicates; a
-new final map alone cannot reconstruct assumptions erased by earlier rewrites.
+The narrow interior-compaction case permits **one surviving ordinary spill
+byte** to move downward. The proof must establish all of the following:
+
+- The complete planning layout differs only by removed private declarations,
+  their ordinary allocation budget, and that one byte's address. Every source
+  object, parameter, local, static, other spill, ABI placement and virtual-ZP
+  mapping remains equal.
+- `StorageOwnership` classifies the moved home as a temporary in the current
+  program and every retained historical program. Address-taking, source backing,
+  typed machine references and unresolved machine storage names decline this
+  case.
+- Every current or retained historical use of the moved home is a symbolic
+  direct byte load into a register or direct byte store from a register. No
+  terminator, address expression or other operation may reference it. The first
+  slice also rejects offset or wider direct spill accesses anywhere in those
+  programs, since such a view could cover another cell without naming it.
+- Both planning positions and both final physical positions stay in ordinary
+  RAM `$0400..$7FFF`. Explicit numeric/physical/ABI observations, raw-machine
+  footprints and the complete declared-source inventory must be disjoint from
+  the old and new byte. Apply the existing observation policy to current and
+  retained historical programs. Source pointers do not expose private state.
+- The final emitted storage proof agrees: only this private byte changes
+  address, and every other surviving placement, size, attribute and data-item
+  start is unchanged. This includes descriptor backing and deferred source
+  data, which planning-layout equality alone does not cover.
+
+This restriction preserves the relevant core address relations without recording
+every core query. Ordinary storage operands remain symbolic until emission;
+early address-constant materialization is restricted to explicit absolute memory.
+The native byte loads/stores have the same addressing class, width and register/
+flag effects at both ordinary addresses. The sole moved byte remains separate
+from all other live homes, source objects, fixed scratch and explicit aliases.
+There is no pointer/address escape, wider view or ZP boundary crossing whose
+meaning could change. Removing an unused declaration changes no surviving
+value. Emission resolves the existing typed storage references against the
+candidate layout; it does not patch baked numeric operands.
+
+This is a storage-substitution proof for a restricted program shape, not a new
+core replay framework. The optional census is diagnostic only and grants no
+permission. More than one moving live byte, source-object movement, unsupported
+uses or a changed relation still fail the core guard. TN's six holes precede
+multiple live/source objects and remain outside this slice. Broader compaction
+requires a separate proof of its actual address dependencies.
+
+### Retired capture values during replay
+
+An earlier pointer-retention witness can read capture slots that later terminal
+cleanup made dead. Replaying that witness does not require assigning those
+removed private cells a physical address when it only needs their captured
+values. For the single-byte movement case, the transaction may certify removed
+one-byte homes as **retired private identities**, after checking ownership and
+old physical observations in every retained program as well as the baseline.
+These identities exist only in the replay map; they neither allocate data nor
+change emission's final map. Missing storage alone supplies no certificate.
+
+Resident-base analysis can retain a known value from a native byte register
+store to a certified retired home and retrieve it by `(RoutineId, MirSpillId)`.
+It does not manufacture an identity for an unknown value. A physical write
+invalidates captures whose known origin it changes; unknown stores, barriers
+and CFG joins discard unsupported facts. Pointer-retention pair matching may
+compare these captured values against the real candidate pair. The retired
+home cannot alias that physical pair, but the values must still match.
+
+`address`, ordinary physical placement and address-byte queries remain unresolved
+for retired homes. Other proof paths that require such answers still decline.
+No old address is transplanted, no ghost allocation is introduced, and the
+selected rewrite must still replay to the exact retained result.
 
 ### Placement and rollback
 
@@ -443,12 +501,13 @@ previous savings. Keep the original operation-cleanup transaction unchanged.
 No recursive strategy selection, coloring, zero-page reassignment, subset
 search or full rematerialization is permitted.
 
-Before costing, reject changes to surviving core allocation inputs. Baseline
+Before costing, reject changes outside the permitted core allocation delta. Baseline
 and candidate converged emissions then supply final placement, protected code
 ranges, relocation results and packaged-image cost. Check surviving physical
-storage addresses and ordinary-memory facts, and replay the existing selected
+storage addresses against that same delta and ordinary-memory facts, and replay the existing selected
 late decisions with the candidate map. Missing addresses in historical proofs
-cause rejection; never invent ghost addresses for removed storage. Declarations
+cause rejection when a physical address is required; never invent ghost addresses
+for removed storage. Declarations
 referenced by proof witnesses do not allocate memory during replay.
 
 Require a strictly smaller packaged image and no per-routine instruction growth.
@@ -471,12 +530,12 @@ Compare pruning off/on with store and producer cleanup held enabled. Cover TN
 and independent controls at multiple origins in both runtimes. Report TN's
 actual result even if zero; report six candidate bytes separately from accepted
 savings. Positive controls must exercise generated code as well as declaration
-removal, and execute against a byte oracle. Negative controls include interior
-holes, surviving spill/address references, relocation-driven movement, unknown
+removal, and execute against a byte oracle. Negative controls include multiple
+moving live homes, source movement, exposed/wide/offset spill references, unknown
 placement, observable fixed aliases, live zero-page mappings and cost rollback.
 Reconstruct and relocate listings through real LF/CRLF paths. Record work counts
 and preserve the producer-only qualification receipt. Leave the experiment
-opt-in if the narrow address-stability contract yields insufficient general
+opt-in if the narrow storage contract yields insufficient general
 benefit; broader compaction is a separate design and proof extension.
 
 ## Core allocation dependency census
@@ -572,8 +631,8 @@ checks and callee contracts are unchanged. Earlier transformations of callee
 bodies can still depend on layout, and later allocation changes must preserve
 those bodies' contracts. Eliminating this family's direct numeric queries does
 not certify the whole pipeline, authorize compaction, or cover other layout
-owners. Existing terminal acceptance, rollback and exact surviving-address
-guards remain in force; spill pruning stays disabled by default.
+owners. Terminal acceptance, rollback and the permitted storage-delta guards
+above remain in force; spill pruning stays disabled by default.
 
 
 ## Pointer setup and candidate attribution
@@ -674,10 +733,10 @@ address-bearing arrays are relocation obligations, not automatically reasons to
 preserve their old addresses. Explicitly fixed storage and externally prescribed
 ABI addresses remain distinct.
 
-Further movement work must identify the genuine address-dependent operations
-left under this contract before building a general selected-predicate replay
-framework. An address query
-in the existing implementation does not itself establish a semantic obligation
-to keep the queried number unchanged. Both current equality guards remain in
-place after the ownership slice; their implementation does not define the
-intended source-memory semantics.
+An address query in the existing implementation does not itself establish a
+semantic obligation to keep the queried number unchanged. The private-byte case
+above preserves the needed relations under a narrow symbolic substitution.
+Further movement work should identify the genuine address-dependent operations
+for its proposed storage delta before considering a general selected-predicate
+replay framework. The guards implement bounded proof coverage; they do not define
+the intended source-memory semantics.

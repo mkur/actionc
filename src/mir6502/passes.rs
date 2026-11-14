@@ -30,7 +30,7 @@ pub struct Mir6502Config {
     pub enable_late_private_store_cleanup: bool,
     /// Extend terminal cleanup to proved-dead byte loads and native register moves.
     pub enable_late_dead_register_cleanup: bool,
-    /// Experimental declaration-only pruning with exact surviving allocation guards.
+    /// Experimental declaration pruning with fixed source storage and guarded private movement.
     pub enable_late_spill_pruning: bool,
     /// Replace proven small constant fill loops with direct byte stores.
     pub enable_tiny_constant_fills: bool,

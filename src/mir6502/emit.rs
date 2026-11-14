@@ -751,6 +751,7 @@ impl MirStorageLayoutProof {
         &self,
         candidate: &Self,
         removed: &std::collections::BTreeMap<RoutineId, std::collections::BTreeSet<MirSpillId>>,
+        moved: Option<(RoutineId, MirSpillId)>,
     ) -> bool {
         let mut expected = self.clone();
         expected.data.retain(|(owner, base, _)| {
@@ -759,6 +760,32 @@ impl MirStorageLayoutProof {
         for (id, r) in &mut expected.routines {
             if let Some(ids) = removed.get(id) {
                 r.spills.retain(|id, _| !ids.contains(id));
+            }
+        }
+        if let Some((owner, spill)) = moved {
+            // Only the approved byte may change address, in both the logical
+            // map and the actual data-item starts (including descriptor backing).
+            if expected.spill_address(owner, spill).is_none() {
+                return false;
+            }
+            let Some(address) = candidate.spill_address(owner, spill) else {
+                return false;
+            };
+            let Some(routine) = expected.routines.get_mut(&owner) else {
+                return false;
+            };
+            routine.spills.insert(
+                spill,
+                MirStoragePlacement::Absolute {
+                    address,
+                    size: 1,
+                    output_relative: true,
+                },
+            );
+            for (r, base, start) in &mut expected.data {
+                if *r == Some(owner) && *base == MirStorageBase::Spill(spill) {
+                    *start = address;
+                }
             }
         }
         let resolved = |p: &Self| {
