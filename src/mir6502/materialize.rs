@@ -4004,6 +4004,10 @@ fn run_analyzed_return_slot_call_arg_forwards(
     Ok(())
 }
 
+pub(super) fn absent_parameter_stores(routine: &super::ir::MirRoutine, id: crate::nir::ParamId) -> bool {
+    abi::absent_parameter_stores(routine, id)
+}
+
 fn run_analyzed_param_home_consumers(
     routine: &mut super::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,

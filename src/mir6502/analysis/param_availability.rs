@@ -223,7 +223,21 @@ impl DataflowProblem<MirCfg> for ParamAvailabilityProblem<'_> {
     }
 
     fn boundary(&self, node: MirBlockId) -> Option<Self::State> {
-        (Some(node) == self.entry).then(MirParamAvailabilityState::reachable_empty)
+        (Some(node) == self.entry).then(|| {
+            let mut state = MirParamAvailabilityState::reachable_empty();
+            if let Some(bindings) = &self.routine.frame.parameter_homes {
+                for binding in bindings {
+                    if let crate::mir6502::ir::MirParamHome::Registers(regs) = &binding.home {
+                        for (offset, reg) in regs.iter().enumerate() {
+                            state.available.homes.insert(MirParamHomeByte {
+                                param: binding.param, offset: offset as u16,
+                            }, *reg);
+                        }
+                    }
+                }
+            }
+            state
+        })
     }
 
     fn join(&self, into: &mut Self::State, other: &Self::State) {

@@ -15,6 +15,11 @@ fn main() {
     fs::create_dir_all(destination).unwrap();
     for (case, source, inline) in [
         ("tn", "samples/tn/modern/TN.ACT", true),
+        (
+            "registers",
+            "fixtures/runtime/parameter_registers.act",
+            false,
+        ),
         ("controls", "fixtures/runtime/parameter_homes.act", false),
         (
             "controls-inline",
@@ -52,6 +57,10 @@ fn main() {
                 let mut rows = Vec::new();
                 for name in [
                     "Fnamecmp",
+                    "First",
+                    "Second",
+                    "Third",
+                    "WordXY",
                     "KeepByte",
                     "StepWord",
                     "ComparePointers",

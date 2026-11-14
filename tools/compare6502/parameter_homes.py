@@ -25,7 +25,7 @@ def main():
     result = subprocess.run([str(probe), str(output / 'images')] + (['--enabled'] if args.enabled else []), cwd=ROOT, check=True,
                             text=True, capture_output=True)
     cases = [json.loads(line) for line in result.stdout.splitlines()]
-    sources = ['samples/tn/modern/TN.ACT', 'fixtures/runtime/parameter_homes.act']
+    sources = ['samples/tn/modern/TN.ACT', 'fixtures/runtime/parameter_homes.act', 'fixtures/runtime/parameter_registers.act']
     receipt = dict(revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                    parameter_home_selection=args.enabled,
                    api_rlib_sha256=hashlib.sha256(rlib.read_bytes()).hexdigest(),

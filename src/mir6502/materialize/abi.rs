@@ -444,6 +444,15 @@ fn store_register_to_fixed_zp(reg: MirReg, slot: u8) -> MirOp {
     }
 }
 
+pub(super) fn absent_parameter_stores(routine: &MirRoutine, id: ParamId) -> bool {
+    routine_param_removable_store_count(routine, id).is_some()
+        && routine.blocks.iter().flat_map(|b| &b.ops).all(|op| {
+            !store_targets_param(op, id) || matches!(op, MirOp::Store {
+                src: MirValue::ConstU8(_) | MirValue::ConstU16(_) | MirValue::Def(_), ..
+            })
+        })
+}
+
 fn routine_param_removable_store_count(
     routine: &crate::mir6502::ir::MirRoutine,
     id: ParamId,

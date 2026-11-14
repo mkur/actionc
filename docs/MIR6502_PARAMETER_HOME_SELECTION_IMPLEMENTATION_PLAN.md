@@ -1,6 +1,6 @@
 # MIR6502 parameter home selection implementation plan
 
-Prepared 2026-11-14. Status: slices 0–2 complete; slices 3–6 pending.
+Prepared 2026-11-14. Status: slices 0–3 complete; slices 4–6 pending.
 
 Implements the [parameter home selection design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md).
 Work in the dependency order below and commit each slice after its checks pass.
@@ -315,3 +315,20 @@ and on, retain identical executable hashes, routine sizes, and work counters.
 Focused tests cover checkpoint ownership, stale-output rejection, unchanged
 resume, one additional core materialization without upstream search, and exact
 artifact rollback on invalid or growing proposals.
+
+## Slice 3 validation
+
+The opt-in register candidate retains one entry-consumed parameter in its
+canonical A/X/Y lanes, including an X/Y word. Other parameters use the shared
+absent-home proof. Later reads, mutation, control-flow lifetimes, memory reads
+attached to discarded stores, and fixed-slot incoming values remain outside
+this register candidate. Existing expansion/forwarding proofs must remove every
+register-bound memory access; otherwise the entire trial rolls back.
+
+The independent four-routine register control shrinks from 154 to 106 packaged
+bytes in both runtimes at both origins. Code/home counts change from 12/3 to
+3/0 for First and Second, 13/3 to 4/0 for Third, and 15/3 to 6/0 for WordXY.
+The original 12 baseline images remain identical. Validation includes 1,361
+MIR6502 library tests (15 existing ignored), 14 focused integration tests
+(one existing ignored), and VM coverage of all 256 byte values, distinct lane
+values, X/Y word order, public results, stack balance, and real LF/CRLF inputs.

@@ -1,0 +1,13 @@
+MODULE
+CARD input=$0680,observed=$0690
+BYTE FUNC First(BYTE a,b,c) RETURN(a)
+BYTE FUNC Second(BYTE a,b,c) RETURN(b)
+BYTE FUNC Third(BYTE a,b,c) RETURN(c)
+CARD FUNC WordXY(BYTE ignored CARD value) RETURN(value)
+PROC Main()
+  observed=First(input,2,3)
+  observed=Second(1,input,3)
+  observed=Third(1,2,input)
+  observed=WordXY(1,input)
+  DO OD
+RETURN

@@ -110,3 +110,65 @@ fn scalar_pointer_and_exposed_parameters_follow_the_action_abi() {
         }
     }
 }
+
+#[test]
+fn register_bound_parameters_preserve_each_abi_lane() {
+    let lf =
+        include_str!("../../../fixtures/runtime/parameter_registers.act").replace("\r\n", "\n");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for origin in [0x3000, 0x41c7] {
+            let mut reference = None;
+            for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+                let file = support::Source::new(&source);
+                let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+                let model = actionc::semantic::analyze_with_options(
+                    &loaded.program,
+                    actionc::semantic::SemanticOptions::modern(),
+                )
+                .unwrap();
+                let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
+                    &actionc::semantic::ir::lower_program(&loaded.program, &model),
+                ))
+                .unwrap();
+                let output = mir6502::generate_output_with_config_and_runtime(
+                    &nir,
+                    origin,
+                    &Mir6502Config {
+                        enable_parameter_home_selection: true,
+                        enable_small_leaf_inlining: false,
+                        ..Mir6502Config::optimized()
+                    },
+                    runtime,
+                )
+                .unwrap();
+                let image = actionc::codegen::format_load_file(&output);
+                if let Some(old) = &reference {
+                    assert_eq!(old, &image);
+                } else {
+                    reference = Some(image.clone());
+                }
+                let entry = |name| {
+                    output
+                        .routine_addresses
+                        .iter()
+                        .find(|r| r.name == name)
+                        .unwrap()
+                        .address
+                };
+                let (mut vm, profile) = support::vm_for(runtime);
+                vm.load_atari_object_for_execution(profile, &image).unwrap();
+                for value in 0..=255u8 {
+                    let args = [value, value.wrapping_add(73), value.wrapping_add(149)];
+                    for (lane, name) in ["First", "Second", "Third"].into_iter().enumerate() {
+                        vm = machine::call(vm, &mut Observe, entry(name), &args);
+                        // Public Action results live at $A0. Equality with A is
+                        // an inferred callee fact, not a universal ABI guarantee.
+                        assert_eq!(machine::bytes(&vm, 0xa0, 1), vec![args[lane]]);
+                    }
+                    vm = machine::call(vm, &mut Observe, entry("WordXY"), &args);
+                    assert_eq!(machine::bytes(&vm, 0xa0, 2), args[1..]);
+                }
+            }
+        }
+    }
+}

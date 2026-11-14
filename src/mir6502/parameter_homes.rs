@@ -28,9 +28,150 @@ pub(super) fn select_output(
     )
 }
 
-fn propose(_input: &MirProgram) -> Option<MirProgram> {
-    // Slice 2 establishes the trial boundary; no production candidate yet.
-    None
+fn propose(input: &MirProgram) -> Option<MirProgram> {
+    let mut proposal = input.clone();
+    let mut changed = false;
+    for routine in &mut proposal.routines {
+        if !eligible(input, routine) {
+            continue;
+        }
+        if let Some(bindings) = register_bindings(routine) {
+            let absent: BTreeSet<_> = bindings
+                .iter()
+                .filter_map(|b| (b.home == MirParamHome::Absent).then_some(b.param))
+                .collect();
+            for block in &mut routine.blocks {
+                block.ops.retain(|op| {
+                    !matches!(op,
+                    MirOp::Store { dst: MirAddr::Direct(MirMem::Param { id, .. }), .. }
+                    if absent.contains(id))
+                });
+            }
+            routine.frame.parameter_homes = Some(bindings);
+            changed = true;
+        }
+    }
+    changed.then_some(proposal)
+}
+
+/// Deliberately closed expansion set. Additional shapes must establish their
+/// hidden helper, scratch, and observable-memory behavior before admission.
+fn eligible(program: &MirProgram, routine: &MirRoutine) -> bool {
+    use super::analysis::effects::classify_op;
+    routine.abi == MirRoutineAbi::Action
+        && routine.frame.parameter_homes.is_none()
+        && !routine.frame.params.is_empty()
+        && routine
+            .frame
+            .params
+            .iter()
+            .map(|p| p.abi_byte_width().unwrap_or(5))
+            .sum::<u16>()
+            <= 4
+        && routine.frame.params.iter().all(|p| {
+            matches!(p.base, MirStorageBase::Param(id) if !exposed(program, routine, id))
+                && p.storage == MirStorageClass::Scalar
+                && p.offset == 0
+                && p.init.is_none()
+                && matches!(
+                    (p.scalar_width, p.storage_size),
+                    (Some(MirWidth::Byte), 1) | (Some(MirWidth::Word), 2)
+                )
+        })
+        && routine.blocks.iter().all(|b| {
+            b.ops.iter().all(|op| {
+                let effects = classify_op(op);
+                !effects.memory.opaque
+                    && !effects.memory.indirect_writes
+                    && matches!(
+                        op,
+                        MirOp::LoadImm { .. }
+                            | MirOp::Move { .. }
+                            | MirOp::Load {
+                                src: MirAddr::Direct(_),
+                                ..
+                            }
+                            | MirOp::Store {
+                                dst: MirAddr::Direct(_),
+                                ..
+                            }
+                    )
+            })
+        })
+}
+
+fn register_bindings(routine: &MirRoutine) -> Option<Vec<MirParamBinding>> {
+    use super::analysis::effects::{classify_op, classify_terminator};
+    // One entry consumer ends the incoming parameter lifetime. This avoids
+    // reserving registers through a temporary plan that has not yet expanded.
+    if routine.blocks.len() != 1
+        || routine
+            .frame
+            .params
+            .iter()
+            .map(|p| p.storage_size)
+            .sum::<u16>()
+            <= 2
+    {
+        return None;
+    }
+    let block = &routine.blocks[0];
+    let mut offset = 0;
+    let mut live = 0;
+    let mut bindings = Vec::new();
+    for slot in &routine.frame.params {
+        let MirStorageBase::Param(id) = slot.base else {
+            return None;
+        };
+        let home = if absent_parameter(routine, id) {
+            MirParamHome::Absent
+        } else {
+            live += 1;
+            if live > 1 {
+                return None;
+            }
+            let first = block.ops.first()?;
+            if !matches!(first, MirOp::Load { src: MirAddr::Direct(MirMem::Param { id: p, offset: 0 }), width, .. }
+                if *p == id && Some(*width) == slot.scalar_width)
+            {
+                return None;
+            }
+            let refers = |e: super::analysis::effects::MirMemoryEffects| {
+                e.direct_references
+                    .iter()
+                    .chain(e.direct_reads.iter().map(|r| &r.base))
+                    .chain(e.direct_writes.iter().map(|r| &r.base))
+                    .any(|m| matches!(m, MirMem::Param { id: p, .. } if *p == id))
+            };
+            if block
+                .ops
+                .iter()
+                .skip(1)
+                .any(|o| refers(classify_op(o).memory))
+                || refers(classify_terminator(&block.terminator).memory)
+            {
+                return None;
+            }
+            let regs = (0..slot.storage_size)
+                .map(
+                    |lane| match super::abi::action_arg_home(offset + lane, MirWidth::Byte) {
+                        MirArgHome::Reg(r) => Some(r),
+                        _ => None,
+                    },
+                )
+                .collect::<Option<Vec<_>>>()?;
+            MirParamHome::Registers(regs)
+        };
+        offset += slot.abi_byte_width()?;
+        bindings.push(MirParamBinding { param: id, home });
+    }
+    Some(bindings)
+}
+
+fn absent_parameter(routine: &MirRoutine, id: crate::nir::ParamId) -> bool {
+    // Reuse the legacy proof, but never delete an observable source read along
+    // with an unused destination. Producers remain in the executable body.
+    super::materialize::absent_parameter_stores(routine, id)
 }
 
 fn try_proposal(
@@ -173,6 +314,19 @@ pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
                         .any(|r| !matches!(r, MirReg::A | MirReg::X | MirReg::Y))
                 {
                     fail("parameter register binding requires one A/X/Y register per byte");
+                }
+                let start = routine
+                    .frame
+                    .params
+                    .iter()
+                    .take_while(|p| p.base != slot.base)
+                    .map(|p| p.abi_byte_width().unwrap_or(0))
+                    .sum::<u16>();
+                if regs.iter().enumerate().any(|(lane, reg)| {
+                    super::abi::action_arg_home(start + lane as u16, MirWidth::Byte)
+                        != MirArgHome::Reg(*reg)
+                }) {
+                    fail("register binding must retain its canonical incoming ABI lanes");
                 }
                 let mut lanes = Vec::new();
                 for reg in regs {
