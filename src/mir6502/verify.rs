@@ -64,8 +64,16 @@ impl MirVerifier {
     }
 
     fn verify_program(&mut self, program: &MirProgram) {
+        // All pre-materialization entry points verify retained inputs before
+        // prepend_action_abi_param_prologue; PostHome and later see actual entry
+        // operations, including captures that subsequent cleanup may elide.
+        use super::analysis::known_callees::MirCalleeEntryStage;
+        let entry_stage = match self.phase {
+            MirPhase::PreMaterialization => MirCalleeEntryStage::PlannedCapture,
+            MirPhase::PostHome | MirPhase::PostMaterialization | MirPhase::PreEmission => MirCalleeEntryStage::ActualEntry,
+        };
         for routine in &program.routines {
-            self.diagnostics.extend(super::parameter_homes::verify_storage(program, routine));
+            self.diagnostics.extend(super::parameter_homes::verify_storage(program, routine, entry_stage));
             if self.phase != MirPhase::PreMaterialization {
                 self.diagnostics.extend(super::parameter_homes::verify_lifetimes(routine));
             }

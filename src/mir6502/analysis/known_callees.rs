@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod bounded_memory;
 mod entry_inputs;
-pub(in crate::mir6502) use entry_inputs::MirCalleeEntryFact;
+pub(in crate::mir6502) use entry_inputs::{MirCalleeEntryFact, MirCalleeEntryStage};
 pub(in crate::mir6502) use bounded_memory::BoundedMachine;
 
 use crate::analysis::dataflow::{DataflowDirection, DataflowProblem, solve_dataflow};

@@ -52,3 +52,19 @@ Slice 0 passed 24 parameter-home unit tests, six handoff integration tests
 All four TN image/map/relocation hashes and work/upstream counts match the prior
 qualification. See [baseline.json](baseline.json) and
 [baseline-checks.json](baseline-checks.json).
+
+## Shared construction and stage refactor
+
+Slice 1 moves the unchanged direct capture builder into
+[`abi/param_capture.rs`](../../../src/mir6502/abi/param_capture.rs) and requires a
+planned/actual stage on shared entry queries, fact validity and handoff verification.
+The verifier's production callers were audited: all pre-materialization checks
+operate on retained inputs; PostHome and later checks operate after capture.
+This avoids adding state to every MIR routine. Machine-entry omission and SArgs
+selection remain with the existing materializer. Tests cover capture ordering,
+inline/ZP/mixed/register/absent/identity lanes and stage/body/binding staleness.
+
+Slice 1 passed 814 focused unit tests (12 existing ignored) and
+91 integration tests (one existing MADS test deferred). All 12 frozen
+cases match in bytes, maps, relocations, selected homes, placement outcomes and
+work/upstream counts: [receipt](slice1.json), [checks](slice1-checks.json).

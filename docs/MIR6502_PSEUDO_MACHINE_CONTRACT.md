@@ -2310,6 +2310,26 @@ Rules:
 - Optimized Action entries capture argument frames of up to four bytes directly;
   larger frames use `SArgs` to bound callee-prologue size.
 
+### Callee entry analysis boundary
+
+`MirCalleeEntryStage` is an explicit query and fact dependency. `PlannedCapture`
+refers to the retained input before ABI capture; `ActualEntry` refers to the
+operations now present at the entry, including any capture that survived cleanup.
+Changing stages invalidates a fact even for an empty capture. The complete routine
+(including its ABI declarations, bindings and CFG), machine payloads and absolute
+global backings are also dependencies. Capture construction is centralized in
+`abi/param_capture.rs`; materialization and prologue-matching cleanup share its
+ordered description.
+
+The verifier maps `PreMaterialization` to planned capture. Its production callers
+are lowering/runtime resolution, upstream retained-input transformations, and
+`resume_core` before `prepend_action_abi_param_prologue`. The checkpoint is saved
+before that insertion. `PostHome`, `PostMaterialization` and `PreEmission` run
+after insertion and use actual entry operations. These are caller-established
+boundaries, independent of whether a binding exists or a prefix resembles stores.
+A future verifier caller crossing this boundary must supply the appropriate phase
+or introduce explicit provenance; it must not infer the stage from instructions.
+
 ### Atari FPP target services
 
 Native `REAL` arithmetic uses a distinct structured call target:

@@ -9,6 +9,13 @@ use crate::mir6502::analysis::{
 use crate::mir6502::ir::MirParamLane;
 use std::sync::Arc;
 
+/// The caller establishes this boundary; bindings and operation prefixes cannot.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(in crate::mir6502) enum MirCalleeEntryStage {
+    PlannedCapture,
+    ActualEntry,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct Inputs {
     pub registers: MirRegisterSet,
@@ -18,12 +25,17 @@ pub(in crate::mir6502) struct Inputs {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirCalleeEntryFact {
     pub source: Arc<MirRoutine>,
+    stage: MirCalleeEntryStage,
     machines: Vec<MirMachineBlock>,
     global_backings: Vec<(crate::nir::SymbolId, MirGlobalBacking, u16)>,
     pub inputs: Inputs,
 }
 impl MirCalleeEntryFact {
-    pub fn analyze(program: &MirProgram, target: RoutineId) -> Option<Self> {
+    pub fn analyze(
+        program: &MirProgram,
+        target: RoutineId,
+        stage: MirCalleeEntryStage,
+    ) -> Option<Self> {
         let routine = program.routines.iter().find(|r| r.id == target)?;
         if routine.effects.opaque || routine.effects.may_call_os {
             return None;
@@ -48,6 +60,7 @@ impl MirCalleeEntryFact {
         };
         Some(Self {
             source: Arc::new(routine.clone()),
+            stage,
             machines,
             global_backings: program
                 .globals
@@ -57,8 +70,9 @@ impl MirCalleeEntryFact {
             inputs,
         })
     }
-    pub fn is_current(&self, program: &MirProgram) -> bool {
-        program.routines.iter().any(|r| r == self.source.as_ref())
+    pub fn is_current(&self, program: &MirProgram, stage: MirCalleeEntryStage) -> bool {
+        self.stage == stage
+            && program.routines.iter().any(|r| r == self.source.as_ref())
             && self
                 .machines
                 .iter()

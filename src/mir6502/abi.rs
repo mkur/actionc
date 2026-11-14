@@ -1,3 +1,6 @@
+mod param_capture;
+pub(super) use param_capture::direct_param_capture;
+
 use crate::nir::{NirMemoryAccess, NirMemoryRegionKind, NirStorageId};
 
 use super::ir::{

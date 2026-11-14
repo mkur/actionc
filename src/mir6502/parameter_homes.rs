@@ -1,5 +1,6 @@
 //! One parameter binding owns entry capture, working storage, and layout.
 //! Each placement batch resumes one core continuation and requires a smaller image.
+use super::analysis::known_callees::MirCalleeEntryStage;
 use super::preparation::{Resume, SelectedPlacement};
 use super::{diagnostics::MirDiagnostic, ir::*};
 use std::collections::BTreeSet;
@@ -387,8 +388,8 @@ fn source_zero_page(program: &MirProgram, routine: &MirRoutine) -> BTreeSet<u8> 
     owned
 }
 
-pub(super) fn verify_storage(program: &MirProgram, routine: &MirRoutine) -> Vec<MirDiagnostic> {
-    let mut errors = handoff::verify(program, routine);
+pub(super) fn verify_storage(program: &MirProgram, routine: &MirRoutine, stage: MirCalleeEntryStage) -> Vec<MirDiagnostic> {
+    let mut errors = handoff::verify(program, routine, stage);
     let Some(bindings) = &routine.frame.parameter_homes else {
         return errors;
     };
@@ -579,7 +580,7 @@ mod tests {
             backing: MirGlobalBacking::Absolute(0xffff),
             init: None,
         });
-        assert!(!verify_storage(&p, &p.routines[0]).is_empty());
+        assert!(!verify_storage(&p, &p.routines[0], MirCalleeEntryStage::PlannedCapture).is_empty());
     }
 
     #[test]
@@ -614,7 +615,7 @@ mod tests {
         let mut local = p.routines[0].frame.params[0].clone();
         local.base = MirStorageBase::Absolute(0xa0);
         p.routines[0].frame.locals.push(local);
-        assert!(!verify_storage(&p, &p.routines[0]).is_empty());
+        assert!(!verify_storage(&p, &p.routines[0], MirCalleeEntryStage::PlannedCapture).is_empty());
         p.routines[0].frame.locals.clear();
         p.routines[0].blocks[0].ops.insert(
             0,
@@ -624,7 +625,7 @@ mod tests {
                 width: MirWidth::Byte,
             },
         );
-        assert!(!verify_storage(&p, &p.routines[0]).is_empty());
+        assert!(!verify_storage(&p, &p.routines[0], MirCalleeEntryStage::PlannedCapture).is_empty());
     }
 
     #[test]

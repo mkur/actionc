@@ -1,0 +1,15 @@
+{
+  "units": {
+    "passed": 814,
+    "failed": 0,
+    "ignored": 12,
+    "log_sha256": "2e9207e9ee03d1c22f3e9f8061449fc4e7d1de8bc12cf6dfdfbe8c53b1e7e7df"
+  },
+  "integration": {
+    "passed": 91,
+    "failed": 0,
+    "ignored": 1,
+    "log_sha256": "fa97504d58496a1a55c292d7412a025e5d1e506064e3713eea4d84c3b3383a8b"
+  },
+  "comparison": "All 12 frozen cases identical in bytes, maps, relocations, selected routine homes, outcomes, work and upstream counts."
+}

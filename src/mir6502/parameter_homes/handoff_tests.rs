@@ -81,18 +81,32 @@ fn wrapper_proof_admits_terminal_inputs_and_rejects_scope_boundaries() {
 #[test]
 fn shared_machine_entry_facts_distinguish_overwrites_flags_and_extra_reads() {
     let program = controls();
-    let copy = MirCalleeEntryFact::analyze(&program, routine(&program, "ReverseCopy").id).unwrap();
+    let copy = MirCalleeEntryFact::analyze(
+        &program,
+        routine(&program, "ReverseCopy").id,
+        MirCalleeEntryStage::PlannedCapture,
+    )
+    .unwrap();
     assert_eq!(copy.inputs.fixed, BTreeSet::from([0xa3, 0xa4]));
     assert!(copy.inputs.registers.a && copy.inputs.registers.x && copy.inputs.registers.y);
     assert!(!copy.inputs.flags.any());
-    let extra =
-        MirCalleeEntryFact::analyze(&program, routine(&program, "ObserveExtra").id).unwrap();
+    let extra = MirCalleeEntryFact::analyze(
+        &program,
+        routine(&program, "ObserveExtra").id,
+        MirCalleeEntryStage::PlannedCapture,
+    )
+    .unwrap();
     assert_eq!(extra.inputs.fixed, BTreeSet::from([0xa3, 0xa4, 0xac]));
     for (prefix, incoming_carry) in [("", true), ("clc\n", false)] {
         let p = source(&format!(
             "PROC Sink=*()\nASM\n{prefix}lda #0\nbcs done\ndone:\nrts\nENDASM\nPROC Main() Sink() RETURN"
         ));
-        let fact = MirCalleeEntryFact::analyze(&p, routine(&p, "Sink").id).unwrap();
+        let fact = MirCalleeEntryFact::analyze(
+            &p,
+            routine(&p, "Sink").id,
+            MirCalleeEntryStage::PlannedCapture,
+        )
+        .unwrap();
         assert_eq!(fact.inputs.flags.c, incoming_carry);
         assert!(!fact.inputs.flags.n && !fact.inputs.flags.z);
     }
@@ -142,7 +156,14 @@ fn bound_control() -> (MirProgram, usize) {
 #[test]
 fn call_consumption_precedes_clobbers_but_cannot_hide_setup_or_postcall_uses() {
     let (program, index) = bound_control();
-    assert!(handoff::verify(&program, &program.routines[index]).is_empty());
+    assert!(
+        handoff::verify(
+            &program,
+            &program.routines[index],
+            MirCalleeEntryStage::PlannedCapture
+        )
+        .is_empty()
+    );
     assert!(verify_lifetimes(&program.routines[index]).is_empty());
     let mut without = program.routines[index].clone();
     without.frame.parameter_handoff = None;
@@ -160,7 +181,14 @@ fn call_consumption_precedes_clobbers_but_cannot_hide_setup_or_postcall_uses() {
     let mut after = program.clone();
     let read = after.routines[index].blocks[0].ops[0].clone();
     after.routines[index].blocks[0].ops.push(read);
-    assert!(!handoff::verify(&after, &after.routines[index]).is_empty());
+    assert!(
+        !handoff::verify(
+            &after,
+            &after.routines[index],
+            MirCalleeEntryStage::PlannedCapture
+        )
+        .is_empty()
+    );
     assert!(!verify_lifetimes(&after.routines[index]).is_empty());
     let mut stale = program.clone();
     stale.routines[index]
@@ -169,7 +197,14 @@ fn call_consumption_precedes_clobbers_but_cannot_hide_setup_or_postcall_uses() {
         .as_mut()
         .unwrap()
         .target = RoutineId(999);
-    assert!(!handoff::verify(&stale, &stale.routines[index]).is_empty());
+    assert!(
+        !handoff::verify(
+            &stale,
+            &stale.routines[index],
+            MirCalleeEntryStage::PlannedCapture
+        )
+        .is_empty()
+    );
 }
 
 #[test]
@@ -181,7 +216,12 @@ fn scalar_entry_projection_distinguishes_defined_and_incoming_fixed_bytes() {
         let p = source(&format!(
             "BYTE cell=$AC,out=$680\nPROC Sink(BYTE value) {body} RETURN\nPROC Main() Sink(1) RETURN"
         ));
-        let fact = MirCalleeEntryFact::analyze(&p, routine(&p, "Sink").id).unwrap();
+        let fact = MirCalleeEntryFact::analyze(
+            &p,
+            routine(&p, "Sink").id,
+            MirCalleeEntryStage::PlannedCapture,
+        )
+        .unwrap();
         assert_eq!(fact.inputs.fixed.contains(&0xac), observes);
     }
 }
@@ -232,7 +272,7 @@ fn direct_selection_retains_registers_and_declines_fixed_slot_cycles() {
             .parameter_handoff
             .is_some()
     );
-    assert!(verify_storage(&proposal, forward).is_empty());
+    assert!(verify_storage(&proposal, forward, MirCalleeEntryStage::PlannedCapture).is_empty());
     let extra = source(
         &include_str!("../../../fixtures/runtime/parameter_argument_handoff_direct.act")
             .replace("\r\n", "\n"),
@@ -347,7 +387,12 @@ fn capture_boundary_baseline_exposes_false_working_home_inputs() {
     );
     let callee = routine(&selected.input, "CaptureWords");
     assert!(callee.frame.parameter_homes.is_some());
-    let before = MirCalleeEntryFact::analyze(&selected.input, callee.id).unwrap();
+    let before = MirCalleeEntryFact::analyze(
+        &selected.input,
+        callee.id,
+        MirCalleeEntryStage::PlannedCapture,
+    )
+    .unwrap();
     assert_eq!(
         before.inputs.fixed,
         BTreeSet::from([0xa0, 0xa1, 0xa2, 0xa3])
@@ -357,22 +402,160 @@ fn capture_boundary_baseline_exposes_false_working_home_inputs() {
         "extra-entry-flags-or-stack"
     );
     assert!(before.inputs.registers.sp); // Normal Return, not a non-ABI stack input.
-    let after = MirCalleeEntryFact::analyze(&selected.executable.program, callee.id).unwrap();
+    let after = MirCalleeEntryFact::analyze(
+        &selected.executable.program,
+        callee.id,
+        MirCalleeEntryStage::ActualEntry,
+    )
+    .unwrap();
     assert_eq!(after.inputs.fixed, BTreeSet::from([0xa3]));
     assert!(after.inputs.registers.a && after.inputs.registers.x && after.inputs.registers.y);
     assert!(!after.inputs.flags.any());
     let extra = MirCalleeEntryFact::analyze(
         &selected.executable.program,
         routine(&selected.input, "ExtraFixed").id,
+        MirCalleeEntryStage::ActualEntry,
     )
     .unwrap();
     assert_eq!(extra.inputs.fixed, BTreeSet::from([0xa3, 0xac]));
     assert!(
-        MirCalleeEntryFact::analyze(&selected.input, routine(&selected.input, "ReadPointers").id)
-            .is_none()
+        MirCalleeEntryFact::analyze(
+            &selected.input,
+            routine(&selected.input, "ReadPointers").id,
+            MirCalleeEntryStage::PlannedCapture
+        )
+        .is_none()
     );
     println!(
         "capture baseline before={:?} after={:?} extra={:?}",
         before.inputs, after.inputs, extra.inputs
     );
+}
+
+#[test]
+fn shared_capture_preserves_inline_bound_retained_absent_and_identity_lanes() {
+    use crate::mir6502::abi::direct_param_capture;
+    use MirParamLane::{Reg, ZeroPage};
+    let p = source(
+        "CARD out\nPROC Sink(CARD left,right) out=left out=right RETURN\nPROC Main() Sink(1,2) RETURN",
+    );
+    let original = routine(&p, "Sink");
+    let ids: Vec<_> = original
+        .frame
+        .params
+        .iter()
+        .map(|p| match p.base {
+            MirStorageBase::Param(id) => id,
+            _ => panic!(),
+        })
+        .collect();
+    let a = MirValue::Def(MirDef::Reg(MirReg::A));
+    let x = MirValue::Def(MirDef::Reg(MirReg::X));
+    let y = MirValue::Def(MirDef::Reg(MirReg::Y));
+    let a3 = MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(0xa3)));
+    let stores = |r: &MirRoutine| {
+        direct_param_capture(r)
+            .into_iter()
+            .map(|op| match op {
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::Param { id, offset }),
+                    src,
+                    width: MirWidth::Byte,
+                } => (id, offset, src),
+                _ => panic!("unexpected capture {op:?}"),
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        stores(original),
+        vec![
+            (ids[0], 0, a.clone()),
+            (ids[0], 1, x.clone()),
+            (ids[1], 0, y.clone()),
+            (ids[1], 1, a3.clone())
+        ]
+    );
+    let mut r = original.clone();
+    r.frame.parameter_homes = Some(vec![
+        MirParamBinding {
+            param: ids[0],
+            home: MirParamHome::ZeroPage(MirFixedZpSlot(0xa0)),
+        },
+        MirParamBinding {
+            param: ids[1],
+            home: MirParamHome::ZeroPage(MirFixedZpSlot(0xa2)),
+        },
+    ]);
+    assert_eq!(
+        stores(&r),
+        vec![
+            (ids[0], 0, a.clone()),
+            (ids[0], 1, x.clone()),
+            (ids[1], 0, y.clone())
+        ]
+    );
+    r.frame.parameter_homes = Some(vec![
+        MirParamBinding {
+            param: ids[0],
+            home: MirParamHome::Lanes(vec![ZeroPage(MirFixedZpSlot(0xa0)), Reg(MirReg::X)]),
+        },
+        MirParamBinding {
+            param: ids[1],
+            home: MirParamHome::Lanes(vec![Reg(MirReg::Y), ZeroPage(MirFixedZpSlot(0xa3))]),
+        },
+    ]);
+    assert_eq!(stores(&r), vec![(ids[0], 0, a.clone())]);
+    r.frame.params.truncate(1);
+    r.frame.parameter_homes.as_mut().unwrap().truncate(1);
+    r.frame.parameter_homes.as_mut().unwrap()[0].home =
+        MirParamHome::Lanes(vec![Reg(MirReg::A), Reg(MirReg::X)]);
+    assert!(stores(&r).is_empty());
+    r.frame.parameter_homes = None;
+    assert_eq!(stores(&r), vec![(ids[0], 1, x), (ids[0], 0, a)]);
+    r = original.clone();
+    r.frame.params[0].base = MirStorageBase::ParamAbiOnly(ids[0]);
+    // Absent first word still occupies ABI lanes, and the legacy two-store
+    // order captures the fixed byte before the remaining Y byte.
+    assert_eq!(stores(&r), vec![(ids[1], 1, a3), (ids[1], 0, y)]);
+}
+
+#[test]
+fn entry_facts_require_the_same_capture_stage_and_definition() {
+    use MirCalleeEntryStage::{ActualEntry, PlannedCapture};
+    let p = source("CARD out\nPROC Sink(CARD value) out=value RETURN\nPROC Main() Sink(1) RETURN");
+    let id = routine(&p, "Sink").id;
+    let before = MirCalleeEntryFact::analyze(&p, id, PlannedCapture).unwrap();
+    assert!(before.is_current(&p, PlannedCapture));
+    assert!(!before.is_current(&p, ActualEntry));
+    let mut changed = p.clone();
+    let r = changed.routines.iter_mut().find(|r| r.id == id).unwrap();
+    let MirStorageBase::Param(param) = r.frame.params[0].base else {
+        panic!()
+    };
+    r.frame.parameter_homes = Some(vec![MirParamBinding {
+        param,
+        home: MirParamHome::ZeroPage(MirFixedZpSlot(0xa0)),
+    }]);
+    assert!(!before.is_current(&changed, PlannedCapture));
+    let mut expanded = p.clone();
+    let r = expanded.routines.iter_mut().find(|r| r.id == id).unwrap();
+    let mut ops = crate::mir6502::abi::direct_param_capture(r);
+    ops.append(&mut r.blocks[0].ops);
+    r.blocks[0].ops = ops;
+    assert!(!before.is_current(&expanded, PlannedCapture));
+    let actual = MirCalleeEntryFact::analyze(&expanded, id, ActualEntry).unwrap();
+    assert!(actual.is_current(&expanded, ActualEntry));
+    expanded
+        .routines
+        .iter_mut()
+        .find(|r| r.id == id)
+        .unwrap()
+        .blocks[0]
+        .ops
+        .remove(0);
+    assert!(!actual.is_current(&expanded, ActualEntry));
+    let empty = source("PROC Sink() RETURN\nPROC Main() Sink() RETURN");
+    let fact =
+        MirCalleeEntryFact::analyze(&empty, routine(&empty, "Sink").id, PlannedCapture).unwrap();
+    assert!(!fact.is_current(&empty, ActualEntry));
 }

@@ -25,7 +25,7 @@ pub(super) struct WrapperFacts {
 impl WrapperFacts {
     pub fn is_current(&self, program: &MirProgram) -> bool {
         program.routines.iter().any(|r| r == self.source.as_ref())
-            && self.callee.is_current(program)
+            && self.callee.is_current(program, MirCalleeEntryStage::PlannedCapture)
     }
     pub fn contract(&self) -> MirParamHandoff {
         MirParamHandoff {
@@ -101,7 +101,7 @@ pub(super) fn analyze(
             return Err("opaque-setup");
         }
     }
-    let callee = MirCalleeEntryFact::analyze(program, target).ok_or("unknown-callee-entry")?;
+    let callee = MirCalleeEntryFact::analyze(program, target, MirCalleeEntryStage::PlannedCapture).ok_or("unknown-callee-entry")?;
     inputs_supplied(&callee, &outgoing)?;
     let snapshot = PreHomeAnalysisSnapshot::new(routine, MirRoutineGeneration::initial())
         .map_err(|_| "open-wrapper-cfg")?;
@@ -270,7 +270,7 @@ pub(super) fn terminal_site(routine: &MirRoutine) -> Option<MirSite> {
     )
 }
 
-pub(super) fn verify(program: &MirProgram, routine: &MirRoutine) -> Vec<MirDiagnostic> {
+pub(super) fn verify(program: &MirProgram, routine: &MirRoutine, stage: MirCalleeEntryStage) -> Vec<MirDiagnostic> {
     let Some(contract) = &routine.frame.parameter_handoff else {
         return vec![];
     };
@@ -282,7 +282,7 @@ pub(super) fn verify(program: &MirProgram, routine: &MirRoutine) -> Vec<MirDiagn
         if target != contract.target || outgoing.len() != usize::from(contract.argument_bytes) {
             return Err("stale terminal handoff contract");
         }
-        let callee = MirCalleeEntryFact::analyze(program, target).ok_or("unknown-callee-entry")?;
+        let callee = MirCalleeEntryFact::analyze(program, target, stage).ok_or("unknown-callee-entry")?;
         inputs_supplied(&callee, &outgoing)
     })();
     result

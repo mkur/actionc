@@ -1,8 +1,9 @@
+use crate::mir6502::abi::direct_param_capture as action_abi_direct_param_prologue;
 use super::helper_effects;
 use super::stats::MirPeepholeStats;
 use crate::mir6502::analysis::effects::{MirMemoryRange, classify_op, classify_terminator};
 use crate::mir6502::ir::{
-    MirAddr, MirArgHome, MirBlock, MirByteIndexedSource, MirCallTarget, MirCond,
+    MirAddr, MirBlock, MirByteIndexedSource, MirCallTarget, MirCond,
     MirDataRelocationTarget, MirDef, MirEffects, MirFixedZpSlot, MirMachineBlock,
     MirMachineBlockId, MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirReg,
     MirRoutine, MirRoutineAbi, MirRuntimeHelper, MirStorageBase, MirStorageClass, MirStorageInit,
@@ -783,71 +784,13 @@ fn action_abi_sargs_param_prologue(
     ]
 }
 
-fn action_abi_direct_param_prologue(routine: &crate::mir6502::ir::MirRoutine) -> Vec<MirOp> {
-    let mut bytes = Vec::new();
-    let mut offset = 0u16;
-    for param in &routine.frame.params {
-        let (id, needs_capture) = match param.base {
-            MirStorageBase::Param(id) => (id, routine.frame.parameter_has_memory(id)),
-            MirStorageBase::ParamAbiOnly(id) => (id, false),
-            _ => continue,
-        };
-        let start = offset;
-        let width = parameter_byte_width(param);
-        if needs_capture {
-            for byte in 0..width {
-                if !routine.frame.parameter_byte_has_memory(id, byte) { continue; }
-                let incoming = action_abi_byte_home(start + byte);
-                let same_slot = matches!((routine.frame.parameter_lane(id, byte), &incoming),
-                    (Some(crate::mir6502::ir::MirParamLane::ZeroPage(home)), MirArgHome::FixedZeroPage(source))
-                    if home == *source);
-                if !same_slot { bytes.push(store_param_byte_from_abi_home(id, byte, incoming)); }
-            }
-        }
-        offset = offset.saturating_add(width);
-    }
-    if bytes.len() == 2 && (routine.frame.parameter_homes.is_none()
-        || bytes.iter().all(|op| matches!(op, MirOp::Store { src: MirValue::Def(MirDef::Reg(_)), .. }))) {
-        bytes.swap(0, 1);
-    }
-    bytes
-}
-
 fn parameter_byte_width(param: &crate::mir6502::ir::MirStorageSlot) -> u16 {
     param.abi_byte_width().unwrap_or(0)
-}
-
-fn action_abi_byte_home(offset: u16) -> MirArgHome {
-    crate::mir6502::abi::action_arg_home(offset, MirWidth::Byte)
 }
 
 pub(super) fn width_bytes(width: MirWidth) -> u16 {
     match width {
         MirWidth::Byte => 1,
         MirWidth::Word => 2,
-    }
-}
-
-fn store_param_byte_from_abi_home(id: ParamId, param_offset: u16, home: MirArgHome) -> MirOp {
-    let src = match home {
-        MirArgHome::Reg(reg) => MirValue::Def(MirDef::Reg(reg)),
-        MirArgHome::StackFrame { base, offset } => {
-            MirValue::PointerCell(MirMem::Absolute(base.saturating_add(offset)))
-        }
-        MirArgHome::RegisterPair { .. }
-        | MirArgHome::BytePair { .. }
-        | MirArgHome::ZeroPage(_)
-        | MirArgHome::Absolute(_) => {
-            unreachable!("param byte home should be lowered to register or stack byte")
-        }
-        MirArgHome::FixedZeroPage(slot) => MirValue::PointerCell(MirMem::FixedZeroPage(slot)),
-    };
-    MirOp::Store {
-        dst: MirAddr::Direct(MirMem::Param {
-            id,
-            offset: param_offset,
-        }),
-        src,
-        width: MirWidth::Byte,
     }
 }
