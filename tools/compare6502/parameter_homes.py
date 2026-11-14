@@ -17,7 +17,7 @@ def main():
     parser.add_argument('--enabled', action='store_true')
     parser.add_argument('--handoff', action='store_true')
     parser.add_argument('--skip-tn', action='store_true')
-    parser.add_argument('--suite', choices=['leaf', 'handoff', 'capture'], default='leaf')
+    parser.add_argument('--suite', choices=['leaf', 'handoff', 'capture', 'cross-call'], default='leaf')
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -36,6 +36,8 @@ def main():
         sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/parameter_argument_handoff.act', 'fixtures/runtime/parameter_argument_handoff_direct.act']
     if args.suite == 'capture':
         sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/callee_entry_capture.act']
+    if args.suite == 'cross-call':
+        sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/cross_call_homes.act']
     receipt = dict(revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                    parameter_home_selection=args.enabled,
                    parameter_argument_handoff=args.handoff,

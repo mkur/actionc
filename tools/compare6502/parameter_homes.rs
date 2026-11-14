@@ -16,7 +16,14 @@ fn main() {
     fs::create_dir_all(destination).unwrap();
     let handoff_suite = std::env::args().any(|a| a == "--suite-handoff");
     let capture_suite = std::env::args().any(|a| a == "--suite-capture");
-    let cases: &[(&str, &str, bool)] = if capture_suite {
+    let cross_suite = std::env::args().any(|a| a == "--suite-cross-call");
+    let cases: &[(&str, &str, bool)] = if cross_suite {
+        &[
+            ("tn", "samples/tn/modern/TN.ACT", true),
+            ("cross-call", "fixtures/runtime/cross_call_homes.act", false),
+            ("cross-call-inline", "fixtures/runtime/cross_call_homes.act", true),
+        ]
+    } else if capture_suite {
         &[
             ("tn", "samples/tn/modern/TN.ACT", true),
             (
@@ -115,6 +122,7 @@ fn main() {
                                     | "CopyCounted"
                                     | "ForwardWords"
                                     | "Strcpy"
+                                    | "Ord" | "Items" | "FindRecord" | "CountRecords" | "KeepWord" | "Persistent"
                             )
                         })
                         .map(|r| r.name.clone())
@@ -137,6 +145,11 @@ fn main() {
                 let id = format!("{case}-{runtime:?}-{origin:04x}");
                 let bytes = actionc::codegen::format_load_file(&output);
                 fs::write(destination.join(format!("{id}.xex")), &bytes).unwrap();
+                if cross_suite {
+                    let decisions: Vec<_> = trace.events().iter().filter(|e| e.kind.ends_with("-result")).collect();
+                    fs::write(destination.join(format!("{id}.decisions.txt")), format!("{decisions:#?}")).unwrap();
+                    fs::write(destination.join(format!("{id}.manifest.json")), trace.manifest().to_string()).unwrap();
+                }
                 fs::write(
                     destination.join(format!("{id}.map.txt")),
                     format!("{:#?}", output.map),
@@ -161,6 +174,7 @@ fn main() {
                     "Strcat",
                     "Key",
                     "Next",
+                    "Ord", "Items", "AdvanceRecord", "FindRecord", "CountRecords", "KeepWord", "Conditional", "Persistent",
                     "Swapped",
                     "Repeated",
                     "Computed",
@@ -194,7 +208,8 @@ fn main() {
                             .filter(|s| {
                                 s.scope
                                     == actionc::codegen::CodegenSymbolScope::Routine(name.into())
-                                    && s.kind == actionc::codegen::CodegenSymbolKind::Parameter
+                                    && (s.kind == actionc::codegen::CodegenSymbolKind::Parameter
+                                        || (cross_suite && s.kind == actionc::codegen::CodegenSymbolKind::Local))
                             })
                             .collect();
                         let homes: u16 = symbols

@@ -1,6 +1,6 @@
 # MIR6502 ZP homes across ordinary calls: implementation plan
 
-Prepared 2026-11-15. Status: proposed; slices 0–6 have not started.
+Prepared 2026-11-15. Status: slice 0 complete; slices 1–6 pending.
 Starting repository revision: `5de3dda4`; compiler behavior: `a77210d8`.
 
 Implements the [ordinary-call and local-home design extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-zp-homes-across-ordinary-calls).
@@ -336,3 +336,10 @@ authoritative binding path, expanded call/CFG proofs and final preservation hold
 strict cost acceptance and exact rollback are qualified, actual savings or
 remaining exclusions are reported, and each completed slice has its own commit.
 Return-home coalescing remains a separately planned implementation.
+
+## Slice 0 completion
+
+The independent fixture, integration/VM targets and measurement suite are in
+place. [Baseline receipts](benchmarks/6502-cross-call-homes/README.md) confirm
+the documented TN sizes, inline Ord/Items homes, LF/CRLF behavior and independent
+execution oracles. Compiler behavior is unchanged.
