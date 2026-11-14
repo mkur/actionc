@@ -1,6 +1,6 @@
 # MIR6502 parameter home selection implementation plan
 
-Prepared 2026-11-14. Status: slices 0–3 complete; slices 4–6 pending.
+Prepared 2026-11-14. Status: slices 0–4 complete; slices 5–6 pending.
 
 Implements the [parameter home selection design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md).
 Work in the dependency order below and commit each slice after its checks pass.
@@ -332,3 +332,31 @@ The original 12 baseline images remain identical. Validation includes 1,361
 MIR6502 library tests (15 existing ignored), 14 focused integration tests
 (one existing ignored), and VM coverage of all 256 byte values, distinct lane
 values, X/Y word order, public results, stack balance, and real LF/CRLF inputs.
+
+## Slice 4 validation
+
+Scalar ZP selection reserves complete byte/word homes through the existing frame
+reservation machinery. Planning and final layout preserve parameter identity,
+and emitted placement explicitly records ZP addressing. Direct captures retain
+all incoming bytes, omit exact fixed-slot self-copies, and keep memory-sourced
+captures after the register inputs they could destroy.
+
+The scalar fixture shrinks from 308 to 262 bytes in both runtimes at both
+origins. StepWord is a deliberate equal-cost control: 32 code + 2 inline bytes
+becomes 34 code + 0 inline bytes. The original control program therefore keeps
+its exact fallback when that is its only proposal. The scalar batch can retain
+that binding alongside other strict savings; no individual routine grows in
+code plus ordinary homes. ReadWord preserves the old result-pair coalescer's
+size while using the shared binding.
+
+Checks include 1,364 MIR6502 library tests (15 existing ignored), the dedicated
+parameter-home, ABI and pointer-setup integration targets, and parameter-home
+plus word-result-placement VM targets. The VM matrix covers scalar overflow,
+loops, four incoming bytes, the A/$A3 capture hazard, both runtimes/origins, and
+real LF/CRLF files. Focused follow-up tests cover absolute locals and numeric
+source accesses in addition to globals, fragmented pairs, exhaustion, wrapping
+source storage, and physical writes that must not kill their own liveness proof.
+
+After the cleanup pause, all 10 focused parameter-home library tests passed,
+including the final source-exclusion refinement; its four integration tests
+had already passed before the pause.

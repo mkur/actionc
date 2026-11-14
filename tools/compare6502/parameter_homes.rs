@@ -15,6 +15,7 @@ fn main() {
     fs::create_dir_all(destination).unwrap();
     for (case, source, inline) in [
         ("tn", "samples/tn/modern/TN.ACT", true),
+        ("scalars", "fixtures/runtime/parameter_scalars.act", false),
         (
             "registers",
             "fixtures/runtime/parameter_registers.act",
@@ -57,6 +58,10 @@ fn main() {
                 let mut rows = Vec::new();
                 for name in [
                     "Fnamecmp",
+                    "AdvanceBoth",
+                    "ReadWord",
+                    "CountDown",
+                    "Edges",
                     "First",
                     "Second",
                     "Third",
@@ -78,8 +83,17 @@ fn main() {
                                     && s.kind == actionc::codegen::CodegenSymbolKind::Parameter
                             })
                             .collect();
-                        let homes: u16 = symbols.iter().map(|s| s.size).sum();
-                        rows.push(format!("{{\"name\":\"{name}\",\"code_bytes\":{},\"inline_home_bytes\":{homes}}}", r.end - r.start));
+                        let homes: u16 = symbols
+                            .iter()
+                            .filter(|s| s.address >= 256)
+                            .map(|s| s.size)
+                            .sum();
+                        let zp: u16 = symbols
+                            .iter()
+                            .filter(|s| s.address < 256)
+                            .map(|s| s.size)
+                            .sum();
+                        rows.push(format!("{{\"name\":\"{name}\",\"code_bytes\":{},\"inline_home_bytes\":{homes},\"zp_home_bytes\":{zp}}}", r.end - r.start));
                     }
                 }
                 let events = trace.events();

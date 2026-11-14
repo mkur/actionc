@@ -977,15 +977,26 @@ Rules:
   have no address. Conflicting legacy ABI-only metadata, malformed lanes/pairs,
   missing bindings, exposed-home relocation, source-storage overlap, and residual
   post-home memory uses of register/absent parameters are rejected. Legacy
-  parameter remappers do not operate on bound routines. Production selection is
-  not enabled by this representation foundation; see the
+  parameter remappers do not operate on bound routines. Opt-in executable
+  selection retains a selected pre-capture checkpoint and permits one batch
+  continuation through final emission. Register candidates use canonical entry
+  lanes and existing flag-aware consumer proofs. ZP candidates reserve complete
+  objects before temporary allocation; source globals, absolute locals, numeric
+  accesses, and wrapping source ranges take precedence. Expanded CFG liveness
+  treats only logical parameter writes as parameter definitions: an overlapping
+  scratch/result write cannot kill its own safety obligation. Failed proofs,
+  routine growth, or no strict packaged-image saving restore the whole fallback.
+  Historical materialized-MIR dumps precede this final executable selection;
+  the final pre-emission trace records accepted bindings. See the
   [parameter home design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md).
 - `MirZpSlot` is abstract/virtual until a zero-page allocation pass maps it to a
   concrete address.
 - Fixed ABI zero-page locations must use a separate fixed form so they cannot be
   confused with allocatable zero-page temps.
-- `Param(ParamId)` denotes a physical parameter home. It participates in
-  routine-local layout and may be referenced by MIR memory operations.
+- In legacy frames, `Param(ParamId)` denotes a physical parameter home. In
+  bound frames it retains logical identity; the binding decides whether it has
+  inline storage, a fixed ZP address, or no address. Typed memory references may
+  survive only for bindings that actually have memory.
 - `ParamAbiOnly(ParamId)` retains the formal's signature and direct-register ABI
   position after its private, write-only home has been proven unnecessary. It
   consumes no storage, has no storage symbol or address, and verifier-clean

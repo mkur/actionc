@@ -106,10 +106,6 @@ impl MirHomeLiveness {
     pub(in crate::mir6502) fn analyze(routine: &MirRoutine, cfg: &MirCfg) -> Self {
         let universe = collect_home_universe(routine);
         let transfers = collect_home_transfers(routine, &universe);
-        let facts = transfers
-            .iter()
-            .map(|(block, transfers)| (*block, block_uses_and_defs(transfers)))
-            .collect::<BTreeMap<_, _>>();
         let boundaries = routine
             .blocks
             .iter()
@@ -121,6 +117,32 @@ impl MirHomeLiveness {
             })
             .map(|block| (block.id, action_return_home_uses()))
             .collect::<BTreeMap<_, _>>();
+        Self::solve(routine, cfg, universe, transfers, boundaries)
+    }
+
+    /// A caller may supply transfers for a specific storage role. In particular,
+    /// a scratch write is not a new definition of a resident parameter value.
+    pub(in crate::mir6502) fn analyze_transfers(
+        routine: &MirRoutine,
+        cfg: &MirCfg,
+        transfers: BTreeMap<MirBlockId, MirHomeBlockTransfers>,
+    ) -> Self {
+        let mut universe = MirHomeLiveSet::default();
+        for block in transfers.values() {
+            for transfer in block.ops.iter().chain(std::iter::once(&block.terminator)) {
+                universe.extend(transfer.reads.iter().chain(&transfer.writes).copied());
+            }
+        }
+        Self::solve(routine, cfg, universe, transfers, BTreeMap::new())
+    }
+
+    fn solve(
+        routine: &MirRoutine, cfg: &MirCfg, universe: MirHomeLiveSet,
+        transfers: BTreeMap<MirBlockId, MirHomeBlockTransfers>,
+        boundaries: BTreeMap<MirBlockId, MirHomeLiveSet>,
+    ) -> Self {
+        let facts = transfers.iter().map(|(block, transfers)|
+            (*block, block_uses_and_defs(transfers))).collect::<BTreeMap<_, _>>();
         let result = solve_dataflow(
             cfg,
             &HomeLivenessProblem {

@@ -66,6 +66,9 @@ impl MirVerifier {
     fn verify_program(&mut self, program: &MirProgram) {
         for routine in &program.routines {
             self.diagnostics.extend(super::parameter_homes::verify_storage(program, routine));
+            if self.phase != MirPhase::PreMaterialization {
+                self.diagnostics.extend(super::parameter_homes::verify_lifetimes(routine));
+            }
         }
         let static_ids = program
             .statics

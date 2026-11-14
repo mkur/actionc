@@ -685,6 +685,7 @@ struct MirRoutineStorageLayout {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MirStoragePlacement {
+    ZeroPage { address: u16, size: u16 },
     Absolute {
         address: u16,
         size: u16,
@@ -814,7 +815,7 @@ impl MirStorageLayoutProof {
                         .chain(r.locals.values())
                         .chain(r.spills.values())
                 }))
-                .all(|p| matches!(p, MirStoragePlacement::Absolute { .. }))
+                .all(|p| matches!(p, MirStoragePlacement::Absolute { .. } | MirStoragePlacement::ZeroPage { .. }))
         };
         expected == *candidate && resolved(&expected)
     }
@@ -1032,8 +1033,8 @@ impl MirObjectLayout {
                     && !routine.frame.inline_parameter(id)
                 {
                     if let Some(crate::mir6502::ir::MirParamHome::ZeroPage(start)) = routine.frame.parameter_home(id) {
-                        routine_layout.params.insert(id, MirStoragePlacement::Absolute {
-                            address: u16::from(start.0), size: param.storage_size, output_relative: false,
+                        routine_layout.params.insert(id, MirStoragePlacement::ZeroPage {
+                            address: u16::from(start.0), size: param.storage_size,
                         });
                     }
                     continue;
@@ -1171,6 +1172,10 @@ impl MirObjectLayout {
         offset: u16,
     ) -> Option<ResolvedMem> {
         match placement? {
+            MirStoragePlacement::ZeroPage { address, size } => {
+                (offset < size).then(|| address.checked_add(offset)).flatten()
+                    .and_then(|address| u8::try_from(address).ok()).map(ResolvedMem::ZeroPage)
+            }
             MirStoragePlacement::Absolute {
                 address,
                 size,
@@ -1193,14 +1198,14 @@ impl MirObjectLayout {
 
     fn static_address(&self, id: crate::nir::SymbolId) -> Option<u16> {
         self.statics.get(&id).and_then(|placement| match placement {
-            MirStoragePlacement::Absolute { address, .. } => Some(*address),
+            MirStoragePlacement::Absolute { address, .. } | MirStoragePlacement::ZeroPage { address, .. } => Some(*address),
             MirStoragePlacement::Unresolved => None,
         })
     }
 
     fn global_address(&self, id: crate::nir::SymbolId) -> Option<u16> {
         self.globals.get(&id).and_then(|placement| match placement {
-            MirStoragePlacement::Absolute { address, .. } => Some(*address),
+            MirStoragePlacement::Absolute { address, .. } | MirStoragePlacement::ZeroPage { address, .. } => Some(*address),
             MirStoragePlacement::Unresolved => None,
         })
     }
@@ -1521,7 +1526,7 @@ fn place_routine_slot(
 
 fn placement_address(placement: MirStoragePlacement) -> Option<u16> {
     match placement {
-        MirStoragePlacement::Absolute { address, .. } => Some(address),
+        MirStoragePlacement::Absolute { address, .. } | MirStoragePlacement::ZeroPage { address, .. } => Some(address),
         MirStoragePlacement::Unresolved => None,
     }
 }
@@ -6592,7 +6597,7 @@ fn storage_symbol(
     placement: Option<MirStoragePlacement>,
 ) -> Option<CodegenStorageSymbol> {
     match placement? {
-        MirStoragePlacement::Absolute { address, size, .. } => Some(CodegenStorageSymbol {
+        MirStoragePlacement::Absolute { address, size, .. } | MirStoragePlacement::ZeroPage { address, size } => Some(CodegenStorageSymbol {
             name,
             scope,
             kind,
@@ -6612,7 +6617,7 @@ fn storage_symbol(
 fn source_storage_ranges(mir: &MirProgram, layout: &MirObjectLayout) -> Option<Vec<(u16, u16)>> {
     let mut ranges = Vec::new();
     let mut add = |placement: MirStoragePlacement, backing: u16| -> Option<()> {
-        let MirStoragePlacement::Absolute { address, size, .. } = placement else {
+        let (MirStoragePlacement::Absolute { address, size, .. } | MirStoragePlacement::ZeroPage { address, size }) = placement else {
             return None;
         };
         ranges.push((address.checked_sub(backing)?, size.checked_add(backing)?));

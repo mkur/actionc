@@ -2,6 +2,9 @@
 //! subsequent slices; this module owns the common binding invariants.
 use super::{diagnostics::MirDiagnostic, ir::*};
 use std::collections::BTreeSet;
+mod lifetimes;
+mod zero_page;
+pub(super) use lifetimes::verify as verify_lifetimes;
 
 pub(super) fn select_output(
     nir: &crate::nir::NirProgram,
@@ -35,7 +38,9 @@ fn propose(input: &MirProgram) -> Option<MirProgram> {
         if !eligible(input, routine) {
             continue;
         }
-        if let Some(bindings) = register_bindings(routine) {
+        if let Some(bindings) =
+            register_bindings(routine).or_else(|| zero_page::bindings(input, routine))
+        {
             let absent: BTreeSet<_> = bindings
                 .iter()
                 .filter_map(|b| (b.home == MirParamHome::Absent).then_some(b.param))
@@ -46,6 +51,23 @@ fn propose(input: &MirProgram) -> Option<MirProgram> {
                     MirOp::Store { dst: MirAddr::Direct(MirMem::Param { id, .. }), .. }
                     if absent.contains(id))
                 });
+            }
+            for binding in &bindings {
+                if let MirParamHome::ZeroPage(start) = binding.home {
+                    let width = routine
+                        .frame
+                        .params
+                        .iter()
+                        .find(|p| p.base == MirStorageBase::Param(binding.param))
+                        .unwrap()
+                        .storage_size;
+                    for lane in 0..width {
+                        let slot = MirFixedZpSlot(start.0 + lane as u8);
+                        if !routine.frame.fixed_zero_page.contains(&slot) {
+                            routine.frame.fixed_zero_page.push(slot);
+                        }
+                    }
+                }
             }
             routine.frame.parameter_homes = Some(bindings);
             changed = true;
@@ -87,6 +109,18 @@ fn eligible(program: &MirProgram, routine: &MirRoutine) -> bool {
                         op,
                         MirOp::LoadImm { .. }
                             | MirOp::Move { .. }
+                            | MirOp::Extend { .. }
+                            | MirOp::Truncate { .. }
+                            | MirOp::Compare { .. }
+                            | MirOp::UpdateMem { .. }
+                            | MirOp::Binary {
+                                op: MirBinaryOp::Add
+                                    | MirBinaryOp::Sub
+                                    | MirBinaryOp::And
+                                    | MirBinaryOp::Or
+                                    | MirBinaryOp::Xor,
+                                ..
+                            }
                             | MirOp::Load {
                                 src: MirAddr::Direct(_),
                                 ..
@@ -190,6 +224,7 @@ fn try_proposal(
     let accepted = trial.as_ref().is_ok_and(|p| p.improves(&baseline));
     child.event("parameter-home-result", || serde_json::json!({
         "accepted": accepted,
+        "diagnostics": trial.as_ref().err().map(|errors| format!("{errors:?}")),
         "before_bytes": crate::codegen::format_load_file(&baseline.output).len(),
         "after_bytes": trial.as_ref().ok().map(|p| crate::codegen::format_load_file(&p.output).len()),
         "reason": if accepted {"smaller-image"} else if trial.is_err() {"invalid-trial"} else {"no-final-saving-or-routine-growth"},
@@ -227,11 +262,63 @@ pub(super) fn exposed(program: &MirProgram, routine: &MirRoutine, id: crate::nir
         })
 }
 
+/// Explicit source storage wins over compiler reservations, including absolute
+/// locals and numeric direct accesses that do not have a global declaration.
+fn source_zero_page(program: &MirProgram, routine: &MirRoutine) -> BTreeSet<u8> {
+    use super::analysis::effects::{classify_op, classify_terminator};
+    let mut owned: BTreeSet<_> = (0..=255u16)
+        .filter(|byte| {
+            program.globals.iter().any(|g| {
+                matches!(g.backing,
+            MirGlobalBacking::Absolute(address) if byte.wrapping_sub(address) < g.storage_size)
+            }) || program
+                .routines
+                .iter()
+                .flat_map(|r| r.frame.params.iter().chain(&r.frame.locals))
+                .any(|slot| {
+                    matches!(slot.base, MirStorageBase::Absolute(address)
+                if byte.wrapping_sub(address) < slot.storage_size)
+                })
+        })
+        .map(|b| b as u8)
+        .collect();
+    for block in &routine.blocks {
+        for memory in block
+            .ops
+            .iter()
+            .map(|op| classify_op(op).memory)
+            .chain(std::iter::once(
+                classify_terminator(&block.terminator).memory,
+            ))
+        {
+            for range in memory.direct_reads.iter().chain(&memory.direct_writes) {
+                if let MirMem::Absolute(address) = range.base {
+                    for offset in 0..range.bytes {
+                        let byte = address.wrapping_add(offset);
+                        if byte < 256 {
+                            owned.insert(byte as u8);
+                        }
+                    }
+                }
+            }
+            for mem in memory.address_references {
+                if let MirMem::Absolute(address) = mem
+                    && address < 256
+                {
+                    owned.insert(address as u8);
+                }
+            }
+        }
+    }
+    owned
+}
+
 pub(super) fn verify_storage(program: &MirProgram, routine: &MirRoutine) -> Vec<MirDiagnostic> {
     let Some(bindings) = &routine.frame.parameter_homes else {
         return vec![];
     };
     let mut errors = Vec::new();
+    let owned = source_zero_page(program, routine);
     for b in bindings {
         if b.home == MirParamHome::Inline {
             continue;
@@ -254,13 +341,7 @@ pub(super) fn verify_storage(program: &MirProgram, routine: &MirRoutine) -> Vec<
                 .iter()
                 .find(|s| s.base == MirStorageBase::Param(b.param))
                 .map_or(0, |s| s.storage_size);
-            if program.globals.iter().any(|g| match g.backing {
-                MirGlobalBacking::Absolute(address) => {
-                    u32::from(address) < u32::from(start.0) + u32::from(width)
-                        && u32::from(start.0) < u32::from(address) + u32::from(g.storage_size)
-                }
-                _ => false,
-            }) {
+            if (0..width).any(|lane| owned.contains(&start.0.wrapping_add(lane as u8))) {
                 errors.push(MirDiagnostic::routine(
                     &routine.name,
                     "parameter binding overlaps source-owned storage",
@@ -407,6 +488,79 @@ mod tests {
         );
         assert!(super::super::format_program(&p).contains("x -> Inline"));
     }
+    #[test]
+    fn physical_clobber_cannot_kill_its_own_parameter_liveness_proof() {
+        let mut p = input();
+        bind(&mut p, MirParamHome::ZeroPage(MirFixedZpSlot(0xa0)));
+        assert!(verify_lifetimes(&p.routines[0]).is_empty());
+        p.routines[0].blocks[0].ops.insert(
+            0,
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xa0))),
+                src: MirValue::ConstU8(99),
+                width: MirWidth::Byte,
+            },
+        );
+        assert!(!verify_lifetimes(&p.routines[0]).is_empty());
+    }
+
+    #[test]
+    fn source_owned_zero_page_excludes_wrapping_absolute_storage() {
+        let mut p = input();
+        bind(&mut p, MirParamHome::ZeroPage(MirFixedZpSlot(0xa0)));
+        p.globals.push(MirGlobal {
+            id: crate::nir::SymbolId(99),
+            name: "wrapped".into(),
+            kind: "bytes".into(),
+            width: None,
+            storage_size: 258,
+            backing: MirGlobalBacking::Absolute(0xffff),
+            init: None,
+        });
+        assert!(!verify_storage(&p, &p.routines[0]).is_empty());
+    }
+
+    #[test]
+    fn absolute_locals_and_numeric_accesses_exclude_parameter_storage() {
+        let mut p = input();
+        bind(&mut p, MirParamHome::ZeroPage(MirFixedZpSlot(0xa0)));
+        let mut local = p.routines[0].frame.params[0].clone();
+        local.base = MirStorageBase::Absolute(0xa0);
+        p.routines[0].frame.locals.push(local);
+        assert!(!verify_storage(&p, &p.routines[0]).is_empty());
+        p.routines[0].frame.locals.clear();
+        p.routines[0].blocks[0].ops.insert(
+            0,
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(MirMem::Absolute(0xa0)),
+                width: MirWidth::Byte,
+            },
+        );
+        assert!(!verify_storage(&p, &p.routines[0]).is_empty());
+    }
+
+    #[test]
+    fn fragmented_pool_does_not_split_a_word_home() {
+        let mut p = input();
+        p.routines[0].frame.fixed_zero_page.extend(
+            (0xa0..=0xa3)
+                .chain((0xe0..=0xef).step_by(2))
+                .map(MirFixedZpSlot),
+        );
+        // The two result bytes may be reused only when source storage permits.
+        p.globals.push(MirGlobal {
+            id: crate::nir::SymbolId(99),
+            name: "reserved_results".into(),
+            kind: "word".into(),
+            width: Some(MirWidth::Word),
+            storage_size: 2,
+            backing: MirGlobalBacking::Absolute(0xa0),
+            init: None,
+        });
+        assert!(zero_page::bindings(&p, &p.routines[0]).is_none());
+    }
+
     #[test]
     fn malformed_bindings_are_rejected() {
         let mut p = input();

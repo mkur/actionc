@@ -1,0 +1,24 @@
+MODULE
+CARD input=$0680,observed=$0690
+CARD FUNC StepWord(CARD value)
+  value==+1
+RETURN(value)
+CARD FUNC AdvanceBoth(CARD left,right)
+  left==+1 right==+1
+RETURN(left+right)
+CARD FUNC ReadWord(CARD value)
+RETURN(value)
+CARD FUNC CountDown(CARD value)
+  WHILE value>5 DO value==-1 OD
+RETURN(value)
+BYTE FUNC Edges(BYTE a,b,c,d)
+  a==+d
+RETURN(a)
+PROC Main()
+  observed=StepWord(input)
+  observed=AdvanceBoth(input,3)
+  observed=ReadWord(input)
+  observed=CountDown(input)
+  observed=Edges(input,2,3,4)
+  DO OD
+RETURN

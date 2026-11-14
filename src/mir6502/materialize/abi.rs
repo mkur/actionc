@@ -796,12 +796,17 @@ fn action_abi_direct_param_prologue(routine: &crate::mir6502::ir::MirRoutine) ->
         let width = parameter_byte_width(param);
         if needs_capture {
             for byte in 0..width {
-                bytes.push(store_param_byte_from_abi_home(id, byte, action_abi_byte_home(start + byte)));
+                let incoming = action_abi_byte_home(start + byte);
+                let same_slot = matches!((routine.frame.parameter_home(id), &incoming),
+                    (Some(crate::mir6502::ir::MirParamHome::ZeroPage(home)), MirArgHome::FixedZeroPage(source))
+                    if u16::from(home.0) + byte == u16::from(source.0));
+                if !same_slot { bytes.push(store_param_byte_from_abi_home(id, byte, incoming)); }
             }
         }
         offset = offset.saturating_add(width);
     }
-    if bytes.len() == 2 {
+    if bytes.len() == 2 && (routine.frame.parameter_homes.is_none()
+        || bytes.iter().all(|op| matches!(op, MirOp::Store { src: MirValue::Def(MirDef::Reg(_)), .. }))) {
         bytes.swap(0, 1);
     }
     bytes
@@ -812,14 +817,7 @@ fn parameter_byte_width(param: &crate::mir6502::ir::MirStorageSlot) -> u16 {
 }
 
 fn action_abi_byte_home(offset: u16) -> MirArgHome {
-    match offset {
-        0 => MirArgHome::Reg(crate::mir6502::ir::MirReg::A),
-        1 => MirArgHome::Reg(crate::mir6502::ir::MirReg::X),
-        2 => MirArgHome::Reg(crate::mir6502::ir::MirReg::Y),
-        _ => MirArgHome::FixedZeroPage(MirFixedZpSlot(
-            u8::try_from(0x00A0u16.saturating_add(offset)).unwrap_or(u8::MAX),
-        )),
-    }
+    crate::mir6502::abi::action_arg_home(offset, MirWidth::Byte)
 }
 
 pub(super) fn width_bytes(width: MirWidth) -> u16 {

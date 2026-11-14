@@ -40,6 +40,7 @@ fn scalar_pointer_and_exposed_parameters_follow_the_action_abi() {
                 ))
                 .unwrap();
                 let config = Mir6502Config {
+                    enable_parameter_home_selection: true,
                     enable_small_leaf_inlining: false,
                     ..Mir6502Config::optimized()
                 };
@@ -167,6 +168,81 @@ fn register_bound_parameters_preserve_each_abi_lane() {
                     }
                     vm = machine::call(vm, &mut Observe, entry("WordXY"), &args);
                     assert_eq!(machine::bytes(&vm, 0xa0, 2), args[1..]);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn scalar_pairs_preserve_carries_loops_and_uncaptured_a3() {
+    let lf = include_str!("../../../fixtures/runtime/parameter_scalars.act").replace("\r\n", "\n");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for origin in [0x3000, 0x41c7] {
+            let mut reference = None;
+            for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+                let file = support::Source::new(&source);
+                let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+                let model = actionc::semantic::analyze_with_options(
+                    &loaded.program,
+                    actionc::semantic::SemanticOptions::modern(),
+                )
+                .unwrap();
+                let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
+                    &actionc::semantic::ir::lower_program(&loaded.program, &model),
+                ))
+                .unwrap();
+                let output = mir6502::generate_output_with_config_and_runtime(
+                    &nir,
+                    origin,
+                    &Mir6502Config {
+                        enable_parameter_home_selection: true,
+                        enable_small_leaf_inlining: false,
+                        ..Mir6502Config::optimized()
+                    },
+                    runtime,
+                )
+                .unwrap();
+                let image = actionc::codegen::format_load_file(&output);
+                if let Some(old) = &reference {
+                    assert_eq!(old, &image);
+                } else {
+                    reference = Some(image.clone());
+                }
+                let entry = |name| {
+                    output
+                        .routine_addresses
+                        .iter()
+                        .find(|r| r.name == name)
+                        .unwrap()
+                        .address
+                };
+                let (mut vm, profile) = support::vm_for(runtime);
+                vm.load_atari_object_for_execution(profile, &image).unwrap();
+                for value in [0u16, 1, 5, 6, 255, 256, 511, 512, 0x7fff, 0x8000, 0xffff] {
+                    for other in [0u16, 1, 255, 256, 0x7fff, 0xffff] {
+                        let mut args = value.to_le_bytes().to_vec();
+                        args.extend(other.to_le_bytes());
+                        vm = machine::call(vm, &mut Observe, entry("AdvanceBoth"), &args);
+                        assert_eq!(
+                            machine::bytes(&vm, 0xa0, 2),
+                            value.wrapping_add(other).wrapping_add(2).to_le_bytes()
+                        );
+                    }
+                    vm = machine::call(vm, &mut Observe, entry("ReadWord"), &value.to_le_bytes());
+                    assert_eq!(machine::bytes(&vm, 0xa0, 2), value.to_le_bytes());
+                    vm = machine::call(vm, &mut Observe, entry("CountDown"), &value.to_le_bytes());
+                    assert_eq!(machine::bytes(&vm, 0xa0, 2), value.min(5).to_le_bytes());
+                    vm = machine::call(
+                        vm,
+                        &mut Observe,
+                        entry("Edges"),
+                        &[value as u8, 73, 149, 199],
+                    );
+                    assert_eq!(
+                        machine::bytes(&vm, 0xa0, 1),
+                        vec![(value as u8).wrapping_add(199)]
+                    );
                 }
             }
         }
