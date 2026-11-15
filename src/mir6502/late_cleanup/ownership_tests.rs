@@ -1,5 +1,55 @@
 use super::*;
 
+fn storage_observation_fixture(read: u8) -> MirProgram {
+    let ast = crate::parser::parse(&crate::lexer::tokenize(
+        "PROC Resident(CARD p) RETURN PROC Worker() RETURN",
+    ).unwrap()).unwrap();
+    let model = crate::semantic::analyze(&ast).unwrap();
+    let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+    let mut p = crate::mir6502::lower_program(&nir).unwrap();
+    let r = &mut p.routines[0];
+    let MirStorageBase::Param(id) = r.frame.params[0].base else { panic!() };
+    r.frame.parameter_homes = Some(vec![MirParamBinding {
+        param: id, home: MirParamHome::ZeroPage(MirFixedZpSlot(0xe2)),
+    }]);
+    r.frame.fixed_zero_page.extend([MirFixedZpSlot(0xe2), MirFixedZpSlot(0xe3)]);
+    let mut p = crate::mir6502::materialize_program(p, &Mir6502Config::default()).unwrap();
+    let r = &mut p.routines[0];
+    match read {
+        0 => {},
+        1 => r.blocks[0].ops.push(load(MirMem::Param { id, offset: 1 })),
+        2 => r.blocks[0].ops.push(load(MirMem::FixedZeroPage(MirFixedZpSlot(0xe3)))),
+        3 => r.blocks[0].ops.push(MirOp::LoadIndirect {
+            consumer: consumer(0xe2), dst: MirDef::Reg(MirReg::A), offset: 0,
+        }),
+        _ => unreachable!(),
+    }
+    let r = &mut p.routines[1];
+    let mem = MirMem::ZeroPage(MirZpSlot(0));
+    r.frame.virtual_zero_page = vec![MirZpSlot(0)];
+    r.frame.zero_page_allocations = vec![MirZpAllocation {
+        slot: MirZpSlot(0), start: MirFixedZpSlot(0xe3), size: 1,
+    }];
+    r.blocks[0].ops = vec![imm(23), write(mem.clone()), imm(128), write(mem.clone()), load(mem), sink()];
+    p
+}
+
+#[test]
+fn storage_observation_baseline_has_two_independent_vetoes() {
+    for read in 0..4 {
+        let p = storage_observation_fixture(read);
+        let m = measure(&p, &[&p], 0x3000, crate::runtime::Runtime::ActionCart, &Trace::disabled()).unwrap();
+        let worker = &p.routines[1];
+        let op = &worker.blocks[0].ops[1];
+        let ownership = StorageOwnership::new(&p);
+        assert!(ownership.private_store(worker.id, op, None).is_some());
+        assert!(ownership.private_store(worker.id, op, Some(&m.memory)).is_none());
+        let reads = read_aliases(&p, &m.memory, true);
+        assert_eq!(reads.iter().any(|(a, n)| a.is_some_and(|a| 0xe3u16.wrapping_sub(a) < *n)), read != 0);
+        assert_eq!(apply(&p, Some(&m.memory), false, &Trace::disabled()).unwrap(), p);
+    }
+}
+
 fn write(mem: MirMem) -> MirOp {
     MirOp::Store {
         dst: MirAddr::Direct(mem),

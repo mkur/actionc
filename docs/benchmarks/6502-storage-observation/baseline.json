@@ -1,0 +1,17 @@
+{
+  "compiler_revision": "67e9343a",
+  "reused_receipt": "../6502-cross-call-homes/locals.json",
+  "reused_receipt_sha256": "4eab5c4c562a0486d6683dca8612883ad1bb615c04fbc87cc79421fc74f6ab3b",
+  "source_hashes_verified": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "fixtures/runtime/cross_call_homes.act": "af5731149306b7f6cc2545fc283a0578c5316851bf1553347ce381186d35d3c7",
+    "fixtures/runtime/cross_call_locals.act": "2b5943649a88a1ecf457ece81d654c66c1f78701f3ac99f2ddf729e99ace78af"
+  },
+  "tn_cart_bytes": 9847,
+  "tn_standalone_bytes": 9954,
+  "checks": [
+    "cargo test --lib storage_observation_baseline"
+  ],
+  "scope": "Reuse unchanged baseline; one grouped characterization of declaration and read vetoes; no TN recompile."
+}

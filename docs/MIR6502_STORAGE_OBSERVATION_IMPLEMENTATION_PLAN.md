@@ -1,6 +1,6 @@
 # MIR6502 storage observation: implementation plan
 
-Prepared 2026-11-15. Status: proposed; implementation has not started.
+Prepared 2026-11-15. Status: slice 0 complete; slices 1–5 pending.
 Design commit: `9abe9094`. Compiler baseline: `67e9343a`.
 
 Implements the [storage ownership and observation design](MIR6502_STORAGE_OBSERVATION_DESIGN.md).
@@ -298,3 +298,11 @@ deadness and final replay remain authoritative, independent controls pass and
 save final bytes, TN has a measured outcome, and local validation limits are
 reported honestly. Each completed slice has a commit. Broad qualification remains
 in CI under the user's fast-iteration direction.
+
+## Slice 0 completion
+
+The grouped ownership characterization passes for unused, typed-read,
+fixed-ZP-read and pointer-pair-read residents. Declaration and read vetoes are
+independently established. Existing source hashes match the recorded baseline;
+[baseline receipt](benchmarks/6502-storage-observation/baseline.json) reuses those
+measurements without recompiling TN. One filtered unit test passed.
