@@ -1,7 +1,8 @@
 # MIR6502 callee-fact repairs: implementation plan
 
-Prepared 2026-11-15. Status: slices 1–6 completed and validated; final
-qualification (slice 7) remains. The narrower
+Prepared 2026-11-15. Status: all seven slices completed and validated; see
+[final qualification](benchmarks/6502-callee-facts-repair/README.md#final-qualification-slices-47).
+The narrower
 [private-storage boundary plan](MIR6502_PRIVATE_STORAGE_BOUNDARY_IMPLEMENTATION_PLAN.md)
 was implemented separately. Broader ZP placement remains deferred.
 Historical baseline: `7ab6f840ba0475c5ddde9194c130ee83d96c83d1` and the
@@ -39,6 +40,16 @@ generation, including pointer/array signatures, a renamed routine with stable
 identity, and a generated routine without source metadata. Applying the map
 repair changes no other output fields, including executable bytes and
 relocations. The existing elided-parameter signature control also passed.
+
+Slice 7 validation: the TN census regenerated all 101 routines and 40 no-MIR-call
+candidates. Only Instr and Fnamecmp change entry requirements; their independent
+call-contract checks now pass. The final image remains 9,846 bytes with identical
+bytes, relocations and all routine footprints versus slice 3. Map differences
+are confined to callable signatures. The static access scan found no uncovered
+direct accesses or contradicted X/Y preservation claims. Seven focused existing
+multiple-call, lifetime and exact-rollback controls passed. The trace records
+one ordinary-call batch and distinguishes caller eligibility from call checks
+and selected homes. No full suite or TN application execution was run.
 
 Repair the facts consumed by existing optimizations, then qualify the newly
 eligible cases. Implement the slices below in order and commit each after its

@@ -38,6 +38,7 @@ fn summary_json(
 #[test]
 #[ignore = "explicit diagnostic generator; see tools/compare6502/tn/leaf_facts.py"]
 fn dump_tn_leaf_facts() {
+    let started = std::time::Instant::now();
     let destination = std::path::PathBuf::from(std::env::var_os("ACTIONC_LEAF_FACTS_OUTPUT").unwrap());
     let loaded = crate::includes::load_program_with_expanded_source("samples/tn/modern/TN.ACT").unwrap();
     let model = crate::semantic::analyze_with_options(&loaded.program, crate::semantic::SemanticOptions::modern()).unwrap();
@@ -46,13 +47,36 @@ fn dump_tn_leaf_facts() {
     let config = mir::Mir6502Config::optimized();
     let runtime = crate::runtime::Runtime::ActionCart;
     let origin = 0x3000;
-    let trace = mir::trace::Trace::disabled();
+    let session = mir::trace::Mir6502Trace::new(mir::trace::TraceOptions {
+        routines: ["FindItem", "PopUp", "Sort", "Handle", "Ord", "Items", "Next",
+            "Key", "Instr", "Fnamecmp"].into_iter().map(String::from).collect(),
+        max_bytes: 128 * 1024 * 1024,
+        ..Default::default()
+    });
+    let trace = session.context();
+    trace.event("compilation", || json!({"origin":origin,"runtime":format!("{runtime:?}"),
+        "config":format!("{config:?}"),"nir_identity":mir::trace::identity(&format!("{nir:?}")),
+        "nir_optimization":"caller-owned"}));
     // Follow generate_output_impl exactly, retaining its selected MIR as well.
     let (program, resume) = mir::prepare_program_for_emission(&nir, origin, &config, runtime, &trace).unwrap();
     let baseline = mir::finalize_output(&nir, program, origin, runtime, &trace).unwrap();
     let selected = mir::parameter_homes::select_output(&nir, baseline, resume, &config, origin, runtime, &trace);
     let p = &selected.program;
     let output = &selected.output;
+    trace.select_final_artifact(selected.trace_snapshot);
+    session.finish(&Ok(output.clone()));
+    let generation_seconds = started.elapsed().as_secs_f64();
+    // One process-resident sample, in KiB (ps on macOS/Linux), not peak RSS.
+    // Rust compilation and the following diagnostic replay are excluded.
+    let resident_kib = std::process::Command::new("ps")
+        .args(["-o", "rss=", "-p", &std::process::id().to_string()]).output().ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8(o.stdout).ok()?.trim().parse::<u64>().ok());
+    let manifest = session.manifest();
+    let decisions: Vec<_> = session.events().into_iter().filter(|e| matches!(e.kind,
+        "cross-call-ineligible" | "cross-call-candidate" | "cross-call-home-result"
+        | "parameter-home-result" | "parameter-argument-handoff-result"
+        | "final-artifact-selection")).collect();
     let image = crate::codegen::format_load_file(output);
     if let Some(path) = std::env::var_os("ACTIONC_LEAF_FACTS_EXPECT_IMAGE") {
         assert_eq!(image, std::fs::read(path).unwrap(), "qualified TN image changed");
@@ -62,7 +86,7 @@ fn dump_tn_leaf_facts() {
     // This is diagnostic work, outside optimization/candidate selection.
     let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
     let emitted = mir::emit::emit_program_with_reference_programs_traced(
-        p, origin, &mut emitter, true, &[p], &trace).unwrap();
+        p, origin, &mut emitter, true, &[p], &mir::trace::Trace::disabled()).unwrap();
     let physical = emitted.physical_memory.clone();
     let emission = emitter.finish_with_relocations().unwrap();
     let replay = mir::codegen_output(emission, origin, emitted, runtime, p);
@@ -83,7 +107,9 @@ fn dump_tn_leaf_facts() {
         ).collect();
         json!({"name":r.name,"code_bytes":r.end-r.start,
             "inline_home_bytes":homes.iter().filter(|s|s.address>=256).map(|s|u32::from(s.size)).sum::<u32>(),
-            "zp_home_bytes":homes.iter().filter(|s|s.address<256).map(|s|u32::from(s.size)).sum::<u32>()})
+            "zp_home_bytes":homes.iter().filter(|s|s.address<256).map(|s|u32::from(s.size)).sum::<u32>(),
+            "homes":homes.iter().map(|s|json!({"name":s.name,"address":s.address,"size":s.size,
+                "kind":format!("{:?}",s.kind)})).collect::<Vec<_>>()})
     }).collect();
     for r in &p.routines {
         let ops: Vec<_> = r.blocks.iter().flat_map(|b| &b.ops).collect();
@@ -150,6 +176,9 @@ fn dump_tn_leaf_facts() {
         "config":format!("{config:?}"),"packaged_bytes":image.len(),
         "layout_replay_identical":true,"routine_count":p.routines.len(),
         "inventory":inventory,"footprints":footprints,"leaf_candidates":leaves,
+        "qualification":{"generation_seconds":generation_seconds,"resident_kib":resident_kib,
+            "sample_scope":"single traced source-to-executable generation; not peak RSS",
+            "manifest":manifest,"decisions":decisions},
     })).unwrap()+"\n").unwrap();
     std::fs::write(destination.join("leaves.asm"),listing).unwrap();
     std::fs::write(destination.join("tn.xex"),image).unwrap();

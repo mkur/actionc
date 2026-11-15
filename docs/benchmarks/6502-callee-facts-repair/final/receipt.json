@@ -1,0 +1,37 @@
+{
+  "revision": "af087445dc6b1f3171ac57bb1fb62ec95be17323",
+  "inputs_sha256": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "tools/compare6502/tn/leaf_facts.py": "27cbe76392286920efe66a9df066ddede33158f91d293581122ccbbeeed4e735",
+    "tools/compare6502/tn/leaf_facts_probe.rs": "7be7ceee1963c10fe09ef0b29b90d497faf105d3a7d0edd327afb142b5ba7fef",
+    "src/mir6502/analysis/known_callees.rs": "4a8635fb51e509b3e513edafc6c68327082bff558820ea6b6d474bfc21b4c546",
+    "src/mir6502/analysis/effects.rs": "b07c59af5b749f46221d7e1029ad9d94c6f13b43803da66fb81516831b988f50",
+    "src/mir6502/analysis/machine_liveness.rs": "fb24bc31b1d8507cfc4b7f95bf3a2815c99cef0529da8a5f48bb7269c5b31d91",
+    "src/mir6502/analysis/known_callees/entry_inputs.rs": "560f1677e3ad7713c93781a6ede6b299de267a1412a20d1e5d457dea8610c281",
+    "src/mir6502/lower.rs": "75c28a0105cc81c9a8415b4c617a15243f1472d86424c8d3e74181efb9364c66",
+    "src/mir6502/ir.rs": "45649cec5dec5eecadc33e4f2a70f5de137b05373ec7cc1466f198658249a125",
+    "src/mir6502/mod.rs": "56809da374bd33feb8b71ad516ab55d20e28aed9a404de1ecca519c0870c9497",
+    "src/mir6502/emit.rs": "9939671bf6376abe029646ab690b7967ac6d41ec5afb5a7df929fb257e2affe1",
+    "src/mir6502/parameter_homes/cross_call.rs": "29d0ff7b1e1760713b7578fda9e244b0b1cf9f26fb7033a70fec7db555e6914b"
+  },
+  "compiler_diff_sha256": "46165b1cb9bc5dbc34b7dd2b56b537b784077933568fb6d95cedf9258f94385c",
+  "command": [
+    "cargo",
+    "test",
+    "--lib",
+    "mir6502::analysis::known_callees::tn_leaf_facts_audit::dump_tn_leaf_facts",
+    "--",
+    "--exact",
+    "--ignored",
+    "--nocapture"
+  ],
+  "outputs_sha256": {
+    "facts.json": "8d5323762a9315f3f0a4c42a631847d7c3da8b37bb6c383836420c67c0e7a896",
+    "leaves.asm": "e17e1606f65c3d6cde9365326bbf969e0636742e8c91caf8be5bea05569f3c2b",
+    "tn.xex": "2419293a359d4b20b4d8af576b5b7efc7d2b84a0e4f682e1ef137679d92167ae",
+    "map.txt": "7b4e3998bcd91ac5a5d05aa0847ce9593d41c29154ad8740ce4c8975feb58969",
+    "relocations.txt": "a9c13ba011fde4923a375a3c7ba0a7038a93058061aa872f98bb4782a4b27fa5"
+  },
+  "hook_removed": true
+}

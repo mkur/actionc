@@ -14,6 +14,18 @@ pub(super) fn propose(
         .enumerate()
         .filter_map(|(index, routine)| {
             if !eligible_with_calls(input, routine, true) {
+                if trace.enabled() && routine.blocks.iter().flat_map(|b| &b.ops)
+                    .any(|op| matches!(op, MirOp::Call { .. }))
+                {
+                    trace.event("cross-call-ineligible", || serde_json::json!({
+                        "routine": routine.name,
+                        "reason": "unsupported caller body or signature",
+                        "indirect_writes": routine.blocks.iter().flat_map(|b| &b.ops)
+                            .any(|op| super::super::analysis::effects::classify_op(op).memory.indirect_writes),
+                        "machine_blocks": routine.blocks.iter().flat_map(|b| &b.ops)
+                            .any(|op| matches!(op, MirOp::MachineBlock { .. })),
+                    }));
+                }
                 return None;
             }
             let calls: Vec<_> = routine

@@ -33,7 +33,11 @@ def main():
         raise SystemExit("A diagnostic hook is already installed; inspect it before proceeding.")
     paths = ["samples/tn/modern/TN.ACT", "samples/tn/modern/LIB.ACT",
              "tools/compare6502/tn/leaf_facts.py", "tools/compare6502/tn/leaf_facts_probe.rs",
-             "src/mir6502/analysis/known_callees.rs", "src/mir6502/analysis/effects.rs"]
+             "src/mir6502/analysis/known_callees.rs", "src/mir6502/analysis/effects.rs",
+             "src/mir6502/analysis/machine_liveness.rs",
+             "src/mir6502/analysis/known_callees/entry_inputs.rs",
+             "src/mir6502/lower.rs", "src/mir6502/ir.rs", "src/mir6502/mod.rs",
+             "src/mir6502/emit.rs", "src/mir6502/parameter_homes/cross_call.rs"]
     receipt = {
         "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         "inputs_sha256": {p: digest(ROOT / p) for p in paths},

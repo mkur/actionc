@@ -1,0 +1,408 @@
+{
+  "baseline_image_bytes": 9846,
+  "final_image_bytes": 9846,
+  "image_delta_bytes": 0,
+  "inventory_unchanged": true,
+  "routine_count": 101,
+  "no_mir_call_candidates": 40,
+  "routine_deltas": [],
+  "entry_changes": [
+    {
+      "name": "Instr",
+      "before": null,
+      "after": {
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": {
+          "a": true,
+          "flags": false,
+          "sp": false,
+          "x": true,
+          "y": true
+        }
+      }
+    },
+    {
+      "name": "Fnamecmp",
+      "before": {
+        "fixed": [
+          163
+        ],
+        "flags": "MirFlagSet { c: true, z: true, n: false, v: false }",
+        "registers": {
+          "a": true,
+          "flags": false,
+          "sp": false,
+          "x": true,
+          "y": true
+        }
+      },
+      "after": {
+        "fixed": [
+          163
+        ],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": {
+          "a": true,
+          "flags": false,
+          "sp": false,
+          "x": true,
+          "y": true
+        }
+      }
+    }
+  ],
+  "logical_summary_changes": [],
+  "independent_call_contract_changes": [
+    {
+      "name": "Instr",
+      "before": [
+        {
+          "block": 3,
+          "caller": "Handle",
+          "op": 19,
+          "residence_check": "unknown residence callee entry"
+        },
+        {
+          "block": 17,
+          "caller": "Handle",
+          "op": 10,
+          "residence_check": "unknown residence callee entry"
+        }
+      ],
+      "after": [
+        {
+          "block": 3,
+          "caller": "Handle",
+          "op": 19,
+          "residence_check": "accepted"
+        },
+        {
+          "block": 17,
+          "caller": "Handle",
+          "op": 10,
+          "residence_check": "accepted"
+        }
+      ]
+    },
+    {
+      "name": "Fnamecmp",
+      "before": [
+        {
+          "block": 6,
+          "caller": "Sort",
+          "op": 15,
+          "residence_check": "extra-entry-flags-or-stack"
+        }
+      ],
+      "after": [
+        {
+          "block": 6,
+          "caller": "Sort",
+          "op": 15,
+          "residence_check": "accepted"
+        }
+      ]
+    }
+  ],
+  "map_signature_changes": [
+    {
+      "name": "MovePage",
+      "before": "Some(CodegenRoutineSignature { name: \"MovePage\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"dst\", type_name: \"WORD\", width: 2 }, CodegenRoutineParam { name: \"src\", type_name: \"WORD\", width: 2 }, CodegenRoutineParam { name: \"len\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"MovePage\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"dst\", type_name: \"CARD\", width: 2 }, CodegenRoutineParam { name: \"src\", type_name: \"CARD\", width: 2 }, CodegenRoutineParam { name: \"len\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })"
+    },
+    {
+      "name": "Internal",
+      "before": "Some(CodegenRoutineSignature { name: \"Internal\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"ch\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"Internal\", kind: \"FUNC\", params: [CodegenRoutineParam { name: \"ch\", type_name: \"CHAR\", width: 1 }], return_type: Some(\"BYTE\"), return_width: Some(1) })"
+    },
+    {
+      "name": "Ascii",
+      "before": "Some(CodegenRoutineSignature { name: \"Ascii\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"ch\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"Ascii\", kind: \"FUNC\", params: [CodegenRoutineParam { name: \"ch\", type_name: \"CHAR\", width: 1 }], return_type: Some(\"BYTE\"), return_width: Some(1) })"
+    },
+    {
+      "name": "Getchar",
+      "before": "Some(CodegenRoutineSignature { name: \"Getchar\", kind: \"PROC\", params: [], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"Getchar\", kind: \"FUNC\", params: [], return_type: Some(\"CHAR\"), return_width: Some(1) })"
+    },
+    {
+      "name": "GetImage",
+      "before": "Some(CodegenRoutineSignature { name: \"GetImage\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"adr\", type_name: \"WORD\", width: 2 }, CodegenRoutineParam { name: \"dx\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"dy\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"GetImage\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"adr\", type_name: \"CARD\", width: 2 }, CodegenRoutineParam { name: \"dx\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"dy\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })"
+    },
+    {
+      "name": "PutImage",
+      "before": "Some(CodegenRoutineSignature { name: \"PutImage\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"adr\", type_name: \"WORD\", width: 2 }, CodegenRoutineParam { name: \"dx\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"dy\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"PutImage\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"adr\", type_name: \"CARD\", width: 2 }, CodegenRoutineParam { name: \"dx\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"dy\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })"
+    },
+    {
+      "name": "GetD",
+      "before": "Some(CodegenRoutineSignature { name: \"GetD\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"chn\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"GetD\", kind: \"FUNC\", params: [CodegenRoutineParam { name: \"chn\", type_name: \"BYTE\", width: 1 }], return_type: Some(\"CHAR\"), return_width: Some(1) })"
+    },
+    {
+      "name": "Open",
+      "before": "Some(CodegenRoutineSignature { name: \"Open\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"chn\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"s\", type_name: \"WORD\", width: 2 }, CodegenRoutineParam { name: \"aux1\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"aux2\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"Open\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"chn\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"s\", type_name: \"CARD\", width: 2 }, CodegenRoutineParam { name: \"aux1\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"aux2\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })"
+    },
+    {
+      "name": "Input",
+      "before": "Some(CodegenRoutineSignature { name: \"Input\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"chn\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"buf\", type_name: \"WORD\", width: 2 }, CodegenRoutineParam { name: \"len\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"Input\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"chn\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"buf\", type_name: \"CARD\", width: 2 }, CodegenRoutineParam { name: \"len\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })"
+    },
+    {
+      "name": "Bget",
+      "before": "Some(CodegenRoutineSignature { name: \"Bget\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"chn\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"buf\", type_name: \"WORD\", width: 2 }, CodegenRoutineParam { name: \"len\", type_name: \"WORD\", width: 2 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"Bget\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"chn\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"buf\", type_name: \"CARD\", width: 2 }, CodegenRoutineParam { name: \"len\", type_name: \"CARD\", width: 2 }], return_type: None, return_width: None })"
+    },
+    {
+      "name": "Bput",
+      "before": "Some(CodegenRoutineSignature { name: \"Bput\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"chn\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"buf\", type_name: \"WORD\", width: 2 }, CodegenRoutineParam { name: \"len\", type_name: \"WORD\", width: 2 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"Bput\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"chn\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"buf\", type_name: \"CARD\", width: 2 }, CodegenRoutineParam { name: \"len\", type_name: \"CARD\", width: 2 }], return_type: None, return_width: None })"
+    },
+    {
+      "name": "Xio",
+      "before": "Some(CodegenRoutineSignature { name: \"Xio\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"chn\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"cmd\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"aux1\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"aux2\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"s\", type_name: \"WORD\", width: 2 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"Xio\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"chn\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"cmd\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"aux1\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"aux2\", type_name: \"BYTE\", width: 1 }, CodegenRoutineParam { name: \"s\", type_name: \"CARD\", width: 2 }], return_type: None, return_width: None })"
+    },
+    {
+      "name": "Key",
+      "before": "Some(CodegenRoutineSignature { name: \"Key\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"menu\", type_name: \"WORD\", width: 2 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"Key\", kind: \"FUNC\", params: [CodegenRoutineParam { name: \"menu\", type_name: \"BYTE*\", width: 2 }], return_type: Some(\"BYTE\"), return_width: Some(1) })"
+    },
+    {
+      "name": "Next",
+      "before": "Some(CodegenRoutineSignature { name: \"Next\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"menu\", type_name: \"WORD\", width: 2 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"Next\", kind: \"FUNC\", params: [CodegenRoutineParam { name: \"menu\", type_name: \"BYTE*\", width: 2 }], return_type: Some(\"CARD\"), return_width: Some(2) })"
+    },
+    {
+      "name": "Instr",
+      "before": "Some(CodegenRoutineSignature { name: \"Instr\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"s\", type_name: \"WORD\", width: 2 }, CodegenRoutineParam { name: \"ch\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"Instr\", kind: \"FUNC\", params: [CodegenRoutineParam { name: \"s\", type_name: \"CHAR*\", width: 2 }, CodegenRoutineParam { name: \"ch\", type_name: \"CHAR\", width: 1 }], return_type: Some(\"BYTE\"), return_width: Some(1) })"
+    },
+    {
+      "name": "Store",
+      "before": "Some(CodegenRoutineSignature { name: \"Store\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"p\", type_name: \"WORD\", width: 2 }, CodegenRoutineParam { name: \"value\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"Store\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"p\", type_name: \"CARD\", width: 2 }, CodegenRoutineParam { name: \"value\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })"
+    },
+    {
+      "name": "Value",
+      "before": "Some(CodegenRoutineSignature { name: \"Value\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"p\", type_name: \"WORD\", width: 2 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"Value\", kind: \"FUNC\", params: [CodegenRoutineParam { name: \"p\", type_name: \"CARD\", width: 2 }], return_type: Some(\"BYTE\"), return_width: Some(1) })"
+    },
+    {
+      "name": "Fnamecmp",
+      "before": "Some(CodegenRoutineSignature { name: \"Fnamecmp\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"s\", type_name: \"WORD\", width: 2 }, CodegenRoutineParam { name: \"t\", type_name: \"WORD\", width: 2 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"Fnamecmp\", kind: \"FUNC\", params: [CodegenRoutineParam { name: \"s\", type_name: \"CHAR*\", width: 2 }, CodegenRoutineParam { name: \"t\", type_name: \"CHAR*\", width: 2 }], return_type: Some(\"BYTE\"), return_width: Some(1) })"
+    },
+    {
+      "name": "TaggedFiles",
+      "before": "Some(CodegenRoutineSignature { name: \"TaggedFiles\", kind: \"PROC\", params: [], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"TaggedFiles\", kind: \"FUNC\", params: [], return_type: Some(\"BYTE\"), return_width: Some(1) })"
+    },
+    {
+      "name": "MakeJmp",
+      "before": "Some(CodegenRoutineSignature { name: \"MakeJmp\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"command\", type_name: \"BYTE\", width: 1 }], return_type: None, return_width: None })",
+      "after": "Some(CodegenRoutineSignature { name: \"MakeJmp\", kind: \"PROC\", params: [CodegenRoutineParam { name: \"command\", type_name: \"COMMANDKIND\", width: 1 }], return_type: None, return_width: None })"
+    }
+  ],
+  "controls": [
+    {
+      "code_bytes": 51,
+      "homes": [
+        {
+          "address": 226,
+          "kind": "Parameter",
+          "name": "menu",
+          "size": 2
+        },
+        {
+          "address": 162,
+          "kind": "Parameter",
+          "name": "item",
+          "size": 2
+        },
+        {
+          "address": 228,
+          "kind": "Local",
+          "name": "c",
+          "size": 1
+        }
+      ],
+      "inline_home_bytes": 0,
+      "name": "Ord",
+      "zp_home_bytes": 5
+    },
+    {
+      "code_bytes": 37,
+      "homes": [
+        {
+          "address": 162,
+          "kind": "Parameter",
+          "name": "menu",
+          "size": 2
+        },
+        {
+          "address": 226,
+          "kind": "Local",
+          "name": "c",
+          "size": 1
+        }
+      ],
+      "inline_home_bytes": 0,
+      "name": "Items",
+      "zp_home_bytes": 3
+    },
+    {
+      "code_bytes": 30,
+      "homes": [],
+      "inline_home_bytes": 0,
+      "name": "Next",
+      "zp_home_bytes": 0
+    },
+    {
+      "code_bytes": 53,
+      "homes": [
+        {
+          "address": 162,
+          "kind": "Parameter",
+          "name": "menu",
+          "size": 2
+        },
+        {
+          "address": 226,
+          "kind": "Parameter",
+          "name": "ch",
+          "size": 1
+        }
+      ],
+      "inline_home_bytes": 0,
+      "name": "FindItem",
+      "zp_home_bytes": 3
+    },
+    {
+      "code_bytes": 261,
+      "homes": [
+        {
+          "address": 13006,
+          "kind": "Parameter",
+          "name": "mp",
+          "size": 2
+        },
+        {
+          "address": 13008,
+          "kind": "Parameter",
+          "name": "c",
+          "size": 1
+        },
+        {
+          "address": 13009,
+          "kind": "Parameter",
+          "name": "spc",
+          "size": 1
+        },
+        {
+          "address": 13010,
+          "kind": "Local",
+          "name": "ch",
+          "size": 1
+        },
+        {
+          "address": 13011,
+          "kind": "Local",
+          "name": "d",
+          "size": 1
+        },
+        {
+          "address": 13012,
+          "kind": "Local",
+          "name": "limit",
+          "size": 1
+        },
+        {
+          "address": 13013,
+          "kind": "Local",
+          "name": "menu",
+          "size": 2
+        },
+        {
+          "address": 13015,
+          "kind": "Local",
+          "name": "PopUp::block0::block1::item",
+          "size": 2
+        }
+      ],
+      "inline_home_bytes": 11,
+      "name": "PopUp",
+      "zp_home_bytes": 0
+    },
+    {
+      "code_bytes": 250,
+      "homes": [
+        {
+          "address": 13034,
+          "kind": "Local",
+          "name": "h",
+          "size": 2
+        },
+        {
+          "address": 13036,
+          "kind": "Local",
+          "name": "spill96",
+          "size": 1
+        }
+      ],
+      "inline_home_bytes": 3,
+      "name": "Sort",
+      "zp_home_bytes": 0
+    },
+    {
+      "code_bytes": 791,
+      "homes": [
+        {
+          "address": 13139,
+          "kind": "Local",
+          "name": "ch",
+          "size": 1
+        },
+        {
+          "address": 13140,
+          "kind": "Local",
+          "name": "command",
+          "size": 1
+        },
+        {
+          "address": 13141,
+          "kind": "Local",
+          "name": "d",
+          "size": 1
+        },
+        {
+          "address": 13142,
+          "kind": "Local",
+          "name": "p",
+          "size": 2
+        }
+      ],
+      "inline_home_bytes": 5,
+      "name": "Handle",
+      "zp_home_bytes": 0
+    }
+  ],
+  "artifact_sha256": {
+    "tn.xex": {
+      "directional-review-final": "2419293a359d4b20b4d8af576b5b7efc7d2b84a0e4f682e1ef137679d92167ae",
+      "final": "2419293a359d4b20b4d8af576b5b7efc7d2b84a0e4f682e1ef137679d92167ae"
+    },
+    "map.txt": {
+      "directional-review-final": "5deb15253709daef46308cb1f78bd97f055b570a50c993af3a6b808ef6991b8e",
+      "final": "7b4e3998bcd91ac5a5d05aa0847ce9593d41c29154ad8740ce4c8975feb58969"
+    },
+    "relocations.txt": {
+      "directional-review-final": "a9c13ba011fde4923a375a3c7ba0a7038a93058061aa872f98bb4782a4b27fa5",
+      "final": "a9c13ba011fde4923a375a3c7ba0a7038a93058061aa872f98bb4782a4b27fa5"
+    }
+  },
+  "map_changes_confined_to_signatures": true
+}
