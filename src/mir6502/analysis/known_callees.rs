@@ -1618,7 +1618,8 @@ fn record_machine_register_store(
     mem: MirMem,
 ) {
     let source_established_zn = *zn_register == Some(source)
-        || (source == MirReg::A && zn.as_ref() == accumulator.as_ref());
+        || (source == MirReg::A
+            && zn.as_ref().is_some_and(|value| Some(value) == accumulator.as_ref()));
     record_machine_write(writes, accumulator, zn, mem.clone());
     if source == MirReg::A {
         *accumulator = Some(MirMachineValue::DirectMem(mem.clone()));
@@ -1881,6 +1882,42 @@ mod tests {
             routines,
             machine_blocks,
             runtime_helpers: Vec::new(),
+        }
+    }
+
+    fn callee_facts_machine(items: Vec<MirMachineItem>) -> MirProgram {
+        let id = MirMachineBlockId(0);
+        program(vec![routine(0, vec![MirOp::MachineBlock {
+            id, effects: MirEffects::default(),
+        }], MirTerminator::Unreachable)], vec![MirMachineBlock { id, source_span: None, items }])
+    }
+
+    #[test]
+    fn callee_facts_flags_stores_require_known_flag_provenance() {
+        // Initial STA and STA after a call do not define N/Z. Loads and native
+        // ALU results still establish flags even with unknown byte provenance.
+        for (prefix, related) in [
+            (vec![], false),
+            (vec![0x20, 0x34, 0x12], false),
+            (vec![0xa9, 0, 0xa2, 0x80], false),
+            (vec![0xa9, 0], true),
+            (vec![0x29, 0x7f], true),
+            (vec![0xb1, 0xac], true),
+        ] {
+            let p = callee_facts_machine(prefix.iter().copied().chain([0x85, 0xa0, 0x60])
+                .map(MirMachineItem::Byte).collect());
+            for summaries in [MirKnownCalleeSummaries::analyze(&p), MirKnownCalleeSummaries::analyze_for_rewriting(&p)] {
+                let s = summaries.get(RoutineId(0)).unwrap();
+                let home = MirMachineValue::DirectMem(MirMem::FixedZeroPage(MirFixedZpSlot(0xa0)));
+                assert_eq!(s.accumulator(), Some(&home), "{prefix:x?}");
+                assert_eq!(s.zn() == Some(&home), related, "{prefix:x?}");
+                if prefix.is_empty() { assert!(s.preserves.x && s.preserves.y); }
+            }
+        }
+        for (load, store) in [(0xa2, 0x86), (0xa0, 0x84)] {
+            let p = callee_facts_machine([load, 7, store, 0xa0, 0x60].into_iter().map(MirMachineItem::Byte).collect());
+            assert_eq!(MirKnownCalleeSummaries::analyze_for_rewriting(&p).get(RoutineId(0)).unwrap().zn(),
+                Some(&MirMachineValue::DirectMem(MirMem::FixedZeroPage(MirFixedZpSlot(0xa0)))));
         }
     }
 

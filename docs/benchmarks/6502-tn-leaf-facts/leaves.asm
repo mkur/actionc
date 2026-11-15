@@ -1,0 +1,630 @@
+; MovePage (r0, 19 bytes)
+335B  85 A0     STA $A0
+335D  86 A1     STX $A1
+335F  84 A2     STY $A2
+3361  A4 A4     LDY $A4
+3363  88        DEY
+3364  B1 A2     LDA ($A2),Y
+3366  91 A0     STA ($A0),Y
+3368  88        DEY
+3369  C0 FF     CPY #$FF
+336B  D0 F7     BNE $3364
+336D  60        RTS
+
+; ArenaStop (r1, 6 bytes)
+336E  8D 04 30  STA $3004
+3371  4C 71 33  JMP $3371
+
+; CalcAdr (r7, 28 bytes)
+350A  A6 FE     LDX $FE
+350C  A5 58     LDA $58
+350E  18        CLC
+350F  7D 09 30  ADC $3009,X
+3512  85 E6     STA $E6
+3514  A5 59     LDA $59
+3516  7D 21 30  ADC $3021,X
+3519  85 E7     STA $E7
+351B  A5 E6     LDA $E6
+351D  65 FF     ADC $FF
+351F  85 E6     STA $E6
+3521  90 02     BCC $3525
+3523  E6 E7     INC $E7
+3525  60        RTS
+
+; Position (r8, 5 bytes)
+3526  85 FF     STA $FF
+3528  86 FE     STX $FE
+352A  60        RTS
+
+; Relpos (r9, 11 bytes)
+352B  18        CLC
+352C  65 5A     ADC $5A
+352E  85 FF     STA $FF
+3530  8A        TXA
+3531  65 5B     ADC $5B
+3533  85 FE     STA $FE
+3535  60        RTS
+
+; Internal (r10, 17 bytes)
+3536  A8        TAY
+3537  2A        ROL A
+3538  2A        ROL A
+3539  2A        ROL A
+353A  2A        ROL A
+353B  29 03     AND #$03
+353D  AA        TAX
+353E  98        TYA
+353F  29 9F     AND #$9F
+3541  1D 39 30  ORA $3039,X
+3544  85 A0     STA $A0
+3546  60        RTS
+
+; Ascii (r11, 17 bytes)
+3547  A8        TAY
+3548  2A        ROL A
+3549  2A        ROL A
+354A  2A        ROL A
+354B  2A        ROL A
+354C  29 03     AND #$03
+354E  AA        TAX
+354F  98        TYA
+3550  29 9F     AND #$9F
+3552  1D 3D 30  ORA $303D,X
+3555  85 A0     STA $A0
+3557  60        RTS
+
+; Getchar (r12, 23 bytes)
+3558  A9 FF     LDA #$FF
+355A  8D FC 02  STA $02FC
+355D  A9 35     LDA #$35
+355F  48        PHA
+3560  A9 6B     LDA #$6B
+3562  48        PHA
+3563  AD 25 E4  LDA $E425
+3566  48        PHA
+3567  AD 24 E4  LDA $E424
+356A  48        PHA
+356B  60        RTS
+356C  85 A0     STA $A0
+356E  60        RTS
+
+; Block (r16, 71 bytes)
+35BC  48        PHA
+35BD  86 A0     STX $A0
+35BF  20 0A 35  JSR $350A
+35C2  98        TYA
+35C3  AA        TAX
+35C4  68        PLA
+35C5  C9 80     CMP #$80
+35C7  F0 20     BEQ $35E9
+35C9  C9 40     CMP #$40
+35CB  F0 04     BEQ $35D1
+35CD  A9 00     LDA #$00
+35CF  85 70     STA $70
+35D1  A4 A0     LDY $A0
+35D3  A5 70     LDA $70
+35D5  91 E6     STA ($E6),Y
+35D7  88        DEY
+35D8  10 FB     BPL $35D5
+35DA  18        CLC
+35DB  A5 E6     LDA $E6
+35DD  69 28     ADC #$28
+35DF  85 E6     STA $E6
+35E1  90 02     BCC $35E5
+35E3  E6 E7     INC $E7
+35E5  CA        DEX
+35E6  10 E9     BPL $35D1
+35E8  60        RTS
+35E9  A4 A0     LDY $A0
+35EB  B1 E6     LDA ($E6),Y
+35ED  49 80     EOR #$80
+35EF  91 E6     STA ($E6),Y
+35F1  88        DEY
+35F2  10 F7     BPL $35EB
+35F4  18        CLC
+35F5  A5 E6     LDA $E6
+35F7  69 28     ADC #$28
+35F9  85 E6     STA $E6
+35FB  90 02     BCC $35FF
+35FD  E6 E7     INC $E7
+35FF  CA        DEX
+3600  10 E7     BPL $35E9
+3602  60        RTS
+
+; _ImageAdvance (r17, 23 bytes)
+3603  18        CLC
+3604  A5 E6     LDA $E6
+3606  69 28     ADC #$28
+3608  85 E6     STA $E6
+360A  90 03     BCC $360F
+360C  E6 E7     INC $E7
+360E  18        CLC
+360F  A5 A0     LDA $A0
+3611  65 A4     ADC $A4
+3613  85 A0     STA $A0
+3615  90 02     BCC $3619
+3617  E6 A1     INC $A1
+3619  60        RTS
+
+; GetImage (r18, 30 bytes)
+361A  85 A0     STA $A0
+361C  86 A1     STX $A1
+361E  84 A2     STY $A2
+3620  C8        INY
+3621  84 A4     STY $A4
+3623  20 0A 35  JSR $350A
+3626  A6 A3     LDX $A3
+3628  A4 A2     LDY $A2
+362A  B1 E6     LDA ($E6),Y
+362C  91 A0     STA ($A0),Y
+362E  88        DEY
+362F  10 F9     BPL $362A
+3631  20 03 36  JSR $3603
+3634  CA        DEX
+3635  10 F1     BPL $3628
+3637  60        RTS
+
+; PutImage (r19, 30 bytes)
+3638  85 A0     STA $A0
+363A  86 A1     STX $A1
+363C  84 A2     STY $A2
+363E  C8        INY
+363F  84 A4     STY $A4
+3641  20 0A 35  JSR $350A
+3644  A6 A3     LDX $A3
+3646  A4 A2     LDY $A2
+3648  B1 A0     LDA ($A0),Y
+364A  91 E6     STA ($E6),Y
+364C  88        DEY
+364D  10 F9     BPL $3648
+364F  20 03 36  JSR $3603
+3652  CA        DEX
+3653  10 F1     BPL $3646
+3655  60        RTS
+
+; Error (r20, 0 bytes)
+
+
+; _Cio (r21, 12 bytes)
+3656  20 56 E4  JSR $E456
+3659  8C 41 30  STY $3041
+365C  10 03     BPL $3661
+365E  6C 42 30  JMP ($3042)
+3661  60        RTS
+
+; _LodChn (r22, 6 bytes)
+3662  0A        ASL A
+3663  0A        ASL A
+3664  0A        ASL A
+3665  0A        ASL A
+3666  AA        TAX
+3667  60        RTS
+
+; _StrNam (r23, 45 bytes)
+3668  85 86     STA $86
+366A  84 87     STY $87
+366C  A0 00     LDY #$00
+366E  B1 86     LDA ($86),Y
+3670  85 88     STA $88
+3672  C8        INY
+3673  B1 86     LDA ($86),Y
+3675  99 32 56  STA $5632,Y
+3678  C4 88     CPY $88
+367A  D0 F6     BNE $3672
+367C  C8        INY
+367D  A9 9B     LDA #$9B
+367F  99 32 56  STA $5632,Y
+3682  A9 33     LDA #$33
+3684  85 86     STA $86
+3686  A9 56     LDA #$56
+3688  85 87     STA $87
+368A  A5 86     LDA $86
+368C  9D 44 03  STA $0344,X
+368F  A5 87     LDA $87
+3691  9D 45 03  STA $0345,X
+3694  60        RTS
+
+; GetD (r24, 22 bytes)
+3695  20 62 36  JSR $3662
+3698  A9 00     LDA #$00
+369A  9D 48 03  STA $0348,X
+369D  9D 49 03  STA $0349,X
+36A0  A9 07     LDA #$07
+36A2  9D 42 03  STA $0342,X
+36A5  20 56 36  JSR $3656
+36A8  85 A0     STA $A0
+36AA  60        RTS
+
+; PutD (r25, 23 bytes)
+36AB  86 A0     STX $A0
+36AD  20 62 36  JSR $3662
+36B0  A9 00     LDA #$00
+36B2  9D 48 03  STA $0348,X
+36B5  9D 49 03  STA $0349,X
+36B8  A9 0B     LDA #$0B
+36BA  9D 42 03  STA $0342,X
+36BD  A5 A0     LDA $A0
+36BF  4C 56 36  JMP $3656
+
+; Open (r26, 28 bytes)
+36C2  86 A1     STX $A1
+36C4  20 62 36  JSR $3662
+36C7  A5 A1     LDA $A1
+36C9  20 68 36  JSR $3668
+36CC  A5 A3     LDA $A3
+36CE  9D 4A 03  STA $034A,X
+36D1  A5 A4     LDA $A4
+36D3  9D 4B 03  STA $034B,X
+36D6  A9 03     LDA #$03
+36D8  9D 42 03  STA $0342,X
+36DB  4C 56 36  JMP $3656
+
+; Close (r27, 11 bytes)
+36DE  20 62 36  JSR $3662
+36E1  A9 0C     LDA #$0C
+36E3  9D 42 03  STA $0342,X
+36E6  4C 56 36  JMP $3656
+
+; Input (r28, 32 bytes)
+36E9  86 A1     STX $A1
+36EB  20 62 36  JSR $3662
+36EE  A5 A1     LDA $A1
+36F0  9D 44 03  STA $0344,X
+36F3  98        TYA
+36F4  9D 45 03  STA $0345,X
+36F7  A5 A3     LDA $A3
+36F9  9D 48 03  STA $0348,X
+36FC  A9 00     LDA #$00
+36FE  9D 49 03  STA $0349,X
+3701  A9 05     LDA #$05
+3703  9D 42 03  STA $0342,X
+3706  4C 56 36  JMP $3656
+
+; _BlockIO (r29, 25 bytes)
+3709  A5 A1     LDA $A1
+370B  9D 44 03  STA $0344,X
+370E  98        TYA
+370F  9D 45 03  STA $0345,X
+3712  A5 A3     LDA $A3
+3714  9D 48 03  STA $0348,X
+3717  A5 A4     LDA $A4
+3719  9D 49 03  STA $0349,X
+371C  BD 42 03  LDA $0342,X
+371F  4C 56 36  JMP $3656
+
+; Bget (r30, 13 bytes)
+3722  86 A1     STX $A1
+3724  20 62 36  JSR $3662
+3727  A9 07     LDA #$07
+3729  9D 42 03  STA $0342,X
+372C  4C 09 37  JMP $3709
+
+; Bput (r31, 13 bytes)
+372F  86 A1     STX $A1
+3731  20 62 36  JSR $3662
+3734  A9 0B     LDA #$0B
+3736  9D 42 03  STA $0342,X
+3739  4C 09 37  JMP $3709
+
+; Xio (r32, 29 bytes)
+373C  86 A1     STX $A1
+373E  20 62 36  JSR $3662
+3741  A5 A1     LDA $A1
+3743  9D 42 03  STA $0342,X
+3746  98        TYA
+3747  9D 4A 03  STA $034A,X
+374A  A5 A3     LDA $A3
+374C  9D 4B 03  STA $034B,X
+374F  A5 A4     LDA $A4
+3751  A4 A5     LDY $A5
+3753  20 68 36  JSR $3668
+3756  4C 56 36  JMP $3656
+
+; Key (r39, 34 bytes)
+3AC0  85 AE     STA $AE
+3AC2  86 AF     STX $AF
+3AC4  A0 00     LDY #$00
+3AC6  18        CLC
+3AC7  71 AE     ADC ($AE),Y
+3AC9  85 AC     STA $AC
+3ACB  8A        TXA
+3ACC  69 00     ADC #$00
+3ACE  85 AD     STA $AD
+3AD0  A5 AC     LDA $AC
+3AD2  18        CLC
+3AD3  69 03     ADC #$03
+3AD5  85 AC     STA $AC
+3AD7  90 02     BCC $3ADB
+3AD9  E6 AD     INC $AD
+3ADB  A0 00     LDY #$00
+3ADD  B1 AC     LDA ($AC),Y
+3ADF  85 A0     STA $A0
+3AE1  60        RTS
+
+; Next (r40, 30 bytes)
+3AE2  85 AE     STA $AE
+3AE4  86 AF     STX $AF
+3AE6  A0 00     LDY #$00
+3AE8  18        CLC
+3AE9  71 AE     ADC ($AE),Y
+3AEB  85 AC     STA $AC
+3AED  8A        TXA
+3AEE  69 00     ADC #$00
+3AF0  85 AD     STA $AD
+3AF2  A5 AC     LDA $AC
+3AF4  18        CLC
+3AF5  69 05     ADC #$05
+3AF7  85 A0     STA $A0
+3AF9  A5 AD     LDA $AD
+3AFB  69 00     ADC #$00
+3AFD  85 A1     STA $A1
+3AFF  60        RTS
+
+; Instr (r50, 60 bytes)
+3E47  8D E1 32  STA $32E1
+3E4A  8E E2 32  STX $32E2
+3E4D  8C E3 32  STY $32E3
+3E50  A9 01     LDA #$01
+3E52  85 E0     STA $E0
+3E54  AD E1 32  LDA $32E1
+3E57  85 AC     STA $AC
+3E59  86 AD     STX $AD
+3E5B  A0 00     LDY #$00
+3E5D  B1 AC     LDA ($AC),Y
+3E5F  C5 E0     CMP $E0
+3E61  90 1B     BCC $3E7E
+3E63  86 AD     STX $AD
+3E65  A4 E0     LDY $E0
+3E67  B1 AC     LDA ($AC),Y
+3E69  CD E3 32  CMP $32E3
+3E6C  D0 05     BNE $3E73
+3E6E  A5 E0     LDA $E0
+3E70  85 A0     STA $A0
+3E72  60        RTS
+3E73  A5 E0     LDA $E0
+3E75  C9 FF     CMP #$FF
+3E77  B0 05     BCS $3E7E
+3E79  E6 E0     INC $E0
+3E7B  4C 54 3E  JMP $3E54
+3E7E  A9 00     LDA #$00
+3E80  85 A0     STA $A0
+3E82  60        RTS
+
+; GetAnyKey (r52, 8 bytes)
+3EB7  AD 0F D2  LDA $D20F
+3EBA  29 04     AND #$04
+3EBC  D0 F9     BNE $3EB7
+3EBE  60        RTS
+
+; Store (r53, 10 bytes)
+3EBF  85 A0     STA $A0
+3EC1  86 A1     STX $A1
+3EC3  98        TYA
+3EC4  A0 00     LDY #$00
+3EC6  91 A0     STA ($A0),Y
+3EC8  60        RTS
+
+; Value (r54, 11 bytes)
+3EC9  85 A0     STA $A0
+3ECB  86 A1     STX $A1
+3ECD  A0 00     LDY #$00
+3ECF  B1 A0     LDA ($A0),Y
+3ED1  85 A0     STA $A0
+3ED3  60        RTS
+
+; Fnamecmp (r56, 105 bytes)
+3EE0  85 A0     STA $A0
+3EE2  86 A1     STX $A1
+3EE4  84 A2     STY $A2
+3EE6  E6 A0     INC $A0
+3EE8  D0 02     BNE $3EEC
+3EEA  E6 A1     INC $A1
+3EEC  E6 A2     INC $A2
+3EEE  D0 02     BNE $3EF2
+3EF0  E6 A3     INC $A3
+3EF2  A0 00     LDY #$00
+3EF4  B1 A0     LDA ($A0),Y
+3EF6  D1 A2     CMP ($A2),Y
+3EF8  F0 1A     BEQ $3F14
+3EFA  A0 00     LDY #$00
+3EFC  B1 A0     LDA ($A0),Y
+3EFE  C9 3A     CMP #$3A
+3F00  D0 05     BNE $3F07
+3F02  A9 00     LDA #$00
+3F04  85 A0     STA $A0
+3F06  60        RTS
+3F07  A0 00     LDY #$00
+3F09  B1 A2     LDA ($A2),Y
+3F0B  C9 3A     CMP #$3A
+3F0D  D0 05     BNE $3F14
+3F0F  A9 01     LDA #$01
+3F11  85 A0     STA $A0
+3F13  60        RTS
+3F14  E6 A0     INC $A0
+3F16  D0 02     BNE $3F1A
+3F18  E6 A1     INC $A1
+3F1A  E6 A2     INC $A2
+3F1C  D0 02     BNE $3F20
+3F1E  E6 A3     INC $A3
+3F20  A0 00     LDY #$00
+3F22  B1 A0     LDA ($A0),Y
+3F24  D1 A2     CMP ($A2),Y
+3F26  D0 0F     BNE $3F37
+3F28  E6 A0     INC $A0
+3F2A  D0 02     BNE $3F2E
+3F2C  E6 A1     INC $A1
+3F2E  E6 A2     INC $A2
+3F30  D0 02     BNE $3F34
+3F32  E6 A3     INC $A3
+3F34  4C 20 3F  JMP $3F20
+3F37  A0 00     LDY #$00
+3F39  B1 A2     LDA ($A2),Y
+3F3B  D1 A0     CMP ($A0),Y
+3F3D  B0 05     BCS $3F44
+3F3F  A9 01     LDA #$01
+3F41  85 A0     STA $A0
+3F43  60        RTS
+3F44  A9 00     LDA #$00
+3F46  85 A0     STA $A0
+3F48  60        RTS
+
+; TaggedFiles (r64, 6 bytes)
+42DD  AD 70 30  LDA $3070
+42E0  85 A0     STA $A0
+42E2  60        RTS
+
+; drives (r78, 69 bytes)
+4805  01 52     ORA ($52,X)
+4807  05 48     ORA $48
+4809  52        .BYTE $52
+480A  9A        TXS
+480B  01 31     ORA ($31,X)
+480D  0B        .BYTE $0B
+480E  48        PHA
+480F  31 9A     AND ($9A),Y
+4811  01 32     ORA ($32,X)
+4813  11 48     ORA ($48),Y
+4815  32        .BYTE $32
+4816  9A        TXS
+4817  01 33     ORA ($33,X)
+4819  17        .BYTE $17
+481A  48        PHA
+481B  33        .BYTE $33
+481C  9A        TXS
+481D  01 34     ORA ($34,X)
+481F  1D 48 34  ORA $3448,X
+4822  9A        TXS
+4823  01 35     ORA ($35,X)
+4825  23        .BYTE $23
+4826  48        PHA
+4827  35 9A     AND $9A,X
+4829  01 36     ORA ($36,X)
+482B  29 48     AND #$48
+482D  36 9A     ROL $9A,X
+482F  01 37     ORA ($37,X)
+4831  2F        .BYTE $2F
+4832  48        PHA
+4833  37        .BYTE $37
+4834  9A        TXS
+4835  01 38     ORA ($38,X)
+4837  35 48     AND $48,X
+4839  38        SEC
+483A  9A        TXS
+483B  01 39     ORA ($39,X)
+483D  3B        .BYTE $3B
+483E  48        PHA
+483F  39 9A 03  AND $039A,Y
+4842  46 72     LSR $72
+4844  6D 41 48  ADC $4841
+4847  46 9A     LSR $9A
+4849  00        BRK
+
+; delcancel (r79, 23 bytes)
+484A  06 44     ASL $44
+484C  65 6C     ADC $6C
+484E  65 74     ADC $74
+4850  65 4A     ADC $4A
+4852  48        PHA
+4853  44        .BYTE $44
+4854  9A        TXS
+4855  06 43     ASL $43
+4857  61 6E     ADC ($6E,X)
+4859  63        .BYTE $63
+485A  65 6C     ADC $6C
+485C  55 48     EOR $48,X
+485E  43        .BYTE $43
+485F  9A        TXS
+4860  00        BRK
+
+; density (r80, 52 bytes)
+4861  06 53     ASL $53
+4863  69 6E     ADC #$6E
+4865  67        .BYTE $67
+4866  6C 65 61  JMP ($6165)
+4869  48        PHA
+486A  53        .BYTE $53
+486B  9A        TXS
+486C  06 4D     ASL $4D
+486E  65 64     ADC $64
+4870  69 75     ADC #$75
+4872  6D 6C 48  ADC $486C
+4875  4D 9A 06  EOR $069A
+4878  44        .BYTE $44
+4879  6F        .BYTE $6F
+487A  75 62     ADC $62,X
+487C  6C 65 77  JMP ($7765)
+487F  48        PHA
+4880  44        .BYTE $44
+4881  9A        TXS
+4882  04        .BYTE $04
+4883  33        .BYTE $33
+4884  36 30     ROL $30,X
+4886  4B        .BYTE $4B
+4887  82        .BYTE $82
+4888  48        PHA
+4889  33        .BYTE $33
+488A  9A        TXS
+488B  04        .BYTE $04
+488C  37        .BYTE $37
+488D  32        .BYTE $32
+488E  30 4B     BMI $48DB
+4890  8B        .BYTE $8B
+4891  48        PHA
+4892  37        .BYTE $37
+4893  9A        TXS
+4894  00        BRK
+
+; yesabort (r81, 19 bytes)
+4895  03        .BYTE $03
+4896  59 65 73  EOR $7365,Y
+4899  95 48     STA $48,X
+489B  59 9A 05  EOR $059A,Y
+489E  41 62     EOR ($62,X)
+48A0  6F        .BYTE $6F
+48A1  72        .BYTE $72
+48A2  74        .BYTE $74
+48A3  9D 48 41  STA $4148,X
+48A6  9A        TXS
+48A7  00        BRK
+
+; lockunlock (r82, 21 bytes)
+48A8  04        .BYTE $04
+48A9  4C 6F 63  JMP $636F
+48AC  6B        .BYTE $6B
+48AD  A8        TAY
+48AE  48        PHA
+48AF  4C 9A 06  JMP $069A
+48B2  55 6E     EOR $6E,X
+48B4  6C 6F 63  JMP ($636F)
+48B7  6B        .BYTE $6B
+48B8  B1 48     LDA ($48),Y
+48BA  55 9A     EOR $9A,X
+48BC  00        BRK
+
+; yescancel (r83, 20 bytes)
+48BD  03        .BYTE $03
+48BE  59 65 73  EOR $7365,Y
+48C1  BD 48 59  LDA $5948,X
+48C4  9A        TXS
+48C5  06 43     ASL $43
+48C7  61 6E     ADC ($6E,X)
+48C9  63        .BYTE $63
+48CA  65 6C     ADC $6C
+48CC  C5 48     CMP $48
+48CE  43        .BYTE $43
+48CF  9A        TXS
+48D0  00        BRK
+
+; MakeJmp (r96, 22 bytes)
+51D3  C9 0A     CMP #$0A
+51D5  B0 11     BCS $51E8
+51D7  0A        ASL A
+51D8  F0 0E     BEQ $51E8
+51DA  AA        TAX
+51DB  BD 7A 30  LDA $307A,X
+51DE  85 A0     STA $A0
+51E0  BD 7B 30  LDA $307B,X
+51E3  85 A1     STA $A1
+51E5  6C A0 00  JMP ($00A0)
+51E8  60        RTS
+

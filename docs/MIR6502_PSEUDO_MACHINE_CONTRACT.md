@@ -20,6 +20,16 @@ Action source -> AST -> semantic model -> SemIR -> NIR -> MIR6502 -> emission
 
 ## Definitions
 
+### Callee exit value and flag provenance
+
+A store may give its source register a memory home without defining processor
+flags. Rebase N/Z through that store only when a prior instruction proved that
+the stored register established N/Z, or both value provenances are known and
+equal. Two unknown provenances do not prove equality. Unknown calls and flag
+clobbers invalidate that relationship. This applies independently of memory
+footprints and register preservation; valid facts in those domains survive.
+
+
 **Materialization** means turning abstract NIR/MIR values, storage, conditions,
 or calls into a concrete target strategy: byte lanes, temporary homes, ABI homes,
 carry/flag dependencies, helper calls, and address forms.

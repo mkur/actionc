@@ -1,0 +1,24 @@
+BYTE kx=$FF, ky=$FE
+PROC Position=*(BYTE x,y)
+ASM
+  sta.z kx
+  stx.z ky
+  rts
+ENDASM
+BYTE FUNC Produced=*(BYTE value)
+ASM
+  and #$7F
+  sta $A0
+  rts
+ENDASM
+BYTE FUNC Check()
+  Position(0,128)
+  IF kx=0 THEN RETURN(1) FI
+RETURN(0)
+BYTE FUNC CheckProduced(BYTE value)
+  BYTE result
+  result=Produced(value)
+  IF result=0 THEN RETURN(1) FI
+RETURN(0)
+PROC Main()
+RETURN

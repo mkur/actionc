@@ -1,0 +1,57 @@
+{
+  "revision": "7ab6f840ba0475c5ddde9194c130ee83d96c83d1",
+  "production_source_diff_empty": true,
+  "checks": {
+    "diagnostic_test": {
+      "passed": 1,
+      "filtered_out": 3449,
+      "execution_seconds": 19.41,
+      "build_seconds": 195
+    },
+    "tn_packaged_bytes": 9791,
+    "qualified_image_identical": true,
+    "layout_replay_bytes_and_relocations_identical": true,
+    "exact_summaries_direct_access_scan": "passed; indexed accesses and flags require manual audit",
+    "position_vm": {
+      "cases": [
+        {
+          "config": "optimized",
+          "expected": 1,
+          "observed": 0,
+          "kx": 0,
+          "ky": 128,
+          "stack_balanced": true
+        },
+        {
+          "config": "default",
+          "expected": 1,
+          "observed": 0,
+          "kx": 0,
+          "ky": 128,
+          "stack_balanced": true
+        }
+      ]
+    },
+    "no_peepholes_control": "Rejected by pre-emission verification: virtual temp v1 and abstract bool branch condition in Check; not executed"
+  },
+  "api_rlib_sha256": "c0cc3b5bca7bd398d74d5daf8626d8f00e1e762f3c97b0a4a1ff43556ea49989",
+  "api_rlib_matches_prior_tn_qualification": true,
+  "vm_rlib_sha256": "2f8d6af219017d6c6838ab45c0a413af107453a6a732dbf93c67fd15ec648d42",
+  "generator_sha256": {
+    "tools/compare6502/tn/leaf_facts.py": "ef619dc0b3f7dc7943e87b8b4aa5a20431dc484d9ef2ad9889e7bfe48fc802a7",
+    "tools/compare6502/tn/leaf_facts_probe.rs": "23f049b9ad37c0eb2983497abe3a96b5cdc13fa49cef3ff8c53a705466c418b6",
+    "tools/compare6502/tn/audit_leaf_facts.py": "c0d722a8d8a621013eb08e79da16fdb503d4dbbf2acad41a959bd31642e410a0",
+    "tools/compare6502/tn/leaf_facts_control.rs": "082ce70dc697381c48e9ee237590bcce02ce6ac7bf963a96cf157be725e05469"
+  },
+  "artifact_sha256": {
+    "README.md": "a5da95af8511a76bf4487df08a53c370cb67561780ec3dda64b2ec8145539fd4",
+    "audit.json": "7c4d523332d343d4e2c992281031ac61e5e825c244361baac0e7257272db5e90",
+    "facts.compact.json": "6a684bb0c340cc74243f448b48f67b86d206b442ccd7b3a1a85016885695e69b",
+    "leaves.asm": "aecd65c32ffbdb67dbe60fe37bbfc19a1e811784bb6a74c45124d1969868c2d2",
+    "position-control-results.json": "bfebf1e0305481b94b28da501cdeb8273b11f3a1400be1945104b0226472415c",
+    "position-control.act": "5102f8c64e59f64979e91f97747fe4801510ddf88ed041893c472d5d33cf9be6",
+    "position-default.asm": "f7112e29ab1e08b77c53fca6b1b5089dccf685ee4096094b709ef082c0161da7",
+    "position-optimized.asm": "f7112e29ab1e08b77c53fca6b1b5089dccf685ee4096094b709ef082c0161da7",
+    "receipt.json": "bead524027ed1fd2870c15d0ed44eafa74a42ffd2a997657b24b6b729193ed78"
+  }
+}

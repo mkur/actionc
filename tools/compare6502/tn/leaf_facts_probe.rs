@@ -1,0 +1,148 @@
+// Diagnostic-only probe, temporarily included inside analysis::known_callees
+// by leaf_facts.py. It reads the real private analyses without widening their API.
+use super::*;
+use crate::mir6502 as mir;
+use serde_json::{Value, json};
+
+fn registers(r: MirRegisterSet) -> Value {
+    json!({"a": r.a, "x": r.x, "y": r.y, "flags": r.flags, "sp": r.sp})
+}
+
+fn memory_bytes(
+    owner: RoutineId, bytes: &[MirMem], physical: &mir::analysis::record_bases::MirPhysicalMemory,
+) -> Value {
+    json!(bytes.iter().map(|m| json!({
+        "identity": format!("{m:?}"), "address": physical.address(owner, m)
+    })).collect::<Vec<_>>())
+}
+
+fn summary_json(
+    owner: RoutineId, s: &MirKnownCalleeExitSummary,
+    physical: &mir::analysis::record_bases::MirPhysicalMemory,
+) -> Value {
+    json!({
+        "accumulator": s.accumulator.as_ref().map(|v| format!("{v:?}")),
+        "zn": s.zn.as_ref().map(|v| format!("{v:?}")),
+        "preserves": registers(s.preserves),
+        "reads": match &s.reads {
+            MirKnownMemoryReads::Exact(v) => json!({"kind":"exact", "bytes":memory_bytes(owner, v, physical)}),
+            MirKnownMemoryReads::Unknown => json!({"kind":"unknown"}),
+        },
+        "writes": match &s.writes {
+            MirKnownMemoryWrites::Exact(v) => json!({"kind":"exact", "bytes":memory_bytes(owner, v, physical)}),
+            MirKnownMemoryWrites::Unknown => json!({"kind":"unknown"}),
+        },
+    })
+}
+
+#[test]
+#[ignore = "explicit diagnostic generator; see tools/compare6502/tn/leaf_facts.py"]
+fn dump_tn_leaf_facts() {
+    let destination = std::path::PathBuf::from(std::env::var_os("ACTIONC_LEAF_FACTS_OUTPUT").unwrap());
+    let loaded = crate::includes::load_program_with_expanded_source("samples/tn/modern/TN.ACT").unwrap();
+    let model = crate::semantic::analyze_with_options(&loaded.program, crate::semantic::SemanticOptions::modern()).unwrap();
+    let nir = crate::nir::optimize_program(&crate::nir::lower_program(
+        &crate::semantic::ir::lower_program(&loaded.program, &model))).unwrap();
+    let config = mir::Mir6502Config::optimized();
+    let runtime = crate::runtime::Runtime::ActionCart;
+    let origin = 0x3000;
+    let trace = mir::trace::Trace::disabled();
+    // Follow generate_output_impl exactly, retaining its selected MIR as well.
+    let (program, resume) = mir::prepare_program_for_emission(&nir, origin, &config, runtime, &trace).unwrap();
+    let baseline = mir::finalize_output(&nir, program, origin, runtime, &trace).unwrap();
+    let selected = mir::parameter_homes::select_output(&nir, baseline, resume, &config, origin, runtime, &trace);
+    let p = &selected.program;
+    let output = &selected.output;
+    let image = crate::codegen::format_load_file(output);
+    if let Some(path) = std::env::var_os("ACTIONC_LEAF_FACTS_EXPECT_IMAGE") {
+        assert_eq!(image, std::fs::read(path).unwrap(), "qualified TN image changed");
+    }
+
+    // One layout/emission replay resolves the summaries' logical memory IDs.
+    // This is diagnostic work, outside optimization/candidate selection.
+    let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
+    let emitted = mir::emit::emit_program_with_reference_programs_traced(
+        p, origin, &mut emitter, true, &[p], &trace).unwrap();
+    let physical = emitted.physical_memory.clone();
+    let emission = emitter.finish_with_relocations().unwrap();
+    let replay = mir::codegen_output(emission, origin, emitted, runtime, p);
+    assert_eq!(output.bytes, replay.bytes);
+    assert_eq!(output.relocations, replay.relocations);
+    assert_eq!(image, crate::codegen::format_load_file(&replay));
+
+    let known = MirKnownCalleeSummaries::analyze_for_rewriting(p);
+    let raw = MirKnownCalleeSummaries::analyze(p);
+    let mut calls = mir::parameter_homes::ResidenceCalls::new(p, MirCalleeEntryStage::ActualEntry);
+    let mut inventory = Vec::new();
+    let mut leaves = Vec::new();
+    let mut listing = String::new();
+    for r in &p.routines {
+        let ops: Vec<_> = r.blocks.iter().flat_map(|b| &b.ops).collect();
+        let call_count = ops.iter().filter(|o| matches!(o, MirOp::Call {..} | MirOp::RuntimeHelper {..})).count();
+        let machine_count = ops.iter().filter(|o| matches!(o, MirOp::MachineBlock {..})).count();
+        let barrier_count = ops.iter().filter(|o| matches!(o, MirOp::Barrier {..})).count();
+        inventory.push(json!({"id":r.id.0,"name":r.name,"mir_calls":call_count,
+            "machine_blocks":machine_count,"barriers":barrier_count}));
+        if call_count != 0 { continue; }
+        let s = known.get(r.id).unwrap();
+        let range = output.map.routine_ranges.iter().find(|range| range.name == r.name).unwrap();
+        let asm = crate::codegen::format_listing_with_origin(
+            &output.bytes[usize::from(range.start-origin)..usize::from(range.end-origin)], range.start);
+        listing.push_str(&format!("; {} (r{}, {} bytes)\n{}\n\n", r.name, r.id.0, range.end-range.start, asm));
+        let entry = MirCalleeEntryFact::analyze(p, r.id, MirCalleeEntryStage::ActualEntry);
+        let mut callers = Vec::new();
+        for caller in &p.routines {
+            for b in &caller.blocks {
+                for (index, op) in b.ops.iter().enumerate() {
+                    if matches!(op, MirOp::Call {target:MirCallTarget::Routine(id),..} if *id == r.id) {
+                        callers.push(json!({"caller":caller.name,"block":b.id.0,"op":index,
+                            "residence_check":calls.writes(op).err().unwrap_or("accepted")}));
+                    }
+                }
+            }
+        }
+        let mut op_facts = Vec::new();
+        for b in &r.blocks {
+            for (index, op) in b.ops.iter().enumerate() {
+                let e = classify_op(op);
+                let mut writes = MirKnownMemoryWrites::exact();
+                summarize_op_writes(op, r, &known, &mut writes);
+                op_facts.push(json!({"block":b.id.0,"index":index,"kind":format!("{:?}",e.kind),
+                    "op":format!("{op:?}"),"memory":format!("{:?}",e.memory),
+                    "machine":format!("{:?}",e.machine),"homes":format!("{:?}",e.homes),
+                    "addresses":format!("{:?}",e.addresses),
+                    "makes_writes_unknown":matches!(writes,MirKnownMemoryWrites::Unknown),
+                    "indirect_reads":e.memory.indirect_reads,"indirect_writes":e.memory.indirect_writes,
+                    "opaque":e.memory.opaque,"may_write_any":e.memory.may_write_any,
+                    "has_unknown_effects":e.memory.has_unknown_effects,"unknown_home_writes":e.homes.unknown_writes,
+                }));
+            }
+        }
+        leaves.push(json!({"id":r.id.0,"name":r.name,"abi":format!("{:?}",r.abi),
+            "class":if machine_count != 0 {"machine-containing"} else if barrier_count != 0 {"barrier-containing"} else {"native-leaf"},
+            "start":range.start,"end":range.end,"code_bytes":range.end-range.start,
+            "scalar_signature":format!("{:?}",r.scalar_signature),
+            "direct_parameter_abi":format!("{:?}",r.frame.direct_parameter_abi),
+            "declared_effects":format!("{:?}",r.effects),
+            "frame":mir::trace::homes::frame(r),
+            "entry":entry.as_ref().map(|e|json!({"registers":registers(e.inputs.registers),
+                "flags":format!("{:?}",e.inputs.flags),"fixed":e.inputs.fixed.iter().collect::<Vec<_>>()})),
+            "rewrite_summary":summary_json(r.id,s,&physical),
+            "analysis_summary":summary_json(r.id,raw.get(r.id).unwrap(),&physical),
+            "native_write_scan":format!("{:?}",summarize_routine_writes(r,&known)),
+            "map_signature":format!("{:?}",output.map.routine_signatures.iter().find(|s|s.name==r.name)),
+            "callers":callers,"ops":op_facts,
+            "mir":mir::printer::format_program_filtered(p,|id|id==r.id),"assembly":asm,
+        }));
+    }
+    std::fs::create_dir_all(&destination).unwrap();
+    std::fs::write(destination.join("facts.json"),serde_json::to_string_pretty(&json!({
+        "schema":1,"source":"samples/tn/modern/TN.ACT","origin":origin,"runtime":"ActionCart",
+        "config":format!("{config:?}"),"packaged_bytes":image.len(),
+        "layout_replay_identical":true,"routine_count":p.routines.len(),
+        "inventory":inventory,"leaf_candidates":leaves,
+    })).unwrap()+"\n").unwrap();
+    std::fs::write(destination.join("leaves.asm"),listing).unwrap();
+    std::fs::write(destination.join("tn.xex"),image).unwrap();
+    println!("TN leaf facts generated in {}",destination.display());
+}

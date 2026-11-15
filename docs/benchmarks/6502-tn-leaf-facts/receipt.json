@@ -1,0 +1,29 @@
+{
+  "revision": "7ab6f840ba0475c5ddde9194c130ee83d96c83d1",
+  "inputs_sha256": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "tools/compare6502/tn/leaf_facts.py": "ef619dc0b3f7dc7943e87b8b4aa5a20431dc484d9ef2ad9889e7bfe48fc802a7",
+    "tools/compare6502/tn/leaf_facts_probe.rs": "23f049b9ad37c0eb2983497abe3a96b5cdc13fa49cef3ff8c53a705466c418b6",
+    "src/mir6502/analysis/known_callees.rs": "fa2ced55164f4816fa627fef31ed9f431bd11c8c5c0c1470401cbecaf46623df",
+    "src/mir6502/analysis/effects.rs": "b07c59af5b749f46221d7e1029ad9d94c6f13b43803da66fb81516831b988f50"
+  },
+  "compiler_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "expected_image_sha256": "996ab19cec273506bb25dd6b7b6411f09fa1090b2557705744fcbf1f91b97efc",
+  "command": [
+    "cargo",
+    "test",
+    "--lib",
+    "mir6502::analysis::known_callees::tn_leaf_facts_audit::dump_tn_leaf_facts",
+    "--",
+    "--exact",
+    "--ignored",
+    "--nocapture"
+  ],
+  "outputs_sha256": {
+    "facts.json": "8dfffe23a92f52274577b2ffbffe6d45a3045359f1d41aec46a9d0dcc6d8de7f",
+    "leaves.asm": "aecd65c32ffbdb67dbe60fe37bbfc19a1e811784bb6a74c45124d1969868c2d2",
+    "tn.xex": "996ab19cec273506bb25dd6b7b6411f09fa1090b2557705744fcbf1f91b97efc"
+  },
+  "hook_removed": true
+}
