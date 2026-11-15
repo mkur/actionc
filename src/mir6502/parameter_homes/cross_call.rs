@@ -9,6 +9,7 @@ pub(super) fn propose(
     trace: &super::super::trace::Trace,
 ) -> Option<MirProgram> {
     let addresses = ObjectAddressControl::new(input);
+    let observations = physical::observations_complete(input);
     let candidates: Vec<_> = input
         .routines
         .iter()
@@ -27,6 +28,12 @@ pub(super) fn propose(
                             .any(|op| matches!(op, MirOp::MachineBlock { .. })),
                     }));
                 }
+                return None;
+            }
+            if !observations && physical::has_pointee_writes(routine) {
+                trace.event("cross-call-ineligible", || serde_json::json!({
+                    "routine": routine.name, "reason": "unresolved explicit observation",
+                }));
                 return None;
             }
             let calls: Vec<_> = routine

@@ -1,8 +1,8 @@
 # MIR6502 unexposed object storage
 
-Status: implementation in progress, 2026-11-15. Shared address-control facts
-and residence verification are implemented; automatic pointer-write admission
-remains unchanged until slice 3.
+Status: implementation complete through slice 3, 2026-11-15; TN qualification
+remains. Shared address-control facts, residence verification and bounded native
+indexed/constant-byte-shift admission are implemented.
 The [implementation plan](MIR6502_UNEXPOSED_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md)
 defines four slices with focused validation and a commit after each slice.
 
@@ -102,6 +102,9 @@ the placement transaction additionally checks the old ranges and retained input
 observations before accepting relocation. This adds no emission or materialization.
 Decoded machine operands and declared physical regions remain observations;
 an undecodable explicit machine operand blocks this extension conservatively.
+Discovery rejects that known missing obligation before adding a native writer
+to the combined proposal, preserving independently eligible candidates. Concrete
+overlaps still require both final layouts; there is no subset retry.
 Generated fixed-ZP scratch operands remain the residence verifier's responsibility.
 Different invocations may reuse certified compiler-chosen homes, but fixed source
 declarations and aliases retain protection in both layouts.
@@ -153,6 +156,9 @@ account for every physical resource used. A zero shift need not define flags;
 this proposal grants no new entry/exit flag facts. Variable shifts, helper-producing
 arithmetic and unqualified word-shift recipes retain their current exclusions.
 Do not broaden a caller merely because an operation is labelled nonopaque.
+An array parameter with a verified scalar word ABI lane is a pointer cell and
+may receive a home. This does not promote inline array objects or reinterpret
+array storage that has no scalar lane.
 
 Keep current source-ZP exclusions, logical binding resolution, scratch
 reservations, definite initialization, call checks and pair coherence. Binding

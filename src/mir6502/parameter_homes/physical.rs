@@ -9,11 +9,20 @@ use crate::mir6502::analysis::{
 };
 
 fn needs_proof(r: &MirRoutine) -> bool {
-    !r.frame.resident_bytes().is_empty()
-        && r.blocks
-            .iter()
-            .flat_map(|b| &b.ops)
-            .any(writes_ordinary_pointee)
+    !r.frame.resident_bytes().is_empty() && has_pointee_writes(r)
+}
+
+pub(super) fn has_pointee_writes(r: &MirRoutine) -> bool {
+    r.blocks
+        .iter()
+        .flat_map(|b| &b.ops)
+        .any(writes_ordinary_pointee)
+}
+
+/// A known missing obligation rejects discovery, before it can poison the
+/// combined trial. Concrete overlaps still require both authoritative layouts.
+pub(super) fn observations_complete(p: &MirProgram) -> bool {
+    !p.routines.iter().any(has_pointee_writes) || numeric_observations(p).is_some()
 }
 
 fn records<'a>(
@@ -176,7 +185,7 @@ fn numeric_observations(p: &MirProgram) -> Option<Vec<(u16, u16)>> {
                 .chain(std::iter::once(classify_terminator(&b.terminator).memory))
             {
                 for range in memory.direct_reads.iter().chain(&memory.direct_writes) {
-                    if let MirMem::Absolute(a) = range.base {
+                    if let Some(a) = numeric_base(p, &range.base) {
                         out.push((a, range.bytes));
                     }
                 }
@@ -204,36 +213,27 @@ fn numeric_observations(p: &MirProgram) -> Option<Vec<(u16, u16)>> {
             }
             for op in &b.ops {
                 if let MirOp::Load {
-                    src:
-                        MirAddr::AbsoluteIndexedX {
-                            base: MirMem::Absolute(a),
-                        }
-                        | MirAddr::AbsoluteIndexedY {
-                            base: MirMem::Absolute(a),
-                        },
+                    src: MirAddr::AbsoluteIndexedX { base } | MirAddr::AbsoluteIndexedY { base },
+                    width,
                     ..
                 }
                 | MirOp::Store {
-                    dst:
-                        MirAddr::AbsoluteIndexedX {
-                            base: MirMem::Absolute(a),
-                        }
-                        | MirAddr::AbsoluteIndexedY {
-                            base: MirMem::Absolute(a),
-                        },
+                    dst: MirAddr::AbsoluteIndexedX { base } | MirAddr::AbsoluteIndexedY { base },
+                    width,
                     ..
                 } = op
+                    && let Some(a) = numeric_base(p, base)
                 {
-                    out.push((*a, 256));
+                    out.push((a, if *width == MirWidth::Word { 257 } else { 256 }));
                 }
                 if let MirOp::MachineBlock { id, .. } = op {
                     let machine = p.machine_blocks.iter().find(|m| m.id == *id)?;
                     let inventory = machine_storage_observations(machine, r, p)?;
                     for access in inventory.reads.iter().chain(&inventory.writes) {
-                        match access.base {
-                            MirMem::Absolute(a) => out.push((a, access.bytes)),
-                            MirMem::FixedZeroPage(s) => out.push((u16::from(s.0), access.bytes)),
-                            _ => {}
+                        if let Some(a) = numeric_base(p, &access.base) {
+                            out.push((a, access.bytes));
+                        } else if let MirMem::FixedZeroPage(s) = access.base {
+                            out.push((u16::from(s.0), access.bytes));
                         }
                     }
                 }
@@ -241,4 +241,53 @@ fn numeric_observations(p: &MirProgram) -> Option<Vec<(u16, u16)>> {
         }
     }
     Some(out)
+}
+
+fn numeric_base(p: &MirProgram, mem: &MirMem) -> Option<u16> {
+    match mem {
+        MirMem::Absolute(a) => Some(*a),
+        MirMem::Global { id, offset } => {
+            p.globals
+                .iter()
+                .find(|g| g.id == *id)
+                .and_then(|g| match g.backing {
+                    MirGlobalBacking::Absolute(a) => Some(a.wrapping_add(*offset)),
+                    _ => None,
+                })
+        }
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn object_storage_physical_ranges_protect_old_and_new_lanes() {
+        let old = SourceStorage {
+            object: SourceObject::Routine {
+                owner: RoutineId(0),
+                slot: MirStorageId(0),
+                base: MirStorageBase::Local(crate::nir::LocalId(0)),
+            },
+            binding: None,
+            offset: 0,
+            address: 0x4000,
+            bytes: 2,
+        };
+        let mut new = old.clone();
+        new.address = 0xe4;
+        new.binding = Some(SourceBinding::Local(MirLocalHome::ZeroPage(
+            MirFixedZpSlot(0xe4),
+        )));
+        for record in [old, new] {
+            let mut memory = MirPhysicalMemory::default();
+            memory.protect_source_storage(Some(vec![record.clone()]));
+            check(&record, &memory, &[(0x6000, 256)]).unwrap();
+            for lane in 0..2 {
+                assert!(check(&record, &memory, &[(record.address + lane, 1)]).is_err());
+            }
+            assert!(check(&record, &memory, &[(record.address.wrapping_sub(255), 257)]).is_err());
+        }
+    }
 }

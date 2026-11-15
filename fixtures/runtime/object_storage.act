@@ -1,0 +1,35 @@
+; Ordinary pointee writes beside live invocation-owned source homes.
+BYTE reserved=$E4
+
+BYTE FUNC Touch(BYTE x)
+RETURN(x+1)
+
+CARD FUNC SwapWords(CARD ARRAY v BYTE index)
+  CARD saved
+  BYTE other
+  other=index RSH 1
+  saved=v(other)
+  v(other)=v(other+1)
+  index=Touch(index)
+  v(other+1)=saved
+RETURN(saved)
+
+BYTE FUNC SwapBytes(BYTE ARRAY v BYTE index)
+  BYTE saved,other
+  other=index RSH 1
+  saved=v(other)
+  v(other)=v(other+1)
+  index=Touch(index)
+  v(other+1)=saved
+RETURN(saved XOR index)
+
+BYTE FUNC ShiftZero(BYTE x,keep)
+  x=x LSH 0
+RETURN(x XOR keep)
+
+BYTE FUNC ShiftEight(BYTE x,keep)
+  x=x RSH 8
+RETURN(x XOR keep)
+
+PROC Main()
+RETURN

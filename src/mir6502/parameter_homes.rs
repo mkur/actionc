@@ -82,10 +82,12 @@ pub(super) fn select_output(
 
 fn propose(input: &MirProgram) -> Option<MirProgram> {
     let addresses = ObjectAddressControl::new(input);
+    let observations = physical::observations_complete(input);
     let mut proposal = input.clone();
     let mut changed = false;
     for routine in &mut proposal.routines {
-        if !eligible_with_calls(&addresses, routine, false) {
+        if !eligible_with_calls(&addresses, routine, false)
+            || (!observations && physical::has_pointee_writes(routine)) {
             continue;
         }
         if let Some(bindings) =
@@ -133,7 +135,7 @@ fn install_bindings(routine: &mut MirRoutine, bindings: Vec<MirParamBinding>) {
 /// Deliberately closed expansion set. Additional shapes must establish their
 /// hidden helper, scratch, and observable-memory behavior before admission.
 fn eligible_with_calls(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, calls: bool) -> bool {
-    use super::analysis::effects::classify_op;
+    use super::analysis::effects::{classify_op, writes_ordinary_pointee};
     routine.abi == MirRoutineAbi::Action
         && routine.frame.parameter_homes.is_none()
         && (!routine.frame.params.is_empty() || (calls && !routine.frame.locals.is_empty()))
@@ -146,7 +148,7 @@ fn eligible_with_calls(addresses: &ObjectAddressControl<'_>, routine: &MirRoutin
             <= 4
         && routine.frame.params.iter().all(|p| {
             matches!(p.base, MirStorageBase::Param(id) if addresses.compiler_controls_address(routine.id, &MirMem::Param { id, offset: 0 }))
-                && p.storage == MirStorageClass::Scalar
+                && scalar_parameter_cell(p)
                 && p.offset == 0
                 && p.init.is_none()
                 && matches!(
@@ -168,8 +170,8 @@ fn eligible_with_calls(addresses: &ObjectAddressControl<'_>, routine: &MirRoutin
                 if matches!(op, MirOp::Call { .. }) { return calls; }
                 let effects = classify_op(op);
                 !effects.memory.opaque
-                    && !effects.memory.indirect_writes
-                    && matches!(
+                    && (!effects.memory.indirect_writes || writes_ordinary_pointee(op))
+                    && (matches!(
                         op,
                         MirOp::LoadImm { .. }
                             | MirOp::Move { .. }
@@ -185,19 +187,29 @@ fn eligible_with_calls(addresses: &ObjectAddressControl<'_>, routine: &MirRoutin
                                     | MirBinaryOp::Xor,
                                 ..
                             }
-                            | MirOp::Load {
-                                src: MirAddr::Direct(_)
-                                    | MirAddr::Deref { .. }
-                                    | MirAddr::PointerCell { .. },
-                                ..
-                            }
-                            | MirOp::Store {
-                                dst: MirAddr::Direct(_),
-                                ..
-                            }
-                    )
+                    ) || matches!(op,
+                        MirOp::Binary { op: MirBinaryOp::Lsh | MirBinaryOp::Rsh,
+                            width: MirWidth::Byte, right: MirValue::ConstU8(0..=8) | MirValue::ConstU16(0..=8), .. })
+                        || matches!(op, MirOp::Load { src, width: MirWidth::Byte | MirWidth::Word, .. }
+                            | MirOp::Store { dst: src, width: MirWidth::Byte | MirWidth::Word, .. }
+                            if native_address(src)))
             })
         })
+}
+
+fn scalar_parameter_cell(slot: &MirStorageSlot) -> bool {
+    slot.storage == MirStorageClass::Scalar
+        // An array parameter with a scalar word lane is its ABI pointer cell,
+        // not the array object. No inline array storage gains eligibility.
+        || (slot.storage == MirStorageClass::Array
+            && slot.scalar_width == Some(MirWidth::Word) && slot.storage_size == 2)
+}
+
+fn native_address(addr: &MirAddr) -> bool {
+    matches!(addr, MirAddr::Direct(_) | MirAddr::Deref { .. } | MirAddr::PointerCell { .. }
+        | MirAddr::PointerIndex { .. } | MirAddr::ComputedIndex { .. }
+        | MirAddr::AbsoluteIndexedX { base: MirMem::Global { .. } | MirMem::Static { .. } }
+        | MirAddr::AbsoluteIndexedY { base: MirMem::Global { .. } | MirMem::Static { .. } })
 }
 
 fn has_pointer_reads(routine: &MirRoutine) -> bool {
@@ -205,7 +217,8 @@ fn has_pointer_reads(routine: &MirRoutine) -> bool {
         matches!(
             op,
             MirOp::Load {
-                src: MirAddr::Deref { .. } | MirAddr::PointerCell { .. },
+                src: MirAddr::Deref { .. } | MirAddr::PointerCell { .. }
+                    | MirAddr::PointerIndex { .. } | MirAddr::ComputedIndex { .. },
                 ..
             }
         )
@@ -469,7 +482,7 @@ pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
         let width = slot.storage_size;
         if slot.offset != 0
             || slot.init.is_some()
-            || slot.storage != MirStorageClass::Scalar
+            || !scalar_parameter_cell(slot)
             || !matches!(
                 (slot.scalar_width, width),
                 (Some(MirWidth::Byte), 1) | (Some(MirWidth::Word), 2)
@@ -900,6 +913,7 @@ mod tests {
                 assert_eq!(selected.executable.output, expected.output);
                 assert_eq!(selected.executable.program, expected.program);
                 assert_eq!(selected.executable.costs, expected.costs);
+                assert_eq!(selected.executable.memory, expected.memory);
                 assert_eq!(selected.executable.trace_snapshot, expected.trace_snapshot);
                 let after = session.manifest()["work"]["materializations"]
                     .as_u64()

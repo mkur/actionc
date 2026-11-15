@@ -30,6 +30,71 @@ impl VmRunHooks for Observe {
 }
 
 #[test]
+fn object_storage_native_swaps_preserve_calls_pages_and_stack() {
+    let source = include_str!("../../../fixtures/runtime/object_storage.act").replace("\r\n", "\n");
+    let file = support::Source::new(&source);
+    let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+    let model = actionc::semantic::analyze_with_options(&loaded.program,
+        actionc::semantic::SemanticOptions::modern()).unwrap();
+    let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
+        &actionc::semantic::ir::lower_program(&loaded.program, &model))).unwrap();
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for enabled in [false, true] {
+            let output = mir6502::generate_output_with_config_and_runtime(&nir, 0x3000,
+                &Mir6502Config { enable_small_leaf_inlining: false,
+                    enable_parameter_home_selection: enabled,
+                    enable_cross_call_home_selection: enabled,
+                    ..Mir6502Config::optimized() }, runtime).unwrap();
+            for name in ["SwapWords", "SwapBytes"] {
+                assert_eq!(output.map.storage_symbols.iter().any(|s|
+                    s.scope == actionc::codegen::CodegenSymbolScope::Routine(name.into())
+                    && s.kind == actionc::codegen::CodegenSymbolKind::Local && s.address < 256), enabled, "{name}");
+            }
+            let entry = |name| output.routine_addresses.iter().find(|r| r.name == name).unwrap().address;
+            let (mut vm, profile) = support::vm_for(runtime);
+            vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+            let mut observe = Observe { advance: entry("Touch"), arguments: vec![] };
+            vm.bus_mut().ram_mut().write(0xe4, 0x5a);
+            for (name, word) in [("SwapWords", true), ("SwapBytes", false)] {
+                for base in [0x7000u16, 0x70fd] {
+                    for index in [2u8, 4] {
+                        let mut values = vec![0x12abu16, 0x00ff, 0xff00, 0xa571, 0x8123, 0x0042];
+                        if !word { values.iter_mut().for_each(|v| *v &= 255); }
+                        let bytes = |values: &[u16]| values.iter().flat_map(|v|
+                            if word { v.to_le_bytes().to_vec() } else { vec![*v as u8] }).collect::<Vec<_>>();
+                        let initial = bytes(&values);
+                        vm.bus_mut().ram_mut().write(base-1, 0xc3);
+                        vm.bus_mut().ram_mut().write(base+initial.len() as u16, 0x3c);
+                        for (i, byte) in initial.iter().enumerate() { vm.bus_mut().ram_mut().write(base+i as u16, *byte); }
+                        for _ in 0..2 {
+                            let other = usize::from(index / 2);
+                            let saved = values[other];
+                            values.swap(other, other+1);
+                            observe.arguments.clear();
+                            let [lo, hi] = base.to_le_bytes();
+                            vm = machine::call(vm, &mut observe, entry(name), &[lo, hi, index]);
+                            assert_eq!(observe.arguments.iter().map(|v| *v as u8).collect::<Vec<_>>(), vec![index]);
+                            assert_eq!(machine::bytes(&vm, base, initial.len()), bytes(&values), "{runtime:?}, {enabled}, {name}, {base:04x}");
+                            let expected = if word { saved.to_le_bytes().to_vec() } else { vec![(saved as u8) ^ (index+1)] };
+                            assert_eq!(machine::bytes(&vm, 0xa0, expected.len()), expected);
+                            assert_eq!(machine::bytes(&vm, base-1, 1), vec![0xc3]);
+                            assert_eq!(machine::bytes(&vm, base+initial.len() as u16, 1), vec![0x3c]);
+                            assert_eq!(machine::bytes(&vm, 0xe4, 1), vec![0x5a]);
+                        }
+                    }
+                }
+            }
+            for x in [0u8, 0x80, 0xff] {
+                for (name, expected) in [("ShiftZero", x ^ 0x65), ("ShiftEight", 0x65)] {
+                    vm = machine::call(vm, &mut observe, entry(name), &[x, 0x65]);
+                    assert_eq!(machine::bytes(&vm, 0xa0, 1), vec![expected]);
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn ordinary_calls_preserve_arguments_results_reads_and_persistent_locals() {
     let lf = include_str!("../../../fixtures/runtime/cross_call_homes.act").replace("\r\n", "\n");
     for optimize_nir in [false, true] {

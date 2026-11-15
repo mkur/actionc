@@ -330,3 +330,22 @@ fn object_storage_native_pointees_keep_lifetime_and_physical_obligations() {
     bind(&mut persistent, 0, 0xe4);
     assert!(!verify_storage(&persistent, &persistent.routines[0]).is_empty());
 }
+
+#[test]
+fn object_storage_admission_keeps_shift_and_helper_boundaries() {
+    for op in ["LSH", "RSH"] {
+        for count in 0..=9 {
+            let p = source(&format!("BYTE FUNC Shift(BYTE x,keep) x=x {op} {count} RETURN(x XOR keep)"));
+            assert_eq!(super::super::eligible_with_calls(&ObjectAddressControl::new(&p), &p.routines[0], false), count <= 8);
+        }
+    }
+    for text in [
+        "BYTE FUNC Shift(BYTE x,keep) x=x LSH keep RETURN(x)",
+        "CARD FUNC Shift(CARD x BYTE keep) x=x RSH 1 RETURN(x)",
+        "CARD FUNC Mul(CARD x,y) RETURN(x*y)",
+        "CARD FUNC Exposed(CARD x) CARD p p=@x RETURN(p)",
+    ] {
+        let p = source(text);
+        assert!(!super::super::eligible_with_calls(&ObjectAddressControl::new(&p), &p.routines[0], false), "{text}");
+    }
+}

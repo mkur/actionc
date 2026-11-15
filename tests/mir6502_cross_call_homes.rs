@@ -21,6 +21,58 @@ fn nir_mode(source: &str, optimize: bool) -> actionc::nir::NirProgram {
 }
 
 #[test]
+fn object_storage_indexed_callers_select_resident_homes_in_one_trial() {
+    let lf = include_str!("../fixtures/runtime/object_storage.act").replace("\r\n", "\n");
+    let mut reference = None;
+    for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+        let n = nir(&source);
+        let config = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+        let mut trace = Mir6502Trace::default();
+        let output = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
+        let events: Vec<_> = trace.events().into_iter().filter(|e| e.kind.starts_with("cross-call")).collect();
+        if let Ok(path) = std::env::var("ACTIONC_OBJECT_STORAGE_TRACE") {
+            std::fs::write(path, serde_json::to_vec_pretty(&trace.events()).unwrap()).unwrap();
+        }
+        assert_eq!(trace.manifest()["work"]["cross_call_home_trials"], 1, "{events:?}");
+        for name in ["SwapWords", "SwapBytes"] {
+            let homes: Vec<_> = output.map.storage_symbols.iter().filter(|s|
+                s.scope == actionc::codegen::CodegenSymbolScope::Routine(name.into())
+                && s.kind == actionc::codegen::CodegenSymbolKind::Local).collect();
+            assert!(homes.iter().any(|s| s.address < 256), "{name}: {homes:?}; {events:?}");
+            assert!(homes.iter().all(|s| !(s.address..s.address+s.size).contains(&0xe4)));
+        }
+        let image = actionc::codegen::format_load_file(&output);
+        if let Some(old) = &reference { assert_eq!(old, &image); } else { reference = Some(image); }
+        let mut disabled = config;
+        disabled.enable_cross_call_home_selection = false;
+        let old = mir6502::generate_output_with_config_and_runtime(&n, 0x3000, &disabled, Runtime::ActionCart).unwrap();
+        assert!(output.bytes.len() < old.bytes.len());
+    }
+}
+
+#[test]
+fn object_storage_missing_numeric_inventory_keeps_independent_callers() {
+    let source = include_str!("../fixtures/runtime/object_storage.act").replace("\r\n", "\n")
+        .replace("PROC Main()", "CARD FUNC Hold(CARD keep) Touch(7) RETURN(keep) PROC Main()");
+    let n = nir(&format!("PROC Opaque() [$02] RETURN\n{source}"));
+    let mut trace = Mir6502Trace::default();
+    let output = mir6502::generate_output_with_trace(&n, 0x3000,
+        &Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() },
+        Runtime::ActionCart, &mut trace).unwrap();
+    let events = trace.events();
+    for name in ["SwapWords", "SwapBytes"] {
+        assert!(events.iter().any(|e| e.kind == "cross-call-ineligible"
+            && e.data["routine"] == name && e.data["reason"] == "unresolved explicit observation"));
+        assert!(output.map.storage_symbols.iter().filter(|s|
+            s.scope == actionc::codegen::CodegenSymbolScope::Routine(name.into()))
+            .all(|s| s.address >= 256));
+    }
+    assert!(output.map.storage_symbols.iter().any(|s|
+        s.scope == actionc::codegen::CodegenSymbolScope::Routine("Hold".into()) && s.address < 256));
+    assert_eq!(trace.manifest()["work"]["cross_call_home_trials"], 1);
+}
+
+#[test]
 fn ordinary_call_baseline_has_inline_homes_and_stable_artifacts() {
     let lf = include_str!("../fixtures/runtime/cross_call_homes.act").replace("\r\n", "\n");
     for (runtime, origin) in [(Runtime::ActionCart, 0x3000), (Runtime::Standalone, 0x41c7)] {

@@ -1,6 +1,6 @@
 # MIR6502 unexposed object storage: implementation plan
 
-Prepared 2026-11-15. Status: slices 1–2 complete; continue with slices 3–4.
+Prepared 2026-11-15. Status: slices 1–3 complete; qualification remains.
 Implements the [design](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md).
 
 Complete the four slices in order and commit after each slice's focused checks
@@ -18,6 +18,15 @@ byte/word stores coexist with explicit resident bindings; both live lanes,
 stale facts, numeric aliases and persistent locals remain protected. Public
 pointer-write summaries remain Unknown. Final emission now retains its physical
 inventory for placement validation; no additional emission was introduced.
+
+Slice 3 validation: four grouped library tests, two pipeline tests and the new
+VM group passed. The VM covers placement off/on in ActionCart and Standalone,
+byte/word swaps, page crossing, repeated calls, call arguments, source-ZP and
+array sentinels, and stack balance. The positive pipeline case selects ZP locals
+and produces identical LF/CRLF images. The missing-observation case preserves
+independent caller selection. The existing unsupported/exposed/exhausted fallback
+test also passed. Array parameters carrying a scalar word ABI lane needed an
+explicit pointer-cell admission rule; inline arrays remain excluded.
 
 ## Outcome and baseline
 
