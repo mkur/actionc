@@ -17,10 +17,11 @@ def main():
     parser.add_argument('--enabled', action='store_true')
     parser.add_argument('--handoff', action='store_true')
     parser.add_argument('--cross-call', action='store_true')
+    parser.add_argument('--multiple-leaf-calls', action='store_true')
     parser.add_argument('--scoped-observation', action='store_true')
     parser.add_argument('--tn-only', action='store_true')
     parser.add_argument('--skip-tn', action='store_true')
-    parser.add_argument('--suite', choices=['leaf', 'handoff', 'capture', 'cross-call', 'storage-observation'], default='leaf')
+    parser.add_argument('--suite', choices=['leaf', 'handoff', 'capture', 'cross-call', 'storage-observation', 'multiple-leaf-calls'], default='leaf')
     args = parser.parse_args()
     if args.tn_only and args.skip_tn:
         parser.error('--tn-only and --skip-tn are mutually exclusive')
@@ -32,7 +33,7 @@ def main():
                     '--extern', f'actionc={rlib}', '-L', f'dependency={rlib.parent}', '-o', str(probe)],
                    cwd=ROOT, check=True)
     started = time.monotonic()
-    result = subprocess.run(['/usr/bin/time', '-l', str(probe), str(output / 'images')] + (['--enabled'] if args.enabled else []) + (['--handoff'] if args.handoff else []) + (['--cross-call'] if args.cross_call else []) + (['--scoped-observation'] if args.scoped_observation else []) + (['--tn-only'] if args.tn_only else []) + ([f'--suite-{args.suite}'] if args.suite != 'leaf' else []) + (['--skip-tn'] if args.skip_tn else []), cwd=ROOT, check=False,
+    result = subprocess.run(['/usr/bin/time', '-l', str(probe), str(output / 'images')] + (['--enabled'] if args.enabled else []) + (['--handoff'] if args.handoff else []) + (['--cross-call'] if args.cross_call else []) + (['--multiple-leaf-calls'] if args.multiple_leaf_calls else []) + (['--scoped-observation'] if args.scoped_observation else []) + (['--tn-only'] if args.tn_only else []) + ([f'--suite-{args.suite}'] if args.suite != 'leaf' else []) + (['--skip-tn'] if args.skip_tn else []), cwd=ROOT, check=False,
                             text=True, capture_output=True)
     (output / "probe.stdout").write_text(result.stdout)
     (output / "probe.stderr").write_text(result.stderr)
@@ -49,10 +50,13 @@ def main():
         sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/cross_call_homes.act', 'fixtures/runtime/cross_call_locals.act']
     if args.suite == 'storage-observation':
         sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/storage_observation.act']
+    if args.suite == 'multiple-leaf-calls':
+        sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/multiple_leaf_calls.act']
     receipt = dict(revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                    parameter_home_selection=args.enabled,
                    parameter_argument_handoff=args.handoff,
                    cross_call_home_selection=args.cross_call,
+                   multiple_leaf_call_homes=args.multiple_leaf_calls,
                    scoped_storage_observation=args.scoped_observation,
                    tn_only=args.tn_only,
                    suite=args.suite,

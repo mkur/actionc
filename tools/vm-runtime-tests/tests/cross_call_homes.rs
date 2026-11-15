@@ -439,3 +439,93 @@ fn storage_observation_preserves_invocations_arguments_and_owned_memory() {
         }
     }
 }
+
+struct MultipleLeafObserve {
+    bump: u16,
+    hop: u16,
+    step: u16,
+    calls: Vec<(&'static str, u16)>,
+}
+impl VmRunHooks for MultipleLeafObserve {
+    type Error = String;
+    fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {
+        let r = vm.cpu().registers();
+        let kind = if r.pc == self.bump { Some("bump") }
+            else if r.pc == self.hop { Some("hop") }
+            else if r.pc == self.step { Some("step") }
+            else { None };
+        if let Some(kind) = kind {
+            self.calls.push((kind, if kind == "bump" { u16::from(r.a) }
+                else { u16::from_le_bytes([r.a, r.x]) }));
+        }
+        Ok(())
+    }
+}
+
+#[test]
+fn multiple_leaf_calls_preserve_arguments_state_and_source_memory() {
+    let lf = include_str!("../../../fixtures/runtime/multiple_leaf_calls.act").replace("\r\n", "\n");
+    let mut reference = None;
+    for (runtime, enabled, source) in [
+        (Runtime::ActionCart, false, lf.clone()),
+        (Runtime::ActionCart, true, lf.clone()),
+        (Runtime::ActionCart, true, lf.replace('\n', "\r\n")),
+        (Runtime::Standalone, true, lf),
+    ] {
+        let file = support::Source::new(&source);
+        let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+        let model = actionc::semantic::analyze_with_options(&loaded.program,
+            actionc::semantic::SemanticOptions::modern()).unwrap();
+        let n = actionc::nir::optimize_program(&actionc::nir::lower_program(
+            &actionc::semantic::ir::lower_program(&loaded.program, &model))).unwrap();
+        let output = mir6502::generate_output_with_config_and_runtime(&n, 0x3000,
+            &Mir6502Config { enable_small_leaf_inlining: false,
+                enable_multiple_leaf_call_homes: enabled, ..Mir6502Config::optimized() }, runtime).unwrap();
+        if runtime == Runtime::ActionCart && enabled {
+            let artifact = (output.bytes.clone(), output.relocations.clone(),
+                output.map.storage_symbols.clone(), output.map.routine_ranges.clone());
+            if let Some(old) = &reference { assert_eq!(old, &artifact); }
+            else { reference = Some(artifact); }
+        }
+        let entry = |name: &str| output.routine_addresses.iter().find(|r| r.name == name).unwrap().address;
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        let mut hook = MultipleLeafObserve { bump: entry("Bump"), hop: entry("Hop"),
+            step: entry("AddOne"), calls: vec![] };
+        let base = 0x70feu16;
+        let values = [7u8, 0, 250, 4];
+        vm.bus_mut().ram_mut().map(base, &values).unwrap();
+        for (address, value) in [(0xe6, 0x93), (base-1, 0x55), (base+4, 0xa5)] {
+            vm.bus_mut().ram_mut().write(address, value);
+        }
+        for _ in 0..2 {
+            for count in [0u8, 1, 4] {
+                hook.calls.clear();
+                vm = machine::call(vm, &mut hook, entry("SumWalk"), &[base as u8, (base>>8) as u8, count]);
+                let sum = values[..usize::from(count)].iter().filter(|&&v| v != 0)
+                    .fold(0u8, |a, v| a.wrapping_add(v.wrapping_add(1)));
+                assert_eq!(machine::bytes(&vm, 0xa0, 1), vec![sum]);
+                let mut expected = Vec::new();
+                for i in 0..usize::from(count) {
+                    let p = base+i as u16;
+                    if values[i] != 0 { expected.push(("bump", u16::from(values[i]))); }
+                    expected.push(("hop", p));
+                }
+                assert_eq!(hook.calls, expected);
+                assert_eq!(machine::bytes(&vm, base, 4), values);
+                for (address, value) in [(0xe6, 0x93), (base-1, 0x55), (base+4, 0xa5)] {
+                    assert_eq!(machine::bytes(&vm, address, 1), vec![value]);
+                }
+            }
+            for value in [0u16, 255, 65535] {
+                for (name, steps) in [("Twice", 2u16), ("Once", 1)] {
+                    hook.calls.clear();
+                    vm = machine::call(vm, &mut hook, entry(name), &value.to_le_bytes());
+                    assert_eq!(machine::bytes(&vm, 0xa0, 2), value.wrapping_add(steps).to_le_bytes());
+                    assert_eq!(hook.calls, (0..steps).map(|i| ("step", value.wrapping_add(i))).collect::<Vec<_>>());
+                    assert_eq!(machine::bytes(&vm, 0xe6, 1), vec![0x93]);
+                }
+            }
+        }
+    }
+}

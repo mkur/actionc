@@ -1,0 +1,54 @@
+{
+  "compiler_slice": "6e2a37d4",
+  "final_source_sha256_lf": "5a663ce679d9d500923556c1584e718c6e50b145b1695dcff6536340619a26a5",
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--test",
+        "mir6502_cross_call_homes",
+        "multiple_leaf_calls"
+      ],
+      "exit_code": 0,
+      "seconds": 3.0906283750082366,
+      "log_sha256": "5e77cca3dffd046a133b75723c6684646e1dd460d8a92953cb167739db685642",
+      "passed": 2,
+      "failed": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--test",
+        "mir6502_cross_call_homes",
+        "unsupported_calls_exposed_objects_and_exhaustion_retain_the_fallback"
+      ],
+      "exit_code": 0,
+      "seconds": 0.33147570898290724,
+      "log_sha256": "4e67dae6b1ca02a0bb49a8dbad272c5a3241b8be85fa5a783a51ad276eda9296",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "tools/vm-runtime-tests/Cargo.toml",
+        "--test",
+        "cross_call_homes",
+        "multiple_leaf_calls"
+      ],
+      "exit_code": 0,
+      "seconds": 2.696679541026242,
+      "log_sha256": "0b21001c5d1ea1e43d4ee3634a394f17c0a06a5e46b5501e6584754265211816",
+      "passed": 1,
+      "failed": 0
+    }
+  ],
+  "development_notes": [
+    "Initial positive fixture used reserved keyword Step as a routine name; renamed to AddOne.",
+    "The first pointer-reading leaf had unknown residence writes and was correctly excluded. The final distinct-callee control uses Bump(p^) and Hop(p), which satisfy the existing contract. No proof or home assertion was weakened."
+  ]
+}

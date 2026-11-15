@@ -1,11 +1,13 @@
 # MIR6502 homes across multiple leaf calls: implementation plan
 
-Refreshed 2026-11-15. Status: slice 1 complete; runtime/TN qualification and optimized default pending.
+Refreshed 2026-11-15. Status: complete; both slices qualified with minimal testing.
 Baseline: `0880cd2f`, following whole-image cost qualification in `65b223ce`.
 
-The selector is implemented behind `enable_multiple_leaf_call_homes`, currently
-off by default. Four focused proof tests and the existing exact rollback control
-passed. [Slice 1 receipt](benchmarks/6502-multiple-leaf-calls/slice1-checks.json).
+Slice 1 (`6e2a37d4`) implements discovery and its focused proof tests. The gate
+is now enabled in optimized builds; conservative configuration keeps it off.
+The independent control saves 24 bytes (197 to 173); TN remains 9,791 bytes.
+FindItem now reaches discovery but Key has an unknown write summary. Nine selected
+unit/integration/VM tests passed. [Qualification](benchmarks/6502-multiple-leaf-calls/README.md).
 
 Implements the [multiple-leaf-call design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-multiple-calls-to-leaf-routines).
 The [cost qualification](benchmarks/6502-whole-image-cost/README.md) leaves normal
@@ -163,8 +165,8 @@ cargo test --test mir6502_cross_call_homes unsupported_calls_exposed_objects_and
 cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test cross_call_homes multiple_leaf_calls
 ```
 
-Verify nonzero selected test counts. These are future filters, not checks already
-run. Defer full backend suites, NIR sweep, raw-NIR/origin matrices, MADS and full TN
+All listed filters ran with nonzero test counts; see the qualification receipts.
+Defer full backend suites, NIR sweep, raw-NIR/origin matrices, MADS and full TN
 runtime scenarios under the user's minimal-testing direction. Broaden only for an
 actual relevant failure. Documentation-only updates need content/link checks.
 

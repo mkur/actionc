@@ -1,0 +1,143 @@
+[
+  {
+    "id": "tn-ActionCart-3000",
+    "before_bytes": 9791,
+    "after_bytes": 9791,
+    "delta_bytes": 0,
+    "routine_count": 101,
+    "changed_routines": [],
+    "growing_routines": [],
+    "qualified_baseline_matches": {
+      "image": true,
+      "map": true,
+      "relocations": true
+    },
+    "work_changes": {},
+    "cross_call_before": {
+      "accepted": true,
+      "after_bytes": 9791,
+      "before_bytes": 9847,
+      "diagnostics": null,
+      "reason": "smaller-image",
+      "routine_cost_changes": [
+        {
+          "after": 51,
+          "before": 85,
+          "routine": "Ord"
+        },
+        {
+          "after": 37,
+          "before": 59,
+          "routine": "Items"
+        }
+      ]
+    },
+    "cross_call_after": {
+      "accepted": true,
+      "after_bytes": 9791,
+      "before_bytes": 9847,
+      "diagnostics": null,
+      "reason": "smaller-image",
+      "routine_cost_changes": [
+        {
+          "after": 51,
+          "before": 85,
+          "routine": "Ord"
+        },
+        {
+          "after": 37,
+          "before": 59,
+          "routine": "Items"
+        }
+      ]
+    }
+  },
+  {
+    "id": "multiple-leaf-calls-ActionCart-3000",
+    "before_bytes": 197,
+    "after_bytes": 173,
+    "delta_bytes": -24,
+    "routine_count": 7,
+    "changed_routines": [
+      {
+        "name": "SumWalk",
+        "before": {
+          "code_bytes": 80,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        "after": {
+          "code_bytes": 65,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4
+        },
+        "delta": {
+          "code_bytes": -15,
+          "inline_home_bytes": -4,
+          "zp_home_bytes": 4
+        }
+      },
+      {
+        "name": "Twice",
+        "before": {
+          "code_bytes": 38,
+          "inline_home_bytes": 2,
+          "zp_home_bytes": 0
+        },
+        "after": {
+          "code_bytes": 35,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 2
+        },
+        "delta": {
+          "code_bytes": -3,
+          "inline_home_bytes": -2,
+          "zp_home_bytes": 2
+        }
+      }
+    ],
+    "growing_routines": [],
+    "qualified_baseline_matches": null,
+    "work_changes": {
+      "rewrite_analysis_builds": -1
+    },
+    "cross_call_before": {
+      "accepted": true,
+      "after_bytes": 197,
+      "before_bytes": 200,
+      "diagnostics": null,
+      "reason": "smaller-image",
+      "routine_cost_changes": [
+        {
+          "after": 24,
+          "before": 27,
+          "routine": "Once"
+        }
+      ]
+    },
+    "cross_call_after": {
+      "accepted": true,
+      "after_bytes": 173,
+      "before_bytes": 200,
+      "diagnostics": null,
+      "reason": "smaller-image",
+      "routine_cost_changes": [
+        {
+          "after": 65,
+          "before": 84,
+          "routine": "SumWalk"
+        },
+        {
+          "after": 35,
+          "before": 40,
+          "routine": "Twice"
+        },
+        {
+          "after": 24,
+          "before": 27,
+          "routine": "Once"
+        }
+      ]
+    }
+  }
+]

@@ -11,7 +11,7 @@ is implemented and qualified. The implemented
 [storage-observation refinement](MIR6502_STORAGE_OBSERVATION_DESIGN.md) preserves
 routine ownership through terminal cleanup. The
 [multiple-leaf-call extension](#proposed-extension-multiple-calls-to-leaf-routines)
-has a refreshed [implementation plan](MIR6502_MULTIPLE_LEAF_CALL_HOMES_IMPLEMENTATION_PLAN.md)
+is implemented and [qualified](benchmarks/6502-multiple-leaf-calls/README.md)
 using the existing ordinary-call batch. The
 [whole-image cost revision](#proposed-refinement-whole-image-cost-acceptance)
 is implemented and [qualified](benchmarks/6502-whole-image-cost/README.md).
@@ -1140,8 +1140,9 @@ fixture paths, before enabling the new scope by default.
 
 ## Proposed extension: multiple calls to leaf routines
 
-Refreshed 2026-11-15 against `0880cd2f`. Status: selector implemented behind
-an off-by-default discovery gate; independent runtime/TN qualification pending.
+Implemented and qualified 2026-11-15 against `0880cd2f`. Optimized builds
+enable the discovery gate; conservative configuration leaves it off. See the
+[qualification](benchmarks/6502-multiple-leaf-calls/README.md).
 The [implementation plan](MIR6502_MULTIPLE_LEAF_CALL_HOMES_IMPLEMENTATION_PLAN.md)
 uses one combined ordinary-call batch and the qualified whole-image cost rule.
 The user's minimal-testing direction remains in effect.
@@ -1172,10 +1173,11 @@ source-language semantics remain unchanged.
 
 `FindItem` is a motivating case: it calls `Key(menu)` and `Next(menu)` while its
 pointer and character remain in ordinary homes. The measured baseline has 74
-instruction bytes plus three home bytes. Both callees have supported leaf bodies.
-The current selector rejects the caller at its second call before placement is
-considered. Final savings remain a measurement question; no routine name or
-handwritten size target participates in selection.
+instruction bytes plus three home bytes. Both callees are ordinary leaves, but
+Key currently has an unknown write summary. The generalized selector now reaches
+FindItem and rejects its first call on that existing contract; the call-count
+restriction no longer blocks discovery. TN remains 9,791 bytes after qualification.
+No routine name or handwritten size target participates in selection.
 
 ### Combined reservation, separate call proofs
 
@@ -1247,7 +1249,7 @@ The `enable_multiple_leaf_call_homes` discovery gate admits callers with two or
 more sites. With it off, preserve the current exactly-one-call scope. It remains
 subordinate to peepholes, parameter-home selection and cross-call selection;
 conservative configuration keeps it off, and optimized configuration enables it
-only after the focused qualification. Zero-call routines remain outside this
+following the focused qualification. Zero-call routines remain outside this
 proposal. Keep `cross_call_home_trials` at zero or one and reuse existing result
 and per-routine cost diagnostics. Add call count and failed-site identity where
 needed to explain eligibility without a separate tracing pipeline.

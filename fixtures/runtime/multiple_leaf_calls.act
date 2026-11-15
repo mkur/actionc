@@ -1,0 +1,33 @@
+; Distinct and repeated leaf calls with live parameters and an initialized local.
+BYTE sourceOwned=$E6
+
+BYTE FUNC Bump(BYTE value)
+RETURN(value+1)
+
+CARD FUNC Hop(BYTE POINTER p)
+RETURN(p+1)
+
+CARD FUNC AddOne(CARD value)
+RETURN(value+1)
+
+BYTE FUNC SumWalk(BYTE POINTER p BYTE count)
+ BYTE total
+ total=0
+ WHILE count DO
+   IF p^ THEN total==+Bump(p^) FI
+   p=Hop(p)
+   count==-1
+ OD
+RETURN(total)
+
+CARD FUNC Twice(CARD x)
+ x=AddOne(x)
+ x=AddOne(x)
+RETURN(x)
+
+CARD FUNC Once(CARD x)
+ x=AddOne(x)
+RETURN(x)
+
+PROC Main()
+RETURN

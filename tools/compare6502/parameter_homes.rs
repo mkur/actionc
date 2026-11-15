@@ -13,6 +13,9 @@ fn main() {
     let handoff = std::env::args().any(|a| a == "--handoff");
     let scoped = std::env::args().any(|a| a == "--scoped-observation");
     let scoped_suite = std::env::args().any(|a| a == "--suite-storage-observation");
+    let multiple = std::env::args().any(|a| a == "--multiple-leaf-calls");
+    let multiple_suite = std::env::args().any(|a| a == "--suite-multiple-leaf-calls");
+    let focused_suite = scoped_suite || multiple_suite;
     let cross = std::env::args().any(|a| a == "--cross-call");
     let destination = std::env::args().nth(1).expect("output directory");
     let destination = Path::new(&destination);
@@ -20,7 +23,12 @@ fn main() {
     let handoff_suite = std::env::args().any(|a| a == "--suite-handoff");
     let capture_suite = std::env::args().any(|a| a == "--suite-capture");
     let cross_suite = std::env::args().any(|a| a == "--suite-cross-call");
-    let cases: &[(&str, &str, bool)] = if scoped_suite {
+    let cases: &[(&str, &str, bool)] = if multiple_suite {
+        &[
+            ("tn", "samples/tn/modern/TN.ACT", true),
+            ("multiple-leaf-calls", "fixtures/runtime/multiple_leaf_calls.act", false),
+        ]
+    } else if scoped_suite {
         &[
             ("tn", "samples/tn/modern/TN.ACT", true),
             ("storage-observation", "fixtures/runtime/storage_observation.act", false),
@@ -124,11 +132,12 @@ fn main() {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41c7] {
                 // The focused suite is one A/B, not a full configuration matrix.
-                if scoped_suite && (runtime != Runtime::ActionCart || origin != 0x3000) { continue; }
+                if focused_suite && (runtime != Runtime::ActionCart || origin != 0x3000) { continue; }
                 let config = Mir6502Config {
                     enable_parameter_home_selection: enabled,
                     enable_parameter_argument_handoff: handoff,
                     enable_cross_call_home_selection: cross,
+                    enable_multiple_leaf_call_homes: multiple,
                     enable_scoped_storage_observation: scoped,
                     enable_small_leaf_inlining: inline,
                     ..Mir6502Config::optimized()
@@ -136,7 +145,7 @@ fn main() {
                 let mut trace = Mir6502Trace::new(TraceOptions {
                     // This suite includes the four interacting TN routines and
                     // observation provenance in addition to residence snapshots.
-                    max_bytes: if scoped_suite { 64 * 1024 * 1024 } else { actionc::mir6502::trace::DEFAULT_MAX_BYTES },
+                    max_bytes: if focused_suite { 64 * 1024 * 1024 } else { actionc::mir6502::trace::DEFAULT_MAX_BYTES },
                     routines: nir
                         .routines
                         .iter()
@@ -154,6 +163,7 @@ fn main() {
                                     | "ForwardWords"
                                     | "Strcpy"
                                     | "MoveMenuBar" | "Draw" | "Tag" | "TagAll" | "Walk" | "Next"
+                                    | "FindItem" | "SumWalk" | "Twice" | "Once"
                                     | "Ord"
                                     | "Items"
                                     | "FindRecord"
@@ -182,7 +192,7 @@ fn main() {
                 let id = format!("{case}-{runtime:?}-{origin:04x}");
                 let bytes = actionc::codegen::format_load_file(&output);
                 fs::write(destination.join(format!("{id}.xex")), &bytes).unwrap();
-                if cross_suite || scoped_suite {
+                if cross_suite || focused_suite {
                     let events = trace.events();
                     let decisions: Vec<_> = events
                         .iter()
@@ -210,7 +220,9 @@ fn main() {
                 )
                 .unwrap();
                 let mut rows = Vec::new();
-                for name in [
+                let names: Vec<&str> = if multiple_suite {
+                    output.map.routine_ranges.iter().map(|r| r.name.as_str()).collect()
+                } else { vec![
                     "MoveMenuBar", "Draw", "Tag", "TagAll", "Walk", "Observe",
                     "CaptureWord",
                     "ForwardWord",
@@ -262,7 +274,8 @@ fn main() {
                     "ComparePointers",
                     "ExposeWord",
                     "MultiplyWords",
-                ] {
+                ] };
+                for name in names {
                     if let Some(r) = output.map.routine_ranges.iter().find(|r| r.name == name) {
                         let symbols: Vec<_> = output
                             .map
@@ -272,7 +285,7 @@ fn main() {
                                 s.scope
                                     == actionc::codegen::CodegenSymbolScope::Routine(name.into())
                                     && (s.kind == actionc::codegen::CodegenSymbolKind::Parameter
-                                        || ((cross_suite || scoped_suite)
+                                        || ((cross_suite || focused_suite)
                                             && s.kind
                                                 == actionc::codegen::CodegenSymbolKind::Local))
                             })
@@ -295,7 +308,7 @@ fn main() {
                         rows.push(format!("{{\"name\":\"{name}\",\"code_bytes\":{},\"inline_home_bytes\":{homes},\"zp_home_bytes\":{zp},\"home_fragments\":[{fragments}]}}", r.end - r.start));
                     }
                 }
-                if scoped_suite {
+                if focused_suite {
                     let mut listings = String::new();
                     for r in &output.map.routine_ranges {
                         listings.push_str(&format!("; {}\n", r.name));

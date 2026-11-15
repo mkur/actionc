@@ -1,0 +1,190 @@
+{
+  "revision": "6e2a37d4ec9005cbd031b0152d2a956527c13213",
+  "parameter_home_selection": true,
+  "parameter_argument_handoff": true,
+  "cross_call_home_selection": true,
+  "multiple_leaf_call_homes": true,
+  "scoped_storage_observation": true,
+  "tn_only": false,
+  "suite": "multiple-leaf-calls",
+  "skip_tn": true,
+  "probe_elapsed_seconds": 0.8159600839717314,
+  "probe_time_report": "        0.81 real         0.34 user         0.01 sys\n            65470464  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                5358  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   1  voluntary context switches\n                  76  involuntary context switches\n          4557155528  instructions retired\n          1137835896  cycles elapsed\n            55116864  peak memory footprint\n",
+  "timing_scope": "One sequential process, all cases traced and untraced; not a statistical performance claim.",
+  "worktree_diff_sha256": "12d80939b05146741e7e1b6527239b8aefcfe943596a85f787843bc3338666a7",
+  "probe_source_sha256": "3b1b7d579ee82d9fc0093f8af41dfdd2aee9437ac4c5d000556575f2a13b11be",
+  "api_rlib_sha256": "c0cc3b5bca7bd398d74d5daf8626d8f00e1e762f3c97b0a4a1ff43556ea49989",
+  "source_sha256_lf": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "fixtures/runtime/multiple_leaf_calls.act": "5a663ce679d9d500923556c1584e718c6e50b145b1695dcff6536340619a26a5"
+  },
+  "cases": [
+    {
+      "id": "multiple-leaf-calls-ActionCart-3000",
+      "image_bytes": 173,
+      "routines": [
+        {
+          "name": "Bump",
+          "code_bytes": 6,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Hop",
+          "code_bytes": 15,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "AddOne",
+          "code_bytes": 15,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "SumWalk",
+          "code_bytes": 65,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 224,
+              "bytes": 1
+            },
+            {
+              "address": 225,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Twice",
+          "code_bytes": 35,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Once",
+          "code_bytes": 24,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 2,
+          "home_fragments": [
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Main",
+          "code_bytes": 1,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": false,
+        "after_bytes": 200,
+        "before_bytes": 200,
+        "diagnostics": null,
+        "reason": "no-final-saving",
+        "routine_cost_changes": []
+      },
+      "handoff_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-argument-handoff"
+      },
+      "cross_call_outcome": {
+        "accepted": true,
+        "after_bytes": 173,
+        "before_bytes": 200,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 65,
+            "before": 84,
+            "routine": "SumWalk"
+          },
+          {
+            "after": 35,
+            "before": 40,
+            "routine": "Twice"
+          },
+          {
+            "after": 24,
+            "before": 27,
+            "routine": "Once"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 15,
+        "inner_emission_probes": 60,
+        "materializations": 3,
+        "parameter_home_trials": 2,
+        "pipeline_attempts": 45,
+        "rewrite_analysis_builds": 1713,
+        "source_storage_inventory_builds": 12
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 0,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 192295,
+      "untraced_micros": 110318,
+      "trace_matches_untraced": true,
+      "image_sha256": "971c428bb30bf78d00129bbe618e8ff8b64fbc9fe5076199c4c0d228dcba33b9",
+      "map_sha256": "f63cc95dfd2fca671fdb6422d50037f385da4c5c844ac44a360aa51d3fe69ee5",
+      "relocations_sha256": "2282f20d981a9f7c22e07f7befc399b406e45fdb7627203cec93c3ea8619f8f7",
+      "config_sha256": "6fe94e9a9cae6e3d02be3e62ae25056bf0307425618de91a7f4fe4a9293342bc"
+    }
+  ]
+}

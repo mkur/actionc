@@ -1,0 +1,1578 @@
+{
+  "revision": "6e2a37d4ec9005cbd031b0152d2a956527c13213",
+  "parameter_home_selection": true,
+  "parameter_argument_handoff": true,
+  "cross_call_home_selection": true,
+  "multiple_leaf_call_homes": true,
+  "scoped_storage_observation": true,
+  "tn_only": true,
+  "suite": "multiple-leaf-calls",
+  "skip_tn": false,
+  "probe_elapsed_seconds": 41.49066287500318,
+  "probe_time_report": "       41.48 real        40.46 user         0.42 sys\n           751910912  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n               68600  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   5  voluntary context switches\n               12765  involuntary context switches\n        548660241346  instructions retired\n        129841787385  cycles elapsed\n           688081216  peak memory footprint\n",
+  "timing_scope": "One sequential process, all cases traced and untraced; not a statistical performance claim.",
+  "worktree_diff_sha256": "12d80939b05146741e7e1b6527239b8aefcfe943596a85f787843bc3338666a7",
+  "probe_source_sha256": "3b1b7d579ee82d9fc0093f8af41dfdd2aee9437ac4c5d000556575f2a13b11be",
+  "api_rlib_sha256": "c0cc3b5bca7bd398d74d5daf8626d8f00e1e762f3c97b0a4a1ff43556ea49989",
+  "source_sha256_lf": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "fixtures/runtime/multiple_leaf_calls.act": "779e8b5ea46eb54d0faa3f059634fd198cef8c2e40795696f4dd7587a5db5332"
+  },
+  "cases": [
+    {
+      "id": "tn-ActionCart-3000",
+      "image_bytes": 9791,
+      "routines": [
+        {
+          "name": "MovePage",
+          "code_bytes": 19,
+          "inline_home_bytes": 5,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12905,
+              "bytes": 2
+            },
+            {
+              "address": 12907,
+              "bytes": 2
+            },
+            {
+              "address": 12909,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "ArenaStop",
+          "code_bytes": 6,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "ArenaCursor",
+          "code_bytes": 69,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12910,
+              "bytes": 2
+            },
+            {
+              "address": 12912,
+              "bytes": 1
+            },
+            {
+              "address": 12913,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Alloc",
+          "code_bytes": 79,
+          "inline_home_bytes": 5,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12914,
+              "bytes": 2
+            },
+            {
+              "address": 12916,
+              "bytes": 2
+            },
+            {
+              "address": 12918,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Free",
+          "code_bytes": 64,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12919,
+              "bytes": 2
+            },
+            {
+              "address": 12921,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Push",
+          "code_bytes": 90,
+          "inline_home_bytes": 5,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12923,
+              "bytes": 2
+            },
+            {
+              "address": 12925,
+              "bytes": 2
+            },
+            {
+              "address": 12927,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Pull",
+          "code_bytes": 104,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12928,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "CalcAdr",
+          "code_bytes": 28,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Position",
+          "code_bytes": 5,
+          "inline_home_bytes": 2,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12929,
+              "bytes": 1
+            },
+            {
+              "address": 12930,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Relpos",
+          "code_bytes": 11,
+          "inline_home_bytes": 2,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12931,
+              "bytes": 1
+            },
+            {
+              "address": 12932,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Internal",
+          "code_bytes": 17,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12933,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Ascii",
+          "code_bytes": 17,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12934,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Getchar",
+          "code_bytes": 23,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Putchar",
+          "code_bytes": 15,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Print",
+          "code_bytes": 52,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12935,
+              "bytes": 2
+            },
+            {
+              "address": 12937,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "PrintE",
+          "code_bytes": 10,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Block",
+          "code_bytes": 71,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12938,
+              "bytes": 1
+            },
+            {
+              "address": 12939,
+              "bytes": 1
+            },
+            {
+              "address": 12940,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "_ImageAdvance",
+          "code_bytes": 23,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "GetImage",
+          "code_bytes": 30,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12941,
+              "bytes": 2
+            },
+            {
+              "address": 12943,
+              "bytes": 1
+            },
+            {
+              "address": 12944,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "PutImage",
+          "code_bytes": 30,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12945,
+              "bytes": 2
+            },
+            {
+              "address": 12947,
+              "bytes": 1
+            },
+            {
+              "address": 12948,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Error",
+          "code_bytes": 0,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "_Cio",
+          "code_bytes": 12,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "_LodChn",
+          "code_bytes": 6,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "_StrNam",
+          "code_bytes": 45,
+          "inline_home_bytes": 40,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 22067,
+              "bytes": 40
+            }
+          ]
+        },
+        {
+          "name": "GetD",
+          "code_bytes": 22,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12949,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "PutD",
+          "code_bytes": 23,
+          "inline_home_bytes": 2,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12950,
+              "bytes": 1
+            },
+            {
+              "address": 12951,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Open",
+          "code_bytes": 28,
+          "inline_home_bytes": 5,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12952,
+              "bytes": 1
+            },
+            {
+              "address": 12953,
+              "bytes": 2
+            },
+            {
+              "address": 12955,
+              "bytes": 1
+            },
+            {
+              "address": 12956,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Close",
+          "code_bytes": 11,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12957,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Input",
+          "code_bytes": 32,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12958,
+              "bytes": 1
+            },
+            {
+              "address": 12959,
+              "bytes": 2
+            },
+            {
+              "address": 12961,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "_BlockIO",
+          "code_bytes": 25,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Bget",
+          "code_bytes": 13,
+          "inline_home_bytes": 5,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12962,
+              "bytes": 1
+            },
+            {
+              "address": 12963,
+              "bytes": 2
+            },
+            {
+              "address": 12965,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Bput",
+          "code_bytes": 13,
+          "inline_home_bytes": 5,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12967,
+              "bytes": 1
+            },
+            {
+              "address": 12968,
+              "bytes": 2
+            },
+            {
+              "address": 12970,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Xio",
+          "code_bytes": 29,
+          "inline_home_bytes": 6,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12972,
+              "bytes": 1
+            },
+            {
+              "address": 12973,
+              "bytes": 1
+            },
+            {
+              "address": 12974,
+              "bytes": 1
+            },
+            {
+              "address": 12975,
+              "bytes": 1
+            },
+            {
+              "address": 12976,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "SavePos",
+          "code_bytes": 24,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "RestorePos",
+          "code_bytes": 102,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12978,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Window",
+          "code_bytes": 319,
+          "inline_home_bytes": 8,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12979,
+              "bytes": 1
+            },
+            {
+              "address": 12980,
+              "bytes": 1
+            },
+            {
+              "address": 12981,
+              "bytes": 1
+            },
+            {
+              "address": 12982,
+              "bytes": 1
+            },
+            {
+              "address": 12983,
+              "bytes": 2
+            },
+            {
+              "address": 12985,
+              "bytes": 1
+            },
+            {
+              "address": 12986,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "CloseWindow",
+          "code_bytes": 47,
+          "inline_home_bytes": 2,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12987,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Range",
+          "code_bytes": 171,
+          "inline_home_bytes": 5,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12989,
+              "bytes": 2
+            },
+            {
+              "address": 12991,
+              "bytes": 1
+            },
+            {
+              "address": 12992,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "InputLine",
+          "code_bytes": 208,
+          "inline_home_bytes": 5,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12994,
+              "bytes": 2
+            },
+            {
+              "address": 12996,
+              "bytes": 1
+            },
+            {
+              "address": 12997,
+              "bytes": 1
+            },
+            {
+              "address": 12998,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Key",
+          "code_bytes": 34,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Next",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Ord",
+          "code_bytes": 51,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 5,
+          "home_fragments": [
+            {
+              "address": 226,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 228,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Items",
+          "code_bytes": 37,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 3,
+          "home_fragments": [
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 226,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "FindItem",
+          "code_bytes": 74,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12999,
+              "bytes": 2
+            },
+            {
+              "address": 13001,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "DrawMenu",
+          "code_bytes": 68,
+          "inline_home_bytes": 2,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13002,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "MoveMenuBar",
+          "code_bytes": 115,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13004,
+              "bytes": 2
+            },
+            {
+              "address": 13006,
+              "bytes": 1
+            },
+            {
+              "address": 13007,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "PopUp",
+          "code_bytes": 261,
+          "inline_home_bytes": 11,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13008,
+              "bytes": 2
+            },
+            {
+              "address": 13010,
+              "bytes": 1
+            },
+            {
+              "address": 13011,
+              "bytes": 1
+            },
+            {
+              "address": 13012,
+              "bytes": 1
+            },
+            {
+              "address": 13013,
+              "bytes": 1
+            },
+            {
+              "address": 13014,
+              "bytes": 1
+            },
+            {
+              "address": 13015,
+              "bytes": 2
+            },
+            {
+              "address": 13017,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Init",
+          "code_bytes": 100,
+          "inline_home_bytes": 2,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13019,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Strcpy",
+          "code_bytes": 20,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 3,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 1
+            },
+            {
+              "address": 162,
+              "bytes": 1
+            },
+            {
+              "address": 163,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Strcat",
+          "code_bytes": 113,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13021,
+              "bytes": 2
+            },
+            {
+              "address": 13023,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Instr",
+          "code_bytes": 60,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13025,
+              "bytes": 2
+            },
+            {
+              "address": 13027,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "PrintFname",
+          "code_bytes": 52,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13028,
+              "bytes": 2
+            },
+            {
+              "address": 13030,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "GetAnyKey",
+          "code_bytes": 8,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Store",
+          "code_bytes": 10,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13031,
+              "bytes": 2
+            },
+            {
+              "address": 13033,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Value",
+          "code_bytes": 11,
+          "inline_home_bytes": 2,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13034,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "CloseAll",
+          "code_bytes": 12,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 105,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Sort",
+          "code_bytes": 250,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13036,
+              "bytes": 2
+            },
+            {
+              "address": 13038,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Path",
+          "code_bytes": 87,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Draw",
+          "code_bytes": 145,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13039,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Inv",
+          "code_bytes": 54,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13040,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "UpdDis",
+          "code_bytes": 16,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "DrawWinFrame",
+          "code_bytes": 233,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Convert",
+          "code_bytes": 131,
+          "inline_home_bytes": 2,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13041,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "TaggedFiles",
+          "code_bytes": 6,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "IsTagged",
+          "code_bytes": 24,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "RowMarker",
+          "code_bytes": 32,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "IsProtected",
+          "code_bytes": 17,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "IsDirectory",
+          "code_bytes": 17,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Tag",
+          "code_bytes": 88,
+          "inline_home_bytes": 2,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13043,
+              "bytes": 1
+            },
+            {
+              "address": 13044,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "TagAll",
+          "code_bytes": 87,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "FindNext",
+          "code_bytes": 42,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "FormatDirectoryRow",
+          "code_bytes": 291,
+          "inline_home_bytes": 8,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13045,
+              "bytes": 1
+            },
+            {
+              "address": 13046,
+              "bytes": 1
+            },
+            {
+              "address": 13047,
+              "bytes": 1
+            },
+            {
+              "address": 13048,
+              "bytes": 1
+            },
+            {
+              "address": 13049,
+              "bytes": 1
+            },
+            {
+              "address": 13050,
+              "bytes": 1
+            },
+            {
+              "address": 13051,
+              "bytes": 1
+            },
+            {
+              "address": 13052,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "SetWin",
+          "code_bytes": 612,
+          "inline_home_bytes": 2733,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13053,
+              "bytes": 1
+            },
+            {
+              "address": 13054,
+              "bytes": 2
+            },
+            {
+              "address": 13056,
+              "bytes": 2
+            },
+            {
+              "address": 13058,
+              "bytes": 9
+            },
+            {
+              "address": 13067,
+              "bytes": 9
+            },
+            {
+              "address": 22107,
+              "bytes": 47
+            },
+            {
+              "address": 22154,
+              "bytes": 47
+            },
+            {
+              "address": 13076,
+              "bytes": 2
+            },
+            {
+              "address": 13078,
+              "bytes": 2
+            },
+            {
+              "address": 22201,
+              "bytes": 1171
+            },
+            {
+              "address": 23372,
+              "bytes": 1171
+            },
+            {
+              "address": 24543,
+              "bytes": 130
+            },
+            {
+              "address": 24673,
+              "bytes": 130
+            },
+            {
+              "address": 13090,
+              "bytes": 4
+            },
+            {
+              "address": 13104,
+              "bytes": 4
+            },
+            {
+              "address": 13108,
+              "bytes": 1
+            },
+            {
+              "address": 13109,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "SwapWin",
+          "code_bytes": 32,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Dir",
+          "code_bytes": 8,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "PrintNonzeroDigit",
+          "code_bytes": 47,
+          "inline_home_bytes": 2,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13110,
+              "bytes": 1
+            },
+            {
+              "address": 13111,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "PrintB",
+          "code_bytes": 17,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "drives",
+          "code_bytes": 69,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "delcancel",
+          "code_bytes": 23,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "density",
+          "code_bytes": 52,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "yesabort",
+          "code_bytes": 19,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "lockunlock",
+          "code_bytes": 21,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "yescancel",
+          "code_bytes": 20,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "GoTo",
+          "code_bytes": 21,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Xloop",
+          "code_bytes": 209,
+          "inline_home_bytes": 2,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13112,
+              "bytes": 1
+            },
+            {
+              "address": 13113,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "code_bytes": 151,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Format",
+          "code_bytes": 263,
+          "inline_home_bytes": 8,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13114,
+              "bytes": 1
+            },
+            {
+              "address": 13115,
+              "bytes": 1
+            },
+            {
+              "address": 13116,
+              "bytes": 4
+            },
+            {
+              "address": 13120,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "NewDrive",
+          "code_bytes": 201,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13122,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Attrib",
+          "code_bytes": 94,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13123,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "SwapScr",
+          "code_bytes": 191,
+          "inline_home_bytes": 6,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13124,
+              "bytes": 1
+            },
+            {
+              "address": 13125,
+              "bytes": 1
+            },
+            {
+              "address": 13126,
+              "bytes": 2
+            },
+            {
+              "address": 13128,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "View",
+          "code_bytes": 98,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "MkDir",
+          "code_bytes": 127,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Rename",
+          "code_bytes": 177,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Copy",
+          "code_bytes": 673,
+          "inline_home_bytes": 58,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 24803,
+              "bytes": 32
+            },
+            {
+              "address": 24835,
+              "bytes": 16
+            },
+            {
+              "address": 13130,
+              "bytes": 2
+            },
+            {
+              "address": 13132,
+              "bytes": 2
+            },
+            {
+              "address": 13134,
+              "bytes": 1
+            },
+            {
+              "address": 13135,
+              "bytes": 1
+            },
+            {
+              "address": 13136,
+              "bytes": 1
+            },
+            {
+              "address": 13137,
+              "bytes": 1
+            },
+            {
+              "address": 13138,
+              "bytes": 1
+            },
+            {
+              "address": 13139,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Quit",
+          "code_bytes": 101,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "MakeJmp",
+          "code_bytes": 22,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13140,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Handle",
+          "code_bytes": 791,
+          "inline_home_bytes": 5,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13141,
+              "bytes": 1
+            },
+            {
+              "address": 13142,
+              "bytes": 1
+            },
+            {
+              "address": 13143,
+              "bytes": 1
+            },
+            {
+              "address": 13144,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "InitPanels",
+          "code_bytes": 109,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13146,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "NavError",
+          "code_bytes": 100,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "NavInit",
+          "code_bytes": 98,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 9872,
+        "before_bytes": 9956,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 105,
+            "before": 189,
+            "routine": "Fnamecmp"
+          }
+        ]
+      },
+      "handoff_outcome": {
+        "accepted": true,
+        "after_bytes": 9847,
+        "before_bytes": 9872,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 20,
+            "before": 45,
+            "routine": "Strcpy"
+          }
+        ]
+      },
+      "cross_call_outcome": {
+        "accepted": true,
+        "after_bytes": 9791,
+        "before_bytes": 9847,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 51,
+            "before": 85,
+            "routine": "Ord"
+          },
+          {
+            "after": 37,
+            "before": 59,
+            "routine": "Items"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 163,
+        "inner_emission_probes": 978,
+        "late_cleanup_preservation_replays": 24,
+        "materializations": 6,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 3,
+        "pipeline_attempts": 67,
+        "rewrite_analysis_builds": 50800,
+        "source_storage_inventory_builds": 60,
+        "storage_observation_snapshot_builds": 3
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": [
+            {
+              "accepted_routines": [
+                14,
+                50,
+                51
+              ],
+              "outcome": "partial",
+              "rejected_routines": [
+                56
+              ],
+              "stage": "captured_comparisons"
+            }
+          ]
+        }
+      },
+      "traced_micros": 20546944,
+      "untraced_micros": 19732060,
+      "trace_matches_untraced": true,
+      "image_sha256": "996ab19cec273506bb25dd6b7b6411f09fa1090b2557705744fcbf1f91b97efc",
+      "map_sha256": "943e38672570e3cc39bc42dc13e8a6db1d258b37d0441d4a1da936185c802be3",
+      "relocations_sha256": "18b5a2a055b5e1d68bfbe1b321fda35b842a7c26125d946a0641ce09b8bdf7bc",
+      "config_sha256": "dd4c6a0323fcd4d311b42edd24ca7efa428dac1ba2e6e217e970c5f4e0063c6d"
+    }
+  ]
+}

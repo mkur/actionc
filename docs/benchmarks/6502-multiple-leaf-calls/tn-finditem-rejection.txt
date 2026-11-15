@@ -1,0 +1,10 @@
+    TraceEvent {
+        id: 90769,
+        attempt: 0,
+        kind: "cross-call-candidate",
+        data: Object {
+            "call_count": Number(2),
+            "call_index": Number(0),
+            "reason": String("unknown residence callee writes"),
+            "routine": String("FindItem"),
+        },
