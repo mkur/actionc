@@ -1,6 +1,6 @@
 # MIR6502 private-storage boundary: implementation plan
 
-Prepared 2026-11-15. Status: slice 1 complete; slices 2–3 pending.
+Prepared 2026-11-15. Status: slices 1–2 complete; qualification pending.
 
 Allow existing cleanup to remove private temporaries without requiring complete
 read footprints for every call or assembly routine. Reuse storage ownership,
@@ -93,6 +93,12 @@ exercise the changed assembly boundary and verify its result and observed memory
 reuse its runtime/origin coverage rather than creating another matrix.
 
 Commit after those checks pass. Do not fold in the parked directional-write work.
+
+Slice 2 validation: 28 pruning tests passed across the initial run and one focused
+recheck after updating the expected earlier rejection reason. Two MADS-only tests
+remain ignored. Execution controls cover every byte input, both runtimes and both
+origins; the unknown assembly reader permits one-byte tail removal and two-byte
+compaction. No full suite was run.
 
 ## Slice 3 — measure and record the result
 

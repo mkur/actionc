@@ -241,9 +241,9 @@ fn explicit_physical_regions_and_abi_homes_retain_allocations() {
 }
 
 #[test]
-fn inspectable_machine_reads_and_writes_retain_only_overlapping_allocations() {
-    for opcode in [0xad, 0x8d] {
-        for address in [0x3000u16, 0x7000] {
+fn private_storage_machine_reads_and_writes_retain_only_overlapping_allocations() {
+    for opcode in [0xad, 0x8d, 0xbd, 0x9d] {
+        for address in [0x2fffu16, 0x3000, 0x7000] {
             let mut p = program(vec![MirOp::MachineBlock {
                 id: MirMachineBlockId(0),
                 effects: MirEffects {
@@ -256,13 +256,13 @@ fn inspectable_machine_reads_and_writes_retain_only_overlapping_allocations() {
             p.machine_blocks.push(MirMachineBlock {
                 id: MirMachineBlockId(0),
                 source_span: None,
-                items: [opcode, address as u8, (address >> 8) as u8, 0x60]
+                items: [0xb1, 0x80, opcode, address as u8, (address >> 8) as u8, 0x60]
                     .into_iter()
                     .map(MirMachineItem::Byte)
                     .collect(),
             });
             let (after, _, events) = run(&p, &clean(&p));
-            if address == 0x3000 {
+            if address == 0x3000 || (address == 0x2fff && matches!(opcode, 0xbd | 0x9d)) {
                 assert_eq!(after, p);
                 assert_eq!(result(&events)["reason"], "ObservableAllocation");
             } else {
@@ -271,4 +271,41 @@ fn inspectable_machine_reads_and_writes_retain_only_overlapping_allocations() {
             }
         }
     }
+}
+
+#[test]
+fn private_storage_historical_machine_observations_retain_removed_tail() {
+    let p = program(vec![imm(7)]);
+    for opcode in [0xad, 0x8d] {
+        let mut historical = p.clone();
+        historical.routines[0].blocks[0].ops.push(MirOp::MachineBlock {
+            id: MirMachineBlockId(0),
+            effects: MirEffects { memory_reads: MirMemoryEffect::Unknown,
+                memory_writes: MirMemoryEffect::Unknown, ..Default::default() },
+        });
+        historical.machine_blocks.push(MirMachineBlock {
+            id: MirMachineBlockId(0), source_span: None,
+            items: [opcode, 0, 0x30, 0xb1, 0x80].into_iter().map(MirMachineItem::Byte).collect(),
+        });
+        let session = Mir6502Trace::default();
+        let after = select(p.clone(), &[&historical], &clean(&p), None,
+            &Mir6502Config::optimized(), 0x3000, crate::runtime::Runtime::ActionCart,
+            &session.context()).unwrap();
+        assert_eq!(after, p);
+        assert_eq!(result(&session.events())["reason"], "ObservableAllocation");
+    }
+}
+
+#[test]
+fn private_storage_undecodable_machine_operand_remains_an_observer() {
+    let mut p = program(vec![MirOp::MachineBlock {
+        id: MirMachineBlockId(0), effects: Default::default(),
+    }]);
+    p.machine_blocks.push(MirMachineBlock {
+        id: MirMachineBlockId(0), source_span: None,
+        items: vec![MirMachineItem::Byte(0x02)], // outside the supported decoder
+    });
+    let (after, _, events) = run(&p, &clean(&p));
+    assert_eq!(after, p);
+    assert_eq!(result(&events)["reason"], "ObservableAllocation");
 }

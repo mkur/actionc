@@ -412,10 +412,14 @@ fn oracle_program() -> MirProgram {
             consumer: consumer.clone(),
             value: MirValue::ConstU16(0x600),
         },
-        MirOp::LoadIndirect {
-            consumer: consumer.clone(),
-            dst: MirDef::Reg(MirReg::A),
-            offset: 0,
+        MirOp::MachineBlock {
+            id: MirMachineBlockId(0),
+            effects: MirEffects {
+                memory_reads: MirMemoryEffect::Unknown,
+                clobbers: MirRegisterSet { a: true, y: true, flags: true,
+                    ..Default::default() },
+                ..Default::default()
+            },
         },
         MirOp::Binary {
             op: MirBinaryOp::Xor,
@@ -433,6 +437,11 @@ fn oracle_program() -> MirProgram {
         },
     ]);
     p.routines[0].frame.fixed_zero_page = vec![MirFixedZpSlot(0xac), MirFixedZpSlot(0xad)];
+    // LDY #0; LDA ($AC),Y. Unknown pointee read, explicit pointer-byte reads.
+    p.machine_blocks.push(MirMachineBlock {
+        id: MirMachineBlockId(0), source_span: None,
+        items: [0xa0, 0, 0xb1, 0xac].into_iter().map(MirMachineItem::Byte).collect(),
+    });
     p
 }
 
@@ -560,7 +569,7 @@ fn pruned_tail_mads_reconstruction_relocation_lf_crlf() {
 }
 
 #[test]
-fn unknown_machine_reader_retains_zero_initialized_unused_storage() {
+fn unknown_machine_reader_allows_unexposed_private_tail_removal() {
     let mut p = program(vec![MirOp::MachineBlock {
         id: MirMachineBlockId(0),
         effects: MirEffects {
@@ -574,7 +583,9 @@ fn unknown_machine_reader_retains_zero_initialized_unused_storage() {
         items: vec![MirMachineItem::Byte(0xb1), MirMachineItem::Byte(0x80)],
     });
     let (after, manifest, events) = run(&p, &clean(&p));
-    assert_eq!(after, p);
-    assert_eq!(result(&events)["reason"], "ObservableAllocation");
-    assert_eq!(manifest["work"]["emission_invocations"], 1);
+    assert!(after.routines[0].frame.spills.is_empty());
+    assert_eq!(after.routines[0].blocks, p.routines[0].blocks);
+    assert_eq!(result(&events)["accepted"], true);
+    assert_eq!(result(&events)["removed_spills"], 1);
+    assert_eq!(manifest["work"]["emission_invocations"], 2);
 }

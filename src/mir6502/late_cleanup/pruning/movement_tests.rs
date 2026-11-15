@@ -173,7 +173,8 @@ fn historical_physical_alias_cannot_become_a_retired_private_capture() {
     )
     .unwrap();
     assert_eq!(after, p);
-    assert_eq!(result(&session.events())["reason"], "PrivateMovement");
+    // Historical exposure now rejects allocation removal before movement replay.
+    assert_eq!(result(&session.events())["reason"], "ObservableAllocation");
     assert_eq!(session.manifest()["work"]["emission_invocations"], 1);
 }
 

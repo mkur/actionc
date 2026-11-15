@@ -154,22 +154,9 @@ fn unobserved_allocations(program: &MirProgram, old: &Measurement, removed: &Rem
 
 fn unobserved_bytes(program: &MirProgram, old: &Measurement, addresses: &[u16]) -> bool {
     let callees = MirKnownCalleeSummaries::analyze_for_rewriting(program);
-    // Generic source-memory effects cannot expose a non-escaping compiler
-    // allocation. Raw assembly still needs an inspectable physical footprint:
-    // its numeric operands may not appear in the operation's typed references.
-    for r in &program.routines {
-        if r.blocks
-            .iter()
-            .flat_map(|b| &b.ops)
-            .any(|op| matches!(op, MirOp::MachineBlock { .. }))
-            && !callees.get(r.id).is_some_and(|s| {
-                matches!(s.reads(), MirKnownMemoryReads::Exact(_))
-                    && matches!(s.writes(), MirKnownMemoryWrites::Exact(_))
-            })
-        {
-            return false;
-        }
-    }
+    // Ownership has already established compiler-private candidates. Unknown
+    // pointees do not expose them, including in assembly; explicit operands and
+    // declared effects still protect their physical storage in either direction.
     let mut observations = observable_reads(program, &old.memory);
     observations.extend(machine_observations(program, &old.memory, true).into_iter()
         .map(|o| (o.address, o.bytes)));
@@ -296,14 +283,13 @@ pub(super) fn select(
             if !callee_contracts_preserved(&baseline, &proposed) {
                 return Err(Rejection::CalleeContract);
             }
-            if !unobserved_allocations(&baseline, &old, &removed) {
+            if !std::iter::once(&baseline).chain(references.iter().copied())
+                .all(|p| unobserved_allocations(p, &old, &removed))
+            {
                 return Err(Rejection::ObservableAllocation);
             }
             if movement.as_ref().is_some_and(|m| {
                 !m.baseline_safe(&baseline, references, &old)
-                    || references
-                        .iter()
-                        .any(|p| !unobserved_allocations(p, &old, &removed))
             }) {
                 return Err(Rejection::PrivateMovement);
             }
