@@ -582,7 +582,7 @@ fn summarize_routine_reads(
     let mut reads = MirKnownMemoryReads::exact();
     for block in &routine.blocks {
         for op in &block.ops {
-            summarize_op_reads(op, callees, &mut reads);
+            summarize_op_reads(op, routine, callees, &mut reads);
             if matches!(reads, MirKnownMemoryReads::Unknown) {
                 return reads;
             }
@@ -593,6 +593,7 @@ fn summarize_routine_reads(
 
 fn summarize_op_reads(
     op: &MirOp,
+    routine: &MirRoutine,
     callees: &MirKnownCalleeSummaries,
     reads: &mut MirKnownMemoryReads,
 ) {
@@ -633,7 +634,16 @@ fn summarize_op_reads(
     }
     for range in effects.memory.direct_reads {
         for offset in 0..range.bytes {
-            reads.record(offset_mem(&range.base, offset));
+            let byte = offset_mem(&range.base, offset);
+            if routine.frame.has_object_binding(&byte) {
+                if let Some(byte) = resolve_routine_private_zero_page(routine, byte) {
+                    reads.record(byte);
+                } else {
+                    reads.make_unknown();
+                }
+            } else {
+                reads.record(byte);
+            }
         }
     }
     for home in effects.addresses.pair_reads {
@@ -779,11 +789,13 @@ fn summarize_op_writes(
 }
 
 fn resolve_routine_private_zero_page(routine: &MirRoutine, mem: MirMem) -> Option<MirMem> {
-    if let MirMem::Param { id, offset } = mem
-        && routine.frame.parameter_homes.is_some()
-        && !routine.frame.inline_parameter(id)
-    {
-        return match routine.frame.parameter_lane(id, offset)? {
+    let bound = match mem {
+        MirMem::Param { id, .. } => routine.frame.parameter_homes.is_some() && !routine.frame.inline_parameter(id),
+        MirMem::Local { id, .. } => routine.frame.local_homes.is_some() && !routine.frame.inline_local(id),
+        _ => false,
+    };
+    if bound {
+        return match routine.frame.object_lane(&mem, 0)? {
             crate::mir6502::ir::MirParamLane::ZeroPage(slot) => Some(MirMem::FixedZeroPage(slot)),
             crate::mir6502::ir::MirParamLane::Reg(_) => None,
         };

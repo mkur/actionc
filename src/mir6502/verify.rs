@@ -222,7 +222,7 @@ impl MirVerifier {
                 MirCalleeEntryStage::PlannedCapture
             } else { MirCalleeEntryStage::ActualEntry };
             let needs_calls = self.phase != MirPhase::PreMaterialization && program.routines.iter().any(|r|
-                r.frame.parameter_homes.is_some() && r.frame.parameter_handoff.is_none()
+                (r.frame.parameter_homes.is_some() || r.frame.local_homes.is_some()) && r.frame.parameter_handoff.is_none()
                 && r.blocks.iter().flat_map(|b| &b.ops).any(|op| matches!(op, MirOp::Call { .. })));
             let mut calls = needs_calls.then(|| super::parameter_homes::ResidenceCalls::new(program, stage));
             for routine in &program.routines {
@@ -1019,6 +1019,18 @@ impl MirVerifier {
         routine_ids: &BTreeSet<RoutineId>,
         machine_ids: &BTreeSet<MirMachineBlockId>,
     ) {
+        if routine.frame.local_homes.is_some() {
+            let memory = super::analysis::effects::classify_op(op).memory;
+            for range in memory.direct_reads.iter().chain(&memory.direct_writes) {
+                if let MirMem::Local { id, offset } = range.base
+                    && routine.frame.locals.iter().find(|s| s.base == MirStorageBase::Local(id))
+                        .is_none_or(|s| offset.checked_add(range.bytes).is_none_or(|end| end > s.storage_size))
+                {
+                    self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                        "bound local memory access exceeds its declared width"));
+                }
+            }
+        }
         if !matches!(self.phase, MirPhase::PreMaterialization) && routine.frame.parameter_homes.is_some() {
             let memory = super::analysis::effects::classify_op(op).memory;
             for range in memory.direct_reads.iter().chain(&memory.direct_writes) {

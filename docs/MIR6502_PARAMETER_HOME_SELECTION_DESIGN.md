@@ -914,6 +914,21 @@ There is no synthetic parameter capture for a local and no second value tracker
 or separate local ZP allocator. Generalize shared storage queries where needed
 without an unrelated module or IR migration.
 
+`MirFrame.local_homes` is an optional complete table for ordinary `LocalId`
+declarations. `MirLocalHome` admits only `Inline` and a complete adjacent
+`ZeroPage` home. Fixed/aliased declarations do not acquire bindings. Shared
+`object_lane`, `object_pointer_pair` and `resident_bytes` queries connect parameter
+and local identities to physical bytes; parameter ABI/capture roles remain
+separate. Missing/duplicate entries, overlapping owners, unreserved bytes,
+out-of-range accesses and conflicting allocation metadata are verifier errors.
+
+The initialization proof uses the existing backward CFG home-liveness engine
+with logical-local transfers. A byte live at entry depends on a previous
+invocation and cannot relocate. Expanded physical reads project back to the
+logical local, while only logical stores kill that dependence. Calls and scratch
+writes cannot initialize it. Check this rule even for explicitly supplied MIR
+bindings, before automatic selection or final emission.
+
 Initially admit unexposed BYTE/WORD scalar and pointer locals whose complete
 value is definitely assigned during every invocation before any read. `c = 0`
 in `Ord` and `Items` establishes that property. A declaration is not evidence of

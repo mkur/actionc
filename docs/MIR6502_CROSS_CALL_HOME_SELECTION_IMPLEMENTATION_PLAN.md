@@ -1,6 +1,6 @@
 # MIR6502 ZP homes across ordinary calls: implementation plan
 
-Prepared 2026-11-15. Status: slices 0–3 complete; slices 4–6 pending.
+Prepared 2026-11-15. Status: slices 0–4 complete; slices 5–6 pending.
 Starting repository revision: `5de3dda4`; compiler behavior: `a77210d8`.
 
 Implements the [ordinary-call and local-home design extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-zp-homes-across-ordinary-calls).
@@ -381,7 +381,18 @@ remains off in both default configurations.
 
 The parameter scope is qualified against independent execution controls and TN.
 [Receipts](benchmarks/6502-cross-call-homes/README.md#parameter-qualification-slices-23)
-record 64/61-byte independent savings and exact TN rollback when four downstream
-callers grow. Raw NIR, recursive/nested/helper/machine fallbacks and the existing
+record 64/61-byte independent savings and exact TN rollback when four other
+routines grow. Raw NIR, recursive/nested/helper/machine fallbacks and the existing
 byte-level clobber controls pass. Local selection is still disabled; final MADS
 and full backend qualification remain in slice 6.
+
+## Slice 4 completion
+
+Typed local bindings and common physical-byte/pair queries now drive layout,
+emission, maps, costs, callee facts and residence verification. Bound locals
+allocate no shadow inline bytes and cannot use ordinary-memory range proofs.
+The verifier enforces every-path/every-byte initialization even for manual MIR
+bindings, plus exposure, alias, ownership and allocation rules. Automatic local
+selection is still disabled. [Checks](benchmarks/6502-cross-call-homes/slice4-checks.json)
+cover manual byte/word/pointer homes and preserve independent output/map/relocation
+hashes with both parameter gate settings.

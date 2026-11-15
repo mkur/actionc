@@ -146,9 +146,7 @@ fn scalar_inputs(
                 };
                 u8::try_from(a.wrapping_add(*offset).wrapping_add(delta)).ok()
             }
-            MirMem::Param { id, offset } => match routine
-                .frame
-                .parameter_lane(*id, offset.checked_add(delta)?)?
+            MirMem::Param { .. } | MirMem::Local { .. } => match routine.frame.object_lane(mem, delta)?
             {
                 MirParamLane::ZeroPage(s) => Some(s.0),
                 _ => None,

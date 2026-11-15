@@ -35,7 +35,7 @@ pub(super) fn routine_costs(mir: &MirProgram, summary: &MirEmissionSummary) -> s
     for r in &mir.routines {
         let homes = r.frame.params.iter().chain(&r.frame.locals).filter(|s| match s.base {
             MirStorageBase::Param(id) => r.frame.inline_parameter(id),
-            MirStorageBase::Local(_) => true,
+            MirStorageBase::Local(id) => r.frame.inline_local(id),
             _ => false,
         }).map(|s| usize::from(slot_size(s))).sum::<usize>() + r.frame.spills.len();
         costs.insert(r.id, homes);
@@ -1074,6 +1074,14 @@ impl MirObjectLayout {
                 );
             }
             for local in &routine.frame.locals {
+                if let MirStorageBase::Local(id) = local.base
+                    && let Some(crate::mir6502::ir::MirLocalHome::ZeroPage(start)) = routine.frame.local_home(id)
+                {
+                    routine_layout.locals.insert(id, MirStoragePlacement::ZeroPage {
+                        address: u16::from(start.0), size: local.storage_size,
+                    });
+                    continue;
+                }
                 place_routine_slot(
                     &mut routine_layout,
                     &mut layout.storage_items,

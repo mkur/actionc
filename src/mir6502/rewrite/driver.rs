@@ -1213,11 +1213,8 @@ fn pointer_source_is_preserved(
     // A consumer may read an explicitly resident pair instead of staging it.
     // Every consumer must still obtain exactly one original pointer source;
     // materialized inputs and resident pairs use the same binding projection.
-    let has_resident_parameter = sources.iter().any(|source| match source {
-        MirMem::Param { id, .. } => frame.and_then(|f| f.parameter_pointer_pair(*id)).is_some(),
-        _ => false,
-    });
-    if has_resident_parameter
+    let has_resident_object = sources.iter().any(|source| frame.and_then(|f| f.object_pointer_pair(source)).is_some());
+    if has_resident_object
         && !has_indexed_materialization
         && materializations
             .iter()
@@ -1336,10 +1333,9 @@ fn pointer_source_is_preserved(
         return true;
     }
 
-    // A bound parameter has an authoritative home. It must match exactly;
+    // A bound source object has an authoritative home. It must match exactly;
     // the legacy layout-selection allowance below cannot override it.
-    if matches!(source, MirMem::Param { .. })
-        && frame.is_some_and(|frame| frame.parameter_homes.is_some())
+    if frame.is_some_and(|frame| frame.has_object_binding(source))
     {
         return false;
     }
@@ -1366,19 +1362,17 @@ fn pointer_source_is_preserved(
         && !selected_uses_private_staging
 }
 
-// Resolve only explicit parameter bindings. Ordinary layout selection remains
+// Resolve only explicit source-object bindings. Ordinary layout selection remains
 // unchanged; no historical address or inferred scratch ownership is introduced.
 fn pointer_source_byte_key(
     mem: &MirMem,
     delta: u16,
     frame: Option<&crate::mir6502::ir::MirFrame>,
 ) -> String {
-    if let MirMem::Param { id, offset } = mem {
-        if let Some(crate::mir6502::ir::MirParamLane::ZeroPage(slot)) =
-            frame.and_then(|frame| frame.parameter_lane(*id, offset.saturating_add(delta)))
-        {
-            return format!("fixed-zp:{}", slot.0);
-        }
+    if let Some(crate::mir6502::ir::MirParamLane::ZeroPage(slot)) =
+        frame.and_then(|frame| frame.object_lane(mem, delta))
+    {
+        return format!("fixed-zp:{}", slot.0);
     }
     memory_byte_key(mem, delta)
 }

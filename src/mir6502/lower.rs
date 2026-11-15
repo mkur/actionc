@@ -758,6 +758,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                     direct_parameter_abi: direct_parameter_abi(&routine.signature),
                     parameter_homes: None,
                     parameter_handoff: None,
+                    local_homes: None,
                     params: routine
                         .params
                         .iter()

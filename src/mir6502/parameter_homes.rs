@@ -6,6 +6,7 @@ use super::{diagnostics::MirDiagnostic, ir::*};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 mod lifetimes;
+mod locals;
 mod calls;
 mod cross_call;
 mod handoff;
@@ -334,10 +335,20 @@ fn try_proposal(
 
 /// Address uses expose the parameter object, unlike dereferencing its value.
 pub(super) fn exposed(program: &MirProgram, routine: &MirRoutine, id: crate::nir::ParamId) -> bool {
+    object_exposed(program, routine, &MirMem::Param { id, offset: 0 })
+}
+
+fn object_exposed(program: &MirProgram, routine: &MirRoutine, object: &MirMem) -> bool {
     use super::analysis::effects::{classify_op, classify_terminator};
-    let target = MirDataRelocationTarget::Param {
-        routine: routine.id,
-        id,
+    let target = match object {
+        MirMem::Param { id, .. } => MirDataRelocationTarget::Param { routine: routine.id, id: *id },
+        MirMem::Local { id, .. } => MirDataRelocationTarget::Local { routine: routine.id, id: *id },
+        _ => return true,
+    };
+    let same = |mem: &MirMem| match (object, mem) {
+        (MirMem::Param { id: a, .. }, MirMem::Param { id: b, .. }) => a == b,
+        (MirMem::Local { id: a, .. }, MirMem::Local { id: b, .. }) => a == b,
+        _ => false,
     };
     let image_has = |image: &MirDataImage| image.relocations.iter().any(|r| r.target == target);
     program.statics.iter().any(|s| image_has(&s.image))
@@ -354,7 +365,7 @@ pub(super) fn exposed(program: &MirProgram, routine: &MirRoutine, id: crate::nir
         || routine.blocks.iter().any(|b| {
             b.ops.iter().map(classify_op).map(|e| e.memory.address_references)
                 .chain(std::iter::once(classify_terminator(&b.terminator).memory.address_references))
-                .flatten().any(|m| matches!(m, MirMem::Param { id: p, .. } if p == id))
+                .flatten().any(|m| same(&m))
             // Machine payloads can refer to parameters by relocation or raw bytes.
             || b.ops.iter().any(|op| matches!(op, MirOp::MachineBlock { .. }))
         })
@@ -413,6 +424,7 @@ fn source_zero_page(program: &MirProgram, routine: &MirRoutine) -> BTreeSet<u8> 
 
 pub(super) fn verify_storage(program: &MirProgram, routine: &MirRoutine, stage: MirCalleeEntryStage) -> Vec<MirDiagnostic> {
     let mut errors = handoff::verify(program, routine, stage);
+    errors.extend(locals::verify_storage(program, routine));
     let Some(bindings) = &routine.frame.parameter_homes else {
         return errors;
     };
@@ -447,10 +459,10 @@ pub(super) fn verify_storage(program: &MirProgram, routine: &MirRoutine, stage: 
 }
 
 pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
+    let mut errors = locals::verify_bindings(routine);
     let Some(bindings) = &routine.frame.parameter_homes else {
-        return vec![];
+        return errors;
     };
-    let mut errors = Vec::new();
     let mut fail = |message: &str| errors.push(MirDiagnostic::routine(&routine.name, message));
     let mut ids = BTreeSet::new();
     let mut occupied = BTreeSet::new();

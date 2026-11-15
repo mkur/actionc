@@ -291,6 +291,9 @@ pub struct MirFrame {
     /// Revalidated terminal consumption; no pre-expansion instruction index.
     pub parameter_handoff: Option<MirParamHandoff>,
     pub locals: Vec<MirStorageSlot>,
+    /// Complete bindings for ordinary Local declarations. None retains legacy
+    /// layout; locals never acquire ABI capture or register-only residence.
+    pub local_homes: Option<Vec<MirLocalBinding>>,
     pub spills: Vec<MirSpillId>,
     pub virtual_zero_page: Vec<MirZpSlot>,
     pub fixed_zero_page: Vec<MirFixedZpSlot>,
@@ -307,6 +310,18 @@ pub struct MirParamHandoff {
 pub struct MirParamBinding {
     pub param: ParamId,
     pub home: MirParamHome,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MirLocalBinding {
+    pub local: LocalId,
+    pub home: MirLocalHome,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MirLocalHome {
+    Inline,
+    ZeroPage(MirFixedZpSlot),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -343,6 +358,63 @@ impl MirParamHome {
 }
 
 impl MirFrame {
+    pub fn local_home(&self, id: LocalId) -> Option<&MirLocalHome> {
+        self.local_homes.as_ref()?.iter().find(|b| b.local == id).map(|b| &b.home)
+    }
+
+    pub(crate) fn inline_local(&self, id: LocalId) -> bool {
+        matches!(self.local_home(id), None | Some(MirLocalHome::Inline))
+    }
+
+    pub(crate) fn has_object_binding(&self, mem: &MirMem) -> bool {
+        match mem {
+            MirMem::Param { .. } => self.parameter_homes.is_some(),
+            MirMem::Local { .. } => self.local_homes.is_some(),
+            _ => false,
+        }
+    }
+
+    /// Authoritative physical lane for a logical source-object byte. Ordinary
+    /// layout remains separate; failure never invents an address for a binding.
+    pub(crate) fn object_lane(&self, mem: &MirMem, delta: u16) -> Option<MirParamLane> {
+        match mem {
+            MirMem::Param { id, offset } => self.parameter_lane(*id, offset.checked_add(delta)?),
+            MirMem::Local { id, offset } => {
+                let byte = offset.checked_add(delta)?;
+                let slot = self.locals.iter().find(|s| s.base == MirStorageBase::Local(*id))?;
+                if byte >= slot.storage_size { return None; }
+                let MirLocalHome::ZeroPage(start) = self.local_home(*id)? else { return None; };
+                Some(MirParamLane::ZeroPage(MirFixedZpSlot(start.0.checked_add(u8::try_from(byte).ok()?)?)))
+            }
+            _ => None,
+        }
+    }
+
+    pub(crate) fn object_pointer_pair(&self, mem: &MirMem) -> Option<MirFixedZpSlot> {
+        match (self.object_lane(mem, 0)?, self.object_lane(mem, 1)?) {
+            (MirParamLane::ZeroPage(lo), MirParamLane::ZeroPage(hi)) if lo.0.checked_add(1) == Some(hi.0) => Some(lo),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn resident_bytes(&self) -> Vec<(MirMem, MirFixedZpSlot)> {
+        self.params.iter().chain(&self.locals).filter(|s| match s.base {
+            MirStorageBase::Param(id) => self.parameter_home(id).is_some_and(|h| matches!(h, MirParamHome::ZeroPage(_) | MirParamHome::Lanes(_))),
+            MirStorageBase::Local(id) => matches!(self.local_home(id), Some(MirLocalHome::ZeroPage(_))),
+            _ => false,
+        }).flat_map(|s| (0..s.storage_size).filter_map(|offset| {
+            let mem = match s.base {
+                MirStorageBase::Param(id) => MirMem::Param { id, offset },
+                MirStorageBase::Local(id) => MirMem::Local { id, offset },
+                _ => return None,
+            };
+            match self.object_lane(&mem, 0)? {
+                MirParamLane::ZeroPage(slot) => Some((mem, slot)),
+                _ => None,
+            }
+        })).collect()
+    }
+
     pub(crate) fn parameter_lanes(&self, id: ParamId) -> Option<Vec<MirParamLane>> {
         let width = self.params.iter().find(|s| s.base == MirStorageBase::Param(id))?.storage_size;
         self.parameter_home(id)?.lanes(width)

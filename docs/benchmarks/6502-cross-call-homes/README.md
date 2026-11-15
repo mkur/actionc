@@ -61,3 +61,11 @@ and MADS qualification is reserved for the combined implementation in slice 6.
 
 Reproduce the enabled measurement by adding `--cross-call` to the baseline
 command. Each admitted batch adds one continuation; empty batches add none.
+
+Inspecting the parameter trial's MIR identifies the growth mechanism: terminal
+cleanup retains extra ZP temporary stores when newly resident source objects
+share those addresses in other routines. For example, `MoveMenuBar` keeps its
+`store zp1, a` before `x = a`; it does not call `Ord`. The current global physical
+observation inventory cannot separate these lifetimes. This is a conservative
+cleanup limitation, not evidence that the new call-preservation proof failed.
+The initial implementation retains that inventory and the strict cost guard.

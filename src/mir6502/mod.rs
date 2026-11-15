@@ -27,7 +27,7 @@ pub use ir::{
     MirDataRelocationTarget, MirDef, MirEdge, MirEdgeArg, MirEffects, MirFixedZpSlot, MirFlag,
     MirFlagTest, MirFrame, MirGlobal, MirGlobalBacking, MirLabel, MirMachineBlockId, MirMem,
     MirMemoryEffect, MirMemoryRegion, MirMemoryRegionKind, MirOp, MirOpRef, MirPhase,
-    MirParamBinding, MirParamHome, MirParamLane, MirParamHandoff,
+    MirParamBinding, MirParamHome, MirParamLane, MirParamHandoff, MirLocalBinding, MirLocalHome,
     MirPointerPair, MirProgram, MirReg, MirRegisterSet, MirResultHome, MirRoutine, MirRoutineAbi,
     MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirSpillId, MirStatic,
     MirStoragePurpose, MirStorageBase, MirStorageClass, MirStorageId, MirStorageSlot, MirTemp, MirTempId,

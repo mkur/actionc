@@ -135,6 +135,9 @@ pub(crate) fn frame(r: &MirRoutine) -> Value {
                 MirParamLane::ZeroPage(slot)=>json!({"offset":offset,"address":slot.0,"bytes":1}),
             }).collect::<Vec<_>>())
         })).collect::<Vec<_>>()),
+        "local_bindings":r.frame.local_homes.as_ref().map(|bindings|bindings.iter().map(|b|json!({
+            "local":b.local.0,"placement":format!("{:?}",b.home)
+        })).collect::<Vec<_>>()),
         "spills":r.frame.spills.iter().map(|id|memory(r.id,&MirMem::Spill{id:*id,offset:0})).collect::<Vec<_>>(),
         "virtual_zp":r.frame.virtual_zero_page.iter().map(|id|memory(r.id,&MirMem::ZeroPage(*id))).collect::<Vec<_>>(),
         "fixed_zp":r.frame.fixed_zero_page.iter().map(|id|memory(r.id,&MirMem::FixedZeroPage(*id))).collect::<Vec<_>>(),

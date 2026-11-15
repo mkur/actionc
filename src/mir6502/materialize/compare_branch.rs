@@ -1954,11 +1954,8 @@ pub(in crate::mir6502) fn dual_indirect_compare_candidate(
     let right = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
         lo: MirFixedZpSlot(super::POINTER_SCRATCH_LO),
     });
-    let resident = |mem: &MirMem| match mem {
-        MirMem::Param { id, offset: 0 } => frame.parameter_pointer_pair(*id).map(|lo|
-            MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo })),
-        _ => None,
-    };
+    let resident = |mem: &MirMem| frame.object_pointer_pair(mem).map(|lo|
+        MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo }));
     let first_resident = resident(first_pointer_mem);
     let second_resident = resident(second_pointer_mem);
     let left = first_resident.unwrap_or(left);
@@ -1974,11 +1971,8 @@ pub(in crate::mir6502) fn dual_indirect_compare_candidate(
             let MirPointerPair::Fixed { lo } = consumer.pointer_pair() else {
                 return None;
             };
-            if frame.parameter_homes.iter().flatten().any(|b| {
-                frame.parameter_lanes(b.param).is_some_and(|lanes| lanes.iter().any(|lane|
-                    matches!(lane, crate::mir6502::ir::MirParamLane::ZeroPage(slot)
-                        if u16::from(slot.0) >= u16::from(lo.0) && u16::from(slot.0) < u16::from(lo.0) + 2)))
-            }) {
+            if frame.resident_bytes().iter().any(|(_, slot)|
+                u16::from(slot.0) >= u16::from(lo.0) && u16::from(slot.0) < u16::from(lo.0) + 2) {
                 return None;
             }
             replacement.push(MirOp::MaterializeAddress {

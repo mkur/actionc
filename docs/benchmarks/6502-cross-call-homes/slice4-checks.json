@@ -1,0 +1,48 @@
+{
+  "homes": {
+    "passed": 37,
+    "ignored": 0,
+    "log_sha256": "cf1e997fbaaafeced57b807ae838c259bcfbb79a54e0416ec15f0c5bc06ea931"
+  },
+  "locals": {
+    "passed": 5,
+    "ignored": 0,
+    "log_sha256": "710fe1b7c521d672909f0d2cb1f8a964142d33577877cff6bd0083406ad5a06a"
+  },
+  "bounds": {
+    "passed": 2,
+    "ignored": 0,
+    "log_sha256": "926ba3618d7baa59a47346ff01f226621f5239cff521ebd0068876f621ad30ff"
+  },
+  "emit": {
+    "passed": 16,
+    "ignored": 0,
+    "log_sha256": "c5a496a2c136d557b966edd52dccc34d4f0350c3347efa7cf8993b68aeb8a4f3"
+  },
+  "callees": {
+    "passed": 27,
+    "ignored": 0,
+    "log_sha256": "98438094caac3adfdd1b416cd2c0de3d46db7475374bf069e0db637bfd97324d"
+  },
+  "rewrite": {
+    "passed": 65,
+    "ignored": 0,
+    "log_sha256": "6aec1029eecdaa814fbc175ee9fa30c9b6fec6484ea128e7bb0e737fb393e780"
+  },
+  "verify": {
+    "passed": 44,
+    "ignored": 0,
+    "log_sha256": "069f2977588395a44f203e90a1247fbe40a7553045439fccc4fe37f86dc3657e"
+  },
+  "preservation": {
+    "passed": 57,
+    "ignored": 2,
+    "log_sha256": "13e2d8b320c0dacc062c688f24fd25a7657051e9321799ab4bd00cfd45618526"
+  },
+  "integration": {
+    "passed": 5,
+    "ignored": 0,
+    "log_sha256": "02e15768749aebdf499f9e6b9687b98be5c198c50f9626c10d119b5471ab3c4c"
+  },
+  "output_equality": "All eight independent runtime/origin/inlining lanes match parameter-stage image/map/relocation hashes, with the cross-call gate off and on. New local bindings are manual only."
+}

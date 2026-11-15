@@ -58,6 +58,9 @@ impl OrdinaryStorageBounds {
                 {
                     continue;
                 }
+                if let MirStorageBase::Local(id) = slot.base && !routine.frame.inline_local(id) {
+                    continue;
+                }
                 // Aliases and ABI-only declarations do not allocate roots.
                 let root = match slot.base {
                     MirStorageBase::Param(id) => MirMem::Param { id, offset: 0 },
@@ -175,5 +178,26 @@ fn slot_payload_bound(init: &MirStorageInit) -> usize {
         MirStorageInit::RoutineAddress {
             descriptor_size, ..
         } => usize::from(*descriptor_size),
+    }
+}
+
+#[cfg(test)]
+mod local_binding_tests {
+    use super::*;
+    use crate::mir6502::ir::{MirLocalBinding, MirLocalHome, MirFixedZpSlot};
+    #[test]
+    fn bound_local_is_not_an_ordinary_root_or_inline_budget() {
+        let ast = crate::parser::parse(&crate::lexer::tokenize("CARD FUNC Keep() CARD n n=1 RETURN(n)").unwrap()).unwrap();
+        let model = crate::semantic::analyze(&ast).unwrap();
+        let mut p = crate::mir6502::lower_program(&crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model))).unwrap();
+        let r = &p.routines[0];
+        let MirStorageBase::Local(local) = r.frame.locals[0].base else { panic!() };
+        let mem = MirMem::Local { id: local, offset:0 };
+        let old = OrdinaryStorageBounds::new(&p);
+        assert!(old.range_is_outside_zero_page(0x3000, r.id, &mem, 2));
+        p.routines[0].frame.local_homes = Some(vec![MirLocalBinding { local, home:MirLocalHome::ZeroPage(MirFixedZpSlot(0xe4)) }]);
+        let new = OrdinaryStorageBounds::new(&p);
+        assert!(!new.range_is_outside_zero_page(0x3000, p.routines[0].id, &mem, 2));
+        assert_eq!(old.bytes_upper_bound - new.bytes_upper_bound, 2);
     }
 }
