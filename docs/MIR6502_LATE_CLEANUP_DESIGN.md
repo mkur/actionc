@@ -235,8 +235,11 @@ overwrites and allocated private aliases. Do not introduce a second deletion
 rule based on counts or on the absence of assembly loads.
 
 Ownership belongs to a storage role and the particular definition's lifetime.
-Ordinary program pointer accesses cannot observe compiler-private temporaries
-or active pointer scratch, whether allocated in ordinary RAM or zero page.
+Ordinary calls, program pointer accesses and assembly cannot observe compiler-private
+temporaries unless an operand, address exposure or ABI contract makes them accessible.
+This applies in ordinary RAM and zero page; secretly depending on a compiler spill's
+address is outside the supported contract. Active pointer scratch additionally
+requires its existing lifetime and clobber proofs across calls.
 `$E0..$EF` is an allocation search range, not a private-memory declaration.
 For example TN owns `i`/`j` at `$E0/$E1`, `screen` at `$E6/$E7`, and `allocp` at
 `$E8/$E9`. These bytes remain program storage. This rule concerns compiler
@@ -460,14 +463,23 @@ names still retain the frame because their references cannot be enumerated.
 Ordinary loads/stores present only in earlier-decision witnesses remain subject
 to preservation replay; a missing physical address needed by a proof rejects pruning.
 
-Generic source-memory `Unknown`/`All` effects and ordinary indirect reads/writes
+Generic `Unknown`/`All` effects and indirect reads/writes, including in assembly,
 do not expose non-escaping compiler allocations. Explicit numeric accesses,
-structured physical regions, ABI homes and exact machine read/write footprints
-remain observers. Raw machine blocks still require inspectable read/write
-footprints: their numeric operands need not occur in typed MIR references.
-An unresolved footprint conservatively declines pruning. This is a low-level
-reference-coverage limit, not permission for source pointers to observe private
-compiler state.
+structured physical regions, ABI homes and typed machine references remain
+observers. Collect explicit operands independently of complete callee footprints:
+an unknown pointee does not erase a known direct read or write elsewhere in the
+block. An undecodable explicit operand remains a conservative observation.
+Indexed numeric operands cover the ISA's full possible index, including wrapping;
+this inventory neither infers index bounds nor claims a complete memory summary.
+
+Assembly must describe additional register/flag/stack/scratch effects not covered
+by decoding or its ABI. Missing facts retain their conservative defaults. Detailed
+memory-read lists are optional precision for accessible storage, not a prerequisite
+for private allocation removal. Unknown writes still invalidate values according
+to existing effect rules. Source parameters/locals do not become private merely
+because the compiler allocated their homes; source and ABI observations keep their
+existing proofs. The private-storage rule does not authorize reordering calls or
+removing observable loads.
 
 The baseline final map must prove each removed byte disjoint from all declared
 source storage, including unused objects, aliases and descriptor backing. Reuse

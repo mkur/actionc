@@ -406,6 +406,77 @@ fn unknown_source_memory_does_not_expose_non_escaping_temporaries() {
 }
 
 #[test]
+fn private_storage_machine_observations_survive_unknown_effects() {
+    for opcode in [0xad, 0x8d, 0xee] { // LDA, STA, INC
+        for unknown_first in [false, true] {
+            let direct = [opcode, 0xff, 0x6f];
+            let unknown = [0xb1, 0x80]; // LDA ($80),Y
+            let bytes: Vec<_> = if unknown_first {
+                unknown.iter().chain(&direct).copied().collect()
+            } else {
+                direct.iter().chain(&unknown).copied().collect()
+            };
+            let mut p = program(vec![MirOp::MachineBlock {
+                id: MirMachineBlockId(0),
+                effects: MirEffects { memory_reads: MirMemoryEffect::Unknown,
+                    memory_writes: MirMemoryEffect::Unknown, ..Default::default() },
+            }]);
+            p.machine_blocks.push(MirMachineBlock { id: MirMachineBlockId(0),
+                source_span: None, items: bytes.into_iter().map(MirMachineItem::Byte).collect() });
+            let inventory = machine_storage_observations(&p.machine_blocks[0], &p.routines[0], &p).unwrap();
+            assert_eq!(inventory.reads.iter().any(|a| a.base == MirMem::Absolute(0x6fff)), opcode != 0x8d);
+            assert_eq!(inventory.writes.iter().any(|a| a.base == MirMem::Absolute(0x6fff)), opcode != 0xad);
+            for address in [0x80, 0x81] {
+                assert!(inventory.reads.iter().any(|a| a.base == MirMem::FixedZeroPage(MirFixedZpSlot(address))));
+            }
+            assert_eq!(MirKnownCalleeSummaries::analyze_for_rewriting(&p)
+                .get(RoutineId(0)).unwrap().reads(), &MirKnownMemoryReads::Unknown);
+            let memory = MirPhysicalMemory::default();
+            for writes in [false, true] {
+                let observations = machine_observations(&p, &memory, writes);
+                assert_eq!(observations.iter().any(|o| o.address == Some(0x6fff)),
+                    if writes { opcode != 0xad } else { opcode != 0x8d });
+            }
+        }
+    }
+    for (bytes, expected) in [
+        (vec![0xb1, 0xff], vec![(0xff, 1), (0, 1)]),
+        (vec![0x6c, 0xff, 0x30], vec![(0x30ff, 1), (0x3000, 1)]),
+        (vec![0xb5, 0xf0], vec![(0, 256)]),
+        (vec![0xbd, 0xff, 0xff], vec![(0xffff, 256)]),
+    ] {
+        let mut p = program(vec![MirOp::MachineBlock {
+            id: MirMachineBlockId(0), effects: Default::default(),
+        }]);
+        p.machine_blocks.push(MirMachineBlock { id: MirMachineBlockId(0),
+            source_span: None, items: bytes.into_iter().map(MirMachineItem::Byte).collect() });
+        let actual: Vec<_> = machine_observations(&p, &MirPhysicalMemory::default(), false)
+            .into_iter().map(|o| (o.address.unwrap(), o.bytes)).collect();
+        assert_eq!(actual, expected);
+    }
+}
+
+#[test]
+fn private_storage_unknown_assembly_read_keeps_only_explicitly_observed_store() {
+    for exposed in [false, true] {
+        let mem = MirMem::ZeroPage(MirZpSlot(0));
+        let mut p = fixture(&mem);
+        p.routines[0].blocks[0].ops[4] = MirOp::MachineBlock {
+            id: MirMachineBlockId(0),
+            effects: MirEffects { memory_reads: MirMemoryEffect::Unknown,
+                ..Default::default() },
+        };
+        let mut bytes = vec![0xb1, 0x80];
+        if exposed { bytes.extend([0xa5, 0xe2]); }
+        p.machine_blocks.push(MirMachineBlock { id: MirMachineBlockId(0),
+            source_span: None, items: bytes.into_iter().map(MirMachineItem::Byte).collect() });
+        let mut expected = p.clone();
+        if !exposed { expected.routines[0].blocks[0].ops.remove(3); }
+        assert_eq!(run(&p, &clean(&p)).0, expected);
+    }
+}
+
+#[test]
 fn typed_machine_reference_exposes_a_temporary_even_with_unknown_reads() {
     let mut p = fixture(&home());
     p.routines[0].blocks[0].ops[4] = MirOp::MachineBlock {

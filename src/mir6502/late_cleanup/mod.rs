@@ -11,7 +11,8 @@ use super::{
     analysis::{
         address_ranges::MirAddressRanges,
         effects::classify_op,
-        known_callees::{MirKnownCalleeSummaries, MirKnownMemoryReads, MirKnownMemoryWrites},
+        known_callees::{MirKnownCalleeSummaries, MirKnownMemoryReads, MirKnownMemoryWrites,
+            machine_storage_observations},
         record_bases::MirPhysicalMemory,
         storage_ownership::{StorageOwnership, StorageRole},
     },
@@ -177,14 +178,16 @@ fn read_observations(
             }
         }
     }
-    // Inspectable machine routines may expose absolute reads behind a call.
+    // Assembly's explicit operands remain observations even when its complete
+    // read footprint is unknown (or no exit summary can be established).
+    reads.extend(machine_observations(program, memory, false));
     let callees = MirKnownCalleeSummaries::analyze_for_rewriting(program);
     for r in &program.routines {
-        if (!scratch_lifetimes
-            || r.blocks
+        if !scratch_lifetimes
+            && !r.blocks
                 .iter()
                 .flat_map(|b| &b.ops)
-                .any(|op| matches!(op, MirOp::MachineBlock { .. })))
+                .any(|op| matches!(op, MirOp::MachineBlock { .. }))
             && let Some(summary) = callees.get(r.id)
             && let MirKnownMemoryReads::Exact(cells) = summary.reads()
         {
@@ -196,6 +199,40 @@ fn read_observations(
         }
     }
     reads
+}
+
+fn machine_observations(
+    program: &MirProgram,
+    memory: &MirPhysicalMemory,
+    writes: bool,
+) -> Vec<ReadObservation> {
+    let mut observations = Vec::new();
+    for routine in &program.routines {
+        for op in routine.blocks.iter().flat_map(|b| &b.ops) {
+            let MirOp::MachineBlock { id, .. } = op else { continue };
+            let inventory = program.machine_blocks.iter().find(|m| m.id == *id)
+                .and_then(|m| machine_storage_observations(m, routine, program));
+            let Some(inventory) = inventory else {
+                // An undecodable explicit operand is still a physical observer.
+                observations.push(ReadObservation {
+                    owner: routine.id, site: None, mem: None, address: None, bytes: 1,
+                });
+                continue;
+            };
+            for access in if writes { inventory.writes } else { inventory.reads } {
+                // Source identities are covered by the complete source inventory;
+                // typed private identities are exposed by StorageOwnership.
+                if matches!(access.base, MirMem::Absolute(_) | MirMem::FixedZeroPage(_)) {
+                    observations.push(ReadObservation {
+                        owner: routine.id, site: None,
+                        address: memory.address(routine.id, &access.base),
+                        mem: Some(access.base), bytes: access.bytes,
+                    });
+                }
+            }
+        }
+    }
+    observations
 }
 
 #[cfg(test)]

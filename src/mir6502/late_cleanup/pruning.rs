@@ -171,6 +171,8 @@ fn unobserved_bytes(program: &MirProgram, old: &Measurement, addresses: &[u16]) 
         }
     }
     let mut observations = observable_reads(program, &old.memory);
+    observations.extend(machine_observations(program, &old.memory, true).into_iter()
+        .map(|o| (o.address, o.bytes)));
     for r in &program.routines {
         for op in r.blocks.iter().flat_map(|b| &b.ops) {
             let effects = classify_op(op).memory;

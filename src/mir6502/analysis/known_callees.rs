@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 mod bounded_memory;
+mod observations;
+pub(in crate::mir6502) use observations::machine_storage_observations;
 mod entry_inputs;
 pub(in crate::mir6502) use entry_inputs::{MirCalleeEntryFact, MirCalleeEntryStage};
 pub(in crate::mir6502) use bounded_memory::BoundedMachine;
