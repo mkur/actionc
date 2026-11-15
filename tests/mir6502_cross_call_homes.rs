@@ -429,6 +429,64 @@ fn cross_call_homes_mads_listings_reconstruct_and_relocate_with_lf_and_crlf() {
 }
 
 #[test]
+fn whole_image_cost_accepts_resident_homes_despite_another_routines_growth() {
+    let source = include_str!("../fixtures/runtime/storage_observation.act").replace("\r\n", "\n");
+    let n = nir(&source);
+    // Keep the extra Walk staging store: this isolates cost acceptance from
+    // scoped observation's separate proof for deleting that store.
+    let baseline_config = Mir6502Config {
+        enable_small_leaf_inlining: false,
+        enable_scoped_storage_observation: false,
+        enable_cross_call_home_selection: false,
+        ..Mir6502Config::optimized()
+    };
+    let baseline = mir6502::generate_output_with_config_and_runtime(
+        &n, 0x3000, &baseline_config, Runtime::ActionCart,
+    ).unwrap();
+    let config = Mir6502Config {
+        enable_cross_call_home_selection: true,
+        ..baseline_config
+    };
+    let mut trace = Mir6502Trace::default();
+    let selected = mir6502::generate_output_with_trace(
+        &n, 0x3000, &config, Runtime::ActionCart, &mut trace,
+    ).unwrap();
+    let before_bytes = actionc::codegen::format_load_file(&baseline).len();
+    let after_bytes = actionc::codegen::format_load_file(&selected).len();
+    assert!(after_bytes < before_bytes);
+
+    let code_bytes = |output: &actionc::codegen::CodegenOutput, name: &str| {
+        let range = output.map.routine_ranges.iter().find(|r| r.name == name).unwrap();
+        range.end - range.start
+    };
+    let before_walk = code_bytes(&baseline, "Walk");
+    let after_walk = code_bytes(&selected, "Walk");
+    assert!(after_walk > before_walk, "the control must exercise actual local growth");
+    let resident: Vec<_> = selected.map.storage_symbols.iter().filter(|s| {
+        s.scope == actionc::codegen::CodegenSymbolScope::Routine("FindRecord".into())
+            && matches!(s.kind, actionc::codegen::CodegenSymbolKind::Parameter
+                | actionc::codegen::CodegenSymbolKind::Local)
+    }).collect();
+    assert!(!resident.is_empty());
+    assert!(resident.iter().all(|s| s.address < 256), "{resident:?}");
+
+    let events = trace.events();
+    let decision = &events.iter().find(|e| e.kind == "cross-call-home-result").unwrap().data;
+    assert_eq!(decision["accepted"], true);
+    assert_eq!(decision["reason"], "smaller-image");
+    assert_eq!(decision["before_bytes"], before_bytes);
+    assert_eq!(decision["after_bytes"], after_bytes);
+    let walk = decision["routine_cost_changes"].as_array().unwrap().iter()
+        .find(|r| r["routine"] == "Walk").unwrap();
+    assert_eq!(walk["after"].as_u64().unwrap() - walk["before"].as_u64().unwrap(),
+        u64::from(after_walk - before_walk));
+    assert_eq!(trace.manifest()["work"]["cross_call_home_trials"], 1);
+    assert_eq!(selected, mir6502::generate_output_with_config_and_runtime(
+        &n, 0x3000, &config, Runtime::ActionCart,
+    ).unwrap());
+}
+
+#[test]
 fn storage_observation_removes_staging_without_growing_any_routine() {
     let source = include_str!("../fixtures/runtime/storage_observation.act").replace("\r\n", "\n");
     let n = nir(&source);

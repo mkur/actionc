@@ -1,0 +1,331 @@
+{
+  "revision": "65b223cebf89a6aed2e557b6b68557fcd69d6966",
+  "parameter_home_selection": true,
+  "parameter_argument_handoff": true,
+  "cross_call_home_selection": true,
+  "scoped_storage_observation": false,
+  "tn_only": false,
+  "suite": "storage-observation",
+  "skip_tn": true,
+  "probe_elapsed_seconds": 0.9630288750049658,
+  "probe_time_report": "        0.95 real         0.60 user         0.02 sys\n            57507840  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                7983  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   0  voluntary context switches\n                 217  involuntary context switches\n          7795205534  instructions retired\n          1973938535  cycles elapsed\n            46974208  peak memory footprint\n",
+  "timing_scope": "One sequential process, all cases traced and untraced; not a statistical performance claim.",
+  "worktree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "probe_source_sha256": "9fb2b567baba25a3f52f7c828c1c915e7081f55cbe852e89e89a2bc2b7cb0b1b",
+  "api_rlib_sha256": "24bcbf9b77a63d89fb9ce47294955e9db6dc296b416fbfcbef075da9ba4d42c5",
+  "source_sha256_lf": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "fixtures/runtime/storage_observation.act": "bb58e21415df0322356ebe9033865c8fe7bc24920735c6c4c7409dc46bed7a62"
+  },
+  "cases": [
+    {
+      "id": "storage-observation-ActionCart-3000",
+      "image_bytes": 229,
+      "routines": [
+        {
+          "name": "Walk",
+          "code_bytes": 118,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12291,
+              "bytes": 2
+            },
+            {
+              "address": 12293,
+              "bytes": 1
+            },
+            {
+              "address": 12294,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Observe",
+          "code_bytes": 10,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12288,
+              "bytes": 1
+            },
+            {
+              "address": 12289,
+              "bytes": 1
+            },
+            {
+              "address": 12290,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "AdvanceRecord",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "FindRecord",
+          "code_bytes": 51,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 5,
+          "home_fragments": [
+            {
+              "address": 226,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 228,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-homes"
+      },
+      "handoff_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-argument-handoff"
+      },
+      "cross_call_outcome": {
+        "accepted": true,
+        "after_bytes": 229,
+        "before_bytes": 261,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 51,
+            "before": 85,
+            "routine": "FindRecord"
+          },
+          {
+            "after": 122,
+            "before": 120,
+            "routine": "Walk"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 2,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 864,
+        "source_storage_inventory_builds": 16
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 0,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 212608,
+      "untraced_micros": 101523,
+      "trace_matches_untraced": true,
+      "image_sha256": "f7ac1077973067d2f58c6d78161bf83202870663e23a2feaea449e345f614076",
+      "map_sha256": "3791ed5bf2184000ebc73b95de6eb6c2d874637b6fb7d490d52cb119d6a41861",
+      "relocations_sha256": "4f1e11e14e1181df8480ef27041f59c6a51f10ee1e113351ca3ac0a96ad7e61a",
+      "config_sha256": "0b68b43d751e198dd6e4e6ffc812c292fffe8fc80d7ec2d6f974927b48ea24fc"
+    },
+    {
+      "id": "storage-observation-inline-ActionCart-3000",
+      "image_bytes": 229,
+      "routines": [
+        {
+          "name": "Walk",
+          "code_bytes": 118,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12291,
+              "bytes": 2
+            },
+            {
+              "address": 12293,
+              "bytes": 1
+            },
+            {
+              "address": 12294,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Observe",
+          "code_bytes": 10,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12288,
+              "bytes": 1
+            },
+            {
+              "address": 12289,
+              "bytes": 1
+            },
+            {
+              "address": 12290,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "AdvanceRecord",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "FindRecord",
+          "code_bytes": 51,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 5,
+          "home_fragments": [
+            {
+              "address": 226,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 228,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-homes"
+      },
+      "handoff_outcome": {
+        "outcome": "skipped",
+        "reason": "no-candidates",
+        "stage": "parameter-argument-handoff"
+      },
+      "cross_call_outcome": {
+        "accepted": true,
+        "after_bytes": 229,
+        "before_bytes": 261,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 51,
+            "before": 85,
+            "routine": "FindRecord"
+          },
+          {
+            "after": 122,
+            "before": 120,
+            "routine": "Walk"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 28,
+        "inner_emission_probes": 112,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 2,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 37,
+        "rewrite_analysis_builds": 864,
+        "source_storage_inventory_builds": 16
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": []
+        }
+      },
+      "traced_micros": 166595,
+      "untraced_micros": 101496,
+      "trace_matches_untraced": true,
+      "image_sha256": "f7ac1077973067d2f58c6d78161bf83202870663e23a2feaea449e345f614076",
+      "map_sha256": "3791ed5bf2184000ebc73b95de6eb6c2d874637b6fb7d490d52cb119d6a41861",
+      "relocations_sha256": "4f1e11e14e1181df8480ef27041f59c6a51f10ee1e113351ca3ac0a96ad7e61a",
+      "config_sha256": "6baeb37e328bf20bf9b38081d5c706c32ecfe3a1a1be17d0e465505257453327"
+    }
+  ]
+}

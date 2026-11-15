@@ -1,0 +1,270 @@
+[
+  {
+    "id": "tn-ActionCart-3000",
+    "baseline_receipt": "docs/benchmarks/6502-storage-observation/tn-on.json",
+    "baseline_revision": "e97dd17c73ca95b1bf1c4748ce6c802823711b81",
+    "candidate_revision": "65b223cebf89a6aed2e557b6b68557fcd69d6966",
+    "before_bytes": 9791,
+    "after_bytes": 9791,
+    "delta_bytes": 0,
+    "normalized_sources_match": true,
+    "configuration_matches": true,
+    "probe_source_matches": true,
+    "probe_difference": null,
+    "routine_count": 101,
+    "changed_routines": [],
+    "growing_code_routines": [],
+    "artifact_matches": {
+      "image": true,
+      "map": true,
+      "relocations": true
+    },
+    "work_changes": {},
+    "newly_reported_counters": {},
+    "counter_note": null,
+    "cross_call_before": {
+      "accepted": true,
+      "after_bytes": 9791,
+      "before_bytes": 9847,
+      "diagnostics": null,
+      "reason": "smaller-image",
+      "routine_cost_changes": [
+        {
+          "after": 51,
+          "before": 85,
+          "routine": "Ord"
+        },
+        {
+          "after": 37,
+          "before": 59,
+          "routine": "Items"
+        }
+      ]
+    },
+    "cross_call_after": {
+      "accepted": true,
+      "after_bytes": 9791,
+      "before_bytes": 9847,
+      "diagnostics": null,
+      "reason": "smaller-image",
+      "routine_cost_changes": [
+        {
+          "after": 51,
+          "before": 85,
+          "routine": "Ord"
+        },
+        {
+          "after": 37,
+          "before": 59,
+          "routine": "Items"
+        }
+      ]
+    }
+  },
+  {
+    "id": "storage-observation-ActionCart-3000",
+    "baseline_receipt": "docs/benchmarks/6502-storage-observation/control-off.json",
+    "baseline_revision": "43f989b6eae411397d9b639db31ebb8197a6a065",
+    "candidate_revision": "65b223cebf89a6aed2e557b6b68557fcd69d6966",
+    "before_bytes": 261,
+    "after_bytes": 229,
+    "delta_bytes": -32,
+    "normalized_sources_match": true,
+    "configuration_matches": true,
+    "probe_source_matches": false,
+    "probe_difference": "Historical control probe matches e97dd17c exactly; current probe only raises the diagnostic trace cap to 64 MiB and enriches the incomplete-trace assertion. Compiler configuration and measurements are unchanged.",
+    "routine_count": 5,
+    "changed_routines": [
+      {
+        "routine": "FindRecord",
+        "before": {
+          "code_bytes": 80,
+          "ordinary_home_bytes": 5,
+          "zp_home_bytes": 0
+        },
+        "after": {
+          "code_bytes": 51,
+          "ordinary_home_bytes": 0,
+          "zp_home_bytes": 5
+        },
+        "delta": {
+          "code_bytes": -29,
+          "ordinary_home_bytes": -5,
+          "zp_home_bytes": 5
+        }
+      },
+      {
+        "routine": "Walk",
+        "before": {
+          "code_bytes": 116,
+          "ordinary_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        "after": {
+          "code_bytes": 118,
+          "ordinary_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        "delta": {
+          "code_bytes": 2,
+          "ordinary_home_bytes": 0,
+          "zp_home_bytes": 0
+        }
+      }
+    ],
+    "growing_code_routines": [
+      "Walk"
+    ],
+    "artifact_matches": {
+      "image": false,
+      "map": false,
+      "relocations": false
+    },
+    "work_changes": {},
+    "newly_reported_counters": {
+      "source_storage_inventory_builds": 16
+    },
+    "counter_note": "source_storage_inventory_builds was instrumented in 8626beff after the historical control receipt; a missing old counter does not mean zero work.",
+    "cross_call_before": {
+      "accepted": false,
+      "after_bytes": 229,
+      "before_bytes": 261,
+      "diagnostics": null,
+      "reason": "no-final-saving-or-routine-growth",
+      "routine_cost_changes": [
+        {
+          "after": 51,
+          "before": 85,
+          "routine": "FindRecord"
+        },
+        {
+          "after": 122,
+          "before": 120,
+          "routine": "Walk"
+        }
+      ]
+    },
+    "cross_call_after": {
+      "accepted": true,
+      "after_bytes": 229,
+      "before_bytes": 261,
+      "diagnostics": null,
+      "reason": "smaller-image",
+      "routine_cost_changes": [
+        {
+          "after": 51,
+          "before": 85,
+          "routine": "FindRecord"
+        },
+        {
+          "after": 122,
+          "before": 120,
+          "routine": "Walk"
+        }
+      ]
+    }
+  },
+  {
+    "id": "storage-observation-inline-ActionCart-3000",
+    "baseline_receipt": "docs/benchmarks/6502-storage-observation/control-off.json",
+    "baseline_revision": "43f989b6eae411397d9b639db31ebb8197a6a065",
+    "candidate_revision": "65b223cebf89a6aed2e557b6b68557fcd69d6966",
+    "before_bytes": 261,
+    "after_bytes": 229,
+    "delta_bytes": -32,
+    "normalized_sources_match": true,
+    "configuration_matches": true,
+    "probe_source_matches": false,
+    "probe_difference": "Historical control probe matches e97dd17c exactly; current probe only raises the diagnostic trace cap to 64 MiB and enriches the incomplete-trace assertion. Compiler configuration and measurements are unchanged.",
+    "routine_count": 5,
+    "changed_routines": [
+      {
+        "routine": "FindRecord",
+        "before": {
+          "code_bytes": 80,
+          "ordinary_home_bytes": 5,
+          "zp_home_bytes": 0
+        },
+        "after": {
+          "code_bytes": 51,
+          "ordinary_home_bytes": 0,
+          "zp_home_bytes": 5
+        },
+        "delta": {
+          "code_bytes": -29,
+          "ordinary_home_bytes": -5,
+          "zp_home_bytes": 5
+        }
+      },
+      {
+        "routine": "Walk",
+        "before": {
+          "code_bytes": 116,
+          "ordinary_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        "after": {
+          "code_bytes": 118,
+          "ordinary_home_bytes": 4,
+          "zp_home_bytes": 0
+        },
+        "delta": {
+          "code_bytes": 2,
+          "ordinary_home_bytes": 0,
+          "zp_home_bytes": 0
+        }
+      }
+    ],
+    "growing_code_routines": [
+      "Walk"
+    ],
+    "artifact_matches": {
+      "image": false,
+      "map": false,
+      "relocations": false
+    },
+    "work_changes": {},
+    "newly_reported_counters": {
+      "source_storage_inventory_builds": 16
+    },
+    "counter_note": "source_storage_inventory_builds was instrumented in 8626beff after the historical control receipt; a missing old counter does not mean zero work.",
+    "cross_call_before": {
+      "accepted": false,
+      "after_bytes": 229,
+      "before_bytes": 261,
+      "diagnostics": null,
+      "reason": "no-final-saving-or-routine-growth",
+      "routine_cost_changes": [
+        {
+          "after": 51,
+          "before": 85,
+          "routine": "FindRecord"
+        },
+        {
+          "after": 122,
+          "before": 120,
+          "routine": "Walk"
+        }
+      ]
+    },
+    "cross_call_after": {
+      "accepted": true,
+      "after_bytes": 229,
+      "before_bytes": 261,
+      "diagnostics": null,
+      "reason": "smaller-image",
+      "routine_cost_changes": [
+        {
+          "after": 51,
+          "before": 85,
+          "routine": "FindRecord"
+        },
+        {
+          "after": 122,
+          "before": 120,
+          "routine": "Walk"
+        }
+      ]
+    }
+  }
+]

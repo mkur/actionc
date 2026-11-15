@@ -1,7 +1,12 @@
 # MIR6502 whole-image cost acceptance: implementation plan
 
-Prepared 2026-11-15. Status: slice 1 complete; slice 2 qualification pending.
-Compiler baseline: `8626beff`.
+Prepared 2026-11-15. Status: complete; both slices qualified with the minimal checks below.
+Compiler baseline: `8626beff`. Slice 1: `65b223ce`.
+
+The independent control selects 229 rather than 261 bytes while Walk grows two
+bytes. Normal optimized TN remains 9,791 bytes, with identical image, map,
+relocations and work counts. The integration regression and existing VM oracle
+passed. [Qualification and receipts](benchmarks/6502-whole-image-cost/README.md).
 
 Slice 1 checks passed: three `whole_image_cost` tests (two new/updated boundaries
 and one existing pointer-retention control), exact selected-artifact rollback,
@@ -10,7 +15,7 @@ and callee-contract rollback. [Check receipt](benchmarks/6502-whole-image-cost/s
 Implements the [whole-image cost design refinement](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-refinement-whole-image-cost-acceptance).
 Execute slices 1–2 in order and commit after each completed slice. Keep unrelated
 working-tree changes outside those commits. Multiple-leaf-call selection remains
-suspended while this policy is qualified.
+suspended until its batching choice is revisited against this qualified policy.
 
 ## Objective
 

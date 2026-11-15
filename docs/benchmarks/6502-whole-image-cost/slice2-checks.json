@@ -1,0 +1,36 @@
+{
+  "compiler_revision": "65b223ce",
+  "scope": "One final-cost integration case and the existing five-scenario storage-observation VM oracle.",
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--test",
+        "mir6502_cross_call_homes",
+        "whole_image_cost"
+      ],
+      "exit_code": 0,
+      "seconds": 142.85495716700098,
+      "log_sha256": "8926858b2f0031671a34671a77507c73c6ef1404dd7a9adf2fcb2566ed8aa115",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "tools/vm-runtime-tests/Cargo.toml",
+        "--test",
+        "cross_call_homes",
+        "storage_observation_preserves_invocations_arguments_and_owned_memory"
+      ],
+      "exit_code": 0,
+      "seconds": 143.03386616701027,
+      "log_sha256": "739d3463396e3fd612193ddd6a6256bd8bfe14b231fe02b31f9ff114ef96bbff",
+      "passed": 1,
+      "failed": 0
+    }
+  ]
+}

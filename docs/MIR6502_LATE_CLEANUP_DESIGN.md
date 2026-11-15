@@ -6,7 +6,7 @@ cleanup boundary and acceptance contract. See the
 [implementation plan](MIR6502_LATE_CLEANUP_IMPLEMENTATION_PLAN.md) and
 [qualification](benchmarks/6502-late-cleanup/README.md).
 The [whole-image cost refinement](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-refinement-whole-image-cost-acceptance)
-is implemented, with [qualification in progress](MIR6502_WHOLE_IMAGE_COST_IMPLEMENTATION_PLAN.md).
+is implemented and [qualified](benchmarks/6502-whole-image-cost/README.md).
 The acceptance clauses below use that revised contract; compiler baseline
 `8626beff` applied the per-routine instruction-growth veto.
 

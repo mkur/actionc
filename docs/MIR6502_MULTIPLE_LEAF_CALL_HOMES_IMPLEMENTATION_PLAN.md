@@ -2,12 +2,13 @@
 
 Prepared 2026-11-15 against `8626beff`. Status: suspended; implementation has not
 started. The [whole-image cost implementation plan](MIR6502_WHOLE_IMAGE_COST_IMPLEMENTATION_PLAN.md)
-takes precedence.
+is now complete; [qualification](benchmarks/6502-whole-image-cost/README.md) leaves
+normal TN unchanged at 9,791 bytes. Revisit batching before resuming this draft.
 
 The earlier three-slice schedule assumed a separate multiple-call trial after
 the existing single-call trial to protect its gains from the per-routine growth
 veto. That sequencing requirement is withdrawn. This draft is not ready for
-implementation until cost-policy qualification and a fresh batching decision.
+implementation until a fresh batching decision; cost-policy qualification is complete.
 The agreed proof scope remains in the
 [design extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-multiple-calls-to-leaf-routines).
 

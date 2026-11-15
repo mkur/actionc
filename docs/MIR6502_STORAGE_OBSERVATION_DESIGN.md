@@ -253,8 +253,8 @@ Missing facts or failed replay restore the selected input artifact.
 
 Accept only strict complete-image savings. The agreed
 [whole-image cost refinement](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-refinement-whole-image-cost-acceptance),
-now implemented with qualification in progress, removes the separate
-per-routine-growth veto.
+now implemented and [qualified](benchmarks/6502-whole-image-cost/README.md),
+removes the separate per-routine-growth veto.
 It does not change observation eligibility or deletion proofs. Preserve exact
 rollback of MIR, bindings, maps, relocations and selected upstream strategies.
 The historical 48-byte rejection and the later qualified 56-byte saving remain

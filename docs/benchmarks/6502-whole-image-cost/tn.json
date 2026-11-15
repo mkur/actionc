@@ -1,0 +1,300 @@
+{
+  "revision": "65b223cebf89a6aed2e557b6b68557fcd69d6966",
+  "parameter_home_selection": true,
+  "parameter_argument_handoff": true,
+  "cross_call_home_selection": true,
+  "scoped_storage_observation": true,
+  "tn_only": true,
+  "suite": "storage-observation",
+  "skip_tn": false,
+  "probe_elapsed_seconds": 46.24918370798696,
+  "probe_time_report": "       46.24 real        42.26 user         0.56 sys\n           700071936  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n              108354  page reclaims\n                   0  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   1  voluntary context switches\n               28948  involuntary context switches\n        547969445262  instructions retired\n        132673281101  cycles elapsed\n           695601408  peak memory footprint\n",
+  "timing_scope": "One sequential process, all cases traced and untraced; not a statistical performance claim.",
+  "worktree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "probe_source_sha256": "9fb2b567baba25a3f52f7c828c1c915e7081f55cbe852e89e89a2bc2b7cb0b1b",
+  "api_rlib_sha256": "24bcbf9b77a63d89fb9ce47294955e9db6dc296b416fbfcbef075da9ba4d42c5",
+  "source_sha256_lf": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "fixtures/runtime/storage_observation.act": "bb58e21415df0322356ebe9033865c8fe7bc24920735c6c4c7409dc46bed7a62"
+  },
+  "cases": [
+    {
+      "id": "tn-ActionCart-3000",
+      "image_bytes": 9791,
+      "routines": [
+        {
+          "name": "MoveMenuBar",
+          "code_bytes": 115,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13004,
+              "bytes": 2
+            },
+            {
+              "address": 13006,
+              "bytes": 1
+            },
+            {
+              "address": 13007,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Draw",
+          "code_bytes": 145,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13039,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Tag",
+          "code_bytes": 88,
+          "inline_home_bytes": 2,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13043,
+              "bytes": 1
+            },
+            {
+              "address": 13044,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "TagAll",
+          "code_bytes": 87,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 105,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Strcpy",
+          "code_bytes": 20,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 3,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 1
+            },
+            {
+              "address": 162,
+              "bytes": 1
+            },
+            {
+              "address": 163,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Strcat",
+          "code_bytes": 113,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13021,
+              "bytes": 2
+            },
+            {
+              "address": 13023,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Key",
+          "code_bytes": 34,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Next",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Ord",
+          "code_bytes": 51,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 5,
+          "home_fragments": [
+            {
+              "address": 226,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 228,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Items",
+          "code_bytes": 37,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 3,
+          "home_fragments": [
+            {
+              "address": 162,
+              "bytes": 2
+            },
+            {
+              "address": 226,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 9872,
+        "before_bytes": 9956,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 105,
+            "before": 189,
+            "routine": "Fnamecmp"
+          }
+        ]
+      },
+      "handoff_outcome": {
+        "accepted": true,
+        "after_bytes": 9847,
+        "before_bytes": 9872,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 20,
+            "before": 45,
+            "routine": "Strcpy"
+          }
+        ]
+      },
+      "cross_call_outcome": {
+        "accepted": true,
+        "after_bytes": 9791,
+        "before_bytes": 9847,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 51,
+            "before": 85,
+            "routine": "Ord"
+          },
+          {
+            "after": 37,
+            "before": 59,
+            "routine": "Items"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 163,
+        "inner_emission_probes": 978,
+        "late_cleanup_preservation_replays": 24,
+        "materializations": 6,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 3,
+        "pipeline_attempts": 67,
+        "rewrite_analysis_builds": 50800,
+        "source_storage_inventory_builds": 60,
+        "storage_observation_snapshot_builds": 3
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": [
+            {
+              "accepted_routines": [
+                14,
+                50,
+                51
+              ],
+              "outcome": "partial",
+              "rejected_routines": [
+                56
+              ],
+              "stage": "captured_comparisons"
+            }
+          ]
+        }
+      },
+      "traced_micros": 23868466,
+      "untraced_micros": 21015756,
+      "trace_matches_untraced": true,
+      "image_sha256": "996ab19cec273506bb25dd6b7b6411f09fa1090b2557705744fcbf1f91b97efc",
+      "map_sha256": "943e38672570e3cc39bc42dc13e8a6db1d258b37d0441d4a1da936185c802be3",
+      "relocations_sha256": "18b5a2a055b5e1d68bfbe1b321fda35b842a7c26125d946a0641ce09b8bdf7bc",
+      "config_sha256": "72af545ad3b31b613d2ea4fe7686a6db854c057044871b30459874a2c1208e7e"
+    }
+  ]
+}

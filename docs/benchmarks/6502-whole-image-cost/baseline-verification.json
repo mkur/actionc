@@ -1,0 +1,65 @@
+{
+  "baselines": {
+    "tn-on": {
+      "receipt": "docs/benchmarks/6502-storage-observation/tn-on.json",
+      "receipt_sha256": "1e0ac9ec37a29337b62b75fb8ca2940e74653c3bb69999d3da80553007e6bd0a",
+      "revision": "e97dd17c73ca95b1bf1c4748ce6c802823711b81",
+      "api_rlib_sha256": "bb19b1fa2e2cff19d4b68d04ac9a9e9973fcda4f0f5c8f472399d03bad41b3e1",
+      "probe_source_sha256": "9fb2b567baba25a3f52f7c828c1c915e7081f55cbe852e89e89a2bc2b7cb0b1b",
+      "source_sha256_lf": {
+        "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+        "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+        "fixtures/runtime/storage_observation.act": "bb58e21415df0322356ebe9033865c8fe7bc24920735c6c4c7409dc46bed7a62"
+      },
+      "cases": [
+        {
+          "id": "tn-ActionCart-3000",
+          "image_bytes": 9791,
+          "image_sha256": "996ab19cec273506bb25dd6b7b6411f09fa1090b2557705744fcbf1f91b97efc",
+          "map_sha256": "943e38672570e3cc39bc42dc13e8a6db1d258b37d0441d4a1da936185c802be3",
+          "relocations_sha256": "18b5a2a055b5e1d68bfbe1b321fda35b842a7c26125d946a0641ce09b8bdf7bc",
+          "config_sha256": "72af545ad3b31b613d2ea4fe7686a6db854c057044871b30459874a2c1208e7e"
+        }
+      ],
+      "source_and_retained_artifact_hashes_verified": true
+    },
+    "control-off": {
+      "receipt": "docs/benchmarks/6502-storage-observation/control-off.json",
+      "receipt_sha256": "d66164c1119d0adc16bfd57bd56cc77db9d95b4d62505d9dcb04f0d3e402dac0",
+      "revision": "43f989b6eae411397d9b639db31ebb8197a6a065",
+      "api_rlib_sha256": "56defb78ec8f6519ae858bdf046d16ff2db7cd0fc3e16d7af80ab926869abb37",
+      "probe_source_sha256": "1c132c62cb38490db622d805801bb20d7ac9a7192bf9130627ff9a2fd75a6366",
+      "source_sha256_lf": {
+        "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+        "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+        "fixtures/runtime/storage_observation.act": "bb58e21415df0322356ebe9033865c8fe7bc24920735c6c4c7409dc46bed7a62"
+      },
+      "cases": [
+        {
+          "id": "storage-observation-ActionCart-3000",
+          "image_bytes": 261,
+          "image_sha256": "5c27b9a28a645bb3b76a6a0ff26fabea47a34e5d54d4ef6a52245643eba1f84d",
+          "map_sha256": "f437a854c0b9e2bad004828ac7bc47f842abddc1a7b130da264b871eec28d6f0",
+          "relocations_sha256": "13566d41e3b6c23c779d5ea9d7d75fc76a47e5229a4bfa1eb26ea402a85b6a07",
+          "config_sha256": "0b68b43d751e198dd6e4e6ffc812c292fffe8fc80d7ec2d6f974927b48ea24fc"
+        },
+        {
+          "id": "storage-observation-inline-ActionCart-3000",
+          "image_bytes": 261,
+          "image_sha256": "5c27b9a28a645bb3b76a6a0ff26fabea47a34e5d54d4ef6a52245643eba1f84d",
+          "map_sha256": "f437a854c0b9e2bad004828ac7bc47f842abddc1a7b130da264b871eec28d6f0",
+          "relocations_sha256": "13566d41e3b6c23c779d5ea9d7d75fc76a47e5229a4bfa1eb26ea402a85b6a07",
+          "config_sha256": "6baeb37e328bf20bf9b38081d5c706c32ecfe3a1a1be17d0e465505257453327"
+        }
+      ],
+      "source_and_retained_artifact_hashes_verified": true
+    }
+  },
+  "tn_library_hash_verified_before_rebuild": true,
+  "note": "The cached libactionc-bf811c1ef8b2df31.rlib matched the historical TN receipt before the new build. Historical TN used explicit scoped observation on; 8626beff only enabled the already-qualified gate by default. No old compiler rebuilt.",
+  "control_baseline_compatibility": {
+    "compiler_changes_before_8626beff": "The only MIR6502 changes since 43f989b6 were enabling scoped observation by default (explicitly off in both control configurations) and counting existing source-storage inventory construction.",
+    "historical_probe_verified_at": "e97dd17c",
+    "probe_changes": "Current harness raises the trace byte cap to 64 MiB and enriches the incomplete-trace assertion; measurement and compiler configuration code is identical."
+  }
+}

@@ -11,10 +11,9 @@ is implemented and qualified. The implemented
 [storage-observation refinement](MIR6502_STORAGE_OBSERVATION_DESIGN.md) preserves
 routine ownership through terminal cleanup. The
 [multiple-leaf-call extension](#proposed-extension-multiple-calls-to-leaf-routines)
-is suspended pending the
-[whole-image cost revision](#proposed-refinement-whole-image-cost-acceptance).
-The final guards now implement that revision;
-[qualification is in progress](MIR6502_WHOLE_IMAGE_COST_IMPLEMENTATION_PLAN.md).
+remains suspended pending a batching decision. The
+[whole-image cost revision](#proposed-refinement-whole-image-cost-acceptance)
+is implemented and [qualified](benchmarks/6502-whole-image-cost/README.md).
 Compiler baseline `8626beff` applied the per-routine veto.
 
 The completed [leaf implementation plan](MIR6502_PARAMETER_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
@@ -274,9 +273,10 @@ depending on them to demonstrate a useful first saving.
 
 ## Proposed refinement: whole-image cost acceptance
 
-Agreed 2026-11-15 against `8626beff`; both final guards are implemented.
-Independent and TN qualification is in progress under the
-[whole-image cost plan](MIR6502_WHOLE_IMAGE_COST_IMPLEMENTATION_PLAN.md).
+Implemented and qualified 2026-11-15 against `8626beff`; both final guards use
+whole-image acceptance. See the completed
+[whole-image cost plan](MIR6502_WHOLE_IMAGE_COST_IMPLEMENTATION_PLAN.md) and
+[qualification](benchmarks/6502-whole-image-cost/README.md).
 This refinement supersedes per-routine non-growth requirements for the final
 placement and terminal-cleanup transactions. Historical qualification receipts
 retain the policy and outcomes that actually produced them.
@@ -1143,7 +1143,7 @@ fixture paths, before enabling the new scope by default.
 Prepared 2026-11-15 against `8626beff`. Status: design only; implementation pending.
 The [suspended implementation draft](MIR6502_MULTIPLE_LEAF_CALL_HOMES_IMPLEMENTATION_PLAN.md)
 retains the proof scope and minimal-testing direction. Cost-policy qualification
-and a fresh batching decision precede its implementation.
+is complete; a fresh batching decision still precedes this extension's implementation.
 
 ### Scope and existing authority
 
