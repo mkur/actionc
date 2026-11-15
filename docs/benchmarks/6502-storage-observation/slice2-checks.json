@@ -1,0 +1,13 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--lib",
+    "storage_observation"
+  ],
+  "exit_code": 0,
+  "seconds": 207.88216520799324,
+  "log_sha256": "043232fa14cb1a5cc62f1c4e761c11241938f76c5bede725b09c23136e2bab06",
+  "passed": 4,
+  "failed": 0
+}

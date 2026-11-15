@@ -1,6 +1,6 @@
 # MIR6502 storage observation: implementation plan
 
-Prepared 2026-11-15. Status: slices 0–1 complete; slices 2–5 pending.
+Prepared 2026-11-15. Status: slices 0–2 complete; slices 3–5 pending.
 Design commit: `9abe9094`. Compiler baseline: `67e9343a`.
 
 Implements the [storage ownership and observation design](MIR6502_STORAGE_OBSERVATION_DESIGN.md).
@@ -315,3 +315,15 @@ Two focused tests pass, including mixed lanes, overlapping routine owners,
 absolute aliases and missing inventory. An initial test attempted an invalid
 resident/global overlap; the existing verifier rejected it as required. The
 corrected inventory test keeps those distinct cases valid.
+
+## Slice 2 completion
+
+Invocation-home certificates now reuse the resident lifetime solver to exclude
+entry-dependent bytes. Read observations retain routine and operation-site
+identity; raw absolute and machine observations remain physical. The immutable
+program borrow ties certificates to current bodies, bindings and callees.
+Four focused tests pass, including logical versus physical initialization,
+parameter/local homes, stale bindings and typed/fixed/pointer-pair read sites.
+The local test initially used a program-entry routine, which correctly failed
+residence verification; its corrected Action routine passes. Cleanup still uses
+the conservative projection. [Check receipt](benchmarks/6502-storage-observation/slice2-checks.json).

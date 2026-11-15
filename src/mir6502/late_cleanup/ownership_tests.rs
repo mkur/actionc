@@ -464,3 +464,58 @@ fn explicit_numeric_alias_and_called_pointer_pair_keep_definitions() {
     };
     assert_eq!(run(&p, &clean(&p)).0, p);
 }
+
+#[test]
+fn storage_observation_certificates_require_logical_definitions_and_current_bindings() {
+    use crate::mir6502::{parameter_homes::InvocationHomes, analysis::sites::MirSite};
+    for read in [1, 2, 3] {
+        let p = storage_observation_fixture(read);
+        let m = measure(&p, &[&p], 0x3000, crate::runtime::Runtime::ActionCart, &Trace::disabled()).unwrap();
+        let record = &m.memory.source_storage().unwrap()[0];
+        let facts = InvocationHomes::new(&p);
+        assert!(facts.is_current(&p));
+        assert!(facts.certifies_storage(record), "{}", crate::mir6502::format_program(&p));
+        let r = &p.routines[0];
+        let site = MirSite::Op { block: r.blocks[0].id, op_index: r.blocks[0].ops.len() - 1 };
+        let mem = if read == 1 { MirMem::Param { id: crate::nir::ParamId(0), offset: 1 } }
+            else { MirMem::FixedZeroPage(MirFixedZpSlot(0xe3)) };
+        assert!(facts.read_object(r.id, site, &mem).is_some());
+        assert!(facts.read_object(r.id, site, &MirMem::Absolute(0xe3)).is_none());
+        assert!(facts.read_object(r.id, MirSite::Op { block: r.blocks[0].id, op_index: 0 }, &mem).is_none());
+        let mut bad = p.clone();
+        for op in &mut bad.routines[0].blocks[0].ops {
+            if let MirOp::Store { dst, .. } = op
+                && matches!(dst, MirAddr::Direct(MirMem::Param { offset: 1, .. })) {
+                *dst = MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xe3)));
+            }
+        }
+        assert!(!InvocationHomes::new(&bad).certifies_storage(record));
+        let mut moved = p.clone();
+        moved.routines[0].frame.parameter_homes.as_mut().unwrap()[0].home = MirParamHome::ZeroPage(MirFixedZpSlot(0xe4));
+        moved.routines[0].frame.fixed_zero_page.extend([MirFixedZpSlot(0xe4), MirFixedZpSlot(0xe5)]);
+        assert!(!InvocationHomes::new(&moved).certifies_storage(record));
+    }
+}
+
+#[test]
+fn storage_observation_local_certificate_excludes_entry_dependence() {
+    use crate::mir6502::parameter_homes::InvocationHomes;
+    let ast = crate::parser::parse(&crate::lexer::tokenize(
+        "CARD output=$7002 PROC Resident() CARD kept kept=23 output=kept RETURN PROC Main() RETURN",
+    ).unwrap()).unwrap();
+    let model = crate::semantic::analyze(&ast).unwrap();
+    let mut p = crate::mir6502::lower_program(&crate::nir::lower_program(
+        &crate::semantic::ir::lower_program(&ast, &model))).unwrap();
+    let r = &mut p.routines[0];
+    let MirStorageBase::Local(id) = r.frame.locals[0].base else { panic!() };
+    r.frame.local_homes = Some(vec![MirLocalBinding { local: id, home: MirLocalHome::ZeroPage(MirFixedZpSlot(0xe4)) }]);
+    r.frame.fixed_zero_page.extend([MirFixedZpSlot(0xe4), MirFixedZpSlot(0xe5)]);
+    let mut p = crate::mir6502::materialize_program(p, &Mir6502Config::default()).unwrap();
+    p.routines[0].blocks[0].ops.push(load(MirMem::Local { id, offset: 1 }));
+    let m = measure(&p, &[&p], 0x3000, crate::runtime::Runtime::ActionCart, &Trace::disabled()).unwrap();
+    let record = m.memory.source_storage().unwrap().iter().find(|s| s.address == 0xe4).unwrap();
+    assert!(InvocationHomes::new(&p).certifies_storage(record));
+    p.routines[0].blocks[0].ops.retain(|op| !matches!(op,
+        MirOp::Store { dst: MirAddr::Direct(MirMem::Local { offset: 1, .. }), .. }));
+    assert!(!InvocationHomes::new(&p).certifies_storage(record));
+}

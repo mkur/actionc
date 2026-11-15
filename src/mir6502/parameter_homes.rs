@@ -6,6 +6,8 @@ use super::{diagnostics::MirDiagnostic, ir::*};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 mod lifetimes;
+mod observations;
+pub(super) use observations::InvocationHomes;
 mod locals;
 mod calls;
 mod cross_call;

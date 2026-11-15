@@ -110,15 +110,31 @@ fn observable_reads(program: &MirProgram, memory: &MirPhysicalMemory) -> Vec<(Op
     read_aliases(program, memory, false)
 }
 
-fn read_aliases(
+#[derive(Debug)]
+struct ReadObservation {
+    owner: RoutineId,
+    site: Option<super::analysis::sites::MirSite>,
+    // None is an explicit physical region; a missing site is a machine summary.
+    mem: Option<MirMem>,
+    address: Option<u16>,
+    bytes: u16,
+}
+
+fn read_aliases(program: &MirProgram, memory: &MirPhysicalMemory, scratch_lifetimes: bool) -> Vec<(Option<u16>, u16)> {
+    read_observations(program, memory, scratch_lifetimes).into_iter()
+        .map(|r| (r.address, r.bytes)).collect()
+}
+
+fn read_observations(
     program: &MirProgram,
     memory: &MirPhysicalMemory,
     scratch_lifetimes: bool,
-) -> Vec<(Option<u16>, u16)> {
+) -> Vec<ReadObservation> {
     let ownership = StorageOwnership::new(program);
     let mut reads = Vec::new();
     for r in &program.routines {
-        for op in r.blocks.iter().flat_map(|b| &b.ops) {
+        for (site, op) in r.blocks.iter().flat_map(|b| b.ops.iter().enumerate().map(move |(op_index, op)|
+            (super::analysis::sites::MirSite::Op { block: b.id, op_index }, op))) {
             let effects = classify_op(op);
             if scratch_lifetimes {
                 for home in effects.addresses.pair_reads {
@@ -126,7 +142,7 @@ fn read_aliases(
                         && ownership.role(r.id, &MirMem::FixedZeroPage(slot))
                             != StorageRole::PointerScratch
                     {
-                        reads.push((Some(u16::from(slot.0)), 1));
+                        reads.push(ReadObservation { owner: r.id, site: Some(site), mem: Some(MirMem::FixedZeroPage(slot)), address: Some(u16::from(slot.0)), bytes: 1 });
                     }
                 }
                 match effects.memory.structured_reads {
@@ -136,9 +152,9 @@ fn read_aliases(
                                 region.kind,
                                 MirMemoryRegionKind::ZeroPage | MirMemoryRegionKind::AbsoluteRange
                             ) {
-                                reads.push((Some(region.offset), region.size));
+                                reads.push(ReadObservation { owner: r.id, site: Some(site), mem: None, address: Some(region.offset), bytes: region.size });
                             } else if region.kind == MirMemoryRegionKind::Stack {
-                                reads.push((Some(0x100), 0x100));
+                                reads.push(ReadObservation { owner: r.id, site: Some(site), mem: None, address: Some(0x100), bytes: 0x100 });
                             }
                         }
                     }
@@ -158,7 +174,7 @@ fn read_aliases(
                 if !matches!(read.base, MirMem::Spill { .. } | MirMem::ZeroPage(_))
                     && !pointer_scratch_read
                 {
-                    reads.push((memory.address(r.id, &read.base), read.bytes));
+                    reads.push(ReadObservation { owner: r.id, site: Some(site), address: memory.address(r.id, &read.base), mem: Some(read.base), bytes: read.bytes });
                 }
             }
         }
@@ -176,7 +192,7 @@ fn read_aliases(
         {
             for cell in cells {
                 if matches!(cell, MirMem::Absolute(_) | MirMem::FixedZeroPage(_)) {
-                    reads.push((memory.address(r.id, cell), 1));
+                    reads.push(ReadObservation { owner: r.id, site: None, address: memory.address(r.id, cell), mem: Some(cell.clone()), bytes: 1 });
                 }
             }
         }

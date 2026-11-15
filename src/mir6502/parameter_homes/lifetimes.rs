@@ -14,41 +14,8 @@ pub(in crate::mir6502) fn verify(routine: &MirRoutine, mut calls: Option<&mut Re
     let resident = routine.frame.resident_bytes();
     let owned: BTreeSet<_> = resident.iter().map(|(_, slot)| MirHomeByte::FixedZeroPage(*slot)).collect();
     if owned.is_empty() { return vec![]; }
-    let logical = |mem: &MirMem, offset| match routine.frame.object_lane(mem, offset) {
-        Some(MirParamLane::ZeroPage(slot)) => Some(slot),
-        _ => None,
-    };
-    let physical = |mem: &MirMem, offset: u16| match mem {
-        MirMem::FixedZeroPage(slot) => Some(MirFixedZpSlot(slot.0.wrapping_add(offset as u8))),
-        MirMem::Absolute(address) if address.wrapping_add(offset) < 256 => {
-            Some(MirFixedZpSlot(address.wrapping_add(offset) as u8))
-        }
-        _ => None,
-    };
-    let transfer = |memory: &MirMemoryEffects, extra_reads: &BTreeSet<MirHomeByte>, defines: bool| {
-        let mut result = MirHomeTransfer::default();
-        for range in &memory.direct_reads {
-            for offset in 0..range.bytes {
-                let slot = logical(&range.base, offset).or_else(|| physical(&range.base, offset));
-                if let Some(slot) = slot {
-                    let home = MirHomeByte::FixedZeroPage(slot);
-                    if owned.contains(&home) {
-                        result.reads.insert(home);
-                    }
-                }
-            }
-        }
-        result.reads.extend(extra_reads.intersection(&owned));
-        for range in &memory.direct_writes {
-            if defines {
-                for offset in 0..range.bytes {
-                    if let Some(slot) = logical(&range.base, offset) {
-                        result.writes.insert(MirHomeByte::FixedZeroPage(slot));
-                    }
-                }
-            }
-        }
-        result
+    let transfer = |memory: &MirMemoryEffects, reads: &BTreeSet<MirHomeByte>, defines| {
+        project(routine, &owned, memory, reads, defines)
     };
     let mut transfers = BTreeMap::new();
     let mut clobbers = Vec::new();
@@ -100,7 +67,7 @@ pub(in crate::mir6502) fn verify(routine: &MirRoutine, mut calls: Option<&mut Re
                 .collect();
             for range in &e.memory.direct_writes {
                 for offset in 0..range.bytes {
-                    if let Some(slot) = physical(&range.base, offset) {
+                    if let Some(slot) = physical_slot(&range.base, offset) {
                         writes.insert(MirHomeByte::FixedZeroPage(slot));
                     }
                 }
@@ -153,4 +120,70 @@ pub(in crate::mir6502) fn verify(routine: &MirRoutine, mut calls: Option<&mut Re
             })
         })
         .collect()
+}
+
+/// Shared logical definition projection. Physical writes never initialize a
+/// source object; physical reads still contribute its entry dependence.
+fn project(routine: &MirRoutine, owned: &BTreeSet<MirHomeByte>,
+    memory: &MirMemoryEffects, extra_reads: &BTreeSet<MirHomeByte>, defines: bool,
+) -> MirHomeTransfer {
+    let logical = |mem: &MirMem, offset| match routine.frame.object_lane(mem, offset) {
+        Some(MirParamLane::ZeroPage(slot)) => Some(slot),
+        _ => None,
+    };
+    let transfer = |memory: &MirMemoryEffects, extra_reads: &BTreeSet<MirHomeByte>, defines: bool| {
+        let mut result = MirHomeTransfer::default();
+        for range in &memory.direct_reads {
+            for offset in 0..range.bytes {
+                let slot = logical(&range.base, offset).or_else(|| physical_slot(&range.base, offset));
+                if let Some(slot) = slot {
+                    let home = MirHomeByte::FixedZeroPage(slot);
+                    if owned.contains(&home) {
+                        result.reads.insert(home);
+                    }
+                }
+            }
+        }
+        result.reads.extend(extra_reads.intersection(&owned));
+        for range in &memory.direct_writes {
+            if defines {
+                for offset in 0..range.bytes {
+                    if let Some(slot) = logical(&range.base, offset) {
+                        result.writes.insert(MirHomeByte::FixedZeroPage(slot));
+                    }
+                }
+            }
+        }
+        result
+    };
+    transfer(memory, extra_reads, defines)
+}
+
+pub(super) fn entry_dependencies(routine: &MirRoutine) -> Option<BTreeSet<MirHomeByte>> {
+    let cfg = MirCfg::from_routine(routine).ok()?;
+    let entry = cfg.entry()?;
+    let owned = routine.frame.resident_bytes().iter()
+        .map(|(_, s)| MirHomeByte::FixedZeroPage(*s)).collect();
+    let transfers = routine.blocks.iter().map(|b| {
+        let ops = b.ops.iter().map(|op| {
+            let e = classify_op(op);
+            project(routine, &owned, &e.memory,
+                &e.homes.reads.union(&e.addresses.pair_reads).copied().collect(),
+                !matches!(op, MirOp::Call { .. }))
+        }).collect();
+        let e = classify_terminator(&b.terminator);
+        (b.id, MirHomeBlockTransfers { ops,
+            terminator: project(routine, &owned, &e.memory, &BTreeSet::new(), true) })
+    }).collect();
+    let live = MirHomeLiveness::analyze_transfers(routine, &cfg, transfers);
+    Some(live.live_in(entry)?.iter().collect())
+}
+
+fn physical_slot(mem: &MirMem, offset: u16) -> Option<MirFixedZpSlot> {
+    match mem {
+        MirMem::FixedZeroPage(slot) => Some(MirFixedZpSlot(slot.0.wrapping_add(offset as u8))),
+        MirMem::Absolute(address) if address.wrapping_add(offset) < 256 =>
+            Some(MirFixedZpSlot(address.wrapping_add(offset) as u8)),
+        _ => None,
+    }
 }

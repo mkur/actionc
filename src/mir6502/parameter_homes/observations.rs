@@ -1,0 +1,127 @@
+//! Read-only certificates tied to one expanded program. The borrowed source
+//! fixes body, binding, exposure and callee dependencies for their whole use.
+use super::*;
+use crate::mir6502::analysis::{
+    effects::{MirHomeByte, classify_op},
+    home_liveness::action_return_home_uses,
+    record_bases::{SourceBinding, SourceObject, SourceStorage},
+    sites::MirSite,
+};
+use std::collections::BTreeMap;
+
+pub(in crate::mir6502) struct InvocationHomes<'a> {
+    source: &'a MirProgram,
+    objects: BTreeMap<RoutineId, Vec<(MirStorageBase, Vec<MirFixedZpSlot>)>>,
+}
+
+impl<'a> InvocationHomes<'a> {
+    pub fn is_current(&self, source: &MirProgram) -> bool {
+        std::ptr::eq(self.source, source)
+    }
+
+    pub fn new(source: &'a MirProgram) -> Self {
+        let mut objects = BTreeMap::new();
+        let mut calls = ResidenceCalls::new(source, MirCalleeEntryStage::ActualEntry);
+        let mut abi: BTreeSet<_> = action_return_home_uses().iter().filter_map(|h| {
+            if let MirHomeByte::FixedZeroPage(s) = h { Some(s) } else { None }
+        }).collect();
+        for r in &source.routines {
+            if let Some(widths) = &r.frame.direct_parameter_abi {
+                let mut offset = 0;
+                for width in widths {
+                    for lane in crate::mir6502::abi::physical_lanes(
+                        &crate::mir6502::abi::action_arg_home(offset, *width), *width,
+                    ).unwrap_or_default() {
+                        if let MirParamLane::ZeroPage(s) = lane { abi.insert(s); }
+                    }
+                    offset += crate::mir6502::abi::action_arg_width_bytes(*width);
+                }
+            }
+            for op in r.blocks.iter().flat_map(|b| &b.ops) {
+                if matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. }) {
+                    abi.extend(classify_op(op).homes.reads.iter().filter_map(|h| {
+                        if let MirHomeByte::FixedZeroPage(s) = h { Some(*s) } else { None }
+                    }));
+                }
+            }
+        }
+        for r in &source.routines {
+            if r.frame.resident_bytes().is_empty() || r.abi != MirRoutineAbi::Action
+                || r.frame.parameter_handoff.is_some()
+                || !verify_bindings(r).is_empty()
+                || !verify_storage(source, r, MirCalleeEntryStage::ActualEntry).is_empty()
+                || r.blocks.iter().flat_map(|b| &b.ops).any(|op| match op {
+                    MirOp::Call { .. } => calls.writes(op).is_err(),
+                    MirOp::RuntimeHelper { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. } => true,
+                    _ => false,
+                })
+                || !lifetimes::verify(r, Some(&mut calls)).is_empty()
+            { continue; }
+            let Some(entry) = lifetimes::entry_dependencies(r) else { continue; };
+            let mut certified = Vec::new();
+            for slot in r.frame.params.iter().chain(&r.frame.locals) {
+                let start = match slot.base {
+                    MirStorageBase::Param(id) => match r.frame.parameter_home(id) {
+                        Some(MirParamHome::ZeroPage(s)) => Some(*s), _ => None,
+                    },
+                    MirStorageBase::Local(id) => match r.frame.local_home(id) {
+                        Some(MirLocalHome::ZeroPage(s)) => Some(*s), _ => None,
+                    },
+                    _ => None,
+                };
+                let Some(start) = start else { continue; };
+                let bytes: Vec<_> = (0..slot.storage_size).map(|i| MirFixedZpSlot(start.0 + i as u8)).collect();
+                if bytes.iter().any(|s| abi.contains(s) || entry.contains(&MirHomeByte::FixedZeroPage(*s))) { continue; }
+                certified.push((slot.base.clone(), bytes));
+            }
+            objects.insert(r.id, certified);
+        }
+        Self { source, objects }
+    }
+
+    /// There is no API accepting another body or generation: every site below
+    /// is looked up in this immutable source, never in an edited candidate.
+    pub fn certifies_storage(&self, record: &SourceStorage) -> bool {
+        let SourceObject::Routine { owner, slot, base } = &record.object else { return false; };
+        let Some(r) = self.source.routines.iter().find(|r| r.id == *owner) else { return false; };
+        let Some(decl) = r.frame.params.iter().chain(&r.frame.locals).find(|s| s.id == *slot && s.base == *base) else { return false; };
+        let binding = match *base {
+            MirStorageBase::Param(id) => r.frame.parameter_home(id).cloned().map(SourceBinding::Parameter),
+            MirStorageBase::Local(id) => r.frame.local_home(id).cloned().map(SourceBinding::Local),
+            _ => None,
+        };
+        record.offset == 0 && record.bytes == decl.storage_size && record.binding == binding
+            && self.objects.get(owner).is_some_and(|objects| objects.iter().any(|(b, lanes)|
+                b == base && lanes.first().is_some_and(|s| record.address == u16::from(s.0))))
+    }
+
+    pub fn read_object(&self, owner: RoutineId, site: MirSite, mem: &MirMem) -> Option<MirStorageBase> {
+        let MirSite::Op { block, op_index } = site else { return None; };
+        let r = self.source.routines.iter().find(|r| r.id == owner)?;
+        let op = r.blocks.iter().find(|b| b.id == block)?.ops.get(op_index)?;
+        if matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. }) { return None; }
+        let e = classify_op(op);
+        let observed = e.memory.direct_reads.iter().any(|range| (0..range.bytes).any(|i| {
+            let byte = match range.base {
+                MirMem::Param { id, offset } => offset.checked_add(i).map(|offset| MirMem::Param { id, offset }),
+                MirMem::Local { id, offset } => offset.checked_add(i).map(|offset| MirMem::Local { id, offset }),
+                MirMem::FixedZeroPage(s) => u16::from(s.0).checked_add(i).filter(|a| *a < 256)
+                    .map(|a| MirMem::FixedZeroPage(MirFixedZpSlot(a as u8))),
+                _ => None,
+            };
+            byte.as_ref() == Some(mem)
+        })) || matches!(mem, MirMem::FixedZeroPage(s) if e.addresses.pair_reads.contains(&MirHomeByte::FixedZeroPage(*s)));
+        if !observed { return None; }
+        let (base, physical) = match mem {
+            MirMem::Param { id, offset } => (Some((MirStorageBase::Param(*id), *offset)), None),
+            MirMem::Local { id, offset } => (Some((MirStorageBase::Local(*id), *offset)), None),
+            MirMem::FixedZeroPage(s) => (None, Some(*s)),
+            _ => return None, // raw numeric and assembly observations stay physical
+        };
+        self.objects.get(&owner)?.iter().find_map(|(object, bytes)| {
+            let matches = base.as_ref().is_some_and(|(b, offset)| b == object && usize::from(*offset) < bytes.len())
+                || physical.is_some_and(|s| bytes.contains(&s));
+            matches.then(|| object.clone())
+        })
+    }
+}
