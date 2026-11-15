@@ -1,0 +1,20 @@
+BYTE FUNC ReadAhead(BYTE POINTER p)
+  p==+1
+RETURN(p^)
+
+CARD FUNC KeepReader(BYTE POINTER p, CARD keep)
+  BYTE value
+  value=ReadAhead(p)
+RETURN(keep+value)
+
+PROC WriteAhead(BYTE POINTER p)
+  p==+1
+  p^=37
+RETURN
+
+CARD FUNC KeepWriter(BYTE POINTER p, CARD keep)
+  WriteAhead(p)
+RETURN(keep)
+
+PROC Main()
+RETURN

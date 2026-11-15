@@ -59,9 +59,11 @@ fn scalar_entry_ignores_flags(routine: &MirRoutine) -> bool {
 
 /// Conservative memory-write summary for a known direct callee.
 ///
-/// `Exact` contains byte identities definitely covering every write made by
-/// the routine and its summarized callees. Any indirect, opaque, recursive,
-/// unresolved, or otherwise unsupported write makes the summary `Unknown`.
+/// `Exact` contains byte identities covering the data/home writes made by the
+/// routine and its summarized callees. Implicit CPU stack traffic belongs to
+/// the existing stack/ABI contract; explicit stack-address writes still count.
+/// Any indirect, opaque, recursive, unresolved, or otherwise unsupported write
+/// makes the summary `Unknown`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) enum MirKnownMemoryWrites {
     Exact(Vec<MirMem>),
@@ -747,16 +749,15 @@ fn summarize_op_writes(
     }
 
     let effects = classify_op(op);
-    // This native recipe has an unbounded pointee read, but its only writes
-    // are the two declared destination bytes. Preserve conservative read and
-    // flag facts while making its complete write footprint available before
-    // terminal instruction exposure.
-    let complete_pointer_writes = matches!(op, MirOp::OffsetPointerByIndirectByte { .. });
+    // Project the write direction only. Unknown pointee reads still constrain
+    // observation/order, but cannot invalidate independently complete writes.
+    // Logical temp definitions have not yet exposed their physical writes;
+    // require expansion before publishing a caller-visible footprint.
     if effects.memory.indirect_writes
         || effects.memory.opaque
         || effects.memory.may_write_any
-        || (effects.memory.has_unknown_effects && !complete_pointer_writes)
         || effects.homes.unknown_writes
+        || !effects.logical.temp_defs.is_empty()
     {
         writes.make_unknown();
         return;
@@ -1918,6 +1919,98 @@ mod tests {
             routines,
             machine_blocks,
             runtime_helpers: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn callee_facts_directional_writes_cover_expanded_read_recipes() {
+        use crate::mir6502::ir::{MirAddressConsumer, MirBinaryOp, MirPointerPair, MirCondDest, MirCompareOp, MirTempId};
+        let source = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: MirFixedZpSlot(0xac) });
+        let other = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: MirFixedZpSlot(0xae) });
+        let load = MirOp::LoadIndirect { consumer: source, dst: MirDef::Reg(MirReg::A), offset: 1 };
+        let compare = MirOp::CompareIndirectBytes { dst: MirCondDest::Flags, op: MirCompareOp::Eq,
+            left: source, right: other, offset: 0, signed: false };
+        let word_compare = MirOp::CompareIndirectWords { dst: MirCondDest::Flags, op: MirCompareOp::Lt,
+            left: source, right: other, offset: 0, signed: false };
+        for (op, expected) in [
+            (load, vec![]), (compare, vec![]), (word_compare, vec![]),
+            (MirOp::OffsetPointerByIndirectByte { op: MirBinaryOp::Add,
+                dst: absolute_mem(0xe2), source, offset: 0 }, vec![0xe2, 0xe3]),
+            (MirOp::OffsetPointerByIndirectBytePlusOne { dst: absolute_mem(0xe2), source, offset: 0 }, vec![0xe2, 0xe3]),
+            (MirOp::CopyIndirectBytesToFixedZp { source, source_offset: 0,
+                destinations: vec![MirFixedZpSlot(0xa0), MirFixedZpSlot(0xa1)] }, vec![0xa0, 0xa1]),
+        ] {
+            let mut p = program(vec![routine(0, vec![op.clone()], MirTerminator::Return)], vec![]);
+            p.routines[0].frame.fixed_zero_page = [0xa0, 0xa1, 0xac, 0xad, 0xae, 0xaf, 0xe2, 0xe3]
+                .into_iter().map(MirFixedZpSlot).collect();
+            let e = classify_op(&op);
+            assert!(e.memory.indirect_reads && e.memory.has_unknown_effects);
+            for facts in [MirKnownCalleeSummaries::analyze(&p), MirKnownCalleeSummaries::analyze_for_rewriting(&p)] {
+                let s = facts.get(RoutineId(0)).unwrap();
+                assert_eq!(s.reads(), &MirKnownMemoryReads::Unknown, "{op:?}");
+                assert_eq!(s.writes(), &MirKnownMemoryWrites::Exact(expected.iter().copied().map(absolute_mem).collect()), "{op:?}");
+            }
+            // Check the selected recipe, not just another projection of the
+            // same effect fields. Account for data writes and the independent
+            // balanced stack staging promised by these selected recipes.
+            let origin = 0x3000;
+            let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
+            let emitted = crate::mir6502::emit::emit_program(&p, origin, &mut emitter).unwrap();
+            let bytes = emitter.finish_with_relocations().unwrap().bytes;
+            let mut offset = usize::from(emitted.routine_addresses[0].address - origin);
+            let mut actual = BTreeSet::new();
+            let mut stack_depth = 0i32;
+            while offset < bytes.len() {
+                let (name, mode, len) = crate::codegen::decode_6502_opcode(bytes[offset]).unwrap();
+                assert!(!matches!(name, "JSR" | "BRK"), "hidden call: {op:?}");
+                match name {
+                    "PHA" | "PHP" => stack_depth += 1,
+                    "PLA" | "PLP" => stack_depth -= 1,
+                    _ => {},
+                }
+                assert!(stack_depth >= 0, "unexpected incoming stack read: {op:?}");
+                if matches!(name, "STA" | "STX" | "STY" | "INC" | "DEC" | "ASL" | "LSR" | "ROL" | "ROR")
+                    && mode != AddressingMode::Accumulator
+                {
+                    let address = match mode {
+                        AddressingMode::ZeroPage => u16::from(bytes[offset + 1]),
+                        AddressingMode::Absolute => u16::from_le_bytes([bytes[offset + 1], bytes[offset + 2]]),
+                        _ => panic!("unbounded emitted write: {op:?}"),
+                    };
+                    actual.insert(address);
+                }
+                offset += len;
+            }
+            assert_eq!(stack_depth, 0, "unbalanced stack staging: {op:?}");
+            assert_eq!(actual, expected.into_iter().collect(), "{op:?}");
+        }
+        let slot = MirZpSlot(0);
+        let mut bound = routine(0, vec![
+            MirOp::LoadIndirect { consumer: source, dst: MirDef::Reg(MirReg::A), offset: 0 },
+            MirOp::Store { dst: MirAddr::Direct(MirMem::ZeroPage(slot)),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte },
+        ], MirTerminator::Return);
+        bound.frame.virtual_zero_page.push(slot);
+        bound.frame.zero_page_allocations.push(MirZpAllocation { slot, start: MirFixedZpSlot(0xe4), size: 1 });
+        let p = program(vec![bound], vec![]);
+        assert_eq!(MirKnownCalleeSummaries::analyze_for_rewriting(&p).get(RoutineId(0)).unwrap().writes(),
+            &MirKnownMemoryWrites::Exact(vec![absolute_mem(0xe4)]));
+        for op in [
+            MirOp::LoadIndirect { consumer: source, dst: MirDef::VTemp(MirTempId(0)), offset: 0 },
+            MirOp::CompareIndirectBytes { dst: MirCondDest::Temp(MirTempId(0)), op: MirCompareOp::Eq,
+                left: source, right: other, offset: 0, signed: false },
+            MirOp::StoreIndirect { consumer: source, src: MirValue::Def(MirDef::Reg(MirReg::A)), offset: 0 },
+            MirOp::IndirectByteCompound { op: MirBinaryOp::Add, target: other, source, offset: 0 },
+            MirOp::Barrier { effects: MirEffects::default() },
+            MirOp::RuntimeHelper { helper: crate::mir6502::ir::MirRuntimeHelper::SArgs,
+                args: vec![], result: None, additional_results: vec![],
+                effects: MirEffects { opaque: true, ..Default::default() } },
+            MirOp::Store { dst: MirAddr::Direct(MirMem::ZeroPage(MirZpSlot(99))),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte },
+        ] {
+            let p = program(vec![routine(0, vec![op.clone()], MirTerminator::Return)], vec![]);
+            assert_eq!(MirKnownCalleeSummaries::analyze_for_rewriting(&p).get(RoutineId(0)).unwrap().writes(),
+                &MirKnownMemoryWrites::Unknown, "{op:?}");
         }
     }
 

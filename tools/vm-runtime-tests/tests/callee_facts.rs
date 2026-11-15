@@ -61,3 +61,35 @@ fn callee_facts_machine_memory_keeps_indexed_reads_and_offset_stores() {
     vm = machine::call(vm, &mut Observe, entry(&out, "Boundary"), &[]);
     assert_eq!(machine::bytes(&vm, 0xa0, 2), [0, 0x71]);
 }
+
+#[test]
+fn callee_facts_directional_reader_preserves_caller_and_pointee() {
+    let optimized = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for config in [Mir6502Config::default(), optimized.clone()] {
+            let out = compile(include_str!("../../../fixtures/runtime/callee_facts_readers.act"), &config, runtime);
+            let mut vm = load(&out, runtime);
+            for base in [0x7000u16, 0x70ff] {
+                vm.bus_mut().ram_mut().map(base, &[0x55, 0x81, 0xaa]).unwrap();
+                for keep in [0u16, 0x1234, 0xffff] {
+                    let args: Vec<_> = base.to_le_bytes().into_iter().chain(keep.to_le_bytes()).collect();
+                    vm = machine::call(vm, &mut Observe, entry(&out, "KeepReader"), &args);
+                    assert_eq!(machine::bytes(&vm, 0xa0, 2), keep.wrapping_add(0x81).to_le_bytes());
+                    assert_eq!(machine::bytes(&vm, base, 3), [0x55, 0x81, 0xaa]);
+                }
+                vm = machine::call(vm, &mut Observe, entry(&out, "KeepWriter"), &[base as u8, (base >> 8) as u8, 0x34, 0x12]);
+                assert_eq!(machine::bytes(&vm, 0xa0, 2), [0x34, 0x12]);
+                assert_eq!(machine::bytes(&vm, base, 3), [0x55, 37, 0xaa]);
+            }
+            if config == optimized {
+                for (name, resident) in [("KeepReader", true), ("KeepWriter", false)] {
+                    let homes: Vec<_> = out.map.storage_symbols.iter().filter(|s|
+                        s.scope == actionc::codegen::CodegenSymbolScope::Routine(name.into())
+                        && s.kind == actionc::codegen::CodegenSymbolKind::Parameter).collect();
+                    assert!(!homes.is_empty());
+                    assert!(homes.iter().all(|s| (s.address < 256) == resident), "{name}: {homes:?}");
+                }
+            }
+        }
+    }
+}

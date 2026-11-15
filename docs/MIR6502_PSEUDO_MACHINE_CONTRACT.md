@@ -37,6 +37,17 @@ they never saturate or drop an offset. A truncated address byte cannot retain
 the full object's identity unless emission verifies a zero-page operand. Symbolic
 accesses outside a declared object, or unresolved byte selections, fail closed.
 
+Native-callee write summaries project the shared directional effects. Unbounded
+pointee reads do not erase complete direct writes, physical home bindings or
+address-pair writes. Indirect/opaque writes and unresolved write homes remain
+Unknown. Logical temp definitions require physical expansion before a complete
+write footprint can be published. This precision does not narrow read effects,
+remove ordering constraints or license deleting observable stores/reads.
+These are data/home footprints. Implicit CPU-stack traffic, including the
+indirect-to-fixed-ZP copy's balanced PHA/PLA staging, remains covered by the
+existing stack/ABI contract. Explicit writes to stack addresses still count as
+memory writes. A precise data footprint grants no new stack-manipulation permission.
+
 **Materialization** means turning abstract NIR/MIR values, storage, conditions,
 or calls into a concrete target strategy: byte lanes, temporary homes, ABI homes,
 carry/flag dependencies, helper calls, and address forms.

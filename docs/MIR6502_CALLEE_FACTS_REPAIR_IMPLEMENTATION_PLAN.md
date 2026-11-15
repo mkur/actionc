@@ -1,10 +1,10 @@
 # MIR6502 callee-fact repairs: implementation plan
 
-Prepared 2026-11-15. Status: paused after slices 1–2; slice 3 is partially edited
-and unvalidated in the working tree. The narrower
+Prepared 2026-11-15. Status: slices 1–3 completed and validated; resume slices
+4–7 in order. The narrower
 [private-storage boundary plan](MIR6502_PRIVATE_STORAGE_BOUNDARY_IMPLEMENTATION_PLAN.md)
-was implemented separately. Remaining slices below are still deferred.
-Baseline: `7ab6f840ba0475c5ddde9194c130ee83d96c83d1` and the
+was implemented separately. Broader ZP placement remains deferred.
+Historical baseline: `7ab6f840ba0475c5ddde9194c130ee83d96c83d1` and the
 [TN leaf-facts audit](benchmarks/6502-tn-leaf-facts/README.md).
 
 Slice 1 validation: one grouped summary test and one VM group passed. The VM
@@ -16,6 +16,12 @@ Slice 2 validation: 29 callee-analysis tests (including bounded-machine decoding
 and the independent indexed/offset VM control passed. The corrected TN baseline
 is 9,862 bytes; see [evidence](benchmarks/6502-callee-facts-repair/README.md).
 
+Slice 3 validation: all 30 callee-analysis tests and the reader/writer VM group
+passed. The group covers default/optimized ActionCart and Standalone, including
+page crossing and caller preservation. TN is 9,846 bytes, down 24 from the
+post-private-storage baseline; see the directional-write review in the evidence
+above. No full suite was run.
+
 Repair the facts consumed by existing optimizations, then qualify the newly
 eligible cases. Implement the slices below in order and commit each after its
 focused checks pass. Keep unrelated working-tree changes outside those commits.
@@ -24,7 +30,9 @@ shared build target.
 
 The audit baseline is a 9,791-byte TN image. It contains an unsound flag fact;
 preserving that image is **not** an acceptance requirement for a correctness fix.
-Measure optimization gains against a new baseline after slices 1–2. Continue
+Measure the remaining slices against the current **9,846-byte** slice-3 image.
+Retain the 9,862-byte correctness baseline and 9,870-byte private-storage result
+as historical evidence, without rebuilding them. Continue
 to require strict whole-image savings for each existing home-selection trial,
 with complete proof replay and exact rollback. Individual routine growth remains
 diagnostic.
@@ -312,12 +320,19 @@ make a new compiler match its obsolete hashes.
    data. If the inventory changes, explain it instead of forcing the old counts.
 2. Check summary transitions against emitted code: Position/GetD flag repair;
    machine indexed-read widening; complete Key/Instr/Fnamecmp writes; Fnamecmp
-   entry flags; Instr's pointer entry; and accurate callable metadata.
+   entry flags; Instr's pointer entry; and accurate callable metadata. Recheck
+   entry register/flag/fixed-byte requirements across all audited leaves, and
+   explain every change rather than checking only the motivating routines.
 3. Record actual eligibility and placement for FindItem, PopUp, Sort and Handle.
    Reaching an entry/write check, passing it and receiving a selected home are
-   distinct outcomes. Report the first remaining blocker when selection fails.
-4. Measure complete image size against both the old 9,791-byte audit and the
-   correctness-repaired baseline. Attribute correctness growth separately from
+   distinct outcomes. Report both the caller body/eligibility gate and the
+   independent callee-contract check. Sort's indirect array writes are outside
+   current placement scope even after Fnamecmp's entry flags are repaired. These
+   slices do not relax that restriction. Report the first actual selector blocker
+   without mistaking a diagnostic call check for evidence of candidate selection.
+4. Measure complete image size against the current 9,846-byte baseline, retaining
+   comparisons with the old audit and correctness-repaired baseline as historical
+   context. Attribute correctness growth separately from
    precision-related savings. Include all changed routine code/ordinary/ZP
    footprints and the Ord/Items/Next controls, not just hoped-for improvements.
 5. Preserve exact rollback, per-site argument checks, final-cost acceptance and
@@ -336,31 +351,27 @@ status updates after the checks are complete.
 ## Minimal testing and build budget
 
 Keep focused summary/effect/entry unit groups beside their existing analyses.
-Use a common `callee_facts_` test-name prefix with a distinct suffix per slice.
-Add a small integration target `tests/mir6502_callee_facts.rs` and VM target
-`tools/vm-runtime-tests/tests/callee_facts.rs` for the independent controls; reuse
-the existing VM helpers. Turn the audit witness into a normal correctness test,
-not a test that expects the bug's result.
+Use the `callee_facts_` prefix for new grouped cases. Extend the existing VM target
+`tools/vm-runtime-tests/tests/callee_facts.rs` and its shared helpers. Reuse the
+existing entry-flag integration target when its consumer behavior is affected;
+do not add a duplicate integration layer for behavior already covered by a VM
+control. A small metadata integration target is appropriate for slice 6's maps.
 
-Run only the new and directly affected groups for each slice. Re-run earlier
-groups when a later change touches the same fact or consumer; do not repeat a
-passing backend matrix after documentation edits. Example planned commands for
-the first slice (name its new groups with the `callee_facts_flags` prefix):
+Run only new and directly affected groups per slice, checking nonzero selected-test
+counts. Re-run earlier groups only for a changed fact/consumer or unresolved
+failure. Commands below are filters, not a requirement to execute all groups at
+every slice; apply the shared build settings documented below:
 
 ```sh
-cargo test --lib callee_facts_flags
-cargo test --test mir6502_callee_facts callee_facts_flags
-cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml \
-  --test callee_facts callee_facts_flags
+cargo test --lib callee_facts_
+cargo test --test mir6502_callee_entry_flags
+cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test callee_facts
 cargo test --lib later_trials_keep_the_exact_selected_input_and_executable
 ```
 
-The new targets and prefix do not exist yet. Use the corresponding focused prefix
-for later slices and check nonzero selected-test counts. Slice 2 also runs the
-affected bounded-memory decoder tests; final
-qualification includes the relevant existing cross-call negative group. Omit an
-integration or VM run for a slice whose behavior is already covered by a directly
-affected passing group, but record which group provides that evidence.
+The final qualification includes existing cross-call rejection and rollback
+controls. Record which unit, integration or VM group validates each changed
+contract. Do not repeat completed slice-1/2 baselines or full backend suites.
 
 Use the shared `build/checked-arena/shared-target`, dev/test opt-level 1, no debug
 information, incremental off and two jobs. Keep large images and traces under
