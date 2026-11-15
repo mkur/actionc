@@ -85,6 +85,7 @@ impl MirDataRelocationKind {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MirDataRelocationTarget {
+    Static(SymbolId),
     Global(SymbolId),
     Local { routine: RoutineId, id: LocalId },
     Param { routine: RoutineId, id: ParamId },

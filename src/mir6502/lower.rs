@@ -1294,6 +1294,7 @@ fn lower_data_image(image: &crate::nir::NirDataImage, owner: Option<RoutineId>) 
                         _ => unreachable!("verified Atari address fragment encoding"),
                     },
                     target: match target {
+                        crate::nir::NirDataAddressTarget::Static(id) => MirDataRelocationTarget::Static(*id),
                         crate::nir::NirDataAddressTarget::Storage(
                             crate::nir::NirStorageId::Global(id),
                         ) => MirDataRelocationTarget::Global(*id),
@@ -3598,6 +3599,7 @@ fn lower_inline_asm_target(
     routine_system_addresses_by_id: &BTreeMap<crate::nir::RoutineId, u16>,
 ) -> MirInlineAsmTarget {
     match target {
+        NirForeignCodeTarget::Static(id) => MirInlineAsmTarget::Memory(MirMem::Static { id, offset: 0 }),
         NirForeignCodeTarget::Storage(crate::nir::NirStorageId::Local(id)) => {
             MirInlineAsmTarget::Memory(MirMem::Local { id, offset: 0 })
         }

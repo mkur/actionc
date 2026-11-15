@@ -216,3 +216,8 @@ remains inline because TN's explicit assembly-observation inventory is incomplet
 its Fnamecmp call contract passes independently. Existing Ord/Items/FindItem
 savings survive. Materializations and emissions are unchanged; final emission
 now retains four additional source-storage inventories.
+
+The follow-up [labeled data block plan](LABELED_DATA_BLOCK_IMPLEMENTATION_PLAN.md)
+introduces explicit `DATA name = [...]` declarations so menu data can leave the
+executable machine-block scan while retaining storage and relocation protection.
+Unclassified raw machine blocks remain conservative.

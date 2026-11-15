@@ -278,7 +278,7 @@ fn project(item: &mut Mir65816Data, image: &NirDataImage) {
                     ByteSize::ONE,
                     match target {
                         NirDataAddressTarget::Routine(_) => TargetLayout::CODE_ADDRESS_SPACE,
-                        NirDataAddressTarget::Storage(_) => TargetLayout::DATA_ADDRESS_SPACE,
+                        NirDataAddressTarget::Storage(_) | NirDataAddressTarget::Static(_) => TargetLayout::DATA_ADDRESS_SPACE,
                         NirDataAddressTarget::Absolute(address) => address.address_space,
                     },
                     Some(byte_index),
@@ -319,6 +319,7 @@ fn validate(data: &[Mir65816Data], errors: &mut Vec<Mir65816Diagnostic>) {
                 Mir65816RelocationTarget::Data(NirStorageId::Global(id)) => {
                     Some(Mir65816DataId::Global(id))
                 }
+                Mir65816RelocationTarget::Static(id) => Some(Mir65816DataId::Static(id)),
                 Mir65816RelocationTarget::ArrayBacking(id) => {
                     Some(Mir65816DataId::ArrayBacking(id))
                 }

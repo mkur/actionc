@@ -50,7 +50,7 @@ impl Materializer<'_> {
             Item::Declaration(declaration) => self.declaration(global_scope, declaration),
             Item::Routine(routine) => self.routine(global_scope, routine),
             Item::Statement(statement) => self.statement(global_scope, statement),
-            Item::Define(_) | Item::Include(_) | Item::Unsupported { .. } => {}
+            Item::Data(_) | Item::Define(_) | Item::Include(_) | Item::Unsupported { .. } => {}
         }
         Some(item)
     }

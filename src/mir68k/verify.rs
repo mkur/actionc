@@ -96,6 +96,7 @@ pub fn verify_contract(program: &Mir68kProgram) -> Result<(), Vec<Mir68kDiagnost
                 Mir68kRelocationTarget::Data(NirStorageId::Global(id)) => {
                     data.contains_key(&Mir68kDataId::Global(id))
                 }
+                Mir68kRelocationTarget::Static(id) => data.contains_key(&Mir68kDataId::Static(id)),
                 Mir68kRelocationTarget::Data(_) => false, // no ambient frame for static data
                 Mir68kRelocationTarget::ArrayBacking(id) => {
                     data.contains_key(&Mir68kDataId::ArrayBacking(id))

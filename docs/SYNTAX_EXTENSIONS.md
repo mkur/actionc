@@ -28,6 +28,7 @@ some ambiguous routine-address cases.
 - [Plain CARD Values Are Not Typed Pointers](#plain-card-values-are-not-typed-pointers)
 - [Function Pointers](#function-pointers)
 - [INLINE Routines](#inline-routines)
+- [Labeled Data Blocks](#labeled-data-blocks)
 - [Machine Block Label Bytes](#machine-block-label-bytes)
 - [Relocatable Static Initializers](#relocatable-static-initializers)
 - [MADS-Style Inline Assembler](#mads-style-inline-assembler)
@@ -725,6 +726,44 @@ assignment to routine names is rejected in the modern profile:
 DrawMenu = OtherProc      ; rejected
 handler = @OtherProc     ; accepted
 ```
+
+## Labeled Data Blocks
+
+NIR backends accept module-level mutable byte storage with an addressable label:
+
+```action
+DATA yesabort = [
+  "Yes" 'Y
+  "Abort" 'A
+  $00
+]
+
+PROC Main()
+  BYTE POINTER menu
+  menu=@yesabort
+RETURN
+```
+
+The payload is exactly `[3 'Y 'e 's 'Y 5 'A 'b 'o 'r 't 'A 0]`.
+Strings have a one-byte length; characters occupy one byte. Integer literals
+occupy one byte through 255 and two through 65535, in target byte order. Nothing
+adds a descriptor, terminator, or return instruction. `@yesabort` addresses the
+first payload byte; use a pointer to read or modify it. Calling the label or
+using it as a scalar variable is an error.
+
+An initializer may contain storage/routine addresses, `<@label` and `>@label`,
+and constant address offsets. Full addresses occupy the target pointer width;
+`*` means the current byte position in this DATA block. Symbolic references stay
+relocatable, including forward references between DATA blocks. Named modules can
+export a label with `PUBLIC DATA`. DATA is contextual, so existing variables and
+variant members named DATA retain their meaning.
+
+DATA is not allowed inside control-flow or lexical blocks. A DATA declaration
+following a routine starts a module-level declaration, just as a new routine
+declaration ends the previous routine. Only literal `[...]` initializers are
+implemented; generators are reserved for future work. The classic backend
+reports that DATA requires a NIR backend. Existing raw machine blocks retain
+their executable, conservative interpretation.
 
 ## Machine Block Label Bytes
 

@@ -222,6 +222,7 @@ fn relocations_summary(image: &MirDataImage) -> String {
                 MirDataRelocationKind::Word16 => "word",
             };
             let target = match relocation.target {
+                MirDataRelocationTarget::Static(id) => format!("s{}", id.0),
                 MirDataRelocationTarget::Global(id) => format!("g{}", id.0),
                 MirDataRelocationTarget::Local { routine, id } => {
                     format!("r{}:l{}", routine.0, id.0)

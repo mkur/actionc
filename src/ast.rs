@@ -168,6 +168,7 @@ pub struct Module {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Item {
+    Data(DataDecl),
     Define(DefineDecl),
     Include(IncludeDirective),
     Set(SetDirective),
@@ -175,6 +176,20 @@ pub enum Item {
     Routine(Routine),
     Statement(Stmt),
     Unsupported { span: Span, note: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DataDecl {
+    pub name: String,
+    pub visibility: Visibility,
+    pub initializer: DataInitializer,
+    pub span: Span,
+}
+
+/// Future compile-time generators can produce the same data as this literal.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DataInitializer {
+    Literal(Vec<MachineItem>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -2,6 +2,12 @@ use super::*;
 
 impl Generator {
     pub(super) fn generate_program(&mut self, program: &Program) {
+        for item in program.modules.iter().flat_map(|module| &module.items) {
+            if let Item::Data(data) = item {
+                self.diagnostics.push(Diagnostic::new(data.span, "DATA requires a NIR backend"));
+                return;
+            }
+        }
         let _modern_profile = self.profile.enables_modern_optimizations();
         self.apply_runtime_helper_sets(program);
         if self.segment_storage {

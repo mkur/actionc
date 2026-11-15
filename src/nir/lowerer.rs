@@ -28,6 +28,7 @@ use super::facts::{
 use super::ir::*;
 
 mod case;
+mod data;
 mod selection;
 
 #[derive(Default)]
@@ -38,6 +39,7 @@ pub(super) struct NirLowerer {
     next_static: u32,
     global_ids: BTreeMap<String, SymbolId>,
     global_ids_by_symbol: BTreeMap<SemSymbolId, SymbolId>,
+    data_ids_by_symbol: BTreeMap<SemSymbolId, SymbolId>,
     routine_ids: BTreeMap<String, RoutineId>,
     routine_types: BTreeMap<String, NirType>,
     symbol_storage_types: BTreeMap<String, NirType>,
@@ -62,6 +64,7 @@ impl NirLowerer {
 
         self.collect_global_ids(program);
         self.collect_routine_ids(program);
+        self.collect_data_ids(program);
         let machine_defines = collect_machine_defines(program);
         self.machine_define_names = machine_defines.names;
         self.machine_defines = machine_defines.ids;
@@ -87,6 +90,7 @@ impl NirLowerer {
                         });
                     }
                     crate::semantic::ir::SemItem::Const(_) => {}
+                    crate::semantic::ir::SemItem::Data(data) => statics.push(self.lower_data(data, program)),
                     crate::semantic::ir::SemItem::Include(include) => {
                         let id = self.global_id(&include.path);
                         globals.push(NirGlobal {
@@ -179,6 +183,7 @@ impl NirLowerer {
                                 &backing,
                                 address_initializer,
                                 &self.global_ids,
+                                &self.data_ids_by_symbol,
                                 &self.routine_ids,
                                 self.target_layout,
                             ),
@@ -244,6 +249,7 @@ impl NirLowerer {
                             self.machine_define_names.clone(),
                             self.target_layout,
                         );
+                        builder.data_ids_by_symbol = self.data_ids_by_symbol.clone();
                         for (index, param) in routine.params.iter().enumerate() {
                             let value_ty = match param.storage {
                                 crate::semantic::ir::SemParamStorage::Value => {
@@ -368,6 +374,7 @@ impl NirLowerer {
                                 &backing,
                                 address_initializer,
                                 &self.global_ids,
+                                &self.data_ids_by_symbol,
                                 &self.routine_ids,
                                 &param_ids_by_symbol,
                                 &local_ids_by_symbol,
@@ -487,6 +494,7 @@ impl NirLowerer {
                 self.machine_define_names.clone(),
                 self.target_layout,
             );
+            builder.data_ids_by_symbol = self.data_ids_by_symbol.clone();
             builder.next_label = self.next_label;
             builder.stmt_list(&top_level);
             self.next_label = builder.next_label;
@@ -595,7 +603,7 @@ impl NirLowerer {
                     crate::semantic::ir::SemItem::Define(define) => {
                         (Some(&define.symbol.name), Some(define.symbol.id))
                     }
-                    crate::semantic::ir::SemItem::Const(_) => (None, None),
+                    crate::semantic::ir::SemItem::Const(_) | crate::semantic::ir::SemItem::Data(_) => (None, None),
                     crate::semantic::ir::SemItem::Include(include) => (Some(&include.path), None),
                     crate::semantic::ir::SemItem::Declaration(declaration) => {
                         (Some(&declaration.symbol.name), Some(declaration.symbol.id))
@@ -1264,6 +1272,7 @@ pub(super) struct NirBuilder {
     locals: Vec<NirLocal>,
     global_ids: BTreeMap<String, SymbolId>,
     global_ids_by_symbol: BTreeMap<SemSymbolId, SymbolId>,
+    data_ids_by_symbol: BTreeMap<SemSymbolId, SymbolId>,
     routine_ids: BTreeMap<String, RoutineId>,
     routine_id: RoutineId,
     signature: NirCallableSignature,
@@ -1329,6 +1338,7 @@ impl NirBuilder {
             locals: Vec::new(),
             global_ids,
             global_ids_by_symbol,
+            data_ids_by_symbol: BTreeMap::new(),
             routine_ids,
             routine_id,
             signature,
@@ -2952,6 +2962,12 @@ impl NirBuilder {
                 Some(self.addr_of_place(place, ty, source_symbol))
             }
             SemExprKind::AddressOfSymbol(symbol) => {
+                if symbol.class == SymbolClass::Data {
+                    return Some(NirValue::StaticAddr {
+                        id: self.data_ids_by_symbol[&symbol.id], name: symbol.name.clone(),
+                        ty: NirType::from_value_with_layout(&expr.ty, self.target_layout),
+                    });
+                }
                 if matches!(
                     symbol.class,
                     SymbolClass::Proc
@@ -3755,6 +3771,7 @@ impl NirBuilder {
                 .map(|address| {
                     NirForeignCodeTarget::Absolute(AddressValue::data(u64::from(address)))
                 }),
+            SymbolClass::Data => self.data_ids_by_symbol.get(&symbol.id).copied().map(NirForeignCodeTarget::Static),
             SymbolClass::Const => None,
         }
     }
@@ -4133,6 +4150,7 @@ fn collect_machine_defines_from_item(
             collect_machine_defines_from_stmt(stmt, defines);
         }
         crate::semantic::ir::SemItem::Include(_)
+        | crate::semantic::ir::SemItem::Data(_)
         | crate::semantic::ir::SemItem::Const(_)
         | crate::semantic::ir::SemItem::Set(_)
         | crate::semantic::ir::SemItem::Declaration(_)
@@ -4832,6 +4850,7 @@ fn declaration_global_init(
     backing: &NirGlobalBacking,
     address_initializer: Option<u16>,
     global_ids: &BTreeMap<String, SymbolId>,
+    data_ids: &BTreeMap<SemSymbolId, SymbolId>,
     routine_ids: &BTreeMap<String, RoutineId>,
     target_layout: TargetLayout,
 ) -> Option<NirGlobalInit> {
@@ -4848,7 +4867,7 @@ fn declaration_global_init(
         SemDeclarationStorage::Scalar => match &declaration.static_initializer {
             Some(initializer) => Some(data_image_init(
                 static_initializer_data_image(initializer, |target| {
-                    global_data_relocation_target(target, global_ids, routine_ids)
+                    global_data_relocation_target(target, global_ids, data_ids, routine_ids)
                 })
                 .expect("verified semantic static initializer must lower to a NIR data image"),
                 storage_size,
@@ -4862,7 +4881,7 @@ fn declaration_global_init(
             let data_image = match &declaration.static_initializer {
                 Some(initializer) => Some(
                     static_initializer_data_image(initializer, |target| {
-                        global_data_relocation_target(target, global_ids, routine_ids)
+                        global_data_relocation_target(target, global_ids, data_ids, routine_ids)
                     })
                     .expect("verified semantic static initializer must lower to a NIR data image"),
                 ),
@@ -4871,7 +4890,7 @@ fn declaration_global_init(
                         initializer,
                         elem_size,
                         array_type.element.is_real(),
-                        |target| global_data_relocation_target(target, global_ids, routine_ids),
+                        |target| global_data_relocation_target(target, global_ids, data_ids, routine_ids),
                     )
                 }),
             };
@@ -5024,6 +5043,7 @@ fn declaration_local_init(
     backing: &NirLocalBacking,
     address_initializer: Option<u16>,
     global_ids: &BTreeMap<String, SymbolId>,
+    data_ids: &BTreeMap<SemSymbolId, SymbolId>,
     routine_ids: &BTreeMap<String, RoutineId>,
     param_ids: &BTreeMap<SemSymbolId, ParamId>,
     local_ids: &BTreeMap<SemSymbolId, LocalId>,
@@ -5053,6 +5073,7 @@ fn declaration_local_init(
                     local_data_relocation_target(
                         target,
                         global_ids,
+                        data_ids,
                         routine_ids,
                         param_ids,
                         local_ids,
@@ -5092,6 +5113,7 @@ fn declaration_local_init(
                         local_data_relocation_target(
                             target,
                             global_ids,
+                            data_ids,
                             routine_ids,
                             param_ids,
                             local_ids,
@@ -5108,6 +5130,7 @@ fn declaration_local_init(
                             local_data_relocation_target(
                                 target,
                                 global_ids,
+                            data_ids,
                                 routine_ids,
                                 param_ids,
                                 local_ids,
@@ -5431,7 +5454,7 @@ fn data_address_encoding(
 fn data_address_target_space(target: NirDataAddressTarget) -> crate::target::AddressSpaceId {
     match target {
         NirDataAddressTarget::Routine(_) => TargetLayout::CODE_ADDRESS_SPACE,
-        NirDataAddressTarget::Storage(_) => TargetLayout::DATA_ADDRESS_SPACE,
+        NirDataAddressTarget::Storage(_) | NirDataAddressTarget::Static(_) => TargetLayout::DATA_ADDRESS_SPACE,
         NirDataAddressTarget::Absolute(address) => address.address_space,
     }
 }
@@ -5465,8 +5488,12 @@ fn array_initializer_byte_len(declaration: &SemDeclaration, elem_size: u32) -> O
 fn global_data_relocation_target(
     target: &SemSymbolRef,
     global_ids: &BTreeMap<String, SymbolId>,
+    data_ids: &BTreeMap<SemSymbolId, SymbolId>,
     routine_ids: &BTreeMap<String, RoutineId>,
 ) -> Option<NirDataAddressTarget> {
+    if target.class == SymbolClass::Data {
+        return data_ids.get(&target.id).copied().map(NirDataAddressTarget::Static);
+    }
     if matches!(
         target.class,
         SymbolClass::Proc | SymbolClass::Func | SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc
@@ -5490,6 +5517,7 @@ fn global_data_relocation_target(
 fn local_data_relocation_target(
     target: &SemSymbolRef,
     global_ids: &BTreeMap<String, SymbolId>,
+    data_ids: &BTreeMap<SemSymbolId, SymbolId>,
     routine_ids: &BTreeMap<String, RoutineId>,
     param_ids: &BTreeMap<SemSymbolId, ParamId>,
     local_ids: &BTreeMap<SemSymbolId, LocalId>,
@@ -5504,7 +5532,7 @@ fn local_data_relocation_target(
                 .copied()
                 .map(|id| NirDataAddressTarget::Storage(NirStorageId::Param(id)))
         })
-        .or_else(|| global_data_relocation_target(target, global_ids, routine_ids))
+        .or_else(|| global_data_relocation_target(target, global_ids, data_ids, routine_ids))
 }
 
 fn increment_data_image_routine_ids_in_global_init(init: &mut NirGlobalInit) {
@@ -5935,7 +5963,7 @@ fn machine_symbol_has_link_identity(symbol: &SemSymbolRef) -> bool {
     symbol.defining_module.is_some()
         || matches!(
             symbol.class,
-            SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc
+            SymbolClass::Data | SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc
         )
 }
 
@@ -6130,6 +6158,13 @@ fn inline_asm_regions(code: &NirForeignCode, reads: bool) -> Option<Vec<NirMemor
                     },
                 });
                 continue;
+            }
+            NirForeignCodeTarget::Static(id) => {
+                regions.push(NirMemoryRegion {
+                    kind: NirMemoryRegionKind::Static(id),
+                    offset: ByteOffset::new(u32::try_from(relocation.addend).ok()?),
+                    size: if relocation.symbol_use == ForeignSymbolUse::PointerRead { ByteSize::new(2) } else { ByteSize::ONE },
+                });
             }
             NirForeignCodeTarget::Absolute(address) => {
                 let address = address.checked_add_signed(i64::from(relocation.addend))?;

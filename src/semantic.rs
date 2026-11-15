@@ -35,6 +35,7 @@ mod let_binding;
 mod null;
 mod selection;
 mod static_addresses;
+mod data;
 pub mod subject;
 pub mod types;
 pub mod integer;
@@ -55,6 +56,7 @@ pub use types::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemanticModel {
+    data_initializers: HashMap<SymbolId, ir::SemDataInitializer>,
     pub enums: EnumFacts,
     pub variants: VariantFacts,
     pub generics: GenericTypeFacts,
@@ -367,6 +369,7 @@ pub struct ScopeId(pub usize);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SymbolClass {
+    Data,
     BuiltinProc,
     BuiltinFunc,
     Define,
@@ -629,6 +632,7 @@ impl Analyzer {
             return Err(self.diagnostics);
         }
         Ok(SemanticModel {
+            data_initializers: self.data_initializers,
             enums: self.enums,
             variants: self.variants,
             generics: self.generics,
@@ -662,6 +666,7 @@ impl Analyzer {
 }
 
 struct Analyzer {
+    data_initializers: HashMap<SymbolId, ir::SemDataInitializer>,
     enums: EnumFacts,
     variants: VariantFacts,
     aggregate_kinds: HashMap<SymbolId, AggregateKind>,
@@ -749,6 +754,7 @@ impl Analyzer {
 
         Self {
             options,
+            data_initializers: HashMap::new(),
             enums: EnumFacts::default(),
             variants: VariantFacts::default(),
             aggregate_kinds: HashMap::new(),
@@ -924,8 +930,17 @@ impl Analyzer {
         );
         self.retargeted_routine_names = collect_retargeted_routine_names(program);
         self.static_initializer_targets = collect_static_initializer_targets(program);
+        for item in program.modules.iter().flat_map(|module| &module.items) {
+            if let Item::Data(data) = item {
+                self.declare(self.global_scope, data.name.clone(), SymbolClass::Data,
+                    Some(fund_value(FundType::Byte)), data.span);
+            }
+        }
         for module in &program.modules {
             self.analyze_module(module);
+        }
+        for item in program.modules.iter().flat_map(|module| &module.items) {
+            if let Item::Data(data) = item { self.analyze_data(self.global_scope, data); }
         }
         self.validate_program_origin(self.global_scope, program);
     }
@@ -1115,6 +1130,8 @@ impl Analyzer {
         for region in &program.modules {
             for item in &region.items {
                 match item {
+                    Item::Data(data) => { self.declare_module_symbol(module_id, scope, data.name.clone(),
+                        SymbolClass::Data, Some(fund_value(FundType::Byte)), data.visibility, data.span); }
                     Item::Define(define) => {
                         for entry in &define.entries {
                             self.declare_module_symbol(
@@ -1446,6 +1463,7 @@ impl Analyzer {
         for region in &program.modules {
             for item in &region.items {
                 match item {
+                    Item::Data(data) => self.analyze_data(scope, data),
                     Item::Routine(routine) => {
                         self.analyze_routine_body(scope, Some(module_id), routine)
                     }
@@ -1517,6 +1535,7 @@ impl Analyzer {
     fn analyze_module(&mut self, module: &Module) {
         for item in &module.items {
             match item {
+                Item::Data(_) => {},
                 Item::Define(define) => self.analyze_define(self.global_scope, define),
                 Item::Declaration(decl) => self.analyze_decl(self.global_scope, decl, false),
                 Item::Routine(routine) => {
@@ -1740,6 +1759,7 @@ impl Analyzer {
                             symbol.class,
                             SymbolClass::Define
                                 | SymbolClass::Const
+                                | SymbolClass::Data
                                 | SymbolClass::Var
                                 | SymbolClass::Array
                                 | SymbolClass::Param
@@ -1748,6 +1768,7 @@ impl Analyzer {
                             symbol.class,
                             SymbolClass::Define
                                 | SymbolClass::Const
+                                | SymbolClass::Data
                                 | SymbolClass::Var
                                 | SymbolClass::Array
                                 | SymbolClass::Param
@@ -2494,57 +2515,67 @@ impl Analyzer {
             ExprKind::Unary {
                 op: UnaryOp::AddressOf,
                 expr: inner,
-            } => match self.classify_subject(scope, inner) {
-                subject::SemSubject::Place(place) => {
-                    if self.reject_read_only_address(&place, expr.span) {
-                        return self.subject_error(expr.span);
-                    }
-                    let ty = ValueType::pointer_to(place.ty.clone());
-                    subject::SemSubject::Expr(subject::SemExpr {
-                        ty,
-                        kind: subject::SemExprKind::AddressOf(Box::new(place)),
-                        span: expr.span,
-                    })
+            } => {
+                if let Some(name) = enums::expression_name(inner)
+                    && let SemanticNameResolution::Symbol(id) = resolve_semantic_name(&self.symbols, &self.modules, scope, &name)
+                    && self.symbols.symbols[id.0].class == SymbolClass::Data {
+                    return subject::SemSubject::Expr(subject::SemExpr {
+                        ty: ValueType::pointer_to(fund_value(FundType::Byte)),
+                        kind: subject::SemExprKind::AddressOfSymbol(id), span: expr.span,
+                    });
                 }
-                subject::SemSubject::Callable(callable) => match callable.kind {
-                    subject::SemCallableKind::Builtin(symbol_id)
-                        if self.layout_intrinsics.contains_key(&symbol_id) =>
-                    {
-                        self.diagnostics.push(Diagnostic::new(
-                            expr.span,
-                            "compile-time layout queries have no runtime address",
-                        ));
-                        subject::SemSubject::Expr(self.error_expr(expr.span))
-                    }
-                    subject::SemCallableKind::Function(symbol_id)
-                    | subject::SemCallableKind::Builtin(symbol_id) => {
-                        let ty = ValueType::callable_pointer(callable.ty);
+                match self.classify_subject(scope, inner) {
+                    subject::SemSubject::Place(place) => {
+                        if self.reject_read_only_address(&place, expr.span) {
+                            return self.subject_error(expr.span);
+                        }
+                        let ty = ValueType::pointer_to(place.ty.clone());
                         subject::SemSubject::Expr(subject::SemExpr {
                             ty,
-                            kind: subject::SemExprKind::AddressOfSymbol(symbol_id),
+                            kind: subject::SemExprKind::AddressOf(Box::new(place)),
                             span: expr.span,
                         })
                     }
-                    subject::SemCallableKind::FunctionValue(_)
-                    | subject::SemCallableKind::Error => {
+                    subject::SemSubject::Callable(callable) => match callable.kind {
+                        subject::SemCallableKind::Builtin(symbol_id)
+                            if self.layout_intrinsics.contains_key(&symbol_id) =>
+                        {
+                            self.diagnostics.push(Diagnostic::new(
+                                expr.span,
+                                "compile-time layout queries have no runtime address",
+                            ));
+                            subject::SemSubject::Expr(self.error_expr(expr.span))
+                        }
+                        subject::SemCallableKind::Function(symbol_id)
+                        | subject::SemCallableKind::Builtin(symbol_id) => {
+                            let ty = ValueType::callable_pointer(callable.ty);
+                            subject::SemSubject::Expr(subject::SemExpr {
+                                ty,
+                                kind: subject::SemExprKind::AddressOfSymbol(symbol_id),
+                                span: expr.span,
+                            })
+                        }
+                        subject::SemCallableKind::FunctionValue(_)
+                        | subject::SemCallableKind::Error => {
+                            self.diagnostics.push(Diagnostic::new(
+                                expr.span,
+                                "cannot take address of this expression",
+                            ));
+                            subject::SemSubject::Expr(self.error_expr(expr.span))
+                        }
+                    },
+                    subject::SemSubject::Expr(_)
+                    | subject::SemSubject::TypeRef(_)
+                    | subject::SemSubject::Define(_) => {
                         self.diagnostics.push(Diagnostic::new(
                             expr.span,
                             "cannot take address of this expression",
                         ));
                         subject::SemSubject::Expr(self.error_expr(expr.span))
                     }
-                },
-                subject::SemSubject::Expr(_)
-                | subject::SemSubject::TypeRef(_)
-                | subject::SemSubject::Define(_) => {
-                    self.diagnostics.push(Diagnostic::new(
-                        expr.span,
-                        "cannot take address of this expression",
-                    ));
-                    subject::SemSubject::Expr(self.error_expr(expr.span))
-                }
-                subject::SemSubject::Error(_) => {
-                    subject::SemSubject::Expr(self.error_expr(expr.span))
+                    subject::SemSubject::Error(_) => {
+                        subject::SemSubject::Expr(self.error_expr(expr.span))
+                    }
                 }
             },
             ExprKind::Unary {
@@ -3237,6 +3268,10 @@ impl Analyzer {
         let symbol = &self.symbols.symbols[symbol_id.0];
 
         match symbol.class {
+            SymbolClass::Data => {
+                self.diagnostics.push(Diagnostic::new(span, "DATA labels require @label; they are not values or callable routines"));
+                self.subject_error(span)
+            }
             SymbolClass::Var | SymbolClass::Array | SymbolClass::Param => {
                 subject::SemSubject::Place(subject::SemPlace {
                     ty: symbol.ty.clone().unwrap_or_else(ValueType::error),
@@ -5093,7 +5128,8 @@ impl Analyzer {
                             if !matches!(
                                 class,
                                 Some(
-                                    SymbolClass::Var
+                                    SymbolClass::Data
+                                        | SymbolClass::Var
                                         | SymbolClass::Array
                                         | SymbolClass::Param
                                         | SymbolClass::Proc
@@ -11095,7 +11131,8 @@ mod tests {
                         assert_semir_stmt_list_types(&routine.body);
                     }
                     ir::SemItem::Statement(stmt) => assert_semir_stmt_types(stmt),
-                    ir::SemItem::Define(_)
+                    ir::SemItem::Data(_)
+                    | ir::SemItem::Define(_)
                     | ir::SemItem::Const(_)
                     | ir::SemItem::Include(_)
                     | ir::SemItem::Set(_)

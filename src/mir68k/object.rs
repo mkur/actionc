@@ -277,6 +277,7 @@ pub fn emit(mir: &Mir68kProgram, machine: &MachineProgram) -> Result<Object, Str
                 Mir68kRelocationTarget::Code(id) => {
                     RelocationTarget::Location(locate(Target::Routine(id))?)
                 }
+                Mir68kRelocationTarget::Static(id) => RelocationTarget::Location(locate(Target::Data(Mir68kDataId::Static(id)))?),
                 Mir68kRelocationTarget::ArrayBacking(id) => RelocationTarget::Location(locate(
                     Target::Data(Mir68kDataId::ArrayBacking(id)),
                 )?),

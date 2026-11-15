@@ -107,7 +107,8 @@ fn collect_standalone_item_diagnostics(item: &SemItem, diagnostics: &mut Vec<Dia
         SemItem::Statement(statement) => {
             collect_standalone_stmt_diagnostics(statement, diagnostics);
         }
-        SemItem::Define(_)
+        SemItem::Data(_)
+        | SemItem::Define(_)
         | SemItem::Const(_)
         | SemItem::Include(_)
         | SemItem::Unsupported { .. } => {}

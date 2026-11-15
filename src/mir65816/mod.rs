@@ -91,6 +91,7 @@ pub struct Mir65816Relocation {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mir65816RelocationTarget {
+    Static(SymbolId),
     Data(NirStorageId),
     Code(RoutineId),
     ArrayBacking(SymbolId),
@@ -802,6 +803,7 @@ fn verify_control_flow(routine: &Mir65816Routine) -> Result<(), String> {
 
 fn relocation_target(target: NirDataAddressTarget) -> Mir65816RelocationTarget {
     match target {
+        NirDataAddressTarget::Static(id) => Mir65816RelocationTarget::Static(id),
         NirDataAddressTarget::Storage(storage) => Mir65816RelocationTarget::Data(storage),
         NirDataAddressTarget::Routine(routine) => Mir65816RelocationTarget::Code(routine),
         NirDataAddressTarget::Absolute(address) => Mir65816RelocationTarget::Absolute(address),

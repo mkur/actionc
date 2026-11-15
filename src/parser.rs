@@ -9,6 +9,7 @@ mod enums;
 mod let_binding;
 mod generics;
 mod selection;
+mod data;
 
 pub fn parse(tokens: &[Token]) -> Result<Program, Vec<Diagnostic>> {
     let mut parser = Parser::new(tokens);
@@ -217,7 +218,13 @@ impl<'a> Parser<'a> {
                 ));
             }
 
-            if self.check_keyword(Keyword::Define) {
+            if self.is_data_decl_at(self.pos) {
+                pending_annotations.clear();
+                self.reject_external_on_non_routine(external_span, "DATA");
+                let mut data = self.parse_data_decl();
+                data.visibility = visibility;
+                items.push(Item::Data(data));
+            } else if self.check_keyword(Keyword::Define) {
                 pending_annotations.clear();
                 self.reject_external_on_non_routine(external_span, "DEFINE");
                 if let Some(span) = public_span {
@@ -501,6 +508,9 @@ impl<'a> Parser<'a> {
                         format!("unknown actionc annotation `{text}`"),
                     ));
                 }
+            } else if self.is_data_decl_at(self.pos) {
+                pending_annotations.clear();
+                items.push(Item::Data(self.parse_data_decl()));
             } else if self.is_org_directive_at(self.pos) {
                 pending_annotations.clear();
                 self.parse_org();
@@ -2365,7 +2375,8 @@ impl<'a> Parser<'a> {
     }
 
     fn is_routine_boundary(&self) -> bool {
-        self.check_keyword(Keyword::Module)
+        self.is_data_decl_at(self.pos)
+            || self.check_keyword(Keyword::Module)
             || self.is_inline_declaration_start_at(self.pos)
             || (self.in_named_module
                 && (self.is_contextual_at(self.pos, "ENDMODULE")
@@ -2395,7 +2406,8 @@ impl<'a> Parser<'a> {
                     | Keyword::Record
                     | Keyword::Proc
             ))
-        ) || self.is_const_decl_start_at(next)
+        ) || self.is_data_decl_at(next)
+            || self.is_const_decl_start_at(next)
             || self.is_var_decl_start_at(next)
             || self.is_func_decl_start_at(next)
     }
@@ -2536,7 +2548,8 @@ impl<'a> Parser<'a> {
     }
 
     fn is_top_level_start(&self) -> bool {
-        matches!(self.peek().kind, TokenKind::ActioncAnnotation(_))
+        self.is_data_decl_at(self.pos)
+            || matches!(self.peek().kind, TokenKind::ActioncAnnotation(_))
             || self.is_inline_declaration_start_at(self.pos)
             || (self.in_named_module
                 && (self.is_contextual_at(self.pos, "ENDMODULE")

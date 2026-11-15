@@ -390,6 +390,7 @@ fn fragments_summary(image: &NirDataImage) -> String {
                     NirDataAddressTarget::Storage(NirStorageId::Param(id)) => {
                         format!("p{}", id.0)
                     }
+                    NirDataAddressTarget::Static(id) => format!("s{}", id.0),
                     NirDataAddressTarget::Routine(id) => format!("r{id}"),
                     NirDataAddressTarget::Absolute(address) => format!("${address:04X}"),
                 };

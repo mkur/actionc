@@ -23,6 +23,7 @@ pub(super) fn verify_program(
         diagnostics: Vec::new(),
         phase,
         global_ids: BTreeSet::new(),
+        static_ids: BTreeSet::new(),
         routine_ids: BTreeSet::new(),
         local_ids: BTreeSet::new(),
         param_ids: BTreeSet::new(),
@@ -40,6 +41,7 @@ struct MirVerifier {
     diagnostics: Vec<MirDiagnostic>,
     phase: MirPhase,
     global_ids: BTreeSet<SymbolId>,
+    static_ids: BTreeSet<SymbolId>,
     routine_ids: BTreeSet<RoutineId>,
     local_ids: BTreeSet<(RoutineId, LocalId)>,
     param_ids: BTreeSet<(RoutineId, ParamId)>,
@@ -74,6 +76,7 @@ impl MirVerifier {
             .iter()
             .map(|global| global.id)
             .collect::<BTreeSet<_>>();
+        self.static_ids = static_ids.clone();
         self.global_ids = global_ids.clone();
         self.routine_ids = program.routines.iter().map(|routine| routine.id).collect();
         self.scalar_signatures = program.routines.iter().filter_map(|r|
@@ -921,6 +924,7 @@ impl MirVerifier {
                 ));
             }
             let target_exists = match relocation.target {
+                MirDataRelocationTarget::Static(id) => self.static_ids.contains(&id),
                 MirDataRelocationTarget::Global(id) => self.global_ids.contains(&id),
                 MirDataRelocationTarget::Local { routine, id } => {
                     self.local_ids.contains(&(routine, id))

@@ -1949,6 +1949,7 @@ fn emit_data_relocation(
     }
 
     let target = match relocation.target {
+        MirDataRelocationTarget::Static(id) => ctx.layout.static_address(id).map(Absolute::new),
         MirDataRelocationTarget::Global(id) => ctx.layout.global_data_address(ctx.mir, id),
         MirDataRelocationTarget::Local { routine, id } => {
             ctx.layout.local_data_address(ctx.mir, routine, id)

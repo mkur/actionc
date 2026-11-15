@@ -838,6 +838,7 @@ pub fn link(
                 Mir65816RelocationTarget::Data(NirStorageId::Global(id)) => *data
                     .get(&Mir65816DataId::Global(id))
                     .ok_or("unresolved global relocation")?,
+                Mir65816RelocationTarget::Static(id) => *data.get(&Mir65816DataId::Static(id)).ok_or("unresolved static relocation")?,
                 Mir65816RelocationTarget::ArrayBacking(id) => *data
                     .get(&Mir65816DataId::ArrayBacking(id))
                     .ok_or("unresolved backing relocation")?,

@@ -1288,6 +1288,26 @@ Rules:
 
 ## Static Data
 
+`DATA label = [...]` is a module-level mutable byte object. SemIR owns the
+label identity and resolves literal items to bytes, integer widths, and symbolic
+address targets with addends. NIR owns the resulting `NirStaticData` image and
+stable static ID; references use `StaticAddr` and `Static` relocation targets.
+Forward and cyclic static references are legal. Verification checks all target
+IDs after collecting the complete declaration inventory. DATA emits no executable
+operation, routine entry, descriptor, implicit terminator, or return instruction.
+Its presence cannot introduce a machine block or an instruction-scanner input.
+
+Literal integers occupy one byte through 255 and two through 65535; strings
+carry a one-byte length followed by encoded bytes, and characters occupy one
+byte. Full symbolic addresses use the selected target's pointer width; integer
+fragments use its endianness. Explicit `<`/`>` selectors retain target identity.
+`*` denotes the current initializer position relative to its DATA object.
+The literal initializer has its own AST/SemIR variant so a future generator can
+produce the same image without changing label semantics. No generators are
+implemented. Labels require `@label` in value expressions and are not callable.
+The legacy code generator diagnoses DATA as unsupported; NIR backends consume
+its resolved image. Unrecognized or mixed executable raw blocks remain opaque.
+
 Recommended static data shape:
 
 ```rust
@@ -1318,7 +1338,8 @@ pub enum NirDataFragment {
         offset: ByteOffset,
         encoding: Pointer(AddressSpaceId, ByteSize)
                 | TargetByte(TargetId, u8),
-        target: Storage(NirStorageId)
+        target: Static(SymbolId)
+              | Storage(NirStorageId)
               | Routine(RoutineId)
               | Absolute(AddressValue),
         addend: i64,

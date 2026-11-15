@@ -67,6 +67,7 @@ struct NirTempFacts<'a> {
 
 impl NirVerifier {
     fn program(&mut self, program: &NirProgram) {
+        self.static_ids.extend(program.statics.iter().map(|data| data.id));
         self.target_layout = program.target_layout;
         if program.target_layout
             != crate::target::TargetLayout::for_target(program.target_layout.target)
@@ -299,6 +300,7 @@ impl NirVerifier {
         }
 
         let mut statics = BTreeSet::new();
+        let mut seen_static_ids = BTreeSet::new();
         for static_data in &program.statics {
             self.static_sizes.insert(
                 static_data.id,
@@ -316,7 +318,7 @@ impl NirVerifier {
                     static_data.name
                 )));
             }
-            if !self.static_ids.insert(static_data.id) {
+            if !seen_static_ids.insert(static_data.id) {
                 self.diagnostics.push(NirDiagnostic::program(format!(
                     "duplicate static data id `{}`",
                     static_data.id.0
@@ -1367,7 +1369,7 @@ impl NirVerifier {
 
             let expected_space = match target {
                 NirDataAddressTarget::Routine(_) => self.target_layout.code_pointer.address_space,
-                NirDataAddressTarget::Storage(_) => self.target_layout.data_pointer.address_space,
+                NirDataAddressTarget::Storage(_) | NirDataAddressTarget::Static(_) => self.target_layout.data_pointer.address_space,
                 NirDataAddressTarget::Absolute(address) => address.address_space,
             };
             match encoding {
@@ -1434,6 +1436,13 @@ impl NirVerifier {
                     } else if duration == Some(&NirStorageDuration::Automatic) {
                         self.diagnostics.push(NirDiagnostic::program(format!(
                             "{owner} load-time address fragment targets automatic local storage"
+                        )));
+                    }
+                }
+                NirDataAddressTarget::Static(id) => {
+                    if !self.static_ids.contains(id) {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "{owner} address fragment references unknown static id {}", id.0
                         )));
                     }
                 }
@@ -2670,6 +2679,9 @@ impl NirVerifier {
                         format!("inline assembler references unknown global id {}", id.0),
                     ));
                 }
+                NirForeignCodeTarget::Static(id) if !self.static_ids.contains(&id) => {
+                    self.diagnostics.push(NirDiagnostic::program(format!("foreign relocation references unknown static id {}", id.0)));
+                }
                 NirForeignCodeTarget::Routine(id) if !self.routine_signatures.contains_key(&id) => {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
@@ -2762,6 +2774,9 @@ impl NirVerifier {
                     format!("{label} references unknown global id {}", id.0),
                 ));
             }
+            NirForeignCodeTarget::Static(id) if !self.static_ids.contains(&id) => {
+                self.diagnostics.push(NirDiagnostic::program(format!("foreign relocation references unknown static id {}", id.0)));
+            }
             NirForeignCodeTarget::Routine(id) if !self.routine_signatures.contains_key(&id) => {
                 self.diagnostics.push(NirDiagnostic::block(
                     &routine.name,
@@ -2799,6 +2814,7 @@ impl NirVerifier {
                 .find(|local| local.id == id && local.duration == NirStorageDuration::Automatic)
                 .map(|local| ("local", local.name.as_str())),
             NirForeignCodeTarget::Storage(NirStorageId::Global(_))
+            | NirForeignCodeTarget::Static(_)
             | NirForeignCodeTarget::Routine(_)
             | NirForeignCodeTarget::Absolute(_)
             | NirForeignCodeTarget::InlineOffset(_) => None,

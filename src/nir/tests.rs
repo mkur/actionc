@@ -4902,3 +4902,5 @@ fn scalar_capture_and_pattern_provenance_survives_lowering() {
     let optimized = optimize_program(&raw).unwrap();
     verify_program(&optimized).unwrap();
 }
+
+mod labeled_data;

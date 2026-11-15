@@ -216,6 +216,7 @@ impl NirDataAddressEncoding {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NirDataAddressTarget {
+    Static(SymbolId),
     Storage(NirStorageId),
     Routine(RoutineId),
     Absolute(AddressValue),
@@ -828,6 +829,7 @@ pub struct NirForeignRelocation {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NirForeignCodeTarget {
+    Static(SymbolId),
     Storage(NirStorageId),
     Routine(RoutineId),
     Absolute(AddressValue),

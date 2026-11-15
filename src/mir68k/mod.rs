@@ -87,6 +87,7 @@ pub struct Mir68kRelocation {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mir68kRelocationTarget {
+    Static(SymbolId),
     Data(NirStorageId),
     Code(RoutineId),
     ArrayBacking(SymbolId),
@@ -474,6 +475,7 @@ pub fn lower_verified(
 
 fn relocation_target(target: NirDataAddressTarget) -> Mir68kRelocationTarget {
     match target {
+        NirDataAddressTarget::Static(id) => Mir68kRelocationTarget::Static(id),
         NirDataAddressTarget::Storage(storage) => Mir68kRelocationTarget::Data(storage),
         NirDataAddressTarget::Routine(routine) => Mir68kRelocationTarget::Code(routine),
         NirDataAddressTarget::Absolute(address) => Mir68kRelocationTarget::Absolute(address),

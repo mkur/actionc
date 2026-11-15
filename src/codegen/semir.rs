@@ -395,6 +395,10 @@ impl SemIrAstLowerer<'_> {
             // CONST declarations are source metadata by this boundary.  Every
             // executable reference already carries its typed literal value.
             SemItem::Const(_) => return None,
+            SemItem::Data(data) => {
+                self.unsupported(data.span, "DATA requires a NIR backend");
+                return None;
+            }
             SemItem::Include(include) => Item::Include(IncludeDirective {
                 path: include.path.clone(),
                 span: include.span,
@@ -1595,6 +1599,7 @@ fn unique_lexical_name(ordinal: u32, source_name: &str, used: &mut BTreeSet<Stri
 
 fn sem_item_symbol(item: &SemItem) -> Option<&SemSymbolRef> {
     match item {
+        SemItem::Data(data) => Some(&data.symbol),
         SemItem::Define(define) => Some(&define.symbol),
         SemItem::Const(constant) => Some(&constant.symbol),
         SemItem::Declaration(declaration) => Some(&declaration.symbol),

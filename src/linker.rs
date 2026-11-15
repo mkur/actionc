@@ -187,6 +187,7 @@ pub(crate) fn semir_link_graph(program: &SemProgram) -> LinkGraph<SemLinkNode> {
         .iter()
         .flat_map(|module| &module.items)
         .filter_map(|item| match item {
+            SemItem::Data(data) => Some(data.symbol.id),
             SemItem::Declaration(declaration) => Some(declaration.symbol.id),
             _ => None,
         })
@@ -199,6 +200,11 @@ pub(crate) fn semir_link_graph(program: &SemProgram) -> LinkGraph<SemLinkNode> {
             match item {
                 SemItem::Routine(routine) => {
                     let node = SemLinkNode::Routine(routine.symbol.id);
+                    graph.add_node(node);
+                    node_modules.insert(node, module.id);
+                }
+                SemItem::Data(data) => {
+                    let node = SemLinkNode::Storage(data.symbol.id);
                     graph.add_node(node);
                     node_modules.insert(node, module.id);
                 }
@@ -244,6 +250,14 @@ pub(crate) fn semir_link_graph(program: &SemProgram) -> LinkGraph<SemLinkNode> {
                     }
                     if let Some(address) = &routine.system_address {
                         builder.expression(owner, address, LinkReason::InitializerRelocation);
+                    }
+                }
+                SemItem::Data(data) => {
+                    let crate::semantic::ir::SemDataInitializer::Literal(elements) = &data.initializer;
+                    for element in elements {
+                        if let crate::semantic::ir::SemDataElement::Address { target: crate::semantic::ir::SemDataAddressTarget::Symbol(target), .. } = element {
+                            builder.symbol(SemLinkNode::Storage(data.symbol.id), *target, LinkReason::InitializerRelocation);
+                        }
                     }
                 }
                 SemItem::Declaration(declaration) => {
@@ -337,6 +351,7 @@ pub(crate) fn select_semir_with_plan(
     for module in &mut selected.modules {
         let mut top_level = 0u32;
         module.items.retain(|item| match item {
+            SemItem::Data(data) => selection.retained.contains(&SemLinkNode::Storage(data.symbol.id)),
             SemItem::Routine(routine) => selection
                 .retained
                 .contains(&SemLinkNode::Routine(routine.symbol.id)),

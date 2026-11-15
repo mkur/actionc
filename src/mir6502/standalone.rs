@@ -289,7 +289,7 @@ pub(super) fn append_runtime_selection(
         {
             rebase_storage_base(&mut slot.base, &global_rebase, &static_rebase)?;
             if let Some(init) = &mut slot.init {
-                rebase_storage_init(init, &routine_rebase, &global_rebase)?;
+                rebase_storage_init(init, &routine_rebase, &global_rebase, &static_rebase)?;
             }
         }
         rebase_effects(&mut routine.effects, &global_rebase, &static_rebase)?;
@@ -352,7 +352,7 @@ pub(super) fn append_runtime_selection(
             MirGlobalBacking::Absolute(_) => {}
         }
         if let Some(init) = &mut global.init {
-            rebase_global_init(init, &routine_rebase, &global_rebase)?;
+            rebase_global_init(init, &routine_rebase, &global_rebase, &static_rebase)?;
         }
         program.globals.push(global);
     }
@@ -364,7 +364,7 @@ pub(super) fn append_runtime_selection(
             .expect("selected runtime static exists")
             .clone();
         static_data.id = static_rebase[old_id];
-        rebase_data_image(&mut static_data.image, &routine_rebase, &global_rebase)?;
+        rebase_data_image(&mut static_data.image, &routine_rebase, &global_rebase, &static_rebase)?;
         program.statics.push(static_data);
     }
 
@@ -614,23 +614,23 @@ fn visit_effect_storage(
     }
 }
 
-fn visit_storage_init_storage(init: &MirStorageInit, globals: &mut BTreeSet<SymbolId>) {
+fn visit_storage_init_storage(init: &MirStorageInit, globals: &mut BTreeSet<SymbolId>, statics: &mut BTreeSet<SymbolId>) {
     match init {
         MirStorageInit::Bytes { image, .. }
         | MirStorageInit::Descriptor {
             backing: super::ir::MirStorageBacking { image, .. },
             ..
-        } => visit_data_image_storage(image, globals),
+        } => visit_data_image_storage(image, globals, statics),
         MirStorageInit::RoutineAddress { .. } | MirStorageInit::ZeroFill { .. } => {}
     }
 }
 
-fn visit_global_init_storage(init: &MirGlobalInit, globals: &mut BTreeSet<SymbolId>) {
+fn visit_global_init_storage(init: &MirGlobalInit, globals: &mut BTreeSet<SymbolId>, statics: &mut BTreeSet<SymbolId>) {
     match init {
-        MirGlobalInit::Bytes { image, .. } => visit_data_image_storage(image, globals),
+        MirGlobalInit::Bytes { image, .. } => visit_data_image_storage(image, globals, statics),
         MirGlobalInit::Descriptor { backing, .. } => {
             globals.insert(backing.owner);
-            visit_data_image_storage(&backing.image, globals);
+            visit_data_image_storage(&backing.image, globals, statics);
         }
         MirGlobalInit::ZeroFill { .. }
         | MirGlobalInit::ProgramEndWord { .. }
@@ -638,8 +638,9 @@ fn visit_global_init_storage(init: &MirGlobalInit, globals: &mut BTreeSet<Symbol
     }
 }
 
-fn visit_data_image_storage(image: &MirDataImage, globals: &mut BTreeSet<SymbolId>) {
+fn visit_data_image_storage(image: &MirDataImage, globals: &mut BTreeSet<SymbolId>, statics: &mut BTreeSet<SymbolId>) {
     for relocation in &image.relocations {
+        if let MirDataRelocationTarget::Static(id) = relocation.target { statics.insert(id); }
         if let MirDataRelocationTarget::Global(id) = relocation.target {
             globals.insert(id);
         }
@@ -945,13 +946,14 @@ fn rebase_storage_init(
     init: &mut MirStorageInit,
     routines: &BTreeMap<RoutineId, RoutineId>,
     globals: &BTreeMap<SymbolId, SymbolId>,
+    statics: &BTreeMap<SymbolId, SymbolId>,
 ) -> Result<(), Vec<MirDiagnostic>> {
     match init {
         MirStorageInit::Bytes { image, .. }
         | MirStorageInit::Descriptor {
             backing: super::ir::MirStorageBacking { image, .. },
             ..
-        } => rebase_data_image(image, routines, globals)?,
+        } => rebase_data_image(image, routines, globals, statics)?,
         MirStorageInit::RoutineAddress { routine, .. } => {
             *routine = rebased_routine(*routine, routines)?
         }
@@ -964,12 +966,13 @@ fn rebase_global_init(
     init: &mut MirGlobalInit,
     routines: &BTreeMap<RoutineId, RoutineId>,
     globals: &BTreeMap<SymbolId, SymbolId>,
+    statics: &BTreeMap<SymbolId, SymbolId>,
 ) -> Result<(), Vec<MirDiagnostic>> {
     match init {
-        MirGlobalInit::Bytes { image, .. } => rebase_data_image(image, routines, globals)?,
+        MirGlobalInit::Bytes { image, .. } => rebase_data_image(image, routines, globals, statics)?,
         MirGlobalInit::Descriptor { backing, .. } => {
             backing.owner = rebased_global(backing.owner, globals)?;
-            rebase_data_image(&mut backing.image, routines, globals)?;
+            rebase_data_image(&mut backing.image, routines, globals, statics)?;
         }
         MirGlobalInit::RoutineAddress { routine, .. } => {
             *routine = rebased_routine(*routine, routines)?
@@ -983,9 +986,11 @@ fn rebase_data_image(
     image: &mut MirDataImage,
     routines: &BTreeMap<RoutineId, RoutineId>,
     globals: &BTreeMap<SymbolId, SymbolId>,
+    statics: &BTreeMap<SymbolId, SymbolId>,
 ) -> Result<(), Vec<MirDiagnostic>> {
     for relocation in &mut image.relocations {
         match &mut relocation.target {
+            MirDataRelocationTarget::Static(id) => *id = rebased_static(*id, statics)?,
             MirDataRelocationTarget::Global(id) => *id = rebased_global(*id, globals)?,
             MirDataRelocationTarget::Routine(id) => *id = rebased_routine(*id, routines)?,
             MirDataRelocationTarget::Local { routine, .. }
@@ -1170,7 +1175,7 @@ fn discover_runtime_dependency_graph(
                 _ => {}
             }
             if let Some(init) = &slot.init {
-                visit_storage_init_storage(init, &mut globals);
+                visit_storage_init_storage(init, &mut globals, &mut statics);
                 visit_storage_init_routines(init, &mut routine_addresses);
             }
         }
@@ -1321,6 +1326,7 @@ fn discover_runtime_dependency_graph(
     for global in &program.globals {
         let source = MirLinkNode::Global(global.id);
         let mut globals = BTreeSet::new();
+        let mut statics = BTreeSet::new();
         let mut routines = BTreeSet::new();
         if let MirGlobalBacking::Alias { target, .. } = global.backing {
             add_checked_runtime_edge(
@@ -1331,7 +1337,7 @@ fn discover_runtime_dependency_graph(
             )?;
         }
         if let Some(init) = &global.init {
-            visit_global_init_storage(init, &mut globals);
+            visit_global_init_storage(init, &mut globals, &mut statics);
             visit_global_init_routines(init, &mut routines);
         }
         for target in globals {
@@ -1341,6 +1347,9 @@ fn discover_runtime_dependency_graph(
                 MirLinkNode::Global(target),
                 LinkReason::InitializerRelocation,
             )?;
+        }
+        for target in statics {
+            add_checked_runtime_edge(&mut graph, source, MirLinkNode::Static(target), LinkReason::InitializerRelocation)?;
         }
         for target in routines {
             add_checked_runtime_edge(
@@ -1354,8 +1363,9 @@ fn discover_runtime_dependency_graph(
     for static_data in &program.statics {
         let source = MirLinkNode::Static(static_data.id);
         let mut globals = BTreeSet::new();
+        let mut statics = BTreeSet::new();
         let mut routines = BTreeSet::new();
-        visit_data_image_storage(&static_data.image, &mut globals);
+        visit_data_image_storage(&static_data.image, &mut globals, &mut statics);
         visit_data_image_routines(&static_data.image, &mut routines);
         for target in globals {
             add_checked_runtime_edge(
@@ -1364,6 +1374,9 @@ fn discover_runtime_dependency_graph(
                 MirLinkNode::Global(target),
                 LinkReason::InitializerRelocation,
             )?;
+        }
+        for target in statics {
+            add_checked_runtime_edge(&mut graph, source, MirLinkNode::Static(target), LinkReason::InitializerRelocation)?;
         }
         for target in routines {
             add_checked_runtime_edge(
@@ -1801,7 +1814,7 @@ pub(in crate::mir6502) fn visit_data_image_routines(
             | MirDataRelocationTarget::Param { routine: id, .. } => {
                 routines.insert(id);
             }
-            MirDataRelocationTarget::Global(_) | MirDataRelocationTarget::Absolute(_) => {}
+            MirDataRelocationTarget::Static(_) | MirDataRelocationTarget::Global(_) | MirDataRelocationTarget::Absolute(_) => {}
         }
     }
 }

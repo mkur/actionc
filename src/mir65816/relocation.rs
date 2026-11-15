@@ -100,6 +100,7 @@ pub fn collect(
                 Mir65816RelocationTarget::Data(NirStorageId::Global(id)) => {
                     Target::Data(Mir65816DataId::Global(id))
                 }
+                Mir65816RelocationTarget::Static(id) => Target::Data(Mir65816DataId::Static(id)),
                 Mir65816RelocationTarget::ArrayBacking(id) => {
                     Target::Data(Mir65816DataId::ArrayBacking(id))
                 }

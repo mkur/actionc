@@ -157,6 +157,7 @@ pub struct SemModule {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemItem {
+    Data(SemDataDeclaration),
     Define(SemDefine),
     Const(SemConst),
     Include(SemInclude),
@@ -165,6 +166,31 @@ pub enum SemItem {
     Routine(SemRoutine),
     Statement(SemStmt),
     Unsupported { span: Span, note: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemDataDeclaration {
+    pub symbol: SemSymbolRef,
+    pub initializer: SemDataInitializer,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SemDataInitializer {
+    Literal(Vec<SemDataElement>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SemDataElement {
+    Bytes(Vec<u8>),
+    Integer { value: u64, width: u8 },
+    Address { target: SemDataAddressTarget, selector: Option<AddressByteSelector>, addend: i32, width: u8 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SemDataAddressTarget {
+    Symbol(SymbolId),
+    Absolute(crate::target::AddressValue),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1219,6 +1245,14 @@ fn collect_external_item_references(
     referenced: &mut HashSet<SymbolId>,
 ) {
     match item {
+        SemItem::Data(data) => {
+            let SemDataInitializer::Literal(elements) = &data.initializer;
+            for element in elements {
+                if let SemDataElement::Address { target: SemDataAddressTarget::Symbol(target), .. } = element {
+                    if external.contains(target) { referenced.insert(*target); }
+                }
+            }
+        }
         SemItem::Set(set) => {
             collect_external_expr_references(&set.address, external, referenced);
             collect_external_expr_references(&set.value, external, referenced);
@@ -1588,6 +1622,7 @@ impl SemIrFormatter {
                     expr_summary(&set.address),
                     expr_summary(&set.value)
                 )),
+                SemItem::Data(data) => self.line(format!("data {} = {:?}", data.symbol.name, data.initializer)),
                 SemItem::Declaration(decl) => self.declaration(decl),
                 SemItem::Routine(routine) => self.routine(routine),
                 SemItem::Statement(stmt) => self.stmt(stmt),
@@ -2794,6 +2829,12 @@ impl<'a> IrBuilder<'a> {
                 .into_iter()
                 .map(SemItem::Declaration)
                 .collect(),
+            Item::Data(data) => {
+                let symbol = self.symbol_ref(scope, &data.name, data.span)
+                    .expect("resolved DATA label");
+                let initializer = self.model.data_initializers[&symbol.id].clone();
+                vec![SemItem::Data(SemDataDeclaration { symbol, initializer, span: data.span })]
+            }
             Item::Routine(routine) => vec![SemItem::Routine(self.lower_routine(scope, routine))],
             Item::Statement(stmt) => self
                 .lower_stmt(scope, stmt)
@@ -3891,7 +3932,8 @@ impl<'a> IrBuilder<'a> {
                 if let Some(symbol) = self.direct_symbol_ref_for_expr(scope, inner) {
                     if matches!(
                         symbol.class,
-                        SymbolClass::Proc
+                        SymbolClass::Data
+                            | SymbolClass::Proc
                             | SymbolClass::Func
                             | SymbolClass::BuiltinProc
                             | SymbolClass::BuiltinFunc
@@ -4020,6 +4062,8 @@ impl<'a> IrBuilder<'a> {
             SemExprKind::Symbol(symbol) => symbol.ty.clone().unwrap_or_else(ValueType::error),
             SemExprKind::LValue(lvalue) => lvalue.ty.clone(),
             SemExprKind::AddressOf(lvalue) => ValueType::pointer_to(lvalue.ty.clone()),
+            SemExprKind::AddressOfSymbol(symbol) if symbol.class == SymbolClass::Data =>
+                ValueType::pointer_to(ValueType::fund(FundType::Byte)),
             SemExprKind::AddressOfSymbol(symbol) => self.callable_pointer_type_for_symbol(symbol),
             SemExprKind::ImplicitAddressOf(address) => address.pointer_type.clone(),
             SemExprKind::ArrayDecay(decay) => decay.pointer_type.clone(),
@@ -4798,7 +4842,7 @@ impl<'a> IrBuilder<'a> {
                 | SymbolClass::Define
                 | SymbolClass::Const
                 | SymbolClass::Type
-                | SymbolClass::Record => PlaceAccess::ReadOnly,
+                | SymbolClass::Data | SymbolClass::Record => PlaceAccess::ReadOnly,
             },
             SemLValueKind::UnresolvedName(_) => PlaceAccess::Error,
             SemLValueKind::Deref { pointer } if pointer.ty.is_cstring() => PlaceAccess::ReadOnly,
@@ -5138,7 +5182,8 @@ impl<'a> IrBuilder<'a> {
                     Item::Statement(Stmt::Define(define)) => {
                         self.collect_numeric_define_decl(top_scope, define, &mut defines);
                     }
-                    Item::Include(_)
+                    Item::Data(_)
+                    | Item::Include(_)
                     | Item::Set(_)
                     | Item::Declaration(_)
                     | Item::Statement(_)
@@ -5596,7 +5641,7 @@ fn expr_class_from_kind(kind: &SemExprKind) -> SemExprClass {
             | SymbolClass::BuiltinProc
             | SymbolClass::BuiltinFunc => SemExprClass::Callable,
             SymbolClass::Var | SymbolClass::Array | SymbolClass::Param => SemExprClass::LValue,
-            SymbolClass::Define | SymbolClass::Const | SymbolClass::Type | SymbolClass::Record => {
+            SymbolClass::Data | SymbolClass::Define | SymbolClass::Const | SymbolClass::Type | SymbolClass::Record => {
                 SemExprClass::Unknown
             }
         },

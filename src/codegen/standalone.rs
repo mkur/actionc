@@ -742,7 +742,7 @@ fn rewrite_item_names(item: &mut Item, replacements: &BTreeMap<String, String>) 
             rewrite_stmt_list_names(&mut routine.body, replacements);
         }
         Item::Statement(stmt) => rewrite_stmt_names(stmt, replacements),
-        Item::Define(_) | Item::Include(_) | Item::Unsupported { .. } => {}
+        Item::Data(_) | Item::Define(_) | Item::Include(_) | Item::Unsupported { .. } => {}
     }
 }
 
@@ -965,7 +965,7 @@ fn collect_item_names(item: &Item, candidates: &BTreeSet<String>, output: &mut B
             collect_stmt_list_names(&routine.body, candidates, output);
         }
         Item::Statement(stmt) => collect_stmt_names(stmt, candidates, output),
-        Item::Define(_) | Item::Include(_) | Item::Unsupported { .. } => {}
+        Item::Data(_) | Item::Define(_) | Item::Include(_) | Item::Unsupported { .. } => {}
     }
 }
 

@@ -369,6 +369,7 @@ fn filter_runtime_semir(
             ir::SemItem::Set(set) => {
                 runtime_set_target_name(set).is_some_and(|name| set_roots.contains(&name))
             }
+            ir::SemItem::Data(data) => selection.globals.contains(&runtime_symbol_name(&data.symbol)),
             ir::SemItem::Define(_) | ir::SemItem::Const(_) | ir::SemItem::Include(_) => true,
             ir::SemItem::Statement(_) | ir::SemItem::Unsupported { .. } => false,
         });
