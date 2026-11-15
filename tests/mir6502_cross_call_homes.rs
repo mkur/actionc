@@ -427,3 +427,36 @@ fn cross_call_homes_mads_listings_reconstruct_and_relocate_with_lf_and_crlf() {
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
+
+#[test]
+fn storage_observation_removes_staging_without_growing_any_routine() {
+    let source = include_str!("../fixtures/runtime/storage_observation.act").replace("\r\n", "\n");
+    let n = nir(&source);
+    for inline in [false, true] {
+        let off = Mir6502Config { enable_small_leaf_inlining: inline,
+            enable_scoped_storage_observation: false, ..Mir6502Config::optimized() };
+        let on = Mir6502Config { enable_scoped_storage_observation: true, ..off.clone() };
+        let mut before_trace = Mir6502Trace::default();
+        let mut trace = Mir6502Trace::default();
+        let before = mir6502::generate_output_with_trace(&n, 0x3000, &off, Runtime::ActionCart, &mut before_trace).unwrap();
+        let after = mir6502::generate_output_with_trace(&n, 0x3000, &on, Runtime::ActionCart, &mut trace).unwrap();
+        assert!(actionc::codegen::format_load_file(&after).len() < actionc::codegen::format_load_file(&before).len());
+        for old in &before.map.routine_ranges {
+            let new = after.map.routine_ranges.iter().find(|r| r.name == old.name).unwrap();
+            assert!(new.end-new.start <= old.end-old.start, "{} grew", old.name);
+        }
+        assert_eq!(trace.manifest()["work"]["materializations"], before_trace.manifest()["work"]["materializations"]);
+        assert!(trace.manifest()["work"]["storage_observation_snapshot_builds"].as_u64().unwrap_or(0) > 0);
+        assert!(after.map.storage_symbols.iter().any(|s| s.name == "n" && s.address < 256
+            && s.scope == actionc::codegen::CodegenSymbolScope::Routine("FindRecord".into())));
+        assert_eq!(after, mir6502::generate_output_with_config_and_runtime(&n, 0x3000, &on, Runtime::ActionCart).unwrap());
+    }
+    // A declared source window remains protected, whether it is actively read or not.
+    let protected = nir(&source.replace("BYTE reserved0=$E0,reserved1=$E1,sourceOwned=$E6", "BYTE ARRAY ownedPool(16)=$E0"));
+    let off = Mir6502Config { enable_small_leaf_inlining: false,
+        enable_scoped_storage_observation: false, ..Mir6502Config::optimized() };
+    assert_eq!(
+        mir6502::generate_output_with_config_and_runtime(&protected, 0x3000, &off, Runtime::ActionCart).unwrap(),
+        mir6502::generate_output_with_config_and_runtime(&protected, 0x3000,
+            &Mir6502Config { enable_scoped_storage_observation: true, ..off }, Runtime::ActionCart).unwrap());
+}

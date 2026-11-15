@@ -1,0 +1,39 @@
+; Independent resident ownership and argument-staging interaction.
+BYTE reserved0=$E0,reserved1=$E1,sourceOwned=$E6
+
+CARD FUNC AdvanceRecord(BYTE POINTER p)
+RETURN(p+p^+3)
+
+BYTE FUNC FindRecord(BYTE POINTER p,wanted)
+ BYTE n
+ n=0
+ WHILE p^ DO
+   IF p=wanted THEN EXIT FI
+   n==+1
+   p=AdvanceRecord(p)
+ OD
+RETURN(n)
+
+PROC Observe=*(BYTE a,b,c)
+ASM
+ sta $7200
+ stx $7201
+ sty $7202
+ rts
+ENDASM
+
+CARD FUNC Walk(BYTE POINTER p BYTE count)
+ BYTE sum,amount
+ sum=0
+ WHILE count DO
+   amount=p^+1
+   sum==+amount
+   count==-1
+   p=AdvanceRecord(p)
+ OD
+ Observe(sum,0,0)
+ Observe(128,p^-1,0)
+RETURN(p)
+
+PROC Main()
+RETURN

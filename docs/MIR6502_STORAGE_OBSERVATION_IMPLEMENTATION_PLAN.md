@@ -1,6 +1,6 @@
 # MIR6502 storage observation: implementation plan
 
-Prepared 2026-11-15. Status: slices 0–3 complete; slices 4–5 pending.
+Prepared 2026-11-15. Status: slices 0–4 complete; slice 5 pending.
 Design commit: `9abe9094`. Compiler baseline: `67e9343a`.
 
 Implements the [storage ownership and observation design](MIR6502_STORAGE_OBSERVATION_DESIGN.md).
@@ -337,3 +337,15 @@ configurations. Existing structural deadness, frames, cost and preservation
 checks remain unchanged. Five focused tests pass, including a full transaction,
 live/raw reads, historical exposure, stale snapshots and a conflicting final
 inventory. [Check receipt](benchmarks/6502-storage-observation/slice3-checks.json).
+
+## Slice 4 completion
+
+The independent fixture saves 34 final bytes (261 to 227) with no routine growth.
+The old 229-byte trial is rejected for a two-byte staging-store regression; the
+new proof removes that store and permits the existing selection to succeed.
+Materializations, emissions and preservation replays remain unchanged. The new
+integration and VM groups pass, including the initialized counter, a protected
+source window, repeated calls, ABI arguments, stack balance, sentinels, real
+LF/CRLF loads and one standalone execution. The VM fixture's initial whole-output
+newline comparison was corrected to exclude debug source spans. No compiler
+change was needed. [Measurements and scope](benchmarks/6502-storage-observation/README.md).

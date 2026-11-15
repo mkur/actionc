@@ -1,0 +1,16 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--manifest-path",
+    "tools/vm-runtime-tests/Cargo.toml",
+    "--test",
+    "cross_call_homes",
+    "storage_observation"
+  ],
+  "exit_code": 0,
+  "seconds": 1.749889750033617,
+  "log_sha256": "2e2540797af858c6872a36d82fc490a9b7fb0f1c0ae58ae3557063c7cef10ef1",
+  "passed": 1,
+  "failed": 0
+}

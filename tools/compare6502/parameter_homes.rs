@@ -11,6 +11,8 @@ use std::{fs, path::Path};
 fn main() {
     let enabled = std::env::args().any(|a| a == "--enabled");
     let handoff = std::env::args().any(|a| a == "--handoff");
+    let scoped = std::env::args().any(|a| a == "--scoped-observation");
+    let scoped_suite = std::env::args().any(|a| a == "--suite-storage-observation");
     let cross = std::env::args().any(|a| a == "--cross-call");
     let destination = std::env::args().nth(1).expect("output directory");
     let destination = Path::new(&destination);
@@ -18,7 +20,13 @@ fn main() {
     let handoff_suite = std::env::args().any(|a| a == "--suite-handoff");
     let capture_suite = std::env::args().any(|a| a == "--suite-capture");
     let cross_suite = std::env::args().any(|a| a == "--suite-cross-call");
-    let cases: &[(&str, &str, bool)] = if cross_suite {
+    let cases: &[(&str, &str, bool)] = if scoped_suite {
+        &[
+            ("tn", "samples/tn/modern/TN.ACT", true),
+            ("storage-observation", "fixtures/runtime/storage_observation.act", false),
+            ("storage-observation-inline", "fixtures/runtime/storage_observation.act", true),
+        ]
+    } else if cross_suite {
         &[
             ("tn", "samples/tn/modern/TN.ACT", true),
             ("cross-call", "fixtures/runtime/cross_call_homes.act", false),
@@ -102,6 +110,7 @@ fn main() {
         if case == "tn" && std::env::args().any(|a| a == "--skip-tn") {
             continue;
         }
+        if case != "tn" && std::env::args().any(|a| a == "--tn-only") { continue; }
         let loaded = actionc::includes::load_program_with_expanded_source(source).unwrap();
         let model = actionc::semantic::analyze_with_options(
             &loaded.program,
@@ -114,10 +123,13 @@ fn main() {
         .unwrap();
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41c7] {
+                // The focused suite is one A/B, not a full configuration matrix.
+                if scoped_suite && (runtime != Runtime::ActionCart || origin != 0x3000) { continue; }
                 let config = Mir6502Config {
                     enable_parameter_home_selection: enabled,
                     enable_parameter_argument_handoff: handoff,
                     enable_cross_call_home_selection: cross,
+                    enable_scoped_storage_observation: scoped,
                     enable_small_leaf_inlining: inline,
                     ..Mir6502Config::optimized()
                 };
@@ -138,6 +150,7 @@ fn main() {
                                     | "CopyCounted"
                                     | "ForwardWords"
                                     | "Strcpy"
+                                    | "MoveMenuBar" | "Draw" | "Tag" | "TagAll" | "Walk" | "Next"
                                     | "Ord"
                                     | "Items"
                                     | "FindRecord"
@@ -166,11 +179,11 @@ fn main() {
                 let id = format!("{case}-{runtime:?}-{origin:04x}");
                 let bytes = actionc::codegen::format_load_file(&output);
                 fs::write(destination.join(format!("{id}.xex")), &bytes).unwrap();
-                if cross_suite {
+                if cross_suite || scoped_suite {
                     let events = trace.events();
                     let decisions: Vec<_> = events
                         .iter()
-                        .filter(|e| e.kind.ends_with("-result") || e.kind == "cross-call-candidate")
+                        .filter(|e| e.kind.ends_with("-result") || e.kind == "cross-call-candidate" || (scoped_suite && e.kind.starts_with("late-cleanup-store-")))
                         .collect();
                     fs::write(
                         destination.join(format!("{id}.decisions.txt")),
@@ -195,6 +208,7 @@ fn main() {
                 .unwrap();
                 let mut rows = Vec::new();
                 for name in [
+                    "MoveMenuBar", "Draw", "Tag", "TagAll", "Walk", "Observe",
                     "CaptureWord",
                     "ForwardWord",
                     "CaptureWords",
@@ -255,7 +269,7 @@ fn main() {
                                 s.scope
                                     == actionc::codegen::CodegenSymbolScope::Routine(name.into())
                                     && (s.kind == actionc::codegen::CodegenSymbolKind::Parameter
-                                        || (cross_suite
+                                        || ((cross_suite || scoped_suite)
                                             && s.kind
                                                 == actionc::codegen::CodegenSymbolKind::Local))
                             })
@@ -277,6 +291,15 @@ fn main() {
                             .join(",");
                         rows.push(format!("{{\"name\":\"{name}\",\"code_bytes\":{},\"inline_home_bytes\":{homes},\"zp_home_bytes\":{zp},\"home_fragments\":[{fragments}]}}", r.end - r.start));
                     }
+                }
+                if scoped_suite {
+                    let mut listings = String::new();
+                    for r in &output.map.routine_ranges {
+                        listings.push_str(&format!("; {}\n", r.name));
+                        listings.push_str(&actionc::codegen::format_listing_with_origin(
+                            &output.bytes[usize::from(r.start-origin)..usize::from(r.end-origin)], r.start));
+                    }
+                    fs::write(destination.join(format!("{id}.listing.txt")), listings).unwrap();
                 }
                 let events = trace.events();
                 let outcome = events
@@ -304,6 +327,8 @@ fn main() {
                     .find(|e| e.kind == "cross-call-home-result")
                     .map(|e| e.data.to_string())
                     .unwrap_or("null".into());
+                let config_debug = format!("{config:?}");
+                fs::write(destination.join(format!("{id}.config.txt")), &config_debug).unwrap();
                 let upstream = [
                     "inlining",
                     "loop_motion",

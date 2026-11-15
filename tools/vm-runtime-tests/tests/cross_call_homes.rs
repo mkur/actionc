@@ -364,3 +364,78 @@ fn initialized_word_and_pointer_locals_and_entry_values_execute_independently() 
         }
     }
 }
+
+struct StorageObserve {
+    advance: u16,
+    observe: u16,
+    calls: Vec<u16>,
+    arguments: Vec<[u8; 3]>,
+}
+impl VmRunHooks for StorageObserve {
+    type Error = String;
+    fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {
+        let r = vm.cpu().registers();
+        if r.pc == self.advance { self.calls.push(u16::from_le_bytes([r.a, r.x])); }
+        if r.pc == self.observe { self.arguments.push([r.a, r.x, r.y]); }
+        Ok(())
+    }
+}
+
+#[test]
+fn storage_observation_preserves_invocations_arguments_and_owned_memory() {
+    let lf = include_str!("../../../fixtures/runtime/storage_observation.act").replace("\r\n", "\n");
+    let protected = lf.replace("BYTE reserved0=$E0,reserved1=$E1,sourceOwned=$E6", "BYTE ARRAY ownedPool(16)=$E0");
+    let mut reference = None;
+    for (runtime, enabled, source) in [
+        (Runtime::ActionCart, false, lf.clone()),
+        (Runtime::ActionCart, true, lf.clone()),
+        (Runtime::ActionCart, true, lf.replace('\n', "\r\n")),
+        (Runtime::Standalone, true, lf),
+        (Runtime::ActionCart, true, protected),
+    ] {
+        let file = support::Source::new(&source);
+        let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+        let model = actionc::semantic::analyze_with_options(&loaded.program,
+            actionc::semantic::SemanticOptions::modern()).unwrap();
+        let n = actionc::nir::optimize_program(&actionc::nir::lower_program(
+            &actionc::semantic::ir::lower_program(&loaded.program, &model))).unwrap();
+        let output = mir6502::generate_output_with_config_and_runtime(&n, 0x3000,
+            &Mir6502Config { enable_small_leaf_inlining: false,
+                enable_scoped_storage_observation: enabled, ..Mir6502Config::optimized() }, runtime).unwrap();
+        if runtime == Runtime::ActionCart && enabled && !source.contains("ownedPool") {
+            // Source spans count the original newline bytes; compare executable
+            // artifacts and storage placement, not LF/CRLF debug offsets.
+            let artifact = (output.bytes.clone(), output.relocations.clone(),
+                output.map.storage_symbols.clone(), output.map.routine_ranges.clone());
+            if let Some(old) = &reference { assert_eq!(old, &artifact); }
+            else { reference = Some(artifact); }
+        }
+        let entry = |name: &str| output.routine_addresses.iter().find(|r| r.name == name).unwrap().address;
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        let mut hook = StorageObserve { advance: entry("AdvanceRecord"), observe: entry("Observe"), calls: vec![], arguments: vec![] };
+        let records = [0x70feu16, 0x7103, 0x710a, 0x710e];
+        let lengths = [2u8, 4, 1, 0];
+        for (&p, &len) in records.iter().zip(&lengths) { vm.bus_mut().ram_mut().write(p, len); }
+        let sentinels: Vec<_> = if source.contains("ownedPool") { (0xe0..=0xef).collect() } else { vec![0xe0, 0xe1, 0xe6] };
+        for &address in &sentinels { vm.bus_mut().ram_mut().write(address, address as u8 ^ 0x53); }
+        for _ in 0..2 {
+            for count in [0usize, 1, 3] {
+                hook.calls.clear(); hook.arguments.clear();
+                let args: Vec<_> = records[0].to_le_bytes().into_iter().chain(records[count].to_le_bytes()).collect();
+                vm = machine::call(vm, &mut hook, entry("FindRecord"), &args);
+                assert_eq!(machine::bytes(&vm, 0xa0, 1), vec![count as u8]);
+                assert_eq!(hook.calls, records[..count]);
+                hook.calls.clear();
+                let args = [records[0] as u8, (records[0] >> 8) as u8, count as u8];
+                vm = machine::call(vm, &mut hook, entry("Walk"), &args);
+                assert_eq!(machine::bytes(&vm, 0xa0, 2), records[count].to_le_bytes());
+                assert_eq!(hook.calls, records[..count]);
+                let sum = lengths[..count].iter().fold(0u8, |a, b| a.wrapping_add(b+1));
+                assert_eq!(hook.arguments, vec![[sum, 0, 0], [128, lengths[count].wrapping_sub(1), 0]]);
+                assert_eq!(machine::bytes(&vm, 0x7200, 3), vec![128, lengths[count].wrapping_sub(1), 0]);
+                for &address in &sentinels { assert_eq!(machine::bytes(&vm, address, 1), vec![address as u8 ^ 0x53]); }
+            }
+        }
+    }
+}
