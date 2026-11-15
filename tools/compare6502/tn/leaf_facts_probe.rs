@@ -76,6 +76,15 @@ fn dump_tn_leaf_facts() {
     let mut inventory = Vec::new();
     let mut leaves = Vec::new();
     let mut listing = String::new();
+    let footprints: Vec<_> = output.map.routine_ranges.iter().map(|r| {
+        let homes: Vec<_> = output.map.storage_symbols.iter().filter(|s|
+            s.scope == crate::codegen::CodegenSymbolScope::Routine(r.name.clone())
+            && matches!(s.kind, crate::codegen::CodegenSymbolKind::Parameter | crate::codegen::CodegenSymbolKind::Local)
+        ).collect();
+        json!({"name":r.name,"code_bytes":r.end-r.start,
+            "inline_home_bytes":homes.iter().filter(|s|s.address>=256).map(|s|u32::from(s.size)).sum::<u32>(),
+            "zp_home_bytes":homes.iter().filter(|s|s.address<256).map(|s|u32::from(s.size)).sum::<u32>()})
+    }).collect();
     for r in &p.routines {
         let ops: Vec<_> = r.blocks.iter().flat_map(|b| &b.ops).collect();
         let call_count = ops.iter().filter(|o| matches!(o, MirOp::Call {..} | MirOp::RuntimeHelper {..})).count();
@@ -140,9 +149,11 @@ fn dump_tn_leaf_facts() {
         "schema":1,"source":"samples/tn/modern/TN.ACT","origin":origin,"runtime":"ActionCart",
         "config":format!("{config:?}"),"packaged_bytes":image.len(),
         "layout_replay_identical":true,"routine_count":p.routines.len(),
-        "inventory":inventory,"leaf_candidates":leaves,
+        "inventory":inventory,"footprints":footprints,"leaf_candidates":leaves,
     })).unwrap()+"\n").unwrap();
     std::fs::write(destination.join("leaves.asm"),listing).unwrap();
     std::fs::write(destination.join("tn.xex"),image).unwrap();
+    std::fs::write(destination.join("map.txt"),format!("{:#?}",output.map)).unwrap();
+    std::fs::write(destination.join("relocations.txt"),format!("{:#?}",output.relocations)).unwrap();
     println!("TN leaf facts generated in {}",destination.display());
 }

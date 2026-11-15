@@ -1339,10 +1339,8 @@ fn summarize_machine_instruction_reads(
         AddressingMode::AbsoluteX | AddressingMode::AbsoluteY
             if !stores_only && !control_address =>
         {
-            match machine_operand_mem(operands) {
-                Some(mem @ (MirMem::Global { .. } | MirMem::Static { .. })) => reads.record(mem),
-                _ => reads.make_unknown(),
-            }
+            // A named base does not bound X/Y or describe the bytes reached.
+            reads.make_unknown();
         }
         AddressingMode::ZeroPageX | AddressingMode::ZeroPageY
             if !stores_only && !control_address =>
@@ -1443,7 +1441,7 @@ fn expand_machine_operand(
             }
         }
         MirMachineItem::AddressByte { .. } => Some(unknown(1, None)),
-        MirMachineItem::Relocation { kind, target, .. } => {
+        MirMachineItem::Relocation { kind, target, addend, requires_zero_page, .. } => {
             let width = match kind {
                 crate::asm6502::InlineAsmRelocationKind::Absolute16 => 2,
                 crate::asm6502::InlineAsmRelocationKind::Byte8
@@ -1451,21 +1449,31 @@ fn expand_machine_operand(
                 | crate::asm6502::InlineAsmRelocationKind::High8 => 1,
             };
             let memory = match target {
-                crate::mir6502::ir::MirInlineAsmTarget::Memory(memory) => Some(memory.clone()),
-                crate::mir6502::ir::MirInlineAsmTarget::Absolute(address) => {
-                    Some(absolute_mem(*address))
-                }
-                crate::mir6502::ir::MirInlineAsmTarget::Routine(_)
-                | crate::mir6502::ir::MirInlineAsmTarget::InlineOffset(_) => None,
-            };
-            let value = match target {
-                crate::mir6502::ir::MirInlineAsmTarget::Absolute(address) => Some(*address),
                 crate::mir6502::ir::MirInlineAsmTarget::Memory(memory) => {
-                    resolved_absolute_address(memory)
+                    Some(offset_memory(memory.clone(), *addend)?)
+                }
+                crate::mir6502::ir::MirInlineAsmTarget::Absolute(address) => {
+                    Some(absolute_mem(offset_address(*address, *addend)?))
                 }
                 crate::mir6502::ir::MirInlineAsmTarget::Routine(_)
                 | crate::mir6502::ir::MirInlineAsmTarget::InlineOffset(_) => None,
             };
+            let value = memory.as_ref().and_then(resolved_absolute_address);
+            if value.is_some_and(|v| v > 255)
+                && (*requires_zero_page || *kind == crate::asm6502::InlineAsmRelocationKind::Byte8)
+            { return None; }
+            // A selected byte is a numeric byte, not the full symbolic address.
+            // A required-ZP operand can retain its identity: emission verifies
+            // that no address bits are discarded. Other symbolic selectors
+            // stay unresolved until layout and cannot certify a memory access.
+            let memory = match kind {
+                crate::asm6502::InlineAsmRelocationKind::High8 => None,
+                crate::asm6502::InlineAsmRelocationKind::Low8 if !requires_zero_page => None,
+                _ => memory,
+            };
+            if memory.as_ref().is_some_and(|m| !machine_memory_within_object(m, routine, program)) {
+                return None;
+            }
             Some(
                 (0..width)
                     .map(|index| {
@@ -1564,8 +1572,34 @@ fn offset_address(address: u16, offset: i32) -> Option<u16> {
 }
 
 fn offset_memory(memory: MirMem, offset: i32) -> Option<MirMem> {
-    let unsigned = u16::try_from(offset).ok()?;
-    Some(offset_mem(&memory, unsigned))
+    Some(match memory {
+        MirMem::Absolute(a) => absolute_mem(offset_address(a, offset)?),
+        MirMem::FixedZeroPage(a) => absolute_mem(offset_address(u16::from(a.0), offset)?),
+        MirMem::Global { id, offset: old } => MirMem::Global { id, offset: offset_address(old, offset)? },
+        MirMem::Static { id, offset: old } => MirMem::Static { id, offset: offset_address(old, offset)? },
+        MirMem::Param { id, offset: old } => MirMem::Param { id, offset: offset_address(old, offset)? },
+        MirMem::Local { id, offset: old } => MirMem::Local { id, offset: offset_address(old, offset)? },
+        MirMem::Spill { id, offset: old } => MirMem::Spill { id, offset: offset_address(old, offset)? },
+        MirMem::ZeroPage(slot) if offset == 0 => MirMem::ZeroPage(slot),
+        MirMem::ZeroPage(_) => return None,
+    })
+}
+
+fn machine_memory_within_object(mem: &MirMem, routine: &MirRoutine, program: &MirProgram) -> bool {
+    match mem {
+        MirMem::Global { id, offset } => program.globals.iter()
+            .any(|g| g.id == *id && *offset < g.storage_size),
+        MirMem::Static { id, offset } => program.statics.iter()
+            .any(|s| s.id == *id && usize::from(*offset) < s.image.bytes.len()),
+        MirMem::Param { id, offset } => routine.frame.params.iter()
+            .any(|s| matches!(s.base, MirStorageBase::Param(p) | MirStorageBase::ParamAbiOnly(p) if p == *id)
+                && *offset < s.storage_size),
+        MirMem::Local { id, offset } => routine.frame.locals.iter()
+            .any(|s| matches!(s.base, MirStorageBase::Local(l) | MirStorageBase::LocalAlias { id: l, .. } if l == *id)
+                && *offset < s.storage_size),
+        MirMem::Spill { .. } => false,
+        MirMem::Absolute(_) | MirMem::FixedZeroPage(_) | MirMem::ZeroPage(_) => true,
+    }
 }
 
 fn resolved_absolute_address(memory: &MirMem) -> Option<u16> {
@@ -1890,6 +1924,64 @@ mod tests {
         program(vec![routine(0, vec![MirOp::MachineBlock {
             id, effects: MirEffects::default(),
         }], MirTerminator::Unreachable)], vec![MirMachineBlock { id, source_span: None, items }])
+    }
+
+    #[test]
+    fn callee_facts_machine_memory_indexed_reads_and_typed_offsets() {
+        use crate::mir6502::ir::{MirInlineAsmTarget as Target, MirStatic, MirDataImage};
+        use crate::asm6502::InlineAsmRelocationKind as Kind;
+        let relocation = |kind, target, addend, requires_zero_page| MirMachineItem::Relocation {
+            kind, target, addend, requires_zero_page, span: crate::source::Span { start: 0, end: 0 },
+        };
+        let global = MirMem::Global { id: crate::nir::SymbolId(0), offset: 0 };
+        let static_mem = MirMem::Static { id: crate::nir::SymbolId(1), offset: 0 };
+        for mem in [global.clone(), static_mem.clone()] {
+            for opcode in [0xbd, 0xb9] {
+                let mut p = callee_facts_machine(vec![MirMachineItem::Byte(opcode),
+                    relocation(Kind::Absolute16, Target::Memory(mem.clone()), 1, false),
+                    MirMachineItem::Byte(0x85), MirMachineItem::Byte(0xa0), MirMachineItem::Byte(0x60)]);
+                p.globals.push(MirGlobal { id: crate::nir::SymbolId(0), name: "table".into(), kind: "byte".into(),
+                    width: Some(MirWidth::Byte), storage_size: 4, backing: MirGlobalBacking::Ordinary { offset: 0 }, init: None });
+                p.statics.push(MirStatic { id: crate::nir::SymbolId(1), name: "constant".into(), ty: "byte".into(),
+                    image: MirDataImage { bytes: vec![1,2,3,4], relocations: vec![] }, display: String::new(),
+                    alignment: 1, mutable: false, section: "rodata".into() });
+                let s = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+                let s = s.get(RoutineId(0)).unwrap();
+                assert_eq!(s.reads(), &MirKnownMemoryReads::Unknown);
+                assert!(s.reads().may_read_caller_private_byte(0x7001));
+                assert_eq!(s.writes(), &MirKnownMemoryWrites::Exact(vec![MirMem::FixedZeroPage(MirFixedZpSlot(0xa0))]));
+                for addend in [1, 3, 4, -1] {
+                    p.machine_blocks[0].items[0] = MirMachineItem::Byte(0xad);
+                    p.machine_blocks[0].items[1] = relocation(Kind::Absolute16, Target::Memory(mem.clone()), addend, false);
+                    let s = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+                    if (0..4).contains(&addend) {
+                        assert_eq!(s.get(RoutineId(0)).unwrap().reads(), &MirKnownMemoryReads::Exact(vec![offset_mem(&mem, addend as u16)]));
+                    } else { assert_eq!(s.get(RoutineId(0)).unwrap().reads(), &MirKnownMemoryReads::Unknown); }
+                }
+            }
+        }
+        for (base, addend, expected) in [(0x7080, 1, 0x7081), (0x7082, -1, 0x7081), (0xff, 1, 0x100)] {
+            let p = callee_facts_machine(vec![MirMachineItem::Byte(0xad),
+                relocation(Kind::Absolute16, Target::Absolute(base), addend, false), MirMachineItem::Byte(0x60)]);
+            let s = MirKnownCalleeSummaries::analyze(&p);
+            assert_eq!(s.get(RoutineId(0)).unwrap().reads(), &MirKnownMemoryReads::Exact(vec![absolute_mem(expected)]));
+            assert!(s.get(RoutineId(0)).unwrap().reads().may_read_caller_private_byte(expected));
+        }
+        let p = callee_facts_machine(vec![]);
+        for (kind, expected) in [(Kind::Low8, 0), (Kind::High8, 0x71)] {
+            let operand = expand_machine_operand(&relocation(kind, Target::Absolute(0x70ff), 1, false), 1, &p.routines[0], &p).unwrap();
+            assert_eq!(operand[0].value, Some(expected));
+            assert_eq!(machine_operand_mem(&operand), Some(absolute_mem(u16::from(expected))));
+        }
+        for (base, delta) in [(0xffff, 1), (0, -1)] {
+            assert!(expand_machine_operand(&relocation(Kind::Absolute16, Target::Absolute(base), delta, false), 2, &p.routines[0], &p).is_none());
+        }
+        assert!(expand_machine_operand(&relocation(Kind::Low8, Target::Absolute(0xff), 1, true), 1, &p.routines[0], &p).is_none());
+        assert!(expand_machine_operand(&relocation(Kind::Byte8, Target::Absolute(0xff), 1, false), 1, &p.routines[0], &p).is_none());
+        let selected = expand_machine_operand(&relocation(Kind::Low8, Target::Memory(global), 0, false), 1, &p.routines[0], &p).unwrap();
+        assert!(machine_operand_mem(&selected).is_none());
+        assert_eq!(offset_memory(MirMem::Global { id: crate::nir::SymbolId(0), offset: 2 }, -1),
+            Some(MirMem::Global { id: crate::nir::SymbolId(0), offset: 1 }));
     }
 
     #[test]

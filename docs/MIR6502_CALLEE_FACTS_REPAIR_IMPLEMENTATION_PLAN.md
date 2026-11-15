@@ -1,6 +1,6 @@
 # MIR6502 callee-fact repairs: implementation plan
 
-Prepared 2026-11-15. Status: implementation in progress; slice 1 complete.
+Prepared 2026-11-15. Status: implementation in progress; slices 1–2 complete.
 Baseline: `7ab6f840ba0475c5ddde9194c130ee83d96c83d1` and the
 [TN leaf-facts audit](benchmarks/6502-tn-leaf-facts/README.md).
 
@@ -8,6 +8,10 @@ Slice 1 validation: one grouped summary test and one VM group passed. The VM
 group compiles default and optimized configurations, loads actual LF/CRLF source,
 checks the Position result is 1, and checks valid ALU-result flag reuse. Its
 whole-pipeline coverage makes a separate integration-only run unnecessary.
+
+Slice 2 validation: 29 callee-analysis tests (including bounded-machine decoding)
+and the independent indexed/offset VM control passed. The corrected TN baseline
+is 9,862 bytes; see [evidence](benchmarks/6502-callee-facts-repair/README.md).
 
 Repair the facts consumed by existing optimizations, then qualify the newly
 eligible cases. Implement the slices below in order and commit each after its

@@ -29,6 +29,13 @@ equal. Two unknown provenances do not prove equality. Unknown calls and flag
 clobbers invalidate that relationship. This applies independently of memory
 footprints and register preservation; valid facts in those domains survive.
 
+Machine-callee Exact memory summaries cover bytes, not just named object bases.
+An unbounded indexed read has an Unknown read footprint even when its base is
+a global/static object. Independent exact writes and register facts remain usable.
+Typed relocation summaries apply checked signed addends before selecting bytes;
+they never saturate or drop an offset. A truncated address byte cannot retain
+the full object's identity unless emission verifies a zero-page operand. Symbolic
+accesses outside a declared object, or unresolved byte selections, fail closed.
 
 **Materialization** means turning abstract NIR/MIR values, storage, conditions,
 or calls into a concrete target strategy: byte lanes, temporary homes, ABI homes,

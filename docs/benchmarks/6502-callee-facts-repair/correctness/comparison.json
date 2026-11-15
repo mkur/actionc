@@ -1,0 +1,24 @@
+{
+  "old_image_bytes": 9791,
+  "correctness_image_bytes": 9862,
+  "routine_deltas": [
+    {
+      "name": "Putchar",
+      "code_bytes": 4,
+      "inline_home_bytes": 1,
+      "zp_home_bytes": 0
+    },
+    {
+      "name": "FormatDirectoryRow",
+      "code_bytes": 42,
+      "inline_home_bytes": 0,
+      "zp_home_bytes": 0
+    },
+    {
+      "name": "SetWin",
+      "code_bytes": 24,
+      "inline_home_bytes": 0,
+      "zp_home_bytes": 0
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+BYTE ARRAY table(4)=[1 2 3 4]
+PROC WriteOffset=*(BYTE value)
+ASM
+  sta table+1
+  sta $7080+1
+  rts
+ENDASM
+BYTE FUNC ReadIndexed=*(BYTE index)
+ASM
+  tax
+  lda table,x
+  sta $A0
+  rts
+ENDASM
+BYTE FUNC CheckOffset()
+  table(1)=99
+  WriteOffset(42)
+RETURN(table(1))
+BYTE FUNC CheckIndexed()
+  table(2)=90
+RETURN(ReadIndexed(2))
+CARD FUNC Boundary=*()
+ASM
+  lda #<$70FF+1
+  sta $A0
+  lda #>$70FF+1
+  sta $A1
+  rts
+ENDASM
+PROC Main()
+RETURN

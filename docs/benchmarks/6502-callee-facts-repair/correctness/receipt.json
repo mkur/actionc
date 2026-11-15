@@ -1,0 +1,30 @@
+{
+  "revision": "402a2807cb3b896fed0e927832b3f9f460497f66",
+  "inputs_sha256": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "tools/compare6502/tn/leaf_facts.py": "4b27f37eeeee93f184f16630137a7739aba38d6f3396e4ee9e69ea2710cf476c",
+    "tools/compare6502/tn/leaf_facts_probe.rs": "7493583d9393619b8ccb37dd7db18bb99cb43d1be5472e392488fed32477cf9b",
+    "src/mir6502/analysis/known_callees.rs": "32cb3958eea8f112c0cca60118b7c13381b1c7eaf650230a5f3a070964cd6072",
+    "src/mir6502/analysis/effects.rs": "b07c59af5b749f46221d7e1029ad9d94c6f13b43803da66fb81516831b988f50"
+  },
+  "compiler_diff_sha256": "242b4bfc0065dd1131701725b694d2dffbfa96eb18290f6874e0239373cb1068",
+  "command": [
+    "cargo",
+    "test",
+    "--lib",
+    "mir6502::analysis::known_callees::tn_leaf_facts_audit::dump_tn_leaf_facts",
+    "--",
+    "--exact",
+    "--ignored",
+    "--nocapture"
+  ],
+  "outputs_sha256": {
+    "facts.json": "5e0fda90de6e2227c1294c60ecace625604bdec6b5ea58972a872f6d65e40038",
+    "leaves.asm": "71254b770986d1f26b3e22b03f6bfee7133f1f62de27e73875421b13adeb329c",
+    "tn.xex": "91665508274e8b2749b2928267dfae37e2851fadfa3f3444c4c3776af09d48d7",
+    "map.txt": "126d639ddc9b182f7887292a3d1d7a73f1e722748ce08a1da90c7dc40120074c",
+    "relocations.txt": "454a9ae6c722d8d99f4ec489174a34daf80353ab927df5403ad1da85b2c700a1"
+  },
+  "hook_removed": true
+}

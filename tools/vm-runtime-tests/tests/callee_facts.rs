@@ -45,3 +45,19 @@ fn callee_facts_flags_store_only_entry_and_produced_result() {
         }
     }
 }
+
+#[test]
+fn callee_facts_machine_memory_keeps_indexed_reads_and_offset_stores() {
+    let source = include_str!("../../../fixtures/runtime/callee_facts_memory.act");
+    let out = compile(source, &Mir6502Config::optimized(), Runtime::ActionCart);
+    let mut vm = load(&out, Runtime::ActionCart);
+    vm.bus_mut().ram_mut().write(0x7080, 0x55);
+    vm.bus_mut().ram_mut().write(0x7082, 0xaa);
+    for (name, result) in [("CheckOffset", 42), ("CheckIndexed", 90)] {
+        vm = machine::call(vm, &mut Observe, entry(&out, name), &[]);
+        assert_eq!(machine::bytes(&vm, 0xa0, 1), [result]);
+    }
+    assert_eq!(machine::bytes(&vm, 0x7080, 3), [0x55, 42, 0xaa]);
+    vm = machine::call(vm, &mut Observe, entry(&out, "Boundary"), &[]);
+    assert_eq!(machine::bytes(&vm, 0xa0, 2), [0, 0x71]);
+}

@@ -63,7 +63,7 @@ def main():
         if current.count(HOOK) != 1:
             raise RuntimeError("Temporary hook changed; remove it manually without discarding other edits.")
         source.write_bytes(current.replace(HOOK, b"", 1))
-    receipt["outputs_sha256"] = {p: digest(destination / p) for p in ["facts.json", "leaves.asm", "tn.xex"]}
+    receipt["outputs_sha256"] = {p: digest(destination / p) for p in ["facts.json", "leaves.asm", "tn.xex", "map.txt", "relocations.txt"]}
     receipt["hook_removed"] = HOOK not in source.read_bytes()
     (destination / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
 
