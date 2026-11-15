@@ -130,6 +130,18 @@ fn parameter_residence_saves_final_bytes_in_one_bounded_trial() {
                 .collect();
             assert!(!homes.is_empty(), "{name}");
             assert!(homes.iter().all(|s| s.address < 256), "{name}: {homes:?}");
+            if name != "KeepWord" {
+                let counter = new
+                    .map
+                    .storage_symbols
+                    .iter()
+                    .find(|s| {
+                        s.scope == actionc::codegen::CodegenSymbolScope::Routine(name.into())
+                            && s.kind == actionc::codegen::CodegenSymbolKind::Local
+                    })
+                    .unwrap();
+                assert!(counter.address < 256, "{counter:?}");
+            }
         }
     }
 }
@@ -210,12 +222,89 @@ fn raw_nir_keeps_the_same_bounded_proof_and_output_contract() {
 
 #[test]
 fn nested_callee_remains_inline_even_when_its_own_leaf_call_qualifies() {
-    let n = nir("CARD FUNC Leaf(CARD x) RETURN(x+1) CARD FUNC Nested(CARD x) x=Leaf(x) RETURN(x) CARD FUNC Caller(CARD x,y) RETURN(Nested(x)+y)");
-    let config = Mir6502Config { enable_small_leaf_inlining: false, enable_cross_call_home_selection: true, ..Mir6502Config::optimized() };
+    let n = nir(
+        "CARD FUNC Leaf(CARD x) RETURN(x+1) CARD FUNC Nested(CARD x) x=Leaf(x) RETURN(x) CARD FUNC Caller(CARD x,y) RETURN(Nested(x)+y)",
+    );
+    let config = Mir6502Config {
+        enable_small_leaf_inlining: false,
+        enable_cross_call_home_selection: true,
+        ..Mir6502Config::optimized()
+    };
     let mut trace = Mir6502Trace::default();
-    let output = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
-    let homes: Vec<_> = output.map.storage_symbols.iter().filter(|s| s.scope == actionc::codegen::CodegenSymbolScope::Routine("Caller".into())).collect();
+    let output =
+        mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace)
+            .unwrap();
+    let homes: Vec<_> = output
+        .map
+        .storage_symbols
+        .iter()
+        .filter(|s| s.scope == actionc::codegen::CodegenSymbolScope::Routine("Caller".into()))
+        .collect();
     assert_eq!(homes.len(), 2);
     assert!(homes.iter().all(|s| s.address >= 256));
-    assert!(trace.events().iter().any(|e| e.kind == "cross-call-candidate" && e.data["routine"] == "Caller" && e.data["reason"] == "unsupported residence callee"));
+    assert!(
+        trace
+            .events()
+            .iter()
+            .any(|e| e.kind == "cross-call-candidate"
+                && e.data["routine"] == "Caller"
+                && e.data["reason"] == "unsupported residence callee")
+    );
+}
+
+#[test]
+fn initialized_word_and_pointer_locals_share_one_trial_but_entry_reads_keep_storage() {
+    let n = nir(&include_str!("../fixtures/runtime/cross_call_locals.act").replace("\r\n", "\n"));
+    let config = Mir6502Config {
+        enable_small_leaf_inlining: false,
+        enable_cross_call_home_selection: true,
+        ..Mir6502Config::optimized()
+    };
+    let mut trace = Mir6502Trace::default();
+    let output =
+        mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace)
+            .unwrap();
+    for (name, relocated) in [
+        ("KeptLocal", true),
+        ("NoArgs", true),
+        ("SumSteps", true),
+        ("WalkLocal", true),
+        ("EntryLocal", false),
+        ("AddressLocal", false),
+    ] {
+        let local = output
+            .map
+            .storage_symbols
+            .iter()
+            .find(|s| {
+                s.scope == actionc::codegen::CodegenSymbolScope::Routine(name.into())
+                    && s.kind == actionc::codegen::CodegenSymbolKind::Local
+            })
+            .unwrap();
+        assert_eq!(
+            local.address < 256,
+            relocated,
+            "{name}: {local:?}; {:?}",
+            trace
+                .events()
+                .iter()
+                .filter(|e| e.kind.starts_with("cross-call"))
+                .collect::<Vec<_>>()
+        );
+    }
+    assert_eq!(trace.manifest()["work"]["cross_call_home_trials"], 1);
+    let old = mir6502::generate_output_with_config_and_runtime(
+        &n,
+        0x3000,
+        &Mir6502Config {
+            enable_cross_call_home_selection: false,
+            ..config
+        },
+        Runtime::ActionCart,
+    )
+    .unwrap();
+    assert!(
+        actionc::codegen::format_load_file(&output).len()
+            < actionc::codegen::format_load_file(&old).len()
+    );
 }

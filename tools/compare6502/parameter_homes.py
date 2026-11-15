@@ -38,7 +38,7 @@ def main():
     if args.suite == 'capture':
         sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/callee_entry_capture.act']
     if args.suite == 'cross-call':
-        sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/cross_call_homes.act']
+        sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/cross_call_homes.act', 'fixtures/runtime/cross_call_locals.act']
     receipt = dict(revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                    parameter_home_selection=args.enabled,
                    parameter_argument_handoff=args.handoff,

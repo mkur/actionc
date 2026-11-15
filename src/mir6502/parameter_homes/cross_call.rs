@@ -15,13 +15,6 @@ pub(super) fn propose(
             if !eligible_with_calls(input, routine, true) {
                 return None;
             }
-            // Keep already-elided captures on their selected path. This first
-            // scope targets existing inline parameter storage.
-            let old = selected.routines.iter().find(|r| r.id == routine.id)?;
-            if !old.frame.params.iter().any(|p| matches!(p.base, MirStorageBase::Param(id)
-                if old.frame.parameter_has_memory(id) && matches!(old.frame.parameter_home(id), None | Some(MirParamHome::Inline)))) {
-                return None;
-            }
             let mut calls = routine
                 .blocks
                 .iter()
@@ -50,15 +43,35 @@ pub(super) fn propose(
         let forbidden = (0..=255u8)
             .filter(|slot| !writes.preserves_fixed_byte(MirFixedZpSlot(*slot)))
             .collect();
-        let Some(bindings) = zero_page::bindings_avoiding(input, routine, &forbidden) else {
-            continue;
-        };
-        trace.event(
-            "cross-call-candidate",
-            || serde_json::json!({"routine": routine.name, "bindings": format!("{bindings:?}")}),
-        );
-        let r = &mut proposal.get_or_insert_with(|| input.clone()).routines[index];
-        install_bindings(r, bindings);
+        let mut candidate = routine.clone();
+        // Do not recreate parameter memory already eliminated by the selected
+        // path. Such a routine may still have an eligible source local.
+        let ordinary_params = selected.routines.iter().find(|r| r.id == routine.id).is_some_and(|r|
+            r.frame.params.iter().any(|p| matches!(p.base, MirStorageBase::Param(id)
+                if r.frame.parameter_has_memory(id) && matches!(r.frame.parameter_home(id), None | Some(MirParamHome::Inline)))));
+        let mut changed = false;
+        if ordinary_params
+            && let Some(bindings) = zero_page::bindings_avoiding(input, &candidate, &forbidden)
+        {
+            install_bindings(&mut candidate, bindings);
+            changed = true;
+        }
+        if let Some(bindings) = zero_page::local_bindings(input, &candidate, &forbidden) {
+            candidate.frame.local_homes = Some(bindings);
+            for (_, slot) in candidate.frame.resident_bytes() {
+                if !candidate.frame.fixed_zero_page.contains(&slot) {
+                    candidate.frame.fixed_zero_page.push(slot);
+                }
+            }
+            changed = true;
+        }
+        if changed {
+            trace.event("cross-call-candidate", || serde_json::json!({
+                "routine": routine.name, "bindings": format!("{:?}", candidate.frame.parameter_homes),
+                "local_bindings": format!("{:?}", candidate.frame.local_homes),
+            }));
+            proposal.get_or_insert_with(|| input.clone()).routines[index] = candidate;
+        }
     }
     proposal
 }

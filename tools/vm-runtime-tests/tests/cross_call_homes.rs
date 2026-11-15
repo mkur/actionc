@@ -178,3 +178,189 @@ fn ordinary_calls_preserve_arguments_results_reads_and_persistent_locals() {
         }
     }
 }
+
+struct LocalObserve {
+    byte_step: u16,
+    word_step: u16,
+    hop: u16,
+    arguments: Vec<(&'static str, u16)>,
+}
+impl VmRunHooks for LocalObserve {
+    type Error = String;
+    fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {
+        let r = vm.cpu().registers();
+        if r.pc == self.byte_step {
+            self.arguments.push(("byte", u16::from(r.a)));
+        } else if r.pc == self.word_step {
+            self.arguments
+                .push(("word", u16::from_le_bytes([r.a, r.x])));
+        } else if r.pc == self.hop {
+            self.arguments.push(("hop", u16::from_le_bytes([r.a, r.x])));
+        }
+        Ok(())
+    }
+}
+
+#[test]
+fn initialized_word_and_pointer_locals_and_entry_values_execute_independently() {
+    let lf = include_str!("../../../fixtures/runtime/cross_call_locals.act").replace("\r\n", "\n");
+    for (runtime, origin) in [(Runtime::ActionCart, 0x3000), (Runtime::Standalone, 0x41c7)] {
+        for optimize_nir in [false, true] {
+            for enabled in [false, true] {
+                let mut reference = None;
+                for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+                    let file = support::Source::new(&source);
+                    let loaded =
+                        actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+                    let model = actionc::semantic::analyze_with_options(
+                        &loaded.program,
+                        actionc::semantic::SemanticOptions::modern(),
+                    )
+                    .unwrap();
+                    let nir = actionc::nir::lower_program(&actionc::semantic::ir::lower_program(
+                        &loaded.program,
+                        &model,
+                    ));
+                    let nir = if optimize_nir {
+                        actionc::nir::optimize_program(&nir).unwrap()
+                    } else {
+                        nir
+                    };
+                    let output = mir6502::generate_output_with_config_and_runtime(
+                        &nir,
+                        origin,
+                        &Mir6502Config {
+                            enable_small_leaf_inlining: false,
+                            enable_cross_call_home_selection: enabled,
+                            ..Mir6502Config::optimized()
+                        },
+                        runtime,
+                    )
+                    .unwrap();
+                    let image = actionc::codegen::format_load_file(&output);
+                    if let Some(old) = &reference {
+                        assert_eq!(old, &image);
+                    } else {
+                        reference = Some(image.clone());
+                    }
+                    let entry = |name| {
+                        output
+                            .routine_addresses
+                            .iter()
+                            .find(|r| r.name == name)
+                            .unwrap()
+                            .address
+                    };
+                    let local = |routine: &str, name: &str| {
+                        output
+                            .map
+                            .storage_symbols
+                            .iter()
+                            .find(|s| {
+                                s.name == name
+                                    && s.scope
+                                        == actionc::codegen::CodegenSymbolScope::Routine(
+                                            routine.into(),
+                                        )
+                            })
+                            .unwrap()
+                            .address
+                    };
+                    let (mut vm, profile) = support::vm_for(runtime);
+                    vm.load_atari_object_for_execution(profile, &image).unwrap();
+                    let mut observe = LocalObserve {
+                        byte_step: entry("ByteStep"),
+                        word_step: entry("WordStep"),
+                        hop: entry("Hop"),
+                        arguments: vec![],
+                    };
+                    for value in [0u16, 0x00ff, 0x1234, 0xffff] {
+                        observe.arguments.clear();
+                        vm = machine::call(
+                            vm,
+                            &mut observe,
+                            entry("KeptLocal"),
+                            &value.to_le_bytes(),
+                        );
+                        assert_eq!(
+                            machine::bytes(&vm, 0xa0, 2),
+                            value.wrapping_mul(2).wrapping_add(1).to_le_bytes()
+                        );
+                        assert_eq!(observe.arguments, vec![("word", value)]);
+                    }
+                    for count in [0u8, 1, 2, 17, 255] {
+                        observe.arguments.clear();
+                        vm = machine::call(vm, &mut observe, entry("SumSteps"), &[count]);
+                        let expected = (1..=u16::from(count)).fold(0x1234u16, |sum, x| {
+                            sum.wrapping_add(u16::from((x as u8).wrapping_add(1)))
+                        });
+                        assert_eq!(machine::bytes(&vm, 0xa0, 2), expected.to_le_bytes());
+                        assert_eq!(
+                            observe.arguments,
+                            (1..=u16::from(count))
+                                .rev()
+                                .map(|x| ("byte", x))
+                                .collect::<Vec<_>>()
+                        );
+                    }
+                    let base = 0x70feu16;
+                    for offset in 0..32u16 {
+                        vm.bus_mut()
+                            .ram_mut()
+                            .write(base + offset, (offset as u8).wrapping_mul(13));
+                        vm.bus_mut().add_watchpoint(base + offset);
+                    }
+                    for count in [0u8, 1, 17] {
+                        observe.arguments.clear();
+                        let first = vm.bus().events().len();
+                        vm = machine::call(
+                            vm,
+                            &mut observe,
+                            entry("WalkLocal"),
+                            &[base as u8, (base >> 8) as u8, count],
+                        );
+                        assert_eq!(machine::bytes(&vm, 0xa0, 1), vec![count.wrapping_mul(13)]);
+                        assert_eq!(
+                            observe.arguments,
+                            (0..u16::from(count))
+                                .map(|i| ("hop", base + i))
+                                .collect::<Vec<_>>()
+                        );
+                        let reads: Vec<_> = vm.bus().events()[first..]
+                            .iter()
+                            .filter(|e| {
+                                e.access == BusAccess::Read
+                                    && (base..base + 32).contains(&e.address)
+                            })
+                            .map(|e| e.address)
+                            .collect();
+                        assert_eq!(reads, vec![base + u16::from(count)]);
+                    }
+                    for value in [0u8, 71, 255] {
+                        vm.bus_mut().ram_mut().write(0x7100, value);
+                        vm = machine::call(vm, &mut observe, entry("NoArgs"), &[]);
+                        assert_eq!(
+                            machine::bytes(&vm, 0xa0, 1),
+                            vec![value.wrapping_mul(2).wrapping_add(1)]
+                        );
+                    }
+                    let saved = local("EntryLocal", "saved");
+                    let cell = local("AddressLocal", "cell");
+                    assert!(saved >= 256 && cell >= 256);
+                    vm.bus_mut().ram_mut().write(saved, 0x97);
+                    for value in [0u8, 17, 255] {
+                        vm = machine::call(vm, &mut observe, entry("EntryLocal"), &[value]);
+                        assert_eq!(
+                            machine::bytes(&vm, 0xa0, 1),
+                            vec![value.wrapping_add(1).wrapping_add(0x97)]
+                        );
+                        assert_eq!(machine::bytes(&vm, saved, 1), vec![0x97]);
+                        vm = machine::call(vm, &mut observe, entry("AddressLocal"), &[value]);
+                        assert_eq!(machine::bytes(&vm, 0xa0, 2), cell.to_le_bytes());
+                        assert_eq!(machine::bytes(&vm, cell, 1), vec![value]);
+                    }
+                }
+            }
+        }
+    }
+}

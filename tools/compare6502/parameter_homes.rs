@@ -23,6 +23,8 @@ fn main() {
             ("tn", "samples/tn/modern/TN.ACT", true),
             ("cross-call", "fixtures/runtime/cross_call_homes.act", false),
             ("cross-call-inline", "fixtures/runtime/cross_call_homes.act", true),
+            ("cross-call-locals", "fixtures/runtime/cross_call_locals.act", false),
+            ("cross-call-locals-inline", "fixtures/runtime/cross_call_locals.act", true),
         ]
     } else if capture_suite {
         &[
@@ -177,6 +179,7 @@ fn main() {
                     "Strcat",
                     "Key",
                     "Next",
+                    "NoArgs", "KeptLocal", "SumSteps", "WalkLocal", "EntryLocal", "AddressLocal",
                     "Ord", "Items", "AdvanceRecord", "FindRecord", "CountRecords", "KeepWord", "Conditional", "Persistent",
                     "Swapped",
                     "Repeated",

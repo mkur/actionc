@@ -131,7 +131,7 @@ fn eligible_with_calls(program: &MirProgram, routine: &MirRoutine, calls: bool) 
     use super::analysis::effects::classify_op;
     routine.abi == MirRoutineAbi::Action
         && routine.frame.parameter_homes.is_none()
-        && !routine.frame.params.is_empty()
+        && (!routine.frame.params.is_empty() || (calls && !routine.frame.locals.is_empty()))
         && routine
             .frame
             .params

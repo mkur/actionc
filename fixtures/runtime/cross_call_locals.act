@@ -1,0 +1,51 @@
+; Independent initialization and residence controls.
+BYTE sourceByte=$7100
+BYTE FUNC ByteStep(BYTE x)
+RETURN(x+1)
+
+CARD FUNC WordStep(CARD x)
+RETURN(x+1)
+
+CARD FUNC KeptLocal(CARD value)
+ CARD kept
+ kept=value
+RETURN(WordStep(value)+kept)
+
+CARD FUNC SumSteps(BYTE count)
+ CARD total
+ total=$1234
+ WHILE count DO
+   total==+ByteStep(count)
+   count==-1
+ OD
+RETURN(total)
+
+CARD FUNC Hop(BYTE POINTER p)
+RETURN(p+1)
+
+BYTE FUNC WalkLocal(BYTE POINTER input,BYTE count)
+ BYTE POINTER cursor
+ cursor=input
+ WHILE count DO
+   cursor=Hop(cursor)
+   count==-1
+ OD
+RETURN(cursor^)
+
+BYTE FUNC EntryLocal(BYTE value)
+ BYTE saved
+RETURN(ByteStep(value)+saved)
+
+CARD FUNC AddressLocal(BYTE value)
+ BYTE cell
+ cell=value
+ ByteStep(value)
+RETURN(@cell)
+
+BYTE FUNC NoArgs()
+ BYTE kept
+ kept=sourceByte
+RETURN(ByteStep(kept)+kept)
+
+PROC Main()
+RETURN

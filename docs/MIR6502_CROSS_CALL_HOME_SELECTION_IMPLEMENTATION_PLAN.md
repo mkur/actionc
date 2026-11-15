@@ -1,6 +1,6 @@
 # MIR6502 ZP homes across ordinary calls: implementation plan
 
-Prepared 2026-11-15. Status: slices 0–4 complete; slices 5–6 pending.
+Prepared 2026-11-15. Status: slices 0–5 complete; slice 6 pending.
 Starting repository revision: `5de3dda4`; compiler behavior: `a77210d8`.
 
 Implements the [ordinary-call and local-home design extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-zp-homes-across-ordinary-calls).
@@ -396,3 +396,14 @@ bindings, plus exposure, alias, ownership and allocation rules. Automatic local
 selection is still disabled. [Checks](benchmarks/6502-cross-call-homes/slice4-checks.json)
 cover manual byte/word/pointer homes and preserve independent output/map/relocation
 hashes with both parameter gate settings.
+
+## Slice 5 completion
+
+Definitely initialized source locals now join parameter placement in the same
+batch, using the same reservation mask and whole-object slot choice. Local-only
+candidates do not recreate elided parameter captures. New controls cover words,
+pointers, zero-parameter callers, exposed addresses and seeded entry values.
+[Measurements](benchmarks/6502-cross-call-homes/README.md#combined-parameter-and-local-qualification-slice-5)
+record eight additional bytes saved in the original control and exact TN rollback.
+Six integration and two VM controls pass; the optimized default remains off until
+slice 6 qualification.

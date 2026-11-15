@@ -69,3 +69,26 @@ share those addresses in other routines. For example, `MoveMenuBar` keeps its
 observation inventory cannot separate these lifetimes. This is a conservative
 cleanup limitation, not evidence that the new call-preservation proof failed.
 The initial implementation retains that inventory and the strict cost guard.
+
+## Combined parameter and local qualification (slice 5)
+
+[Gate off](locals-off.json) and [gate on](locals.json) cover both runtimes/origins,
+with inlining enabled and disabled. Locals add **8 bytes** of saving to the
+original independent fixture: **294 → 222** with inlining disabled and
+**295 → 226** normally. `FindRecord` is 51 code bytes, no inline storage, five ZP
+bytes; `CountRecords` is 37 code bytes, no inline storage, three ZP bytes.
+
+A separate local fixture measures **248 → 202** bytes with inlining disabled
+and **254 → 211** normally. It includes initialized word/pointer locals, a routine
+with no parameters, a parameter whose capture already disappeared, a persistent
+entry-read local and an address-exposed local. The latter two retain inline
+storage. Six root controls and two VM targets pass, including raw/optimized NIR,
+both feature settings, actual LF/CRLF loading, canonical argument observations,
+ordered pointer reads, repeated calls and independent arithmetic/stack oracles.
+[Check receipts](slice5-checks.json) record this scope.
+
+TN's combined trial makes `Ord` **51 code + 0 inline** and `Items` **37 + 0**,
+but the same four other routines each retain an extra two-byte store. The net
+48-byte image saving is rejected by the unchanged no-routine-growth policy.
+Final TN remains **9,847 / 9,954**, with exact image/map/relocation rollback.
+No result-home coalescing or cleanup ownership relaxation was added.
