@@ -1,6 +1,6 @@
 # MIR6502 unexposed object storage: implementation plan
 
-Prepared 2026-11-15. Status: slices 1–3 complete; qualification remains.
+Prepared 2026-11-15. Status: all four slices complete and qualified.
 Implements the [design](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md).
 
 Complete the four slices in order and commit after each slice's focused checks
@@ -27,6 +27,15 @@ and produces identical LF/CRLF images. The missing-observation case preserves
 independent caller selection. The existing unsupported/exposed/exhausted fallback
 test also passed. Array parameters carrying a scalar word ABI lane needed an
 explicit pointer-cell admission rule; inline arrays remain excluded.
+
+Slice 4: [qualification and evidence](benchmarks/6502-unexposed-object-storage/README.md)
+record TN at 9,838 bytes (−8), entirely from Instr's code/parameter storage.
+Sort now passes body admission but is excluded before proposal by unresolved
+explicit assembly observations. Ord/Items/FindItem retain their selected homes.
+Exact rollback and all four later/multiple-call controls passed on the final
+implementation. One completed TN measurement and its byte-identical diagnostic
+replay were retained, including selected MIR and control assembly. The collector's
+temporary hook was removed. No full suite or historical compiler rebuild ran.
 
 ## Outcome and baseline
 

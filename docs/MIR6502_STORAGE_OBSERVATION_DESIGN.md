@@ -6,10 +6,11 @@ Audited baseline: `67e9343a`. [Measured results](benchmarks/6502-storage-observa
 The [implementation plan](MIR6502_STORAGE_OBSERVATION_IMPLEMENTATION_PLAN.md)
 defines six commit-sized slices and the user's requested minimal local testing.
 
-The proposed [unexposed-object storage extension](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md)
+The implemented [unexposed-object storage extension](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md)
 separates address control from placement and applies it to native pointer writes.
 It has a [separate implementation plan](MIR6502_UNEXPOSED_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md);
-the implemented scope and historical evidence below remain unchanged.
+its [qualification](benchmarks/6502-unexposed-object-storage/README.md) records
+TN at 9,838 bytes. The historical scope and evidence below remain unchanged.
 
 This note refines the interaction between
 [parameter/local home selection](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-zp-homes-across-ordinary-calls)

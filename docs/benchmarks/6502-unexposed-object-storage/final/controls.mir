@@ -1,0 +1,385 @@
+mir6502 program
+global g0 i: byte absolute $00E0
+global g1 j: byte absolute $00E1
+global g2 r0: byte absolute $0070
+global g3 kx: byte absolute $00FF
+global g4 ky: byte absolute $00FE
+global g5 zx: byte absolute $005A
+global g6 zy: byte absolute $005B
+global g7 zdx: byte absolute $005C
+global g8 zdy: byte absolute $005D
+global g9 screen: word absolute $00E6
+global g10 scl: byte absolute $00E6
+global g11 sch: byte absolute $00E7
+global g12 allocp: word absolute $00E8
+global g13 allocbuf: byte storage global+0 size=4 init bytes=[$00 $20 $00 $20] zero_fill=0 section=global mutable=true
+global g14 ArenaFault: byte storage global+4 init bytes=[$00] zero_fill=0 section=global mutable=true
+global g15 arenaPullCursor: word storage global+5
+global g16 arenaRestoreCursor: word storage global+7
+global g24 quickmul: byte storage global+9 size=48 init zero_fill=48 section=global mutable=true
+global g28 internalMap: byte storage global+57 size=4 init bytes=[$40 $00 $20 $60] zero_fill=0 section=global mutable=true
+global g29 asciiMap: byte storage global+61 size=4 init bytes=[$20 $40 $00 $60] zero_fill=0 section=global mutable=true
+global g40 Ioerr: byte storage global+65
+global g41 ErrorHandler: word storage global+66
+global g55 openwindows: byte storage global+68
+global g56 frame: byte storage global+69 size=9 init bytes=[$08 $11 $12 $05 $7C $7C $1A $12 $03] zero_fill=0 section=global mutable=true
+global g63 spaces: byte storage global+78
+global g73 buffer: byte storage global+79 size=2 init program_end_word section=global mutable=true
+global g74 v: word storage global+81
+global g75 dirsectors: word storage global+83
+global g76 dirnames: word storage global+85
+global g77 fname: byte storage global+87 size=15 init zero_fill=15 section=global mutable=true
+global g78 fnamelen: byte alias g77
+global g79 linebuf: word storage global+102
+global g80 PanelState: byte storage global+104 size=0
+global g81 active: PanelState storage global+104 size=9
+global g82 dummy: word storage global+113
+global g83 dos: byte absolute $0700
+global g84 dostst: byte absolute $076F
+global g85 ramdisk: byte absolute $070A
+global g86 drive: byte absolute $070B
+global g87 drvdef_1: byte absolute $07CB size=8
+global g88 dktype_1: byte absolute $07C3 size=8
+global g89 currentDir: word storage global+115
+global g90 copyflag: byte storage global+117 init bytes=[$00] zero_fill=0 section=global mutable=true
+global g91 validdir: byte storage global+118
+global g92 ans: byte storage global+119
+global g93 h: byte storage global+120
+global g94 winnum: byte storage global+121
+global g95 s: byte storage global+122 size=2
+global g113 DirectoryRow: byte storage global+124 size=0
+global g145 CommandKind: byte storage global+124 size=0
+global g146 commandTargets: byte storage global+124 size=18 init bytes=[$00 $00 $00 $00 $00 $00 $00 $00 $00 $00 $00 $00 $00 $00 $00 $00 $00 $00] relocs=[0:lo(r91), 1:hi(r91), 2:lo(r89), 3:hi(r89), 4:lo(r86), 5:hi(r86), 6:lo(r93), 7:hi(r93), 8:lo(r70), 9:hi(r70), 10:lo(r94), 11:hi(r94), 12:lo(r92), 13:hi(r92), 14:lo(r87), 15:hi(r87), 16:lo(r95), 17:hi(r95)] zero_fill=0 section=global mutable=true
+static s0 __nir_str_PopUp_0: Char* bytes [$04 $2B $2A $1E $1F] section=rodata align=1 mutable=false display="+*\u{1e}\u{1f}"
+static s1 __nir_str_DrawWinFrame_1: Char* bytes [$05 $16 $20 $20 $20 $44] section=rodata align=1 mutable=false display="\u{16}   D"
+static s2 __nir_str_DrawWinFrame_2: Char* bytes [$0E $3E $20 $20 $20 $20 $20 $20 $20 $20 $20 $20 $20 $20 $02] section=rodata align=1 mutable=false display=">            \u{2}"
+static s3 __nir_str_DrawWinFrame_3: Char* bytes [$14 $11 $12 $12 $12 $12 $12 $12 $12 $12 $12 $12 $17 $12 $12 $12 $17 $12 $12 $12 $05] section=rodata align=1 mutable=false display="\u{11}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{17}\u{12}\u{12}\u{12}\u{17}\u{12}\u{12}\u{12}\u{5}"
+static s4 __nir_str_DrawWinFrame_4: Char* bytes [$14 $7C $20 $20 $20 $20 $20 $20 $20 $20 $20 $20 $7C $20 $20 $20 $7C $20 $20 $20 $7C] section=rodata align=1 mutable=false display="|          |   |   |"
+static s5 __nir_str_DrawWinFrame_5: Char* bytes [$14 $01 $12 $12 $12 $12 $12 $12 $12 $12 $12 $12 $18 $12 $12 $12 $18 $12 $12 $12 $04] section=rodata align=1 mutable=false display="\u{1}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{18}\u{12}\u{12}\u{12}\u{18}\u{12}\u{12}\u{12}\u{4}"
+static s6 __nir_str_DrawWinFrame_6: Char* bytes [$14 $7C $20 $20 $20 $20 $20 $20 $20 $20 $20 $20 $20 $20 $20 $20 $20 $20 $20 $20 $7C] section=rodata align=1 mutable=false display="|                  |"
+static s7 __nir_str_DrawWinFrame_7: Char* bytes [$14 $1A $12 $12 $12 $12 $12 $12 $12 $12 $12 $12 $12 $12 $12 $12 $12 $12 $12 $12 $03] section=rodata align=1 mutable=false display="\u{1a}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{12}\u{3}"
+static s8 __nir_str_SetWin_8: Char* bytes [$05 $44 $3A $2A $2E $2A] section=rodata align=1 mutable=false display="D:*.*"
+static s9 __nir_str_Xloop_9: Char* bytes [$05 $44 $3A $2A $2E $2A] section=rodata align=1 mutable=false display="D:*.*"
+static s10 __nir_str_Delete_10: Char* bytes [$08 $20 $44 $65 $6C $65 $74 $65 $20] section=rodata align=1 mutable=false display=" Delete "
+static s11 __nir_str_Delete_11: Char* bytes [$08 $20 $66 $69 $6C $65 $28 $73 $29] section=rodata align=1 mutable=false display=" file(s)"
+static s12 __nir_str_Delete_12: Char* bytes [$12 $A0 $A0 $A0 $C4 $E5 $EC $E5 $F4 $E5 $A0 $A0 $E6 $E9 $EC $E5 $A0 $A0 $A0] section=rodata align=1 mutable=false display="\u{a0}\u{a0}\u{a0}Äåìåôå\u{a0}\u{a0}æéìå\u{a0}\u{a0}\u{a0}"
+static s13 __nir_str_Format_13: Char* bytes [$0E $53 $65 $6C $65 $63 $74 $20 $64 $65 $6E $73 $69 $74 $79] section=rodata align=1 mutable=false display="Select density"
+static s14 __nir_str_Format_14: Char* bytes [$08 $20 $46 $6F $72 $6D $61 $74 $20] section=rodata align=1 mutable=false display=" Format "
+static s15 __nir_str_Format_15: Char* bytes [$02 $20 $3F] section=rodata align=1 mutable=false display=" ?"
+static s16 __nir_str_NewDrive_16: Char* bytes [$0C $43 $68 $6F $6F $73 $65 $20 $64 $72 $69 $76 $65] section=rodata align=1 mutable=false display="Choose drive"
+static s17 __nir_str_NewDrive_17: Char* bytes [$0C $74 $6F $20 $20 $66 $6F $72 $6D $61 $74 $20 $21] section=rodata align=1 mutable=false display="to  format !"
+static s18 __nir_str_MkDir_18: Char* bytes [$10 $A0 $A0 $D3 $F5 $E2 $E4 $E9 $F2 $E5 $E3 $F4 $EF $F2 $F9 $A0 $A0] section=rodata align=1 mutable=false display="\u{a0}\u{a0}Óõâäéòåãôïòù\u{a0}\u{a0}"
+static s19 __nir_str_MkDir_19: Char* bytes [$02 $44 $3A] section=rodata align=1 mutable=false display="D:"
+static s20 __nir_str_Rename_20: Char* bytes [$10 $A0 $A0 $A0 $A0 $A0 $D2 $E5 $EE $E1 $ED $E5 $A0 $A0 $A0 $A0 $A0] section=rodata align=1 mutable=false display="\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}Òåîáíå\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}"
+static s21 __nir_str_Rename_21: Char* bytes [$01 $2C] section=rodata align=1 mutable=false display=","
+static s22 __nir_str_Rename_22: Char* bytes [$10 $A0 $A0 $A0 $A0 $A0 $A0 $A0 $F4 $EF $A0 $A0 $A0 $A0 $A0 $A0 $A0] section=rodata align=1 mutable=false display="\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}ôï\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}"
+static s23 __nir_str_Copy_23: Char* bytes [$0D $53 $6F $75 $72 $63 $65 $20 $64 $69 $73 $6B $20 $21] section=rodata align=1 mutable=false display="Source disk !"
+static s24 __nir_str_Copy_24: Char* bytes [$12 $44 $65 $73 $74 $69 $6E $61 $74 $69 $6F $6E $20 $64 $69 $73 $6B $20 $21] section=rodata align=1 mutable=false display="Destination disk !"
+static s25 __nir_str_Quit_25: Char* bytes [$0D $20 $51 $75 $69 $74 $20 $20 $20 $20 $54 $4E $20 $3F] section=rodata align=1 mutable=false display=" Quit    TN ?"
+static s26 __nir_str_Handle_26: Char* bytes [$04 $2D $3D $1C $1D] section=rodata align=1 mutable=false display="-=\u{1c}\u{1d}"
+static s27 __nir_str_Handle_27: Char* bytes [$09 $56 $41 $44 $52 $53 $43 $4D $46 $51] section=rodata align=1 mutable=false display="VADRSCMFQ"
+static s28 __nir_str_NavError_28: Char* bytes [$0A $49 $2F $4F $20 $65 $72 $72 $6F $72 $20] section=rodata align=1 mutable=false display="I/O error "
+static s29 __nir_str_NavInit_29: Char* bytes [$1E $54 $4E $20 $72 $65 $71 $75 $69 $72 $65 $73 $20 $4D $79 $44 $4F $53 $20 $34 $2E $35 $30 $20 $6F $72 $20 $34 $2E $35 $33] section=rodata align=1 mutable=false display="TN requires MyDOS 4.50 or 4.53"
+static s30 __nir_str_NavInit_30: Char* bytes [$28 $D4 $EF $ED $F3 $A0 $CE $E1 $F6 $E9 $E7 $E1 $F4 $EF $F2 $A0 $B1 $AE $B2 $B5 $A0 $A8 $E3 $A9 $A0 $B2 $B0 $B2 $B6 $A0 $CD $AE $CB $F5 $F2 $E3 $E5 $F7 $E9 $E3 $FA] section=rodata align=1 mutable=false display="Ôïíó\u{a0}Îáöéçáôïò\u{a0}±®²µ\u{a0}¨ã©\u{a0}²°²¶\u{a0}Í®Ëõòãå÷éãú"
+static s31 __nir_str_NavInit_31: Char* bytes [$28 $CE $E5 $F7 $A0 $C3 $EF $F0 $F9 $A0 $C4 $E5 $EC $A0 $D2 $E5 $EE $A0 $C1 $F4 $F2 $A0 $D6 $E9 $E5 $F7 $A0 $CD $EB $E4 $E9 $F2 $A0 $C6 $ED $F4 $A0 $D1 $F5 $E9 $F4] section=rodata align=1 mutable=false display="Îå÷\u{a0}Ãïðù\u{a0}Äåì\u{a0}Òåî\u{a0}Áôò\u{a0}Öéå÷\u{a0}Íëäéò\u{a0}Æíô\u{a0}Ñõéô"
+machine m0 items=[$85 Low8(Absolute(160)+0) $86 Low8(Absolute(161)+0) $84 Low8(Absolute(162)+0) $A4 Low8(Absolute(164)+0) $88 $B1 Low8(Absolute(162)+0) $91 Low8(Absolute(160)+0) $88 $C0 $FF $D0 $F7 $60]
+machine m1 items=[$A6 Low8(Memory(Global { id: SymbolId(4), offset: 0 })+0) $A5 Low8(Absolute(88)+0) $18 $7D Absolute16(Memory(Global { id: SymbolId(24), offset: 0 })+0) $85 Low8(Memory(Global { id: SymbolId(10), offset: 0 })+0) $A5 Low8(Absolute(89)+0) $7D Absolute16(Memory(Global { id: SymbolId(24), offset: 0 })+24) $85 Low8(Memory(Global { id: SymbolId(11), offset: 0 })+0) $A5 Low8(Memory(Global { id: SymbolId(10), offset: 0 })+0) $65 Low8(Memory(Global { id: SymbolId(3), offset: 0 })+0) $85 Low8(Memory(Global { id: SymbolId(10), offset: 0 })+0) $90 $02 $E6 Low8(Memory(Global { id: SymbolId(11), offset: 0 })+0) $60]
+machine m2 items=[$85 Low8(Memory(Global { id: SymbolId(3), offset: 0 })+0) $86 Low8(Memory(Global { id: SymbolId(4), offset: 0 })+0) $60]
+machine m3 items=[$18 $65 Low8(Memory(Global { id: SymbolId(5), offset: 0 })+0) $85 Low8(Memory(Global { id: SymbolId(3), offset: 0 })+0) $8A $65 Low8(Memory(Global { id: SymbolId(6), offset: 0 })+0) $85 Low8(Memory(Global { id: SymbolId(4), offset: 0 })+0) $60]
+machine m4 items=[$A8 $2A $2A $2A $2A $29 $03 $AA $98 $29 $9F $1D Absolute16(Memory(Global { id: SymbolId(28), offset: 0 })+0) $85 Low8(Absolute(160)+0) $60]
+machine m5 items=[$A8 $2A $2A $2A $2A $29 $03 $AA $98 $29 $9F $1D Absolute16(Memory(Global { id: SymbolId(29), offset: 0 })+0) $85 Low8(Absolute(160)+0) $60]
+machine m6 items=[$A9 $FF $8D Absolute16(Absolute(764)+0) $A9 High8(InlineOffset(19)+0) $48 $A9 Low8(InlineOffset(19)+0) $48 $AD Absolute16(Absolute(58405)+0) $48 $AD Absolute16(Absolute(58404)+0) $48 $60 $85 Low8(Absolute(160)+0) $60]
+machine m7 items=[$48 $86 Low8(Absolute(160)+0) $20 Absolute16(Routine(RoutineId(7))+0) $98 $AA $68 $C9 Byte8(Absolute(128)+0) $F0 $20 $C9 Byte8(Absolute(64)+0) $F0 $04 $A9 $00 $85 Low8(Memory(Global { id: SymbolId(2), offset: 0 })+0) $A4 Low8(Absolute(160)+0) $A5 Low8(Memory(Global { id: SymbolId(2), offset: 0 })+0) $91 Low8(Memory(Global { id: SymbolId(9), offset: 0 })+0) $88 $10 $FB $18 $A5 Low8(Memory(Global { id: SymbolId(10), offset: 0 })+0) $69 Byte8(Absolute(40)+0) $85 Low8(Memory(Global { id: SymbolId(10), offset: 0 })+0) $90 $02 $E6 Low8(Memory(Global { id: SymbolId(11), offset: 0 })+0) $CA $10 $E9 $60 $A4 Low8(Absolute(160)+0) $B1 Low8(Memory(Global { id: SymbolId(9), offset: 0 })+0) $49 $80 $91 Low8(Memory(Global { id: SymbolId(9), offset: 0 })+0) $88 $10 $F7 $18 $A5 Low8(Memory(Global { id: SymbolId(10), offset: 0 })+0) $69 Byte8(Absolute(40)+0) $85 Low8(Memory(Global { id: SymbolId(10), offset: 0 })+0) $90 $02 $E6 Low8(Memory(Global { id: SymbolId(11), offset: 0 })+0) $CA $10 $E7 $60]
+machine m8 items=[$18 $A5 Low8(Memory(Global { id: SymbolId(10), offset: 0 })+0) $69 Byte8(Absolute(40)+0) $85 Low8(Memory(Global { id: SymbolId(10), offset: 0 })+0) $90 $03 $E6 Low8(Memory(Global { id: SymbolId(11), offset: 0 })+0) $18 $A5 Low8(Absolute(160)+0) $65 Low8(Absolute(164)+0) $85 Low8(Absolute(160)+0) $90 $02 $E6 Low8(Absolute(161)+0) $60]
+machine m9 items=[$85 Low8(Absolute(160)+0) $86 Low8(Absolute(161)+0) $84 Low8(Absolute(162)+0) $C8 $84 Low8(Absolute(164)+0) $20 Absolute16(Routine(RoutineId(7))+0) $A6 Low8(Absolute(163)+0) $A4 Low8(Absolute(162)+0) $B1 Low8(Memory(Global { id: SymbolId(9), offset: 0 })+0) $91 Low8(Absolute(160)+0) $88 $10 $F9 $20 Absolute16(Routine(RoutineId(17))+0) $CA $10 $F1 $60]
+machine m10 items=[$85 Low8(Absolute(160)+0) $86 Low8(Absolute(161)+0) $84 Low8(Absolute(162)+0) $C8 $84 Low8(Absolute(164)+0) $20 Absolute16(Routine(RoutineId(7))+0) $A6 Low8(Absolute(163)+0) $A4 Low8(Absolute(162)+0) $B1 Low8(Absolute(160)+0) $91 Low8(Memory(Global { id: SymbolId(9), offset: 0 })+0) $88 $10 $F9 $20 Absolute16(Routine(RoutineId(17))+0) $CA $10 $F1 $60]
+machine m11 items=[$20 Absolute16(Absolute(58454)+0) $8C Absolute16(Memory(Global { id: SymbolId(40), offset: 0 })+0) $10 $03 $6C Absolute16(Memory(Global { id: SymbolId(41), offset: 0 })+0) $60]
+machine m12 items=[$0A $0A $0A $0A $AA $60]
+machine m13 items=[$85 Low8(Absolute(134)+0) $84 Low8(Absolute(135)+0) $A0 $00 $B1 Low8(Absolute(134)+0) $85 Low8(Absolute(136)+0) $C8 $B1 Low8(Absolute(134)+0) $99 Absolute16(Memory(Local { id: LocalId(0), offset: 0 })-1) $C4 Low8(Absolute(136)+0) $D0 $F6 $C8 $A9 Byte8(Absolute(155)+0) $99 Absolute16(Memory(Local { id: LocalId(0), offset: 0 })-1)]
+machine m14 items=[$9D Absolute16(Absolute(836)+0) $A5 Low8(Absolute(134)+1) $9D Absolute16(Absolute(837)+0) $60]
+machine m15 items=[$20 Absolute16(Routine(RoutineId(22))+0) $A9 $00 $9D Absolute16(Absolute(840)+0) $9D Absolute16(Absolute(841)+0) $A9 Byte8(Absolute(7)+0) $9D Absolute16(Absolute(834)+0) $20 Absolute16(Routine(RoutineId(21))+0) $85 Low8(Absolute(160)+0) $60]
+machine m16 items=[$86 Low8(Absolute(160)+0) $20 Absolute16(Routine(RoutineId(22))+0) $A9 $00 $9D Absolute16(Absolute(840)+0) $9D Absolute16(Absolute(841)+0) $A9 Byte8(Absolute(11)+0) $9D Absolute16(Absolute(834)+0) $A5 Low8(Absolute(160)+0) $4C Absolute16(Routine(RoutineId(21))+0)]
+machine m17 items=[$86 Low8(Absolute(161)+0) $20 Absolute16(Routine(RoutineId(22))+0) $A5 Low8(Absolute(161)+0) $20 Absolute16(Routine(RoutineId(23))+0) $A5 Low8(Absolute(163)+0) $9D Absolute16(Absolute(842)+0) $A5 Low8(Absolute(164)+0) $9D Absolute16(Absolute(843)+0) $A9 Byte8(Absolute(3)+0) $9D Absolute16(Absolute(834)+0) $4C Absolute16(Routine(RoutineId(21))+0)]
+machine m18 items=[$20 Absolute16(Routine(RoutineId(22))+0) $A9 Byte8(Absolute(12)+0) $9D Absolute16(Absolute(834)+0) $4C Absolute16(Routine(RoutineId(21))+0)]
+machine m19 items=[$86 Low8(Absolute(161)+0) $20 Absolute16(Routine(RoutineId(22))+0) $A5 Low8(Absolute(161)+0) $9D Absolute16(Absolute(836)+0) $98 $9D Absolute16(Absolute(837)+0) $A5 Low8(Absolute(163)+0) $9D Absolute16(Absolute(840)+0) $A9 $00 $9D Absolute16(Absolute(841)+0) $A9 Byte8(Absolute(5)+0) $9D Absolute16(Absolute(834)+0) $4C Absolute16(Routine(RoutineId(21))+0)]
+machine m20 items=[$A5 Low8(Absolute(161)+0) $9D Absolute16(Absolute(836)+0) $98 $9D Absolute16(Absolute(837)+0) $A5 Low8(Absolute(163)+0) $9D Absolute16(Absolute(840)+0) $A5 Low8(Absolute(164)+0) $9D Absolute16(Absolute(841)+0) $BD Absolute16(Absolute(834)+0) $4C Absolute16(Routine(RoutineId(21))+0)]
+machine m21 items=[$86 Low8(Absolute(161)+0) $20 Absolute16(Routine(RoutineId(22))+0) $A9 Byte8(Absolute(7)+0) $9D Absolute16(Absolute(834)+0) $4C Absolute16(Routine(RoutineId(29))+0)]
+machine m22 items=[$86 Low8(Absolute(161)+0) $20 Absolute16(Routine(RoutineId(22))+0) $A9 Byte8(Absolute(11)+0) $9D Absolute16(Absolute(834)+0) $4C Absolute16(Routine(RoutineId(29))+0)]
+machine m23 items=[$86 Low8(Absolute(161)+0) $20 Absolute16(Routine(RoutineId(22))+0) $A5 Low8(Absolute(161)+0) $9D Absolute16(Absolute(834)+0) $98 $9D Absolute16(Absolute(842)+0) $A5 Low8(Absolute(163)+0) $9D Absolute16(Absolute(843)+0) $A5 Low8(Absolute(164)+0) $A4 Low8(Absolute(165)+0) $20 Absolute16(Routine(RoutineId(23))+0) $4C Absolute16(Routine(RoutineId(21))+0)]
+machine m24 items=[$85 Low8(Absolute(160)+0) $86 Low8(Absolute(161)+0) $98 $A0 $00 $91 Low8(Absolute(160)+0) $60]
+machine m25 items=[$85 Low8(Absolute(160)+0) $86 Low8(Absolute(161)+0) $A0 $00 $B1 Low8(Absolute(160)+0) $85 Low8(Absolute(160)+0) $60]
+machine m26 items=["R" 'R' "1" '1' "2" '2' "3" '3' "4" '4' "5" '5' "6" '6' "7" '7' "8" '8' "9" '9' "Frm" 'F' $00]
+machine m27 items=["Delete" 'D' "Cancel" 'C' $00]
+machine m28 items=["Single" 'S' "Medium" 'M' "Double" 'D' "360K" '3' "720K" '7' $00]
+machine m29 items=["Yes" 'Y' "Abort" 'A' $00]
+machine m30 items=["Lock" 'L' "Unlock" 'U' $00]
+machine m31 items=["Yes" 'Y' "Cancel" 'C' $00]
+machine m32 items=[$A9 $1B $48 $A9 $47 $48]
+machine m33 items=[$6C Absolute16(Absolute(49146)+0)]
+machine m34 items=[$4C Absolute16(Absolute(58481)+0)]
+machine m35 items=[$C9 $0A $B0 $11 $0A $F0 $0E $AA $BD Absolute16(Memory(Global { id: SymbolId(146), offset: 0 })-2) $85 Low8(Absolute(160)+0) $BD Absolute16(Memory(Global { id: SymbolId(146), offset: 0 })-1) $85 Low8(Absolute(161)+0) $6C Absolute16(Absolute(160)+0) $60]
+machine m36 items=[$A2 $10]
+machine m37 items=[$A4 Low8(Absolute(134)+1) $20 Absolute16(Routine(RoutineId(23))+0)]
+machine m38 items=[$A9 $1B $48 $A9 $47 $48 $A9 Byte8(Absolute(39)+0) $8D Absolute16(Absolute(850)+0) $A9 $00 $8D Absolute16(Absolute(856)+0) $8D Absolute16(Absolute(857)+0) $A9 Byte8(Absolute(4)+0) $8D Absolute16(Absolute(858)+0) $4C Absolute16(Absolute(58454)+0)]
+machine m39 items=[$A2 $FF $9A]
+machine m40 items=[<s >s $04]
+
+routine r40 Next
+b0 bb106:
+  store.b fixed_zp $AE, a
+  store.b fixed_zp $AF, x
+  y =.b #0
+  a =.b a add (fixed_zp $AE),y carry_in=clear carry_out=produce
+  store.b fixed_zp $AC, a
+  a =.b x
+  a =.b a add #$00 carry_in=previous carry_out=ignore
+  store.b fixed_zp $AD, a
+  a =.b load fixed_zp $AC
+  a =.b a add #$05 carry_in=clear carry_out=produce
+  store.b fixed_zp $A0, a
+  a =.b load fixed_zp $AD
+  a =.b a add #$00 carry_in=previous carry_out=ignore
+  store.b fixed_zp $A1, a
+  return
+
+routine r41 Ord
+  param p0 menu -> ZeroPage(MirFixedZpSlot(226))
+  param p1 item -> ZeroPage(MirFixedZpSlot(162))
+  local l0 c -> ZeroPage(MirFixedZpSlot(228))
+b0 bb107:
+  store.b param p0+0, a
+  store.b param p0+1, x
+  store.b param p1+0, y
+  a =.b #0
+  store.b local l0+0, a
+  jump b1
+b1 bb108:
+  a =.b load_indirect (zp$E2),y+0
+  flags = cmp.b a ne #$00
+  branch fused b1:1 z_clear ? b6 : b5
+b6 cmp_word_lo_6:
+  a =.b load param p0+0
+  flags = cmp.b a eq *param p1+0
+  branch flag z_clear ? b4 : b7
+b7 cmp_word_hi_7:
+  a =.b load param p0+1
+  flags = cmp.b a eq *param p1+1
+  branch flag z_set ? b5 : b4
+b4 bb111:
+  inc.b local l0+0
+  a =.b load fixed_zp $E2
+  x =.b load fixed_zp $E3
+  call r40 args=[a.b -> a, x.b -> x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  store.b param p0+1, a
+  a =.b load fixed_zp $A0
+  store.b param p0+0, a
+  jump b1
+b5 bb110:
+  a =.b load local l0+0
+  store.b fixed_zp $A0, a
+  return
+
+routine r42 Items
+  param p0 menu -> ZeroPage(MirFixedZpSlot(162))
+  local l0 c -> ZeroPage(MirFixedZpSlot(226))
+b0 bb113:
+  store.b param p0+1, x
+  store.b param p0+0, a
+  a =.b #0
+  store.b local l0+0, a
+  jump b1
+b1 bb114:
+  a =.b load_indirect (zp$A2),y+0
+  flags = cmp.b a ne #$00
+  branch fused b1:1 z_clear ? b2 : b3
+b2 bb115:
+  inc.b local l0+0
+  a =.b load fixed_zp $A2
+  x =.b load fixed_zp $A3
+  call r40 args=[a.b -> a, x.b -> x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  store.b param p0+1, a
+  a =.b load fixed_zp $A0
+  store.b param p0+0, a
+  jump b1
+b3 bb116:
+  a =.b load local l0+0
+  store.b fixed_zp $A0, a
+  return
+
+routine r43 FindItem
+  param p0 menu -> ZeroPage(MirFixedZpSlot(162))
+  param p1 ch -> ZeroPage(MirFixedZpSlot(226))
+b0 bb117:
+  store.b param p0+0, a
+  store.b param p0+1, x
+  store.b param p1+0, y
+  jump b1
+b1 bb118:
+  a =.b load_indirect (zp$A2),y+0
+  flags = cmp.b a ne #$00
+  branch fused b1:1 z_clear ? b2 : b5
+b2 bb119:
+  a =.b load fixed_zp $A2
+  x =.b load fixed_zp $A3
+  call r39 args=[a.b -> a, x.b -> x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  flags = cmp.b a eq *param p1+0
+  branch fused b2:3 z_set ? b3 : b4
+b3 bb122:
+  a =.b load param p0+0
+  store.b fixed_zp $A0, a
+  a =.b load param p0+1
+  store.b fixed_zp $A1, a
+  return
+b4 bb121:
+  a =.b load fixed_zp $A2
+  call r40 args=[a.b -> a, x.b -> x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  store.b param p0+1, a
+  a =.b load fixed_zp $A0
+  store.b param p0+0, a
+  jump b1
+b5 bb120:
+  a =.b #0
+  store.b fixed_zp $A0, a
+  store.b fixed_zp $A1, a
+  return
+
+routine r56 Fnamecmp
+  param p0 s -> ZeroPage(MirFixedZpSlot(160))
+  param p1 t -> ZeroPage(MirFixedZpSlot(162))
+b0 bb176:
+  store.b param p0+0, a
+  store.b param p0+1, x
+  store.b param p1+0, y
+  inc.w param p0+0
+  inc.w param p1+0
+  flags = cmp_indirect.b (zp$A0),y+0 ne (zp$A2),y+0
+  branch fused b0:5 z_clear ? b1 : b6
+b1 bb178:
+  a =.b load_indirect (zp$A0),y+0
+  flags = cmp.b a eq #$3A
+  branch fused b1:1 z_set ? b2 : b3
+b2 bb180:
+  a =.b #0
+  store.b fixed_zp $A0, a
+  return
+b3 bb181:
+  a =.b load_indirect (zp$A2),y+0
+  flags = cmp.b a eq #$3A
+  branch fused b3:1 z_set ? b4 : b6
+b4 bb182:
+  a =.b #1
+  store.b fixed_zp $A0, a
+  return
+b6 bb177:
+  inc.w param p0+0
+  inc.w param p1+0
+  jump b7
+b7 bb183:
+  flags = cmp_indirect.b (zp$A0),y+0 eq (zp$A2),y+0
+  branch fused b7:0 z_set ? b8 : b9
+b8 bb184:
+  inc.w param p0+0
+  inc.w param p1+0
+  jump b7
+b9 bb185:
+  flags = cmp_indirect.b (zp$A2),y+0 lt (zp$A0),y+0
+  branch fused b9:0 c_clear ? b10 : b11
+b10 bb187:
+  a =.b #1
+  store.b fixed_zp $A0, a
+  return
+b11 bb188:
+  a =.b #0
+  store.b fixed_zp $A0, a
+  return
+
+routine r57 Sort
+  zp0 -> $E2 size=1
+  zp1 -> $E3 size=1
+  zp2 -> $E4 size=1
+  zp3 -> $E5 size=1
+b0 bb189:
+  a =.b load global g81+0
+  a =.b a rsh #$01 carry_in=- carry_out=ignore
+  store.b spill sp96+0, a
+  jump b1
+b1 bb190:
+  branch flag z_clear ? b2 : b13
+b13 bb192:
+  return
+b2 bb191:
+  store.b global g0+0, a
+  jump b3
+b3 bb193:
+  a =.b load global g81+0
+  a =.b a sub #$01 carry_in=set carry_out=ignore
+  flags = cmp.b a ge *global g0+0
+  branch fused b3:2 c_set ? b4 : b12
+b4 bb194:
+  a =.b load global g0+0
+  a =.b a sub *spill sp96+0 carry_in=set carry_out=ignore
+  store.b global g1+0, a
+  jump b5
+b5 bb196:
+  flags = cmp.b a lt #$80
+  branch fused b5:0 c_clear ? b6 : b10
+b6 bb197:
+  materialize_indexed (zp$AC),scaled_y <- word(*global g74+0, *global g74+1) + a*2
+  a =.b load_indirect (zp$AC),scaled_y+0
+  store.b zp1, a
+  a =.b load_indirect (zp$AC),scaled_y+1
+  store.b zp2, a
+  a =.b load global g1+0
+  a =.b a add *spill sp96+0 carry_in=clear carry_out=ignore
+  materialize_indexed (zp$AC),scaled_y <- word(*global g74+0, *global g74+1) + a*2
+  a =.b load_indirect (zp$AC),scaled_y+0
+  store.b zp3, a
+  a =.b load_indirect (zp$AC),scaled_y+1
+  store.b fixed_zp $A3, a
+  a =.b load zp1
+  x =.b load zp2
+  y =.b load zp3
+  call r56 args=[a.b -> a, x.b -> x, y.b -> y, #$00.b -> fixed_zp $A3] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  flags = cmp.b a ne #$00
+  branch fused b6:16 z_clear ? b7 : b10
+b10 bb198:
+  a =.b load global g0+0
+  flags = cmp.b a ge #$FF
+  branch flag c_set ? b12 : b11
+b12 bb195:
+  a =.b load spill sp96+0
+  a =.b a rsh #$01 carry_in=- carry_out=ignore
+  store.b spill sp96+0, a
+  jump b1
+b11 bb202:
+  inc.b global g0+0
+  jump b3
+b7 bb200:
+  a =.b load global g1+0
+  materialize_indexed (zp$AC),scaled_y <- word(*global g74+0, *global g74+1) + a*2
+  a =.b load_indirect (zp$AC),scaled_y+0
+  store.b local l1+0, a
+  a =.b load_indirect (zp$AC),scaled_y+1
+  store.b local l1+1, a
+  a =.b load global g1+0
+  a =.b a add *spill sp96+0 carry_in=clear carry_out=ignore
+  store.b zp0, a
+  a =.b load global g1+0
+  materialize_indexed (zp$AE),y <- word(*global g74+0, *global g74+1) + a*2
+  a =.b load zp0
+  materialize_indexed (zp$AC),y <- word(*global g74+0, *global g74+1) + a*2
+  a =.b load_indirect (zp$AC),y+0
+  store_indirect (zp$AE),y+0 a
+  a =.b load_indirect (zp$AC),y+1
+  store_indirect (zp$AE),y+1 a
+  a =.b load global g1+0
+  a =.b a add *spill sp96+0 carry_in=clear carry_out=ignore
+  materialize_indexed (zp$AC),scaled_y <- word(*global g74+0, *global g74+1) + a*2
+  a =.b load local l1+0
+  store_indirect (zp$AC),scaled_y+0 a
+  a =.b load local l1+1
+  store_indirect (zp$AC),scaled_y+1 a
+  a =.b load global g1+0
+  a =.b a sub *spill sp96+0 carry_in=set carry_out=ignore
+  store.b global g1+0, a
+  jump b5

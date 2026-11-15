@@ -1,0 +1,59 @@
+; Baseline (60 code bytes, 3 inline parameter bytes)
+3E36  8D DF 32  STA $32DF
+3E39  8E E0 32  STX $32E0
+3E3C  8C E1 32  STY $32E1
+3E3F  A9 01     LDA #$01
+3E41  85 E0     STA $E0
+3E43  AD DF 32  LDA $32DF
+3E46  85 AC     STA $AC
+3E48  86 AD     STX $AD
+3E4A  A0 00     LDY #$00
+3E4C  B1 AC     LDA ($AC),Y
+3E4E  C5 E0     CMP $E0
+3E50  90 1B     BCC $3E6D
+3E52  86 AD     STX $AD
+3E54  A4 E0     LDY $E0
+3E56  B1 AC     LDA ($AC),Y
+3E58  CD E1 32  CMP $32E1
+3E5B  D0 05     BNE $3E62
+3E5D  A5 E0     LDA $E0
+3E5F  85 A0     STA $A0
+3E61  60        RTS
+3E62  A5 E0     LDA $E0
+3E64  C9 FF     CMP #$FF
+3E66  B0 05     BCS $3E6D
+3E68  E6 E0     INC $E0
+3E6A  4C 43 3E  JMP $3E43
+3E6D  A9 00     LDA #$00
+3E6F  85 A0     STA $A0
+3E71  60        RTS
+
+; Selected (55 code bytes, 3 ZP parameter bytes)
+3E33  85 A0     STA $A0
+3E35  86 A1     STX $A1
+3E37  84 A2     STY $A2
+3E39  A9 01     LDA #$01
+3E3B  85 E0     STA $E0
+3E3D  A5 A0     LDA $A0
+3E3F  85 AC     STA $AC
+3E41  86 AD     STX $AD
+3E43  A0 00     LDY #$00
+3E45  B1 AC     LDA ($AC),Y
+3E47  C5 E0     CMP $E0
+3E49  90 1A     BCC $3E65
+3E4B  86 AD     STX $AD
+3E4D  A4 E0     LDY $E0
+3E4F  B1 AC     LDA ($AC),Y
+3E51  C5 A2     CMP $A2
+3E53  D0 05     BNE $3E5A
+3E55  A5 E0     LDA $E0
+3E57  85 A0     STA $A0
+3E59  60        RTS
+3E5A  A5 E0     LDA $E0
+3E5C  C9 FF     CMP #$FF
+3E5E  B0 05     BCS $3E65
+3E60  E6 E0     INC $E0
+3E62  4C 3D 3E  JMP $3E3D
+3E65  A9 00     LDA #$00
+3E67  85 A0     STA $A0
+3E69  60        RTS

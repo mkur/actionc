@@ -1,7 +1,7 @@
 # MIR6502 unexposed object storage
 
-Status: implementation complete through slice 3, 2026-11-15; TN qualification
-remains. Shared address-control facts, residence verification and bounded native
+Status: implemented and qualified, 2026-11-15.
+Shared address-control facts, residence verification and bounded native
 indexed/constant-byte-shift admission are implemented.
 The [implementation plan](MIR6502_UNEXPOSED_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md)
 defines four slices with focused validation and a commit after each slice.
@@ -208,3 +208,11 @@ TN is 9,846 bytes, Sort is 250 code bytes with three mapped ordinary-home bytes,
 and its Fnamecmp call passes independently. Measure actual selection and savings;
 remaining scratch or cost failures are valid outcomes. The implementation plan
 scopes local testing to focused unit/VM groups and one final TN measurement.
+
+The [completed qualification](benchmarks/6502-unexposed-object-storage/README.md)
+measures **9,838 bytes**, eight fewer than the baseline. Instr gains three ZP
+parameter bytes and saves five code bytes. Sort passes native-body admission but
+remains inline because TN's explicit assembly-observation inventory is incomplete;
+its Fnamecmp call contract passes independently. Existing Ord/Items/FindItem
+savings survive. Materializations and emissions are unchanged; final emission
+now retains four additional source-storage inventories.

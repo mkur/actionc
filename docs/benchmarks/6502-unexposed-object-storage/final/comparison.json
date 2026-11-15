@@ -1,0 +1,1067 @@
+{
+  "baseline": "docs/benchmarks/6502-callee-facts-repair/final/facts.compact.json",
+  "baseline_commit": "7ea9e7ab",
+  "before_bytes": 9846,
+  "after_bytes": 9838,
+  "delta_bytes": -8,
+  "routine_inventory_count": 101,
+  "changed_routines": [
+    {
+      "name": "Instr",
+      "before": {
+        "code_bytes": 60,
+        "inline_home_bytes": 3,
+        "zp_home_bytes": 0
+      },
+      "after": {
+        "code_bytes": 55,
+        "inline_home_bytes": 0,
+        "zp_home_bytes": 3
+      },
+      "delta": {
+        "code_bytes": -5,
+        "inline_home_bytes": -3,
+        "zp_home_bytes": 3
+      }
+    }
+  ],
+  "controls": {
+    "Sort": {
+      "before": {
+        "code_bytes": 250,
+        "homes": [
+          {
+            "address": 13034,
+            "kind": "Local",
+            "name": "h",
+            "size": 2
+          },
+          {
+            "address": 13036,
+            "kind": "Local",
+            "name": "spill96",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 3,
+        "name": "Sort",
+        "zp_home_bytes": 0
+      },
+      "after": {
+        "code_bytes": 250,
+        "homes": [
+          {
+            "address": 13031,
+            "kind": "Local",
+            "name": "h",
+            "size": 2
+          },
+          {
+            "address": 13033,
+            "kind": "Local",
+            "name": "spill96",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 3,
+        "name": "Sort",
+        "zp_home_bytes": 0
+      }
+    },
+    "Fnamecmp": {
+      "before": {
+        "code_bytes": 105,
+        "homes": [
+          {
+            "address": 160,
+            "kind": "Parameter",
+            "name": "s",
+            "size": 2
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "t",
+            "size": 2
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Fnamecmp",
+        "zp_home_bytes": 4
+      },
+      "after": {
+        "code_bytes": 105,
+        "homes": [
+          {
+            "address": 160,
+            "kind": "Parameter",
+            "name": "s",
+            "size": 2
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "t",
+            "size": 2
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Fnamecmp",
+        "zp_home_bytes": 4
+      }
+    },
+    "Ord": {
+      "before": {
+        "code_bytes": 51,
+        "homes": [
+          {
+            "address": 226,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "item",
+            "size": 2
+          },
+          {
+            "address": 228,
+            "kind": "Local",
+            "name": "c",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Ord",
+        "zp_home_bytes": 5
+      },
+      "after": {
+        "code_bytes": 51,
+        "homes": [
+          {
+            "address": 226,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "item",
+            "size": 2
+          },
+          {
+            "address": 228,
+            "kind": "Local",
+            "name": "c",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Ord",
+        "zp_home_bytes": 5
+      }
+    },
+    "Items": {
+      "before": {
+        "code_bytes": 37,
+        "homes": [
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 226,
+            "kind": "Local",
+            "name": "c",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Items",
+        "zp_home_bytes": 3
+      },
+      "after": {
+        "code_bytes": 37,
+        "homes": [
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 226,
+            "kind": "Local",
+            "name": "c",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Items",
+        "zp_home_bytes": 3
+      }
+    },
+    "FindItem": {
+      "before": {
+        "code_bytes": 53,
+        "homes": [
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 226,
+            "kind": "Parameter",
+            "name": "ch",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "FindItem",
+        "zp_home_bytes": 3
+      },
+      "after": {
+        "code_bytes": 53,
+        "homes": [
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 226,
+            "kind": "Parameter",
+            "name": "ch",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "FindItem",
+        "zp_home_bytes": 3
+      }
+    },
+    "Next": {
+      "before": {
+        "code_bytes": 30,
+        "homes": [],
+        "inline_home_bytes": 0,
+        "name": "Next",
+        "zp_home_bytes": 0
+      },
+      "after": {
+        "code_bytes": 30,
+        "homes": [],
+        "inline_home_bytes": 0,
+        "name": "Next",
+        "zp_home_bytes": 0
+      }
+    }
+  },
+  "work_counts": {
+    "cross_call_home_trials": {
+      "before": 1,
+      "after": 1,
+      "delta": 0
+    },
+    "emission_invocations": {
+      "before": 145,
+      "after": 145,
+      "delta": 0
+    },
+    "inner_emission_probes": {
+      "before": 870,
+      "after": 870,
+      "delta": 0
+    },
+    "late_cleanup_preservation_replays": {
+      "before": 17,
+      "after": 17,
+      "delta": 0
+    },
+    "materializations": {
+      "before": 6,
+      "after": 6,
+      "delta": 0
+    },
+    "parameter_argument_handoff_trials": {
+      "before": 1,
+      "after": 1,
+      "delta": 0
+    },
+    "parameter_home_trials": {
+      "before": 3,
+      "after": 3,
+      "delta": 0
+    },
+    "pipeline_attempts": {
+      "before": 67,
+      "after": 67,
+      "delta": 0
+    },
+    "rewrite_analysis_builds": {
+      "before": 50356,
+      "after": 50356,
+      "delta": 0
+    },
+    "source_storage_inventory_builds": {
+      "before": 56,
+      "after": 60,
+      "delta": 4
+    },
+    "storage_observation_snapshot_builds": {
+      "before": 3,
+      "after": 3,
+      "delta": 0
+    }
+  },
+  "measurement": {
+    "generation_seconds": 19.993737625,
+    "resident_kib": 545152,
+    "sample_scope": "single traced source-to-executable generation; not peak RSS"
+  },
+  "decisions": [
+    {
+      "attempt": 23637,
+      "data": {
+        "accepted": true,
+        "after_bytes": 9955,
+        "before_bytes": 10047,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 55,
+            "before": 63,
+            "routine": "Instr"
+          },
+          {
+            "after": 105,
+            "before": 189,
+            "routine": "Fnamecmp"
+          }
+        ]
+      },
+      "id": 73501,
+      "kind": "parameter-home-result"
+    },
+    {
+      "attempt": 31762,
+      "data": {
+        "accepted": true,
+        "after_bytes": 9918,
+        "before_bytes": 9955,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 20,
+            "before": 57,
+            "routine": "Strcpy"
+          }
+        ]
+      },
+      "id": 92705,
+      "kind": "parameter-argument-handoff-result"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "reason": "unresolved explicit observation",
+        "routine": "Push"
+      },
+      "id": 92706,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Pull"
+      },
+      "id": 92707,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "reason": "unresolved explicit observation",
+        "routine": "Putchar"
+      },
+      "id": 92708,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "SavePos"
+      },
+      "id": 92709,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "RestorePos"
+      },
+      "id": 92710,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Window"
+      },
+      "id": 92711,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Range"
+      },
+      "id": 92712,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "reason": "unresolved explicit observation",
+        "routine": "InputLine"
+      },
+      "id": 92713,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "PopUp"
+      },
+      "id": 92714,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Init"
+      },
+      "id": 92715,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Strcpy"
+      },
+      "id": 92716,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Strcat"
+      },
+      "id": 92717,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "CloseAll"
+      },
+      "id": 92718,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "reason": "unresolved explicit observation",
+        "routine": "Sort"
+      },
+      "id": 92719,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Path"
+      },
+      "id": 92720,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "UpdDis"
+      },
+      "id": 92721,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "DrawWinFrame"
+      },
+      "id": 92722,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Convert"
+      },
+      "id": 92723,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "TagAll"
+      },
+      "id": 92724,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "reason": "unresolved explicit observation",
+        "routine": "FormatDirectoryRow"
+      },
+      "id": 92725,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "SetWin"
+      },
+      "id": 92726,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "SwapWin"
+      },
+      "id": 92727,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Dir"
+      },
+      "id": 92728,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Xloop"
+      },
+      "id": 92729,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Delete"
+      },
+      "id": 92730,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Format"
+      },
+      "id": 92731,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "View"
+      },
+      "id": 92732,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "MkDir"
+      },
+      "id": 92733,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Rename"
+      },
+      "id": 92734,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Copy"
+      },
+      "id": 92735,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": true,
+        "reason": "unsupported caller body or signature",
+        "routine": "Quit"
+      },
+      "id": 92736,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": true,
+        "reason": "unsupported caller body or signature",
+        "routine": "Handle"
+      },
+      "id": 92737,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "InitPanels"
+      },
+      "id": 92738,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": true,
+        "reason": "unsupported caller body or signature",
+        "routine": "NavError"
+      },
+      "id": 92739,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "NavInit"
+      },
+      "id": 92740,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 2,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "Alloc"
+      },
+      "id": 92741,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 3,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "Free"
+      },
+      "id": 92742,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "Print"
+      },
+      "id": 92743,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "PrintE"
+      },
+      "id": 92744,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 6,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "CloseWindow"
+      },
+      "id": 92745,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "bindings": "Some([MirParamBinding { param: ParamId(0), home: ZeroPage(MirFixedZpSlot(226)) }, MirParamBinding { param: ParamId(1), home: ZeroPage(MirFixedZpSlot(162)) }])",
+        "call_count": 1,
+        "local_bindings": "Some([MirLocalBinding { local: LocalId(0), home: ZeroPage(MirFixedZpSlot(228)) }])",
+        "routine": "Ord"
+      },
+      "id": 92746,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "bindings": "Some([MirParamBinding { param: ParamId(0), home: ZeroPage(MirFixedZpSlot(162)) }])",
+        "call_count": 1,
+        "local_bindings": "Some([MirLocalBinding { local: LocalId(0), home: ZeroPage(MirFixedZpSlot(226)) }])",
+        "routine": "Items"
+      },
+      "id": 92747,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "bindings": "Some([MirParamBinding { param: ParamId(0), home: ZeroPage(MirFixedZpSlot(162)) }, MirParamBinding { param: ParamId(1), home: ZeroPage(MirFixedZpSlot(226)) }])",
+        "call_count": 2,
+        "local_bindings": "None",
+        "routine": "FindItem"
+      },
+      "id": 92748,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 2,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "DrawMenu"
+      },
+      "id": 92749,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 3,
+        "call_index": 1,
+        "reason": "unsupported residence callee",
+        "routine": "MoveMenuBar"
+      },
+      "id": 92750,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "PrintFname"
+      },
+      "id": 92751,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 4,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "Draw"
+      },
+      "id": 92752,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 6,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "Inv"
+      },
+      "id": 92753,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "IsTagged"
+      },
+      "id": 92754,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "RowMarker"
+      },
+      "id": 92755,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "IsProtected"
+      },
+      "id": 92756,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "IsDirectory"
+      },
+      "id": 92757,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 3,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "Tag"
+      },
+      "id": 92758,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "FindNext"
+      },
+      "id": 92759,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "PrintNonzeroDigit"
+      },
+      "id": 92760,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 3,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "PrintB"
+      },
+      "id": 92761,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "GoTo"
+      },
+      "id": 92762,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 18,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "NewDrive"
+      },
+      "id": 92763,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 6,
+        "call_index": 1,
+        "reason": "unsupported residence callee",
+        "routine": "Attrib"
+      },
+      "id": 92764,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 9,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "SwapScr"
+      },
+      "id": 92765,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 39881,
+      "data": {
+        "accepted": true,
+        "after_bytes": 9838,
+        "before_bytes": 9918,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 51,
+            "before": 85,
+            "routine": "Ord"
+          },
+          {
+            "after": 37,
+            "before": 59,
+            "routine": "Items"
+          },
+          {
+            "after": 53,
+            "before": 74,
+            "routine": "FindItem"
+          },
+          {
+            "after": 731,
+            "before": 734,
+            "routine": "Copy"
+          }
+        ]
+      },
+      "id": 112013,
+      "kind": "cross-call-home-result"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "snapshot": 111262
+      },
+      "id": 112014,
+      "kind": "final-artifact-selection"
+    }
+  ]
+}

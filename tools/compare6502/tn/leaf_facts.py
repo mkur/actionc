@@ -37,7 +37,12 @@ def main():
              "src/mir6502/analysis/machine_liveness.rs",
              "src/mir6502/analysis/known_callees/entry_inputs.rs",
              "src/mir6502/lower.rs", "src/mir6502/ir.rs", "src/mir6502/mod.rs",
-             "src/mir6502/emit.rs", "src/mir6502/parameter_homes/cross_call.rs"]
+             "src/mir6502/emit.rs", "src/mir6502/preparation.rs", "src/mir6502/verify.rs",
+             "src/mir6502/analysis/storage_ownership/source_objects.rs",
+             "src/mir6502/parameter_homes.rs", "src/mir6502/parameter_homes/cross_call.rs",
+             "src/mir6502/parameter_homes/lifetimes.rs", "src/mir6502/parameter_homes/locals.rs",
+             "src/mir6502/parameter_homes/observations.rs", "src/mir6502/parameter_homes/physical.rs",
+             "src/mir6502/parameter_homes/zero_page.rs"]
     receipt = {
         "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         "inputs_sha256": {p: digest(ROOT / p) for p in paths},
@@ -67,7 +72,9 @@ def main():
         if current.count(HOOK) != 1:
             raise RuntimeError("Temporary hook changed; remove it manually without discarding other edits.")
         source.write_bytes(current.replace(HOOK, b"", 1))
-    receipt["outputs_sha256"] = {p: digest(destination / p) for p in ["facts.json", "leaves.asm", "tn.xex", "map.txt", "relocations.txt"]}
+    receipt["outputs_sha256"] = {p: digest(destination / p) for p in [
+        "facts.json", "leaves.asm", "tn.xex", "map.txt", "relocations.txt",
+        "selected.mir", "controls.mir", "controls.asm"]}
     receipt["hook_removed"] = HOOK not in source.read_bytes()
     (destination / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
 

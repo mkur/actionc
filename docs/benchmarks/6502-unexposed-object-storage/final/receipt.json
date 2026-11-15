@@ -1,0 +1,49 @@
+{
+  "revision": "15da9bbd3a62a2b8d47bcea6befe56d5baab4c1d",
+  "inputs_sha256": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "tools/compare6502/tn/leaf_facts.py": "34c90895ee2df0dbf665456fa0b3336604bbcac6396863451536a1188e3fc1ec",
+    "tools/compare6502/tn/leaf_facts_probe.rs": "6b572180de3eb7f02760dc6b54eac1c2bf2275ea552b4345170156844a3acd7c",
+    "src/mir6502/analysis/known_callees.rs": "4a8635fb51e509b3e513edafc6c68327082bff558820ea6b6d474bfc21b4c546",
+    "src/mir6502/analysis/effects.rs": "fe1bce33d5039dce126989e48d4279689100c357511bdc254b884f953f0a9306",
+    "src/mir6502/analysis/machine_liveness.rs": "fb24bc31b1d8507cfc4b7f95bf3a2815c99cef0529da8a5f48bb7269c5b31d91",
+    "src/mir6502/analysis/known_callees/entry_inputs.rs": "560f1677e3ad7713c93781a6ede6b299de267a1412a20d1e5d457dea8610c281",
+    "src/mir6502/lower.rs": "75c28a0105cc81c9a8415b4c617a15243f1472d86424c8d3e74181efb9364c66",
+    "src/mir6502/ir.rs": "45649cec5dec5eecadc33e4f2a70f5de137b05373ec7cc1466f198658249a125",
+    "src/mir6502/mod.rs": "717c29b6bb2e15de3afee0eeb0422d2acf79965745f9961019eaac599578a6a1",
+    "src/mir6502/emit.rs": "9939671bf6376abe029646ab690b7967ac6d41ec5afb5a7df929fb257e2affe1",
+    "src/mir6502/preparation.rs": "60c451a3a3bc50a21bb9836aad693ba340d5e22e557027ee9e4b3f2ca99a340f",
+    "src/mir6502/verify.rs": "0105d40af851e6cfbe7cd5021d4a269dc8109bc0c7964fff7fa48a19d5349030",
+    "src/mir6502/analysis/storage_ownership/source_objects.rs": "92729b8c96ab28d847c53e26cbcc8218b974984f1e0b773363b77beebb222ca1",
+    "src/mir6502/parameter_homes.rs": "cf5c1954339028a267d766d3c99e89c4aff0776c1abecd18245b9f49f62ed9cb",
+    "src/mir6502/parameter_homes/cross_call.rs": "90373b55b887003c4fbdf5ab285a728e82d33870b341a68de003d3a9569ea6b6",
+    "src/mir6502/parameter_homes/lifetimes.rs": "ea715ca39e65360134f5296d978e4c25c38baff3a08a41e78042f4c97fafb0f9",
+    "src/mir6502/parameter_homes/locals.rs": "6bc0dc9badd66f380a73e35d1b2225ccdb2d4c24600475414c4640f041cfd659",
+    "src/mir6502/parameter_homes/observations.rs": "d2813dc5af7e7d2436a2f936bd121d70a36d6e3e051ff39b14cb810d5af7332e",
+    "src/mir6502/parameter_homes/physical.rs": "22dd502ad27419b054f99390fe9d404e3971d0ccfbe74debb7ade2d4a605f86f",
+    "src/mir6502/parameter_homes/zero_page.rs": "9aef647eabe74664b78f76e36bafe0e5a8043eae396aa1590c833518fd5400ce"
+  },
+  "compiler_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "command": [
+    "cargo",
+    "test",
+    "--lib",
+    "mir6502::analysis::known_callees::tn_leaf_facts_audit::dump_tn_leaf_facts",
+    "--",
+    "--exact",
+    "--ignored",
+    "--nocapture"
+  ],
+  "outputs_sha256": {
+    "facts.json": "af1a8ba6bfabdddb0590c0f42a6093c8aba4c86722ae8a572d30d038d5434386",
+    "leaves.asm": "ac0c632e59e2866cca224f5732d9c1da2fa970410058ea0772ecbf1fe1c02ef0",
+    "tn.xex": "9a94d4aa9c28201a6394cccb7dec7e2777165538bc96dd71ecaad6658ce3b9a3",
+    "map.txt": "c153a2e089619f914f2898f79b620b3d8cc4fd88aab6c61053ef08ac7e464547",
+    "relocations.txt": "5581188f8ba19f9ac173cd544e90c46b0ff357c031bc8c96796ca274b1528252",
+    "selected.mir": "61ba1d6df0f88da4cb293ff41cdbf0ba24ad7cef93fe4926976578ae61fc25fe",
+    "controls.mir": "62a44ae3518179cbddc416c51a51c3d56b238f7de832aa8bcebb655da7ffd6da",
+    "controls.asm": "64e617c853579496693f0723d041a9c18dab533a39286da61e6e5c367e74a51f"
+  },
+  "hook_removed": true
+}

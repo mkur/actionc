@@ -171,6 +171,18 @@ fn dump_tn_leaf_facts() {
         }));
     }
     std::fs::create_dir_all(&destination).unwrap();
+    std::fs::write(destination.join("selected.mir"), mir::format_program(p)).unwrap();
+    let controls = ["Sort", "Fnamecmp", "Ord", "Items", "FindItem", "Next"];
+    std::fs::write(destination.join("controls.mir"), mir::printer::format_program_filtered(p,
+        |id| p.routines.iter().any(|r| r.id == id && controls.contains(&r.name.as_str())))).unwrap();
+    let mut controls_asm = String::new();
+    for name in controls {
+        let range = output.map.routine_ranges.iter().find(|r| r.name == name).unwrap();
+        controls_asm.push_str(&format!("; {name} ({} bytes)\n{}\n", range.end-range.start,
+            crate::codegen::format_listing_with_origin(
+                &output.bytes[usize::from(range.start-origin)..usize::from(range.end-origin)], range.start)));
+    }
+    std::fs::write(destination.join("controls.asm"), controls_asm).unwrap();
     std::fs::write(destination.join("facts.json"),serde_json::to_string_pretty(&json!({
         "schema":1,"source":"samples/tn/modern/TN.ACT","origin":origin,"runtime":"ActionCart",
         "config":format!("{config:?}"),"packaged_bytes":image.len(),
