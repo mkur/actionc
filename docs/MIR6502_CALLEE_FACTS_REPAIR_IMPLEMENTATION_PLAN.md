@@ -1,9 +1,9 @@
 # MIR6502 callee-fact repairs: implementation plan
 
 Prepared 2026-11-15. Status: paused after slices 1–2; slice 3 is partially edited
-and unvalidated in the working tree. The next priority is the narrower
-[private-storage boundary plan](MIR6502_PRIVATE_STORAGE_BOUNDARY_IMPLEMENTATION_PLAN.md).
-Remaining slices below are deferred, not prerequisites for that work.
+and unvalidated in the working tree. The narrower
+[private-storage boundary plan](MIR6502_PRIVATE_STORAGE_BOUNDARY_IMPLEMENTATION_PLAN.md)
+was implemented separately. Remaining slices below are still deferred.
 Baseline: `7ab6f840ba0475c5ddde9194c130ee83d96c83d1` and the
 [TN leaf-facts audit](benchmarks/6502-tn-leaf-facts/README.md).
 

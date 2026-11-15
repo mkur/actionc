@@ -1,0 +1,49 @@
+{
+  "revision": "336ff2a6",
+  "source_scope": "Clean linked checkout; parked directional-write and unrelated edits excluded.",
+  "probe_source_sha256": "ac7e085a100d44cab3d0cdaed20fd0a4c2ddb4671102ea349f74b47438f161f1",
+  "api_rlib_sha256": "28e3b62df4d2c27277e8860ac8bb8e99c907c5cbe2148c2c9fd5649d577a92b3",
+  "probe_sha256": "bed2dbafeb58b344c8253b219b4395a3e241ca4b3460eb890e43ef6350219922",
+  "artifacts": {
+    "tn-ActionCart-3000-after.debug": {
+      "bytes": 621974,
+      "sha256": "cb53427190eb281ffa1dc3741880526bc0fbff390d1f911c5a6e36776e8bdbff"
+    },
+    "tn-ActionCart-3000-after.xex": {
+      "bytes": 9862,
+      "sha256": "91665508274e8b2749b2928267dfae37e2851fadfa3f3444c4c3776af09d48d7"
+    },
+    "tn-ActionCart-3000-before.debug": {
+      "bytes": 621974,
+      "sha256": "cb53427190eb281ffa1dc3741880526bc0fbff390d1f911c5a6e36776e8bdbff"
+    },
+    "tn-ActionCart-3000-before.xex": {
+      "bytes": 9862,
+      "sha256": "91665508274e8b2749b2928267dfae37e2851fadfa3f3444c4c3776af09d48d7"
+    },
+    "tn-ActionCart-3000-off.config": {
+      "bytes": 2221,
+      "sha256": "2203a3126f9332da6435e7d5655652b8795f24975413a61f1a46f72d56f99747"
+    },
+    "tn-ActionCart-3000-off.events.json": {
+      "bytes": 32741135,
+      "sha256": "9cc3b5af0ba01540824f95ff8390f95dfeacf1d549dddb31dd3ca3ea53231f49"
+    },
+    "tn-ActionCart-3000-off.routines.json": {
+      "bytes": 4519,
+      "sha256": "c2ce768cf968b7d8c6bf14225c2134d510b0dfaf93ea4379c361c3b15a4113eb"
+    },
+    "tn-ActionCart-3000-on.config": {
+      "bytes": 2220,
+      "sha256": "4f8a15a50669aeaa591216cb0afcf5d1a47b75872fe6b58644fc4cb3234fbf7b"
+    },
+    "tn-ActionCart-3000-on.events.json": {
+      "bytes": 33233355,
+      "sha256": "3eabfd9b1c6f5b1c4bd91784806158bc3561f4d6c60beb43801448e8c97eae10"
+    },
+    "tn-ActionCart-3000-on.routines.json": {
+      "bytes": 4519,
+      "sha256": "c2ce768cf968b7d8c6bf14225c2134d510b0dfaf93ea4379c361c3b15a4113eb"
+    }
+  }
+}

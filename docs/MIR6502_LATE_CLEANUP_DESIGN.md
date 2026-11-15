@@ -439,11 +439,14 @@ coarse retained snapshots, provided their preservation checks remain equivalent.
 ## Allocation-pruning experiment
 
 Status: implemented as an opt-in experiment, disabled in both default and
-optimized configurations. The single-private-byte control shrinks from 99 to 97
-bytes; TN retains all six candidate spill bytes and has no additional saving.
-The [current qualification](benchmarks/6502-private-compaction/qualification.json)
-records both results. The [earlier report](benchmarks/6502-late-spills/README.md)
-covers the address-stable control and original blockers.
+optimized configurations. The
+[private-storage boundary qualification](benchmarks/6502-private-storage-boundary/README.md)
+permits one-byte tail removal and two-byte compaction with an unknown assembly
+reader. Current TN has no unused spill candidates and no pruning saving.
+The [earlier compaction qualification](benchmarks/6502-private-compaction/qualification.json)
+records its original 99-to-97-byte control and six retained TN candidates.
+The [initial report](benchmarks/6502-late-spills/README.md) covers the
+address-stable control and original blockers.
 
 The allocation experiment removes only completely unreferenced one-byte
 `frame.spills` declarations. It retains live storage IDs, order, parameters,

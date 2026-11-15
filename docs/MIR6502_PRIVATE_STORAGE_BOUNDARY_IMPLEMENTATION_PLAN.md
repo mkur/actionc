@@ -1,6 +1,12 @@
 # MIR6502 private-storage boundary: implementation plan
 
-Prepared 2026-11-15. Status: slices 1–2 complete; qualification pending.
+Prepared 2026-11-15. Status: complete.
+
+[Qualification](benchmarks/6502-private-storage-boundary/README.md):
+TN is 9,870 bytes, **+8** against the corrected baseline, with pruning off/on.
+Four extra stores are retained by conservative unresolved-observation guards.
+Independent execution controls permit one- and two-byte savings. The 16 ownership
+and 28 pruning tests passed; no full suite ran.
 
 Allow existing cleanup to remove private temporaries without requiring complete
 read footprints for every call or assembly routine. Reuse storage ownership,

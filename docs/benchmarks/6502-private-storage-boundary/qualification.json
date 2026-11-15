@@ -1,0 +1,99 @@
+{
+  "baseline_revision": "336ff2a6",
+  "implementation_revision": "499ce201dcfa4982287fc8f0729184f21a1aa978",
+  "runtime": "ActionCart",
+  "origin": 12288,
+  "normal": {
+    "before_bytes": 9862,
+    "after_bytes": 9870,
+    "delta": 8
+  },
+  "spill_pruning_enabled": {
+    "before_bytes": 9862,
+    "after_bytes": 9870,
+    "delta": 8,
+    "result": {
+      "accepted": false,
+      "candidate_spills": 0,
+      "reason": "NoUnusedSpills",
+      "removed_spills": 0,
+      "unreferenced_spills": 0
+    }
+  },
+  "routine_deltas": [
+    {
+      "name": "MoveMenuBar",
+      "before_code_bytes": 115,
+      "after_code_bytes": 117,
+      "delta": 2
+    },
+    {
+      "name": "Draw",
+      "before_code_bytes": 145,
+      "after_code_bytes": 147,
+      "delta": 2
+    },
+    {
+      "name": "Tag",
+      "before_code_bytes": 88,
+      "after_code_bytes": 90,
+      "delta": 2
+    },
+    {
+      "name": "TagAll",
+      "before_code_bytes": 87,
+      "after_code_bytes": 89,
+      "delta": 2
+    }
+  ],
+  "inspected_unchanged": {
+    "Putchar": 19,
+    "FormatDirectoryRow": 333,
+    "SetWin": 636
+  },
+  "removed_store_delta": -4,
+  "removed_spill_bytes": 0,
+  "growth_explanation": {
+    "instruction": "STA $E3",
+    "count": 4,
+    "reason": "physical-read-alias",
+    "evidence": "Unresolved machine observations (address None), not demonstrated reads of $E3. The explicit-reference decoder remains conservative.",
+    "unresolved_observer_routines": [
+      "Block",
+      "GetImage",
+      "PutImage",
+      "_Cio",
+      "_StrNam",
+      "Range",
+      "drives",
+      "delcancel",
+      "density",
+      "yesabort",
+      "lockunlock",
+      "yescancel",
+      "MakeJmp"
+    ]
+  },
+  "trace_matches_untraced": true,
+  "controls": {
+    "private_tail_bytes_saved": 1,
+    "private_compaction_bytes_saved": 2,
+    "byte_inputs": 256,
+    "runtimes": [
+      "ActionCart",
+      "Standalone"
+    ],
+    "origins": [
+      12288,
+      16839
+    ]
+  },
+  "tests": {
+    "ownership_passed": 16,
+    "pruning_passed": 28,
+    "pruning_note": "27 passed in the group run; the one expected-reason update passed a focused recheck.",
+    "mads_tests_ignored": 2,
+    "full_suites_run": false
+  },
+  "measurement_scope": "TN code size and output consistency; independent execution controls, not a full TN runtime session."
+}

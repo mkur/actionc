@@ -1,0 +1,81 @@
+{
+  "revision": "499ce201dcfa4982287fc8f0729184f21a1aa978",
+  "source_scope": "Committed compiler in isolated checkout; paused directional-write and unrelated edits excluded.",
+  "probe_source_sha256": "ac7e085a100d44cab3d0cdaed20fd0a4c2ddb4671102ea349f74b47438f161f1",
+  "api_rlib_sha256": "c60172b13c60caf33287d3463e230c7d1b08ff14d368b1f529d5bce6a2290215",
+  "probe_sha256": "93fd16727a2c65182e6c21c4211f5b6a76afe96273771d70eccd6e6739963ba2",
+  "artifacts": {
+    "Draw.asm": {
+      "bytes": 1748,
+      "sha256": "f7f1805710b58503f5e3495ba723fb060cbb580c6ab11808e5d110b0a30a0313"
+    },
+    "Draw.bin": {
+      "bytes": 147,
+      "sha256": "c6098f4053e51e43d8d641942ff8a4aaf12f4577d1cef66b8f4d5e3e090fb981"
+    },
+    "MoveMenuBar.asm": {
+      "bytes": 1220,
+      "sha256": "5dad5db324ac720e2712106884f41fca65f139bff3186bedeb7ebc6a0281b9e7"
+    },
+    "MoveMenuBar.bin": {
+      "bytes": 117,
+      "sha256": "f80babd973713915a8f2d287c2669c6b33a30e7d84614a5f10b42b165ebade6a"
+    },
+    "Tag.asm": {
+      "bytes": 989,
+      "sha256": "1291822459633bb44509026b72b330584e613ff0cec22e71f408373a7cb260e9"
+    },
+    "Tag.bin": {
+      "bytes": 90,
+      "sha256": "7a0f784c76bacba8db0d48ae0db2ecef44e5b1288a4cefd739977d5d30ec3962"
+    },
+    "TagAll.asm": {
+      "bytes": 989,
+      "sha256": "951e4c65729346ae5b51ce1675f80a80ad924a38e4aedc7a62eb1faa62b41e4c"
+    },
+    "TagAll.bin": {
+      "bytes": 89,
+      "sha256": "5dba8b65f4ef114b41cf0c54569aaa70165484ddeb2da6d35d06bb3dd3952add"
+    },
+    "tn-ActionCart-3000-after.debug": {
+      "bytes": 622079,
+      "sha256": "7a09e83e84e1dbea6ff4457e9464a00e22a71189c06a672b1a7ddd1ef6a4610c"
+    },
+    "tn-ActionCart-3000-after.xex": {
+      "bytes": 9870,
+      "sha256": "f419ca57a1d49631748ef9fccd694cf4012296e0a4a8e5117860f758faefb56f"
+    },
+    "tn-ActionCart-3000-before.debug": {
+      "bytes": 622079,
+      "sha256": "7a09e83e84e1dbea6ff4457e9464a00e22a71189c06a672b1a7ddd1ef6a4610c"
+    },
+    "tn-ActionCart-3000-before.xex": {
+      "bytes": 9870,
+      "sha256": "f419ca57a1d49631748ef9fccd694cf4012296e0a4a8e5117860f758faefb56f"
+    },
+    "tn-ActionCart-3000-off.config": {
+      "bytes": 2221,
+      "sha256": "2203a3126f9332da6435e7d5655652b8795f24975413a61f1a46f72d56f99747"
+    },
+    "tn-ActionCart-3000-off.events.json": {
+      "bytes": 32783215,
+      "sha256": "b2934e5eb14fb506b4739037e187c3e3f577b7c673e6a5aaf334a9aa0b3a6e7c"
+    },
+    "tn-ActionCart-3000-off.routines.json": {
+      "bytes": 4519,
+      "sha256": "ce30b842509923ff6a85340dba1bc9631662459e4803a3a9290d55fbf939ea5e"
+    },
+    "tn-ActionCart-3000-on.config": {
+      "bytes": 2220,
+      "sha256": "4f8a15a50669aeaa591216cb0afcf5d1a47b75872fe6b58644fc4cb3234fbf7b"
+    },
+    "tn-ActionCart-3000-on.events.json": {
+      "bytes": 33275435,
+      "sha256": "977d61af458b6e8bebcfcbbdda160fae85f567d7c1e5194f16b276b2bba5d1be"
+    },
+    "tn-ActionCart-3000-on.routines.json": {
+      "bytes": 4519,
+      "sha256": "ce30b842509923ff6a85340dba1bc9631662459e4803a3a9290d55fbf939ea5e"
+    }
+  }
+}
