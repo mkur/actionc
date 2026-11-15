@@ -76,6 +76,13 @@ observation inventory cannot separate these lifetimes. This is a conservative
 cleanup limitation, not evidence that the new call-preservation proof failed.
 The initial implementation retains that inventory and the strict cost guard.
 
+A subsequent code-path audit identifies two independent vetoes: the complete
+source-declaration inventory rejects temporary stores overlapping a resident
+parameter before deadness analysis; the global read-alias list would also treat
+that parameter's reads as observers elsewhere. Both discard routine/lifetime
+context. The proposed [storage-observation design](../../MIR6502_STORAGE_OBSERVATION_DESIGN.md)
+addresses both while preserving the existing allocation and acceptance rules.
+
 ## Combined parameter and local qualification (slice 5)
 
 [Gate off](locals-off.json) and [gate on](locals.json) cover both runtimes/origins,

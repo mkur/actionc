@@ -7,7 +7,9 @@ below has its own gate, subordinate to parameter placement and peepholes.
 The [callee capture boundary refinement](#proposed-refinement-callee-entry-facts-through-parameter-capture)
 is also implemented and qualified. The
 [ordinary-call and local-home extension](#proposed-extension-zp-homes-across-ordinary-calls)
-below is proposed; its savings remain to be measured.
+is implemented and qualified. The proposed
+[storage-observation refinement](MIR6502_STORAGE_OBSERVATION_DESIGN.md) addresses
+its remaining interaction with terminal cleanup.
 
 The completed [leaf implementation plan](MIR6502_PARAMETER_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
 covers the leaf scope. The [handoff implementation plan](MIR6502_PARAMETER_ARGUMENT_HANDOFF_IMPLEMENTATION_PLAN.md)
@@ -792,6 +794,12 @@ This extension is implemented and
 The parent peephole and parameter-home gates remain authoritative. Independent
 controls save bytes; TN retains its previous artifact because its proposed batch
 fails the no-routine-growth rule below.
+
+The [storage-observation design](MIR6502_STORAGE_OBSERVATION_DESIGN.md) explains
+the two global cleanup vetoes behind that rejection and proposes retaining
+routine/object/lifetime evidence through physical observation checks. Its
+exception is limited to private temporary-store deletion; residence and cost
+requirements in this note remain authoritative.
 
 Extend the existing placement contract to ordinary calls followed by further
 computation, including calls inside loops. First place parameters in ZP; then

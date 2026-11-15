@@ -264,6 +264,13 @@ after edits. The ownership classifier supplies no initialization, value, registe
 flag, callee-preservation or movement proof. Existing home liveness remains a
 conservative prerequisite; it need not exploit every private fixed-scratch case.
 
+The proposed [storage-observation refinement](MIR6502_STORAGE_OBSERVATION_DESIGN.md)
+defines a narrow contextual exception for a temporary overlapping another
+routine's verified, unexposed ZP home. It preserves object identity through both
+declaration protection and read-alias checks. The unconditional disjointness
+query and allocation-pruning/movement rules remain conservative; this exception
+is not yet implemented.
+
 There is no additional physical-ZP reader walk, caller-continuation scan or
 special `SArgs` exemption. The shared home-definition analysis owns lifetime
 proofs. Keeping a second call-reader policy here would give identical compiler
