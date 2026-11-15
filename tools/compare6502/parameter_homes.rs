@@ -22,9 +22,21 @@ fn main() {
         &[
             ("tn", "samples/tn/modern/TN.ACT", true),
             ("cross-call", "fixtures/runtime/cross_call_homes.act", false),
-            ("cross-call-inline", "fixtures/runtime/cross_call_homes.act", true),
-            ("cross-call-locals", "fixtures/runtime/cross_call_locals.act", false),
-            ("cross-call-locals-inline", "fixtures/runtime/cross_call_locals.act", true),
+            (
+                "cross-call-inline",
+                "fixtures/runtime/cross_call_homes.act",
+                true,
+            ),
+            (
+                "cross-call-locals",
+                "fixtures/runtime/cross_call_locals.act",
+                false,
+            ),
+            (
+                "cross-call-locals-inline",
+                "fixtures/runtime/cross_call_locals.act",
+                true,
+            ),
         ]
     } else if capture_suite {
         &[
@@ -126,7 +138,12 @@ fn main() {
                                     | "CopyCounted"
                                     | "ForwardWords"
                                     | "Strcpy"
-                                    | "Ord" | "Items" | "FindRecord" | "CountRecords" | "KeepWord" | "Persistent"
+                                    | "Ord"
+                                    | "Items"
+                                    | "FindRecord"
+                                    | "CountRecords"
+                                    | "KeepWord"
+                                    | "Persistent"
                             )
                         })
                         .map(|r| r.name.clone())
@@ -150,10 +167,21 @@ fn main() {
                 let bytes = actionc::codegen::format_load_file(&output);
                 fs::write(destination.join(format!("{id}.xex")), &bytes).unwrap();
                 if cross_suite {
-    let events = trace.events();
-    let decisions: Vec<_> = events.iter().filter(|e| e.kind.ends_with("-result") || e.kind == "cross-call-candidate").collect();
-                    fs::write(destination.join(format!("{id}.decisions.txt")), format!("{decisions:#?}")).unwrap();
-                    fs::write(destination.join(format!("{id}.manifest.json")), trace.manifest().to_string()).unwrap();
+                    let events = trace.events();
+                    let decisions: Vec<_> = events
+                        .iter()
+                        .filter(|e| e.kind.ends_with("-result") || e.kind == "cross-call-candidate")
+                        .collect();
+                    fs::write(
+                        destination.join(format!("{id}.decisions.txt")),
+                        format!("{decisions:#?}"),
+                    )
+                    .unwrap();
+                    fs::write(
+                        destination.join(format!("{id}.manifest.json")),
+                        trace.manifest().to_string(),
+                    )
+                    .unwrap();
                 }
                 fs::write(
                     destination.join(format!("{id}.map.txt")),
@@ -179,8 +207,20 @@ fn main() {
                     "Strcat",
                     "Key",
                     "Next",
-                    "NoArgs", "KeptLocal", "SumSteps", "WalkLocal", "EntryLocal", "AddressLocal",
-                    "Ord", "Items", "AdvanceRecord", "FindRecord", "CountRecords", "KeepWord", "Conditional", "Persistent",
+                    "NoArgs",
+                    "KeptLocal",
+                    "SumSteps",
+                    "WalkLocal",
+                    "EntryLocal",
+                    "AddressLocal",
+                    "Ord",
+                    "Items",
+                    "AdvanceRecord",
+                    "FindRecord",
+                    "CountRecords",
+                    "KeepWord",
+                    "Conditional",
+                    "Persistent",
                     "Swapped",
                     "Repeated",
                     "Computed",
@@ -215,7 +255,9 @@ fn main() {
                                 s.scope
                                     == actionc::codegen::CodegenSymbolScope::Routine(name.into())
                                     && (s.kind == actionc::codegen::CodegenSymbolKind::Parameter
-                                        || (cross_suite && s.kind == actionc::codegen::CodegenSymbolKind::Local))
+                                        || (cross_suite
+                                            && s.kind
+                                                == actionc::codegen::CodegenSymbolKind::Local))
                             })
                             .collect();
                         let homes: u16 = symbols
@@ -256,8 +298,12 @@ fn main() {
                     })
                     .map(|e| e.data.to_string())
                     .unwrap_or("null".into());
-                let cross_outcome = events.iter().rev().find(|e| e.kind == "cross-call-home-result")
-                    .map(|e| e.data.to_string()).unwrap_or("null".into());
+                let cross_outcome = events
+                    .iter()
+                    .rev()
+                    .find(|e| e.kind == "cross-call-home-result")
+                    .map(|e| e.data.to_string())
+                    .unwrap_or("null".into());
                 let upstream = [
                     "inlining",
                     "loop_motion",

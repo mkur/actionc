@@ -308,3 +308,122 @@ fn initialized_word_and_pointer_locals_share_one_trial_but_entry_reads_keep_stor
             < actionc::codegen::format_load_file(&old).len()
     );
 }
+
+#[test]
+fn optimized_default_saves_bytes_and_disabled_parent_gates_keep_output() {
+    let n = nir(&include_str!("../fixtures/runtime/cross_call_homes.act").replace("\r\n", "\n"));
+    let config = Mir6502Config::optimized();
+    let output =
+        mir6502::generate_output_with_config_and_runtime(&n, 0x3000, &config, Runtime::ActionCart)
+            .unwrap();
+    let off = Mir6502Config {
+        enable_cross_call_home_selection: false,
+        ..config.clone()
+    };
+    let old =
+        mir6502::generate_output_with_config_and_runtime(&n, 0x3000, &off, Runtime::ActionCart)
+            .unwrap();
+    assert!(
+        actionc::codegen::format_load_file(&output).len()
+            < actionc::codegen::format_load_file(&old).len()
+    );
+    // The no-peephole path supports this branch-free call control; abstract
+    // Boolean branches require the existing lowering optimizations.
+    let guard_n =
+        nir("CARD FUNC Leaf(CARD x) RETURN(x+1) CARD FUNC Guard(CARD x,y) RETURN(Leaf(x)+y)");
+    for (peepholes, placement) in [(false, true), (true, false)] {
+        let config = Mir6502Config {
+            enable_peepholes: peepholes,
+            enable_small_leaf_inlining: false,
+            enable_parameter_home_selection: placement,
+            ..config.clone()
+        };
+        let output = mir6502::generate_output_with_config_and_runtime(
+            &guard_n,
+            0x3000,
+            &config,
+            Runtime::ActionCart,
+        )
+        .unwrap();
+        let off = Mir6502Config {
+            enable_cross_call_home_selection: false,
+            ..config
+        };
+        assert_eq!(
+            output,
+            mir6502::generate_output_with_config_and_runtime(
+                &guard_n,
+                0x3000,
+                &off,
+                Runtime::ActionCart
+            )
+            .unwrap()
+        );
+    }
+}
+
+#[test]
+#[ignore = "requires MADS assembler on PATH or ACTIONC_MADS"]
+fn cross_call_homes_mads_listings_reconstruct_and_relocate_with_lf_and_crlf() {
+    use actionc::compiler::{CompileMode, CompileOptions, compile_file};
+    for fixture in ["cross_call_homes", "cross_call_locals"] {
+        let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join(format!("fixtures/runtime/{fixture}.act"));
+        let dir = std::env::temp_dir().join(format!(
+            "actionc-cross-call-homes-mads-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let outputs = [0x3000, 0x41C7].map(|origin| {
+                compile_file(
+                    &source,
+                    &CompileOptions::for_mode(CompileMode::Mir6502)
+                        .with_origin(origin)
+                        .with_runtime(runtime),
+                )
+                .unwrap()
+            });
+            for (i, origin) in [0x3000, 0x41C7].into_iter().enumerate() {
+                let listing = outputs[0].source_listing().replace("\r\n", "\n").replace(
+                    "ACTIONC_ORIGIN = $3000",
+                    &format!("ACTIONC_ORIGIN = ${origin:04X}"),
+                );
+                for crlf in [false, true] {
+                    let stem = format!("{runtime:?}-{origin:04X}-{crlf}");
+                    let asm = dir.join(format!("{stem}.asm"));
+                    let image = dir.join(format!("{stem}.xex"));
+                    std::fs::write(
+                        &asm,
+                        if crlf {
+                            listing.replace('\n', "\r\n")
+                        } else {
+                            listing.clone()
+                        },
+                    )
+                    .unwrap();
+                    let result = std::process::Command::new(
+                        std::env::var_os("ACTIONC_MADS").unwrap_or_else(|| "mads".into()),
+                    )
+                    .arg(&asm)
+                    .arg(format!("-o:{}", image.display()))
+                    .arg("-s")
+                    .output()
+                    .unwrap();
+                    assert!(
+                        result.status.success(),
+                        "{} {}",
+                        String::from_utf8_lossy(&result.stdout),
+                        String::from_utf8_lossy(&result.stderr)
+                    );
+                    assert_eq!(
+                        std::fs::read(image).unwrap(),
+                        outputs[i].object_bytes(),
+                        "{stem}"
+                    );
+                }
+            }
+        }
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+}

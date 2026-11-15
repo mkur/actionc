@@ -1,9 +1,15 @@
 # ZP homes across ordinary calls
 
-Slice 0 freezes the optimized compiler at `decbc208` (compiler behavior
+The extension is implemented and enabled in the optimized configuration. The
+[final qualification](#final-qualification-and-default-slice-6) records the
+default decision, complete check scope and remaining limitations.
+
+## Baseline (slice 0)
+
+Slice 0 froze the optimized compiler at `decbc208` (compiler behavior
 `a77210d8`). [baseline.json](baseline.json) records sources, library/image/map
-hashes, configurations, work counts and traced/untraced equality. No new home
-selection is active yet.
+hashes, configurations, work counts and traced/untraced equality. Cross-call
+home selection was disabled for these baseline measurements.
 
 | Program | Cart bytes | Standalone bytes |
 | --- | ---: | ---: |
@@ -92,3 +98,59 @@ but the same four other routines each retain an extra two-byte store. The net
 48-byte image saving is rejected by the unchanged no-routine-growth policy.
 Final TN remains **9,847 / 9,954**, with exact image/map/relocation rollback.
 No result-home coalescing or cleanup ownership relaxation was added.
+
+## Final qualification and default (slice 6)
+
+`Mir6502Config::optimized()` now enables cross-call home selection. The
+conservative default leaves it disabled, as do disabled parent peephole or
+parameter-home gates. One batch places eligible parameters and definitely
+initialized locals; it adds at most one core continuation. Missing authoritative
+local bindings remain unresolved in layout and callee facts, even before the
+verifier rejects malformed MIR.
+
+[Qualification receipts](qualification.json) record these passing checks:
+
+| Scope | Passed | Coverage |
+| --- | ---: | --- |
+| MIR6502 units | 1,404 | Full MIR6502 unit filter; 15 existing ignored checks excluded |
+| MIR6502 integrations | 158 | All 35 root MIR6502 targets |
+| VM execution | 108 | 39 affected runtime, ABI, storage and optimization targets |
+| MADS assembly | 13 | Explicit execution of assembly tests ignored by the normal run |
+| Final default artifacts | 20 | Exact image, map and relocation equality with explicit-on measurements |
+
+The final [default comparisons](default-equality.json) cover TN and both
+independent fixtures, both runtimes and both origins, with control-fixture
+inlining enabled and disabled. VM coverage includes raw/optimized NIR and actual
+LF/CRLF source loading. MADS reconstructs and relocates LF/CRLF listings. The
+existing unknown-TN-destination manual experiment remains explicitly skipped;
+the receipt lists ignored unit checks. No shared NIR/SemIR contract or other
+backend changed.
+
+Two integration test setups needed correction. The leaf-only trial counter now
+explicitly disables the new extension; combined controls keep it enabled. The
+parent-gate test uses a branch-free call because the existing no-peephole path
+does not lower abstract Boolean branches when other optimized flags remain set.
+Both entire affected targets passed their rechecks. No compiler behavior was
+changed in response to these test failures.
+
+Final sizes are **294 → 222** and **248 → 202** bytes for the independent
+fixtures with inlining disabled; normal inlining gives **295 → 226** and
+**254 → 211**. The zero-parameter local case qualifies when its real call remains;
+normal inlining removes that call and leaves it outside this call-only scope.
+TN stays **9,847 cart / 9,954 standalone** bytes with exact rollback. Its rejected
+trial saves 48 bytes overall, but four other routines grow two bytes each due to
+the global cleanup observation inventory described above.
+
+Compilation work increases by one materialization for a nonempty batch: TN
+**5 → 6**, the original control **2 → 3** without inlining and **5 → 6** normally,
+and the local control **7 → 8** normally. Across the four TN runtime/origin lanes,
+the median observed untraced compilation time is **16.03 s off → 20.38 s on**.
+These are single measurements under concurrent host work, not a statistical
+benchmark. The complete measurement process, including traced runs, peaks at
+approximately **447 MB off / 502 MB on**. A fresh default-only untraced run of
+all 20 cases takes 84.84 seconds and peaks at 89 MB; the receipt includes its raw
+time report. This is a code-size feature with a measured compile-time cost.
+
+Nested/recursive/indirect calls, unsupported callee effects, exposed or
+entry-dependent locals, and result-home coalescing remain outside this scope.
+The strict image-saving and no-routine-growth guards remain unchanged.

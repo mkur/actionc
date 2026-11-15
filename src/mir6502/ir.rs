@@ -363,7 +363,11 @@ impl MirFrame {
     }
 
     pub(crate) fn inline_local(&self, id: LocalId) -> bool {
-        matches!(self.local_home(id), None | Some(MirLocalHome::Inline))
+        if self.local_homes.is_some() {
+            matches!(self.local_home(id), Some(MirLocalHome::Inline))
+        } else {
+            self.locals.iter().any(|s| s.base == MirStorageBase::Local(id))
+        }
     }
 
     pub(crate) fn has_object_binding(&self, mem: &MirMem) -> bool {

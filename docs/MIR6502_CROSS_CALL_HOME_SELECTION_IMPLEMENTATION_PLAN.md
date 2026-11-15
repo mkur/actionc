@@ -1,6 +1,6 @@
 # MIR6502 ZP homes across ordinary calls: implementation plan
 
-Prepared 2026-11-15. Status: slices 0–5 complete; slice 6 pending.
+Prepared 2026-11-15. Status: slices 0–6 complete.
 Starting repository revision: `5de3dda4`; compiler behavior: `a77210d8`.
 
 Implements the [ordinary-call and local-home design extension](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-zp-homes-across-ordinary-calls).
@@ -407,3 +407,26 @@ pointers, zero-parameter callers, exposed addresses and seeded entry values.
 record eight additional bytes saved in the original control and exact TN rollback.
 Six integration and two VM controls pass; the optimized default remains off until
 slice 6 qualification.
+
+## Slice 6 completion
+
+The optimized configuration now enables the qualified extension; the conservative
+default leaves it disabled. Disabling peepholes or parameter-home selection also
+disables this extension. A missing entry in an authoritative local table remains
+unresolved in layout and callee effects rather than recovering legacy placement.
+
+[Final qualification](benchmarks/6502-cross-call-homes/qualification.json) records
+1,404 MIR6502 unit tests, 158 integration tests across all 35 MIR6502 targets,
+108 VM tests across 39 affected targets and 13 MADS checks passing. The two
+integration test setup corrections and their passing target rechecks are recorded
+in the receipt. LF/CRLF file loading and assembly, both runtimes/origins, and
+raw/optimized NIR are covered. Twenty fresh default-configuration outputs exactly
+match the explicit-on image, map and relocation artifacts.
+
+Independent controls save 72 and 46 bytes with inlining disabled. TN retains
+exact baseline output: four other routines grow in the proposed batch, so the
+strict acceptance guard rejects its net 48-byte saving. The extra continuation
+raises observed TN compilation from about 16 to 20 seconds. The
+[measurement report](benchmarks/6502-cross-call-homes/README.md#final-qualification-and-default-slice-6)
+records the work and timing limits. Result-home coalescing and the global cleanup
+observation limitation remain separate work; all planned slices are complete.

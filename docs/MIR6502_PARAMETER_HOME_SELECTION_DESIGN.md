@@ -786,6 +786,13 @@ their current results do not establish a benefit from this proposed refinement.
 The [implementation plan](MIR6502_CROSS_CALL_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
 defines parameter-first delivery, local binding support and final qualification.
 
+This extension is implemented and
+[qualified](benchmarks/6502-cross-call-homes/README.md#final-qualification-and-default-slice-6).
+`Mir6502Config::optimized()` enables it; the conservative default leaves it off.
+The parent peephole and parameter-home gates remain authoritative. Independent
+controls save bytes; TN retains its previous artifact because its proposed batch
+fails the no-routine-growth rule below.
+
 Extend the existing placement contract to ordinary calls followed by further
 computation, including calls inside loops. First place parameters in ZP; then
 admit eligible source locals through the same placement authority. Keep one
@@ -921,6 +928,9 @@ declarations. `MirLocalHome` admits only `Inline` and a complete adjacent
 and local identities to physical bytes; parameter ABI/capture roles remain
 separate. Missing/duplicate entries, overlapping owners, unreserved bytes,
 out-of-range accesses and conflicting allocation metadata are verifier errors.
+When this table exists, a missing entry must also remain unresolved in layout
+and callee-effect queries; it cannot recover an inline home or private-memory
+facts from the legacy declaration.
 
 The initialization proof uses the existing backward CFG home-liveness engine
 with logical-local transfers. A byte live at entry depends on a previous

@@ -1075,11 +1075,13 @@ impl MirObjectLayout {
             }
             for local in &routine.frame.locals {
                 if let MirStorageBase::Local(id) = local.base
-                    && let Some(crate::mir6502::ir::MirLocalHome::ZeroPage(start)) = routine.frame.local_home(id)
+                    && routine.frame.local_homes.is_some() && !routine.frame.inline_local(id)
                 {
-                    routine_layout.locals.insert(id, MirStoragePlacement::ZeroPage {
-                        address: u16::from(start.0), size: local.storage_size,
-                    });
+                    if let Some(crate::mir6502::ir::MirLocalHome::ZeroPage(start)) = routine.frame.local_home(id) {
+                        routine_layout.locals.insert(id, MirStoragePlacement::ZeroPage {
+                            address: u16::from(start.0), size: local.storage_size,
+                        });
+                    }
                     continue;
                 }
                 place_routine_slot(

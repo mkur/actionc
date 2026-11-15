@@ -109,6 +109,20 @@ fn explicit_local_binding_controls_layout_cost_maps_and_physical_effects() {
     assert!(reads.contains(&MirMem::FixedZeroPage(MirFixedZpSlot(0xe4))));
     assert!(reads.contains(&MirMem::FixedZeroPage(MirFixedZpSlot(0xe5))));
     assert!(mir6502::format_program(&new).contains("kept -> ZeroPage"));
+    // A damaged authoritative table cannot silently recover legacy placement
+    // in a callee summary, even before structural verification reports it.
+    let mut missing = new.clone();
+    missing.routines[0].frame.local_homes = Some(vec![]);
+    let layout = mir6502::materialize::MaterializeLayout::new(&missing, 0x3000);
+    assert_eq!(
+        layout.mem_address(missing.routines[0].id, &MirMem::Local { id, offset: 0 }),
+        None
+    );
+    let known = MirKnownCalleeSummaries::analyze_for_rewriting(&missing);
+    assert!(matches!(
+        known.get(missing.routines[0].id).unwrap().writes(),
+        crate::mir6502::analysis::known_callees::MirKnownMemoryWrites::Unknown
+    ));
 }
 
 #[test]

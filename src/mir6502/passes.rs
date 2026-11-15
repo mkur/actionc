@@ -172,7 +172,7 @@ impl Mir6502Config {
         Self {
             enable_parameter_home_selection: true,
             enable_parameter_argument_handoff: true,
-            enable_cross_call_home_selection: false,
+            enable_cross_call_home_selection: true,
             enable_captured_byte_comparisons: true,
             enable_argument_staging_reduction: true,
             enable_argument_x_forwarding: true,

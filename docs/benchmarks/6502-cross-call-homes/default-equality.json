@@ -1,0 +1,122 @@
+[
+  {
+    "id": "tn-ActionCart-3000",
+    "image_bytes": 9847,
+    "image_map_relocations_equal": true,
+    "millis": 20082
+  },
+  {
+    "id": "tn-ActionCart-41c7",
+    "image_bytes": 9847,
+    "image_map_relocations_equal": true,
+    "millis": 19935
+  },
+  {
+    "id": "tn-Standalone-3000",
+    "image_bytes": 9954,
+    "image_map_relocations_equal": true,
+    "millis": 19940
+  },
+  {
+    "id": "tn-Standalone-41c7",
+    "image_bytes": 9954,
+    "image_map_relocations_equal": true,
+    "millis": 20260
+  },
+  {
+    "id": "cross-call-ActionCart-3000",
+    "image_bytes": 222,
+    "image_map_relocations_equal": true,
+    "millis": 183
+  },
+  {
+    "id": "cross-call-ActionCart-41c7",
+    "image_bytes": 222,
+    "image_map_relocations_equal": true,
+    "millis": 183
+  },
+  {
+    "id": "cross-call-Standalone-3000",
+    "image_bytes": 222,
+    "image_map_relocations_equal": true,
+    "millis": 179
+  },
+  {
+    "id": "cross-call-Standalone-41c7",
+    "image_bytes": 222,
+    "image_map_relocations_equal": true,
+    "millis": 182
+  },
+  {
+    "id": "cross-call-inline-ActionCart-3000",
+    "image_bytes": 226,
+    "image_map_relocations_equal": true,
+    "millis": 345
+  },
+  {
+    "id": "cross-call-inline-ActionCart-41c7",
+    "image_bytes": 226,
+    "image_map_relocations_equal": true,
+    "millis": 339
+  },
+  {
+    "id": "cross-call-inline-Standalone-3000",
+    "image_bytes": 226,
+    "image_map_relocations_equal": true,
+    "millis": 339
+  },
+  {
+    "id": "cross-call-inline-Standalone-41c7",
+    "image_bytes": 226,
+    "image_map_relocations_equal": true,
+    "millis": 339
+  },
+  {
+    "id": "cross-call-locals-ActionCart-3000",
+    "image_bytes": 202,
+    "image_map_relocations_equal": true,
+    "millis": 141
+  },
+  {
+    "id": "cross-call-locals-ActionCart-41c7",
+    "image_bytes": 202,
+    "image_map_relocations_equal": true,
+    "millis": 134
+  },
+  {
+    "id": "cross-call-locals-Standalone-3000",
+    "image_bytes": 202,
+    "image_map_relocations_equal": true,
+    "millis": 133
+  },
+  {
+    "id": "cross-call-locals-Standalone-41c7",
+    "image_bytes": 202,
+    "image_map_relocations_equal": true,
+    "millis": 201
+  },
+  {
+    "id": "cross-call-locals-inline-ActionCart-3000",
+    "image_bytes": 211,
+    "image_map_relocations_equal": true,
+    "millis": 376
+  },
+  {
+    "id": "cross-call-locals-inline-ActionCart-41c7",
+    "image_bytes": 211,
+    "image_map_relocations_equal": true,
+    "millis": 361
+  },
+  {
+    "id": "cross-call-locals-inline-Standalone-3000",
+    "image_bytes": 211,
+    "image_map_relocations_equal": true,
+    "millis": 366
+  },
+  {
+    "id": "cross-call-locals-inline-Standalone-41c7",
+    "image_bytes": 211,
+    "image_map_relocations_equal": true,
+    "millis": 367
+  }
+]

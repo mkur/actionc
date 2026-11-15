@@ -19,8 +19,9 @@ fn nir(source: &str) -> actionc::nir::NirProgram {
 fn config(enabled: bool) -> Mir6502Config {
     Mir6502Config {
         enable_parameter_home_selection: enabled,
-        // Isolate leaf placement work; the handoff target covers composition.
+        // Isolate leaf placement work; separate targets cover call composition.
         enable_parameter_argument_handoff: false,
+        enable_cross_call_home_selection: false,
         ..Mir6502Config::optimized()
     }
 }
