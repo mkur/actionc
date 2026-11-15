@@ -11,7 +11,8 @@ is implemented and qualified. The implemented
 [storage-observation refinement](MIR6502_STORAGE_OBSERVATION_DESIGN.md) preserves
 routine ownership through terminal cleanup. The
 [multiple-leaf-call extension](#proposed-extension-multiple-calls-to-leaf-routines)
-remains suspended pending a batching decision. The
+has a refreshed [implementation plan](MIR6502_MULTIPLE_LEAF_CALL_HOMES_IMPLEMENTATION_PLAN.md)
+using the existing ordinary-call batch. The
 [whole-image cost revision](#proposed-refinement-whole-image-cost-acceptance)
 is implemented and [qualified](benchmarks/6502-whole-image-cost/README.md).
 Compiler baseline `8626beff` applied the per-routine veto.
@@ -337,10 +338,9 @@ subset search or another trial to implement the policy.
 
 Compare a candidate with the baseline actually selected at that boundary.
 Accepting a net saving does not prove it is better than every unmeasured subset
-of candidates. The multiple-leaf-call draft's separate-trial proposal is therefore
-withdrawn as a required design: qualify this cost change first, then revisit
-batch composition and fallback deliberately. No extra multiple-call stage is
-authorized by this refinement.
+of candidates. The multiple-leaf-call extension below uses the existing combined
+ordinary-call batch and its exact pre-trial baseline. The earlier separate-trial
+proposal is withdrawn; this cost rule adds no selection stage or subset search.
 
 ### Diagnostics and focused evidence
 
@@ -1140,10 +1140,11 @@ fixture paths, before enabling the new scope by default.
 
 ## Proposed extension: multiple calls to leaf routines
 
-Prepared 2026-11-15 against `8626beff`. Status: design only; implementation pending.
-The [suspended implementation draft](MIR6502_MULTIPLE_LEAF_CALL_HOMES_IMPLEMENTATION_PLAN.md)
-retains the proof scope and minimal-testing direction. Cost-policy qualification
-is complete; a fresh batching decision still precedes this extension's implementation.
+Refreshed 2026-11-15 against `0880cd2f`. Status: selector implemented behind
+an off-by-default discovery gate; independent runtime/TN qualification pending.
+The [implementation plan](MIR6502_MULTIPLE_LEAF_CALL_HOMES_IMPLEMENTATION_PLAN.md)
+uses one combined ordinary-call batch and the qualified whole-image cost rule.
+The user's minimal-testing direction remains in effect.
 
 ### Scope and existing authority
 
@@ -1213,27 +1214,43 @@ The existing invocation-home certificates already inspect every call. Multiple
 sites must satisfy the same certificate and historical-exposure restrictions;
 the scoped cleanup exception gains no new ownership or ABI permission here.
 
-### Selection and exact fallback — suspended decision
+### Selection and exact fallback
 
-Qualify the whole-image cost revision before implementing this extension. The
-previous draft required a separate multiple-call trial after the single-call
-trial to protect against the per-routine veto. That sequencing requirement is
-withdrawn. Batch composition, its exact selected fallback and its work bound
-must be reconsidered before the multiple-call implementation plan resumes.
-A net-saving combined batch and the best separately selected subset are not
-necessarily the same result; the cost revision makes no subset-optimality claim.
+Add eligible multiple-call routines to the existing ordinary-call proposal along
+with eligible single-call routines. Discover all candidates from the same
+immutable `SelectedPlacement` after leaf placement and terminal handoff. Use one
+`ResidenceCalls` context for that selected expanded snapshot, reserve the union
+of writes separately for each caller, and apply proposed bindings to one cloned
+input in the existing deterministic routine order.
 
-The eventual implementation must reuse `SelectedPlacement` and `try_proposal`,
-retain canonical call/entry proofs, and use finalized packaged size for
-profitability. Selected callee facts are discovery filters; rebuild them from
-the expanded candidate and verify all affected callers. Keep bindings fixed
-inside terminal cleanup and retain final-placement replay and earlier-decision
-preservation. Any failed proof or unsuccessful cost decision restores the exact
-baseline selected for that transaction.
+Run `try_proposal` once for that combined proposal through the existing
+`cross-call-homes` stage. The whole completed image must be strictly smaller than
+the selected pre-trial image. Individual routine growth is diagnostic. There is
+no separate multiple-call stage, second continuation, single-call pre-trial or
+subset retry. The discovery gate changes which callers enter this batch, not
+how many batches run.
 
-The proposed `enable_multiple_leaf_call_homes` remains only a future discovery
-gate, subordinate to the existing parent gates. This cost-policy task adds no
-multiple-call implementation or additional selection stage.
+The exact fallback is the `SelectedPlacement` entering the ordinary-call trial,
+including accepted leaf/handoff choices. It is not a separately measured
+single-call result. An unsupported caller is omitted during discovery; if a
+combined candidate later fails verification, preservation, emission or cost,
+restore that complete baseline. This bounded policy does not search for the best
+subset or promise to preserve gains from an unmeasured single-call-only batch.
+
+Selected callee facts remain discovery filters. Resume core expansion, rebuild
+facts from the expanded candidate and verify every affected caller. Keep bindings
+fixed inside terminal cleanup and retain final-placement replay, invocation-home
+certificates and earlier-decision preservation. Multiple sites grant no new
+permission to discard observable reads or ABI obligations.
+
+The `enable_multiple_leaf_call_homes` discovery gate admits callers with two or
+more sites. With it off, preserve the current exactly-one-call scope. It remains
+subordinate to peepholes, parameter-home selection and cross-call selection;
+conservative configuration keeps it off, and optimized configuration enables it
+only after the focused qualification. Zero-call routines remain outside this
+proposal. Keep `cross_call_home_trials` at zero or one and reuse existing result
+and per-routine cost diagnostics. Add call count and failed-site identity where
+needed to explain eligibility without a separate tracing pipeline.
 
 ### Focused qualification
 
@@ -1251,10 +1268,11 @@ source must save final bytes and execute with correct arguments, results and
 stack balance. Normalize host fixture text and exercise real LF/CRLF loading.
 Keep observable source-memory oracles separate from private scratch contents.
 
-Reuse the recorded 9,791-byte TN baseline during development. Measure FindItem,
-whole-image cost and unchanged controls only at final qualification, with just
-the new gate toggled. Record actual homes, artifact hashes and work counts;
-establish the continuation bound when batch scheduling is decided. The suspended
-plan must be refreshed against the qualified cost-policy baseline first. An unchanged TN result is acceptable if
-independent savings and correctness are established; retain exact fallback and
-report the remaining blocker rather than weakening acceptance.
+Reuse the qualified 9,791-byte TN baseline from `0880cd2f` during development;
+its retained map confirms FindItem at 74 code bytes plus three ordinary-home
+bytes. At final qualification, compare the new gate off/on at ActionCart `$3000`
+with scoped observation and the other optimized defaults enabled. Record actual
+homes, all changed routine footprints, artifact hashes and compiler work. Both
+arms remain bounded to one ordinary-call continuation. An unchanged TN result
+is acceptable if independent savings and correctness are established; report the
+remaining blocker and retain exact fallback.

@@ -1,0 +1,31 @@
+{
+  "baseline": "0880cd2f",
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--lib",
+        "multiple_leaf_calls"
+      ],
+      "exit_code": 0,
+      "seconds": 201.215888500039,
+      "log_sha256": "5389af49f040665f2f8eb7a26b16096607d8230a5cc35f6481eb7651876dafe8",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--lib",
+        "later_trials_keep_the_exact_selected_input_and_executable"
+      ],
+      "exit_code": 0,
+      "seconds": 0.8000819579465315,
+      "log_sha256": "3b52b7a8710775531006a12f3eddb95a92c0279920708ff8b9fadb5fda9c67a5",
+      "passed": 1,
+      "failed": 0
+    }
+  ]
+}

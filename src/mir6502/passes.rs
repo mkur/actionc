@@ -6,6 +6,8 @@ pub struct Mir6502Config {
     pub enable_parameter_argument_handoff: bool,
     /// Keep source homes in preserved ZP across a qualified ordinary call.
     pub enable_cross_call_home_selection: bool,
+    /// Admit multiple supported leaf-call sites in the ordinary-call home batch.
+    pub enable_multiple_leaf_call_homes: bool,
     /// Final-layout, same-block record base reuse with exact exit state repair.
     pub enable_record_base_reuse: bool,
     /// Admit indirect field writes only with complete disjoint destination proofs.
@@ -117,6 +119,7 @@ impl Default for Mir6502Config {
             enable_parameter_home_selection: false,
             enable_parameter_argument_handoff: false,
             enable_cross_call_home_selection: false,
+            enable_multiple_leaf_call_homes: false,
             enable_record_base_reuse: false,
             enable_record_base_writes: false,
             enable_record_base_parameter_origins: false,

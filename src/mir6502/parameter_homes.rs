@@ -64,7 +64,8 @@ pub(super) fn select_output(
         }
     }
     if config.enable_cross_call_home_selection {
-        if let Some(proposal) = cross_call::propose(&selected.input, &selected.executable.program, trace) {
+        if let Some(proposal) = cross_call::propose(&selected.input, &selected.executable.program,
+            config.enable_multiple_leaf_call_homes, trace) {
             selected = try_proposal(nir, selected, &resume, proposal,
                 "cross-call-homes", config, origin, runtime, trace);
         } else {

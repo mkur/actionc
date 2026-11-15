@@ -1,10 +1,11 @@
-//! One bounded proposal for homes across an ordinary call. Selected callee facts
+//! One bounded proposal for homes across ordinary leaf calls. Selected callee facts
 //! filter candidates; the resumed executable must establish its own proofs.
 use super::*;
 
 pub(super) fn propose(
     input: &MirProgram,
     selected: &MirProgram,
+    multiple: bool,
     trace: &super::super::trace::Trace,
 ) -> Option<MirProgram> {
     let candidates: Vec<_> = input
@@ -15,13 +16,14 @@ pub(super) fn propose(
             if !eligible_with_calls(input, routine, true) {
                 return None;
             }
-            let mut calls = routine
+            let calls: Vec<_> = routine
                 .blocks
                 .iter()
                 .flat_map(|b| &b.ops)
-                .filter(|op| matches!(op, MirOp::Call { .. }));
-            let call = calls.next()?;
-            calls.next().is_none().then_some((index, routine, call))
+                .filter(|op| matches!(op, MirOp::Call { .. }))
+                .collect();
+            (!calls.is_empty() && (multiple || calls.len() == 1))
+                .then_some((index, routine, calls))
         })
         .collect();
     if candidates.is_empty() {
@@ -29,20 +31,24 @@ pub(super) fn propose(
     }
     let mut facts = ResidenceCalls::new(selected, MirCalleeEntryStage::ActualEntry);
     let mut proposal = None;
-    for (index, routine, call) in candidates {
-        let writes = match facts.writes(call) {
-            Ok(writes) => writes,
-            Err(reason) => {
-                trace.event(
-                    "cross-call-candidate",
-                    || serde_json::json!({"routine": routine.name, "reason": reason}),
-                );
-                continue;
-            }
-        };
-        let forbidden = (0..=255u8)
-            .filter(|slot| !writes.preserves_fixed_byte(MirFixedZpSlot(*slot)))
-            .collect();
+    'caller: for (index, routine, calls) in candidates {
+        let mut forbidden = BTreeSet::new();
+        for (call_index, call) in calls.iter().enumerate() {
+            // Entry facts may be cached by target; argument supply is checked
+            // for each site, including repeated targets, before placing anything.
+            let writes = match facts.writes(call) {
+                Ok(writes) => writes,
+                Err(reason) => {
+                    trace.event("cross-call-candidate", || serde_json::json!({
+                        "routine": routine.name, "reason": reason,
+                        "call_count": calls.len(), "call_index": call_index,
+                    }));
+                    continue 'caller;
+                }
+            };
+            forbidden.extend((0..=255u8)
+                .filter(|slot| !writes.preserves_fixed_byte(MirFixedZpSlot(*slot))));
+        }
         let mut candidate = routine.clone();
         // Do not recreate parameter memory already eliminated by the selected
         // path. Such a routine may still have an eligible source local.
@@ -69,9 +75,13 @@ pub(super) fn propose(
             trace.event("cross-call-candidate", || serde_json::json!({
                 "routine": routine.name, "bindings": format!("{:?}", candidate.frame.parameter_homes),
                 "local_bindings": format!("{:?}", candidate.frame.local_homes),
+                "call_count": calls.len(),
             }));
             proposal.get_or_insert_with(|| input.clone()).routines[index] = candidate;
         }
     }
     proposal
 }
+
+#[cfg(test)]
+mod tests;
