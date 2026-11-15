@@ -1,6 +1,6 @@
 # MIR6502 storage observation: implementation plan
 
-Prepared 2026-11-15. Status: slices 0–2 complete; slices 3–5 pending.
+Prepared 2026-11-15. Status: slices 0–3 complete; slices 4–5 pending.
 Design commit: `9abe9094`. Compiler baseline: `67e9343a`.
 
 Implements the [storage ownership and observation design](MIR6502_STORAGE_OBSERVATION_DESIGN.md).
@@ -327,3 +327,13 @@ parameter/local homes, stale bindings and typed/fixed/pointer-pair read sites.
 The local test initially used a program-entry routine, which correctly failed
 residence verification; its corrected Action routine passes. Cleanup still uses
 the conservative projection. [Check receipt](benchmarks/6502-storage-observation/slice2-checks.json).
+
+## Slice 3 completion
+
+Both terminal vetoes, deletion-delta validation and final-placement replay now
+share the same immutable invocation-home proof. Historical programs restrict
+exposure without contributing old allocations. The new gate is off in both
+configurations. Existing structural deadness, frames, cost and preservation
+checks remain unchanged. Five focused tests pass, including a full transaction,
+live/raw reads, historical exposure, stale snapshots and a conflicting final
+inventory. [Check receipt](benchmarks/6502-storage-observation/slice3-checks.json).

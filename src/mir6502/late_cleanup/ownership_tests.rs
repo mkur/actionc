@@ -519,3 +519,48 @@ fn storage_observation_local_certificate_excludes_entry_dependence() {
         MirOp::Store { dst: MirAddr::Direct(MirMem::Local { offset: 1, .. }), .. }));
     assert!(!InvocationHomes::new(&p).certifies_storage(record));
 }
+
+#[test]
+fn storage_observation_scoped_cleanup_keeps_live_reads_and_replays_placement() {
+    use crate::mir6502::{parameter_homes::InvocationHomes, analysis::record_bases::{SourceObject, SourceStorage}};
+    for read in 0..4 {
+        let p = storage_observation_fixture(read);
+        let facts = InvocationHomes::new(&p);
+        let m = measure(&p, &[&p], 0x3000, crate::runtime::Runtime::ActionCart, &Trace::disabled()).unwrap();
+        let selected = apply_with_observations(&p, Some(&m.memory), false, &Trace::disabled(), Some(&facts)).unwrap();
+        let mut expected = p.clone();
+        expected.routines[1].blocks[0].ops.remove(1);
+        assert_eq!(selected, expected);
+        assert!(only_cleanup_deletions_with_observations(&p, &selected, false, Some(&m.memory), Some(&facts)));
+        assert!(!only_cleanup_deletions(&p, &selected, false, Some(&m.memory)));
+        let clone = p.clone();
+        assert!(!facts.is_current(&clone));
+        assert_eq!(apply_with_observations(&clone, Some(&m.memory), false, &Trace::disabled(), Some(&facts)), Err(Declined::Analysis));
+        let mut conflict = m.memory.clone();
+        let mut records = conflict.source_storage().unwrap().to_vec();
+        records.push(SourceStorage { object: SourceObject::Global(crate::nir::SymbolId(99)), binding: None, offset: 0, address: 0xe3, bytes: 1 });
+        conflict.protect_source_storage(Some(records));
+        assert_eq!(apply_with_observations(&p, Some(&conflict), false, &Trace::disabled(), Some(&facts)).unwrap(), p);
+        assert!(!only_cleanup_deletions_with_observations(&p, &selected, false, Some(&conflict), Some(&facts)));
+        let config = Mir6502Config { enable_scoped_storage_observation: true,
+            enable_late_dead_register_cleanup: false, enable_late_register_reuse: false,
+            ..Mir6502Config::optimized() };
+        assert_eq!(select(p.clone(), &clean(&p), None, &config, 0x3000,
+            crate::runtime::Runtime::ActionCart, &Trace::disabled()).unwrap(), expected);
+        let mut live = p.clone();
+        live.routines[1].blocks[0].ops.insert(2, load(MirMem::ZeroPage(MirZpSlot(0))));
+        live.routines[1].blocks[0].ops.insert(3, sink());
+        let live_facts = InvocationHomes::new(&live);
+        assert_eq!(apply_with_observations(&live, Some(&m.memory), false, &Trace::disabled(), Some(&live_facts)).unwrap(), live);
+        let mut exposed = p.clone();
+        exposed.routines[1].blocks[0].ops.insert(2, load(MirMem::Absolute(0xe3)));
+        let exposed_facts = InvocationHomes::new(&exposed);
+        assert_eq!(apply_with_observations(&exposed, Some(&m.memory), false, &Trace::disabled(), Some(&exposed_facts)).unwrap(), exposed);
+        let mut historical = p.clone();
+        historical.routines[0].blocks[0].ops.push(MirOp::LeaAddr {
+            dst: MirDef::Reg(MirReg::A), target: MirMem::Param { id: crate::nir::ParamId(0), offset: 0 }, width: MirWidth::Word,
+        });
+        let constrained = InvocationHomes::with_references(&p, &[&historical]);
+        assert_eq!(apply_with_observations(&p, Some(&m.memory), false, &Trace::disabled(), Some(&constrained)).unwrap(), p);
+    }
+}

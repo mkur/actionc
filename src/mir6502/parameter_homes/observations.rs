@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 
 pub(in crate::mir6502) struct InvocationHomes<'a> {
     source: &'a MirProgram,
+    abi: BTreeSet<MirFixedZpSlot>,
     objects: BTreeMap<RoutineId, Vec<(MirStorageBase, Vec<MirFixedZpSlot>)>>,
 }
 
@@ -76,7 +77,32 @@ impl<'a> InvocationHomes<'a> {
             }
             objects.insert(r.id, certified);
         }
-        Self { source, objects }
+        Self { source, objects, abi }
+    }
+
+    pub fn with_references(source: &'a MirProgram, references: &[&MirProgram]) -> Self {
+        let mut facts = Self::new(source);
+        for (id, objects) in &mut facts.objects {
+            objects.retain(|(base, _)| {
+                let object = match *base {
+                    MirStorageBase::Param(id) => MirMem::Param { id, offset: 0 },
+                    MirStorageBase::Local(id) => MirMem::Local { id, offset: 0 },
+                    _ => return false,
+                };
+                references.iter().all(|p| p.routines.iter().find(|r| r.id == *id)
+                    .is_some_and(|r| r.abi == MirRoutineAbi::Action && !object_exposed(p, r, &object)))
+            });
+        }
+        facts
+    }
+
+    pub fn storage_rejection(&self, record: &SourceStorage) -> Option<&'static str> {
+        if !matches!(&record.binding, Some(SourceBinding::Parameter(MirParamHome::ZeroPage(_)))
+            | Some(SourceBinding::Local(MirLocalHome::ZeroPage(_)))) {
+            return Some("source-declaration");
+        }
+        if self.abi.iter().any(|s| record.contains(u16::from(s.0))) { return Some("abi-boundary"); }
+        (!self.certifies_storage(record)).then_some("uncertified-invocation-home")
     }
 
     /// There is no API accepting another body or generation: every site below

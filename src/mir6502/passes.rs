@@ -34,6 +34,8 @@ pub struct Mir6502Config {
     pub enable_word_load_sharing: bool,
     /// Terminal, frame-preserving private-store cleanup with selected-proof replay.
     pub enable_late_private_store_cleanup: bool,
+    /// Keep foreign invocation homes distinct from private temporary definitions.
+    pub enable_scoped_storage_observation: bool,
     /// Extend terminal cleanup to proved-dead byte loads and native register moves.
     pub enable_late_dead_register_cleanup: bool,
     /// Expose fixed-pair arithmetic and reuse register values in terminal cleanup.
@@ -130,6 +132,7 @@ impl Default for Mir6502Config {
             enable_pointer_load_sharing: false,
             enable_word_load_sharing: false,
             enable_late_private_store_cleanup: false,
+            enable_scoped_storage_observation: false,
             enable_late_dead_register_cleanup: false,
             enable_late_register_reuse: false,
             enable_late_spill_pruning: false,

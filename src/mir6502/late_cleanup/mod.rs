@@ -1,6 +1,8 @@
 //! Terminal store/producer cleanup and preservation of selected late decisions.
 pub(super) mod preservation;
 mod producers;
+mod scoped;
+use super::parameter_homes::InvocationHomes;
 mod pruning;
 mod register_reuse;
 
@@ -200,21 +202,31 @@ fn read_observations(
     reads
 }
 
-fn apply(
+#[cfg(test)]
+fn apply(baseline: &MirProgram, memory: Option<&MirPhysicalMemory>, remove_producers: bool, trace: &Trace) -> Result<MirProgram, Declined> {
+    apply_with_observations(baseline, memory, remove_producers, trace, None)
+}
+
+fn apply_with_observations(
     baseline: &MirProgram,
     memory: Option<&MirPhysicalMemory>,
     remove_producers: bool,
     trace: &Trace,
+    facts: Option<&InvocationHomes<'_>>,
 ) -> Result<MirProgram, Declined> {
+    if facts.is_some_and(|f| !f.is_current(baseline)) { return Err(Declined::Analysis); }
     let known = MirKnownCalleeSummaries::analyze_for_rewriting(baseline);
     let ownership = StorageOwnership::new(baseline);
     let reads = memory
-        .map(|m| read_aliases(baseline, m, true))
+        .map(|m| read_observations(baseline, m, true))
         .unwrap_or_default();
+    if let (Some(facts), Some(memory)) = (facts, memory) {
+        scoped::trace_rejections(baseline, &ownership, facts, memory, trace);
+    }
     let mut proposed = baseline.clone();
     for r in &mut proposed.routines {
         if !r.blocks.iter().flat_map(|b| &b.ops).any(|op| {
-            ownership.private_store(r.id, op, memory).is_some()
+            scoped::private_store(&ownership, facts, r.id, op, memory).is_some()
                 || (remove_producers && producers::pure_register(op, r.id, memory).is_some())
         }) {
             continue;
@@ -224,24 +236,22 @@ fn apply(
             .with_trace(trace)
             .run_fixed_point_with_known_callees(r, &known, |r, c| {
                 let mut plans =
-                    peepholes::discover_dead_scratch_stores_matching(r, c, |op| ownership.private_store(r.id, op, memory).is_some())
+                    peepholes::discover_dead_scratch_stores_matching(r, c, |op| scoped::private_store(&ownership, facts, r.id, op, memory).is_some())
                         .into_iter()
                         .filter(|plan| {
                             let Some(memory) = memory else {
                                 return true;
                             };
                             let block = r.blocks.iter().find(|b| b.id == plan.block).unwrap();
-                            let home = ownership.private_store(
-                                r.id, &block.ops[plan.range.start], Some(memory),
+                            let home = scoped::private_store(
+                                &ownership, facts, r.id, &block.ops[plan.range.start], Some(memory),
                             )
                             .unwrap();
                             let Some(address) = memory.address(r.id, &home) else {
                                 return false;
                             };
                             let reason =
-                                if reads.iter().any(|(start, bytes)| {
-                                    start.is_none_or(|start| address.wrapping_sub(start) < *bytes)
-                                }) {
+                                if reads.iter().any(|read| scoped::blocks_read(read, r.id, address, memory, facts)) {
                                     Some("physical-read-alias")
                                 } else {
                                     None
@@ -250,6 +260,8 @@ fn apply(
                                 trace.event("late-cleanup-store-retained", || serde_json::json!({
                                 "routine": r.id.0, "block": plan.block.0, "op": plan.range.start,
                                 "address": address, "reason": reason,
+                                "readers": reads.iter().filter(|read| scoped::blocks_read(read, r.id, address, memory, facts))
+                                    .map(|read| format!("{read:?}")).collect::<Vec<_>>(),
                             }));
                             }
                             reason.is_none()
@@ -282,13 +294,15 @@ fn apply_traced(
     reuse_registers: bool,
     trace: &Trace,
     purpose: &'static str,
+    facts: Option<&InvocationHomes<'_>>,
 ) -> Result<CleanupCandidate, Declined> {
     let t = trace.child("late-cleanup-analysis", purpose);
-    let result = apply(
+    let result = apply_with_observations(
         baseline,
         memory,
         remove_producers,
         &t,
+        facts,
     ).and_then(|deletions| {
         let mut program = deletions.clone();
         let reuse = if reuse_registers {
@@ -307,12 +321,19 @@ fn apply_traced(
 }
 
 /// Check the complete allowed delta, including compare-producer index repair.
-fn only_cleanup_deletions(
+#[cfg(test)]
+fn only_cleanup_deletions(before: &MirProgram, after: &MirProgram, remove_producers: bool, memory: Option<&MirPhysicalMemory>) -> bool {
+    only_cleanup_deletions_with_observations(before, after, remove_producers, memory, None)
+}
+
+fn only_cleanup_deletions_with_observations(
     before: &MirProgram,
     after: &MirProgram,
     remove_producers: bool,
     memory: Option<&MirPhysicalMemory>,
+    facts: Option<&InvocationHomes<'_>>,
 ) -> bool {
+    if facts.is_some_and(|f| !f.is_current(before)) { return false; }
     if before.routines.len() != after.routines.len() {
         return false;
     }
@@ -334,7 +355,7 @@ fn only_cleanup_deletions(
                 if new.ops.get(next) == Some(op) {
                     retained.push(op.clone());
                     next += 1;
-                } else if ownership.private_store(a.id, op, memory).is_none()
+                } else if scoped::private_store(&ownership, facts, a.id, op, memory).is_none()
                     && !(remove_producers && producers::pure_register(op, a.id, memory).is_some())
                 {
                     return false;
@@ -489,14 +510,21 @@ fn select_definitions(
             return Ok(baseline);
         }
         // No cost emission for programs whose definitions are all still live.
-        match apply_traced(&baseline, None, remove_producers, reuse_registers, trace, "logical-discovery") {
+        match apply_traced(&baseline, None, remove_producers, reuse_registers, trace, "logical-discovery", None) {
             Ok(p) if p.program == baseline => { reject(if remove_producers { Declined::NoDeadDefinitions } else { Declined::NoDeadStores }); return Ok(baseline); }
             Err(reason) => { reject(reason); return Ok(baseline); }
             _ => {}
         }
         let references = preservation.references(&baseline);
+        let facts = (config.enable_peepholes && config.enable_late_private_store_cleanup
+            && config.enable_scoped_storage_observation
+            && baseline.routines.iter().any(|r| !r.frame.resident_bytes().is_empty()))
+            .then(|| {
+                trace.count("storage_observation_snapshot_builds", 1);
+                InvocationHomes::with_references(&baseline, &references)
+            });
         let old = measure(&baseline, &references, origin, runtime, trace)?;
-        let CleanupCandidate { program: proposed, deletions, reuse } = match apply_traced(&baseline, Some(&old.memory), remove_producers, reuse_registers, trace, "physical-deletion") {
+        let CleanupCandidate { program: proposed, deletions, reuse } = match apply_traced(&baseline, Some(&old.memory), remove_producers, reuse_registers, trace, "physical-deletion", facts.as_ref()) {
             Ok(p) if p.program != baseline => p,
             Ok(_) => { reject(Declined::ObservableAlias); return Ok(baseline); }
             Err(reason) => { reject(reason); return Ok(baseline); }
@@ -505,14 +533,14 @@ fn select_definitions(
         let affected: BTreeSet<_> = baseline.routines.iter().zip(&proposed.routines)
             .filter_map(|(a, b)| (a != b).then_some(a.id)).collect();
         let checked = (|| {
-            if !only_cleanup_deletions(&baseline, &deletions, remove_producers, Some(&old.memory)) { return Err(Declined::InvalidChange); }
+            if !only_cleanup_deletions_with_observations(&baseline, &deletions, remove_producers, Some(&old.memory), facts.as_ref()) { return Err(Declined::InvalidChange); }
             if let Err(diagnostics) = super::verify_program(&proposed, MirPhase::PreEmission) {
                 trace.event("late-cleanup-verification", || serde_json::json!({"diagnostics": format!("{diagnostics:?}")}));
                 return Err(Declined::Verification);
             }
             if !callee_contracts_preserved(&baseline, &proposed) { return Err(Declined::CalleeContract); }
             let new = measure(&proposed, &references, origin, runtime, trace).map_err(|_| Declined::CandidateEmission)?;
-            if apply_traced(&baseline, Some(&new.memory), remove_producers, reuse_registers, trace, "final-placement-deletion-replay")?.program != proposed { return Err(Declined::DeletionReplay); }
+            if apply_traced(&baseline, Some(&new.memory), remove_producers, reuse_registers, trace, "final-placement-deletion-replay", facts.as_ref())?.program != proposed { return Err(Declined::DeletionReplay); }
             preservation.validate(&new.memory, ranges, config, origin, trace).map_err(Declined::EarlierDecision)?;
             if !improves_cost(&baseline, &old, &new) {
                 return Err(Declined::Cost);
