@@ -63,3 +63,79 @@ Check receipts: [slice 2](slice2-checks.json), [slice 3](slice3-checks.json),
 [integration](slice4-integration-checks.json), [VM](slice4-vm-checks.json).
 The full backend suites, MADS reconstruction, raw-NIR and shifted-origin matrices
 were not run locally. Existing CI coverage is unchanged.
+
+## TN and optimized default
+
+With the same sources and optimized gates, ActionCart `$3000` drops from
+**9,847 to 9,791 bytes: 56 bytes saved**. The off image, map and relocations
+exactly match the previously qualified baseline. Traced and untraced artifacts
+are identical in each arm. [Off receipt](tn-off.json), [on receipt](tn-on.json),
+[comparison and artifact hashes](comparison.json).
+
+| Routine | Off: code + ordinary homes | On: code + ordinary homes |
+| --- | ---: | ---: |
+| Ord | 80 + 5 | 51 + 0 |
+| Items | 56 + 3 | 37 + 0 |
+| MoveMenuBar | 115 + 4 | 115 + 4 |
+| Draw | 145 + 1 | 145 + 1 |
+| Tag | 88 + 2 | 88 + 2 |
+| TagAll | 87 + 0 | 87 + 0 |
+| Next | 30 + 0 | 30 + 0 |
+| Strcpy | 20 + 0 | 20 + 0 |
+| Fnamecmp | 105 + 0 | 105 + 0 |
+
+The old 9,799-byte trial saved 48 bytes but grew four routines by two bytes each.
+Scoped observation permits four more dead stores to be deleted (10 instead of 6
+in the cross-call trial), producing 9,791 bytes with no routine growth. Both
+vetoes now accept their certified foreign ownership. Ord has five resident bytes
+and Items three. Source stores and ABI captures remain intact. The conservative
+queries for pruning and movement remain unchanged.
+
+The earlier 119/146/90/87 figures for MoveMenuBar/Draw/Tag/TagAll included their
+ordinary homes. The table above separates instruction and storage bytes.
+
+| Compiler work | Off | On |
+| --- | ---: | ---: |
+| Core materializations | 6 | 6 |
+| Emission invocations | 163 | 163 |
+| Inner emission probes | 978 | 978 |
+| Preservation replays | 24 | 24 |
+| Physical source inventories | 60 | 60 |
+| Invocation-proof snapshots | 0 | 3 |
+| Rewrite analyses | 50,792 | 50,800 |
+
+There are three certificate snapshots across existing terminal transactions;
+none is rebuilt per store. The eight additional rewrite analyses are consistent
+with the four newly deleted stores and final-placement replay. No materialization,
+emission, inventory or preservation pass was added.
+
+Single-run traced times were 20.38 / 20.38 seconds (off/on); untraced times were
+19.41 / 24.04 seconds. Peak process RSS, including retained traces and both
+compilations, was 722,042,880 / 737,427,456 bytes. These observations do not establish
+a timing regression or speedup. No repeated timing benchmark was run.
+
+The larger trace reached about 36.6 MB. Initial probe attempts stopped at the
+32 MiB diagnostic limit before saving results; the focused measurement suite now
+uses 64 MiB and preserves probe error output. The compiler's default trace limit
+and executable behavior are unchanged. The reported A/B uses complete traces.
+
+`Mir6502Config::optimized()` now enables the feature; `Default` keeps it off.
+The [final public-API check](slice5-default-checks.json) confirms explicit-on
+output and both parent gates. Its initial fixture had no calls from Main and
+was correctly pruned by the public frontend; the corrected test makes the
+control routines reachable. No compiler correction was required.
+TN itself was measured for code and selection; runtime validation used the
+independent VM control, not a full TN scenario run.
+
+Reproduce the TN A/B after building the library with the plan's shared-target
+settings (add `--scoped-observation` for the on arm):
+
+```sh
+python3 tools/compare6502/parameter_homes.py \
+  --api-rlib build/checked-arena/shared-target/debug/deps/libactionc-bf811c1ef8b2df31.rlib \
+  --output build/storage-observation/recheck-off \
+  --enabled --handoff --cross-call --suite storage-observation --tn-only
+```
+
+Use the freshly built rlib for the current checkout; its filename can vary.
+Use `--skip-tn` instead of `--tn-only` for the independent controls.

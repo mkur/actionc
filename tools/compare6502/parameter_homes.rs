@@ -134,6 +134,9 @@ fn main() {
                     ..Mir6502Config::optimized()
                 };
                 let mut trace = Mir6502Trace::new(TraceOptions {
+                    // This suite includes the four interacting TN routines and
+                    // observation provenance in addition to residence snapshots.
+                    max_bytes: if scoped_suite { 64 * 1024 * 1024 } else { actionc::mir6502::trace::DEFAULT_MAX_BYTES },
                     routines: nir
                         .routines
                         .iter()
@@ -168,7 +171,7 @@ fn main() {
                     mir6502::generate_output_with_trace(&nir, origin, &config, runtime, &mut trace)
                         .unwrap();
                 let traced_micros = started.elapsed().as_micros();
-                assert_eq!(trace.manifest()["status"], "complete");
+                assert_eq!(trace.manifest()["status"], "complete", "{}", trace.manifest());
                 let started = std::time::Instant::now();
                 let untraced = mir6502::generate_output_with_config_and_runtime(
                     &nir, origin, &config, runtime,

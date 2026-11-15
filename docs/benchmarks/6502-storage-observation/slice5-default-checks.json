@@ -1,0 +1,14 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--test",
+    "mir6502_cross_call_homes",
+    "storage_observation_optimized_default"
+  ],
+  "exit_code": 0,
+  "seconds": 2.4709537909948267,
+  "log_sha256": "66fb57754ce0bed8640ed1a079700583c0e8739248dc01c8235c203286839f7d",
+  "passed": 1,
+  "failed": 0
+}

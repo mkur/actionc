@@ -1,0 +1,26 @@
+{
+  "scope": "ActionCart $3000, optimized, scoped storage observation off/on; TN sources unchanged",
+  "baseline_artifacts_match_previous_receipt": "../6502-cross-call-homes/locals.json",
+  "baseline_matches": {
+    "image_sha256": "c008ca85834920ac5704d17e5f267007b2c2413a8b246b0d676f4b67376e7a0e",
+    "map_sha256": "16b93c7b3111df636467b689642e4ed0ee2f1be7524fbf4c22d8b5ded99eeb56",
+    "relocations_sha256": "97e49d111ffd3a4f75b0418d91696bda1f36617911f71e15f863811c3544c2c4"
+  },
+  "saving_bytes": 56,
+  "trial_store_deletions": {
+    "off": 6,
+    "on": 10
+  },
+  "trace_artifacts": {
+    "off": {
+      "decisions.txt": "f853a608014553924e8c778477da9c249d170680ac50d99a07612fd481b0e742",
+      "manifest.json": "8724567ef4b9565e2cc877252e9ad382fa21ef65f4a6f31c080e36cf095a469e",
+      "listing.txt": "0016ff3d6030b87dda74300987735e6e0008743962ad7bc9046c1f22418b2c9e"
+    },
+    "on": {
+      "decisions.txt": "c88f0c1493210f154ac53a221077a7a81a5acf80fc9612686cdf94178c257d3a",
+      "manifest.json": "044f8cbded720b353da9f35cb49322a010ae5e811acb3ad870961352d71f742a",
+      "listing.txt": "c31ecfc229b018ce267a7385c4af99fe7f5cfce8ffadfa078c28d0dd65bfc6f0"
+    }
+  }
+}

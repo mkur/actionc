@@ -1,6 +1,7 @@
 # MIR6502 storage ownership and observation across routines
 
-Status: proposed, 2026-11-15. Audited baseline: `67e9343a`.
+Status: implemented with focused local qualification, 2026-11-15.
+Audited baseline: `67e9343a`. [Measured results](benchmarks/6502-storage-observation/README.md).
 
 The [implementation plan](MIR6502_STORAGE_OBSERVATION_IMPLEMENTATION_PLAN.md)
 defines six commit-sized slices and the user's requested minimal local testing.
@@ -56,8 +57,8 @@ store necessary or prove it dead.
 
 `Ord.menu` passes the existing
 [exposure check](../src/mir6502/parameter_homes.rs): dereferencing its value and
-passing that value to `Next` do not expose the parameter cell's address. The
-problem arises at two later boundaries:
+passing that value to `Next` do not expose the parameter cell's address. At the audited baseline, the
+problem arose at two later boundaries:
 
 1. [Emission's `source_storage_ranges`](../src/mir6502/emit.rs) resolves every
    declared parameter/local to `(address, size)`. It includes compiler-selected
@@ -174,17 +175,17 @@ Classify each relevant access without losing its source:
 | Canonical argument, result or additional callee-entry input | Retains its ABI boundary role |
 | Unclassified physical read or incomplete evidence | Conservative fallback |
 
-Have the shared binding/lifetime analysis produce a derived table of certified
-read sites and lanes for the current body. A typed logical read supplies its
+The shared binding/lifetime analysis exposes certified read-site and lane
+queries for the current immutable body. A typed logical read supplies its
 identity directly. For an expanded fixed-ZP or pointer-pair read, require a
 unique binding and reaching logical-definition evidence from the same routine.
 Its numeric address or presence in `frame.fixed_zero_page` is insufficient.
 Unattributed reads retain the old physical veto. Raw absolute and assembly reads
 must not be relabeled merely because they coincide with a resident home.
 
-This table is proof metadata; executable MIR need not gain a second memory
-identity. Rebuild it after rewriting. Do not remove resident reads from general
-callee summaries: callers and residence verification still need those effects.
+These facts are proof metadata; executable MIR does not gain a second memory
+identity. Rebuild them for another program snapshot. Do not remove resident
+reads from general callee summaries: callers and residence verification still need those effects.
 Only the contextual cleanup query may conclude that a particular foreign
 resident read cannot consume the candidate temporary definition.
 
@@ -234,6 +235,15 @@ Physical evidence uses the transaction's authoritative emitted map. Instruction
 deletion can move code and ordinary storage even with fixed frames. Validate
 baseline and candidate maps, overlaps, observation roles and all recorded
 preservation obligations using the existing replay boundary.
+
+The implementation binds its certificate to an immutable expanded `MirProgram`.
+A site is resolved only inside that borrowed baseline; pointer identity rejects
+use with another program, including an identical clone. This fixes body, binding
+and callee dependencies together. One certificate snapshot serves physical
+discovery, delta validation and final-placement replay. Replay retains baseline
+operation sites and resolves them against the candidate's emitted inventory.
+Historical programs restrict exposure without adding their former allocations.
+Candidate verification and preservation replay remain required after deletion.
 
 Changing a body, binding, exposure input, allocation, entry contract or relevant
 callee effect invalidates the corresponding evidence. A routine generation
@@ -303,8 +313,8 @@ Keep source-variable DSE, general local promotion, inline-home relocation,
 allocation coalescing, return-home coalescing, interrupt/reentrancy support and
 general interprocedural alias analysis outside this note.
 
-An implementation plan should first add typed inventories and certificates with
-unchanged decisions, then refine both terminal vetoes in one gated consumer,
-then qualify correctness, exact rollback and measured savings. Preserve the
-existing allocation and cleanup architecture throughout. No special handling
+The implementation preserves the existing allocation and cleanup architecture.
+`enable_scoped_storage_observation` is enabled by the optimized configuration and
+disabled by the conservative default. Both `enable_peepholes` and
+`enable_late_private_store_cleanup` remain parent gates. No special handling
 of `Ord`, `Next`, `MoveMenuBar` or TN is permitted.

@@ -1,0 +1,319 @@
+{
+  "revision": "e97dd17c73ca95b1bf1c4748ce6c802823711b81",
+  "parameter_home_selection": true,
+  "parameter_argument_handoff": true,
+  "cross_call_home_selection": true,
+  "scoped_storage_observation": false,
+  "tn_only": true,
+  "suite": "storage-observation",
+  "skip_tn": false,
+  "probe_elapsed_seconds": 41.25357829203131,
+  "probe_time_report": "       41.24 real        39.98 user         0.45 sys\n           722042880  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n               65913  page reclaims\n                   1  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   4  voluntary context switches\n               13188  involuntary context switches\n        546388173729  instructions retired\n        129815528086  cycles elapsed\n           641927360  peak memory footprint\n",
+  "timing_scope": "One sequential process, all cases traced and untraced; not a statistical performance claim.",
+  "worktree_diff_sha256": "a40c0ccda1682f2d40e7e0ca9bd9fed20ed5605b9ac2ae7b08885aae2f04fbf2",
+  "probe_source_sha256": "9fb2b567baba25a3f52f7c828c1c915e7081f55cbe852e89e89a2bc2b7cb0b1b",
+  "api_rlib_sha256": "bb19b1fa2e2cff19d4b68d04ac9a9e9973fcda4f0f5c8f472399d03bad41b3e1",
+  "source_sha256_lf": {
+    "samples/tn/modern/TN.ACT": "731661fdfb1ce6ce2401b17e74c6f0449da5acb6a133394166a94994225321d8",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "fixtures/runtime/storage_observation.act": "bb58e21415df0322356ebe9033865c8fe7bc24920735c6c4c7409dc46bed7a62"
+  },
+  "cases": [
+    {
+      "id": "tn-ActionCart-3000",
+      "image_bytes": 9847,
+      "routines": [
+        {
+          "name": "MoveMenuBar",
+          "code_bytes": 115,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13012,
+              "bytes": 2
+            },
+            {
+              "address": 13014,
+              "bytes": 1
+            },
+            {
+              "address": 13015,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Draw",
+          "code_bytes": 145,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13047,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Tag",
+          "code_bytes": 88,
+          "inline_home_bytes": 2,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13051,
+              "bytes": 1
+            },
+            {
+              "address": 13052,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "TagAll",
+          "code_bytes": 87,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 105,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 2
+            },
+            {
+              "address": 162,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Strcpy",
+          "code_bytes": 20,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 3,
+          "home_fragments": [
+            {
+              "address": 160,
+              "bytes": 1
+            },
+            {
+              "address": 162,
+              "bytes": 1
+            },
+            {
+              "address": 163,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Strcat",
+          "code_bytes": 113,
+          "inline_home_bytes": 4,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13029,
+              "bytes": 2
+            },
+            {
+              "address": 13031,
+              "bytes": 2
+            }
+          ]
+        },
+        {
+          "name": "Key",
+          "code_bytes": 34,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Next",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "home_fragments": []
+        },
+        {
+          "name": "Ord",
+          "code_bytes": 80,
+          "inline_home_bytes": 5,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 12999,
+              "bytes": 2
+            },
+            {
+              "address": 13001,
+              "bytes": 2
+            },
+            {
+              "address": 13003,
+              "bytes": 1
+            }
+          ]
+        },
+        {
+          "name": "Items",
+          "code_bytes": 56,
+          "inline_home_bytes": 3,
+          "zp_home_bytes": 0,
+          "home_fragments": [
+            {
+              "address": 13004,
+              "bytes": 2
+            },
+            {
+              "address": 13006,
+              "bytes": 1
+            }
+          ]
+        }
+      ],
+      "parameter_home_outcome": {
+        "accepted": true,
+        "after_bytes": 9872,
+        "before_bytes": 9956,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 105,
+            "before": 189,
+            "routine": "Fnamecmp"
+          }
+        ]
+      },
+      "handoff_outcome": {
+        "accepted": true,
+        "after_bytes": 9847,
+        "before_bytes": 9872,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 20,
+            "before": 45,
+            "routine": "Strcpy"
+          }
+        ]
+      },
+      "cross_call_outcome": {
+        "accepted": false,
+        "after_bytes": 9799,
+        "before_bytes": 9847,
+        "diagnostics": null,
+        "reason": "no-final-saving-or-routine-growth",
+        "routine_cost_changes": [
+          {
+            "after": 51,
+            "before": 85,
+            "routine": "Ord"
+          },
+          {
+            "after": 37,
+            "before": 59,
+            "routine": "Items"
+          },
+          {
+            "after": 121,
+            "before": 119,
+            "routine": "MoveMenuBar"
+          },
+          {
+            "after": 148,
+            "before": 146,
+            "routine": "Draw"
+          },
+          {
+            "after": 92,
+            "before": 90,
+            "routine": "Tag"
+          },
+          {
+            "after": 89,
+            "before": 87,
+            "routine": "TagAll"
+          }
+        ]
+      },
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 163,
+        "inner_emission_probes": 978,
+        "late_cleanup_preservation_replays": 24,
+        "materializations": 6,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 3,
+        "pipeline_attempts": 67,
+        "rewrite_analysis_builds": 50792,
+        "source_storage_inventory_builds": 60
+      },
+      "upstream": {
+        "inlining": {
+          "attempts": 1,
+          "choices": []
+        },
+        "loop_motion": {
+          "attempts": 1,
+          "choices": []
+        },
+        "comparison_loops": {
+          "attempts": 1,
+          "choices": []
+        },
+        "call_predicates": {
+          "attempts": 1,
+          "choices": []
+        },
+        "address_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "copy_values": {
+          "attempts": 1,
+          "choices": []
+        },
+        "scalar_captures": {
+          "attempts": 1,
+          "choices": []
+        },
+        "captured_comparisons": {
+          "attempts": 1,
+          "choices": [
+            {
+              "accepted_routines": [
+                14,
+                50,
+                51
+              ],
+              "outcome": "partial",
+              "rejected_routines": [
+                56
+              ],
+              "stage": "captured_comparisons"
+            }
+          ]
+        }
+      },
+      "traced_micros": 20377729,
+      "untraced_micros": 19407271,
+      "trace_matches_untraced": true,
+      "image_sha256": "c008ca85834920ac5704d17e5f267007b2c2413a8b246b0d676f4b67376e7a0e",
+      "map_sha256": "16b93c7b3111df636467b689642e4ed0ee2f1be7524fbf4c22d8b5ded99eeb56",
+      "relocations_sha256": "97e49d111ffd3a4f75b0418d91696bda1f36617911f71e15f863811c3544c2c4",
+      "config_sha256": "6baeb37e328bf20bf9b38081d5c706c32ecfe3a1a1be17d0e465505257453327"
+    }
+  ]
+}

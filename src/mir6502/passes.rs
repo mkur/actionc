@@ -185,6 +185,7 @@ impl Mir6502Config {
             enable_pointer_load_sharing: true,
             enable_word_load_sharing: true,
             enable_late_private_store_cleanup: true,
+            enable_scoped_storage_observation: true,
             enable_late_dead_register_cleanup: true,
             enable_late_register_reuse: true,
             enable_late_spill_pruning: false,

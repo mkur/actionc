@@ -32,8 +32,12 @@ def main():
                     '--extern', f'actionc={rlib}', '-L', f'dependency={rlib.parent}', '-o', str(probe)],
                    cwd=ROOT, check=True)
     started = time.monotonic()
-    result = subprocess.run(['/usr/bin/time', '-l', str(probe), str(output / 'images')] + (['--enabled'] if args.enabled else []) + (['--handoff'] if args.handoff else []) + (['--cross-call'] if args.cross_call else []) + (['--scoped-observation'] if args.scoped_observation else []) + (['--tn-only'] if args.tn_only else []) + ([f'--suite-{args.suite}'] if args.suite != 'leaf' else []) + (['--skip-tn'] if args.skip_tn else []), cwd=ROOT, check=True,
+    result = subprocess.run(['/usr/bin/time', '-l', str(probe), str(output / 'images')] + (['--enabled'] if args.enabled else []) + (['--handoff'] if args.handoff else []) + (['--cross-call'] if args.cross_call else []) + (['--scoped-observation'] if args.scoped_observation else []) + (['--tn-only'] if args.tn_only else []) + ([f'--suite-{args.suite}'] if args.suite != 'leaf' else []) + (['--skip-tn'] if args.skip_tn else []), cwd=ROOT, check=False,
                             text=True, capture_output=True)
+    (output / "probe.stdout").write_text(result.stdout)
+    (output / "probe.stderr").write_text(result.stderr)
+    if result.returncode:
+        raise RuntimeError(f"measurement probe failed ({result.returncode}):\n{result.stderr}")
     elapsed = time.monotonic() - started
     cases = [json.loads(line) for line in result.stdout.splitlines()]
     sources = ['samples/tn/modern/TN.ACT', 'samples/tn/modern/LIB.ACT', 'fixtures/runtime/parameter_homes.act', 'fixtures/runtime/parameter_registers.act', 'fixtures/runtime/parameter_scalars.act', 'fixtures/runtime/mir6502_phase_trace_homes.act', 'fixtures/runtime/late_producer_cleanup.act']

@@ -1,6 +1,6 @@
 # MIR6502 storage observation: implementation plan
 
-Prepared 2026-11-15. Status: slices 0–4 complete; slice 5 pending.
+Prepared 2026-11-15. Status: slices 0–5 complete; optimized default enabled.
 Design commit: `9abe9094`. Compiler baseline: `67e9343a`.
 
 Implements the [storage ownership and observation design](MIR6502_STORAGE_OBSERVATION_DESIGN.md).
@@ -89,7 +89,7 @@ recompile TN merely to reproduce an unchanged baseline.
 | Ord code + ordinary homes | 80 + 5 bytes |
 | Items code + ordinary homes | 56 + 3 bytes |
 | Next / Strcpy / Fnamecmp code | 30 / 20 / 105 bytes |
-| MoveMenuBar / Draw / Tag / TagAll code in selected output | 119 / 146 / 90 / 87 bytes |
+| MoveMenuBar / Draw / Tag / TagAll code + ordinary homes | 115 + 4 / 145 + 1 / 88 + 2 / 87 + 0 bytes |
 | Rejected cross-call trial | Net 48-byte saving; each of the four other routines grows two bytes |
 
 Add a minimal manual-MIR characterization in the existing cleanup ownership
@@ -349,3 +349,16 @@ source window, repeated calls, ABI arguments, stack balance, sentinels, real
 LF/CRLF loads and one standalone execution. The VM fixture's initial whole-output
 newline comparison was corrected to exclude debug source spans. No compiler
 change was needed. [Measurements and scope](benchmarks/6502-storage-observation/README.md).
+
+## Slice 5 completion
+
+TN ActionCart `$3000` saves 56 bytes, 9,847 to 9,791, with unchanged Next/Strcpy/
+Fnamecmp and no growth in the four previously regressing routines. Off artifacts
+match the recorded baseline exactly. Four more staging stores disappear in the
+cross-call trial. Core materializations remain six; emissions, physical
+inventories and preservation replays are unchanged. Three immutable invocation
+snapshots are built across existing transactions. The optimized default is on,
+the conservative default off, and the public API/parent-gate check passes.
+[Final receipts, timings, test corrections and deferred coverage](benchmarks/6502-storage-observation/README.md#tn-and-optimized-default)
+record the focused qualification. All six slices have been implemented; no
+broader backend or TN runtime matrix was run.

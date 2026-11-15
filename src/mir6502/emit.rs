@@ -185,6 +185,7 @@ pub(super) fn emit_program_with_reference_programs_traced(
             trace_final_layout(&ctx);
         }
         if physical_memory {
+            trace.count("source_storage_inventory_builds", 1);
             ctx.summary.storage_layout = Some(MirStorageLayoutProof::from_layout(&ctx.layout));
             ctx.summary
                 .physical_memory

@@ -460,3 +460,34 @@ fn storage_observation_removes_staging_without_growing_any_routine() {
         mir6502::generate_output_with_config_and_runtime(&protected, 0x3000,
             &Mir6502Config { enable_scoped_storage_observation: true, ..off }, Runtime::ActionCart).unwrap());
 }
+
+#[test]
+fn storage_observation_optimized_default_matches_explicit_gate_and_respects_parents() {
+    assert!(!Mir6502Config::default().enable_scoped_storage_observation);
+    assert!(Mir6502Config::optimized().enable_scoped_storage_observation);
+    let source = include_str!("../fixtures/runtime/storage_observation.act").replace("\r\n", "\n");
+    // The public frontend removes uncalled routines. Keep every control reachable.
+    let source = source.replace("PROC Main()", "PROC Main() FindRecord($7000,$7000) Walk($7000,0)");
+    let n = nir(&source);
+    let generate = |n: &actionc::nir::NirProgram, config: &Mir6502Config| {
+        mir6502::generate_output_with_config_and_runtime(n, 0x3000, config, Runtime::ActionCart).unwrap()
+    };
+    let explicit = generate(&n, &Mir6502Config { enable_scoped_storage_observation: true,
+        ..Mir6502Config::optimized() });
+    let path = std::env::temp_dir().join(format!("actionc-scoped-default-{}.act", std::process::id()));
+    std::fs::write(&path, source).unwrap();
+    let public = actionc::compiler::compile_file(&path,
+        &actionc::compiler::CompileOptions::for_mode(actionc::compiler::CompileMode::Mir6502)
+            .with_origin(0x3000).with_runtime(Runtime::ActionCart));
+    std::fs::remove_file(path).unwrap();
+    let public = public.unwrap();
+    assert_eq!(public.object_bytes(), actionc::codegen::format_load_file(&explicit));
+    let n = nir("BYTE FUNC Add(BYTE a,b) RETURN(a+b) PROC Main() RETURN");
+    for config in [
+        Mir6502Config { enable_peepholes: false, ..Mir6502Config::optimized() },
+        Mir6502Config { enable_late_private_store_cleanup: false, ..Mir6502Config::optimized() },
+    ] {
+        assert_eq!(generate(&n, &config), generate(&n,
+            &Mir6502Config { enable_scoped_storage_observation: false, ..config }));
+    }
+}
