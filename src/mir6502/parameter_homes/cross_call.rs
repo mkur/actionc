@@ -8,12 +8,13 @@ pub(super) fn propose(
     multiple: bool,
     trace: &super::super::trace::Trace,
 ) -> Option<MirProgram> {
+    let addresses = ObjectAddressControl::new(input);
     let candidates: Vec<_> = input
         .routines
         .iter()
         .enumerate()
         .filter_map(|(index, routine)| {
-            if !eligible_with_calls(input, routine, true) {
+            if !eligible_with_calls(&addresses, routine, true) {
                 if trace.enabled() && routine.blocks.iter().flat_map(|b| &b.ops)
                     .any(|op| matches!(op, MirOp::Call { .. }))
                 {
@@ -74,7 +75,7 @@ pub(super) fn propose(
             install_bindings(&mut candidate, bindings);
             changed = true;
         }
-        if let Some(bindings) = zero_page::local_bindings(input, &candidate, &forbidden) {
+        if let Some(bindings) = zero_page::local_bindings(input, &candidate, &forbidden, &addresses) {
             candidate.frame.local_homes = Some(bindings);
             for (_, slot) in candidate.frame.resident_bytes() {
                 if !candidate.frame.fixed_zero_page.contains(&slot) {

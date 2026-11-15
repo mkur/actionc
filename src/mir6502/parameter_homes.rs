@@ -1,6 +1,7 @@
 //! One parameter binding owns entry capture, working storage, and layout.
 //! Each placement batch resumes one core continuation and requires a smaller image.
 use super::analysis::known_callees::MirCalleeEntryStage;
+use super::analysis::storage_ownership::ObjectAddressControl;
 use super::preparation::{Resume, SelectedPlacement};
 use super::{diagnostics::MirDiagnostic, ir::*};
 use std::collections::BTreeSet;
@@ -76,10 +77,11 @@ pub(super) fn select_output(
 }
 
 fn propose(input: &MirProgram) -> Option<MirProgram> {
+    let addresses = ObjectAddressControl::new(input);
     let mut proposal = input.clone();
     let mut changed = false;
     for routine in &mut proposal.routines {
-        if !eligible(input, routine) {
+        if !eligible_with_calls(&addresses, routine, false) {
             continue;
         }
         if let Some(bindings) =
@@ -126,11 +128,7 @@ fn install_bindings(routine: &mut MirRoutine, bindings: Vec<MirParamBinding>) {
 
 /// Deliberately closed expansion set. Additional shapes must establish their
 /// hidden helper, scratch, and observable-memory behavior before admission.
-fn eligible(program: &MirProgram, routine: &MirRoutine) -> bool {
-    eligible_with_calls(program, routine, false)
-}
-
-fn eligible_with_calls(program: &MirProgram, routine: &MirRoutine, calls: bool) -> bool {
+fn eligible_with_calls(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, calls: bool) -> bool {
     use super::analysis::effects::classify_op;
     routine.abi == MirRoutineAbi::Action
         && routine.frame.parameter_homes.is_none()
@@ -143,7 +141,7 @@ fn eligible_with_calls(program: &MirProgram, routine: &MirRoutine, calls: bool) 
             .sum::<u16>()
             <= 4
         && routine.frame.params.iter().all(|p| {
-            matches!(p.base, MirStorageBase::Param(id) if !exposed(program, routine, id))
+            matches!(p.base, MirStorageBase::Param(id) if addresses.compiler_controls_address(routine.id, &MirMem::Param { id, offset: 0 }))
                 && p.storage == MirStorageClass::Scalar
                 && p.offset == 0
                 && p.init.is_none()
@@ -341,44 +339,6 @@ fn try_proposal(
     }
 }
 
-/// Address uses expose the parameter object, unlike dereferencing its value.
-pub(super) fn exposed(program: &MirProgram, routine: &MirRoutine, id: crate::nir::ParamId) -> bool {
-    object_exposed(program, routine, &MirMem::Param { id, offset: 0 })
-}
-
-fn object_exposed(program: &MirProgram, routine: &MirRoutine, object: &MirMem) -> bool {
-    use super::analysis::effects::{classify_op, classify_terminator};
-    let target = match object {
-        MirMem::Param { id, .. } => MirDataRelocationTarget::Param { routine: routine.id, id: *id },
-        MirMem::Local { id, .. } => MirDataRelocationTarget::Local { routine: routine.id, id: *id },
-        _ => return true,
-    };
-    let same = |mem: &MirMem| match (object, mem) {
-        (MirMem::Param { id: a, .. }, MirMem::Param { id: b, .. }) => a == b,
-        (MirMem::Local { id: a, .. }, MirMem::Local { id: b, .. }) => a == b,
-        _ => false,
-    };
-    let image_has = |image: &MirDataImage| image.relocations.iter().any(|r| r.target == target);
-    program.statics.iter().any(|s| image_has(&s.image))
-        || program.globals.iter().any(|g| match &g.init {
-            Some(MirGlobalInit::Bytes { image, .. }) => image_has(image),
-            Some(MirGlobalInit::Descriptor { backing, .. }) => image_has(&backing.image),
-            _ => false,
-        })
-        || program.routines.iter().flat_map(|r| r.frame.params.iter().chain(&r.frame.locals)).any(|s| match &s.init {
-            Some(MirStorageInit::Bytes { image, .. }) => image_has(image),
-            Some(MirStorageInit::Descriptor { backing, .. }) => image_has(&backing.image),
-            _ => false,
-        })
-        || routine.blocks.iter().any(|b| {
-            b.ops.iter().map(classify_op).map(|e| e.memory.address_references)
-                .chain(std::iter::once(classify_terminator(&b.terminator).memory.address_references))
-                .flatten().any(|m| same(&m))
-            // Machine payloads can refer to parameters by relocation or raw bytes.
-            || b.ops.iter().any(|op| matches!(op, MirOp::MachineBlock { .. }))
-        })
-}
-
 /// Explicit source storage wins over compiler reservations, including absolute
 /// locals and numeric direct accesses that do not have a global declaration.
 fn source_zero_page(program: &MirProgram, routine: &MirRoutine) -> BTreeSet<u8> {
@@ -430,9 +390,18 @@ fn source_zero_page(program: &MirProgram, routine: &MirRoutine) -> BTreeSet<u8> 
     owned
 }
 
+#[cfg(test)]
 pub(super) fn verify_storage(program: &MirProgram, routine: &MirRoutine, stage: MirCalleeEntryStage) -> Vec<MirDiagnostic> {
+    verify_storage_with_address_control(program, routine, stage, &ObjectAddressControl::new(program))
+}
+
+pub(super) fn verify_storage_with_address_control(program: &MirProgram, routine: &MirRoutine,
+    stage: MirCalleeEntryStage, addresses: &ObjectAddressControl<'_>) -> Vec<MirDiagnostic> {
+    if !addresses.is_current(program) {
+        return vec![MirDiagnostic::routine(&routine.name, "stale source-object address facts")];
+    }
     let mut errors = handoff::verify(program, routine, stage);
-    errors.extend(locals::verify_storage(program, routine));
+    errors.extend(locals::verify_storage_with_address_control(program, routine, addresses));
     let Some(bindings) = &routine.frame.parameter_homes else {
         return errors;
     };
@@ -441,7 +410,7 @@ pub(super) fn verify_storage(program: &MirProgram, routine: &MirRoutine, stage: 
         if b.home == MirParamHome::Inline {
             continue;
         }
-        if exposed(program, routine, b.param)
+        if !addresses.compiler_controls_address(routine.id, &MirMem::Param { id: b.param, offset: 0 })
             || !matches!(
                 routine.abi,
                 MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry

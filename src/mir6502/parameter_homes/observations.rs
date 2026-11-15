@@ -21,6 +21,7 @@ impl<'a> InvocationHomes<'a> {
     }
 
     pub fn new(source: &'a MirProgram) -> Self {
+        let addresses = ObjectAddressControl::new(source);
         let mut objects = BTreeMap::new();
         let mut calls = ResidenceCalls::new(source, MirCalleeEntryStage::ActualEntry);
         let mut abi: BTreeSet<_> = action_return_home_uses().iter().filter_map(|h| {
@@ -51,7 +52,7 @@ impl<'a> InvocationHomes<'a> {
             if r.frame.resident_bytes().is_empty() || r.abi != MirRoutineAbi::Action
                 || r.frame.parameter_handoff.is_some()
                 || !verify_bindings(r).is_empty()
-                || !verify_storage(source, r, MirCalleeEntryStage::ActualEntry).is_empty()
+                || !verify_storage_with_address_control(source, r, MirCalleeEntryStage::ActualEntry, &addresses).is_empty()
                 || r.blocks.iter().flat_map(|b| &b.ops).any(|op| match op {
                     MirOp::Call { .. } => calls.writes(op).is_err(),
                     MirOp::RuntimeHelper { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. } => true,
@@ -83,6 +84,7 @@ impl<'a> InvocationHomes<'a> {
 
     pub fn with_references(source: &'a MirProgram, references: &[&MirProgram]) -> Self {
         let mut facts = Self::new(source);
+        let references: Vec<_> = references.iter().map(|p| ObjectAddressControl::new(p)).collect();
         for (id, objects) in &mut facts.objects {
             objects.retain(|(base, _)| {
                 let object = match *base {
@@ -90,8 +92,7 @@ impl<'a> InvocationHomes<'a> {
                     MirStorageBase::Local(id) => MirMem::Local { id, offset: 0 },
                     _ => return false,
                 };
-                references.iter().all(|p| p.routines.iter().find(|r| r.id == *id)
-                    .is_some_and(|r| r.abi == MirRoutineAbi::Action && !object_exposed(p, r, &object)))
+                references.iter().all(|p| p.compiler_controls_address(*id, &object))
             });
         }
         facts

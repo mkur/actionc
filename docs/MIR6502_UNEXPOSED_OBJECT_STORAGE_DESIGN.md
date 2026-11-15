@@ -1,0 +1,193 @@
+# MIR6502 unexposed object storage
+
+Status: implementation in progress, 2026-11-15. Shared address-control facts
+are implemented; native pointer-write admission remains unchanged.
+The [implementation plan](MIR6502_UNEXPOSED_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md)
+defines four slices with focused validation and a commit after each slice.
+
+## Decision and motivation
+
+Whether an ordinary pointer access can observe a compiler-managed object must
+depend on that object's address exposure, independently of its placement.
+Compute that fact before choosing inline, ZP or register storage. Separately
+prove the object's lifetime and the absence of conflicting physical writes.
+
+Sort demonstrates the current inconsistency. Its Fnamecmp call now passes the
+entry/write contract, but the caller selector and expanded residence verifier
+reject indirect writes. The compiler therefore never tries moving its locals.
+An indexed array write can physically hit either an inline or a ZP address;
+the existing inline fallback is not an alias-disjointness proof.
+
+This extends the shared ownership model in the
+[storage-observation design](MIR6502_STORAGE_OBSERVATION_DESIGN.md) and the
+[parameter/local placement design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md).
+The completed [private-storage boundary work](MIR6502_PRIVATE_STORAGE_BOUNDARY_IMPLEMENTATION_PLAN.md)
+already applies a non-exposure rule to compiler-created temporaries. This
+proposal extends address-control facts to eligible source objects; it supersedes
+the blanket indirect-write exclusion for those objects when implemented.
+Historical qualification results and unrelated conservative consumers remain valid.
+
+## Storage access contract
+
+The compiler chooses the physical home of an ordinary object unless the program
+exposes or constrains that home. A supported program may use the object by its
+language identity or through an exposed address. It cannot depend on an
+undisclosed compiler-chosen address, including one guessed through numeric
+pointer arithmetic or inferred from another object's accidental adjacency.
+This is an implementation-storage contract, not a numerical bounds proof or
+hardware memory protection.
+
+Preserve explicit address-taking, aliases, fixed placement, data/machine
+relocations, decoded numeric physical observations, declared regions and ABI
+requirements. Missing or ambiguous exposure evidence grants no exception.
+Source-owned ZP is program storage. Pointer arithmetic, pointee read/write
+ordering, hardware effects and Action local persistence retain their meanings.
+No runtime bounds checks or new annotation syntax are introduced.
+
+Taking the address of a pointer *cell* exposes that cell. Reading the pointer
+value, passing that value or dereferencing it does not by itself expose the cell.
+The pointed-to program storage remains observable in all cases.
+
+## Three independent facts
+
+| Fact | Question | Existing authority to extend/reuse |
+| --- | --- | --- |
+| Address control | Can ordinary pointer access legitimately reach this object's hidden home? | Shared ownership and exposure inventory |
+| Invocation lifetime | Is every value read defined in this invocation? | ABI capture and logical home liveness |
+| Physical safety | Does any scratch, ABI, callee or explicit physical write overlap a live home? | Allocation, expanded effects, residence verification and final layout |
+
+An affirmative address-control fact does not make a source local a temporary.
+It does not authorize deleting its storage, discarding reads, merging objects,
+reordering accesses or sharing a lifetime. Keep the source declaration identity
+and the existing storage role. Each transformation retains its own proof.
+
+An unexposed local may retain its value across invocations. Initially relocate
+only the existing uninitialized BYTE/WORD scalar or pointer locals with a
+complete definition before every read on every invocation. Partial/conditional
+initialization, entry-value dependence and initializer-backed storage retain
+their existing homes. Parameters use verified ABI capture. Calls and physical
+scratch writes never count as logical initialization of a caller's object.
+
+## One shared address-control query
+
+The shared [storage ownership module](../src/mir6502/analysis/storage_ownership.rs)
+provides `ObjectAddressControl::compiler_controls_address(owner, object)` from
+an immutable program's declaration/exposure inventory. Use routine-qualified ParamId/LocalId and
+existing typed memory/storage identities. Names and trace records remain diagnostic.
+Unknown identity or incomplete inventory returns no proof.
+
+The query must work for an inline object before placement is attempted. A ZP
+binding is neither a prerequisite nor evidence of privacy. Moving an otherwise
+unchanged object must preserve its logical exposure classification. Known
+physical observations are checked against both placements separately.
+
+Consolidate the exposure checks currently used by
+[object_exposed](../src/mir6502/parameter_homes.rs),
+[local eligibility](../src/mir6502/parameter_homes/locals.rs) and
+[InvocationHomes](../src/mir6502/parameter_homes/observations.rs) behind that
+shared authority. Reuse typed machine observations and retained-program exposure
+evidence. Do not introduce a competing object inventory or a general points-to
+analysis. Build facts once for each existing immutable program snapshot and
+reuse them across candidates; a changed body, declaration or exposure needs
+current evidence.
+
+Logical exposure can be established before addresses are final. An explicit
+numeric observation or overlap which still depends on layout remains a pending
+physical obligation. Unresolved obligations cannot approve a final binding.
+
+Keep every declaration in the physical storage inventory, including unexposed
+objects and unused aliases. Address control is not permission for another
+allocation to overlap that object. Keep `source_storage_disjoint` conservative;
+contextual consumers must identify the object and applicable lifetime explicitly.
+
+## Ordinary pointee effects and physical effects
+
+For a qualified unexposed object, use the following distinction in placement
+and verification:
+
+| Effect | Consequence |
+| --- | --- |
+| Typed native read/write through an ordinary pointer or array index | Does not observe or clobber the object's hidden home; preserve the actual pointee access |
+| Logical access to the object | Reads or defines the object through its authoritative binding |
+| Address preparation, emitted fixed scratch or ABI write | Check physical overlap with the live object |
+| Supported direct call | Apply existing per-site entry, argument, result and callee-write checks |
+| Opaque, undecoded or unaccounted operation | Retain conservative rejection |
+
+Reuse the memory, home and address-pair portions of
+[operation effects](../src/mir6502/analysis/effects.rs). Only the ordinary
+pointee component receives the object-specific exception. Pointer-cell reads,
+address construction, carry/flags, register effects, stack traffic and implicit
+scratch remain part of the expanded operation's proof. A partial word write or
+one overlapping pointer lane is a real conflict.
+
+Do not globally weaken `Unknown` or clear `indirect_writes`. The complete public
+write footprint of a pointer-writing routine remains Unknown. No Exact callee
+summary is invented by excluding one caller object. Current call admission
+rules, including rejection of unknown writes, remain unchanged in this scope.
+An opaque call's possible ABI/scratch clobbers do not become ordinary pointee
+effects. Conservative value-fact invalidation may remain where no consumer uses
+the new object-specific proof.
+
+## Placement and verification
+
+Replace the indirect-write veto in both
+[candidate eligibility](../src/mir6502/parameter_homes.rs) and
+[expanded lifetime verification](../src/mir6502/parameter_homes/lifetimes.rs)
+for objects satisfying the shared contract. Check those objects even when MIR
+bindings are supplied directly rather than produced by automatic selection.
+
+Initially support existing native byte/word indexed reads and writes, plus
+constant BYTE Lsh/Rsh counts 0 through 8. Their actual expanded recipes must
+account for every physical resource used. A zero shift need not define flags;
+this proposal grants no new entry/exit flag facts. Variable shifts, helper-producing
+arithmetic and unqualified word-shift recipes retain their current exclusions.
+Do not broaden a caller merely because an operation is labelled nonopaque.
+
+Keep current source-ZP exclusions, logical binding resolution, scratch
+reservations, definite initialization, call checks and pair coherence. Binding
+selection may exclude live call-clobbered slots as today. Expanded verification
+must still catch hidden physical conflicts in the candidate.
+
+InvocationHomes consumes address control plus its existing initialization,
+residence and ABI proofs. Its current scoped cleanup exception does not become
+a general permission to prune source storage or move inline allocations.
+Terminal cleanup continues to prove individual stores dead and replay earlier
+preservation obligations. It may not ignore an observation merely because a
+source object is now classified unexposed.
+
+Use the same retained core continuation and combined ordinary-call proposal.
+Keep frames/bindings fixed within downstream terminal transactions. Recheck
+explicit physical observations using authoritative baseline and candidate
+layouts and retained witnesses. Recompute candidate facts after expansion;
+stale facts never validate a caller rewrite. Accept only a valid, strictly
+smaller complete image, with exact rollback otherwise. No subset retries,
+extra materialization stage or per-object compilation is added.
+
+## Ownership of the boundary and scope
+
+Source meaning and persistent-local behavior remain owned by SemIR and carried
+by verified NIR. MIR6502 derives exposure, lifetime and placement facts from
+those typed inputs. Emission resolves final addresses and proof obligations.
+No SemIR lookback, string-based identity or NIR shape change is planned. If a
+required source fact is absent from NIR, separate that contract migration and
+apply its shared checks rather than reconstructing meaning in MIR.
+
+Recursive/nested-call placement, assembly admission, arbitrary pointer-range
+analysis, array-object promotion, source-variable DSE and allocation coalescing
+are outside this proposal. Eligible source objects continue to use existing
+home tables and feature gates. There is no Sort-specific rule.
+
+## Qualification
+
+Use independent controls for equal exposure facts before/after binding, actual
+pointer reads/writes beside live homes, explicit exposure, physical scratch
+collisions, stale facts and persistent locals. Execute a native array swap with
+a live scalar and an ordinary leaf call, including a word crossing a page.
+Check results and program-memory sentinels against an independent oracle.
+Do not use an undeclared pointer into a hidden home as a supported-program oracle.
+
+Reuse the final [callee-facts qualification](benchmarks/6502-callee-facts-repair/README.md):
+TN is 9,846 bytes, Sort is 250 code bytes with three mapped ordinary-home bytes,
+and its Fnamecmp call passes independently. Measure actual selection and savings;
+remaining scratch or cost failures are valid outcomes. The implementation plan
+scopes local testing to focused unit/VM groups and one final TN measurement.

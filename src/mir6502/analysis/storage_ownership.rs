@@ -9,6 +9,9 @@ use super::{
 use crate::mir6502::ir::*;
 use std::collections::{BTreeMap, BTreeSet};
 
+mod source_objects;
+pub(in crate::mir6502) use source_objects::ObjectAddressControl;
+
 pub(in crate::mir6502) const POINTER_SCRATCH_LO: u8 = 0xAC;
 pub(in crate::mir6502) const POINTER_SCRATCH_HI: u8 = 0xAD;
 pub(in crate::mir6502) const POINTER_INDEX_SCRATCH_LO: u8 = 0xAE;

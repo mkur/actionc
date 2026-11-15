@@ -10,7 +10,7 @@ use crate::nir::LocalId;
 #[path = "local_tests.rs"]
 mod tests;
 
-pub(super) fn eligible(program: &MirProgram, routine: &MirRoutine, slot: &MirStorageSlot) -> bool {
+pub(super) fn eligible(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, slot: &MirStorageSlot) -> bool {
     let MirStorageBase::Local(id) = slot.base else {
         return false;
     };
@@ -27,7 +27,7 @@ pub(super) fn eligible(program: &MirProgram, routine: &MirRoutine, slot: &MirSto
             .locals
             .iter()
             .any(|s| matches!(s.base, MirStorageBase::LocalAlias { target, .. } if target == id))
-        && !object_exposed(program, routine, &MirMem::Local { id, offset: 0 })
+        && addresses.compiler_controls_address(routine.id, &MirMem::Local { id, offset: 0 })
 }
 
 pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
@@ -100,7 +100,13 @@ pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
     errors
 }
 
+#[cfg(test)]
 pub(super) fn verify_storage(program: &MirProgram, routine: &MirRoutine) -> Vec<MirDiagnostic> {
+    verify_storage_with_address_control(program, routine, &ObjectAddressControl::new(program))
+}
+
+pub(super) fn verify_storage_with_address_control(program: &MirProgram, routine: &MirRoutine,
+    addresses: &ObjectAddressControl<'_>) -> Vec<MirDiagnostic> {
     let Some(bindings) = &routine.frame.local_homes else {
         return vec![];
     };
@@ -113,7 +119,7 @@ pub(super) fn verify_storage(program: &MirProgram, routine: &MirRoutine) -> Vec<
         }
         if routine.abi != MirRoutineAbi::Action
             || !routine.frame.locals.iter().any(|s| {
-                s.base == MirStorageBase::Local(binding.local) && eligible(program, routine, s)
+                s.base == MirStorageBase::Local(binding.local) && eligible(addresses, routine, s)
             })
         {
             errors.push(MirDiagnostic::routine(

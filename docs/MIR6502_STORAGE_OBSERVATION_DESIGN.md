@@ -6,6 +6,11 @@ Audited baseline: `67e9343a`. [Measured results](benchmarks/6502-storage-observa
 The [implementation plan](MIR6502_STORAGE_OBSERVATION_IMPLEMENTATION_PLAN.md)
 defines six commit-sized slices and the user's requested minimal local testing.
 
+The proposed [unexposed-object storage extension](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md)
+separates address control from placement and applies it to native pointer writes.
+It has a [separate implementation plan](MIR6502_UNEXPOSED_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md);
+the implemented scope and historical evidence below remain unchanged.
+
 This note refines the interaction between
 [parameter/local home selection](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-zp-homes-across-ordinary-calls)
 and [terminal cleanup](MIR6502_LATE_CLEANUP_DESIGN.md). It defines a narrow

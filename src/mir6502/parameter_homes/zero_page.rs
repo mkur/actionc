@@ -118,6 +118,7 @@ pub(super) fn local_bindings(
     program: &MirProgram,
     routine: &MirRoutine,
     forbidden: &BTreeSet<u8>,
+    addresses: &ObjectAddressControl<'_>,
 ) -> Option<Vec<MirLocalBinding>> {
     let entry = super::locals::entry_dependencies(routine)?;
     let mut used = used_bytes(program, routine, forbidden);
@@ -130,7 +131,7 @@ pub(super) fn local_bindings(
             let MirStorageBase::Local(local) = slot.base else {
                 return None;
             };
-            let start = (super::locals::eligible(program, routine, slot)
+            let start = (super::locals::eligible(addresses, routine, slot)
                 && !entry.contains(&local))
             .then(|| pick(routine, &used, slot.storage_size, None, total, total))
             .flatten();

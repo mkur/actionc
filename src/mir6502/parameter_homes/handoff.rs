@@ -35,10 +35,13 @@ impl WrapperFacts {
     }
 }
 
-pub(super) fn analyze(
-    program: &MirProgram,
-    routine: &MirRoutine,
-) -> Result<WrapperFacts, &'static str> {
+#[cfg(test)]
+pub(super) fn analyze(program: &MirProgram, routine: &MirRoutine) -> Result<WrapperFacts, &'static str> {
+    analyze_with_address_control(program, routine, &ObjectAddressControl::new(program))
+}
+
+fn analyze_with_address_control(program: &MirProgram, routine: &MirRoutine,
+    addresses: &ObjectAddressControl<'_>) -> Result<WrapperFacts, &'static str> {
     if routine.abi != MirRoutineAbi::Action
         || routine.frame.parameter_homes.is_some()
         || routine.frame.params.is_empty()
@@ -61,7 +64,7 @@ pub(super) fn analyze(
                     (s.scalar_width, s.storage_size),
                     (Some(MirWidth::Byte), 1) | (Some(MirWidth::Word), 2)
                 )
-                || !matches!(s.base, MirStorageBase::Param(id) if !exposed(program, routine, id))
+                || !matches!(s.base, MirStorageBase::Param(id) if addresses.compiler_controls_address(routine.id, &MirMem::Param { id, offset: 0 }))
         })
     {
         return Err("unsupported-or-exposed-parameters");
@@ -298,6 +301,7 @@ pub(super) fn verify(program: &MirProgram, routine: &MirRoutine, stage: MirCalle
 
 /// One deterministic batch, retaining every already-selected leaf binding.
 pub(super) fn propose(input: &MirProgram, selected: &MirProgram) -> Option<MirProgram> {
+    let addresses = ObjectAddressControl::new(input);
     let mut proposal = None;
     'routines: for (index, routine) in input.routines.iter().enumerate() {
         // Already-elided homes have no storage saving to justify a new capture.
@@ -311,7 +315,7 @@ pub(super) fn propose(input: &MirProgram, selected: &MirProgram) -> Option<MirPr
         }) {
             continue;
         }
-        let Ok(facts) = analyze(input, routine) else {
+        let Ok(facts) = analyze_with_address_control(input, routine, &addresses) else {
             continue;
         };
         if !facts.is_current(input) {
