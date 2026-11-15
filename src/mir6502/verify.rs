@@ -229,7 +229,7 @@ impl MirVerifier {
             for routine in &program.routines {
                 self.diagnostics.extend(super::parameter_homes::verify_storage_with_address_control(program, routine, stage, &addresses));
                 if self.phase != MirPhase::PreMaterialization {
-                    self.diagnostics.extend(super::parameter_homes::verify_lifetimes(routine, calls.as_mut()));
+                    self.diagnostics.extend(super::parameter_homes::verify_residence(routine, calls.as_mut(), Some(&addresses)));
                 }
             }
         }

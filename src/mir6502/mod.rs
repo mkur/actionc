@@ -644,7 +644,7 @@ fn finalize_output(
     let trace_snapshot = trace.snapshot("pre-emission", &mir);
     let final_emission = trace.child("final-emission", "final-artifact")
         .with_artifact_snapshot(trace_snapshot);
-    let summary = emit::emit_program_traced(&mir, origin, &mut emitter, &final_emission)?;
+    let summary = emit::emit_program_with_physical_memory_traced(&mir, origin, &mut emitter, true, &final_emission)?;
     let emission = emitter.finish_with_relocations().map_err(|diagnostics| {
         diagnostics
             .into_iter()
@@ -656,6 +656,8 @@ fn finalize_output(
             .collect::<Vec<_>>()
     })?;
     let costs = emit::routine_costs(&mir, &summary);
+    let memory = summary.physical_memory.clone();
+    parameter_homes::verify_physical(&mir, &memory)?;
     let mut output = codegen_output(emission, origin, summary, runtime, &mir);
     populate_callable_signatures(nir, &mir, &mut output);
     // Routine identity survives MIR layout and inlining. Resolve its debug
@@ -674,7 +676,7 @@ fn finalize_output(
         }
         span.is_some()
     });
-    Ok(preparation::Executable { output, costs, program: mir, trace_snapshot })
+    Ok(preparation::Executable { output, costs, memory, program: mir, trace_snapshot })
 }
 
 /// Diagnostic metadata only. Callable meaning comes from verified NIR by ID;

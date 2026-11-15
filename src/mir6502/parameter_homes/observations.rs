@@ -58,7 +58,7 @@ impl<'a> InvocationHomes<'a> {
                     MirOp::RuntimeHelper { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. } => true,
                     _ => false,
                 })
-                || !lifetimes::verify(r, Some(&mut calls)).is_empty()
+                || !verify_residence(r, Some(&mut calls), Some(&addresses)).is_empty()
             { continue; }
             let Some(entry) = lifetimes::entry_dependencies(r) else { continue; };
             let mut certified = Vec::new();

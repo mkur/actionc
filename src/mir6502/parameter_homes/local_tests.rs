@@ -282,3 +282,51 @@ fn invalid_or_observable_local_bindings_are_rejected() {
         );
     }
 }
+
+#[test]
+fn object_storage_native_pointees_keep_lifetime_and_physical_obligations() {
+    use crate::mir6502::analysis::{effects::writes_ordinary_pointee,
+        known_callees::MirKnownMemoryWrites, storage_ownership::ObjectAddressControl};
+    for ty in ["BYTE", "CARD"] {
+        let text = format!("CARD FUNC Keep({ty} ARRAY v BYTE x) CARD n n=$1234 v(x)=n RETURN(n+v(x))");
+        let mut p = source(&text);
+        bind(&mut p, 0, 0xe4);
+        let p = materialize(p);
+        mir6502::verify_program(&p, MirPhase::PreEmission).unwrap();
+        let r = &p.routines[0];
+        assert!(r.blocks.iter().flat_map(|b| &b.ops).any(writes_ordinary_pointee));
+        let addresses = ObjectAddressControl::new(&p);
+        assert!(verify_residence(r, None, Some(&addresses)).is_empty());
+        let stale = p.clone();
+        assert!(!verify_residence(&stale.routines[0], None, Some(&addresses)).is_empty());
+        assert!(matches!(MirKnownCalleeSummaries::analyze_for_rewriting(&p).get(r.id).unwrap().writes(), MirKnownMemoryWrites::Unknown));
+        let (_, summary) = emit(&p);
+        super::super::physical::verify(&p, &summary.physical_memory).unwrap();
+        for lane in [0xe4, 0xe5] {
+            let mut clobber = p.clone();
+            let ops = &mut clobber.routines[0].blocks[0].ops;
+            let index = ops.iter().position(writes_ordinary_pointee).unwrap();
+            ops.insert(index, MirOp::Store { dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(lane))),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte });
+            assert!(mir6502::verify_program(&clobber, MirPhase::PreEmission).unwrap_err()
+                .iter().any(|e| e.message.contains("clobbers live")));
+        }
+        // Explicit numeric observations are separate from logical exposure.
+        let mut numeric = p.clone();
+        numeric.routines[0].blocks[0].ops.insert(0, MirOp::Load { dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(MirMem::Absolute(0xe5)), width: MirWidth::Byte });
+        assert!(super::super::physical::verify(&numeric, &summary.physical_memory).is_err());
+        // Keep the complete declaration inventory, including fixed aliases.
+        let mut aliases = summary.physical_memory.clone();
+        let mut records = aliases.source_storage().unwrap().to_vec();
+        let mut alias = records.iter().find(|s| s.address == 0xe4).unwrap().clone();
+        alias.object = crate::mir6502::analysis::record_bases::SourceObject::Global(crate::nir::SymbolId(999));
+        alias.binding = None;
+        records.push(alias);
+        aliases.protect_source_storage(Some(records));
+        assert!(super::super::physical::verify(&p, &aliases).is_err());
+    }
+    let mut persistent = source("CARD FUNC Keep(CARD ARRAY v) CARD n v(0)=1 RETURN(n)");
+    bind(&mut persistent, 0, 0xe4);
+    assert!(!verify_storage(&persistent, &persistent.routines[0]).is_empty());
+}

@@ -18,7 +18,11 @@ mod mixed_tests;
 #[cfg(test)]
 mod handoff_tests;
 mod zero_page;
+mod physical;
+pub(super) use physical::verify as verify_physical;
+#[cfg(test)]
 pub(super) use lifetimes::verify as verify_lifetimes;
+pub(super) use lifetimes::verify_with_address_control as verify_residence;
 pub(super) use calls::ResidenceCalls;
 
 pub(super) fn select_output(
@@ -311,6 +315,10 @@ fn try_proposal(
         runtime,
         &child,
     );
+    let trial = trial.and_then(|candidate| {
+        physical::verify_relocation(baseline, &candidate, &[&selected.input, &input])?;
+        Ok(candidate)
+    });
     let accepted = trial.as_ref().is_ok_and(|p| p.improves(baseline));
     child.event(match stage { "parameter-homes" => "parameter-home-result", "cross-call-homes" => "cross-call-home-result", _ => "parameter-argument-handoff-result" }, || serde_json::json!({
         "accepted": accepted,

@@ -92,6 +92,7 @@ pub(super) struct SelectedPlacement {
 #[derive(Clone)]
 pub(super) struct Executable {
     pub program: MirProgram,
+    pub memory: super::analysis::record_bases::MirPhysicalMemory,
     pub output: crate::codegen::CodegenOutput,
     /// Routine inventory and diagnostic costs, not a per-routine growth veto.
     pub costs: std::collections::BTreeMap<RoutineId, usize>,

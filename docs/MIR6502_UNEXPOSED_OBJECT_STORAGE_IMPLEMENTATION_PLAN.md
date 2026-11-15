@@ -1,6 +1,6 @@
 # MIR6502 unexposed object storage: implementation plan
 
-Prepared 2026-11-15. Status: slice 1 complete; continue with slices 2–4.
+Prepared 2026-11-15. Status: slices 1–2 complete; continue with slices 3–4.
 Implements the [design](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md).
 
 Complete the four slices in order and commit after each slice's focused checks
@@ -11,6 +11,13 @@ Slice 1 validation: the grouped address-control regression, five existing local
 binding/lifetime tests, fifteen capture/handoff tests and five scoped-observation
 tests passed. The shared borrowed inventory is reused across each selector or
 verifier batch. Source roles and indirect-write admission remain unchanged.
+
+Slice 2 validation: both grouped object-storage tests, five existing local
+binding/lifetime controls and five scoped-observation controls passed. Native
+byte/word stores coexist with explicit resident bindings; both live lanes,
+stale facts, numeric aliases and persistent locals remain protected. Public
+pointer-write summaries remain Unknown. Final emission now retains its physical
+inventory for placement validation; no additional emission was introduced.
 
 ## Outcome and baseline
 

@@ -65,6 +65,10 @@ impl<'a> ObjectAddressControl<'a> {
         std::ptr::eq(self.source, source)
     }
 
+    pub fn owns_routine(&self, routine: &MirRoutine) -> bool {
+        self.source.routines.iter().any(|r| std::ptr::eq(r, routine))
+    }
+
     /// This logical permission says nothing about initialization, deadness,
     /// ABI/scratch clobbers, or explicit numeric aliases in final placement.
     pub fn compiler_controls_address(&self, owner: RoutineId, object: &MirMem) -> bool {

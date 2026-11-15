@@ -1,7 +1,8 @@
 # MIR6502 unexposed object storage
 
 Status: implementation in progress, 2026-11-15. Shared address-control facts
-are implemented; native pointer-write admission remains unchanged.
+and residence verification are implemented; automatic pointer-write admission
+remains unchanged until slice 3.
 The [implementation plan](MIR6502_UNEXPOSED_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md)
 defines four slices with focused validation and a commit after each slice.
 
@@ -94,6 +95,16 @@ current evidence.
 Logical exposure can be established before addresses are final. An explicit
 numeric observation or overlap which still depends on layout remains a pending
 physical obligation. Unresolved obligations cannot approve a final binding.
+
+For the native pointee extension, finalization retains the existing emission's
+physical map and complete declaration inventory. It checks resident ranges;
+the placement transaction additionally checks the old ranges and retained input
+observations before accepting relocation. This adds no emission or materialization.
+Decoded machine operands and declared physical regions remain observations;
+an undecodable explicit machine operand blocks this extension conservatively.
+Generated fixed-ZP scratch operands remain the residence verifier's responsibility.
+Different invocations may reuse certified compiler-chosen homes, but fixed source
+declarations and aliases retain protection in both layouts.
 
 Keep every declaration in the physical storage inventory, including unexposed
 objects and unused aliases. Address control is not permission for another

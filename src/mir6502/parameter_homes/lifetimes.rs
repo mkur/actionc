@@ -10,10 +10,19 @@ use crate::mir6502::analysis::{
 };
 use std::collections::BTreeMap;
 
-pub(in crate::mir6502) fn verify(routine: &MirRoutine, mut calls: Option<&mut ResidenceCalls<'_>>) -> Vec<MirDiagnostic> {
+#[cfg(test)]
+pub(in crate::mir6502) fn verify(routine: &MirRoutine, calls: Option<&mut ResidenceCalls<'_>>) -> Vec<MirDiagnostic> {
+    verify_with_address_control(routine, calls, None)
+}
+
+pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
+    mut calls: Option<&mut ResidenceCalls<'_>>, addresses: Option<&ObjectAddressControl<'_>>,
+) -> Vec<MirDiagnostic> {
     let resident = routine.frame.resident_bytes();
     let owned: BTreeSet<_> = resident.iter().map(|(_, slot)| MirHomeByte::FixedZeroPage(*slot)).collect();
     if owned.is_empty() { return vec![]; }
+    let private = addresses.is_some_and(|facts| facts.owns_routine(routine)
+        && resident.iter().all(|(mem, _)| facts.compiler_controls_address(routine.id, mem)));
     let transfer = |memory: &MirMemoryEffects, reads: &BTreeSet<MirHomeByte>, defines| {
         project(routine, &owned, memory, reads, defines)
     };
@@ -44,7 +53,8 @@ pub(in crate::mir6502) fn verify(routine: &MirRoutine, mut calls: Option<&mut Re
                 )];
             }
             let e = classify_op(op);
-            if (e.memory.opaque || e.memory.indirect_writes) && !consumes && invocation.is_none() {
+            let ordinary_pointee = private && super::super::analysis::effects::writes_ordinary_pointee(op);
+            if (e.memory.opaque || (e.memory.indirect_writes && !ordinary_pointee)) && !consumes && invocation.is_none() {
                 return vec![MirDiagnostic::routine(
                     &routine.name,
                     "source-object residence acquired unsupported expanded memory effects",
