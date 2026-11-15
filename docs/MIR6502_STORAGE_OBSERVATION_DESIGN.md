@@ -2,6 +2,9 @@
 
 Status: proposed, 2026-11-15. Audited baseline: `67e9343a`.
 
+The [implementation plan](MIR6502_STORAGE_OBSERVATION_IMPLEMENTATION_PLAN.md)
+defines six commit-sized slices and the user's requested minimal local testing.
+
 This note refines the interaction between
 [parameter/local home selection](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-zp-homes-across-ordinary-calls)
 and [terminal cleanup](MIR6502_LATE_CLEANUP_DESIGN.md). It defines a narrow
@@ -283,8 +286,10 @@ Measure final code, inline storage, ZP use, packaged images and retained stores
 for TN and independent controls. Compare with only the new behavior toggled;
 record decisions and exact artifact hashes. Qualify cart/standalone, shifted
 origins, raw/optimized NIR, traced/untraced equality, actual LF/CRLF fixture paths
-and MADS reconstruction. Run affected MIR6502 tests during development and full
-affected-backend qualification before choosing an optimized default.
+and MADS reconstruction in broad CI/release qualification. At the user's later
+request for fast iteration, the implementation plan scopes local validation to
+focused proof/VM controls and one final TN comparison. Record the broader checks
+that were deferred; do not describe the local run as full backend qualification.
 
 The shared inventory should be built once per transaction snapshot and reused
 across store candidates. Reuse dataflow analyses and bound rebuilds by the
