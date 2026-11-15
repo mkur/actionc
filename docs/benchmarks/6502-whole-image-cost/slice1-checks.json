@@ -1,0 +1,44 @@
+{
+  "baseline": "8626beff",
+  "scope": "Both final cost predicates; exact selected-artifact rollback; callee exit contract preservation.",
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--lib",
+        "whole_image_cost"
+      ],
+      "exit_code": 0,
+      "passed": 3,
+      "failed": 0,
+      "log_sha256": "1c1df6189609edadcd276d3712813ed0d8a6e6f137c0e41a7fe8679a4fb3c7e6"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--lib",
+        "later_trials_keep_the_exact_selected_input_and_executable"
+      ],
+      "exit_code": 0,
+      "seconds": 0.8218039590283297,
+      "log_sha256": "3d95d4b6fb58422d44995467c173866b6124f3e08a5d2981976d3836a2663e55",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--lib",
+        "producer_cleanup_rolls_back_when_a_callee_exit_fact_would_change"
+      ],
+      "exit_code": 0,
+      "seconds": 0.05506741697899997,
+      "log_sha256": "f5a1318154ff196290aed8d6de8da724dfd73d969f807bceacd88c2e82e4fc7a",
+      "passed": 1,
+      "failed": 0
+    }
+  ]
+}

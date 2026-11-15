@@ -98,14 +98,10 @@ fn measure(
     })
 }
 
-/// Both terminal transactions accept only measured packaged savings without
-/// increasing any existing routine's instruction footprint.
-fn improves_cost(program: &MirProgram, old: &Measurement, new: &Measurement) -> bool {
+/// Both terminal transactions accept only measured packaged savings. Routine
+/// instruction changes remain diagnostic; local growth can yield a net saving.
+fn improves_cost(old: &Measurement, new: &Measurement) -> bool {
     new.image_bytes < old.image_bytes
-        && program.routines.iter().all(|r| {
-            new.instruction_bytes.get(&r.id).copied().unwrap_or(0)
-                <= old.instruction_bytes.get(&r.id).copied().unwrap_or(0)
-        })
 }
 
 fn observable_reads(program: &MirProgram, memory: &MirPhysicalMemory) -> Vec<(Option<u16>, u16)> {
@@ -542,7 +538,7 @@ fn select_definitions(
             let new = measure(&proposed, &references, origin, runtime, trace).map_err(|_| Declined::CandidateEmission)?;
             if apply_traced(&baseline, Some(&new.memory), remove_producers, reuse_registers, trace, "final-placement-deletion-replay", facts.as_ref())?.program != proposed { return Err(Declined::DeletionReplay); }
             preservation.validate(&new.memory, ranges, config, origin, trace).map_err(Declined::EarlierDecision)?;
-            if !improves_cost(&baseline, &old, &new) {
+            if !improves_cost(&old, &new) {
                 return Err(Declined::Cost);
             }
             Ok(new)

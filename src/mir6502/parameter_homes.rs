@@ -312,7 +312,7 @@ fn try_proposal(
         runtime,
         &child,
     );
-    let accepted = trial.as_ref().is_ok_and(|p| p.improves(&baseline));
+    let accepted = trial.as_ref().is_ok_and(|p| p.improves(baseline));
     child.event(match stage { "parameter-homes" => "parameter-home-result", "cross-call-homes" => "cross-call-home-result", _ => "parameter-argument-handoff-result" }, || serde_json::json!({
         "accepted": accepted,
         "routine_cost_changes": trial.as_ref().ok().map(|p| p.program.routines.iter().filter_map(|r| {
@@ -323,7 +323,12 @@ fn try_proposal(
         "diagnostics": trial.as_ref().err().map(|errors| format!("{errors:?}")),
         "before_bytes": crate::codegen::format_load_file(&baseline.output).len(),
         "after_bytes": trial.as_ref().ok().map(|p| crate::codegen::format_load_file(&p.output).len()),
-        "reason": if accepted {"smaller-image"} else if trial.is_err() {"invalid-trial"} else {"no-final-saving-or-routine-growth"},
+        "reason": match &trial {
+            Err(_) => "invalid-trial",
+            Ok(p) if !p.costs.keys().eq(baseline.costs.keys()) => "incompatible-routine-inventory",
+            Ok(_) if accepted => "smaller-image",
+            Ok(_) => "no-final-saving",
+        },
     }));
     if accepted {
         SelectedPlacement {

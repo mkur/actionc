@@ -7,9 +7,15 @@ below has its own gate, subordinate to parameter placement and peepholes.
 The [callee capture boundary refinement](#proposed-refinement-callee-entry-facts-through-parameter-capture)
 is also implemented and qualified. The
 [ordinary-call and local-home extension](#proposed-extension-zp-homes-across-ordinary-calls)
-is implemented and qualified. The proposed
-[storage-observation refinement](MIR6502_STORAGE_OBSERVATION_DESIGN.md) addresses
-its remaining interaction with terminal cleanup.
+is implemented and qualified. The implemented
+[storage-observation refinement](MIR6502_STORAGE_OBSERVATION_DESIGN.md) preserves
+routine ownership through terminal cleanup. The
+[multiple-leaf-call extension](#proposed-extension-multiple-calls-to-leaf-routines)
+is suspended pending the
+[whole-image cost revision](#proposed-refinement-whole-image-cost-acceptance).
+The final guards now implement that revision;
+[qualification is in progress](MIR6502_WHOLE_IMAGE_COST_IMPLEMENTATION_PLAN.md).
+Compiler baseline `8626beff` applied the per-routine veto.
 
 The completed [leaf implementation plan](MIR6502_PARAMETER_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
 covers the leaf scope. The [handoff implementation plan](MIR6502_PARAMETER_ARGUMENT_HANDOFF_IMPLEMENTATION_PLAN.md)
@@ -221,8 +227,9 @@ inlining and every enclosing pre-home cost gate for each parameter.
 
 The first selector uses at most one batch trial against the complete fallback,
 with no subset search or iterative placement repair. Reuse the existing emitted
-cost and preservation checks. For this size-focused policy, require no growth
-in affected routine code plus ordinary homes and a strict complete-image saving.
+cost and preservation checks. Under the
+[revised profitability contract](#proposed-refinement-whole-image-cost-acceptance),
+require a strict complete-image saving; individual routine growth is diagnostic.
 Include final layout, branch relaxation, runtime helpers, and packaging. Unknown
 cost, failed verification, reservation conflicts, or invalidated proofs reject
 the batch and retain the fallback intact.
@@ -265,6 +272,97 @@ merging, cross-call parameter residence, and general register allocation are
 separate follow-ups. Placement should make them easier to express without
 depending on them to demonstrate a useful first saving.
 
+## Proposed refinement: whole-image cost acceptance
+
+Agreed 2026-11-15 against `8626beff`; both final guards are implemented.
+Independent and TN qualification is in progress under the
+[whole-image cost plan](MIR6502_WHOLE_IMAGE_COST_IMPLEMENTATION_PLAN.md).
+This refinement supersedes per-routine non-growth requirements for the final
+placement and terminal-cleanup transactions. Historical qualification receipts
+retain the policy and outcomes that actually produced them.
+
+### Profitability belongs to the complete candidate
+
+For the size objective, accept a valid candidate only when its completed packaged
+image is strictly smaller than the transaction's selected baseline. One routine
+may grow if reductions elsewhere more than offset it. For example, four bytes
+of growth and thirty bytes of saving qualify when final emission confirms the
+26-byte net saving. Image-size equality and overall growth remain rejections.
+
+Use the existing finalized image measurement at the same origin, target, runtime
+and emission settings. Count code, actual allocated storage, helper bodies and
+branch expansion in the finalized bytes after relocation resolution and packaging.
+A sum of per-routine costs is not authoritative: shared storage, pooled/deferred
+data and layout changes can make that sum disagree with the actual image.
+
+Keep per-routine code and ordinary-home deltas for diagnostics. Growth can be
+reported prominently without granting it veto power. ZP consumption remains a
+reported resource and must satisfy the allocator's existing capacity/conflict
+checks; it is not an additional weighted profitability metric.
+
+### Narrow implementation boundary
+
+Apply the same final-image rule to these existing predicates:
+
+| Predicate | Consumers | Revised condition |
+| --- | --- | --- |
+| `Executable::improves` in [preparation.rs](../src/mir6502/preparation.rs) | Leaf parameter placement, terminal handoff and ordinary-call home selection through `try_proposal` | Strict packaged saving; retain the existing routine-ID inventory compatibility check |
+| `improves_cost` in [late_cleanup/mod.rs](../src/mir6502/late_cleanup/mod.rs) | Terminal store/producer/register cleanup and optional spill pruning | Strict packaged saving after the transaction's existing delta/proof checks |
+
+Remove only their per-routine non-growth conjunctions. Retain the cost maps and
+instruction totals used by diagnostics. Keep routine-set compatibility as a
+separate structural constraint; mismatched routines are not an example of
+profitable local growth. Optional pruning remains independently gated and off
+by default. This policy revision needs no new optimizer pass, feature switch,
+allocation strategy, materialization or measurement emission.
+
+Earlier `does_not_grow` filters in materialization belong to a separate review.
+Some filter or rank candidates before the final transaction is reached. This
+revision does not remove them, reinterpret their layout measurements as final
+images, or claim that every size-improving candidate can now be discovered.
+
+### Correctness and rollback remain independent
+
+Profitability is evaluated only for successfully verified and emitted candidates.
+Retain permitted-delta checks, binding/ABI compatibility, register/flag and memory
+proofs, callee contracts, authoritative layout validation, final-placement replay
+and all earlier-decision preservation. A smaller image cannot compensate for a
+failed proof. Failed candidate emission has no usable cost; restore the selected
+baseline. Failure to emit the baseline remains a compilation error.
+
+Each transaction continues to own its immutable selected baseline and exact
+rollback. This changes acceptance, not candidate construction, batching or the
+number of attempts. Do not introduce a local growth allowance, percentage limit,
+subset search or another trial to implement the policy.
+
+Compare a candidate with the baseline actually selected at that boundary.
+Accepting a net saving does not prove it is better than every unmeasured subset
+of candidates. The multiple-leaf-call draft's separate-trial proposal is therefore
+withdrawn as a required design: qualify this cost change first, then revisit
+batch composition and fallback deliberately. No extra multiple-call stage is
+authorized by this refinement.
+
+### Diagnostics and focused evidence
+
+Report baseline/candidate packaged bytes, the net delta and affected routine
+code/home deltas, including positive deltas in accepted trials. Replace the
+ambiguous `no-final-saving-or-routine-growth` result with a final-image cost reason;
+keep routine-inventory incompatibility and invalid/proof-failed trials distinct.
+Trace state must not affect acceptance or add hidden compilation work.
+
+Minimal qualification establishes both predicates' boundaries, one real accepted
+case with local growth and an overall saving, and retained exact rollback on
+proof failure. Reuse the storage-observation control with scoped observation off:
+its recorded 229-byte cross-call trial grows Walk by two bytes but beats the
+261-byte fallback. This is evidence for the new policy, not a source-specific
+exception or a guaranteed future byte count. Keep scoped observation enabled
+for normal production qualification.
+
+Use the existing independent VM oracle and one final TN cart comparison. Broader
+backend/runtime/origin matrices remain deferred under the user's minimal-testing
+direction. Record the actual work and output changes without attributing old
+per-routine-veto rejections to correctness failures.
+
 ## Implemented scope and remaining extensions
 
 The initial register candidate has one live formal, consumed by the first entry
@@ -294,8 +392,9 @@ proofs use exact source reads, temp definitions/uses, and dead exit machine stat
 without physical alias or callee-preservation assumptions. Other accepted
 upstream families with untracked placement/callee obligations still discard the
 checkpoint. Resumption reruns core expansion and all downstream preservation
-checks. The cost decision records changed routine costs as well as image size;
-an unrelated routine regression rejects the complete batch.
+checks. The cost decision records changed routine costs as well as image size.
+Under the revised cost rule, an individual increase does not veto an overall
+saving; correctness and preservation failures still reject the complete batch.
 
 Final trace identities travel with executable artifacts as diagnostic metadata.
 Acceptance never reads those IDs. After the batch decision, the manifest and
@@ -529,9 +628,9 @@ emissions and preservation work separately; the extra continuation can be costly
 
 Run candidate-specific helper resolution, effects, layout-sensitive rewrites,
 terminal cleanup, preservation replay, verification, and final emission. Require
-a strictly smaller packaged image and no routine growth in code plus ordinary
-homes relative to the leaf-qualified fallback. Any unsupported expansion,
-conflict, stale obligation, equality, or growth restores that complete artifact,
+a strictly smaller packaged image relative to the leaf-qualified fallback under
+the revised cost contract. Any unsupported expansion, conflict, stale obligation,
+image-size equality or image growth restores that complete artifact,
 including its maps, relocations, summaries, and reservations. An untracked
 upstream dependency continues to make the checkpoint unusable.
 
@@ -791,15 +890,14 @@ defines parameter-first delivery, local binding support and final qualification.
 This extension is implemented and
 [qualified](benchmarks/6502-cross-call-homes/README.md#final-qualification-and-default-slice-6).
 `Mir6502Config::optimized()` enables it; the conservative default leaves it off.
-The parent peephole and parameter-home gates remain authoritative. Independent
-controls save bytes; TN retains its previous artifact because its proposed batch
-fails the no-routine-growth rule below.
-
-The [storage-observation design](MIR6502_STORAGE_OBSERVATION_DESIGN.md) explains
-the two global cleanup vetoes behind that rejection and proposes retaining
-routine/object/lifetime evidence through physical observation checks. Its
-exception is limited to private temporary-store deletion; residence and cost
-requirements in this note remain authoritative.
+The parent peephole and parameter-home gates remain authoritative. The original
+TN trial failed the no-routine-growth rule. The implemented
+[storage-observation refinement](MIR6502_STORAGE_OBSERVATION_DESIGN.md) removes
+the two global cleanup vetoes using routine/object/lifetime evidence. TN now
+[measures 9,791 packaged cart bytes](benchmarks/6502-storage-observation/README.md#tn-and-optimized-default),
+with Ord at 51 code bytes and Items at 37, without ordinary homes or growth in
+other routines. Its cleanup exception remains limited to private temporary-store
+deletion; residence and cost requirements in this note remain authoritative.
 
 Extend the existing placement contract to ordinary calls followed by further
 computation, including calls inside loops. First place parameters in ZP; then
@@ -1002,12 +1100,12 @@ preservation obligations. Recomputing a summary does not repair a caller rewrite
 that relied on the old one.
 
 Acceptance requires valid bindings, expanded lifetime/entry proofs, final
-preservation replay, no affected routine growth in code plus ordinary homes,
-and a strictly smaller complete packaged image. Include captures, argument and
+preservation replay and a strictly smaller complete packaged image under the
+revised cost contract. Individual routine code/home increases are reported. Include captures, argument and
 result copies, branches, helpers and removed inline storage in the cost. Report
 occupied ZP separately; using more ZP is a resource cost, not an image saving.
-Any failed proof, unknown cost, equality or growth restores the complete selected
-artifact, bindings, maps, reservations and facts. Trace output must explain
+Any failed proof, unknown cost, image-size equality or image growth restores the
+complete selected artifact, bindings, maps, reservations and facts. Trace output must explain
 rejections and costs without affecting selection. Qualify behind a separate gate
 before deciding the optimized default.
 
@@ -1038,3 +1136,125 @@ size, and record compiler work. A source-shape expectation or handwritten target
 is not a saving. Complete affected MIR6502 integration, VM/runtime and assembly
 qualification, including cart/standalone, shifted origins and actual LF/CRLF
 fixture paths, before enabling the new scope by default.
+
+
+## Proposed extension: multiple calls to leaf routines
+
+Prepared 2026-11-15 against `8626beff`. Status: design only; implementation pending.
+The [suspended implementation draft](MIR6502_MULTIPLE_LEAF_CALL_HOMES_IMPLEMENTATION_PLAN.md)
+retains the proof scope and minimal-testing direction. Cost-policy qualification
+and a fresh batching decision precede its implementation.
+
+### Scope and existing authority
+
+Admit an otherwise eligible caller with two or more direct call sites when
+**every callee satisfies the existing ordinary leaf-call contract**. Distinct
+sites may call the same routine, different routines, or lie on different branches;
+any site may execute repeatedly in a loop. Count sites in the retained MIR body,
+not source syntax or runtime invocation count. Zero-call and one-call routines
+keep their established selection paths.
+
+Retain the current four-byte incoming-parameter limit, native operation scope,
+source-ZP exclusions, complete byte/word bindings and per-invocation local
+initialization requirement. Each callee must pass `ResidenceCalls::writes`:
+ordinary Action ABI, supported actual entry, supplied canonical arguments and
+known write coverage. Its expanded body must have no call, runtime helper,
+machine block or barrier. The callee restriction applies to every site.
+Unsupported calls make this caller ineligible; their effects cannot be omitted
+while placing its objects. Other eligible callers can still enter the batch.
+
+This extension does not traverse call-graph levels or admit nested or recursive
+callees. It changes neither return-home coalescing nor register residence,
+split lifetimes, save/restore insertion, source-store deletion or ABI roles in
+scoped observation. MIR6502 continues to own placement; SemIR/NIR contracts and
+source-language semantics remain unchanged.
+
+`FindItem` is a motivating case: it calls `Key(menu)` and `Next(menu)` while its
+pointer and character remain in ordinary homes. The measured baseline has 74
+instruction bytes plus three home bytes. Both callees have supported leaf bodies.
+The current selector rejects the caller at its second call before placement is
+considered. Final savings remain a measurement question; no routine name or
+handwritten size target participates in selection.
+
+### Combined reservation, separate call proofs
+
+For each eligible caller, obtain every call's contract from one immutable
+selected expanded program. A candidate ZP byte is available only if all calls
+preserve it. Equivalently, reserve the union of their possible writes:
+
+```text
+forbidden(byte) = any call whose write contract does not preserve byte
+```
+
+Use `MirKnownMemoryWrites::preserves_fixed_byte` and the existing reservation
+policy for both parameters and initialized locals. Include actual capture,
+working homes, virtual allocations, scratch and result writes. Keep unresolved
+coverage conservative. Reserve both lanes of a pointer coherently. A call on
+one branch still contributes its writes; this first extension does not make
+placement depend on which path executes or whether a particular value is dead
+at that call.
+
+Reuse one `ResidenceCalls` context per program snapshot. Shared callee summaries
+and entry facts may be cached by routine ID, but validate argument supply at
+**every call site**, including repeated calls to the same callee. Never let the
+first valid call certify a later call's setup or additional entry inputs.
+
+The union filters placement; it does not replace expanded lifetime verification.
+The existing verifier already visits every call and must continue to check:
+
+- Outgoing setup in execution order, before invocation. A preserved byte can
+  still be overwritten by argument setup before its final read.
+- Each logical byte live after each call against that call's current writes,
+  including loop backedges, conditional calls and joins.
+- Explicit result delivery and logical reassignment. A may-write by a call or
+  a scratch store never initializes a parameter/local or kills its old value.
+
+The existing invocation-home certificates already inspect every call. Multiple
+sites must satisfy the same certificate and historical-exposure restrictions;
+the scoped cleanup exception gains no new ownership or ABI permission here.
+
+### Selection and exact fallback — suspended decision
+
+Qualify the whole-image cost revision before implementing this extension. The
+previous draft required a separate multiple-call trial after the single-call
+trial to protect against the per-routine veto. That sequencing requirement is
+withdrawn. Batch composition, its exact selected fallback and its work bound
+must be reconsidered before the multiple-call implementation plan resumes.
+A net-saving combined batch and the best separately selected subset are not
+necessarily the same result; the cost revision makes no subset-optimality claim.
+
+The eventual implementation must reuse `SelectedPlacement` and `try_proposal`,
+retain canonical call/entry proofs, and use finalized packaged size for
+profitability. Selected callee facts are discovery filters; rebuild them from
+the expanded candidate and verify all affected callers. Keep bindings fixed
+inside terminal cleanup and retain final-placement replay and earlier-decision
+preservation. Any failed proof or unsuccessful cost decision restores the exact
+baseline selected for that transaction.
+
+The proposed `enable_multiple_leaf_call_homes` remains only a future discovery
+gate, subordinate to the existing parent gates. This cost-policy task adds no
+multiple-call implementation or additional selection stage.
+
+### Focused qualification
+
+The user's minimal-testing direction scopes this extension to a grouped proof
+test, small integration/VM controls and one final TN ActionCart `$3000` A/B.
+Broader backend, raw-NIR, origin, MADS and full TN runtime matrices remain deferred.
+The implementation plan specifies the commands and avoids repeated passing runs.
+
+Required evidence is limited to the changed boundary: two supported callees and
+a repeated target; the second callee's distinct or one-lane clobber; an invalid
+second call; conditional/loop execution; expanded re-verification and exact
+rollback to the transaction's selected baseline. Reuse existing tests for unchanged
+exposure, source ownership, ABI and initialization rules. A small independent
+source must save final bytes and execute with correct arguments, results and
+stack balance. Normalize host fixture text and exercise real LF/CRLF loading.
+Keep observable source-memory oracles separate from private scratch contents.
+
+Reuse the recorded 9,791-byte TN baseline during development. Measure FindItem,
+whole-image cost and unchanged controls only at final qualification, with just
+the new gate toggled. Record actual homes, artifact hashes and work counts;
+establish the continuation bound when batch scheduling is decided. The suspended
+plan must be refreshed against the qualified cost-policy baseline first. An unchanged TN result is acceptable if
+independent savings and correctness are established; retain exact fallback and
+report the remaining blocker rather than weakening acceptance.

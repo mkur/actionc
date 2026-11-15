@@ -307,7 +307,7 @@ fn moved_deferred_storage_rolls_back_despite_stable_core_addresses() {
 }
 
 #[test]
-fn shared_cost_gate_rejects_zero_saving_and_individual_routine_growth() {
+fn whole_image_cost_allows_local_growth_but_rejects_equal_or_larger_images() {
     let p = program(vec![imm(7)]);
     let old = measure(
         &p,
@@ -325,11 +325,17 @@ fn shared_cost_gate_rejects_zero_saving_and_individual_routine_growth() {
         &Trace::disabled(),
     )
     .unwrap();
-    assert!(!improves_cost(&p, &old, &new));
+    assert!(!improves_cost(&old, &new));
     new.image_bytes -= 1;
-    assert!(improves_cost(&p, &old, &new));
+    assert!(improves_cost(&old, &new));
     *new.instruction_bytes.get_mut(&RoutineId(0)).unwrap() += 1;
-    assert!(!improves_cost(&p, &old, &new));
+    assert!(improves_cost(&old, &new));
+
+    *new.instruction_bytes.get_mut(&RoutineId(0)).unwrap() = 0;
+    new.image_bytes = old.image_bytes;
+    assert!(!improves_cost(&old, &new), "equal image despite local saving");
+    new.image_bytes += 1;
+    assert!(!improves_cost(&old, &new), "larger image despite local saving");
 }
 
 #[test]

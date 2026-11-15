@@ -93,6 +93,7 @@ pub(super) struct SelectedPlacement {
 pub(super) struct Executable {
     pub program: MirProgram,
     pub output: crate::codegen::CodegenOutput,
+    /// Routine inventory and diagnostic costs, not a per-routine growth veto.
     pub costs: std::collections::BTreeMap<RoutineId, usize>,
     /// Diagnostic identity only; never consulted for acceptance or rollback.
     pub trace_snapshot: Option<u64>,
@@ -103,10 +104,6 @@ impl Executable {
         crate::codegen::format_load_file(&self.output).len()
             < crate::codegen::format_load_file(&baseline.output).len()
             && self.costs.keys().eq(baseline.costs.keys())
-            && self
-                .costs
-                .iter()
-                .all(|(r, cost)| *cost <= baseline.costs[r])
     }
 }
 
@@ -213,6 +210,35 @@ mod tests {
             &crate::semantic::ir::lower_program(&ast, &model),
         ))
         .unwrap()
+    }
+
+    #[test]
+    fn whole_image_cost_allows_local_growth_but_requires_saving_and_compatible_routines() {
+        let n = nir("BYTE FUNC Value() RETURN(7)");
+        let config = Mir6502Config::default();
+        let trace = super::super::trace::Trace::disabled();
+        let runtime = crate::runtime::Runtime::ActionCart;
+        let (program, _) =
+            super::super::prepare_program_for_emission(&n, 0x3000, &config, runtime, &trace)
+                .unwrap();
+        let baseline =
+            super::super::finalize_output(&n, program, 0x3000, runtime, &trace).unwrap();
+        assert!(!baseline.costs.is_empty());
+
+        // Isolate the cost boundary; transaction tests cover validity and replay.
+        let mut candidate = baseline.clone();
+        candidate.output.bytes.pop().unwrap();
+        *candidate.costs.values_mut().next().unwrap() += 1;
+        assert!(candidate.improves(&baseline));
+
+        candidate.costs.clear();
+        assert!(!candidate.improves(&baseline), "routine inventory must match");
+
+        candidate = baseline.clone();
+        *candidate.costs.values_mut().next().unwrap() -= 1;
+        assert!(!candidate.improves(&baseline), "equal image despite local saving");
+        candidate.output.bytes.push(0);
+        assert!(!candidate.improves(&baseline), "larger image despite local saving");
     }
 
     #[test]

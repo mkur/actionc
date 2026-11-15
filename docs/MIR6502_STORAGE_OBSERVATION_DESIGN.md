@@ -251,10 +251,14 @@ alone does not refresh another routine's facts. Historical proof references
 remain constraints; they are not additional simultaneously live allocations.
 Missing facts or failed replay restore the selected input artifact.
 
-Accept only strict complete-image savings with the existing no-routine-growth
-rule. Preserve exact rollback of MIR, bindings, maps, relocations and selected
-upstream strategies. The 48-byte rejected TN saving is an opportunity, not a
-promised result after this refinement.
+Accept only strict complete-image savings. The agreed
+[whole-image cost refinement](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-refinement-whole-image-cost-acceptance),
+now implemented with qualification in progress, removes the separate
+per-routine-growth veto.
+It does not change observation eligibility or deletion proofs. Preserve exact
+rollback of MIR, bindings, maps, relocations and selected upstream strategies.
+The historical 48-byte rejection and the later qualified 56-byte saving remain
+recorded under the cost policy used for those measurements.
 
 Leave `observable_reads` and `source_storage_disjoint` conservative for spill
 pruning, byte movement and other address-sensitive consumers. Their permissions

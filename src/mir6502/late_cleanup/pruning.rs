@@ -334,7 +334,7 @@ pub(super) fn select(
             preservation
                 .validate(&replay_memory, ranges, config, origin, trace)
                 .map_err(Rejection::EarlierDecision)?;
-            if !improves_cost(&baseline, &old, &new) {
+            if !improves_cost(&old, &new) {
                 return Err(Rejection::Cost);
             }
             Ok(new)

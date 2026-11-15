@@ -5,6 +5,10 @@ qualification results through `278076a2`. This note defines the implemented
 cleanup boundary and acceptance contract. See the
 [implementation plan](MIR6502_LATE_CLEANUP_IMPLEMENTATION_PLAN.md) and
 [qualification](benchmarks/6502-late-cleanup/README.md).
+The [whole-image cost refinement](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-refinement-whole-image-cost-acceptance)
+is implemented, with [qualification in progress](MIR6502_WHOLE_IMAGE_COST_IMPLEMENTATION_PLAN.md).
+The acceptance clauses below use that revised contract; compiler baseline
+`8626beff` applied the per-routine instruction-growth veto.
 
 ## Decision and evidence
 
@@ -200,7 +204,8 @@ read-effect obligations belong to this terminal transaction.
 behavior remains disabled; optimized configuration enables it.
 The historical trace stage name remains stable. Report `removed_stores` and
 `removed_producers` separately. Keep the same two-cost-emission budget, strict
-packaged-image saving, no per-routine instruction growth and exact rollback.
+packaged-image saving and exact rollback. Report per-routine instruction changes
+without using them as an additional profitability veto.
 
 Qualification compares store-only versus producer-enabled output, separately
 from the earlier no-terminal-cleanup baseline. Cover TN, independent ordinary
@@ -368,8 +373,9 @@ Accept the candidate only when all of these checks pass:
    under final candidate placement.
 5. Completed emission, including relocation finalization and runtime/output
    packaging, yields a strictly smaller image at the same origin and settings.
-   No routine's emitted instruction footprint grows. Estimated MIR costs only
-   rank candidates; they cannot accept the transaction.
+   Individual routine instruction growth is allowed when the complete image
+   shrinks. Estimated MIR costs only rank candidates; they cannot accept the
+   transaction. Keep actual per-routine deltas for diagnostics.
 
 Candidate verification, layout, proof or cost failure restores the whole
 baseline. Keep a typed rejection reason. Failure to emit the baseline remains
@@ -566,8 +572,9 @@ cause rejection when a physical address is required; never invent ghost addresse
 for removed storage. Declarations
 referenced by proof witnesses do not allocate memory during replay.
 
-Require a strictly smaller packaged image and no per-routine instruction growth.
-Verify the exact permitted declaration-only delta and `PreEmission` invariants,
+Require a strictly smaller packaged image under the shared final-cost rule;
+individual routine instruction growth does not veto a net saving. Verify the
+exact permitted declaration-only delta and `PreEmission` invariants,
 preserve whole-program callee contracts, and restore the complete pruning
 baseline on verification, layout, preservation or cost failure. A no-op or a core
 allocation blocker causes no cost emission. A nontrivial pruning attempt is
