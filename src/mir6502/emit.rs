@@ -2404,7 +2404,9 @@ fn emit_jump_or_return(
 fn mir_routine_signature(routine: &MirRoutine) -> CodegenRoutineSignature {
     CodegenRoutineSignature {
         name: routine.name.clone(),
-        kind: "PROC".to_string(),
+        // Final output supplies source callable facts by stable routine ID.
+        // A generated/MIR-only routine has no inferred source return type.
+        kind: "UNKNOWN".to_string(),
         params: routine
             .frame
             .params

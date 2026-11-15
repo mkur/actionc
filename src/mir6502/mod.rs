@@ -657,6 +657,7 @@ fn finalize_output(
     })?;
     let costs = emit::routine_costs(&mir, &summary);
     let mut output = codegen_output(emission, origin, summary, runtime, &mir);
+    populate_callable_signatures(nir, &mir, &mut output);
     // Routine identity survives MIR layout and inlining. Resolve its debug
     // location from verified NIR only after final address ranges are known.
     output.map.source_ranges.retain_mut(|range| {
@@ -674,6 +675,39 @@ fn finalize_output(
         span.is_some()
     });
     Ok(preparation::Executable { output, costs, program: mir, trace_snapshot })
+}
+
+/// Diagnostic metadata only. Callable meaning comes from verified NIR by ID;
+/// neither emitted stores nor optimization-only scalar signatures define it.
+fn populate_callable_signatures(
+    nir: &NirProgram, mir: &MirProgram, output: &mut crate::codegen::CodegenOutput,
+) {
+    for routine in &mir.routines {
+        let Some(source) = nir.routines.iter().find(|source| source.id.0 == routine.id.0) else {
+            continue;
+        };
+        if source.params.len() != source.signature.params.len() { continue; }
+        let Some(params) = source.params.iter().zip(&source.signature.params).map(|(param, ty)| {
+            Some(crate::codegen::CodegenRoutineParam {
+                name: param.name.clone(),
+                // NIR retains readable source type names as display metadata.
+                type_name: ty.summary.to_ascii_uppercase(),
+                width: u16::try_from(ty.width?.get()).ok()?,
+            })
+        }).collect::<Option<Vec<_>>>() else { continue; };
+        // The map is keyed by emitted display name; the source lookup above
+        // deliberately does not depend on that name surviving unchanged.
+        let Some(signature) = output.map.routine_signatures.iter_mut()
+            .find(|signature| signature.name == routine.name) else { continue; };
+        signature.kind = match source.signature.kind {
+            crate::nir::NirCallableKind::Proc => "PROC",
+            crate::nir::NirCallableKind::Func => "FUNC",
+        }.into();
+        signature.params = params;
+        signature.return_type = source.signature.result.as_ref().map(|ty| ty.summary.to_ascii_uppercase());
+        signature.return_width = source.signature.result.as_ref()
+            .and_then(|ty| ty.width).and_then(|width| u16::try_from(width.get()).ok());
+    }
 }
 
 fn codegen_output(
@@ -2739,6 +2773,61 @@ mod tests {
         ));
         assert!(formatted.contains("store.b param p0+1, x"), "{formatted}");
         assert!(formatted.contains("store.b param p0+0, a"), "{formatted}");
+    }
+
+    #[test]
+    fn callee_facts_callable_maps_use_verified_identity_without_changing_emission() {
+        use crate::runtime::Runtime;
+        let ast = crate::parser::parse(&crate::lexer::tokenize(r#"
+            CARD sink
+            PROC NoResult(BYTE b, CARD w) sink=b+w RETURN
+            BYTE FUNC ByteResult(BYTE x) RETURN(x)
+            CARD FUNC WordResult(BYTE POINTER p) RETURN(p+1)
+            BYTE POINTER FUNC PointerResult(BYTE POINTER p) RETURN(p)
+            BYTE FUNC ArrayResult(CHAR ARRAY s, BYTE c) RETURN(s(0)+c)
+            PROC Main() RETURN
+        "#).unwrap()).unwrap();
+        let model = crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern()).unwrap();
+        let nir = crate::nir::optimize_program(&crate::nir::lower_program(
+            &crate::semantic::ir::lower_program(&ast, &model))).unwrap();
+        let config = Mir6502Config::optimized();
+        let trace = trace::Trace::disabled();
+        let (mut mir, _) = prepare_program_for_emission(&nir, 0x3000, &config, Runtime::ActionCart, &trace).unwrap();
+        let word = mir.routines.iter_mut().find(|r| r.name == "WordResult").unwrap();
+        assert!(word.scalar_signature.is_none());
+        word.name = "RenamedWord".into();
+        let mut generated = word.clone();
+        generated.id = RoutineId(9000);
+        generated.name = "Generated".into();
+        mir.routines.push(generated);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
+        let summary = emit::emit_program(&mir, 0x3000, &mut emitter).unwrap();
+        let mut output = codegen_output(emitter.finish_with_relocations().unwrap(),
+            0x3000, summary, Runtime::ActionCart, &mir);
+        let before = output.clone();
+        populate_callable_signatures(&nir, &mir, &mut output);
+        for (name, kind, result, width) in [
+            ("NoResult", "PROC", None, None), ("ByteResult", "FUNC", Some("BYTE"), Some(1)),
+            ("RenamedWord", "FUNC", Some("CARD"), Some(2)),
+            ("PointerResult", "FUNC", Some("BYTE*"), Some(2)),
+            ("ArrayResult", "FUNC", Some("BYTE"), Some(1)),
+            ("Generated", "UNKNOWN", None, None),
+        ] {
+            let s = output.map.routine_signatures.iter().find(|s| s.name == name).unwrap();
+            assert_eq!((&*s.kind, s.return_type.as_deref(), s.return_width), (kind, result, width), "{name}");
+        }
+        let array = output.map.routine_signatures.iter().find(|s| s.name == "ArrayResult").unwrap();
+        assert_eq!((array.params[0].name.as_str(), array.params[0].type_name.as_str(), array.params[0].width),
+            ("s", "CHAR*", 2));
+        let proc = output.map.routine_signatures.iter().find(|s| s.name == "NoResult").unwrap();
+        assert_eq!(proc.params.iter().map(|p| (p.type_name.as_str(), p.width)).collect::<Vec<_>>(),
+            vec![("BYTE", 1), ("CARD", 2)]);
+        output.map.routine_signatures = before.map.routine_signatures.clone();
+        assert_eq!(output, before, "only diagnostic signatures may change");
+        // The normal public generation path must apply the same metadata repair.
+        let output = generate_output_with_config_and_runtime(&nir, 0x3000, &config, Runtime::ActionCart).unwrap();
+        let word = output.map.routine_signatures.iter().find(|s| s.name == "WordResult").unwrap();
+        assert_eq!((word.kind.as_str(), word.return_type.as_deref(), word.return_width), ("FUNC", Some("CARD"), Some(2)));
     }
 
     #[test]

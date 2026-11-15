@@ -1,7 +1,7 @@
 # MIR6502 callee-fact repairs: implementation plan
 
-Prepared 2026-11-15. Status: slices 1–5 completed and validated; resume slices
-6–7 in order. The narrower
+Prepared 2026-11-15. Status: slices 1–6 completed and validated; final
+qualification (slice 7) remains. The narrower
 [private-storage boundary plan](MIR6502_PRIVATE_STORAGE_BOUNDARY_IMPLEMENTATION_PLAN.md)
 was implemented separately. Broader ZP placement remains deferred.
 Historical baseline: `7ab6f840ba0475c5ddde9194c130ee83d96c83d1` and the
@@ -33,6 +33,12 @@ passed. Array references retain their Array class, carry a typed pointer ABI,
 and pass planned/actual entry validation; malformed descriptors fail closed.
 The direct-memory CMP form needed by Instr is also certified. Existing capture
 checks remain unchanged. No NIR contract or array-placement rule changed.
+
+Slice 6 validation: the grouped callable-map test passed through normal output
+generation, including pointer/array signatures, a renamed routine with stable
+identity, and a generated routine without source metadata. Applying the map
+repair changes no other output fields, including executable bytes and
+relocations. The existing elided-parameter signature control also passed.
 
 Repair the facts consumed by existing optimizations, then qualify the newly
 eligible cases. Implement the slices below in order and commit each after its
@@ -374,7 +380,7 @@ Use the `callee_facts_` prefix for new grouped cases. Extend the existing VM tar
 `tools/vm-runtime-tests/tests/callee_facts.rs` and its shared helpers. Reuse the
 existing entry-flag integration target when its consumer behavior is affected;
 do not add a duplicate integration layer for behavior already covered by a VM
-control. A small metadata integration target is appropriate for slice 6's maps.
+control. Slice 6 uses a small whole-pipeline library test for maps.
 
 Run only new and directly affected groups per slice, checking nonzero selected-test
 counts. Re-run earlier groups only for a changed fact/consumer or unresolved
@@ -407,8 +413,8 @@ path. No origin/runtime Cartesian product is needed.
 These are MIR6502 changes. No repository-wide NIR sweep or other backend suites
 are planned. Broaden testing for an actual relevant failure or shared-contract
 change, and follow the repository's shared-contract requirements if that scope
-changes. For this plan-only change, check the document and its links; run no
-compiler tests.
+changes. Check documentation content and links after status updates; those
+updates alone do not require repeating compiler tests.
 
 Completion means the wrong-code control returns the correct result, Exact facts
 have sound coverage, the targeted entry obligations are accurate, unknown and

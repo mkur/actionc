@@ -2102,6 +2102,15 @@ word descriptor does not certify an array or a same-size record. Both entry
 stages and ABI observation inventory use the descriptor's physical width.
 This entry fact does not admit array objects to ZP placement or change capture.
 
+Emitted map signatures are diagnostic metadata, populated from verified NIR's
+callable signature using the stable routine ID. They describe PROC/FUNC,
+parameter types and widths, and result type and width independently of
+optimization-only `scalar_signature`. Pointer and array-reference signatures
+remain visible when that integer-only fact is absent. A generated/MIR-only
+routine without source callable metadata has kind `UNKNOWN` and no claimed
+source result type. These map fields never authorize a transformation or infer
+a return type from stores to the ABI result area.
+
 Planned entry analysis composes the shared ordered capture with the body before
 running byte-definite memory and physical-state liveness. This slice certifies
 plain A/X/Y stores, omitted homes, retained canonical registers and identity
