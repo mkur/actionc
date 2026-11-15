@@ -7,7 +7,7 @@ use crate::mir6502::analysis::{
     machine_liveness::MirMachineLiveness,
 };
 use crate::mir6502::ir::{
-    MirDef, MirFlag, MirParamLane, MirRoutineAbi, MirStorageClass, MirValue, MirWidth,
+    MirDef, MirDirectParamAbi, MirFlag, MirParamLane, MirRoutineAbi, MirStorageClass, MirValue, MirWidth,
 };
 use std::sync::Arc;
 
@@ -257,26 +257,30 @@ fn scalar_inputs(
 /// variadic declaration. Lowering carries the complete finite ABI explicitly;
 /// validate it against the current frame rather than consulting source meaning.
 fn direct_parameter_abi_is_complete(routine: &MirRoutine) -> bool {
-    let Some(widths) = &routine.frame.direct_parameter_abi else {
+    let Some(parameters) = &routine.frame.direct_parameter_abi else {
         return false;
     };
     matches!(
         routine.abi,
         MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry
-    ) && widths.len() == routine.frame.params.len()
-        && widths
+    ) && parameters.len() == routine.frame.params.len()
+        && parameters
             .iter()
             .copied()
-            .map(crate::mir6502::abi::action_arg_width_bytes)
+            .map(|parameter| crate::mir6502::abi::action_arg_width_bytes(parameter.width()))
             .sum::<u16>()
             <= crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES
-        && widths
+        && parameters
             .iter()
             .zip(&routine.frame.params)
-            .all(|(width, slot)| {
-                slot.storage == MirStorageClass::Scalar
-                    && slot.scalar_width == Some(*width)
-                    && slot.storage_size == crate::mir6502::abi::action_arg_width_bytes(*width)
+            .all(|(parameter, slot)| {
+                let storage_matches = match parameter {
+                    MirDirectParamAbi::Scalar(_) => slot.storage == MirStorageClass::Scalar,
+                    MirDirectParamAbi::Pointer => matches!(slot.storage, MirStorageClass::Scalar | MirStorageClass::Array),
+                };
+                storage_matches
+                    && slot.scalar_width == Some(parameter.width())
+                    && slot.storage_size == crate::mir6502::abi::action_arg_width_bytes(parameter.width())
                     && slot.offset == 0
                     && slot.init.is_none()
                     && matches!(

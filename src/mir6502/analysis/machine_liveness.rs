@@ -409,6 +409,12 @@ fn entry_flag_transfer(op: &MirOp) -> MirMachineTransfer {
                     MirAddressConsumer::IndirectIndexedY(_))) && *offset <= 255)
                 || (left.uses_live_y() && right.uses_live_y() && *offset == 0) =>
             effects.machine.flag_writes,
+        // Instr-like array readers compare the loaded byte with a direct
+        // memory operand. This selected form always emits CMP as well.
+        MirOp::Compare { dst: MirCondDest::Flags,
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::PointerCell(_), width: MirWidth::Byte, signed: false, .. } =>
+            effects.machine.flag_writes,
         MirOp::LoadImm { dst: MirDef::Reg(_), width: MirWidth::Byte, .. }
         | MirOp::Load { dst: MirDef::Reg(_), width: MirWidth::Byte, .. }
         | MirOp::LoadIndirect { .. }
@@ -606,6 +612,10 @@ mod tests {
             MirMachineLiveness::entry_flag_inputs(&r, &cfg).unwrap()
         };
         for op in [ordinary.clone(), compare(C::IndirectIndexedY(pair), C::IndirectIndexedY(pair), 255),
+            MirOp::Compare { dst: MirCondDest::Flags, op: MirCompareOp::Ge,
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: MirValue::PointerCell(crate::mir6502::ir::MirMem::Absolute(0x7000)),
+                width: MirWidth::Byte, signed: false },
             compare(C::LiveIndirectIndexedY(pair), C::LiveIndirectIndexedY(pair), 0)] {
             assert_eq!(entry_flag_transfer(&op).writes.flags,
                 MirFlagSet { c: true, z: true, n: true, v: false });

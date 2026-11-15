@@ -1,7 +1,7 @@
 # MIR6502 callee-fact repairs: implementation plan
 
-Prepared 2026-11-15. Status: slices 1–4 completed and validated; resume slices
-5–7 in order. The narrower
+Prepared 2026-11-15. Status: slices 1–5 completed and validated; resume slices
+6–7 in order. The narrower
 [private-storage boundary plan](MIR6502_PRIVATE_STORAGE_BOUNDARY_IMPLEMENTATION_PLAN.md)
 was implemented separately. Broader ZP placement remains deferred.
 Historical baseline: `7ab6f840ba0475c5ddde9194c130ee83d96c83d1` and the
@@ -27,6 +27,12 @@ with all 11 machine-liveness and six entry-flag tests. The independent VM group
 passed default/optimized ActionCart and Standalone with all 16 incoming flag
 combinations. The existing entry-flag integration control passed; its optional
 MADS case remained ignored. No general compare or word-update expansion was needed.
+
+Slice 5 validation: all seven callee-fact unit groups and all five VM groups
+passed. Array references retain their Array class, carry a typed pointer ABI,
+and pass planned/actual entry validation; malformed descriptors fail closed.
+The direct-memory CMP form needed by Instr is also certified. Existing capture
+checks remain unchanged. No NIR contract or array-placement rule changed.
 
 Repair the facts consumed by existing optimizations, then qualify the newly
 eligible cases. Implement the slices below in order and commit each after its
@@ -274,6 +280,13 @@ and `direct_parameter_abi_is_complete` in
    Instr's own parameter homes can remain ordinary memory. General array-home
    selection, array-local promotion and changing the four-byte placement limit
    are outside this slice.
+
+The selected Instr body also exposes an uncertified direct-memory byte compare
+once its ABI is recognized. Certify the unsigned Flags form comparing A with a
+direct memory operand: emission always performs CMP. Keep omitted/folded and
+immediate equality-to-zero forms conservative, and include this form in the
+existing slice-4 CFG/flag regression group. This is a shared fact repair, not
+an entry exception for Instr.
 
 Minimal validation:
 

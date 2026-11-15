@@ -709,7 +709,7 @@ fn incomplete_aggregate_helper_and_uncertified_capture_contracts_stay_unknown() 
         match variant {
             0 => r.frame.direct_parameter_abi = None,
             1 => r.frame.params[0].storage = MirStorageClass::Record,
-            2 => r.frame.direct_parameter_abi = Some(vec![MirWidth::Byte]),
+            2 => r.frame.direct_parameter_abi = Some(vec![MirDirectParamAbi::Scalar(MirWidth::Byte)]),
             3 => r.abi = MirRoutineAbi::ActionObservable,
             _ => r.blocks[0].ops.push(MirOp::Barrier {
                 effects: MirEffects::default(),
@@ -835,5 +835,48 @@ fn callee_facts_compare_entry_supplies_the_ordinary_call_contract() {
     let mut calls = ResidenceCalls::new(&p, MirCalleeEntryStage::ActualEntry);
     let call = routine(&p, "KeepCompare").blocks.iter().flat_map(|b| &b.ops)
         .find(|op| matches!(op, MirOp::Call { target: MirCallTarget::Routine(id), .. } if *id == r.id)).unwrap();
+    assert!(calls.writes(call).is_ok());
+}
+
+#[test]
+fn callee_facts_array_pointer_entry_keeps_storage_and_validates_both_stages() {
+    let raw = source(include_str!("../../../fixtures/runtime/callee_facts_array_entry.act"));
+    let config = super::super::Mir6502Config {
+        enable_small_leaf_inlining: false, ..super::super::Mir6502Config::optimized()
+    };
+    let expanded = super::super::materialize_program(raw.clone(), &config).unwrap();
+    for (p, stage) in [(&raw, MirCalleeEntryStage::PlannedCapture),
+        (&expanded, MirCalleeEntryStage::ActualEntry)] {
+        let r = routine(p, "Locate");
+        assert_eq!(r.frame.params[0].storage, MirStorageClass::Array);
+        assert_eq!(r.frame.direct_parameter_abi, Some(vec![MirDirectParamAbi::Pointer,
+            MirDirectParamAbi::Scalar(MirWidth::Byte)]));
+        let fact = MirCalleeEntryFact::analyze(p, r.id, stage).unwrap();
+        assert!(fact.inputs.registers.a && fact.inputs.registers.x && fact.inputs.registers.y);
+        assert!(!fact.inputs.registers.sp);
+        if stage == MirCalleeEntryStage::ActualEntry {
+            assert!(!fact.inputs.flags.any(), "{:?}", fact.inputs);
+        }
+        for invalid in 0..7 {
+            let mut changed = p.clone();
+            let r = changed.routines.iter_mut().find(|q| q.id == r.id).unwrap();
+            match invalid {
+                0 => r.frame.direct_parameter_abi.as_mut().unwrap()[0] = MirDirectParamAbi::Scalar(MirWidth::Word),
+                1 => r.frame.params[0].storage = MirStorageClass::Record,
+                2 => r.frame.params[0].storage_size = 1,
+                3 => r.frame.params[0].scalar_width = Some(MirWidth::Byte),
+                4 => { r.frame.direct_parameter_abi.as_mut().unwrap().pop(); },
+                5 => r.frame.params[0].offset = 1,
+                _ => r.frame.params[0].base = MirStorageBase::Local(crate::nir::LocalId(0)),
+            }
+            let id = r.id;
+            assert!(!fact.is_current(&changed, stage));
+            assert!(MirCalleeEntryFact::analyze(&changed, id, stage).is_none(), "{invalid}");
+        }
+    }
+    let mut calls = ResidenceCalls::new(&expanded, MirCalleeEntryStage::ActualEntry);
+    let call = routine(&expanded, "KeepLocate").blocks.iter().flat_map(|b| &b.ops)
+        .find(|op| matches!(op, MirOp::Call { target: MirCallTarget::Routine(id), .. }
+            if *id == routine(&expanded, "Locate").id)).unwrap();
     assert!(calls.writes(call).is_ok());
 }

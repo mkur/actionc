@@ -1,0 +1,16 @@
+BYTE FUNC Locate(CHAR ARRAY s, BYTE c)
+  BYTE i
+  FOR i=1 TO s(0) DO
+    IF s(i)=c THEN RETURN(i) FI
+  OD
+RETURN(0)
+
+CARD FUNC KeepLocate(CHAR POINTER p, BYTE c)
+  CARD keep
+  BYTE result
+  keep=p^+1000
+  result=Locate(p,c)
+RETURN(keep+result)
+
+PROC Main()
+RETURN

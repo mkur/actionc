@@ -1000,11 +1000,21 @@ fn routine_is_program_entry(routine: &nir::NirRoutine) -> bool {
     routine.entry.program
 }
 
-fn direct_parameter_abi(signature: &nir::NirCallableSignature) -> Option<Vec<MirWidth>> {
+fn direct_parameter_abi(signature: &nir::NirCallableSignature) -> Option<Vec<super::ir::MirDirectParamAbi>> {
+    use super::ir::MirDirectParamAbi;
     if signature.variadic.is_some() { return None; }
     let lane = |ty: &nir::NirType| {
-        (ty.kind.integer().is_some() || matches!(ty.kind, NirTypeKind::Pointer { .. }))
-            .then(|| mir_width(ty)).flatten()
+        let width = mir_width(ty)?;
+        if ty.kind.integer().is_some() {
+            Some(MirDirectParamAbi::Scalar(width))
+        } else if matches!(ty.kind, NirTypeKind::Pointer { address_space, .. }
+            if address_space == crate::target::TargetLayout::DATA_ADDRESS_SPACE)
+            && width == MirWidth::Word
+        {
+            Some(MirDirectParamAbi::Pointer)
+        } else {
+            None
+        }
     };
     if let Some(result) = &signature.result { lane(result)?; }
     signature.params.iter().map(lane).collect()
@@ -4589,13 +4599,21 @@ mod tests {
 #[cfg(test)]
 mod direct_parameter_abi_tests {
     #[test]
-    fn pointer_entry_declaration_is_complete_but_variadic_and_aggregate_are_not() {
+    fn callee_facts_array_pointer_abi_rejects_variadic_aggregate_and_unsupported_pointers() {
         let ast=crate::parser::parse(&crate::lexer::tokenize("PROC Sink(CHAR POINTER p) RETURN").unwrap()).unwrap();
         let model=crate::semantic::analyze_with_options(&ast,crate::semantic::SemanticOptions::modern()).unwrap();
         let nir=crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast,&model));
         let mut sig=nir.routines[0].signature.clone();
-        assert_eq!(super::direct_parameter_abi(&sig),Some(vec![super::MirWidth::Word]));
+        assert_eq!(super::direct_parameter_abi(&sig),Some(vec![crate::mir6502::ir::MirDirectParamAbi::Pointer]));
         assert!(super::scalar_signature(&sig).is_none());
+        for invalid in 0..2 {
+            let mut invalid_sig = sig.clone();
+            if invalid == 0 { invalid_sig.params[0].width = Some(crate::target::ByteSize::ONE); }
+            else if let crate::nir::NirTypeKind::Pointer { address_space, .. } = &mut invalid_sig.params[0].kind {
+                *address_space = crate::target::AddressSpaceId(77);
+            }
+            assert!(super::direct_parameter_abi(&invalid_sig).is_none());
+        }
         sig.variadic=Some(sig.params[0].clone());
         assert!(super::direct_parameter_abi(&sig).is_none());
         sig.variadic=None;

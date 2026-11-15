@@ -836,6 +836,11 @@ its pseudo Store omits expansion effects on A and N/Z. SArgs remains excluded.
 The typed `MirFrame::direct_parameter_abi` declaration supplies completeness for
 finite byte/word integer and pointer signatures without changing the meaning of
 `scalar_signature`. The entry query validates it against current frame slots.
+Each parameter records a scalar byte/word or a two-byte data-pointer ABI
+representation. An Array-class reference can satisfy the entry contract through
+the pointer representation while keeping its Array storage identity. Same-size
+records, mismatched descriptors and unsupported widths remain unknown. This
+does not relax array-home placement or the existing capture restrictions.
 An ordinary Return's implicit SP use is part of the balanced ABI, while explicit
 stack dependencies remain extra entry requirements. General rewrite liveness
 continues to preserve Return's SP use.

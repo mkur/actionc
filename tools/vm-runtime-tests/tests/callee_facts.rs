@@ -126,3 +126,30 @@ fn callee_facts_compare_entry_ignores_incoming_flags_and_preserves_caller() {
         }
     }
 }
+
+#[test]
+fn callee_facts_array_pointer_entry_preserves_caller_across_search() {
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for config in [Mir6502Config::default(), Mir6502Config {
+            enable_small_leaf_inlining: false, ..Mir6502Config::optimized()
+        }] {
+            let out = compile(include_str!("../../../fixtures/runtime/callee_facts_array_entry.act"), &config, runtime);
+            let mut vm = load(&out, runtime);
+            for (buffer, needle, result) in [
+                (vec![0, 0xa5, 0x5a, 0xcc], 42u8, 0u16),
+                (vec![3, 17, 42, 99], 42, 2),
+                (vec![3, 17, 42, 99], 128, 0),
+                (vec![3, 17, 42, 99], 99, 3),
+            ] {
+                vm.bus_mut().ram_mut().map(0x70ff, &buffer).unwrap();
+                vm.bus_mut().ram_mut().write(0x70fe, 0x55);
+                vm.bus_mut().ram_mut().write(0x7103, 0xaa);
+                vm = machine::call(vm, &mut Observe, entry(&out, "KeepLocate"), &[0xff, 0x70, needle]);
+                assert_eq!(machine::bytes(&vm, 0xa0, 2), (1000 + u16::from(buffer[0]) + result).to_le_bytes());
+                assert_eq!(machine::bytes(&vm, 0x70ff, buffer.len()), buffer);
+                assert_eq!(machine::bytes(&vm, 0x70fe, 1), [0x55]);
+                assert_eq!(machine::bytes(&vm, 0x7103, 1), [0xaa]);
+            }
+        }
+    }
+}

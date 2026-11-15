@@ -850,6 +850,9 @@ real CMP. Signed, temporary-result, mixed/unsupported consumers and general
 comparisons that may fold or reuse flags retain their conservative entry
 dependencies. A definition on only one CFG arm cannot discharge another arm's
 incoming flags; observations before the compare remain entry requirements.
+Unsigned byte Flags comparisons of A against a direct memory operand also
+definitely define C/N/Z: their selected CMP cannot be omitted. This does not
+certify immediate equality-to-zero comparisons, which can reuse earlier flags.
 
 `enable_precise_callee_entry_flags` permits additional late argument-X
 admissions when only N/Z are unobserved. The optimized configuration enables
@@ -2090,6 +2093,14 @@ copies this from verified NIR; the entry proof checks it against the current
 frame. Missing, variadic, aggregate, wider or inconsistent declarations remain
 unknown. The existing integer-only `scalar_signature` and separate entry-flag
 and machine-callee contracts retain their meanings.
+
+Each direct parameter is `Scalar(Byte/Word)` or `Pointer`; the latter certifies
+a two-byte data-space pointer from verified NIR. Array-reference parameters keep
+their Array storage class and are accepted at entry only with this explicit
+pointer representation and matching width, size and capture metadata. A scalar
+word descriptor does not certify an array or a same-size record. Both entry
+stages and ABI observation inventory use the descriptor's physical width.
+This entry fact does not admit array objects to ZP placement or change capture.
 
 Planned entry analysis composes the shared ordered capture with the body before
 running byte-definite memory and physical-state liveness. This slice certifies
