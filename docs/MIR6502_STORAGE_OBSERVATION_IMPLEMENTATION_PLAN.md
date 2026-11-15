@@ -1,6 +1,6 @@
 # MIR6502 storage observation: implementation plan
 
-Prepared 2026-11-15. Status: slice 0 complete; slices 1–5 pending.
+Prepared 2026-11-15. Status: slices 0–1 complete; slices 2–5 pending.
 Design commit: `9abe9094`. Compiler baseline: `67e9343a`.
 
 Implements the [storage ownership and observation design](MIR6502_STORAGE_OBSERVATION_DESIGN.md).
@@ -306,3 +306,12 @@ fixed-ZP-read and pointer-pair-read residents. Declaration and read vetoes are
 independently established. Existing source hashes match the recorded baseline;
 [baseline receipt](benchmarks/6502-storage-observation/baseline.json) reuses those
 measurements without recompiling TN. One filtered unit test passed.
+
+## Slice 1 completion
+
+The emitted declaration inventory now retains typed identity, routine owner,
+binding, lane offset and extent. The conservative overlap query is unchanged.
+Two focused tests pass, including mixed lanes, overlapping routine owners,
+absolute aliases and missing inventory. An initial test attempted an invalid
+resident/global overlap; the existing verifier rejected it as required. The
+corrected inventory test keeps those distinct cases valid.

@@ -50,6 +50,48 @@ fn storage_observation_baseline_has_two_independent_vetoes() {
     }
 }
 
+#[test]
+fn storage_observation_inventory_keeps_owners_aliases_and_lane_extents() {
+    use crate::mir6502::analysis::record_bases::{SourceBinding, SourceObject};
+    let mut p = storage_observation_fixture(0);
+    let mut other = p.routines[0].clone();
+    other.id = RoutineId(200);
+    p.routines.push(other);
+    p.globals.push(fixed_global(0xe4, 1));
+    let mut alias = fixed_global(0xe4, 1);
+    alias.id = crate::nir::SymbolId(1);
+    p.globals.push(alias);
+    let m = measure(&p, &[&p], 0x3000, crate::runtime::Runtime::ActionCart, &Trace::disabled()).unwrap();
+    let records = m.memory.source_storage().unwrap();
+    let aliases: Vec<_> = records.iter().filter(|s| s.contains(0xe3)).collect();
+    assert_eq!(aliases.len(), 2);
+    assert_eq!(records.iter().filter(|s| s.contains(0xe4)
+        && matches!(s.object, SourceObject::Global(_))).count(), 2);
+    for owner in [p.routines[0].id, RoutineId(200)] {
+        assert!(aliases.iter().any(|s| matches!(&s.object,
+            SourceObject::Routine { owner: r, base: MirStorageBase::Param(_), .. } if *r == owner)
+            && s.binding == Some(SourceBinding::Parameter(MirParamHome::ZeroPage(MirFixedZpSlot(0xe2))))));
+    }
+    for a in 0..=255 {
+        assert_eq!(m.memory.source_storage_disjoint(a), !matches!(a, 0xe2..=0xe4));
+    }
+    let r = &mut p.routines[0];
+    r.frame.parameter_homes.as_mut().unwrap()[0].home = MirParamHome::Lanes(vec![
+        MirParamLane::Reg(MirReg::A), MirParamLane::ZeroPage(MirFixedZpSlot(0xe3)),
+    ]);
+    r.blocks[0].ops.retain(|op| !matches!(op, MirOp::Store {
+        dst: MirAddr::Direct(MirMem::Param { offset: 0, .. }), ..
+    }));
+    let m = measure(&p, &[&p], 0x3000, crate::runtime::Runtime::ActionCart, &Trace::disabled()).unwrap();
+    let lanes: Vec<_> = m.memory.source_storage().unwrap().iter().filter(|s|
+        matches!(s.object, SourceObject::Routine { owner, .. } if owner == p.routines[0].id)).collect();
+    assert_eq!(lanes.len(), 1);
+    assert_eq!((lanes[0].offset, lanes[0].address, lanes[0].bytes), (1, 0xe3, 1));
+    let mut missing = m.memory.clone();
+    missing.protect_source_storage(None);
+    assert!(!missing.source_storage_disjoint(0xe4));
+}
+
 fn write(mem: MirMem) -> MirOp {
     MirOp::Store {
         dst: MirAddr::Direct(mem),

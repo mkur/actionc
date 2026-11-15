@@ -8,13 +8,44 @@ use std::collections::BTreeMap;
 
 pub(in crate::mir6502) mod retention;
 
+/// Declaration identity survives physical placement, including aliases and
+/// duplicate addresses. Protection remains conservative unless a consumer has
+/// a separate, current invocation proof.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) enum SourceObject {
+    Global(crate::nir::SymbolId),
+    Static(crate::nir::SymbolId),
+    Routine { owner: RoutineId, slot: MirStorageId, base: MirStorageBase },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) enum SourceBinding {
+    Parameter(MirParamHome),
+    Local(MirLocalHome),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct SourceStorage {
+    pub object: SourceObject,
+    pub binding: Option<SourceBinding>,
+    pub offset: u16,
+    pub address: u16,
+    pub bytes: u16,
+}
+
+impl SourceStorage {
+    pub fn contains(&self, address: u16) -> bool {
+        address.wrapping_sub(self.address) < self.bytes
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirPhysicalMemory {
     entries: Vec<(RoutineId, MirMem, u16, bool)>,
     owned_data: Vec<(u16, u16)>,
     globals: BTreeMap<crate::nir::SymbolId, (u16, u16, bool)>,
     execution_ranges: Option<Vec<(u16, u16)>>,
-    source_storage: Option<Vec<(u16, u16)>>,
+    source_storage: Option<Vec<SourceStorage>>,
     // Proof-only identities after declaration pruning; never physical addresses.
     retired_private: std::collections::BTreeSet<(RoutineId, MirSpillId)>,
 }
@@ -39,15 +70,18 @@ impl MirPhysicalMemory {
     }
     /// All declared source objects, including unused declarations, aliases and
     /// descriptor backing. An incomplete inventory grants no ownership proof.
-    pub(in crate::mir6502) fn protect_source_storage(&mut self, ranges: Option<Vec<(u16, u16)>>) {
+    pub(in crate::mir6502) fn protect_source_storage(&mut self, ranges: Option<Vec<SourceStorage>>) {
         self.source_storage = ranges;
     }
     pub(in crate::mir6502) fn source_storage_disjoint(&self, address: u16) -> bool {
         self.source_storage.as_ref().is_some_and(|ranges| {
             ranges
                 .iter()
-                .all(|&(start, bytes)| address.wrapping_sub(start) >= bytes)
+                .all(|object| !object.contains(address))
         })
+    }
+    pub(in crate::mir6502) fn source_storage(&self) -> Option<&[SourceStorage]> {
+        self.source_storage.as_deref()
     }
     pub(in crate::mir6502) fn protect_execution_ranges(&mut self, ranges: Vec<(u16, u16)>) {
         self.execution_ranges = ranges

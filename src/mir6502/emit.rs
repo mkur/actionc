@@ -6667,50 +6667,47 @@ fn storage_symbol(
 
 /// Publish declared storage from authoritative placement, independently of
 /// whether a current instruction still references its first byte.
-fn source_storage_ranges(mir: &MirProgram, layout: &MirObjectLayout) -> Option<Vec<(u16, u16)>> {
+fn source_storage_ranges(mir: &MirProgram, layout: &MirObjectLayout) -> Option<Vec<super::analysis::record_bases::SourceStorage>> {
+    use super::analysis::record_bases::{SourceBinding, SourceObject, SourceStorage};
     let mut ranges = Vec::new();
-    let mut add = |placement: MirStoragePlacement, backing: u16| -> Option<()> {
+    let mut add = |object, binding, offset, placement: MirStoragePlacement, backing: u16| -> Option<()> {
         let (MirStoragePlacement::Absolute { address, size, .. } | MirStoragePlacement::ZeroPage { address, size }) = placement else {
             return None;
         };
-        ranges.push((address.checked_sub(backing)?, size.checked_add(backing)?));
+        ranges.push(SourceStorage { object, binding, offset,
+            address: address.checked_sub(backing)?, bytes: size.checked_add(backing)? });
         Some(())
     };
     for g in &mir.globals {
-        add(
-            *layout.globals.get(&g.id)?,
-            g.init
-                .as_ref()
-                .and_then(global_descriptor_backing_size)
-                .unwrap_or(0),
-        )?;
+        add(SourceObject::Global(g.id), None, 0, *layout.globals.get(&g.id)?,
+            g.init.as_ref().and_then(global_descriptor_backing_size).unwrap_or(0))?;
     }
     for s in &mir.statics {
-        add(*layout.statics.get(&s.id)?, 0)?;
+        add(SourceObject::Static(s.id), None, 0, *layout.statics.get(&s.id)?, 0)?;
     }
     for r in &mir.routines {
         for s in r.frame.params.iter().chain(&r.frame.locals) {
+            let object = SourceObject::Routine { owner: r.id, slot: s.id, base: s.base.clone() };
+            let binding = match s.base {
+                MirStorageBase::Param(id) => r.frame.parameter_home(id).cloned().map(SourceBinding::Parameter),
+                MirStorageBase::Local(id) => r.frame.local_home(id).cloned().map(SourceBinding::Local),
+                _ => None,
+            };
             if let MirStorageBase::Param(id) = s.base
                 && matches!(r.frame.parameter_home(id), Some(crate::mir6502::ir::MirParamHome::Lanes(_)))
             {
                 for offset in 0..s.storage_size {
-                    if let Some(placement) = layout.routine_storage.get(&r.id)?.param_lanes.get(&(id, offset)) { add(*placement, 0)?; }
+                    if let Some(placement) = layout.routine_storage.get(&r.id)?.param_lanes.get(&(id, offset)) {
+                        add(object.clone(), binding.clone(), offset, *placement, 0)?;
+                    }
                 }
                 continue;
             }
             if let MirStorageBase::Param(id) = s.base
-                && !r.frame.parameter_has_memory(id)
-            {
-                continue;
-            }
+                && !r.frame.parameter_has_memory(id) { continue; }
             if !matches!(s.base, MirStorageBase::ParamAbiOnly(_)) {
-                add(
-                    routine_slot_placement(layout, r.id, s)?,
-                    s.init
-                        .as_ref()
-                        .and_then(slot_descriptor_backing_size)
-                        .unwrap_or(0),
-                )?;
+                add(object, binding, s.offset, routine_slot_placement(layout, r.id, s)?,
+                    s.init.as_ref().and_then(slot_descriptor_backing_size).unwrap_or(0))?;
             }
         }
     }
