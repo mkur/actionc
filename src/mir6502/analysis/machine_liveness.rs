@@ -397,10 +397,18 @@ fn op_transfer(op: &MirOp, known_callees: &MirKnownCalleeSummaries) -> MirMachin
 
 // May-clobbers are not certified definitions for incoming flag proofs.
 fn entry_flag_transfer(op: &MirOp) -> MirMachineTransfer {
-    use crate::mir6502::ir::{MirBinaryOp, MirDef, MirValue, MirWidth};
+    use crate::mir6502::ir::{MirAddressConsumer, MirBinaryOp, MirCondDest, MirDef, MirValue, MirWidth};
     let effects = classify_op(op);
     let mut transfer = op_transfer(op, &MirKnownCalleeSummaries::default());
     transfer.writes.flags = match op {
+        // Both selected unsigned byte recipes always emit LDA/CMP. Unlike a
+        // general compare, neither can fold away or reuse earlier flags.
+        MirOp::CompareIndirectBytes { dst: MirCondDest::Flags, left, right,
+            offset, signed: false, .. }
+            if (matches!((left, right), (MirAddressConsumer::IndirectIndexedY(_),
+                    MirAddressConsumer::IndirectIndexedY(_))) && *offset <= 255)
+                || (left.uses_live_y() && right.uses_live_y() && *offset == 0) =>
+            effects.machine.flag_writes,
         MirOp::LoadImm { dst: MirDef::Reg(_), width: MirWidth::Byte, .. }
         | MirOp::Load { dst: MirDef::Reg(_), width: MirWidth::Byte, .. }
         | MirOp::LoadIndirect { .. }
@@ -581,6 +589,60 @@ mod tests {
             dst: MirDef::Reg(reg),
             value,
             width: MirWidth::Byte,
+        }
+    }
+
+    #[test]
+    fn callee_facts_compare_entry_definitions_follow_cfg_paths() {
+        use crate::mir6502::ir::{MirAddressConsumer as C, MirBinaryOp, MirCarryIn,
+            MirCarryOut, MirCompareOp, MirCondDest, MirFixedZpSlot, MirPointerPair, MirTempId};
+        let pair = MirPointerPair::Fixed { lo: MirFixedZpSlot(0xac) };
+        let compare = |left, right, offset| MirOp::CompareIndirectBytes {
+            dst: MirCondDest::Flags, op: MirCompareOp::Eq, left, right, offset, signed: false,
+        };
+        let ordinary = compare(C::IndirectIndexedY(pair), C::IndirectIndexedY(pair), 0);
+        let flags = |r: MirRoutine| {
+            let cfg = MirCfg::from_routine(&r).unwrap();
+            MirMachineLiveness::entry_flag_inputs(&r, &cfg).unwrap()
+        };
+        for op in [ordinary.clone(), compare(C::IndirectIndexedY(pair), C::IndirectIndexedY(pair), 255),
+            compare(C::LiveIndirectIndexedY(pair), C::LiveIndirectIndexedY(pair), 0)] {
+            assert_eq!(entry_flag_transfer(&op).writes.flags,
+                MirFlagSet { c: true, z: true, n: true, v: false });
+            for test in [MirFlagTest::CSet, MirFlagTest::ZSet, MirFlagTest::NSet, MirFlagTest::VSet] {
+                let f = flags(routine(vec![
+                    block(0, vec![op.clone()], branch(test.clone(), 1, 2)),
+                    block(1, vec![], MirTerminator::Return), block(2, vec![], MirTerminator::Return),
+                ]));
+                assert_eq!(f, MirFlagSet { v: test == MirFlagTest::VSet, ..Default::default() });
+            }
+        }
+        // A loop does not resurrect the incoming C once every path defines it.
+        assert!(!flags(routine(vec![block(0, vec![ordinary.clone()], branch(MirFlagTest::CSet, 0, 1)),
+            block(1, vec![], MirTerminator::Return)])).c);
+        // A compare on only one arm cannot hide the other arm's incoming C.
+        assert!(flags(routine(vec![block(0, vec![], branch(MirFlagTest::ZSet, 1, 2)),
+            block(1, vec![ordinary.clone()], MirTerminator::Jump(MirEdge::plain(MirBlockId(2)))),
+            block(2, vec![], branch(MirFlagTest::CSet, 3, 3)),
+            block(3, vec![], MirTerminator::Return)])).c);
+        let adc = MirOp::Binary { op: MirBinaryOp::Add, dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)), right: MirValue::ConstU8(0),
+            width: MirWidth::Byte, carry_in: Some(MirCarryIn::FromPrevious), carry_out: MirCarryOut::Ignore };
+        assert!(flags(routine(vec![block(0, vec![adc, ordinary.clone()], MirTerminator::Return)])).c);
+        let mut signed = ordinary.clone();
+        if let MirOp::CompareIndirectBytes { signed, .. } = &mut signed { *signed = true; }
+        let mut temp = ordinary.clone();
+        if let MirOp::CompareIndirectBytes { dst, .. } = &mut temp { *dst = MirCondDest::Temp(MirTempId(0)); }
+        for op in [signed, temp,
+            compare(C::IndirectIndexedY(pair), C::IndirectIndexedY(pair), 256),
+            compare(C::LiveIndirectIndexedY(pair), C::IndirectIndexedY(pair), 0),
+            compare(C::LiveIndirectIndexedY(pair), C::LiveIndirectIndexedY(pair), 1),
+            compare(C::PagedIndirectIndexedY(pair), C::PagedIndirectIndexedY(pair), 0),
+            MirOp::Compare { dst: MirCondDest::Flags, op: MirCompareOp::Eq,
+                left: MirValue::Def(MirDef::Reg(MirReg::A)), right: MirValue::ConstU8(0),
+                width: MirWidth::Byte, signed: false },
+        ] {
+            assert_eq!(entry_flag_transfer(&op).writes.flags, MirFlagSet::default(), "{op:?}");
         }
     }
 

@@ -1,7 +1,7 @@
 # MIR6502 callee-fact repairs: implementation plan
 
-Prepared 2026-11-15. Status: slices 1–3 completed and validated; resume slices
-4–7 in order. The narrower
+Prepared 2026-11-15. Status: slices 1–4 completed and validated; resume slices
+5–7 in order. The narrower
 [private-storage boundary plan](MIR6502_PRIVATE_STORAGE_BOUNDARY_IMPLEMENTATION_PLAN.md)
 was implemented separately. Broader ZP placement remains deferred.
 Historical baseline: `7ab6f840ba0475c5ddde9194c130ee83d96c83d1` and the
@@ -21,6 +21,12 @@ passed. The group covers default/optimized ActionCart and Standalone, including
 page crossing and caller preservation. TN is 9,846 bytes, down 24 from the
 post-private-storage baseline; see the directional-write review in the evidence
 above. No full suite was run.
+
+Slice 4 validation: the compare CFG and call-contract groups passed, together
+with all 11 machine-liveness and six entry-flag tests. The independent VM group
+passed default/optimized ActionCart and Standalone with all 16 incoming flag
+combinations. The existing entry-flag integration control passed; its optional
+MADS case remained ignored. No general compare or word-update expansion was needed.
 
 Repair the facts consumed by existing optimizations, then qualify the newly
 eligible cases. Implement the slices below in order and commit each after its

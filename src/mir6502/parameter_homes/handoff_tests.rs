@@ -820,3 +820,20 @@ fn an_extra_expanded_entry_requirement_restores_the_complete_selected_artifact()
                 && e.data.to_string().contains("extra-entry-flags-or-stack"))
     );
 }
+
+#[test]
+fn callee_facts_compare_entry_supplies_the_ordinary_call_contract() {
+    let config = super::super::Mir6502Config {
+        enable_small_leaf_inlining: false, ..super::super::Mir6502Config::optimized()
+    };
+    let p = super::super::materialize_program(
+        source(include_str!("../../../fixtures/runtime/callee_facts_compare.act")), &config).unwrap();
+    let r = routine(&p, "CompareHead");
+    let entry = MirCalleeEntryFact::analyze(&p, r.id, MirCalleeEntryStage::ActualEntry).unwrap();
+    assert!(!entry.inputs.flags.any(), "{:?}", entry.inputs);
+    assert!(!entry.inputs.registers.sp);
+    let mut calls = ResidenceCalls::new(&p, MirCalleeEntryStage::ActualEntry);
+    let call = routine(&p, "KeepCompare").blocks.iter().flat_map(|b| &b.ops)
+        .find(|op| matches!(op, MirOp::Call { target: MirCallTarget::Routine(id), .. } if *id == r.id)).unwrap();
+    assert!(calls.writes(call).is_ok());
+}

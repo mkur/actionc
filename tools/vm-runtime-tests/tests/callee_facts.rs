@@ -93,3 +93,36 @@ fn callee_facts_directional_reader_preserves_caller_and_pointee() {
         }
     }
 }
+
+#[test]
+fn callee_facts_compare_entry_ignores_incoming_flags_and_preserves_caller() {
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for config in [Mir6502Config::default(), Mir6502Config {
+            enable_small_leaf_inlining: false, ..Mir6502Config::optimized()
+        }] {
+            let out = compile(include_str!("../../../fixtures/runtime/callee_facts_compare.act"), &config, runtime);
+            let mut vm = load(&out, runtime);
+            for (left, right) in [(0u8, 0u8), (1, 255), (255, 1), (128, 127)] {
+                let expected = if left == right { 0 } else if left > right { 1 } else { 2 };
+                vm.bus_mut().ram_mut().map(0x70ff, &[7, left, 0xa5]).unwrap();
+                vm.bus_mut().ram_mut().map(0x72ff, &[9, right, 0x5a]).unwrap();
+                vm = machine::call(vm, &mut Observe, entry(&out, "KeepCompare"), &[0xff, 0x70, 0xff, 0x72]);
+                assert_eq!(machine::bytes(&vm, 0xa0, 2), (1007u16 + expected).to_le_bytes());
+                let callee = entry(&out, "CompareHead");
+                for mask in 0..16u8 {
+                    let status = 0x20 | (mask & 3) | ((mask & 4) << 5) | ((mask & 8) << 3);
+                    // Establish flags after A/X/Y, immediately before the call.
+                    vm.bus_mut().ram_mut().map(0x740, &[
+                        0xa9, status, 0x48, 0xa9, 0xff, 0xa2, 0x70, 0xa0, 0xff,
+                        0x28, 0x20, callee as u8, (callee >> 8) as u8, 0x60,
+                    ]).unwrap();
+                    vm.bus_mut().ram_mut().write(0xa3, 0x72);
+                    vm = machine::call(vm, &mut Observe, 0x740, &[]);
+                    assert_eq!(machine::bytes(&vm, 0xa0, 1), [expected as u8]);
+                }
+                assert_eq!(machine::bytes(&vm, 0x70ff, 3), [7, left, 0xa5]);
+                assert_eq!(machine::bytes(&vm, 0x72ff, 3), [9, right, 0x5a]);
+            }
+        }
+    }
+}

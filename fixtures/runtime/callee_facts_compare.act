@@ -1,0 +1,15 @@
+BYTE FUNC CompareHead(BYTE POINTER p,q)
+  p==+1 q==+1
+  IF p^=q^ THEN RETURN(0) FI
+  IF p^>q^ THEN RETURN(1) FI
+RETURN(2)
+
+CARD FUNC KeepCompare(BYTE POINTER p,q)
+  CARD keep
+  BYTE result
+  keep=p^+1000
+  result=CompareHead(p,q)
+RETURN(keep+result)
+
+PROC Main()
+RETURN

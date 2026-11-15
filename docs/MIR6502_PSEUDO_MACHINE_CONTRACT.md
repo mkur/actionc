@@ -843,6 +843,14 @@ or barrier observes all flags, and machine-block eligibility stays closed.
 Incoming masks establish neither incidental output flag values nor a weaker
 ABI preservation contract.
 
+Unsigned `CompareIndirectBytes` with a Flags destination definitely defines
+C/N/Z and preserves V when both consumers are ordinary indirect-Y with a byte
+offset, or both are live-Y with offset zero. Both selected recipes execute a
+real CMP. Signed, temporary-result, mixed/unsupported consumers and general
+comparisons that may fold or reuse flags retain their conservative entry
+dependencies. A definition on only one CFG arm cannot discharge another arm's
+incoming flags; observations before the compare remain entry requirements.
+
 `enable_precise_callee_entry_flags` permits additional late argument-X
 admissions when only N/Z are unobserved. The optimized configuration enables
 it; the conservative default keeps it off. The coarse all-flags path retains its existing policy. A typed
