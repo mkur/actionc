@@ -56,6 +56,22 @@ indirect-to-fixed-ZP copy's balanced PHA/PLA staging, remains covered by the
 existing stack/ABI contract. Explicit writes to stack addresses still count as
 memory writes. A precise data footprint grants no new stack-manipulation permission.
 
+Home effects distinguish possible writes from guaranteed definitions. The possible
+write set includes finite clobber annotations and remains authoritative for
+invalidation, interference and preservation checks. Guaranteed definitions form
+a subset populated by explicit stores and physical result definitions, not by
+memory-effect annotations. Only that subset, together with explicit pointer-pair
+definitions, may kill an incoming home value, replace a reaching definition,
+initialize an allocated private byte, or supply a replacement read. A finite
+may-write cannot establish a value any more than an unknown may-write can.
+
+**Entry requirements** describe incoming machine values observed before a
+guaranteed definition. Typed global reads remain program-memory observations,
+including when backed by ZP, and do not become caller-supplied arguments.
+Literal scratch reads retain their requirements independently of coincident
+global declarations. Canonical ABI supply, memory observations and preservation
+remain separate checks; see the [call-fact contract](MIR6502_CALL_FACT_CONTRACT_DESIGN.md).
+
 **Materialization** means turning abstract NIR/MIR values, storage, conditions,
 or calls into a concrete target strategy: byte lanes, temporary homes, ABI homes,
 carry/flag dependencies, helper calls, and address forms.

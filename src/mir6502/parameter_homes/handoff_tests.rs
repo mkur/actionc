@@ -23,6 +23,29 @@ fn routine<'a>(program: &'a MirProgram, name: &str) -> &'a MirRoutine {
 }
 
 #[test]
+fn global_state_does_not_replace_or_add_canonical_call_arguments() {
+    for address in [0xe8, 0x600] {
+        let p = source(&format!(
+            "BYTE state=${address:04X}
+             BYTE FUNC ReadState() RETURN(state)
+             BYTE FUNC WithArg(BYTE arg) RETURN(arg+state)
+             PROC Main() RETURN"
+        ));
+        for (name, outgoing) in [
+            ("ReadState", vec![]),
+            ("WithArg", vec![MirParamLane::Reg(MirReg::A)]),
+        ] {
+            let fact = MirCalleeEntryFact::analyze(&p, routine(&p, name).id,
+                MirCalleeEntryStage::PlannedCapture).unwrap();
+            assert_eq!(handoff::inputs_supplied(&fact, &outgoing), Ok(()));
+            if name == "WithArg" {
+                assert_eq!(handoff::inputs_supplied(&fact, &[]), Err("extra-entry-register"));
+            }
+        }
+    }
+}
+
+#[test]
 fn wrapper_proof_admits_terminal_inputs_and_rejects_scope_boundaries() {
     let program = controls();
     for name in ["ForwardWords", "ForwardBytes", "CopyCounted"] {
@@ -213,7 +236,7 @@ fn scalar_entry_projection_distinguishes_defined_and_incoming_fixed_bytes() {
         ("cell=value out=cell", false),
         ("out=cell cell=value", true),
     ] {
-        let p = source(&format!(
+        let mut p = source(&format!(
             "BYTE cell=$AC,out=$680\nPROC Sink(BYTE value) {body} RETURN\nPROC Main() Sink(1) RETURN"
         ));
         let fact = MirCalleeEntryFact::analyze(
@@ -222,7 +245,22 @@ fn scalar_entry_projection_distinguishes_defined_and_incoming_fixed_bytes() {
             MirCalleeEntryStage::PlannedCapture,
         )
         .unwrap();
-        assert_eq!(fact.inputs.fixed.contains(&0xac), observes);
+        assert!(!fact.inputs.fixed.contains(&0xac));
+        // An independent physical read still has the original incoming-value
+        // dependency; a typed store can discharge it on the same path.
+        let cell = p.globals.iter().find(|g| g.name == "cell").unwrap().id;
+        let sink = p.routines.iter_mut().find(|r| r.name == "Sink").unwrap();
+        for op in sink.blocks.iter_mut().flat_map(|b| &mut b.ops) {
+            if let MirOp::Load { src: MirAddr::Direct(mem), .. } = op
+                && *mem == (MirMem::Global { id: cell, offset: 0 })
+            {
+                *mem = MirMem::FixedZeroPage(MirFixedZpSlot(0xac));
+            }
+        }
+        let sink_id = sink.id;
+        let raw = MirCalleeEntryFact::analyze(&p, sink_id,
+            MirCalleeEntryStage::PlannedCapture).unwrap();
+        assert_eq!(raw.inputs.fixed.contains(&0xac), observes);
     }
 }
 
@@ -412,7 +450,7 @@ fn capture_boundary_supplies_working_homes_from_canonical_inputs() {
         MirCalleeEntryStage::ActualEntry,
     )
     .unwrap();
-    assert_eq!(extra.inputs.fixed, BTreeSet::from([0xa3, 0xac]));
+    assert_eq!(extra.inputs.fixed, BTreeSet::from([0xa3]));
     assert!(
         MirCalleeEntryFact::analyze(
             &selected.input,

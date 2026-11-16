@@ -76,6 +76,7 @@ pub(in crate::mir6502) enum MirHomeLivenessError {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirHomeTransfer {
     pub reads: BTreeSet<MirHomeByte>,
+    /// Guaranteed definitions only; possible clobbers cannot kill liveness.
     pub writes: BTreeSet<MirHomeByte>,
 }
 
@@ -459,10 +460,10 @@ fn home_transfer(
                 .filter(|home| matches!(home, MirHomeByte::FixedZeroPage(_))),
         );
     }
-    let mut writes = effects.writes.clone();
+    let mut writes = effects.definite_writes.clone();
     writes.extend(pair_writes);
-    // `unknown_writes` is a may-write, not a definite kill. The old value can
-    // survive it on some path and must remain live when a later read exists.
+    // Neither finite possible writes nor `unknown_writes` are definite kills.
+    // The old value can survive them and remain observable at a later read.
     MirHomeTransfer { reads, writes }
 }
 

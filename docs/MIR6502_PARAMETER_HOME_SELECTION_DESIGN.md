@@ -1400,6 +1400,13 @@ routine is not an extra input to that routine; a requirement not established on
 every relevant path remains an entry obligation. Keep canonical ABI validation
 at every site, including later calls to a previously validated target.
 
+The [call-input and program-state contract](MIR6502_CALL_FACT_CONTRACT_DESIGN.md)
+clarifies which observations belong in this entry contract. A typed global read
+remains a memory observation even when its backing is ZP; it does not become an
+extra caller-supplied argument. Genuine implicit machine inputs retain their
+entry requirements, and source-owned storage retains its reservation and
+preservation checks.
+
 Preservation, possible writes and definite definitions remain distinct. A
 may-write footprint must not kill an incoming-value dependency. Only an existing
 certified definition, including a typed ABI result guaranteed on return where
@@ -1413,6 +1420,8 @@ integer scalar signature containing one byte/word result and an all-returning-pa
 physical definition proof. Pointer-parameter routines do not carry that signature;
 retain their return-home dependencies conservatively. Broadening that typed ABI
 contract is separate from guessing definitions from stores or layout metadata.
+The proposed [typed result contract](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract)
+addresses that gap without changing the integer-only signature's meaning.
 
 An entry fact that depends on another routine must become stale when that
 dependency's body, binding, ABI or relevant backing changes, even if the outer

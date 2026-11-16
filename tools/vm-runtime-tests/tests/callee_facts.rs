@@ -26,6 +26,57 @@ fn entry(out: &actionc::codegen::CodegenOutput, name: &str) -> u16 {
 }
 
 #[test]
+fn callee_facts_global_state_reads_preserve_state_and_live_caller_values() {
+    let optimized = Mir6502Config {
+        enable_small_leaf_inlining: false,
+        ..Mir6502Config::optimized()
+    };
+    // The VM call trampoline occupies $0600; keep the RAM control outside it.
+    for address in [0xe8u16, 0x700] {
+        let source = format!(
+            "BYTE state=${address:04X}
+             BYTE observed=$0680
+             BYTE FUNC ReadState() RETURN(state)
+             CARD FUNC Hold(CARD keep)
+               BYTE value
+               value=ReadState()
+               observed=value
+             RETURN(keep+value)
+             PROC Main() RETURN"
+        ).replace("\r\n", "\n");
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let mut lf_image = None;
+            for (config, crlf) in [
+                (Mir6502Config::default(), false),
+                (optimized.clone(), false),
+                (optimized.clone(), true),
+            ] {
+                let text = if crlf { source.replace('\n', "\r\n") } else { source.clone() };
+                let out = compile(&text, &config, runtime);
+                if config == optimized {
+                    let image = actionc::codegen::format_load_file(&out);
+                    if crlf { assert_eq!(lf_image.as_ref(), Some(&image)); }
+                    else { lf_image = Some(image); }
+                }
+                let mut vm = load(&out, runtime);
+                for state in [0u8, 0x81, 0xff] {
+                    for keep in [0u16, 0x1234, 0xffff] {
+                        vm.bus_mut().ram_mut().write(address, state);
+                        vm = machine::call(vm, &mut Observe, entry(&out, "Hold"), &keep.to_le_bytes());
+                        assert_eq!(machine::bytes(&vm, 0xa0, 2),
+                            keep.wrapping_add(u16::from(state)).to_le_bytes(),
+                            "{runtime:?} state@{address:04x}={state} keep={keep} optimized={} CRLF={crlf}",
+                            config == optimized);
+                        assert_eq!(machine::bytes(&vm, 0x680, 1), [state]);
+                        assert_eq!(machine::bytes(&vm, address, 1), [state]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn callee_facts_flags_store_only_entry_and_produced_result() {
     let lf = include_str!("../../../fixtures/runtime/callee_facts_flags.act").replace("\r\n", "\n");
     let mut optimized = None;

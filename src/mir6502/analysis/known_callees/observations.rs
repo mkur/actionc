@@ -61,7 +61,7 @@ pub(in crate::mir6502) struct MachineStorageObservations {
 }
 
 /// Invalid fixed backing must not masquerade as a pending ordinary address.
-fn valid_backing(program: &MirProgram, memory: &MirMem) -> bool {
+pub(super) fn valid_backing(program: &MirProgram, memory: &MirMem) -> bool {
     let MirMem::Global { mut id, mut offset } = *memory else { return true; };
     for _ in 0..program.globals.len() {
         let Some(global) = program.globals.iter().find(|g| g.id == id) else { return false; };

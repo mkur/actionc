@@ -146,8 +146,8 @@ pub(in crate::mir6502) enum MirHomeDefinitionError {
 ///
 /// Unknown reads are expanded through the same conservative externally
 /// observable home subset as whole-home liveness. Compiler-private spills and
-/// virtual zero-page homes cannot escape. Unknown writes remain may-writes and
-/// therefore do not kill a reaching definition.
+/// virtual zero-page homes cannot escape. Finite and unknown may-writes do not
+/// kill reaching definitions or initialize allocated private aliases.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirHomeDefinitions {
     result: DataflowResult<MirBlockId, MirHomeDefinitionState>,
@@ -165,7 +165,8 @@ impl MirHomeDefinitions {
         let private_aliases = allocated_private_aliases(routine, universe.iter());
         // A may-write annotation, opaque call or conditional word-high repair
         // cannot initialize an incoming pair. Certify only explicit fixed RAM
-        // stores for the first fusion consumer, keeping old liveness policy.
+        // stores for the first fusion consumer; this proof remains narrower
+        // than the general guaranteed definitions used by home liveness.
         let explicit_writes = routine.blocks.iter().map(|b| (b.id,b.ops.iter().map(|op| {
             let mut writes=BTreeSet::new();
             if let MirOp::Store {dst:MirAddr::Direct(MirMem::FixedZeroPage(lo)),width,..}=op {
@@ -206,7 +207,7 @@ impl MirHomeDefinitions {
 
     /// Reads lacking a definite private-home definition on every reachable
     /// entry path. Uses the same byte effects and CFG solver as reaching defs;
-    /// unknown writes cannot initialize scratch, and public ABI homes are not
+    /// possible writes cannot initialize scratch, and public ABI homes are not
     /// compiler-private. Reads precede writes within an operation.
     pub(in crate::mir6502) fn undefined_private_reads(&self) -> Vec<(MirSite, MirHomeByte)> {
         let mut reads = Vec::new();
@@ -681,6 +682,151 @@ mod tests {
             definitions.definition_dead_after(spill(0), op(0, 0), op(0, 2)),
             Ok(true)
         );
+    }
+
+    #[test]
+    fn finite_may_writes_preserve_old_liveness_and_reaching_definitions() {
+        use crate::mir6502::analysis::home_liveness::MirHomeLiveness;
+        use crate::mir6502::ir::{
+            MirCallAbi, MirCallTarget, MirMachineBlockId, MirMemoryRegion, MirMemoryRegionKind,
+            MirResultHome, MirRuntimeHelper,
+        };
+        let slot = MirFixedZpSlot(0xe4);
+        let home = MirHomeByte::FixedZeroPage(slot);
+        let effects = MirEffects {
+            memory_writes: MirMemoryEffect::Regions(vec![MirMemoryRegion {
+                kind: MirMemoryRegionKind::ZeroPage,
+                offset: 0xe4,
+                size: 1,
+            }]),
+            ..MirEffects::default()
+        };
+        let helper = |result| MirOp::RuntimeHelper {
+            helper: MirRuntimeHelper::Mul,
+            args: vec![],
+            result,
+            additional_results: vec![],
+            effects: effects.clone(),
+        };
+        let call = MirOp::Call {
+            target: MirCallTarget::Routine(RoutineId(1)),
+            abi: MirCallAbi {
+                params: vec![],
+                result: None,
+                additional_results: vec![],
+                clobbers: Default::default(),
+                preserves: Default::default(),
+            },
+            args: vec![],
+            result: None,
+            additional_results: vec![],
+            effects: effects.clone(),
+        };
+        for (writer, definite) in [
+            (call, false),
+            (
+                MirOp::MachineBlock {
+                    id: MirMachineBlockId(0),
+                    effects: effects.clone(),
+                },
+                false,
+            ),
+            (
+                MirOp::SArgsCapture {
+                    first_param: crate::nir::ParamId(0),
+                    byte_count: 2,
+                    effects: effects.clone(),
+                },
+                false,
+            ),
+            (
+                MirOp::Barrier {
+                    effects: effects.clone(),
+                },
+                false,
+            ),
+            (
+                MirOp::Barrier {
+                    effects: MirEffects {
+                        memory_writes: MirMemoryEffect::Unknown,
+                        ..MirEffects::default()
+                    },
+                },
+                false,
+            ),
+            (helper(None), false),
+            (helper(Some(MirResultHome::FixedZeroPage(slot))), true),
+            (store_fixed(slot.0), true),
+        ] {
+            let r = routine(vec![block(
+                0,
+                vec![
+                    store_fixed(slot.0),
+                    writer.clone(),
+                    MirOp::Load {
+                        dst: MirDef::Reg(MirReg::A),
+                        src: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+                        width: MirWidth::Byte,
+                    },
+                ],
+                MirTerminator::Return,
+            )]);
+            let cfg = MirCfg::from_routine(&r).unwrap();
+            let live = MirHomeLiveness::analyze(&r, &cfg);
+            assert_eq!(live.live_after(home, op(0, 0)), Ok(!definite), "{writer:?}");
+            assert_eq!(
+                analyze(&r).definition_dead_after(home, op(0, 0), op(0, 0)),
+                Ok(definite),
+                "{writer:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn finite_may_write_does_not_initialize_an_allocated_private_alias() {
+        use crate::mir6502::ir::{MirMemoryRegion, MirMemoryRegionKind, MirZpAllocation, MirZpSlot};
+        let slot = MirZpSlot(0);
+        for (writer, initialized) in [
+            (
+                MirOp::Barrier {
+                    effects: MirEffects {
+                        memory_writes: MirMemoryEffect::Regions(vec![MirMemoryRegion {
+                            kind: MirMemoryRegionKind::ZeroPage,
+                            offset: 0xe4,
+                            size: 1,
+                        }]),
+                        ..MirEffects::default()
+                    },
+                },
+                false,
+            ),
+            (store_fixed(0xe4), true),
+        ] {
+            let mut r = routine(vec![block(
+                0,
+                vec![
+                    writer,
+                    MirOp::Load {
+                        dst: MirDef::Reg(MirReg::A),
+                        src: MirAddr::Direct(MirMem::ZeroPage(slot)),
+                        width: MirWidth::Byte,
+                    },
+                ],
+                MirTerminator::Return,
+            )]);
+            r.frame.virtual_zero_page.push(slot);
+            r.frame.zero_page_allocations.push(MirZpAllocation {
+                slot,
+                start: MirFixedZpSlot(0xe4),
+                size: 1,
+            });
+            let expected = if initialized {
+                vec![]
+            } else {
+                vec![(op(0, 1), MirHomeByte::VirtualZeroPage { slot, offset: 0 })]
+            };
+            assert_eq!(analyze(&r).undefined_private_reads(), expected);
+        }
     }
 
     #[test]

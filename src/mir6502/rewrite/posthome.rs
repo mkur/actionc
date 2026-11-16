@@ -217,7 +217,7 @@ pub(in crate::mir6502) fn removed_home_definitions(
 ) -> Vec<MirRemovedHomeDefinition> {
     let mut replacement_writes = BTreeMap::<MirHomeByte, usize>::new();
     for op in replacement {
-        for home in written_homes(op) {
+        for home in defined_homes(op) {
             *replacement_writes.entry(home).or_default() += 1;
         }
     }
@@ -225,7 +225,7 @@ pub(in crate::mir6502) fn removed_home_definitions(
     let mut preserved = BTreeMap::<MirHomeByte, usize>::new();
     let mut removed = Vec::new();
     for op_index in range.clone().rev() {
-        for home in written_homes(&block_ops[op_index]) {
+        for home in defined_homes(&block_ops[op_index]) {
             let keep = replacement_writes.get(&home).copied().unwrap_or(0);
             let already_preserved = preserved.entry(home).or_default();
             if *already_preserved < keep {
@@ -259,7 +259,8 @@ pub(in crate::mir6502) fn replacement_home_dependencies(
     let entry_alias_reads = crate::mir6502::analysis::pointer_byte_plus_one::entry_read_homes(original,replacement);
     // Retain unchanged reads of the window-entry value (e.g. the input to an
     // accumulator chain whose later scratch store is removed). Match each
-    // original read at most once, and only before the first original write.
+    // original read at most once, and only before the first possible write:
+    // even a conditional clobber may replace the window-entry value.
     let mut written = BTreeSet::new();
     let mut entry_reads = Vec::new();
     for op in original {
@@ -300,7 +301,7 @@ pub(in crate::mir6502) fn replacement_home_dependencies(
             }
         }
         // Unknown readers can observe fixed ABI homes, but private spills and
-        // virtual ZP cannot escape. Unknown writes do not establish a value.
+        // virtual ZP cannot escape. Possible writes do not establish a value.
         if effects.homes.unknown_reads {
             if let Some(home) = unavailable
                 .iter()
@@ -315,7 +316,7 @@ pub(in crate::mir6502) fn replacement_home_dependencies(
         }
         for home in effects
             .homes
-            .writes
+            .definite_writes
             .iter()
             .chain(&effects.addresses.pair_writes)
         {
@@ -325,11 +326,11 @@ pub(in crate::mir6502) fn replacement_home_dependencies(
     Ok(())
 }
 
-fn written_homes(op: &MirOp) -> BTreeSet<MirHomeByte> {
+fn defined_homes(op: &MirOp) -> BTreeSet<MirHomeByte> {
     let effects = classify_op(op);
     effects
         .homes
-        .writes
+        .definite_writes
         .into_iter()
         .chain(effects.addresses.pair_writes)
         .collect()
@@ -338,7 +339,16 @@ fn written_homes(op: &MirOp) -> BTreeSet<MirHomeByte> {
 fn home_write_counts(ops: &[MirOp]) -> BTreeMap<MirHomeByte, usize> {
     let mut counts = BTreeMap::new();
     for op in ops {
-        for home in written_homes(op) {
+        // Exit-state changes still include possible clobbers, independently
+        // of the guaranteed definitions counted by removal proofs above.
+        let effects = classify_op(op);
+        let writes: BTreeSet<_> = effects
+            .homes
+            .writes
+            .into_iter()
+            .chain(effects.addresses.pair_writes)
+            .collect();
+        for home in writes {
             *counts.entry(home).or_default() += 1;
         }
     }
@@ -546,6 +556,60 @@ mod tests {
                 "replacement-home-read"
             );
         }
+    }
+
+    #[test]
+    fn finite_may_write_cannot_supply_a_removed_definition() {
+        use crate::mir6502::ir::{MirMemoryEffect, MirMemoryRegion, MirMemoryRegionKind};
+        let may_write = MirOp::Barrier {
+            effects: MirEffects {
+                memory_writes: MirMemoryEffect::Regions(vec![MirMemoryRegion {
+                    kind: MirMemoryRegionKind::ZeroPage,
+                    offset: 0xe4,
+                    size: 1,
+                }]),
+                ..MirEffects::default()
+            },
+        };
+        let definition = MirRemovedHomeDefinition {
+            home: MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xe4)),
+            store: MirSite::Op {
+                block: MirBlockId(0),
+                op_index: 1,
+            },
+        };
+        assert!(
+            replacement_home_dependencies(&[], &[definition], &[may_write.clone(), load_fixed(0xe4)])
+                .is_err()
+        );
+        assert!(
+            replacement_home_dependencies(&[], &[definition], &[store_fixed(0xe4), load_fixed(0xe4)])
+                .is_ok()
+        );
+        // A read following a possible clobber is not an unchanged entry read.
+        assert!(
+            replacement_home_dependencies(
+                &[may_write.clone(), load_fixed(0xe4), store_fixed(0xe4)],
+                &[MirRemovedHomeDefinition {
+                    store: MirSite::Op {
+                        block: MirBlockId(0),
+                        op_index: 2,
+                    },
+                    ..definition
+                }],
+                &[load_fixed(0xe4)],
+            )
+            .is_err()
+        );
+        assert_eq!(
+            removed_home_definitions(
+                MirBlockId(0),
+                &(0..2),
+                &[may_write.clone(), store_fixed(0xe4)],
+                &[may_write]
+            ),
+            vec![definition]
+        );
     }
 
     #[test]

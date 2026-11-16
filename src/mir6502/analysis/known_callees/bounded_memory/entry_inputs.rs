@@ -1,7 +1,7 @@
 //! Definite overwrites at entry, independent of the callee's destination-write
 //! footprint. In particular, an indirect copy loop need not have bounded data
 //! addresses to prove which incoming ABI/scratch bytes it observes.
-use super::super::entry_inputs::Inputs;
+use super::super::entry_inputs::{MirEntryRequirements, program_state_access};
 use super::*;
 
 #[derive(Clone, Default, PartialEq, Eq)]
@@ -21,10 +21,10 @@ impl Defined {
 }
 
 impl BoundedMachine {
-    pub(in crate::mir6502) fn entry_inputs(&self) -> Option<Inputs> {
+    pub(in crate::mir6502) fn entry_inputs(&self, program: &MirProgram) -> Option<MirEntryRequirements> {
         let mut entries = BTreeMap::from([(0usize, Defined::default())]);
         let mut pending = VecDeque::from([0usize]);
-        let mut inputs = Inputs::default();
+        let mut inputs = MirEntryRequirements::default();
         let mut register_inputs = 0u8;
         let mut returned = false;
         let mut budget = MAX_STEPS;
@@ -35,11 +35,22 @@ impl BoundedMachine {
             let (name, mode, len) = crate::codegen::decode_6502_opcode(opcode)?;
             let next = pc.checked_add(len)?;
             let operands = self.bytes.get(pc + 1..next)?;
-            let address = || match machine_operand_mem(operands)? {
-                MirMem::Absolute(a) => Some(a),
-                MirMem::FixedZeroPage(s) => Some(u16::from(s.0)),
-                // Unresolved symbolic placement cannot certify a fixed input.
-                _ => None,
+            let access = |bytes: u16| {
+                // MachineByte retains typed relocation identity independently
+                // of its numeric value. Classify that identity before resolving
+                // the address; literal addresses never inherit a global's role.
+                let mem = machine_operand_mem(operands)?;
+                let state = program_state_access(program, &mem, bytes)?;
+                let address = fixed_storage_address(program, &mem);
+                let zp = matches!(mode, AddressingMode::ZeroPage | AddressingMode::IndirectIndexedY);
+                if !state || zp {
+                    address?;
+                }
+                if let Some(address) = address {
+                    let last = address.checked_add(bytes.checked_sub(1)?)?;
+                    if zp && last >= 256 { return None; }
+                }
+                Some((state, address))
             };
             let mut reads = 0u8;
             let mut writes = 0u8;
@@ -64,8 +75,8 @@ impl BoundedMachine {
                     };
                     flag_writes = 6;
                     if mode != AddressingMode::Immediate {
-                        let a = address()?;
-                        if a < 256 {
+                        let (state, address) = access(1)?;
+                        if !state && let Some(a) = address && a < 256 {
                             memory_reads.push(a as u8);
                         }
                     }
@@ -76,14 +87,17 @@ impl BoundedMachine {
                         "STY" => 4,
                         _ => 1,
                     };
-                    let a = address()?;
-                    if a < 256 {
+                    let (_, address) = access(1)?;
+                    if let Some(a) = address && a < 256 {
                         memory_writes.push(a as u8);
                     }
                 }
                 ("LDA" | "STA", AddressingMode::IndirectIndexedY) => {
-                    let low = u8::try_from(address()?).ok()?;
-                    memory_reads.extend([low, low.checked_add(1)?]);
+                    let (state, address) = access(2)?;
+                    let low = u8::try_from(address?).ok()?;
+                    if !state {
+                        memory_reads.extend([low, low.checked_add(1)?]);
+                    }
                     reads = 4;
                     if name == "LDA" {
                         writes = 1;

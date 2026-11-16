@@ -102,7 +102,7 @@ impl<'a> StorageOwnership<'a> {
                     } else {
                         for home in effects
                             .homes
-                            .writes
+                            .definite_writes
                             .iter()
                             .chain(&effects.addresses.pair_writes)
                         {

@@ -138,3 +138,35 @@ pub(in crate::mir6502) fn invalid_uses(r: &MirRoutine) -> Vec<MirBlockId> {
     invalid.dedup();
     invalid
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn finite_may_write_still_invalidates_a_prepared_pointer_base() {
+        let pairs = [MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xe4),
+        }];
+        for offset in [0xe4, 0xe5, 0xe6] {
+            let mut ready = BTreeSet::from([0, 1]);
+            transfer(
+                &MirOp::MachineBlock {
+                    id: MirMachineBlockId(0),
+                    effects: MirEffects {
+                        memory_writes: MirMemoryEffect::Regions(vec![MirMemoryRegion {
+                            kind: MirMemoryRegionKind::ZeroPage,
+                            offset,
+                            size: 1,
+                        }]),
+                        ..MirEffects::default()
+                    },
+                },
+                &pairs,
+                &mut ready,
+            );
+            assert_eq!(ready.contains(&0), offset == 0xe6);
+            assert!(ready.contains(&1), "no Y clobber was declared");
+        }
+    }
+}

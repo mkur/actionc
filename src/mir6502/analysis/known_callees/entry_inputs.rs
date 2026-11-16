@@ -21,8 +21,10 @@ pub(in crate::mir6502) enum MirCalleeEntryStage {
     ActualEntry,
 }
 
+/// Incoming machine values observed before a guaranteed definition. Program
+/// memory observations belong to the separate read footprint, not this set.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(in crate::mir6502) struct Inputs {
+pub(in crate::mir6502) struct MirEntryRequirements {
     pub registers: MirRegisterSet,
     pub flags: MirFlagSet,
     pub fixed: BTreeSet<u8>,
@@ -33,7 +35,7 @@ pub(in crate::mir6502) struct MirCalleeEntryFact {
     stage: MirCalleeEntryStage,
     machines: Vec<MirMachineBlock>,
     global_backings: Vec<(crate::nir::SymbolId, MirGlobalBacking, u16)>,
-    pub inputs: Inputs,
+    pub inputs: MirEntryRequirements,
     dependencies: BTreeMap<RoutineId, Arc<MirCalleeEntryFact>>,
     defined_results: BTreeSet<u8>,
 }
@@ -68,7 +70,7 @@ impl MirCalleeEntryFact {
             .collect::<Option<_>>()?;
         let (inputs, defined_results) = if !machines.is_empty() {
             if dependencies.is_some() { return None; }
-            (BoundedMachine::analyze(routine, program)?.entry_inputs()?, BTreeSet::new())
+            (BoundedMachine::analyze(routine, program)?.entry_inputs(program)?, BTreeSet::new())
         } else {
             scalar_inputs(program, routine, stage, dependencies.as_ref())?
         };
@@ -108,7 +110,7 @@ fn scalar_inputs(
     routine: &MirRoutine,
     stage: MirCalleeEntryStage,
     dependencies: Option<&BTreeMap<RoutineId, Arc<MirCalleeEntryFact>>>,
-) -> Option<(Inputs, BTreeSet<u8>)> {
+) -> Option<(MirEntryRequirements, BTreeSet<u8>)> {
     // An observable native entry still uses the Action ABI. Its actual body
     // can supply a contract without granting permission to invent capture or
     // move its own storage. Planned capture remains compiler-owned only.
@@ -162,12 +164,8 @@ fn scalar_inputs(
         match mem {
             MirMem::FixedZeroPage(slot) => slot.0.checked_add(u8::try_from(delta).ok()?),
             MirMem::Absolute(a) => u8::try_from(a.wrapping_add(delta)).ok(),
-            MirMem::Global { id, offset } => {
-                let g = program.globals.iter().find(|g| g.id == *id)?;
-                let MirGlobalBacking::Absolute(a) = g.backing else {
-                    return None;
-                };
-                u8::try_from(a.wrapping_add(*offset).wrapping_add(delta)).ok()
+            MirMem::Global { .. } => {
+                u8::try_from(fixed_storage_address(program, mem)?.checked_add(delta)?).ok()
             }
             MirMem::Param { .. } | MirMem::Local { .. } => match routine.frame.object_lane(mem, delta)?
             {
@@ -185,11 +183,16 @@ fn scalar_inputs(
             writes: writes.clone(),
             ..Default::default()
         };
-        for (ranges, into) in [
-            (&memory.direct_reads, &mut result.reads),
-            (&memory.direct_writes, &mut result.writes),
+        for (ranges, into, reading) in [
+            (&memory.direct_reads, &mut result.reads, true),
+            (&memory.direct_writes, &mut result.writes, false),
         ] {
             for range in ranges {
+                // Classify the access before projecting it to an address. A
+                // global at the same address must not erase a separate raw read.
+                if reading && program_state_access(program, &range.base, range.bytes)? {
+                    continue;
+                }
                 for offset in 0..range.bytes {
                     if let Some(slot) = physical(&range.base, offset) {
                         into.insert(MirHomeByte::FixedZeroPage(MirFixedZpSlot(slot)));
@@ -197,7 +200,7 @@ fn scalar_inputs(
                 }
             }
         }
-        result
+        Some(result)
     };
     let mut transfers = BTreeMap::new();
     for block in &routine.blocks {
@@ -232,18 +235,18 @@ fn scalar_inputs(
                     .copied()
                     .collect(),
                 &e.homes
-                    .writes
+                    .definite_writes
                     .union(&e.addresses.pair_writes)
                     .copied()
                     .collect(),
-            ));
+            )?);
         }
         let e = classify_terminator(&block.terminator);
         transfers.insert(
             block.id,
             MirHomeBlockTransfers {
                 ops,
-                terminator: transfer(&e.memory, &BTreeSet::new(), &BTreeSet::new()),
+                terminator: transfer(&e.memory, &BTreeSet::new(), &BTreeSet::new())?,
             },
         );
     }
@@ -287,7 +290,7 @@ fn scalar_inputs(
                 })
             })
     };
-    Some((Inputs {
+    Some((MirEntryRequirements {
         registers: MirRegisterSet {
             a: live.register_live(MirReg::A) || retained(MirReg::A),
             x: live.register_live(MirReg::X) || retained(MirReg::X),
@@ -313,6 +316,24 @@ fn scalar_inputs(
             })
             .collect(),
     }, defined_results))
+}
+
+/// Only typed global accesses establish a program-state role. Literal machine
+/// addresses retain their entry requirements even when a global overlaps them.
+/// Invalid identity, extent or backing declines the entry certificate.
+pub(super) fn program_state_access(program: &MirProgram, mem: &MirMem, bytes: u16) -> Option<bool> {
+    let MirMem::Global { id, offset } = mem else {
+        return Some(false);
+    };
+    let global = program.globals.iter().find(|g| g.id == *id)?;
+    let end = offset.checked_add(bytes)?;
+    if bytes == 0 || end > global.storage_size {
+        return None;
+    }
+    let last = MirMem::Global { id: *id, offset: end - 1 };
+    (super::observations::valid_backing(program, mem)
+        && super::observations::valid_backing(program, &last))
+        .then_some(true)
 }
 
 /// Byte widths alone cannot distinguish a pointer from an aggregate or a
@@ -348,3 +369,6 @@ fn direct_parameter_abi_is_complete(routine: &MirRoutine) -> bool {
                     )
             })
 }
+
+#[cfg(test)]
+mod state_tests;

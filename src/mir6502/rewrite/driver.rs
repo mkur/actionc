@@ -712,7 +712,7 @@ fn validate_posthome_plan(
             unreachable!("checked operation site")
         };
         let effects = classify_op(&block.ops[op_index]);
-        if !effects.homes.writes.contains(&removed.home)
+        if !effects.homes.definite_writes.contains(&removed.home)
             && !effects.addresses.pair_writes.contains(&removed.home)
         {
             return Err(MirRewriteError::InvalidDeclaration {

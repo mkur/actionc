@@ -143,7 +143,12 @@ pub(in crate::mir6502) struct MirHomeEffects {
     /// Direct home reads used by the current spill/home compatibility helpers.
     /// Address-consumer pair reads are recorded separately below.
     pub reads: BTreeSet<MirHomeByte>,
+    /// Possible writes, including finite clobber annotations. Use these for
+    /// invalidation and interference, never as liveness kills or initialization.
     pub writes: BTreeSet<MirHomeByte>,
+    /// Guaranteed definitions, a subset of `writes`. Structured memory effects
+    /// describe possible accesses and never populate this set.
+    pub definite_writes: BTreeSet<MirHomeByte>,
     pub unknown_reads: bool,
     pub unknown_writes: bool,
 }
@@ -1496,6 +1501,7 @@ fn record_definite_memory_write(mem: &MirMem, summary: &mut MirOpEffectSummary) 
     push_unique_mem(&mut summary.memory.definite_writes, mem);
     if let Some(home) = home_byte(mem) {
         summary.homes.writes.insert(home);
+        summary.homes.definite_writes.insert(home);
     }
     if let MirMem::Spill { id, offset } = mem {
         summary.projected_spill_writes.insert(*id);
@@ -1518,6 +1524,7 @@ fn record_definite_memory_range_write(
         let lane = offset_mem(mem, offset);
         if let Some(home) = home_byte_at(mem, offset) {
             summary.homes.writes.insert(home);
+            summary.homes.definite_writes.insert(home);
         }
         if let MirMem::Spill { id, offset } = lane {
             summary.projected_spill_writes.insert(id);
@@ -2576,6 +2583,58 @@ mod tests {
     }
 
     #[test]
+    fn finite_may_writes_do_not_erase_explicit_helper_result_definitions() {
+        use crate::mir6502::ir::{MirHelperResult, MirMemoryRegion};
+
+        for memory_writes in [
+            MirMemoryEffect::Regions(vec![MirMemoryRegion {
+                kind: MirMemoryRegionKind::ZeroPage,
+                offset: 0xe4,
+                size: 4,
+            }]),
+            MirMemoryEffect::Unknown,
+        ] {
+            let effects = classify_op(&MirOp::RuntimeHelper {
+                helper: MirRuntimeHelper::Mul,
+                args: vec![],
+                result: Some(MirResultHome::FixedZeroPage(MirFixedZpSlot(0xe4))),
+                additional_results: vec![MirHelperResult {
+                    home: MirResultHome::FixedZeroPage(MirFixedZpSlot(0xe6)),
+                    width: MirWidth::Word,
+                }],
+                effects: MirEffects {
+                    memory_writes: memory_writes.clone(),
+                    ..MirEffects::default()
+                },
+            });
+            assert_eq!(
+                effects.homes.definite_writes,
+                [0xe4, 0xe6, 0xe7]
+                    .map(|slot| MirHomeByte::FixedZeroPage(MirFixedZpSlot(slot)))
+                    .into_iter()
+                    .collect()
+            );
+            assert!(
+                effects
+                    .homes
+                    .definite_writes
+                    .is_subset(&effects.homes.writes)
+            );
+            assert_eq!(effects.memory.structured_writes, memory_writes);
+            if matches!(memory_writes, MirMemoryEffect::Unknown) {
+                assert!(effects.homes.unknown_writes);
+            } else {
+                assert!(
+                    effects
+                        .homes
+                        .writes
+                        .contains(&MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xe5)))
+                );
+            }
+        }
+    }
+
+    #[test]
     fn effects_distinguish_logical_homes_memory_and_machine_state() {
         let store = classify_op(&MirOp::Store {
             dst: MirAddr::Direct(spill(7, 3)),
@@ -2603,6 +2662,7 @@ mod tests {
             id: MirSpillId(7),
             offset: 4,
         }));
+        assert_eq!(store.homes.definite_writes, store.homes.writes);
 
         let indirect = classify_op(&MirOp::LoadIndirect {
             consumer: consumer(),
