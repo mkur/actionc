@@ -34,9 +34,14 @@ impl<'a> ResidenceCalls<'a> {
         };
         let callee = self.program.routines.iter().find(|r| r.id == *target)
             .ok_or("missing residence callee")?;
-        if callee.abi != MirRoutineAbi::Action || callee.blocks.iter().flat_map(|b| &b.ops)
+        if !matches!(callee.abi, MirRoutineAbi::Action | MirRoutineAbi::ActionObservable)
+            || callee.blocks.iter().flat_map(|b| &b.ops)
             .any(|op| matches!(op, MirOp::MachineBlock { .. } | MirOp::SArgsCapture { .. } | MirOp::Barrier { .. })) {
             return Err("unsupported residence callee");
+        }
+        if callee.abi == MirRoutineAbi::ActionObservable
+            && callee.blocks.iter().flat_map(|b| &b.ops).any(|op| matches!(op, MirOp::Call { .. })) {
+            return Err("nonleaf observable residence entry");
         }
         let signature = callee.frame.direct_parameter_abi.as_ref().ok_or("unknown residence ABI")?;
         // Expansion may split a logical word argument into byte arguments.
@@ -56,9 +61,14 @@ impl<'a> ResidenceCalls<'a> {
             if lanes != expected { return Err("noncanonical residence arguments"); }
             outgoing.extend(lanes);
         }
-        if let Some(entry) = self.entries.entry(*target)
+        match self.entries.entry(*target)
             .or_insert_with(|| MirCalleeEntryFact::analyze(self.program, *target, self.stage)) {
-            handoff::inputs_supplied(entry, &outgoing)?;
+            Some(entry) => handoff::inputs_supplied(entry, &outgoing)?,
+            // Native observable entries are admitted by their actual contract,
+            // never by assuming that a missing fact means no extra inputs.
+            None if callee.abi == MirRoutineAbi::ActionObservable =>
+                return Err("unknown residence callee entry"),
+            None => {},
         }
         Ok(())
     }
@@ -69,7 +79,6 @@ impl<'a> ResidenceCalls<'a> {
         }
         let MirOp::Call {
             target: MirCallTarget::Routine(target),
-            args,
             ..
         } = call
         else {
@@ -81,7 +90,7 @@ impl<'a> ResidenceCalls<'a> {
             .iter()
             .find(|r| r.id == *target)
             .ok_or("missing residence callee")?;
-        if callee.abi != MirRoutineAbi::Action
+        if !matches!(callee.abi, MirRoutineAbi::Action | MirRoutineAbi::ActionObservable)
             || callee.blocks.iter().flat_map(|b| &b.ops).any(|op| {
                 matches!(
                     op,
@@ -95,27 +104,9 @@ impl<'a> ResidenceCalls<'a> {
         {
             return Err("unsupported residence callee");
         }
-        let entry = self
-            .entries
-            .entry(*target)
-            .or_insert_with(|| MirCalleeEntryFact::analyze(self.program, *target, self.stage))
-            .as_ref()
+        self.inputs(call)?;
+        self.entries.get(target).and_then(Option::as_ref)
             .ok_or("unknown residence callee entry")?;
-        let mut outgoing = Vec::new();
-        for arg in args {
-            let lanes = super::super::abi::physical_lanes(&arg.home, arg.width)
-                .ok_or("unsupported residence argument")?;
-            let expected = super::super::abi::physical_lanes(
-                &super::super::abi::action_arg_home(outgoing.len() as u16, arg.width),
-                arg.width,
-            )
-            .ok_or("unsupported residence ABI")?;
-            if lanes != expected {
-                return Err("noncanonical residence arguments");
-            }
-            outgoing.extend(lanes);
-        }
-        handoff::inputs_supplied(entry, &outgoing)?;
         let writes = self
             .known
             .get(*target)
@@ -172,7 +163,13 @@ mod tests {
     }
     #[test]
     fn caller_lifetime_uses_current_callee_writes_and_absolute_aliases() {
-        let p = program();
+        for abi in [MirRoutineAbi::Action, MirRoutineAbi::ActionObservable] {
+            check_callee_writes(abi);
+        }
+    }
+    fn check_callee_writes(abi: MirRoutineAbi) {
+        let mut p = program();
+        p.routines[0].abi = abi;
         assert!(verify(&p).is_empty());
         for slot in [0xe4, 0xe5] {
             for absolute in [false, true] {
@@ -237,7 +234,13 @@ mod tests {
     }
     #[test]
     fn setup_clobbers_and_extra_callee_inputs_are_not_preservation() {
-        let p = program();
+        for abi in [MirRoutineAbi::Action, MirRoutineAbi::ActionObservable] {
+            check_setup_and_inputs(abi);
+        }
+    }
+    fn check_setup_and_inputs(abi: MirRoutineAbi) {
+        let mut p = program();
+        p.routines[0].abi = abi;
         let mut setup = p.clone();
         let r = &mut setup.routines[1];
         let (block, index) = r
@@ -270,5 +273,34 @@ mod tests {
         };
         *target = MirCallTarget::Routine(RoutineId(999));
         assert!(!verify(&unknown).is_empty());
+    }
+
+    #[test]
+    fn native_current_location_calls_require_complete_inputs_at_every_boundary() {
+        let mut p = program();
+        p.routines[0].abi = MirRoutineAbi::ActionObservable;
+        let call = p.routines[1].blocks.iter().flat_map(|b| &b.ops)
+            .find(|o| matches!(o, MirOp::Call { .. })).unwrap().clone();
+        let mut facts = ResidenceCalls::new(&p, MirCalleeEntryStage::ActualEntry);
+        assert!(facts.inputs(&call).is_ok());
+        assert!(facts.writes(&call).is_ok());
+        // A cached target fact does not validate the next site's arguments.
+        let mut bad_call = call.clone();
+        let MirOp::Call { args, .. } = &mut bad_call else { panic!() };
+        args.clear();
+        assert_eq!(facts.inputs(&bad_call), Err("mismatched residence arguments"));
+        assert!(facts.writes(&bad_call).is_err());
+        for variant in 0..4 {
+            let mut bad = p.clone();
+            match variant {
+                0 => bad.routines[0].frame.direct_parameter_abi = None,
+                1 => bad.routines[0].blocks[0].ops.push(call.clone()),
+                2 => bad.routines[0].blocks[0].ops.push(MirOp::Barrier { effects: Default::default() }),
+                _ => bad.routines[0].effects.opaque = true,
+            }
+            let mut facts = ResidenceCalls::new(&bad, MirCalleeEntryStage::ActualEntry);
+            assert!(facts.inputs(&call).is_err(), "dead boundary {variant}");
+            assert!(facts.writes(&call).is_err(), "live boundary {variant}");
+        }
     }
 }

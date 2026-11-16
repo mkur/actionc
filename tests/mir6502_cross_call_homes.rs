@@ -8,6 +8,38 @@ fn nir(source: &str) -> actionc::nir::NirProgram {
 }
 
 #[test]
+fn native_current_location_callees_allow_caller_homes_and_spills() {
+    let source = include_str!("../fixtures/runtime/native_current_location_homes.act").replace("\r\n", "\n");
+    for marker in ["=*", ""] {
+        let n = nir(&source.replace("Touch=*", &format!("Touch{marker}")));
+        let config = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+        let mut trace = Mir6502Trace::default();
+        let new = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
+        let old = mir6502::generate_output_with_config_and_runtime(&n, 0x3000,
+            &Mir6502Config { enable_cross_call_home_selection: false, ..config }, Runtime::ActionCart).unwrap();
+        let home = |routine: &str, name: &str| new.map.storage_symbols.iter().find(|s|
+            s.scope == actionc::codegen::CodegenSymbolScope::Routine(routine.into()) && s.name == name).unwrap().address;
+        for name in ["keep", "n", "work"] { assert!(home("Hold", name) < 256, "{marker} {name}"); }
+        if marker == "=*" {
+            assert!(home("Touch", "x") >= 256 && home("Touch", "b") >= 256);
+            let lowered = mir6502::lower_program(&n).unwrap();
+            assert_eq!(lowered.routines.iter().find(|r| r.name == "Touch").unwrap().abi,
+                mir6502::MirRoutineAbi::ActionObservable);
+        }
+        assert!(actionc::codegen::format_load_file(&new).len() < actionc::codegen::format_load_file(&old).len());
+        assert_eq!(trace.manifest()["work"]["cross_call_home_trials"], 1);
+        println!("native current-location {marker}: {} -> {} bytes", actionc::codegen::format_load_file(&old).len(), actionc::codegen::format_load_file(&new).len());
+    }
+    let spills = include_str!("../fixtures/runtime/cross_call_spills.act").replace("\r\n", "\n")
+        .replace("FUNC TouchByte(", "FUNC TouchByte=*(");
+    let mut trace = Mir6502Trace::default();
+    mir6502::generate_output_with_trace(&nir(&spills), 0x3000,
+        &Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() },
+        Runtime::ActionCart, &mut trace).unwrap();
+    assert!(trace.events().iter().any(|e| e.kind == "cross-call-spill-home" && e.data["routine"] == "Hold"));
+}
+
+#[test]
 fn value_lifetimes_allow_dead_call_boundaries_and_sibling_reuse() {
     let source = include_str!("../fixtures/runtime/live_call_homes.act").replace("\r\n", "\n");
     let n = nir_mode(&source, false);

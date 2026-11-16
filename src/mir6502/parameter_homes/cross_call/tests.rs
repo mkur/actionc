@@ -240,7 +240,7 @@ fn multiple_leaf_calls_validate_later_sites_even_with_cached_entry_facts() {
         assert_eq!(
             rejected.data["reason"],
             if repeated {
-                "extra-entry-register"
+                "mismatched residence arguments"
             } else {
                 "unsupported residence callee"
             }

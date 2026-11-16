@@ -1,0 +1,17 @@
+PROC Touch=*(CARD x BYTE b)
+  CARD observed=$680
+  BYTE observedByte=$682
+  observed=x
+  observedByte=b
+RETURN
+
+CARD FUNC Hold(CARD keep BYTE n)
+  CARD work
+  work=keep+257
+  Touch(keep,n)
+  keep==+work
+  Touch(work,n+1)
+RETURN(keep+n)
+
+PROC Main()
+RETURN
