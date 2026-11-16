@@ -138,36 +138,13 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
 fn project(routine: &MirRoutine, owned: &BTreeSet<MirHomeByte>,
     memory: &MirMemoryEffects, extra_reads: &BTreeSet<MirHomeByte>, defines: bool,
 ) -> MirHomeTransfer {
-    let logical = |mem: &MirMem, offset| match routine.frame.object_lane(mem, offset) {
-        Some(MirParamLane::ZeroPage(slot)) => Some(slot),
-        _ => None,
-    };
-    let transfer = |memory: &MirMemoryEffects, extra_reads: &BTreeSet<MirHomeByte>, defines: bool| {
-        let mut result = MirHomeTransfer::default();
-        for range in &memory.direct_reads {
-            for offset in 0..range.bytes {
-                let slot = logical(&range.base, offset).or_else(|| physical_slot(&range.base, offset));
-                if let Some(slot) = slot {
-                    let home = MirHomeByte::FixedZeroPage(slot);
-                    if owned.contains(&home) {
-                        result.reads.insert(home);
-                    }
-                }
-            }
+    super::logical::project(routine, memory, extra_reads, defines, &|mem, offset| {
+        match routine.frame.object_lane(mem, offset) {
+            Some(MirParamLane::ZeroPage(slot)) if owned.contains(&MirHomeByte::FixedZeroPage(slot)) =>
+                Some(MirHomeByte::FixedZeroPage(slot)),
+            _ => None,
         }
-        result.reads.extend(extra_reads.intersection(&owned));
-        for range in &memory.direct_writes {
-            if defines {
-                for offset in 0..range.bytes {
-                    if let Some(slot) = logical(&range.base, offset) {
-                        result.writes.insert(MirHomeByte::FixedZeroPage(slot));
-                    }
-                }
-            }
-        }
-        result
-    };
-    transfer(memory, extra_reads, defines)
+    })
 }
 
 pub(super) fn entry_dependencies(routine: &MirRoutine) -> Option<BTreeSet<MirHomeByte>> {
@@ -190,11 +167,4 @@ pub(super) fn entry_dependencies(routine: &MirRoutine) -> Option<BTreeSet<MirHom
     Some(live.live_in(entry)?.iter().collect())
 }
 
-fn physical_slot(mem: &MirMem, offset: u16) -> Option<MirFixedZpSlot> {
-    match mem {
-        MirMem::FixedZeroPage(slot) => Some(MirFixedZpSlot(slot.0.wrapping_add(offset as u8))),
-        MirMem::Absolute(address) if address.wrapping_add(offset) < 256 =>
-            Some(MirFixedZpSlot(address.wrapping_add(offset) as u8)),
-        _ => None,
-    }
-}
+use super::logical::physical_slot;

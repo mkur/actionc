@@ -1,10 +1,14 @@
 # MIR6502 unexposed object storage
 
-Status: implemented and qualified, 2026-11-15.
+Status: base contract implemented and qualified, 2026-11-15.
 Shared address-control facts, residence verification and bounded native
 indexed/constant-byte-shift admission are implemented.
 The [implementation plan](MIR6502_UNEXPOSED_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md)
 defines four slices with focused validation and a commit after each slice.
+
+The [ZP lifetime extension](#zp-home-lifetimes-and-persistent-storage),
+proposed 2026-11-16, is a design only. Existing invocation-only bindings and
+their verifier restrictions remain implemented behavior.
 
 ## Decision and motivation
 
@@ -68,6 +72,10 @@ complete definition before every read on every invocation. Partial/conditional
 initialization, entry-value dependence and initializer-backed storage retain
 their existing homes. Parameters use verified ABI capture. Calls and physical
 scratch writes never count as logical initialization of a caller's object.
+
+This initial admission rule applies to shared invocation homes. It is not a
+requirement that persistent values live outside ZP. The extension below bases
+direct-home sharing on value lifetimes and treats working copies as optional.
 
 ## One shared address-control query
 
@@ -246,6 +254,291 @@ A single measurement of the original core supplies the old spill addresses.
 Acceptance remains strict whole-image improvement, with
 complete rollback on a failed proof or cost check.
 
+## ZP home lifetimes and persistent storage
+
+Proposed 2026-11-16. This extends placement policy without changing Action local
+persistence or relaxing the address-control contract above.
+
+The [implementation plan](MIR6502_ZP_HOME_LIFETIMES_IMPLEMENTATION_PLAN.md)
+delivers direct invocation placement and lifetime-based sharing first, in four
+slices. Dedicated persistent reservations have a separate initialization and
+global-preservation boundary; working copies remain optional follow-on work.
+
+### Decision
+
+A value's storage duration does not determine its address range. Prefer a direct
+ZP home when its value lifetime and physical preservation permit it. Separate
+call subtrees may share the same bytes when their values do not interfere;
+placing a home in ZP does not imply reserving those bytes for the whole program.
+
+The strategy order is:
+
+1. Direct ZP homes, shared wherever proven value lifetimes permit. Extend the
+   existing placement and reservation machinery without adding a backing copy.
+2. Dedicated ZP homes for values that must persist between invocations, where
+   reservation, initialization, preservation and final size justify them.
+3. Optional working copies with retained canonical backing, only when measured
+   savings justify the extra traffic and storage. They are not a prerequisite
+   for either direct strategy.
+
+These arrangements have different proof obligations:
+
+| Arrangement | Canonical storage | ZP reservation | Required value at entry |
+| --- | --- | --- | --- |
+| Direct invocation home | Selected ZP bytes | Proven value lifetime; existing policy conservatively reserves the invocation | Defined by capture or this invocation before use |
+| Dedicated persistent home | Selected ZP bytes | Includes time between invocations; program lifetime unless a shorter interval is proved | Same initial and retained value as the original object |
+| ZP working copy | Existing source home | Bounded live region | Copy invalid until populated from a proven current value |
+
+There is no measured pool-exhaustion result that makes working copies the
+preferred strategy. They retain backing storage and can add stores and reloads,
+which matters when optimizing for image size. Measure ZP pressure and complete
+image cost; do not infer exhaustion from the total number of declared homes.
+
+An entry-dependent local remains ineligible for the existing invocation-home
+binding. Do not simply remove that verifier check or silently reinterpret
+`MirLocalHome::ZeroPage` as a permanent reservation or a cache.
+
+### Sharing follows value lifetimes
+
+Call-graph separation proves that supported activations cannot overlap. Sharing
+also requires that no value needed later is lost. For example:
+
+```text
+A defines a retained local value
+B writes the same proposed ZP bytes
+A reads its retained value on its next invocation
+```
+
+A and B do not execute simultaneously, but their values interfere. Conversely,
+if both define their homes before each read on every invocation and neither can
+reenter the other, their independent subtrees can reuse those bytes.
+
+Use the existing call graph, logical liveness and physical reservations:
+
+- Sibling subtrees may reuse bytes when neither has a retained value crossing
+  execution of the other. This must hold for their relevant descendants too.
+- A caller's home conflicts with descendant writes while its value is live
+  across the call. Whole-invocation exclusion remains a valid conservative
+  policy until finer liveness is supported.
+- Argument setup, result delivery, helpers and scratch participate in the same
+  interference check. A disjoint source call graph alone does not certify them.
+- Recursion, callbacks, interrupts and unresolved targets require applicable
+  preservation/non-overlap facts. Missing facts retain the existing placement;
+  this extension does not add general recursive or asynchronous analysis.
+
+Source persistence alone does not force a program-long reservation when all
+relevant values are proved dead before reuse. An entry read does require
+preserving the reaching value until that read unless a separate transformation
+proves it unnecessary. Do not infer death merely from a routine returning.
+
+Reuse the coordinated proposal and sibling-reuse rules in the
+[acyclic call-chain design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-zp-placement-through-acyclic-call-chains).
+Do not create a second call-graph allocator or another per-subtree compilation
+trial. Narrower live intervals can refine this machinery in a separate slice.
+
+### Dedicated persistent ZP homes
+
+A direct persistent binding replaces the canonical inline home. Its reservation
+must cover every interval in which the retained value is needed, including time
+when the owning routine is inactive. Until a shorter lifetime is proved, use an
+explicit program-lifetime reservation visible to all routine allocators,
+ABI/scratch users, helper expansion and final layout. Separate call subtrees
+cannot reuse these particular bytes merely because their activations are disjoint.
+Other invocation homes remain shareable under the preceding rules.
+
+Such placement must preserve initial contents, subsequent stores and repeated
+program-entry behavior. ZP contents cannot be assumed to match emitted inline
+storage at startup. Account for any required initialization in both semantics
+and final cost. Source-owned ZP, fixed aliases, hardware, numeric observations
+and runtime/interrupt reservations retain precedence.
+
+Compiler-wide reservation alone cannot certify opaque external code. Relevant
+runtime, assembly and external-call contracts must preserve the object while it
+is live, including between owner invocations. Unknown obligations keep the
+existing home. This design does not invent guarantees for the keyboard handler.
+
+Global ZP pressure is part of profitability: a dedicated home can force larger
+code or spills elsewhere, while invocation homes can share. Accept a reservation
+only through whole-image measurement and complete rollback of affected placement
+state. Implement direct placement and sharing first; persistent reservations are
+a distinct extension that does not depend on introducing working copies.
+
+### PopUp.menu and the actual lifetime
+
+In [PopUp](../samples/tn/modern/LIB.ACT), `Push(menu)` reads the previous value
+before `menu = mp`; `menu = Pull()` restores it near return. The current local
+liveness analysis correctly identifies an entry dependency. A direct ZP home
+is possible if its retained value and physical bytes can be preserved over the
+required lifetime. Call-subtree sharing alone does not justify overwriting this
+entry value. Proving that the save/restore value is unobservable would be a
+separate transformation, not an assumption made by placement.
+
+If a direct home cannot be justified, inline storage remains the fallback. A
+working copy for the value defined by `menu = mp` is an optional size candidate;
+the following table describes that alternative, not the default placement:
+
+| Point | Canonical menu home | Working copy |
+| --- | --- | --- |
+| Entry and `Push(menu)` | Previous invocation value | Invalid; entry must not read it |
+| `menu = mp` | Updated to the current menu | May be populated from the same value |
+| Menu traversal and redraw | Remains authoritative | Reads may use it while validity and physical preservation are proved |
+| A call without sufficient preservation facts | Remains authoritative under normal source semantics | Invalidate; refill after the call only if profitable |
+| `menu = Pull()` | Receives the restored value | The traversal copy is dead; no refill is necessary |
+| Return and time between invocations | Retains the restored value | Bytes may be reused by other routines |
+
+Keep the source calls and their order. This design does not remove Push/Pull,
+change arena contents or failure behavior, assume the saved value is irrelevant,
+or turn a static local into an automatic one. Recursive or callback invocation
+does not grant permission to overwrite a live copy: it needs a preservation
+proof or forces invalidation before control returns to cached reads.
+
+### Optional working copies and validity
+
+If working copies are implemented, start with unexposed, ordinary, nonvolatile
+BYTE/WORD scalar and pointer cells with inline canonical homes. Reuse
+`ObjectAddressControl`;
+fixed addresses, aliases, address-exposed cells and unsupported storage shapes
+retain their present policy.
+An entry dependency alone no longer excludes a working-copy candidate, since
+the canonical home remains intact. Do not broaden initializer-backed or other
+previously excluded storage in this slice.
+
+Canonical storage remains authoritative at every source observation boundary.
+Initially keep every logical source store to that home. When a selected region
+needs the new value, also populate the working copy or invalidate the old copy.
+There is no deferred write-back, dirty state, implicit exit flush or source-store
+deletion permission. Extra copy traffic must earn its cost in final emission.
+
+A cached read requires all of the following:
+
+- Every incoming path establishes the complete current value in the copy.
+  Reuse existing reaching-definition/value and CFG analyses; a declaration or a
+  physical scratch write is not initialization.
+- No intervening logical write has made the copy stale. Full definitions can
+  update both homes; partial/unknown definitions invalidate the copy unless the
+  existing byte facts prove the complete value remains current.
+- No intervening physical write has clobbered a selected ZP byte. Preserve word
+  lane coherence and the addressing constraints of any pointer consumer.
+- Substituting the ordinary home read preserves source ordering, required
+  register/flag state and observable reads. It grants no access-reordering rule.
+
+At CFG joins, retain a copy only when every predecessor proves it agrees with
+the current canonical value. Otherwise invalidate it and use the canonical home
+or explicitly refill. Loop backedges obey the same rule; no validity may be
+assumed on the first iteration. The first slice may decline joins requiring
+new edge copies or complex region splitting.
+
+### Per-home admission and call boundaries
+
+Classify each object and value region independently. `PopUp` passes `@c` to
+Range; keeping `c` inline must not reject an unrelated direct home or optional
+working copy. Keep routine-wide ABI and structural verification, but do not
+turn one object's exposure or persistence into a veto for every other object.
+Unsupported effects can end a proposed region; this is not permission to lower
+unsupported executable operations or weaken their normal verification.
+
+Use logical liveness to ask whether a value must survive a particular call. Check
+argument setup before invocation effects and argument reads before clobbers.
+A value dead before the call requires no preservation proof for that call. A
+new result defined after the call has no lifetime before it. This also explains
+why PopUp's `item`, consumed between FindItem and Ord, should not require a
+contract for Range/Getchar; return-home forwarding remains a separate candidate.
+
+A direct home is authoritative. A live value must survive the callee's physical
+clobbers; it cannot be invalidated and reloaded from a nonexistent backing copy.
+Preserve legitimate source writes according to their ordinary semantics. When
+the required direct-home proof is missing, retain the existing home unless a
+separately qualified and profitable preservation strategy applies.
+
+For a copy kept across a call, prove both that its physical bytes survive and
+that the corresponding canonical value is unchanged. A callee preserving a ZP
+pair can still modify the source object; conversely an unchanged object does
+not protect its working pair from ABI or scratch writes. Reuse current typed
+entry, write, exposure and preservation facts, including permitted object-specific
+pointee reasoning. Do not turn an Unknown whole-memory summary into Exact.
+
+When either proof is missing, invalidate the copy and retain canonical reads
+after the call, or refill from canonical storage after the call. Synchronized
+stores let unknown readers observe the proper source value without a read-footprint
+proof. Reloading after a possible write preserves that write's normal meaning.
+Cache invalidation does not bypass the existing call ABI or emission checks.
+
+Reuse the existing and planned call-chain contracts; there is no new recursive
+call analysis or assembly-entry admission in this extension. Qualified facts may
+keep a direct home or copy live; an unproved call rejects direct residence across
+it and can divide an optional copy's regions. PopUp's complete menu loop cannot
+currently assume preservation:
+Items/Ord/FindItem exceed leaf-only admission, and Range reaches the opaque
+Getchar handler. Bottom-up composition of those contracts is separate work.
+
+### MIR ownership and shared machinery
+
+SemIR continues to own local persistence and initialization semantics, carried
+by verified NIR. MIR6502 chooses homes, reservation lifetimes and physical bytes.
+It must not look back into SemIR or infer lifetime meaning from a name such as `menu`.
+Missing semantic facts require a separate typed-IR contract change.
+
+Retain the canonical ParamId/LocalId. Direct placement changes its binding;
+reservation facts must distinguish invocation and retained-value obligations.
+A direct home has one authoritative location and needs no synchronized duplicate.
+When choosing an optional copy, keep the canonical binding and represent the copy
+with existing compiler-private MIR homes and explicit loads/stores.
+Associate a copy proof with the owning routine, logical object, selected bytes
+and CFG definition/use sites. Printed names and trace events are diagnostics.
+Do not give one LocalId two ambiguous physical meanings or pretend that its
+canonical inline allocation disappeared.
+
+Extend the existing placement, value-tracking and preservation machinery rather
+than adding a second local allocator or exposure inventory. Reuse virtual-ZP
+reservations and the current pointer-retention consumers where applicable;
+competing strategies must not independently allocate copies of the same value
+using stale facts. An immutable candidate owns its facts; rewrites that change
+definitions, calls, regions or layout require fresh validation.
+
+Source maps and physical storage records identify the selected canonical home,
+including a direct ZP binding. A working copy remains a private allocation with
+a bounded lifetime. `InvocationHomes` must not classify the persistent object itself as
+dead at return merely because one copy has died. Existing private cleanup may
+remove redundant copy operations only under its normal proofs.
+
+### Acceptance and focused qualification
+
+Use the existing selected continuation and final-cost transaction. Establish
+home allocation and any copies before downstream cleanup, keep frames fixed
+within terminal transactions, and replay preservation obligations against the
+final candidate.
+Validate explicit observations against retained source/witnesses and authoritative
+physical layouts. Do not add per-home compilation or a per-routine growth veto.
+Invalid or non-improving candidates restore the exact selected artifact and
+reservations.
+
+Report instruction savings, removed inline storage, initialization/copy/reload
+costs and peak or dedicated ZP use separately. Direct placement may remove the
+old inline home; working copies retain it and must not claim its bytes as saved.
+Measure competing use of the pool through the final image, without assuming a
+distinct reservation for every routine. PopUp is a qualification case, not an
+admission special case or a promised size reduction. Its existing call boundaries
+may leave no profitable region until their contracts improve.
+
+Focus qualification on the strategy being implemented:
+
+- Direct sharing: two independent subtrees reuse bytes successfully; a caller
+  value live across a descendant's clobber cannot use those bytes. Include a
+  short-lived local and an exposed sibling parameter.
+- Persistent homes: interleave repeated invocations of two routines whose entry
+  reads need their old values. Verify that their live retained homes cannot
+  overlap, initial contents are preserved, and unrelated scratch cannot overwrite
+  them while their owners are inactive.
+- Optional copies, when implemented: reuse temporary bytes between invocations
+  while canonical values survive; cover preserved and unknown/clobbering calls,
+  conditional definition/join and both word lanes.
+
+Check results and retained state against independent oracles. Reuse existing
+observation, reservation and terminal-replay controls, including exact rollback.
+An implementation plan will choose the affected MIR6502 unit and VM targets,
+with LF/CRLF coverage wherever host-text fixtures are introduced. Do not require
+working-copy machinery or its tests to qualify direct placement.
+
 ## Ownership of the boundary and scope
 
 Source meaning and persistent-local behavior remain owned by SemIR and carried
@@ -255,10 +548,12 @@ No SemIR lookback, string-based identity or NIR shape change is planned. If a
 required source fact is absent from NIR, separate that contract migration and
 apply its shared checks rather than reconstructing meaning in MIR.
 
-Recursive/nested-call placement, assembly admission, arbitrary pointer-range
-analysis, array-object promotion, source-variable DSE and allocation coalescing
-are outside this proposal. Eligible source objects continue to use existing
-home tables and feature gates. There is no Sort-specific rule.
+New recursive/nested-call contract analysis, assembly admission, arbitrary
+pointer-range analysis, array-object promotion, source-variable DSE and new
+ABI/result coalescing are outside this proposal. Direct-home sharing reuses the
+call-chain design and its qualified contracts; it does not establish new ones.
+Eligible source objects continue to use existing home tables and feature gates.
+There is no Sort-specific rule.
 
 ## Qualification
 

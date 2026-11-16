@@ -1,10 +1,5 @@
 //! Source locals retain their identity and initialization semantics when bound.
 use super::*;
-use crate::mir6502::analysis::{
-    cfg::MirCfg,
-    effects::{MirHomeByte, classify_op, classify_terminator},
-    home_liveness::{MirHomeBlockTransfers, MirHomeLiveness, MirHomeTransfer},
-};
 use crate::nir::LocalId;
 #[cfg(test)]
 #[path = "local_tests.rs"]
@@ -149,99 +144,11 @@ pub(super) fn verify_storage_with_address_control(program: &MirProgram, routine:
     errors
 }
 
-/// Reuse backward CFG liveness with a logical-local role. Spill IDs here are
-/// analysis keys only; no source local becomes a machine spill. A physical or
-/// invocation write cannot initialize a source object.
+/// Entry dependence uses the same logical projection as call-site residence.
 pub(super) fn entry_dependencies(routine: &MirRoutine) -> Option<BTreeSet<LocalId>> {
-    let cfg = MirCfg::from_routine(routine).ok()?;
-    let entry = cfg.entry()?;
-    let logical = |mem: &MirMem, delta: u16| match mem {
-        MirMem::Local { id, offset } => Some(MirHomeByte::Spill {
-            id: MirSpillId(id.0),
-            offset: offset.checked_add(delta)?,
-        }),
-        _ => None,
-    };
-    let resident = routine.frame.resident_bytes();
-    let transfer = |memory: crate::mir6502::analysis::effects::MirMemoryEffects,
-                    physical_reads: BTreeSet<MirHomeByte>,
-                    defines: bool| {
-        let mut t = MirHomeTransfer::default();
-        for range in &memory.direct_reads {
-            for offset in 0..range.bytes {
-                if let Some(home) = logical(&range.base, offset) {
-                    t.reads.insert(home);
-                }
-                let address = match range.base {
-                    MirMem::FixedZeroPage(s) => Some(u16::from(s.0).wrapping_add(offset)),
-                    MirMem::Absolute(a) => Some(a.wrapping_add(offset)),
-                    _ => None,
-                };
-                for (mem, slot) in &resident {
-                    if address == Some(u16::from(slot.0))
-                        && let Some(home) = logical(mem, 0)
-                    {
-                        t.reads.insert(home);
-                    }
-                }
-            }
-        }
-        for (mem, slot) in &resident {
-            if physical_reads.contains(&MirHomeByte::FixedZeroPage(*slot))
-                && let Some(home) = logical(mem, 0)
-            {
-                t.reads.insert(home);
-            }
-        }
-        if defines {
-            for range in &memory.direct_writes {
-                for offset in 0..range.bytes {
-                    if let Some(home) = logical(&range.base, offset) {
-                        t.writes.insert(home);
-                    }
-                }
-            }
-        }
-        t
-    };
-    let transfers = routine
-        .blocks
-        .iter()
-        .map(|b| {
-            let ops = b
-                .ops
-                .iter()
-                .map(|op| {
-                    let e = classify_op(op);
-                    transfer(
-                        e.memory,
-                        e.homes
-                            .reads
-                            .union(&e.addresses.pair_reads)
-                            .copied()
-                            .collect(),
-                        !matches!(op, MirOp::Call { .. }),
-                    )
-                })
-                .collect();
-            let e = classify_terminator(&b.terminator);
-            (
-                b.id,
-                MirHomeBlockTransfers {
-                    ops,
-                    terminator: transfer(e.memory, BTreeSet::new(), true),
-                },
-            )
-        })
-        .collect();
-    let live = MirHomeLiveness::analyze_transfers(routine, &cfg, transfers);
-    Some(
-        live.live_in(entry)?
-            .iter()
-            .filter_map(|home| match home {
-                MirHomeByte::Spill { id, .. } => Some(LocalId(id.0)),
-                _ => None,
-            })
-            .collect(),
-    )
+    Some(super::logical::LogicalHomes::new(routine)?.entry_dependencies()?.into_iter()
+        .filter_map(|home| match home {
+            super::logical::ObjectByte::Local(id, _) => Some(id),
+            _ => None,
+        }).collect())
 }
