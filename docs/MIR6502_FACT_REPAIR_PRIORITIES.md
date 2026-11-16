@@ -81,7 +81,7 @@ No full suite was run.
 | **3** | **Separate ABI arguments from existing program state** | Reading `allocp` must not require callers to supply `$E8/$E9` as arguments. Preserve genuine implicit assembly inputs. | [**Implemented.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md) |
 | **4** | **Represent typed results independently of parameter types** | Pointer parameters previously prevented proving return-home definitions, creating the spurious `$A0` requirement in `Ord` and `Items`. | [**Implemented.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract) |
 | **5** | **Unify guaranteed register/flag definitions** | Entry analyses disagree about ordinary comparisons, producing false carry requirements. | [**Implemented.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#guaranteed-register-and-flag-definitions) |
-| **6** | **Use backing and placement when checking physical overlap** | A write to a global at `$0600` should not exclude every ZP byte. Unknown placement must remain conservative. | **Yes.** Specify which address evidence is authoritative at each phase. |
+| **6** | **Use backing and placement when checking physical overlap** | A write to a global at `$0600` should not exclude every ZP byte. Unknown placement must remain conservative. | [**Design prepared.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#physical-overlap-from-backing-and-placement) Implementation pending. |
 | **7** | **Finish separating read and write uncertainty** | An unknown pointee write currently makes otherwise bounded reads unknown. | **No.** Restore the existing directional-effects contract. |
 | **8** | **Make summary validity across transformations explicit** | Some consumers rely on undocumented assumptions about cached summaries surviving rewrites. No stale-summary failure was demonstrated. | **Yes, as documentation and hardening.** Avoid introducing a general cache framework without evidence it is needed. |
 | **9** | **Compose already-certified assembly leaf contracts** | Useful leaf knowledge is discarded by acyclic composition and residence admission. | **Extend the existing acyclic design after the repairs.** This is additional coverage, not a correctness fix. |
@@ -90,7 +90,8 @@ No full suite was run.
 
 The shared [call-fact contract design](MIR6502_CALL_FACT_CONTRACT_DESIGN.md)
 covers the implemented contracts for **issues 3–5**.
-Extend it for **issues 6 and 8**, covering:
+It also specifies the proposed backing/placement contract for **issue 6**.
+Extend it for **issue 8**, retaining the shared distinctions:
 
 - Caller-supplied inputs versus existing state.
 - Possible effects versus guaranteed definitions and results.
@@ -106,6 +107,6 @@ after the shared contracts are repaired.
 
 ## Next implementation work
 
-Issues **1–5 are repaired**. Issue **6** is next for design and an
+Issues **1–5 are repaired**. Issue **6** has a design and is ready for a focused
 implementation plan. Issue **7** remains an independent targeted
 correction that does not need to wait for the remaining shared design work.

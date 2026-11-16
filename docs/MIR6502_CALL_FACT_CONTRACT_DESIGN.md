@@ -524,3 +524,152 @@ Two old size-delta integration assertions fail identically on pre-repair
 `2ce87047`; their expectations were not changed. See the
 [implementation plan](MIR6502_MACHINE_DEFINITIONS_IMPLEMENTATION_PLAN.md) and
 [qualification receipt](benchmarks/6502-call-facts-audit/machine-definitions-qualification.json).
+
+## Physical overlap from backing and placement
+
+Proposed for issue **6**, 2026-11-17. An exact memory footprint identifies the
+bytes accessed. Whether those bytes overlap another object is a separate query,
+using the address evidence available at that phase. Reuse the existing backing
+resolver and physical maps; this repair does not require a new alias-analysis
+framework or persistent summary cache.
+
+### Problem and scope
+
+The retained `global_write_ram` control writes a declared global at `$0600`, yet
+`preserves_fixed_byte($E4)` returns false. In
+[known-callee queries](../src/mir6502/analysis/known_callees.rs),
+`mem_may_alias_fixed_slot` treats every Global as possibly overlapping every ZP
+byte. `mems_may_alias` similarly treats any pair involving a Global as possibly
+aliasing. Conversely, the caller-private-byte queries only match raw Absolute
+accesses, ignoring named globals whose fixed backing could overlap the byte.
+These queries need the same address evidence and conservative failure rules.
+
+The [existing resolver](../src/mir6502/analysis/known_callees/observations.rs)
+already follows `Absolute` and `Alias` global backing with checked offset
+arithmetic. Global identity must remain in the footprint: issue 3 uses it to
+separate existing program state from caller-supplied inputs. Do not rewrite every
+Global access into Absolute merely to simplify overlap checks.
+
+This repair changes overlap and preservation decisions. It does not expand
+callee eligibility, infer pointee bounds, turn possible writes into definitions,
+change the private-storage rule, or repair independent read-footprint uncertainty
+(issue 7). It grants no permission to remove an observable read or store.
+
+### Authoritative evidence
+
+| Phase/evidence | What may establish a physical address | What remains unresolved |
+| --- | --- | --- |
+| Source-fixed backing, before placement | Absolute bytes, fixed ZP, and checked global Absolute/Alias chains from the current `MirProgram` | Ordinary globals/statics, unplaced private homes and virtual ZP |
+| Current physical home bindings | The owning routine's explicit parameter/local ZP lanes and allocated virtual slots | Register-only homes and any lane lacking a current binding |
+| Candidate layout | The candidate's existing `MirPhysicalMemory`/layout resolver, with the owning routine where required | Missing entries, stale maps, or references whose owner was lost |
+
+A global's initializer value is not its storage address. Two different names or
+IDs do not establish disjointness: explicit aliases and fixed backing can overlap.
+Conversely, a known address at `$0600` does establish disjointness from `$E4`.
+Source-fixed evidence does not depend on tentative instruction sizes or layout.
+
+An ordinary source object may be proved disjoint through an existing allocator
+or ownership invariant only if that invariant applies at the query's current
+phase. Do not assume a named Local/Param is inline after it may have acquired a
+ZP home. Do not use an old inline address to justify a new placement.
+
+### Overlap and preservation contract
+
+1. Preserve the exact logical byte identities produced by the repaired footprint
+   projection, including offsets and extents. An Unknown footprint stays Unknown
+   even when some referenced objects have known addresses.
+2. For each compared byte, resolve source-fixed backing first. Where necessary,
+   use current home bindings or the matching candidate's physical map. Reuse
+   `fixed_storage_address` and existing layout arithmetic instead of duplicating
+   alias traversal in every caller.
+3. Equal resolved addresses overlap; different resolved addresses are disjoint.
+   Matching logical identities still overlap without layout. Otherwise, a missing
+   address or missing applicable disjointness proof means possible overlap.
+4. A callee preserves a queried byte only if **every possible written byte** is
+   proved disjoint. The same physical rule applies to read-observation queries.
+   A finite may-write remains relevant even when it is not a guaranteed definition.
+5. Pair/range queries cover every byte. Do not saturate the second byte of a pair
+   at `$FF`, truncate an extent or drop an alias offset. Use checked arithmetic;
+   architectural wrapping is permitted only where the existing access contract
+   explicitly represents it. Reuse the existing machine-observation range
+   resolver for NMOS/ZP wrapping rather than adding a competing interpretation.
+
+Existing Boolean interfaces can represent both overlap and uncertainty as
+“may overlap.” A new general-purpose alias lattice is unnecessary. Diagnostics
+should distinguish a resolved collision from missing evidence when explaining a
+placement blocker.
+
+Invalid alias chains, missing targets, cycles, offset overflow and incomplete
+maps cannot become an empty footprint or a preservation proof. They may remain
+conservative blockers unless an existing verifier requires a diagnostic.
+
+### Owners, consumers and proposal replay
+
+Routine-local IDs are scoped to their owner. A transitive summary's Local,
+Param, Spill or virtual-ZP reference must never be resolved using the current
+caller's ID or an arbitrarily chosen callee's frame. Use existing owner-bearing
+physical references where available. If composition discarded the owner, that
+reference remains unresolved for physical queries. The first fixed-global
+correction does not need to add owner metadata to every summary; add it only
+where a later concrete placement query needs to retain that evidence.
+
+Apply the shared rule to:
+
+- Known-callee fixed-byte/pair preservation used by
+  [cross-call placement](../src/mir6502/parameter_homes/cross_call.rs),
+  [spill placement](../src/mir6502/parameter_homes/spills.rs) and
+  [lifetime checks](../src/mir6502/parameter_homes/lifetimes.rs).
+- Direct-memory invalidation in
+  [machine-value availability](../src/mir6502/analysis/machine_values.rs).
+- Caller-private-byte read/write checks used by
+  [preserved-register carriers](../src/mir6502/materialize/peepholes.rs).
+
+Pass current program/address evidence into these queries or bind it to their
+existing short-lived analysis context. A context-free query may remain
+conservative; it must not silently infer an address. Source reservations and
+explicit observation inventories remain independent constraints: showing that a
+callee does not write `$E4` does not make `$E4` allocatable if source storage
+already reserves it.
+
+Early cross-call planning may use source-fixed evidence and current selected
+callee bindings to filter candidates. It cannot approve the final placement.
+Existing final replay must rebuild or recheck overlap using the proposed program
+and its own map, including planned descendant homes. Retained source operations
+use their original map; replacement operations use the candidate map. Keep the
+existing lifetime, call-contract, final-cost and rollback requirements.
+
+Freshness depends on the relevant backing/alias chain, home binding and layout,
+not just the callee body. Changing a global's backing from `$0600` to `$E4` must
+invalidate an earlier disjointness answer even if all instructions are identical.
+Queries should consume the current context; any retained proof must retain the
+existing corresponding program/map identity. Do not add an unrelated global
+cache-generation scheme as part of issue 6.
+
+### Focused acceptance
+
+The initial implementation should repair the exact fixed-global cases through
+one shared resolver, keep unresolved cases conservative, and migrate the actual
+preservation/invalidation consumers together. Wider private-layout precision can
+follow only where owner and map evidence are available.
+
+Required controls:
+
+- A BYTE global write at `$0600` preserves unrelated private ZP. The equivalent
+  global at `$E4` overlaps `$E4` and preserves `$E5`; a CARD write covers both.
+- Global aliases, nested alias offsets, raw Absolute and fixed-ZP identities
+  agree on the same physical bytes. Include a named fixed global overlapping a
+  queried caller-private byte and two distinct globals sharing backing.
+- Ordinary/unresolved backing, missing/cyclic aliases, overflow and incomplete
+  placement never establish disjointness. Rebinding a global or moving a home
+  invalidates the earlier proof.
+- Same-numbered private IDs in different routines are not resolved through the
+  wrong owner. A moved private home is checked against its candidate placement.
+- Existing source ZP reservations still exclude occupied bytes, and typed global
+  reads remain program state rather than new arguments.
+- A small runtime control keeps caller state live across a fixed-global write;
+  cover RAM and ZP backing, both runtimes and LF/CRLF source loading. Re-run the
+  retained TN/control audit and report actual placement and image changes.
+
+No TN size reduction is an acceptance condition. The acceptance condition is a
+correct physical-overlap answer backed by current evidence, followed by the
+existing placement proof and final-cost guard.

@@ -92,3 +92,6 @@ memory-write preservation queries, source backing/aliases, and placement-aware
 consumers. Extend the shared design to specify authoritative address evidence at
 each phase, range/alias handling and conservative Unknown behavior. Include
 source-global RAM versus ZP controls and freshness rules. Do not implement issue 6.
+
+Follow-up complete: the [issue-6 design](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#physical-overlap-from-backing-and-placement)
+is saved. Issue 6 is not implemented by this plan.
