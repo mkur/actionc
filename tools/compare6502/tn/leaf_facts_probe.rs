@@ -99,6 +99,7 @@ fn dump_tn_leaf_facts() {
     let mut calls = mir::parameter_homes::ResidenceCalls::new(p, MirCalleeEntryStage::ActualEntry);
     let mut inventory = Vec::new();
     let mut machine_observations = Vec::new();
+    let mut abi_captures = Vec::new();
     let mut leaves = Vec::new();
     let mut listing = String::new();
     let footprints: Vec<_> = output.map.routine_ranges.iter().map(|r| {
@@ -115,6 +116,12 @@ fn dump_tn_leaf_facts() {
     for r in &p.routines {
         for b in &r.blocks {
             for op in &b.ops {
+                if let MirOp::SArgsCapture { first_param, byte_count, effects } = op {
+                    abi_captures.push(json!({"routine":r.name,"routine_id":r.id.0,"block":b.label,
+                        "first_param":first_param.0,"bytes":byte_count,
+                        "address":physical.assembly_address(r.id, &MirMem::Param { id:*first_param, offset:0 }),
+                        "effects":format!("{effects:?}"),"kind":"sargs"}));
+                }
                 let MirOp::MachineBlock { id, .. } = op else { continue; };
                 let machine = p.machine_blocks.iter().find(|m| m.id == *id).unwrap();
                 let decoded = machine_storage_observations(machine, r, p);
@@ -133,6 +140,9 @@ fn dump_tn_leaf_facts() {
                 machine_observations.push(json!({"routine":r.name,"routine_id":r.id.0,
                     "block":b.label,"machine_block":id.0,"complete":reads.is_some() && writes.is_some(),
                     "decoded":decoded.is_some(),
+                    "requires_layout":decoded.as_ref().map(|o| o.reads.iter().chain(&o.writes)
+                        .any(|a| a.address.fixed(p).is_none())),
+                    "resolution":if decoded.is_none() { "opaque" } else if reads.is_some() && writes.is_some() { "resolved" } else { "failed" },
                     "read_expressions":decoded.as_ref().map(|o|expressions(&o.reads)),
                     "write_expressions":decoded.as_ref().map(|o|expressions(&o.writes)),
                     "reads":reads,"writes":writes}));
@@ -210,11 +220,11 @@ fn dump_tn_leaf_facts() {
     }
     std::fs::write(destination.join("controls.asm"), controls_asm).unwrap();
     std::fs::write(destination.join("facts.json"),serde_json::to_string_pretty(&json!({
-        "schema":1,"source":"samples/tn/modern/TN.ACT","origin":origin,"runtime":"ActionCart",
+        "schema":2,"source":"samples/tn/modern/TN.ACT","origin":origin,"runtime":"ActionCart",
         "config":format!("{config:?}"),"packaged_bytes":image.len(),
         "layout_replay_identical":true,"routine_count":p.routines.len(),
         "inventory":inventory,"footprints":footprints,"leaf_candidates":leaves,
-        "machine_observations":machine_observations,
+        "machine_observations":machine_observations,"abi_captures":abi_captures,
         "machine_observation_scope":"explicit operands and pointer fetches; not a complete memory-effect summary",
         "qualification":{"generation_seconds":generation_seconds,"resident_kib":resident_kib,
             "sample_scope":"single traced source-to-executable generation; not peak RSS",

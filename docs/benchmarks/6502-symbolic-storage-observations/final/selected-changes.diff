@@ -1,0 +1,76 @@
+--- MoveMenuBar before
++++ MoveMenuBar after
+@@ -40,7 +40,6 @@
+   store.b fixed_zp $AD, a
+   a =.b load_indirect (zp$AC),y+0
+   a =.b a sub #$01 carry_in=set carry_out=ignore
+-  store.b zp1, a
+   x =.b a
+   a =.b #128
+   y =.b #0
+--- Draw before
++++ Draw after
+@@ -46,7 +46,6 @@
+   a =.b load_indirect (zp$AC),scaled_y+0
+   store.b zp0, a
+   a =.b load_indirect (zp$AC),scaled_y+1
+-  store.b zp1, a
+   x =.b a
+   a =.b #0
+   store.b fixed_zp $A3, a
+--- Tag before
++++ Tag after
+@@ -20,7 +20,6 @@
+   a =.b load_indirect (zp$AC),scaled_y+0
+   store.b zp0, a
+   a =.b load_indirect (zp$AC),scaled_y+1
+-  store.b zp1, a
+   x =.b a
+   a =.b load local l0+0
+   a =.b a xor #$7F carry_in=- carry_out=ignore
+@@ -31,7 +30,7 @@
+   call r64 args=[] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+   store.b param p0+0, a
+   flags = cmp.b a eq *global g81+0
+-  branch fused b3:15 z_set ? b4 : b5
++  branch fused b3:14 z_set ? b4 : b5
+ b4 bb250:
+   a =.b #127
+   store.b global g81+3, a
+--- TagAll before
++++ TagAll after
+@@ -30,7 +30,6 @@
+   a =.b load_indirect (zp$AC),scaled_y+0
+   store.b zp0, a
+   a =.b load_indirect (zp$AC),scaled_y+1
+-  store.b zp1, a
+   x =.b a
+   a =.b load zp0
+   y =.b load global g81+3
+--- Sort before
++++ Sort after
+@@ -1,8 +1,9 @@
+ routine r57 Sort
+-  zp0 -> $E2 size=1
+-  zp1 -> $E3 size=1
+-  zp2 -> $E4 size=1
+-  zp3 -> $E5 size=1
++  local l1 h -> ZeroPage(MirFixedZpSlot(226))
++  zp0 -> $E4 size=1
++  zp1 -> $E5 size=1
++  zp2 -> $EA size=1
++  zp3 -> $EB size=1
+ b0 bb189:
+   a =.b load global g81+0
+   a =.b a rsh #$01 carry_in=- carry_out=ignore
+--- Range before
++++ Range after
+@@ -1,7 +1,6 @@
+ routine r37 Range
+ b0 bb71:
+-  helper sargs args=[a, x, y] result=- effects=stack=0,reads=unknown,writes=unknown,clobbers=a|x|y|flags
+-  machine m34 effects=stack=?,reads=none,writes=none
++  sargs-capture param p0 bytes=5 effects=stack=0,reads=unknown,writes=unknown,clobbers=a|x|y|flags
+   a =.b load param p0+0
+   store.b fixed_zp $AC, a
+   a =.b load param p0+1

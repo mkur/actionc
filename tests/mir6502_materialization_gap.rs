@@ -155,15 +155,21 @@ fn indirect_pointer_store_invalidates_staged_address_pair() {
 
 #[test]
 fn lib_like_pointer_machine_block_fixtures_materialize_and_emit() {
-    for fixture in [
-        "range_like_pointer_out.act",
-        "ord_like_machine_menu.act",
-        "popup_like_machine_menu_range.act",
+    for (fixture, has_machine_data, has_capture) in [
+        ("range_like_pointer_out.act", false, true),
+        ("ord_like_machine_menu.act", true, false),
+        ("popup_like_machine_menu_range.act", true, true),
     ] {
         let (formatted, bytes) = compile_materialized_mir6502_fixture(fixture);
-        assert!(
+        assert_eq!(
             formatted.contains("machine m"),
-            "{fixture} should include embedded machine-block data"
+            has_machine_data,
+            "{fixture}: only source machine data belongs in a machine block"
+        );
+        assert_eq!(
+            formatted.contains("sargs-capture param p0 bytes=6"),
+            has_capture,
+            "{fixture}: six-byte parameter capture uses the typed ABI operation"
         );
         assert!(
             formatted.contains("load_indirect") || formatted.contains("store_indirect"),

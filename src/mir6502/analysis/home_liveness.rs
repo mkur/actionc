@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::analysis::dataflow::{DataflowDirection, DataflowProblem, solve_dataflow};
 use crate::mir6502::analysis::cfg::MirCfg;
 use crate::mir6502::analysis::effects::{
-    MirHomeByte, MirHomeEffects, MirOpEffectSummary, classify_op, classify_terminator,
+    MirHomeByte, MirHomeEffects, MirOpEffectSummary, classify_posthome_op, classify_terminator,
 };
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
@@ -307,7 +307,7 @@ pub(in crate::mir6502) fn collect_home_universe(routine: &MirRoutine) -> MirHome
     let mut universe = MirHomeLiveSet::default();
     for block in &routine.blocks {
         for op in &block.ops {
-            let effects = classify_op(op);
+            let effects = classify_posthome_op(op);
             universe.extend(effects.homes.reads);
             universe.extend(effects.homes.writes);
             universe.extend(effects.addresses.pair_reads);
@@ -397,7 +397,7 @@ pub(in crate::mir6502) fn collect_home_transfers(
             let ops = block
                 .ops
                 .iter()
-                .map(|op| op_transfer(&classify_op(op), universe))
+                .map(|op| op_transfer(&classify_posthome_op(op), universe))
                 .collect();
             let terminator = home_transfer(
                 &classify_terminator(&block.terminator).homes,

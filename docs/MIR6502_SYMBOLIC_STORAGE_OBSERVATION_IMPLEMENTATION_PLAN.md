@@ -1,6 +1,6 @@
 # MIR6502 symbolic storage observations: implementation plan
 
-2026-11-16. Status: slices 1–3 implemented; slice 4 pending.
+2026-11-16. Status: all four slices implemented and qualified.
 Continues the completed [fixed-address observation plan](MIR6502_FIXED_ADDRESS_OBSERVATION_IMPLEMENTATION_PLAN.md)
 under the [unexposed-object contract](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md)
 and [storage-observation design](MIR6502_STORAGE_OBSERVATION_DESIGN.md).
@@ -273,3 +273,33 @@ page changes, missing maps and retained old/new observations. Four existing
 and both object-storage pipeline controls also pass. The pipeline exercises
 LF/CRLF and preserves actual positive ZP selection plus opaque/independent fallback.
 No extra materialization, emission stage or subset retry was introduced.
+
+Slice 4 extends the independent fixture with symbolic pointer cells, signed
+global/local indexed operands and a dispatch table. Three pipeline controls
+cover positive selection, opaque fallback and exact rollback for an explicit
+`$A0/$A1` conflict. The VM group checks placement off/on in both runtimes,
+including declared sentinels and stack balance. The SArgs fixture expectation
+now distinguishes typed capture from source machine data.
+
+Final qualification exposed a missing post-home ABI read: wide calls can use
+`$AC/$AD` as argument homes despite their pointer-scratch role elsewhere in the
+caller. The previous opaque descriptor inventory had masked this dead-store
+proof defect. Home liveness and definition-use analysis now read populated call
+homes, preserving pre-materialization effects. The grouped unit control checks
+both live argument definitions and genuinely dead surrounding stores. All five
+ADPCM decoder tests and all six cross-call VM tests pass after correction; both
+TN dispatch tests pass too.
+
+The broad runs also exposed existing failures. A detached `96e91785` checkout
+was used only for targeted failure comparison, extending the original reuse-only
+validation scope. TN size comparison continues to use the recorded baseline
+artifact. The final [qualification report](benchmarks/6502-symbolic-storage-observations/README.md)
+records exact checks, baseline failures, the corrected ADPCM regression and
+compiler work counts.
+
+The final TN collection after the ABI correction retains the exact **9,824-byte**
+image: **14 bytes saved**, six from Sort's `h` at `$E2/$E3` and eight from four
+staging stores. All 34 explicit machine observations resolve, and all 34 leaf
+entry/exit summaries remain unchanged. Materialization and emission counts are
+unchanged. Final receipts include the home-liveness implementation; the temporary
+diagnostic hook and detached baseline checkout were removed.

@@ -40,6 +40,20 @@ fn object_storage_indexed_callers_select_resident_homes_in_one_trial() {
                     && r.target == actionc::nir::NirForeignCodeTarget::Storage(
                         actionc::nir::NirStorageId::Global(observed.id)))
             }), "must exercise the typed fixed-global scanner path");
+        let relocs: Vec<_> = n.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+            .filter_map(|op| if let actionc::nir::NirOp::ForeignCode { code, .. } = op {
+                if let actionc::nir::NirForeignCodePayload::Bytes { relocations, .. } = &code.payload {
+                    Some(relocations.as_slice())
+                } else { None }
+            } else { None }).flatten().collect();
+        assert!(relocs.iter().any(|r| r.addend == -1 && matches!(r.target,
+            actionc::nir::NirForeignCodeTarget::Storage(actionc::nir::NirStorageId::Local(_)))));
+        assert!(relocs.iter().any(|r| r.addend == -2 && matches!(r.target,
+            actionc::nir::NirForeignCodeTarget::Storage(actionc::nir::NirStorageId::Global(_)))));
+        let vector = p.globals.iter().find(|g| g.name == "vector").unwrap();
+        assert!(matches!(vector.backing, mir6502::MirGlobalBacking::Ordinary { .. }));
+        assert!(relocs.iter().any(|r| r.target == actionc::nir::NirForeignCodeTarget::Storage(
+            actionc::nir::NirStorageId::Global(vector.id))));
         let config = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
         let mut trace = Mir6502Trace::default();
         let output = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
@@ -53,7 +67,7 @@ fn object_storage_indexed_callers_select_resident_homes_in_one_trial() {
                 s.scope == actionc::codegen::CodegenSymbolScope::Routine(name.into())
                 && s.kind == actionc::codegen::CodegenSymbolKind::Local).collect();
             assert!(homes.iter().any(|s| s.address < 256), "{name}: {homes:?}; {events:?}");
-            assert!(homes.iter().all(|s| !(s.address..s.address+s.size).any(|a| (0xe4..=0xe8).contains(&a))));
+            assert!(homes.iter().all(|s| !(s.address..s.address+s.size).any(|a| (0xe4..=0xea).contains(&a))));
         }
         let image = actionc::codegen::format_load_file(&output);
         if let Some(old) = &reference { assert_eq!(old, &image); } else { reference = Some(image); }
@@ -62,6 +76,27 @@ fn object_storage_indexed_callers_select_resident_homes_in_one_trial() {
         let old = mir6502::generate_output_with_config_and_runtime(&n, 0x3000, &disabled, Runtime::ActionCart).unwrap();
         assert!(output.bytes.len() < old.bytes.len());
     }
+}
+
+#[test]
+fn object_storage_numeric_dispatch_conflict_rolls_back() {
+    let source = include_str!("../fixtures/runtime/object_storage.act").replace("\r\n", "\n")
+        .replace("sta dispatchVector+1", "sta $A1")
+        .replace("sta dispatchVector", "sta $A0")
+        .replace("jmp (dispatchVector)", "jmp ($A0)");
+    let n = nir(&source);
+    let config = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+    let mut trace = Mir6502Trace::default();
+    let selected = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
+    let events = trace.events();
+    let result = events.iter().find(|e| e.kind == "cross-call-home-result").unwrap();
+    assert_eq!(result.data["accepted"], false);
+    assert_eq!(result.data["reason"], "invalid-trial");
+    assert!(result.data["diagnostics"].as_str().unwrap().contains("numeric observation overlaps"));
+    let baseline = mir6502::generate_output_with_config_and_runtime(&n, 0x3000,
+        &Mir6502Config { enable_cross_call_home_selection: false, ..config }, Runtime::ActionCart).unwrap();
+    assert_eq!(actionc::codegen::format_load_file(&selected), actionc::codegen::format_load_file(&baseline));
+    assert_eq!(trace.manifest()["work"]["cross_call_home_trials"], 1);
 }
 
 #[test]

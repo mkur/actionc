@@ -3,7 +3,49 @@ BYTE reserved=$E4
 BYTE observedBefore=$E5, observedAfter=$E8
 BYTE POINTER observed=$E6
 BYTE observedValue
+PROC POINTER vector
+PROC POINTER dispatchVector=$E9
+BYTE indexedBefore
+BYTE ARRAY indexed(256)
+BYTE indexedAfter
+CARD targetsBefore
+CARD ARRAY targets(128)
+CARD targetsAfter
 DATA menu=["Yes" 'Y "Abort" 'A $00]
+
+PROC JumpTarget()
+  observedValue==+1
+RETURN
+
+PROC JumpSymbolic=*()
+ASM
+  jmp (vector)
+ENDASM
+
+PROC DispatchIndexed=*()
+ASM
+  ldx #2
+  lda targets-2,x
+  sta dispatchVector
+  lda targets-1,x
+  sta dispatchVector+1
+  jmp (dispatchVector)
+ENDASM
+
+PROC CopyIndexed()
+  BYTE bufBefore
+  BYTE ARRAY buf(256)
+  BYTE bufAfter
+ASM
+  lda bufBefore
+  lda bufAfter
+  ldx #1
+  lda indexed-1,x
+  sta buf-1,x
+  lda buf-1,x
+  sta observedValue
+ENDASM
+RETURN
 
 PROC ReadFixed=*()
 ASM

@@ -126,6 +126,13 @@ contextual consumers must identify the object and applicable lifetime explicitly
 
 ### Symbolic observations and ABI descriptors
 
+Post-materialization liveness must read every populated call argument home.
+The retained argument values may be placeholders after argument setup, so they
+cannot substitute for those ABI reads. A byte used as pointer scratch elsewhere
+in the same routine can also carry an outgoing argument; its scratch role never
+makes that argument definition dead. Pre-materialization effects keep treating
+argument homes as setup destinations.
+
 The [symbolic-observation plan](MIR6502_SYMBOLIC_STORAGE_OBSERVATION_IMPLEMENTATION_PLAN.md)
 extends this boundary in commit-sized slices. MIR6502 owns SArgs parameter
 capture as one typed operation containing its helper call and inline descriptor.
@@ -268,3 +275,13 @@ Its [qualification](benchmarks/6502-fixed-address-observations/README.md) resolv
 Block/m7 while preserving the exact 9,838-byte image. Sort's first unresolved
 observation is now _Cio/m11's layout-dependent `JMP (ErrorHandler)`; the selected
 program also retains unresolved blocks in _StrNam, Range and MakeJmp.
+
+The [symbolic-observation qualification](benchmarks/6502-symbolic-storage-observations/README.md)
+resolves all four remaining obligations while preserving Unknown pointee and
+helper effects. Sort's two-byte `h` local now resides at `$E2/$E3`, saving six
+bytes including its former inline storage. Complete observations also permit
+existing terminal cleanup to remove four two-byte staging stores. TN is now
+**9,824 bytes**, 14 fewer than the fixed-address baseline, with unchanged
+materialization/emission counts and unchanged leaf entry/exit summaries.
+Explicit physical conflicts still reject the combined proposal with exact
+rollback; complete decoding alone never proves a placement safe.

@@ -1,0 +1,2175 @@
+{
+  "baseline_revision": "96e91785",
+  "baseline": "docs/benchmarks/6502-fixed-address-observations/final/facts.compact.json",
+  "before_bytes": 9838,
+  "after_bytes": 9824,
+  "delta_bytes": -14,
+  "before_sha256": "a3b369ace0a492a1b1e0032c03d8da7b86cde09b0a4a2c5e0595db8777673f2f",
+  "after_sha256": "76496fc2c4415ba09e613584e5f0ef7f3a0978a0132f6efb7e07aa9208650804",
+  "changed_routines": [
+    {
+      "name": "Draw",
+      "before": {
+        "code_bytes": 147,
+        "inline_home_bytes": 1,
+        "zp_home_bytes": 0
+      },
+      "after": {
+        "code_bytes": 145,
+        "inline_home_bytes": 1,
+        "zp_home_bytes": 0
+      }
+    },
+    {
+      "name": "MoveMenuBar",
+      "before": {
+        "code_bytes": 117,
+        "inline_home_bytes": 4,
+        "zp_home_bytes": 0
+      },
+      "after": {
+        "code_bytes": 115,
+        "inline_home_bytes": 4,
+        "zp_home_bytes": 0
+      }
+    },
+    {
+      "name": "Sort",
+      "before": {
+        "code_bytes": 250,
+        "inline_home_bytes": 3,
+        "zp_home_bytes": 0
+      },
+      "after": {
+        "code_bytes": 246,
+        "inline_home_bytes": 1,
+        "zp_home_bytes": 2
+      }
+    },
+    {
+      "name": "Tag",
+      "before": {
+        "code_bytes": 90,
+        "inline_home_bytes": 2,
+        "zp_home_bytes": 0
+      },
+      "after": {
+        "code_bytes": 88,
+        "inline_home_bytes": 2,
+        "zp_home_bytes": 0
+      }
+    },
+    {
+      "name": "TagAll",
+      "before": {
+        "code_bytes": 89,
+        "inline_home_bytes": 0,
+        "zp_home_bytes": 0
+      },
+      "after": {
+        "code_bytes": 87,
+        "inline_home_bytes": 0,
+        "zp_home_bytes": 0
+      }
+    }
+  ],
+  "changed_leaf_facts": [
+    {
+      "name": "Block",
+      "field": "callers",
+      "before": [
+        {
+          "block": 0,
+          "caller": "Window",
+          "op": 44,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 1,
+          "caller": "InputLine",
+          "op": 5,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 1,
+          "caller": "InputLine",
+          "op": 12,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 6,
+          "caller": "InputLine",
+          "op": 9,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 3,
+          "caller": "MoveMenuBar",
+          "op": 13,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 0,
+          "caller": "Path",
+          "op": 6,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 0,
+          "caller": "Inv",
+          "op": 7,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 0,
+          "caller": "Inv",
+          "op": 14,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 0,
+          "caller": "Inv",
+          "op": 21,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 9,
+          "caller": "DrawWinFrame",
+          "op": 6,
+          "residence_check": "unsupported residence callee"
+        }
+      ],
+      "after": [
+        {
+          "block": 0,
+          "caller": "Window",
+          "op": 44,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 1,
+          "caller": "InputLine",
+          "op": 5,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 1,
+          "caller": "InputLine",
+          "op": 12,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 6,
+          "caller": "InputLine",
+          "op": 9,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 3,
+          "caller": "MoveMenuBar",
+          "op": 12,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 0,
+          "caller": "Path",
+          "op": 6,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 0,
+          "caller": "Inv",
+          "op": 7,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 0,
+          "caller": "Inv",
+          "op": 14,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 0,
+          "caller": "Inv",
+          "op": 21,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 9,
+          "caller": "DrawWinFrame",
+          "op": 6,
+          "residence_check": "unsupported residence callee"
+        }
+      ]
+    },
+    {
+      "name": "PutImage",
+      "field": "callers",
+      "before": [
+        {
+          "block": 0,
+          "caller": "CloseWindow",
+          "op": 16,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 3,
+          "caller": "Draw",
+          "op": 11,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 5,
+          "caller": "Draw",
+          "op": 12,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 6,
+          "caller": "SwapScr",
+          "op": 25,
+          "residence_check": "unsupported residence callee"
+        }
+      ],
+      "after": [
+        {
+          "block": 0,
+          "caller": "CloseWindow",
+          "op": 16,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 3,
+          "caller": "Draw",
+          "op": 11,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 5,
+          "caller": "Draw",
+          "op": 11,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 6,
+          "caller": "SwapScr",
+          "op": 25,
+          "residence_check": "unsupported residence callee"
+        }
+      ]
+    },
+    {
+      "name": "Store",
+      "field": "callers",
+      "before": [
+        {
+          "block": 3,
+          "caller": "Tag",
+          "op": 12,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 5,
+          "caller": "TagAll",
+          "op": 10,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 4,
+          "caller": "Xloop",
+          "op": 23,
+          "residence_check": "unsupported residence callee"
+        }
+      ],
+      "after": [
+        {
+          "block": 3,
+          "caller": "Tag",
+          "op": 11,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 5,
+          "caller": "TagAll",
+          "op": 9,
+          "residence_check": "unsupported residence callee"
+        },
+        {
+          "block": 4,
+          "caller": "Xloop",
+          "op": 23,
+          "residence_check": "unsupported residence callee"
+        }
+      ]
+    },
+    {
+      "name": "TaggedFiles",
+      "field": "callers",
+      "before": [
+        {
+          "block": 3,
+          "caller": "Tag",
+          "op": 13,
+          "residence_check": "accepted"
+        },
+        {
+          "block": 0,
+          "caller": "Xloop",
+          "op": 2,
+          "residence_check": "accepted"
+        },
+        {
+          "block": 0,
+          "caller": "Delete",
+          "op": 0,
+          "residence_check": "accepted"
+        },
+        {
+          "block": 0,
+          "caller": "Attrib",
+          "op": 0,
+          "residence_check": "accepted"
+        },
+        {
+          "block": 4,
+          "caller": "Copy",
+          "op": 1,
+          "residence_check": "accepted"
+        }
+      ],
+      "after": [
+        {
+          "block": 3,
+          "caller": "Tag",
+          "op": 12,
+          "residence_check": "accepted"
+        },
+        {
+          "block": 0,
+          "caller": "Xloop",
+          "op": 2,
+          "residence_check": "accepted"
+        },
+        {
+          "block": 0,
+          "caller": "Delete",
+          "op": 0,
+          "residence_check": "accepted"
+        },
+        {
+          "block": 0,
+          "caller": "Attrib",
+          "op": 0,
+          "residence_check": "accepted"
+        },
+        {
+          "block": 4,
+          "caller": "Copy",
+          "op": 1,
+          "residence_check": "accepted"
+        }
+      ]
+    }
+  ],
+  "before_trials": {
+    "parameter-home-result": {
+      "accepted": true,
+      "after_bytes": 9955,
+      "before_bytes": 10047,
+      "diagnostics": null,
+      "reason": "smaller-image",
+      "routine_cost_changes": [
+        {
+          "after": 55,
+          "before": 63,
+          "routine": "Instr"
+        },
+        {
+          "after": 105,
+          "before": 189,
+          "routine": "Fnamecmp"
+        }
+      ]
+    },
+    "parameter-argument-handoff-result": {
+      "accepted": true,
+      "after_bytes": 9918,
+      "before_bytes": 9955,
+      "diagnostics": null,
+      "reason": "smaller-image",
+      "routine_cost_changes": [
+        {
+          "after": 20,
+          "before": 57,
+          "routine": "Strcpy"
+        }
+      ]
+    },
+    "cross-call-home-result": {
+      "accepted": true,
+      "after_bytes": 9838,
+      "before_bytes": 9918,
+      "diagnostics": null,
+      "reason": "smaller-image",
+      "routine_cost_changes": [
+        {
+          "after": 51,
+          "before": 85,
+          "routine": "Ord"
+        },
+        {
+          "after": 37,
+          "before": 59,
+          "routine": "Items"
+        },
+        {
+          "after": 53,
+          "before": 74,
+          "routine": "FindItem"
+        },
+        {
+          "after": 731,
+          "before": 734,
+          "routine": "Copy"
+        }
+      ]
+    }
+  },
+  "after_trials": {
+    "parameter-home-result": {
+      "accepted": true,
+      "after_bytes": 9947,
+      "before_bytes": 10039,
+      "diagnostics": null,
+      "reason": "smaller-image",
+      "routine_cost_changes": [
+        {
+          "after": 55,
+          "before": 63,
+          "routine": "Instr"
+        },
+        {
+          "after": 105,
+          "before": 189,
+          "routine": "Fnamecmp"
+        }
+      ]
+    },
+    "parameter-argument-handoff-result": {
+      "accepted": true,
+      "after_bytes": 9910,
+      "before_bytes": 9947,
+      "diagnostics": null,
+      "reason": "smaller-image",
+      "routine_cost_changes": [
+        {
+          "after": 20,
+          "before": 57,
+          "routine": "Strcpy"
+        }
+      ]
+    },
+    "cross-call-home-result": {
+      "accepted": true,
+      "after_bytes": 9824,
+      "before_bytes": 9910,
+      "diagnostics": null,
+      "reason": "smaller-image",
+      "routine_cost_changes": [
+        {
+          "after": 51,
+          "before": 85,
+          "routine": "Ord"
+        },
+        {
+          "after": 37,
+          "before": 59,
+          "routine": "Items"
+        },
+        {
+          "after": 53,
+          "before": 74,
+          "routine": "FindItem"
+        },
+        {
+          "after": 247,
+          "before": 253,
+          "routine": "Sort"
+        },
+        {
+          "after": 731,
+          "before": 734,
+          "routine": "Copy"
+        }
+      ]
+    }
+  },
+  "before_work": {
+    "cross_call_home_trials": 1,
+    "emission_invocations": 145,
+    "inner_emission_probes": 870,
+    "late_cleanup_preservation_replays": 17,
+    "materializations": 6,
+    "parameter_argument_handoff_trials": 1,
+    "parameter_home_trials": 3,
+    "pipeline_attempts": 67,
+    "rewrite_analysis_builds": 47614,
+    "source_storage_inventory_builds": 60,
+    "storage_observation_snapshot_builds": 3
+  },
+  "after_work": {
+    "cross_call_home_trials": 1,
+    "emission_invocations": 145,
+    "inner_emission_probes": 870,
+    "late_cleanup_preservation_replays": 17,
+    "materializations": 6,
+    "parameter_argument_handoff_trials": 1,
+    "parameter_home_trials": 3,
+    "pipeline_attempts": 67,
+    "rewrite_analysis_builds": 47646,
+    "source_storage_inventory_builds": 60,
+    "storage_observation_snapshot_builds": 3
+  },
+  "observation_controls": [
+    {
+      "block": "bb36",
+      "complete": true,
+      "decoded": true,
+      "machine_block": 7,
+      "read_expressions": [
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 160,
+          "identity": "FixedZeroPage(MirFixedZpSlot(160))",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 112,
+          "identity": "Global { id: SymbolId(2), offset: 0 }",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "PointerFetch",
+          "fixed_address": 230,
+          "identity": "Global { id: SymbolId(9), offset: 0 }",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 230,
+          "identity": "Global { id: SymbolId(10), offset: 0 }",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 231,
+          "identity": "Global { id: SymbolId(11), offset: 0 }",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 160,
+          "identity": "FixedZeroPage(MirFixedZpSlot(160))",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "PointerFetch",
+          "fixed_address": 230,
+          "identity": "Global { id: SymbolId(9), offset: 0 }",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "PointerFetch",
+          "fixed_address": 230,
+          "identity": "Global { id: SymbolId(9), offset: 0 }",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 230,
+          "identity": "Global { id: SymbolId(10), offset: 0 }",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 231,
+          "identity": "Global { id: SymbolId(11), offset: 0 }",
+          "requires_zero_page": true
+        }
+      ],
+      "reads": [
+        {
+          "address": 160,
+          "bytes": 1
+        },
+        {
+          "address": 112,
+          "bytes": 1
+        },
+        {
+          "address": 230,
+          "bytes": 1
+        },
+        {
+          "address": 231,
+          "bytes": 1
+        },
+        {
+          "address": 230,
+          "bytes": 1
+        },
+        {
+          "address": 231,
+          "bytes": 1
+        },
+        {
+          "address": 160,
+          "bytes": 1
+        },
+        {
+          "address": 230,
+          "bytes": 1
+        },
+        {
+          "address": 231,
+          "bytes": 1
+        },
+        {
+          "address": 230,
+          "bytes": 1
+        },
+        {
+          "address": 231,
+          "bytes": 1
+        },
+        {
+          "address": 230,
+          "bytes": 1
+        },
+        {
+          "address": 231,
+          "bytes": 1
+        }
+      ],
+      "requires_layout": false,
+      "resolution": "resolved",
+      "routine": "Block",
+      "routine_id": 16,
+      "write_expressions": [
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 160,
+          "identity": "FixedZeroPage(MirFixedZpSlot(160))",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 112,
+          "identity": "Global { id: SymbolId(2), offset: 0 }",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 230,
+          "identity": "Global { id: SymbolId(10), offset: 0 }",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 231,
+          "identity": "Global { id: SymbolId(11), offset: 0 }",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 230,
+          "identity": "Global { id: SymbolId(10), offset: 0 }",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 231,
+          "identity": "Global { id: SymbolId(11), offset: 0 }",
+          "requires_zero_page": true
+        }
+      ],
+      "writes": [
+        {
+          "address": 160,
+          "bytes": 1
+        },
+        {
+          "address": 112,
+          "bytes": 1
+        },
+        {
+          "address": 230,
+          "bytes": 1
+        },
+        {
+          "address": 231,
+          "bytes": 1
+        },
+        {
+          "address": 230,
+          "bytes": 1
+        },
+        {
+          "address": 231,
+          "bytes": 1
+        }
+      ]
+    },
+    {
+      "block": "bb41",
+      "complete": true,
+      "decoded": true,
+      "machine_block": 11,
+      "read_expressions": [
+        {
+          "addend": 0,
+          "extent": "PointerFetch",
+          "fixed_address": null,
+          "identity": "Global { id: SymbolId(41), offset: 0 }",
+          "requires_zero_page": false
+        }
+      ],
+      "reads": [
+        {
+          "address": 12354,
+          "bytes": 1
+        },
+        {
+          "address": 12355,
+          "bytes": 1
+        }
+      ],
+      "requires_layout": true,
+      "resolution": "resolved",
+      "routine": "_Cio",
+      "routine_id": 21,
+      "write_expressions": [
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": null,
+          "identity": "Global { id: SymbolId(40), offset: 0 }",
+          "requires_zero_page": false
+        }
+      ],
+      "writes": [
+        {
+          "address": 12353,
+          "bytes": 1
+        }
+      ]
+    },
+    {
+      "block": "bb43",
+      "complete": true,
+      "decoded": true,
+      "machine_block": 13,
+      "read_expressions": [
+        {
+          "addend": 0,
+          "extent": "PointerFetch",
+          "fixed_address": 134,
+          "identity": "FixedZeroPage(MirFixedZpSlot(134))",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "PointerFetch",
+          "fixed_address": 134,
+          "identity": "FixedZeroPage(MirFixedZpSlot(134))",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 136,
+          "identity": "FixedZeroPage(MirFixedZpSlot(136))",
+          "requires_zero_page": true
+        }
+      ],
+      "reads": [
+        {
+          "address": 134,
+          "bytes": 1
+        },
+        {
+          "address": 135,
+          "bytes": 1
+        },
+        {
+          "address": 134,
+          "bytes": 1
+        },
+        {
+          "address": 135,
+          "bytes": 1
+        },
+        {
+          "address": 136,
+          "bytes": 1
+        }
+      ],
+      "requires_layout": true,
+      "resolution": "resolved",
+      "routine": "_StrNam",
+      "routine_id": 23,
+      "write_expressions": [
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 134,
+          "identity": "FixedZeroPage(MirFixedZpSlot(134))",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 135,
+          "identity": "FixedZeroPage(MirFixedZpSlot(135))",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 136,
+          "identity": "FixedZeroPage(MirFixedZpSlot(136))",
+          "requires_zero_page": true
+        },
+        {
+          "addend": -1,
+          "extent": "Bytes(256)",
+          "fixed_address": null,
+          "identity": "Local { id: LocalId(0), offset: 0 }",
+          "requires_zero_page": false
+        },
+        {
+          "addend": -1,
+          "extent": "Bytes(256)",
+          "fixed_address": null,
+          "identity": "Local { id: LocalId(0), offset: 0 }",
+          "requires_zero_page": false
+        }
+      ],
+      "writes": [
+        {
+          "address": 134,
+          "bytes": 1
+        },
+        {
+          "address": 135,
+          "bytes": 1
+        },
+        {
+          "address": 136,
+          "bytes": 1
+        },
+        {
+          "address": 22099,
+          "bytes": 256
+        },
+        {
+          "address": 22099,
+          "bytes": 256
+        }
+      ]
+    },
+    {
+      "block": "bb43",
+      "complete": true,
+      "decoded": true,
+      "machine_block": 14,
+      "read_expressions": [
+        {
+          "addend": 1,
+          "extent": "Bytes(1)",
+          "fixed_address": 135,
+          "identity": "FixedZeroPage(MirFixedZpSlot(134))",
+          "requires_zero_page": true
+        }
+      ],
+      "reads": [
+        {
+          "address": 135,
+          "bytes": 1
+        }
+      ],
+      "requires_layout": false,
+      "resolution": "resolved",
+      "routine": "_StrNam",
+      "routine_id": 23,
+      "write_expressions": [
+        {
+          "addend": 0,
+          "extent": "Bytes(256)",
+          "fixed_address": 836,
+          "identity": "Absolute(836)",
+          "requires_zero_page": false
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(256)",
+          "fixed_address": 837,
+          "identity": "Absolute(837)",
+          "requires_zero_page": false
+        }
+      ],
+      "writes": [
+        {
+          "address": 836,
+          "bytes": 256
+        },
+        {
+          "address": 837,
+          "bytes": 256
+        }
+      ]
+    },
+    {
+      "block": "bb424",
+      "complete": true,
+      "decoded": true,
+      "machine_block": 29,
+      "read_expressions": [
+        {
+          "addend": -2,
+          "extent": "Bytes(256)",
+          "fixed_address": null,
+          "identity": "Global { id: SymbolId(140), offset: 0 }",
+          "requires_zero_page": false
+        },
+        {
+          "addend": -1,
+          "extent": "Bytes(256)",
+          "fixed_address": null,
+          "identity": "Global { id: SymbolId(140), offset: 0 }",
+          "requires_zero_page": false
+        },
+        {
+          "addend": 0,
+          "extent": "PointerFetch",
+          "fixed_address": 160,
+          "identity": "FixedZeroPage(MirFixedZpSlot(160))",
+          "requires_zero_page": false
+        }
+      ],
+      "reads": [
+        {
+          "address": 12410,
+          "bytes": 256
+        },
+        {
+          "address": 12411,
+          "bytes": 256
+        },
+        {
+          "address": 160,
+          "bytes": 1
+        },
+        {
+          "address": 161,
+          "bytes": 1
+        }
+      ],
+      "requires_layout": true,
+      "resolution": "resolved",
+      "routine": "MakeJmp",
+      "routine_id": 90,
+      "write_expressions": [
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 160,
+          "identity": "FixedZeroPage(MirFixedZpSlot(160))",
+          "requires_zero_page": true
+        },
+        {
+          "addend": 0,
+          "extent": "Bytes(1)",
+          "fixed_address": 161,
+          "identity": "FixedZeroPage(MirFixedZpSlot(161))",
+          "requires_zero_page": true
+        }
+      ],
+      "writes": [
+        {
+          "address": 160,
+          "bytes": 1
+        },
+        {
+          "address": 161,
+          "bytes": 1
+        }
+      ]
+    }
+  ],
+  "abi_captures": [
+    {
+      "address": 13194,
+      "block": "bb71",
+      "bytes": 5,
+      "effects": "MirEffects { memory_reads: Unknown, memory_writes: Unknown, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: true, x: true, y: true, flags: true, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: Some(0), may_call_os: false, opaque: false }",
+      "first_param": 0,
+      "kind": "sargs",
+      "routine": "Range",
+      "routine_id": 37
+    }
+  ],
+  "unresolved_machine_observations": [],
+  "controls": {
+    "Sort": {
+      "before": {
+        "code_bytes": 250,
+        "homes": [
+          {
+            "address": 13235,
+            "kind": "Local",
+            "name": "h",
+            "size": 2
+          },
+          {
+            "address": 13237,
+            "kind": "Local",
+            "name": "spill96",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 3,
+        "name": "Sort",
+        "zp_home_bytes": 0
+      },
+      "after": {
+        "code_bytes": 246,
+        "homes": [
+          {
+            "address": 226,
+            "kind": "Local",
+            "name": "h",
+            "size": 2
+          },
+          {
+            "address": 13235,
+            "kind": "Local",
+            "name": "spill96",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 1,
+        "name": "Sort",
+        "zp_home_bytes": 2
+      }
+    },
+    "Fnamecmp": {
+      "before": {
+        "code_bytes": 105,
+        "homes": [
+          {
+            "address": 160,
+            "kind": "Parameter",
+            "name": "s",
+            "size": 2
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "t",
+            "size": 2
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Fnamecmp",
+        "zp_home_bytes": 4
+      },
+      "after": {
+        "code_bytes": 105,
+        "homes": [
+          {
+            "address": 160,
+            "kind": "Parameter",
+            "name": "s",
+            "size": 2
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "t",
+            "size": 2
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Fnamecmp",
+        "zp_home_bytes": 4
+      }
+    },
+    "Ord": {
+      "before": {
+        "code_bytes": 51,
+        "homes": [
+          {
+            "address": 226,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "item",
+            "size": 2
+          },
+          {
+            "address": 228,
+            "kind": "Local",
+            "name": "c",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Ord",
+        "zp_home_bytes": 5
+      },
+      "after": {
+        "code_bytes": 51,
+        "homes": [
+          {
+            "address": 226,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "item",
+            "size": 2
+          },
+          {
+            "address": 228,
+            "kind": "Local",
+            "name": "c",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Ord",
+        "zp_home_bytes": 5
+      }
+    },
+    "Items": {
+      "before": {
+        "code_bytes": 37,
+        "homes": [
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 226,
+            "kind": "Local",
+            "name": "c",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Items",
+        "zp_home_bytes": 3
+      },
+      "after": {
+        "code_bytes": 37,
+        "homes": [
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 226,
+            "kind": "Local",
+            "name": "c",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Items",
+        "zp_home_bytes": 3
+      }
+    },
+    "FindItem": {
+      "before": {
+        "code_bytes": 53,
+        "homes": [
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 226,
+            "kind": "Parameter",
+            "name": "ch",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "FindItem",
+        "zp_home_bytes": 3
+      },
+      "after": {
+        "code_bytes": 53,
+        "homes": [
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 226,
+            "kind": "Parameter",
+            "name": "ch",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "FindItem",
+        "zp_home_bytes": 3
+      }
+    },
+    "Next": {
+      "before": {
+        "code_bytes": 30,
+        "homes": [],
+        "inline_home_bytes": 0,
+        "name": "Next",
+        "zp_home_bytes": 0
+      },
+      "after": {
+        "code_bytes": 30,
+        "homes": [],
+        "inline_home_bytes": 0,
+        "name": "Next",
+        "zp_home_bytes": 0
+      }
+    },
+    "Copy": {
+      "before": {
+        "code_bytes": 673,
+        "homes": [
+          {
+            "address": 24850,
+            "kind": "Local",
+            "name": "lentab",
+            "size": 32
+          },
+          {
+            "address": 24882,
+            "kind": "Local",
+            "name": "copytab",
+            "size": 16
+          },
+          {
+            "address": 13329,
+            "kind": "Local",
+            "name": "mem",
+            "size": 2
+          },
+          {
+            "address": 13331,
+            "kind": "Local",
+            "name": "len",
+            "size": 2
+          },
+          {
+            "address": 13333,
+            "kind": "Local",
+            "name": "files",
+            "size": 1
+          },
+          {
+            "address": 13334,
+            "kind": "Local",
+            "name": "j",
+            "size": 1
+          },
+          {
+            "address": 13335,
+            "kind": "Local",
+            "name": "k",
+            "size": 1
+          },
+          {
+            "address": 13336,
+            "kind": "Local",
+            "name": "flag",
+            "size": 1
+          },
+          {
+            "address": 13337,
+            "kind": "Local",
+            "name": "diskswap",
+            "size": 1
+          },
+          {
+            "address": 13338,
+            "kind": "Local",
+            "name": "isopen",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 58,
+        "name": "Copy",
+        "zp_home_bytes": 0
+      },
+      "after": {
+        "code_bytes": 673,
+        "homes": [
+          {
+            "address": 24836,
+            "kind": "Local",
+            "name": "lentab",
+            "size": 32
+          },
+          {
+            "address": 24868,
+            "kind": "Local",
+            "name": "copytab",
+            "size": 16
+          },
+          {
+            "address": 13327,
+            "kind": "Local",
+            "name": "mem",
+            "size": 2
+          },
+          {
+            "address": 13329,
+            "kind": "Local",
+            "name": "len",
+            "size": 2
+          },
+          {
+            "address": 13331,
+            "kind": "Local",
+            "name": "files",
+            "size": 1
+          },
+          {
+            "address": 13332,
+            "kind": "Local",
+            "name": "j",
+            "size": 1
+          },
+          {
+            "address": 13333,
+            "kind": "Local",
+            "name": "k",
+            "size": 1
+          },
+          {
+            "address": 13334,
+            "kind": "Local",
+            "name": "flag",
+            "size": 1
+          },
+          {
+            "address": 13335,
+            "kind": "Local",
+            "name": "diskswap",
+            "size": 1
+          },
+          {
+            "address": 13336,
+            "kind": "Local",
+            "name": "isopen",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 58,
+        "name": "Copy",
+        "zp_home_bytes": 0
+      }
+    }
+  },
+  "decisions": [
+    {
+      "attempt": 22263,
+      "data": {
+        "accepted": true,
+        "after_bytes": 9947,
+        "before_bytes": 10039,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 55,
+            "before": 63,
+            "routine": "Instr"
+          },
+          {
+            "after": 105,
+            "before": 189,
+            "routine": "Fnamecmp"
+          }
+        ]
+      },
+      "id": 69825,
+      "kind": "parameter-home-result"
+    },
+    {
+      "attempt": 29932,
+      "data": {
+        "accepted": true,
+        "after_bytes": 9910,
+        "before_bytes": 9947,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 20,
+            "before": 57,
+            "routine": "Strcpy"
+          }
+        ]
+      },
+      "id": 88109,
+      "kind": "parameter-argument-handoff-result"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Pull"
+      },
+      "id": 88110,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "SavePos"
+      },
+      "id": 88111,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "RestorePos"
+      },
+      "id": 88112,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Window"
+      },
+      "id": 88113,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Range"
+      },
+      "id": 88114,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "PopUp"
+      },
+      "id": 88115,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Init"
+      },
+      "id": 88116,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Strcpy"
+      },
+      "id": 88117,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Strcat"
+      },
+      "id": 88118,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "CloseAll"
+      },
+      "id": 88119,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Path"
+      },
+      "id": 88120,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "UpdDis"
+      },
+      "id": 88121,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "DrawWinFrame"
+      },
+      "id": 88122,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Convert"
+      },
+      "id": 88123,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "TagAll"
+      },
+      "id": 88124,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "SetWin"
+      },
+      "id": 88125,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "SwapWin"
+      },
+      "id": 88126,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Dir"
+      },
+      "id": 88127,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Xloop"
+      },
+      "id": 88128,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Delete"
+      },
+      "id": 88129,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Format"
+      },
+      "id": 88130,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "View"
+      },
+      "id": 88131,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "MkDir"
+      },
+      "id": 88132,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Rename"
+      },
+      "id": 88133,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "Copy"
+      },
+      "id": 88134,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": true,
+        "reason": "unsupported caller body or signature",
+        "routine": "Quit"
+      },
+      "id": 88135,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": true,
+        "reason": "unsupported caller body or signature",
+        "routine": "Handle"
+      },
+      "id": 88136,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "InitPanels"
+      },
+      "id": 88137,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": true,
+        "machine_blocks": true,
+        "reason": "unsupported caller body or signature",
+        "routine": "NavError"
+      },
+      "id": 88138,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "indirect_writes": false,
+        "machine_blocks": false,
+        "reason": "unsupported caller body or signature",
+        "routine": "NavInit"
+      },
+      "id": 88139,
+      "kind": "cross-call-ineligible"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 2,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "Alloc"
+      },
+      "id": 88140,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 3,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "Free"
+      },
+      "id": 88141,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 2,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "Push"
+      },
+      "id": 88142,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 2,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "Putchar"
+      },
+      "id": 88143,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "Print"
+      },
+      "id": 88144,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "PrintE"
+      },
+      "id": 88145,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 6,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "CloseWindow"
+      },
+      "id": 88146,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 11,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "InputLine"
+      },
+      "id": 88147,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "bindings": "Some([MirParamBinding { param: ParamId(0), home: ZeroPage(MirFixedZpSlot(226)) }, MirParamBinding { param: ParamId(1), home: ZeroPage(MirFixedZpSlot(162)) }])",
+        "call_count": 1,
+        "local_bindings": "Some([MirLocalBinding { local: LocalId(0), home: ZeroPage(MirFixedZpSlot(228)) }])",
+        "routine": "Ord"
+      },
+      "id": 88148,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "bindings": "Some([MirParamBinding { param: ParamId(0), home: ZeroPage(MirFixedZpSlot(162)) }])",
+        "call_count": 1,
+        "local_bindings": "Some([MirLocalBinding { local: LocalId(0), home: ZeroPage(MirFixedZpSlot(226)) }])",
+        "routine": "Items"
+      },
+      "id": 88149,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "bindings": "Some([MirParamBinding { param: ParamId(0), home: ZeroPage(MirFixedZpSlot(162)) }, MirParamBinding { param: ParamId(1), home: ZeroPage(MirFixedZpSlot(226)) }])",
+        "call_count": 2,
+        "local_bindings": "None",
+        "routine": "FindItem"
+      },
+      "id": 88150,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 2,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "DrawMenu"
+      },
+      "id": 88151,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 3,
+        "call_index": 1,
+        "reason": "unsupported residence callee",
+        "routine": "MoveMenuBar"
+      },
+      "id": 88152,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "PrintFname"
+      },
+      "id": 88153,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "bindings": "None",
+        "call_count": 1,
+        "local_bindings": "Some([MirLocalBinding { local: LocalId(1), home: ZeroPage(MirFixedZpSlot(226)) }])",
+        "routine": "Sort"
+      },
+      "id": 88154,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 4,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "Draw"
+      },
+      "id": 88155,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 6,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "Inv"
+      },
+      "id": 88156,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "IsTagged"
+      },
+      "id": 88157,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "RowMarker"
+      },
+      "id": 88158,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "IsProtected"
+      },
+      "id": 88159,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "IsDirectory"
+      },
+      "id": 88160,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 3,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "Tag"
+      },
+      "id": 88161,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "FindNext"
+      },
+      "id": 88162,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 4,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "FormatDirectoryRow"
+      },
+      "id": 88163,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "PrintNonzeroDigit"
+      },
+      "id": 88164,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 3,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "PrintB"
+      },
+      "id": 88165,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 1,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "GoTo"
+      },
+      "id": 88166,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 18,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "NewDrive"
+      },
+      "id": 88167,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 6,
+        "call_index": 1,
+        "reason": "unsupported residence callee",
+        "routine": "Attrib"
+      },
+      "id": 88168,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "call_count": 9,
+        "call_index": 0,
+        "reason": "unsupported residence callee",
+        "routine": "SwapScr"
+      },
+      "id": 88169,
+      "kind": "cross-call-candidate"
+    },
+    {
+      "attempt": 37595,
+      "data": {
+        "accepted": true,
+        "after_bytes": 9824,
+        "before_bytes": 9910,
+        "diagnostics": null,
+        "reason": "smaller-image",
+        "routine_cost_changes": [
+          {
+            "after": 51,
+            "before": 85,
+            "routine": "Ord"
+          },
+          {
+            "after": 37,
+            "before": 59,
+            "routine": "Items"
+          },
+          {
+            "after": 53,
+            "before": 74,
+            "routine": "FindItem"
+          },
+          {
+            "after": 247,
+            "before": 253,
+            "routine": "Sort"
+          },
+          {
+            "after": 731,
+            "before": 734,
+            "routine": "Copy"
+          }
+        ]
+      },
+      "id": 106499,
+      "kind": "cross-call-home-result"
+    },
+    {
+      "attempt": 0,
+      "data": {
+        "snapshot": 105746
+      },
+      "id": 106500,
+      "kind": "final-artifact-selection"
+    }
+  ],
+  "measurement": {
+    "generation_seconds": 20.544329291,
+    "resident_kib": 531632,
+    "sample_scope": "single traced source-to-executable generation; not peak RSS"
+  }
+}

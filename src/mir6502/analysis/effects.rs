@@ -1566,6 +1566,43 @@ fn record_indirect_y_access(
     }
 }
 
+/// After argument setup, call homes contain the inputs consumed by the callee.
+/// The retained argument values may be placeholders for already emitted stores.
+/// Keep this separate from pre-materialization effects, where homes are targets.
+pub(in crate::mir6502) fn classify_posthome_op(op: &MirOp) -> MirOpEffectSummary {
+    let mut summary = classify_op(op);
+    if let MirOp::Call { args, .. } = op {
+        for arg in args {
+            record_posthome_arg_read(&arg.home, arg.width, &mut summary);
+        }
+    }
+    summary
+}
+
+fn record_posthome_arg_read(home: &MirArgHome, width: MirWidth, summary: &mut MirOpEffectSummary) {
+    match home {
+        MirArgHome::BytePair { lo, hi } => {
+            record_posthome_arg_read(lo, MirWidth::Byte, summary);
+            record_posthome_arg_read(hi, MirWidth::Byte, summary);
+        }
+        MirArgHome::ZeroPage(slot) => {
+            record_memory_range_read(&MirMem::ZeroPage(*slot), width, summary);
+        }
+        MirArgHome::FixedZeroPage(slot) => {
+            record_memory_range_read(&MirMem::FixedZeroPage(*slot), width, summary);
+        }
+        MirArgHome::Absolute(address) => {
+            record_memory_range_read(&MirMem::Absolute(*address), width, summary);
+            for offset in 0..width_bytes(width) {
+                if let Ok(byte) = u8::try_from(address.wrapping_add(offset)) {
+                    summary.homes.reads.insert(MirHomeByte::FixedZeroPage(MirFixedZpSlot(byte)));
+                }
+            }
+        }
+        home => record_arg_home_read(home, summary),
+    }
+}
+
 fn record_arg_home_read(home: &MirArgHome, summary: &mut MirOpEffectSummary) {
     match home {
         MirArgHome::Reg(reg) => set_register(&mut summary.machine.register_reads, *reg),

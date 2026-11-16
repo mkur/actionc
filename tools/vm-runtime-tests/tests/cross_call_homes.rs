@@ -84,7 +84,34 @@ fn object_storage_native_swaps_preserve_calls_pages_and_stack() {
             let mut observe = Observe { advance: entry("Touch"), arguments: vec![] };
             vm.bus_mut().ram_mut().write(0xe4, 0x5a);
             let storage = |name: &str| output.map.storage_symbols.iter()
-                .find(|s| s.name.eq_ignore_ascii_case(name)).unwrap().address;
+                .find(|s| s.name.eq_ignore_ascii_case(name)).unwrap_or_else(|| panic!("missing storage {name}")).address;
+            let vector = storage("vector");
+            let target = entry("JumpTarget").to_le_bytes();
+            assert_ne!(vector & 0xff, 0xff, "the independent wrap boundary is covered by unit controls");
+            vm.bus_mut().ram_mut().map(vector, &target).unwrap();
+            vm.bus_mut().ram_mut().map(storage("targets"), &[0x5a; 256]).unwrap();
+            vm.bus_mut().ram_mut().map(storage("targets"), &target).unwrap();
+            for name in ["indexedBefore", "indexedAfter", "targetsBefore", "targetsAfter", "bufBefore", "bufAfter"] {
+                vm.bus_mut().ram_mut().write(storage(name), 0xc7);
+            }
+            for value in [0x39, 0xa6] {
+                vm.bus_mut().ram_mut().write(storage("indexed"), value);
+                vm.bus_mut().ram_mut().map(storage("buf"), &[0x6c; 256]).unwrap();
+                vm = machine::call(vm, &mut observe, entry("CopyIndexed"), &[]);
+                assert_eq!(machine::bytes(&vm, storage("buf"), 1), [value]);
+                assert_eq!(machine::bytes(&vm, storage("buf") + 1, 255), [0x6c; 255]);
+                assert_eq!(machine::bytes(&vm, storage("observedValue"), 1), [value]);
+                vm = machine::call(vm, &mut observe, entry("JumpSymbolic"), &[]);
+                assert_eq!(machine::bytes(&vm, storage("observedValue"), 1), [value + 1]);
+                vm = machine::call(vm, &mut observe, entry("DispatchIndexed"), &[]);
+                assert_eq!(machine::bytes(&vm, storage("observedValue"), 1), [value + 2]);
+                assert_eq!(machine::bytes(&vm, vector, 2), target);
+                assert_eq!(machine::bytes(&vm, storage("targets"), 2), target);
+                assert_eq!(machine::bytes(&vm, storage("targets") + 2, 254), [0x5a; 254]);
+                for name in ["indexedBefore", "indexedAfter", "targetsBefore", "targetsAfter", "bufBefore", "bufAfter"] {
+                    assert_eq!(machine::bytes(&vm, storage(name), 1), [0xc7], "{name}");
+                }
+            }
             let pointer = storage("observed");
             let before_pointer = storage("observedBefore");
             let after_pointer = storage("observedAfter");

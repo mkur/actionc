@@ -728,6 +728,37 @@ mod tests {
     }
 
     #[test]
+    fn posthome_call_arguments_keep_overlapping_scratch_definitions_live() {
+        use crate::mir6502::ir::{MirArgHome, MirCallAbi, MirCallArg, MirCallTarget};
+        let fixed = |slot| MirArgHome::FixedZeroPage(MirFixedZpSlot(slot));
+        for homes in [
+            vec![(fixed(0xAC), MirWidth::Byte), (fixed(0xAD), MirWidth::Byte)],
+            vec![(MirArgHome::BytePair { lo: Box::new(fixed(0xAC)), hi: Box::new(fixed(0xAD)) }, MirWidth::Word)],
+            vec![(fixed(0xAC), MirWidth::Word)],
+            vec![(MirArgHome::Absolute(0xAC), MirWidth::Word)],
+            vec![(MirArgHome::BytePair { lo: Box::new(MirArgHome::Absolute(0xAC)), hi: Box::new(MirArgHome::Absolute(0xAD)) }, MirWidth::Word)],
+        ] {
+            let call = MirOp::Call {
+                target: MirCallTarget::Routine(RoutineId(1)),
+                abi: MirCallAbi { params: homes.iter().map(|(h, _)| h.clone()).collect(),
+                    result: None, additional_results: vec![], clobbers: Default::default(), preserves: Default::default() },
+                args: homes.into_iter().map(|(home, width)| MirCallArg {
+                    home, width, value: if width == MirWidth::Byte { MirValue::ConstU8(0) } else { MirValue::ConstU16(0) },
+                }).collect(),
+                result: None, additional_results: vec![], effects: MirEffects::default(),
+            };
+            let routine = routine(vec![block(0, vec![store_fixed(0xAC), store_fixed(0xAD),
+                store_fixed(0xAE), call, store_fixed(0xAC), store_fixed(0xAD)], MirTerminator::Return)]);
+            let definitions = analyze(&routine);
+            for (index, slot, dead) in [(0, 0xAC, false), (1, 0xAD, false), (2, 0xAE, true),
+                (4, 0xAC, true), (5, 0xAD, true)] {
+                assert_eq!(definitions.definition_dead_after(
+                    MirHomeByte::FixedZeroPage(MirFixedZpSlot(slot)), op(0, index), op(0, index)), Ok(dead));
+            }
+        }
+    }
+
+    #[test]
     fn action_return_boundary_observes_public_return_slot_definitions() {
         let routine = routine(vec![block(
             0,

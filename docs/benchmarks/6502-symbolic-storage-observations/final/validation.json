@@ -1,0 +1,358 @@
+{
+  "status": "complete_with_reproduced_baseline_failures",
+  "focused": {
+    "sargs_capture_unit": 2,
+    "call_abi": 11,
+    "sargs_final_address": 3,
+    "sargs_listing": 3,
+    "sargs_cli": 6,
+    "observation_unit": 18,
+    "object_storage_unit": 4,
+    "machine_cleanup_observation": 1,
+    "exact_rollback": 1,
+    "object_storage_pipeline": 3,
+    "sargs_vm_groups": 1,
+    "object_storage_vm_groups": 1,
+    "posthome_abi_home_definition_group": 1
+  },
+  "vm_matrix": "ActionCart and Standalone; object-storage placement off/on",
+  "baseline_failures": "../../6502-labeled-data/final/validation.json",
+  "initial_affected_backend_runs": [
+    {
+      "name": "backend-unit",
+      "command": [
+        "cargo",
+        "test",
+        "--lib",
+        "mir6502::"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 213.996,
+      "log": "build/symbolic-observation-backend-unit.log",
+      "targets": 1,
+      "passed": 1436,
+      "failed": 5,
+      "ignored": 15,
+      "log_sha256": "4e4c17f258d09f3e9d111073d58718109a425d51082c4345bd3b381430874f6e"
+    },
+    {
+      "name": "backend-integration",
+      "command": [
+        "cargo",
+        "test",
+        "--no-fail-fast",
+        "--test",
+        "mir6502_argument_staging",
+        "--test",
+        "mir6502_argument_x_bitwise",
+        "--test",
+        "mir6502_argument_x_forwarding",
+        "--test",
+        "mir6502_bounded_call_pointer_retention",
+        "--test",
+        "mir6502_call_abi",
+        "--test",
+        "mir6502_callee_entry_flags",
+        "--test",
+        "mir6502_checked_pointer_ranges",
+        "--test",
+        "mir6502_circle_quality",
+        "--test",
+        "mir6502_cross_call_homes",
+        "--test",
+        "mir6502_direct_comparisons",
+        "--test",
+        "mir6502_fixtures",
+        "--test",
+        "mir6502_home_value_invalidation",
+        "--test",
+        "mir6502_kalscope_quality",
+        "--test",
+        "mir6502_late_cleanup",
+        "--test",
+        "mir6502_late_register_reuse",
+        "--test",
+        "mir6502_late_spill_pruning",
+        "--test",
+        "mir6502_layout_census",
+        "--test",
+        "mir6502_leaf_inline_cli",
+        "--test",
+        "mir6502_loop_consumer",
+        "--test",
+        "mir6502_materialization_gap",
+        "--test",
+        "mir6502_parameter_argument_handoff",
+        "--test",
+        "mir6502_parameter_homes",
+        "--test",
+        "mir6502_parameter_pointers",
+        "--test",
+        "mir6502_phase_trace",
+        "--test",
+        "mir6502_pointer_byte_plus_one",
+        "--test",
+        "mir6502_pointer_load_sharing",
+        "--test",
+        "mir6502_pointer_retention",
+        "--test",
+        "mir6502_pointer_setup",
+        "--test",
+        "mir6502_register_copy_forwarding",
+        "--test",
+        "mir6502_rewrite_inventory",
+        "--test",
+        "mir6502_store_consumer",
+        "--test",
+        "mir6502_turtle_quality",
+        "--test",
+        "mir6502_warpdem_quality",
+        "--test",
+        "mir6502_word_load_sharing",
+        "--test",
+        "mir6502_word_move_store"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 352.524,
+      "log": "build/symbolic-observation-backend-integration.log",
+      "targets": 35,
+      "passed": 160,
+      "failed": 6,
+      "ignored": 14,
+      "log_sha256": "6a84d10ee7475a68e575d8ff5b23d3ff47cb965b25b8e9d4fe820e943c9af82f"
+    },
+    {
+      "name": "backend-vm",
+      "command": [
+        "cargo",
+        "test",
+        "--no-fail-fast",
+        "--manifest-path",
+        "tools/vm-runtime-tests/Cargo.toml"
+      ],
+      "exit_code": 101,
+      "elapsed_seconds": 1659.917,
+      "log": "build/symbolic-observation-backend-vm.log",
+      "targets": 132,
+      "passed": 487,
+      "failed": 5,
+      "ignored": 11,
+      "log_sha256": "90c046d634ce28990c940a67d43b70bd8daf08e717f327e4f07964c01797a1aa"
+    }
+  ],
+  "post_correction_checks": {
+    "integration": {
+      "targets": 6,
+      "passed": 102,
+      "failed": 0,
+      "ignored": 2,
+      "log": "build/symbolic-observation-abi-home-integration.log",
+      "log_sha256": "2242709447d03e7dc63f8f77f229d78e0df29650bfbc92072475a54370f084c1",
+      "targets_selected": [
+        "mir6502_argument_staging",
+        "mir6502_call_abi",
+        "mir6502_cross_call_homes",
+        "mir6502_materialization_gap",
+        "mir6502_parameter_argument_handoff",
+        "mir6502_parameter_homes"
+      ]
+    },
+    "vm": {
+      "targets": 3,
+      "passed": 13,
+      "failed": 0,
+      "ignored": 0,
+      "log": "build/symbolic-observation-abi-home-vm.log",
+      "log_sha256": "a1ac71dbf3f4de339cb117ee3dc7ac2179f2aaf60bcaaca0b2ea59ac043a594e",
+      "targets_selected": [
+        "adpcm_dec",
+        "cross_call_homes",
+        "tn_dispatch"
+      ]
+    },
+    "backend_unit": {
+      "command": "RUST_TEST_THREADS=2 build/checked-arena/shared-target/debug/deps/actionc-60432645d6edf052 mir6502:: --skip tn_leaf_facts_audit",
+      "scope": "All MIR6502 library tests, using the binary compiled from final sources during the TN diagnostic collection; only the diagnostic generator is excluded.",
+      "passed": 1437,
+      "failed": 5,
+      "ignored": 15,
+      "elapsed_seconds": 18.06,
+      "log": "build/symbolic-observation-abi-home-backend-unit.log",
+      "log_sha256": "52cac9acb77aadb8c7bd11e6b1fdb6a886eb3339d4c056e84281a3b457ef827d",
+      "failures_match_baseline": true
+    }
+  },
+  "new_regression": {
+    "test": "adpcm_dec_mir6502_cart_matches_c_reference",
+    "baseline_revision": "96e91785",
+    "baseline_result": "passes",
+    "initial_result": "checkpoint 1 at $0C77: 64 instead of 192",
+    "diagnosis": "Disabling terminal cleanup restores all vectors; default cleanup removes twelve outgoing argument stores at $AC/$AD and their producers.",
+    "correction": "Post-home home-liveness and definition-use transfers read populated call argument homes, including paired and absolute ZP forms. Pre-materialization effects remain unchanged.",
+    "final_result": "all five ADPCM tests pass, including both MIR6502 runtimes and real LF/CRLF fixture instrumentation"
+  },
+  "baseline_unit_comparison": [
+    {
+      "test": "mir6502::materialize::constructor_storage::tests::constructor_storage_protects_incoming_pointer_across_known_calls",
+      "same_failure": true,
+      "failure": "assertion `left == right` failed\n  left: 0\n right: 2"
+    },
+    {
+      "test": "mir6502::materialize::pointer_retention::tests::pointer_retention_calls_keep_hardware_mapping_and_unowned_access_barriers",
+      "same_failure": true,
+      "failure": "an inspectable indexed RAM table read must stay usable"
+    },
+    {
+      "test": "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_audits_effects_and_bounds_in_each_callee_frame",
+      "same_failure": true,
+      "failure": "assertion failed: proven(&p)"
+    },
+    {
+      "test": "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_checks_successors_and_frame_exposure",
+      "same_failure": true,
+      "failure": "assertion failed: proven(&p)"
+    },
+    {
+      "test": "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_is_path_sensitive_and_costed_after_forwarding",
+      "same_failure": true,
+      "failure": "callee Save Some(MirKnownCalleeExitSummary { accumulator: None, zn: None, preserves: MirRegisterSet { a: false, x: true, y: true, flags: false, sp: false }, reads: Exact([Param { id: ParamId(0), offset: 0 }, Param { id: ParamId(0), offset: 1 }]), writes: Unknown })"
+    }
+  ],
+  "baseline_integration_run": {
+    "revision": "96e91785",
+    "command": [
+      "cargo",
+      "test",
+      "--no-fail-fast",
+      "--test",
+      "mir6502_late_cleanup",
+      "--test",
+      "mir6502_late_spill_pruning",
+      "--test",
+      "mir6502_parameter_pointers",
+      "--",
+      "--skip",
+      "late_cleanup_master_gate_and_historical_materialized_dump_are_independent",
+      "--skip",
+      "late_producers_remove_independent_pointer_capture_loads",
+      "--skip",
+      "late_producer_listings_relocate_with_lf_and_crlf",
+      "--skip",
+      "spill_pruning_is_opt_in_and_respects_terminal_and_master_gates",
+      "--skip",
+      "private_compaction_saves_two_bytes_with_identical_census_work_and_lf_crlf_parsing",
+      "--skip",
+      "pointer_bindings_preserve_upstream_selections_and_search_counts",
+      "--skip",
+      "actual_tn_uses_resident_pointer_pairs_and_saves_final_bytes",
+      "--skip",
+      "pointer_scratch_pairs_are_available_only_with_proved_lifetimes",
+      "--skip",
+      "data_dependent_pointer_adjustments_keep_the_existing_fused_strategy"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 185.722,
+    "log": "build/symbolic-observation-baseline-integration.log"
+  },
+  "baseline_integration_comparison": [
+    {
+      "test": "late_cleanup_shrinks_argument_staging_and_preserves_trace_equivalence",
+      "baseline_failed": true,
+      "current_failed": true,
+      "identical_assertion_output": false,
+      "baseline_assertion": "assertion `left == right` failed: ActionCart 3000: {\"accepted\":false,\"reason\":\"ObservableAlias\"}\n  left: Bool(false)\n right: true",
+      "current_assertion": "assertion `left == right` failed: Standalone 3000: {\"accepted\":false,\"reason\":\"ObservableAlias\"}\n  left: Bool(false)\n right: true",
+      "baseline_assertion_sha256": "c73a71ce9025c4e080866cf97411866cf9337074a634a683c1ed61279b20eea2",
+      "current_assertion_sha256": "3c97b89b8a3b3c880ea5b1ef580e9370918637ed882abf2d1eb58442253865ed"
+    },
+    {
+      "test": "tn_late_cleanup_removes_six_stores_without_extra_materialization",
+      "baseline_failed": true,
+      "current_failed": true,
+      "identical_assertion_output": true,
+      "baseline_assertion": "assertion failed: result[\"instruction_bytes_before\"].as_u64().unwrap() -\n        result[\"instruction_bytes_after\"].as_u64().unwrap() >= 18",
+      "current_assertion": "assertion failed: result[\"instruction_bytes_before\"].as_u64().unwrap() -\n        result[\"instruction_bytes_after\"].as_u64().unwrap() >= 18",
+      "baseline_assertion_sha256": "e7218e22c9d9488e92ac82e6b9c6d476dadbc14031649b3c7cbb832f554d94e8",
+      "current_assertion_sha256": "e7218e22c9d9488e92ac82e6b9c6d476dadbc14031649b3c7cbb832f554d94e8"
+    },
+    {
+      "test": "tn_producer_extension_saves_beyond_store_only_cleanup",
+      "baseline_failed": true,
+      "current_failed": true,
+      "identical_assertion_output": false,
+      "baseline_assertion": "{\"accepted\":true,\"expanded_operations\":2,\"image_bytes_after\":10047,\"image_bytes_before\":10053,\"instruction_bytes_after\":8955,\"instruction_bytes_before\":8961,\"register_transfers\":2,\"removed_producers\":0,\"removed_reloads\":2,\"removed_stores\":0,\"routines\":[39,40]}",
+      "current_assertion": "{\"accepted\":true,\"expanded_operations\":2,\"image_bytes_after\":10039,\"image_bytes_before\":10053,\"instruction_bytes_after\":8947,\"instruction_bytes_before\":8961,\"register_transfers\":2,\"removed_producers\":0,\"removed_reloads\":2,\"removed_stores\":4,\"routines\":[39,40,45,59,69,70]}",
+      "baseline_assertion_sha256": "ff7470691cce7146323aeac9b830868f7c63b51b1e67595e6b1f379115fdda74",
+      "current_assertion_sha256": "f0bc5676a94dba53810b1b882ecc8fa82d7a75568ba2907c26bce4999ebcacde"
+    },
+    {
+      "test": "source_tail_proof_blocker_preserves_output_and_prior_cleanup",
+      "baseline_failed": true,
+      "current_failed": true,
+      "identical_assertion_output": false,
+      "baseline_assertion": "assertion `left == right` failed\n  left: Number(0)\n right: 1",
+      "current_assertion": "assertion `left == right` failed: {\"accepted\":false,\"candidate_spills\":1,\"reason\":\"EarlierDecision(ArgumentStaging)\",\"removed_spills\":0,\"unreferenced_spills\":1}\n  left: String(\"EarlierDecision(ArgumentStaging)\")\n right: \"ReferencedOrExposed\"",
+      "baseline_assertion_sha256": "044934a6507857cb65bf6615cfbf8de069e320d2a885fe39cb89994e66c0e212",
+      "current_assertion_sha256": "a546d8a0cb402c6ab1e3222fcc6b204fbfefecb845bb7acffac10826703b974b"
+    },
+    {
+      "test": "indirect_writes_and_helper_leaves_retain_exact_fallback",
+      "baseline_failed": true,
+      "current_failed": true,
+      "identical_assertion_output": true,
+      "baseline_assertion": "CodegenOutput equality mismatch: inline Subject vs selected ZP homes.",
+      "current_assertion": "CodegenOutput equality mismatch: inline Subject vs selected ZP homes.",
+      "baseline_assertion_sha256": "b32b1ba788ec0e8a45f990a06de409923555f13c41bebe4f03c46bec821ec5f8",
+      "current_assertion_sha256": "b32b1ba788ec0e8a45f990a06de409923555f13c41bebe4f03c46bec821ec5f8"
+    }
+  ],
+  "baseline_vm_comparison": [
+    {
+      "test": "tn_directory_row_producers_preserve_conversion_writes_and_machine_state",
+      "baseline_failed": true,
+      "current_failed": true,
+      "identical_assertion_output": true,
+      "baseline_assertion": "assertion `left == right` failed\n  left: 0\n right: 12",
+      "current_assertion": "assertion `left == right` failed\n  left: 0\n right: 12",
+      "baseline_assertion_sha256": "e566a89138f4e0c1b27795c30ba72b971e1d82e97394d4ae19c74667304c0cbb",
+      "current_assertion_sha256": "e566a89138f4e0c1b27795c30ba72b971e1d82e97394d4ae19c74667304c0cbb"
+    },
+    {
+      "test": "terminal_cleanup_preserves_argument_bytes_public_writes_and_returns",
+      "baseline_failed": true,
+      "current_failed": true,
+      "identical_assertion_output": true,
+      "baseline_assertion": "cleanup must actually save bytes",
+      "current_assertion": "cleanup must actually save bytes",
+      "baseline_assertion_sha256": "3d425bb657ed682ec36670942a84a979f6f3158d8d8bb612253ef07d1935e501",
+      "current_assertion_sha256": "3d425bb657ed682ec36670942a84a979f6f3158d8d8bb612253ef07d1935e501"
+    },
+    {
+      "test": "record_sequences_keep_fields_snapshots_and_mutable_source_cells",
+      "baseline_failed": true,
+      "current_failed": true,
+      "identical_assertion_output": true,
+      "baseline_assertion": "assertion `left == right` failed\n  left: 0\n right: 24576",
+      "current_assertion": "assertion `left == right` failed\n  left: 0\n right: 24576",
+      "baseline_assertion_sha256": "5c13e4d77e48c9450cf404e03e8b8663fb6607a547a09a1e9739ff8a78ff16f9",
+      "current_assertion_sha256": "5c13e4d77e48c9450cf404e03e8b8663fb6607a547a09a1e9739ff8a78ff16f9"
+    },
+    {
+      "test": "pattern_binding_storage_is_elided_across_exact_callees",
+      "baseline_failed": true,
+      "current_failed": true,
+      "identical_assertion_output": true,
+      "baseline_assertion": "assertion failed: after.bytes.len() < before.bytes.len()",
+      "current_assertion": "assertion failed: after.bytes.len() < before.bytes.len()",
+      "baseline_assertion_sha256": "a5ab01ccd59578885fd2549f714e0bb6f119951002521c65dc05d005cd32444f",
+      "current_assertion_sha256": "a5ab01ccd59578885fd2549f714e0bb6f119951002521c65dc05d005cd32444f"
+    }
+  ],
+  "scope_notes": [
+    "Full affected backend suite ran before the qualification correction; affected analyses, integration and VM targets were rechecked after correction.",
+    "The stale machine-descriptor fixture assertion was updated to require typed SArgs capture; its focused rerun and all 64 materialization-gap tests pass.",
+    "Five optimizer unit failures match the separately recorded clean-baseline evidence. Five integration and four VM failures also reproduce at 96e91785; changed failure progress is recorded explicitly.",
+    "Optional external-assembler tests and the separate tn-c-reference feature were not enabled. Other backends and repository-wide shared NIR sweeps were not run; no shared frontend/NIR contract changed.",
+    "TN facts were refreshed after the ABI liveness correction; final image and selected MIR are byte-identical to the first qualification. The final receipt supersedes the earlier one."
+  ]
+}

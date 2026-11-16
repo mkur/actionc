@@ -1,0 +1,1028 @@
+{
+  "schema": 1,
+  "scope": "static instruction scan; manual review required",
+  "raw_facts_sha256": "2e73a4dd04881b3a9bac2f037d5e36229b4916e370cf6f6dbb3e9ae18ef20d39",
+  "routines": [
+    {
+      "name": "MovePage",
+      "class": "machine-containing",
+      "direct_reads": [
+        164
+      ],
+      "direct_writes": [
+        160,
+        161,
+        162
+      ],
+      "dynamic_reads": [
+        "3429  B1 A2     LDA ($A2),Y"
+      ],
+      "dynamic_writes": [
+        "342B  91 A0     STA ($A0),Y"
+      ],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [
+        "x"
+      ],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "ArenaStop",
+      "class": "native-leaf",
+      "direct_reads": [],
+      "direct_writes": [
+        12292
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        },
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [
+        "x",
+        "y"
+      ],
+      "unknown_write_operations": []
+    },
+    {
+      "name": "CalcAdr",
+      "class": "machine-containing",
+      "direct_reads": [
+        88,
+        89,
+        230,
+        231,
+        254,
+        255
+      ],
+      "direct_writes": [
+        230,
+        231
+      ],
+      "dynamic_reads": [
+        "35D4  7D 09 30  ADC $3009,X",
+        "35DB  7D 21 30  ADC $3021,X"
+      ],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Position",
+      "class": "machine-containing",
+      "direct_reads": [],
+      "direct_writes": [
+        254,
+        255
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        },
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Relpos",
+      "class": "machine-containing",
+      "direct_reads": [
+        90,
+        91
+      ],
+      "direct_writes": [
+        254,
+        255
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        },
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Internal",
+      "class": "machine-containing",
+      "direct_reads": [],
+      "direct_writes": [
+        160
+      ],
+      "dynamic_reads": [
+        "3606  1D 39 30  ORA $3039,X"
+      ],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Ascii",
+      "class": "machine-containing",
+      "direct_reads": [],
+      "direct_writes": [
+        160
+      ],
+      "dynamic_reads": [
+        "3617  1D 3D 30  ORA $303D,X"
+      ],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Getchar",
+      "class": "machine-containing",
+      "direct_reads": [
+        58404,
+        58405
+      ],
+      "direct_writes": [
+        160,
+        764
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [
+        "x",
+        "y"
+      ],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Block",
+      "class": "machine-containing",
+      "direct_reads": [
+        112,
+        160,
+        230,
+        231
+      ],
+      "direct_writes": [
+        112,
+        160,
+        230,
+        231
+      ],
+      "dynamic_reads": [
+        "36B4  B1 E6     LDA ($E6),Y"
+      ],
+      "dynamic_writes": [
+        "369E  91 E6     STA ($E6),Y",
+        "36B8  91 E6     STA ($E6),Y"
+      ],
+      "external_transfers": [
+        "3688  20 CF 35  JSR $35CF"
+      ],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "_ImageAdvance",
+      "class": "machine-containing",
+      "direct_reads": [
+        160,
+        161,
+        164,
+        230,
+        231
+      ],
+      "direct_writes": [
+        160,
+        161,
+        230,
+        231
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        },
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "GetImage",
+      "class": "machine-containing",
+      "direct_reads": [
+        162,
+        163
+      ],
+      "direct_writes": [
+        160,
+        161,
+        162,
+        164
+      ],
+      "dynamic_reads": [
+        "36F3  B1 E6     LDA ($E6),Y"
+      ],
+      "dynamic_writes": [
+        "36F5  91 A0     STA ($A0),Y"
+      ],
+      "external_transfers": [
+        "36EC  20 CF 35  JSR $35CF",
+        "36FA  20 CC 36  JSR $36CC"
+      ],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "PutImage",
+      "class": "machine-containing",
+      "direct_reads": [
+        162,
+        163
+      ],
+      "direct_writes": [
+        160,
+        161,
+        162,
+        164
+      ],
+      "dynamic_reads": [
+        "3711  B1 A0     LDA ($A0),Y"
+      ],
+      "dynamic_writes": [
+        "3713  91 E6     STA ($E6),Y"
+      ],
+      "external_transfers": [
+        "370A  20 CF 35  JSR $35CF",
+        "3718  20 CC 36  JSR $36CC"
+      ],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Error",
+      "class": "native-leaf",
+      "direct_reads": [],
+      "direct_writes": [],
+      "dynamic_reads": [],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        },
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [
+        "x",
+        "y"
+      ],
+      "unknown_write_operations": []
+    },
+    {
+      "name": "_Cio",
+      "class": "machine-containing",
+      "direct_reads": [],
+      "direct_writes": [
+        12353
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [],
+      "external_transfers": [
+        "371F  20 56 E4  JSR $E456",
+        "3727  6C 42 30  JMP ($3042)"
+      ],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "_LodChn",
+      "class": "machine-containing",
+      "direct_reads": [],
+      "direct_writes": [],
+      "dynamic_reads": [],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        },
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "_StrNam",
+      "class": "machine-containing",
+      "direct_reads": [
+        134,
+        135,
+        136
+      ],
+      "direct_writes": [
+        134,
+        135,
+        136
+      ],
+      "dynamic_reads": [
+        "3737  B1 86     LDA ($86),Y",
+        "373C  B1 86     LDA ($86),Y"
+      ],
+      "dynamic_writes": [
+        "373E  99 53 56  STA $5653,Y",
+        "3748  99 53 56  STA $5653,Y",
+        "3755  9D 44 03  STA $0344,X",
+        "375A  9D 45 03  STA $0345,X"
+      ],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [
+        "x"
+      ],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "GetD",
+      "class": "machine-containing",
+      "direct_reads": [],
+      "direct_writes": [
+        160
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [
+        "3763  9D 48 03  STA $0348,X",
+        "3766  9D 49 03  STA $0349,X",
+        "376B  9D 42 03  STA $0342,X"
+      ],
+      "external_transfers": [
+        "375E  20 2B 37  JSR $372B",
+        "376E  20 1F 37  JSR $371F"
+      ],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "PutD",
+      "class": "machine-containing",
+      "direct_reads": [
+        160
+      ],
+      "direct_writes": [
+        160
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [
+        "377B  9D 48 03  STA $0348,X",
+        "377E  9D 49 03  STA $0349,X",
+        "3783  9D 42 03  STA $0342,X"
+      ],
+      "external_transfers": [
+        "3776  20 2B 37  JSR $372B",
+        "3788  4C 1F 37  JMP $371F"
+      ],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Open",
+      "class": "machine-containing",
+      "direct_reads": [
+        161,
+        163,
+        164
+      ],
+      "direct_writes": [
+        161
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [
+        "3797  9D 4A 03  STA $034A,X",
+        "379C  9D 4B 03  STA $034B,X",
+        "37A1  9D 42 03  STA $0342,X"
+      ],
+      "external_transfers": [
+        "378D  20 2B 37  JSR $372B",
+        "3792  20 31 37  JSR $3731",
+        "37A4  4C 1F 37  JMP $371F"
+      ],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Close",
+      "class": "machine-containing",
+      "direct_reads": [],
+      "direct_writes": [],
+      "dynamic_reads": [],
+      "dynamic_writes": [
+        "37AC  9D 42 03  STA $0342,X"
+      ],
+      "external_transfers": [
+        "37A7  20 2B 37  JSR $372B",
+        "37AF  4C 1F 37  JMP $371F"
+      ],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Input",
+      "class": "machine-containing",
+      "direct_reads": [
+        161,
+        163
+      ],
+      "direct_writes": [
+        161
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [
+        "37B9  9D 44 03  STA $0344,X",
+        "37BD  9D 45 03  STA $0345,X",
+        "37C2  9D 48 03  STA $0348,X",
+        "37C7  9D 49 03  STA $0349,X",
+        "37CC  9D 42 03  STA $0342,X"
+      ],
+      "external_transfers": [
+        "37B4  20 2B 37  JSR $372B",
+        "37CF  4C 1F 37  JMP $371F"
+      ],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "_BlockIO",
+      "class": "machine-containing",
+      "direct_reads": [
+        161,
+        163,
+        164
+      ],
+      "direct_writes": [],
+      "dynamic_reads": [
+        "37E5  BD 42 03  LDA $0342,X"
+      ],
+      "dynamic_writes": [
+        "37D4  9D 44 03  STA $0344,X",
+        "37D8  9D 45 03  STA $0345,X",
+        "37DD  9D 48 03  STA $0348,X",
+        "37E2  9D 49 03  STA $0349,X"
+      ],
+      "external_transfers": [
+        "37E8  4C 1F 37  JMP $371F"
+      ],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Bget",
+      "class": "machine-containing",
+      "direct_reads": [],
+      "direct_writes": [
+        161
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [
+        "37F2  9D 42 03  STA $0342,X"
+      ],
+      "external_transfers": [
+        "37ED  20 2B 37  JSR $372B",
+        "37F5  4C D2 37  JMP $37D2"
+      ],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Bput",
+      "class": "machine-containing",
+      "direct_reads": [],
+      "direct_writes": [
+        161
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [
+        "37FF  9D 42 03  STA $0342,X"
+      ],
+      "external_transfers": [
+        "37FA  20 2B 37  JSR $372B",
+        "3802  4C D2 37  JMP $37D2"
+      ],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Xio",
+      "class": "machine-containing",
+      "direct_reads": [
+        161,
+        163,
+        164,
+        165
+      ],
+      "direct_writes": [
+        161
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [
+        "380C  9D 42 03  STA $0342,X",
+        "3810  9D 4A 03  STA $034A,X",
+        "3815  9D 4B 03  STA $034B,X"
+      ],
+      "external_transfers": [
+        "3807  20 2B 37  JSR $372B",
+        "381C  20 31 37  JSR $3731",
+        "381F  4C 1F 37  JMP $371F"
+      ],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Key",
+      "class": "native-leaf",
+      "direct_reads": [
+        172,
+        173
+      ],
+      "direct_writes": [
+        160,
+        172,
+        173,
+        174,
+        175
+      ],
+      "dynamic_reads": [
+        "3B90  71 AE     ADC ($AE),Y",
+        "3BA6  B1 AC     LDA ($AC),Y"
+      ],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": []
+    },
+    {
+      "name": "Next",
+      "class": "native-leaf",
+      "direct_reads": [
+        172,
+        173
+      ],
+      "direct_writes": [
+        160,
+        161,
+        172,
+        173,
+        174,
+        175
+      ],
+      "dynamic_reads": [
+        "3BB2  71 AE     ADC ($AE),Y"
+      ],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": []
+    },
+    {
+      "name": "Instr",
+      "class": "native-leaf",
+      "direct_reads": [
+        160,
+        162,
+        224
+      ],
+      "direct_writes": [
+        160,
+        161,
+        162,
+        172,
+        173,
+        224
+      ],
+      "dynamic_reads": [
+        "3F0D  B1 AC     LDA ($AC),Y",
+        "3F17  B1 AC     LDA ($AC),Y"
+      ],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": []
+    },
+    {
+      "name": "GetAnyKey",
+      "class": "barrier-containing",
+      "direct_reads": [
+        53775
+      ],
+      "direct_writes": [],
+      "dynamic_reads": [],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [
+        "x",
+        "y"
+      ],
+      "unknown_write_operations": [
+        "Barrier"
+      ]
+    },
+    {
+      "name": "Store",
+      "class": "machine-containing",
+      "direct_reads": [],
+      "direct_writes": [
+        160,
+        161
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [
+        "3F75  91 A0     STA ($A0),Y"
+      ],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        },
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Value",
+      "class": "machine-containing",
+      "direct_reads": [],
+      "direct_writes": [
+        160,
+        161
+      ],
+      "dynamic_reads": [
+        "3F7E  B1 A0     LDA ($A0),Y"
+      ],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    },
+    {
+      "name": "Fnamecmp",
+      "class": "native-leaf",
+      "direct_reads": [
+        160,
+        161,
+        162,
+        163
+      ],
+      "direct_writes": [
+        160,
+        161,
+        162,
+        163
+      ],
+      "dynamic_reads": [
+        "3FA3  B1 A0     LDA ($A0),Y",
+        "3FA5  D1 A2     CMP ($A2),Y",
+        "3FAB  B1 A0     LDA ($A0),Y",
+        "3FB8  B1 A2     LDA ($A2),Y",
+        "3FD1  B1 A0     LDA ($A0),Y",
+        "3FD3  D1 A2     CMP ($A2),Y",
+        "3FE8  B1 A2     LDA ($A2),Y",
+        "3FEA  D1 A0     CMP ($A0),Y"
+      ],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": []
+    },
+    {
+      "name": "TaggedFiles",
+      "class": "native-leaf",
+      "direct_reads": [
+        12400
+      ],
+      "direct_writes": [
+        160
+      ],
+      "dynamic_reads": [],
+      "dynamic_writes": [],
+      "external_transfers": [],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        },
+        "writes": {
+          "direct_accesses_not_covered": [],
+          "unresolved_identities": []
+        }
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": []
+    },
+    {
+      "name": "MakeJmp",
+      "class": "machine-containing",
+      "direct_reads": [],
+      "direct_writes": [
+        160,
+        161
+      ],
+      "dynamic_reads": [
+        "51FC  BD 7A 30  LDA $307A,X",
+        "5201  BD 7B 30  LDA $307B,X"
+      ],
+      "dynamic_writes": [],
+      "external_transfers": [
+        "5206  6C A0 00  JMP ($00A0)"
+      ],
+      "unparsed_lines": [],
+      "exact_summary_checks": {
+        "reads": null,
+        "writes": null
+      },
+      "claimed_preserved_register_writes": {},
+      "unclaimed_unmodified_index_registers": [],
+      "unknown_write_operations": [
+        "MachineBlock"
+      ]
+    }
+  ],
+  "compact_facts_sha256": "d6b9a85d3aab475d1a74fb3262d2e01533003e85fa073c8168c2945b9b8daf90"
+}
