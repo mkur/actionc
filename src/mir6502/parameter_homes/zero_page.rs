@@ -7,16 +7,16 @@ pub(super) fn bindings(program: &MirProgram, routine: &MirRoutine, addresses: &O
     if routine.frame.params.len() == 1 && routine.frame.params[0].storage_size == 1 {
         return None;
     }
-    bindings_avoiding(program, routine, &BTreeSet::new(), addresses)
+    bindings_avoiding(program, routine, &|_, _| Some(BTreeSet::new()), addresses)
 }
 
 pub(super) fn bindings_avoiding(
     program: &MirProgram,
     routine: &MirRoutine,
-    forbidden: &BTreeSet<u8>,
+    forbidden: &impl Fn(&MirMem, u16) -> Option<BTreeSet<u8>>,
     addresses: &ObjectAddressControl<'_>,
 ) -> Option<Vec<MirParamBinding>> {
-    let mut used = used_bytes(program, routine, forbidden);
+    let mut used = used_bytes(program, routine, &BTreeSet::new());
     let total: u16 = routine.frame.params.iter().map(|p| p.storage_size).sum();
     let mut offset = 0;
     let mut result = Vec::new();
@@ -39,7 +39,8 @@ pub(super) fn bindings_avoiding(
                     _ => None,
                 }
             });
-            let start = pick(routine, &used, width, incoming, total, offset);
+            let start = forbidden(&MirMem::Param { id, offset: 0 }, width)
+                .and_then(|forbidden| pick(routine, &excluding(used, &forbidden), width, incoming, total, offset));
             if let Some(start) = start {
                 for lane in 0..width {
                     used[start as usize + lane as usize] = true;
@@ -56,6 +57,11 @@ pub(super) fn bindings_avoiding(
         .iter()
         .any(|b| matches!(b.home, MirParamHome::ZeroPage(_)))
         .then_some(result)
+}
+
+fn excluding(mut used: [bool; 256], forbidden: &BTreeSet<u8>) -> [bool; 256] {
+    for byte in forbidden { used[usize::from(*byte)] = true; }
+    used
 }
 
 fn used_bytes(program: &MirProgram, routine: &MirRoutine, forbidden: &BTreeSet<u8>) -> [bool; 256] {
@@ -120,11 +126,11 @@ fn pick(
 pub(super) fn local_bindings(
     program: &MirProgram,
     routine: &MirRoutine,
-    forbidden: &BTreeSet<u8>,
+    forbidden: &impl Fn(&MirMem, u16) -> Option<BTreeSet<u8>>,
     addresses: &ObjectAddressControl<'_>,
 ) -> Option<Vec<MirLocalBinding>> {
     let entry = super::locals::entry_dependencies(routine)?;
-    let mut used = used_bytes(program, routine, forbidden);
+    let mut used = used_bytes(program, routine, &BTreeSet::new());
     let total: u16 = routine.frame.params.iter().map(|s| s.storage_size).sum();
     let bindings: Vec<_> = routine
         .frame
@@ -136,8 +142,9 @@ pub(super) fn local_bindings(
             };
             let start = (super::locals::eligible(addresses, routine, slot)
                 && !entry.contains(&local))
-            .then(|| pick(routine, &used, slot.storage_size, None, total, total))
-            .flatten();
+            .then(|| forbidden(&MirMem::Local { id: local, offset: 0 }, slot.storage_size))
+            .flatten()
+            .and_then(|forbidden| pick(routine, &excluding(used, &forbidden), slot.storage_size, None, total, total));
             let home = if let Some(start) = start {
                 for lane in 0..slot.storage_size {
                     used[usize::from(start) + usize::from(lane)] = true;

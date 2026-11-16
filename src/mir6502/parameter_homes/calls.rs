@@ -23,6 +23,46 @@ impl<'a> ResidenceCalls<'a> {
         }
     }
 
+    /// Validate the ordinary call boundary even when no resident value survives
+    /// invocation. This grants no preservation or entry facts to other consumers.
+    pub fn inputs(&mut self, call: &MirOp) -> Result<(), &'static str> {
+        if self.stage != MirCalleeEntryStage::ActualEntry {
+            return Err("residence inputs require expanded callee facts");
+        }
+        let MirOp::Call { target: MirCallTarget::Routine(target), args, .. } = call else {
+            return Err("unknown or indirect residence call");
+        };
+        let callee = self.program.routines.iter().find(|r| r.id == *target)
+            .ok_or("missing residence callee")?;
+        if callee.abi != MirRoutineAbi::Action || callee.blocks.iter().flat_map(|b| &b.ops)
+            .any(|op| matches!(op, MirOp::MachineBlock { .. } | MirOp::SArgsCapture { .. } | MirOp::Barrier { .. })) {
+            return Err("unsupported residence callee");
+        }
+        let signature = callee.frame.direct_parameter_abi.as_ref().ok_or("unknown residence ABI")?;
+        // Expansion may split a logical word argument into byte arguments.
+        // Compare complete ABI width, then validate every physical lane below.
+        let expected_bytes: u16 = signature.iter().map(|p| super::super::abi::action_arg_width_bytes(p.width())).sum();
+        let supplied_bytes: u16 = args.iter().map(|a| super::super::abi::action_arg_width_bytes(a.width)).sum();
+        if expected_bytes != supplied_bytes {
+            return Err("mismatched residence arguments");
+        }
+        let mut outgoing = Vec::new();
+        for arg in args {
+            let lanes = super::super::abi::physical_lanes(&arg.home, arg.width)
+                .ok_or("unsupported residence argument")?;
+            let expected = super::super::abi::physical_lanes(
+                &super::super::abi::action_arg_home(outgoing.len() as u16, arg.width), arg.width)
+                .ok_or("unsupported residence ABI")?;
+            if lanes != expected { return Err("noncanonical residence arguments"); }
+            outgoing.extend(lanes);
+        }
+        if let Some(entry) = self.entries.entry(*target)
+            .or_insert_with(|| MirCalleeEntryFact::analyze(self.program, *target, self.stage)) {
+            handoff::inputs_supplied(entry, &outgoing)?;
+        }
+        Ok(())
+    }
+
     pub fn writes(&mut self, call: &MirOp) -> Result<&MirKnownMemoryWrites, &'static str> {
         if self.stage != MirCalleeEntryStage::ActualEntry {
             return Err("residence writes require expanded callee facts");

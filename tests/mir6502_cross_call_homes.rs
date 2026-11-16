@@ -8,6 +8,27 @@ fn nir(source: &str) -> actionc::nir::NirProgram {
 }
 
 #[test]
+fn value_lifetimes_allow_dead_call_boundaries_and_sibling_reuse() {
+    let source = include_str!("../fixtures/runtime/live_call_homes.act").replace("\r\n", "\n");
+    let n = nir_mode(&source, false);
+    let config = Mir6502Config { enable_small_leaf_inlining: false,
+        enable_zp_home_lifetimes: true, ..Mir6502Config::optimized() };
+    let mut trace = Mir6502Trace::default();
+    let new = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
+    let old = mir6502::generate_output_with_config_and_runtime(&n, 0x3000,
+        &Mir6502Config { enable_zp_home_lifetimes: false, ..config }, Runtime::ActionCart).unwrap();
+    let events = trace.events();
+    assert!(actionc::codegen::format_load_file(&new).len() < actionc::codegen::format_load_file(&old).len(), "{events:#?}");
+    let home = |routine: &str, name: &str| new.map.storage_symbols.iter().find(|s|
+        s.scope == actionc::codegen::CodegenSymbolScope::Routine(routine.into()) && s.name == name).unwrap();
+    assert!(home("Short", "keep").address >= 256, "live across unsupported Nested");
+    assert!(home("Short", "n").address < 256, "defined after Nested");
+    assert!(home("Gone", "keep").address < 256, "dead at Nested");
+    assert_eq!(home("Short", "n").address, home("Sibling", "n").address);
+    assert_eq!(trace.manifest()["work"]["cross_call_home_trials"], 1);
+}
+
+#[test]
 fn loop_carried_spills_join_the_existing_placement_trial() {
     let lf = include_str!("../fixtures/runtime/cross_call_spills.act").replace("\r\n", "\n");
     for (runtime, origin) in [(Runtime::ActionCart, 0x3000), (Runtime::Standalone, 0x41c7)] {

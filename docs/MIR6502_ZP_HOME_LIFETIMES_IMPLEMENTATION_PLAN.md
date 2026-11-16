@@ -1,6 +1,6 @@
 # MIR6502 direct ZP homes and value lifetimes: implementation plan
 
-Prepared 2026-11-16. Status: slices 1–2 complete; slices 3–4 pending.
+Prepared 2026-11-16. Status: slices 1–3 complete; slice 4 pending.
 
 First delivery of the
 [ZP lifetime design](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md#zp-home-lifetimes-and-persistent-storage).
@@ -17,6 +17,14 @@ control passed. The VM covers gate off/on, both runtimes, repeated calls and
 LF/CRLF through the source-loading path. The new discovery gate remains off
 by default pending qualification. Direct Param/Local address formation is the
 only added body shape; addressed objects retain inline homes.
+
+Slice 3 validation: all 55 placement unit tests, the new final-output integration
+control and the alternating-subtree VM control passed. The VM covers both
+runtimes, gate off/on, word boundaries, repeated calls and LF/CRLF input. Calls
+validate flattened ABI lanes after word expansion. Calls outside a value
+lifetime still exclude result slots: result/home handoff is not part of this
+slice. The same uncertified target is accepted at a dead boundary and rejected
+when a value must survive it; malformed inputs and either-lane clobbers reject.
 
 ## Outcome and scope
 

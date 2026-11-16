@@ -45,6 +45,44 @@ fn mixed_objects_keep_exposed_and_persistent_homes_inline() {
     assert_eq!(proposed.routines[0].frame.parameter_homes.as_ref().unwrap()[0].home, MirParamHome::Inline);
 }
 
+#[test]
+fn call_lifetime_proofs_recheck_lanes_sites_and_unknown_boundaries() {
+    let source = include_str!("../../../../fixtures/runtime/live_call_homes.act").replace("\r\n", "\n");
+    let (input, selected) = programs(&source);
+    let proposed = propose(&input, &selected, true, true, &Trace::disabled()).unwrap();
+    let expanded = mir::materialize_program(proposed, &Default::default()).unwrap();
+    let short = expanded.routines.iter().find(|r| r.name == "Short").unwrap();
+    assert!(verify_lifetimes(short, Some(&mut ResidenceCalls::new(&expanded, MirCalleeEntryStage::ActualEntry))).is_empty());
+    let live: Vec<_> = short.frame.resident_bytes().into_iter()
+        .filter_map(|(m, b)| matches!(m, MirMem::Local { .. }).then_some(b)).collect();
+    assert_eq!(live.len(), 2);
+    for byte in live {
+        let mut damaged = expanded.clone();
+        damaged.routines.iter_mut().find(|r| r.name == "First").unwrap().blocks[0].ops.insert(0,
+            MirOp::Store { dst: MirAddr::Direct(MirMem::FixedZeroPage(byte)),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte });
+        let r = damaged.routines.iter().find(|r| r.name == "Short").unwrap();
+        assert!(!verify_lifetimes(r, Some(&mut ResidenceCalls::new(&damaged, MirCalleeEntryStage::ActualEntry))).is_empty());
+    }
+    let gone = expanded.routines.iter().find(|r| r.name == "Gone").unwrap();
+    assert!(!gone.frame.resident_bytes().is_empty());
+    assert!(verify_lifetimes(gone, Some(&mut ResidenceCalls::new(&expanded, MirCalleeEntryStage::ActualEntry))).is_empty());
+    let mut bad_args = expanded.clone();
+    let gone = bad_args.routines.iter_mut().find(|r| r.name == "Gone").unwrap();
+    let MirOp::Call { args, .. } = gone.blocks.iter_mut().flat_map(|b| &mut b.ops)
+        .find(|op| matches!(op, MirOp::Call { .. })).unwrap() else { panic!() };
+    args.clear();
+    let gone = bad_args.routines.iter().find(|r| r.name == "Gone").unwrap();
+    assert!(!verify_lifetimes(gone, Some(&mut ResidenceCalls::new(&bad_args, MirCalleeEntryStage::ActualEntry))).is_empty());
+
+    // The same unknown target is harmless before n's definition, but the later
+    // site cannot preserve n. Cached target facts cannot erase that distinction.
+    let (input, selected) = programs("CARD FUNC First(CARD x) RETURN(x+1) CARD FUNC Nested(CARD x) RETURN(First(x)) CARD FUNC Hold(CARD keep) CARD n Nested(1) n=keep Nested(2) RETURN(n)");
+    if let Some(proposed) = propose(&input, &selected, true, true, &Trace::disabled()) {
+        assert!(hold(&proposed).frame.resident_bytes().is_empty());
+    }
+}
+
 fn hold(p: &MirProgram) -> &MirRoutine {
     p.routines.iter().find(|r| r.name == "Hold").unwrap()
 }

@@ -1,0 +1,36 @@
+CARD out=$900
+
+CARD FUNC First(CARD value)
+RETURN(value+1)
+
+CARD FUNC Nested(CARD value)
+RETURN(First(value))
+
+CARD FUNC Short(CARD keep)
+  CARD n
+  out=Nested(7)
+  n=keep
+  n==+1
+  out=First(n)
+  n==+2
+RETURN(n)
+
+CARD FUNC Gone(CARD keep)
+  keep==+1
+  out=keep
+  out=Nested(keep)
+RETURN(0)
+
+CARD FUNC Sibling(CARD keep)
+  CARD n
+  n=keep
+  n==+2
+  out=First(n)
+  n==+3
+RETURN(n)
+
+PROC Main()
+  Short(7)
+  Gone(9)
+  Sibling(11)
+RETURN

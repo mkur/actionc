@@ -445,6 +445,9 @@ A value dead before the call requires no preservation proof for that call. A
 new result defined after the call has no lifetime before it. This also explains
 why PopUp's `item`, consumed between FindItem and Ord, should not require a
 contract for Range/Getchar; return-home forwarding remains a separate candidate.
+The first direct-placement slice keeps result slots excluded even at a dead
+call boundary. Reusing those bytes requires a distinct handoff between the
+source value and the returned value, beyond proving that the source value died.
 
 A direct home is authoritative. A live value must survive the callee's physical
 clobbers; it cannot be invalidated and reloaded from a nonexistent backing copy.

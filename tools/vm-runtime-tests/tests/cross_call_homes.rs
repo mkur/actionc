@@ -20,6 +20,49 @@ struct Observe {
 }
 
 #[test]
+fn live_call_homes_preserve_values_between_alternating_subtrees() {
+    let lf = include_str!("../../../fixtures/runtime/live_call_homes.act").replace("\r\n", "\n");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for enabled in [false, true] {
+            let mut expected_image = None;
+            for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+                let file = support::Source::new(&source);
+                let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+                let model = actionc::semantic::analyze_with_options(&loaded.program,
+                    actionc::semantic::SemanticOptions::modern()).unwrap();
+                let nir = actionc::nir::lower_program(&actionc::semantic::ir::lower_program(&loaded.program, &model));
+                let output = mir6502::generate_output_with_config_and_runtime(&nir, 0x3000,
+                    &Mir6502Config { enable_small_leaf_inlining: false,
+                        enable_zp_home_lifetimes: enabled, ..Mir6502Config::optimized() }, runtime).unwrap();
+                let image = actionc::codegen::format_load_file(&output);
+                if let Some(previous) = &expected_image { assert_eq!(previous, &image); } else { expected_image = Some(image.clone()); }
+                let entry = |name| output.routine_addresses.iter().find(|r| r.name == name).unwrap().address;
+                let (mut vm, profile) = support::vm_for(runtime);
+                vm.load_atari_object_for_execution(profile, &image).unwrap();
+                let mut hooks = Observe { advance: entry("First"), arguments: vec![] };
+                for keep in [0u16, 0x12ff, 0x7fff, 65535, 1] {
+                    for (name, result, out, arguments) in [
+                        ("Short", keep.wrapping_add(3), keep.wrapping_add(2), vec![7, keep.wrapping_add(1)]),
+                        ("Gone", 0, keep.wrapping_add(2), vec![keep.wrapping_add(1)]),
+                        ("Sibling", keep.wrapping_add(5), keep.wrapping_add(3), vec![keep.wrapping_add(2)]),
+                    ] {
+                        hooks.arguments.clear();
+                        vm.bus_mut().ram_mut().write(0x8ff, 0x5a);
+                        vm.bus_mut().ram_mut().write(0x902, 0xa5);
+                        vm = machine::call(vm, &mut hooks, entry(name), &keep.to_le_bytes());
+                        assert_eq!(machine::bytes(&vm, 0xa0, 2), result.to_le_bytes(), "{runtime:?} {enabled} {name}");
+                        assert_eq!(machine::bytes(&vm, 0x900, 2), out.to_le_bytes());
+                        assert_eq!(hooks.arguments, arguments);
+                        assert_eq!(machine::bytes(&vm, 0x8ff, 1), [0x5a]);
+                        assert_eq!(machine::bytes(&vm, 0x902, 1), [0xa5]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn mixed_zp_homes_preserve_exposed_arguments_and_retained_locals() {
     let lf = include_str!("../../../fixtures/runtime/mixed_zp_homes.act").replace("\r\n", "\n");
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
