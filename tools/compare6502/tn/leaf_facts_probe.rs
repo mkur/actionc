@@ -118,18 +118,27 @@ fn dump_tn_leaf_facts() {
                 let MirOp::MachineBlock { id, .. } = op else { continue; };
                 let machine = p.machine_blocks.iter().find(|m| m.id == *id).unwrap();
                 let observations = machine_storage_observations(machine, r, p);
+                let decoded = observations::decode_storage_observations(machine, r, p);
+                let expressions = |accesses: &[observations::StorageObservation]| accesses.iter()
+                    .map(|access| json!({"identity":format!("{:?}", access.address.base),
+                        "addend":access.address.addend,"requires_zero_page":access.address.requires_zero_page,
+                        "extent":format!("{:?}",access.extent),"fixed_address":access.address.fixed(p)}))
+                    .collect::<Vec<_>>();
                 let ranges = |ranges: &[mir::analysis::effects::MirMemoryRange]| ranges.iter()
                     .map(|range| json!({"identity":format!("{:?}",range.base),
                         "fixed_address":fixed_storage_address(p,&range.base),"bytes":range.bytes}))
                     .collect::<Vec<_>>();
                 machine_observations.push(json!({"routine":r.name,"routine_id":r.id.0,
                     "block":b.label,"machine_block":id.0,"complete":observations.is_some(),
+                    "decoded":decoded.is_some(),
+                    "read_expressions":decoded.as_ref().map(|o|expressions(&o.reads)),
+                    "write_expressions":decoded.as_ref().map(|o|expressions(&o.writes)),
                     "reads":observations.as_ref().map(|o|ranges(&o.reads)),
                     "writes":observations.as_ref().map(|o|ranges(&o.writes))}));
             }
         }
         let ops: Vec<_> = r.blocks.iter().flat_map(|b| &b.ops).collect();
-        let call_count = ops.iter().filter(|o| matches!(o, MirOp::Call {..} | MirOp::RuntimeHelper {..})).count();
+        let call_count = ops.iter().filter(|o| matches!(o, MirOp::Call {..} | MirOp::RuntimeHelper {..} | MirOp::SArgsCapture { .. })).count();
         let machine_count = ops.iter().filter(|o| matches!(o, MirOp::MachineBlock {..})).count();
         let barrier_count = ops.iter().filter(|o| matches!(o, MirOp::Barrier {..})).count();
         inventory.push(json!({"id":r.id.0,"name":r.name,"mir_calls":call_count,

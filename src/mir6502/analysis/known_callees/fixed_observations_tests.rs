@@ -107,3 +107,65 @@ fn fixed_observation_indexed_indirect_keeps_the_full_zero_page() {
     assert_eq!(observations.reads[0].bytes, 256);
     assert!(observations.writes.is_empty());
 }
+
+#[test]
+fn symbolic_observation_retains_signed_bases_without_loosening_callee_summaries() {
+    use super::observations::{decode_storage_observations, ObservationExtent};
+    for opcode in [0xbd, 0xb9, 0x99, 0xfe] {
+        let mut p = callee_facts_machine(vec![MirMachineItem::Byte(opcode),
+            relocation(Kind::Absolute16, Target::Memory(MirMem::Global { id: SymbolId(0), offset: 0 }), -2, false),
+            MirMachineItem::Byte(0x60)]);
+        p.globals = vec![global(0, MirGlobalBacking::Ordinary { offset: 0 })];
+        let decoded = decode_storage_observations(&p.machine_blocks[0], &p.routines[0], &p).unwrap();
+        let access = decoded.reads.first().or(decoded.writes.first()).unwrap();
+        assert_eq!(access.address.base, MirMem::Global { id: SymbolId(0), offset: 0 });
+        assert_eq!(access.address.addend, -2);
+        assert_eq!(access.address.fixed(&p), None);
+        assert_eq!(access.extent, ObservationExtent::Bytes(256));
+        assert_eq!(decoded.reads.len(), usize::from(opcode != 0x99));
+        assert_eq!(decoded.writes.len(), usize::from(opcode == 0x99 || opcode == 0xfe));
+        assert!(flatten_machine_items(&p.machine_blocks[0].items, &p.routines[0], &p).is_none());
+        assert!(machine_storage_observations(&p.machine_blocks[0], &p.routines[0], &p).is_none());
+    }
+}
+
+#[test]
+fn symbolic_observation_pending_pointers_and_invalid_operands_are_distinct() {
+    use super::observations::{decode_storage_observations, ObservationExtent};
+    let mut p = callee_facts_machine(vec![MirMachineItem::Byte(0x6c),
+        relocation(Kind::Absolute16, Target::Memory(MirMem::Global { id: SymbolId(0), offset: 0 }), 0, false)]);
+    p.globals = vec![global(0, MirGlobalBacking::Ordinary { offset: 0 })];
+    let decoded = decode_storage_observations(&p.machine_blocks[0], &p.routines[0], &p).unwrap();
+    assert_eq!(decoded.reads[0].extent, ObservationExtent::PointerFetch);
+    assert_eq!(decoded.reads[0].address.fixed(&p), None);
+    for backing in [MirGlobalBacking::Alias { target: SymbolId(99), offset: 0 },
+        MirGlobalBacking::Alias { target: SymbolId(0), offset: 0 }] {
+        p.globals[0].backing = backing;
+        assert!(decode_storage_observations(&p.machine_blocks[0], &p.routines[0], &p).is_none());
+    }
+    p.globals[0].backing = MirGlobalBacking::Absolute(1);
+    p.machine_blocks[0].items[1] = relocation(Kind::Absolute16,
+        Target::Memory(MirMem::Global { id: SymbolId(0), offset: 0 }), -2, false);
+    assert!(decode_storage_observations(&p.machine_blocks[0], &p.routines[0], &p).is_none());
+    p.machine_blocks[0].items = vec![MirMachineItem::Byte(0xad), MirMachineItem::Byte(1)];
+    assert!(decode_storage_observations(&p.machine_blocks[0], &p.routines[0], &p).is_none());
+    p.machine_blocks[0].items = vec![MirMachineItem::Byte(0x02)];
+    assert!(decode_storage_observations(&p.machine_blocks[0], &p.routines[0], &p).is_none());
+}
+
+#[test]
+fn symbolic_observation_fixed_alias_addends_apply_once_and_match_emission() {
+    use super::observations::decode_storage_observations;
+    let mut p = callee_facts_machine(vec![MirMachineItem::Byte(0xbd),
+        relocation(Kind::Absolute16, Target::Memory(MirMem::Global { id: SymbolId(1), offset: 1 }), -2, false),
+        MirMachineItem::Byte(0x60)]);
+    p.globals = vec![global(0, MirGlobalBacking::Absolute(0x7000)),
+        global(1, MirGlobalBacking::Alias { target: SymbolId(0), offset: 3 })];
+    let decoded = decode_storage_observations(&p.machine_blocks[0], &p.routines[0], &p).unwrap();
+    let address = decoded.reads[0].address.fixed(&p).unwrap();
+    assert_eq!(address, 0x7002);
+    let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
+    crate::mir6502::emit::emit_program(&p, 0x3000, &mut emitter).unwrap();
+    let bytes = emitter.finish_with_relocations().unwrap().bytes;
+    assert!(bytes.windows(3).any(|b| b == [0xbd, address as u8, (address >> 8) as u8]));
+}

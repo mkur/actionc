@@ -1,6 +1,6 @@
 # MIR6502 symbolic storage observations: implementation plan
 
-2026-11-16. Status: slice 1 implemented; slices 2–4 pending.
+2026-11-16. Status: slices 1–2 implemented; slices 3–4 pending.
 Continues the completed [fixed-address observation plan](MIR6502_FIXED_ADDRESS_OBSERVATION_IMPLEMENTATION_PLAN.md)
 under the [unexposed-object contract](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md)
 and [storage-observation design](MIR6502_STORAGE_OBSERVATION_DESIGN.md).
@@ -249,3 +249,15 @@ LF/CRLF path), and six SArgs CLI linkage/override tests pass. The new VM control
 passes in ActionCart and Standalone, checking all five argument bytes, sentinels,
 repeated calls and balanced return past the descriptor. `cargo check --lib` and
 edited-document link/whitespace checks pass. No TN run or full suite in this slice.
+
+Slice 2: the shared instruction-boundary walker now supports the explicit
+observation decoder without changing strict callee-summary operand expansion.
+Typed targets retain signed addends, required-ZP encoding and access extents;
+invalid backing chains remain failures. Fifteen focused `observation_` unit
+controls pass, including the three new symbolic cases, fixed-pointer wrapping,
+physical exclusions and existing ownership controls. Fixed alias/addend encoding
+matches emitted bytes. A temporary compatibility projection keeps production
+placement/cleanup behavior conservative until slice 3 installs layout resolution;
+that projection is removed in slice 3. The diagnostic probe records decoded
+expressions and counts SArgs capture as a helper call. Local symbolic operands
+also receive source-derived execution coverage in slice 4.

@@ -1159,6 +1159,16 @@ fn flatten_machine_items(
     routine: &MirRoutine,
     program: &MirProgram,
 ) -> Option<Vec<MachineByte>> {
+    flatten_machine_items_with(items, |item, remaining, _| {
+        expand_machine_operand(item, remaining, routine, program)
+    })
+}
+
+/// Shared instruction/operand boundaries; consumers choose their operand facts.
+fn flatten_machine_items_with(
+    items: &[MirMachineItem],
+    mut expand: impl FnMut(&MirMachineItem, usize, usize) -> Option<Vec<MachineByte>>,
+) -> Option<Vec<MachineByte>> {
     let mut bytes = Vec::new();
     let mut item_index = 0usize;
     while item_index < items.len() {
@@ -1175,7 +1185,7 @@ fn flatten_machine_items(
         let mut remaining = instruction_len.saturating_sub(1);
         while remaining > 0 {
             let item = items.get(item_index)?;
-            let expanded = expand_machine_operand(item, remaining, routine, program)?;
+            let expanded = expand(item, remaining, bytes.len())?;
             if expanded.is_empty() || expanded.len() > remaining {
                 return None;
             }
