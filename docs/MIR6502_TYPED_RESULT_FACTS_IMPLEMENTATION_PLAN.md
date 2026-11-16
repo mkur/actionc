@@ -1,6 +1,6 @@
 # MIR6502 typed result facts implementation plan
 
-Status: slices 1–3 complete; issue-5 design follow-up pending, 2026-11-17.
+Status: slices 1–3 and the issue-5 design follow-up complete, 2026-11-17.
 
 Implements issue **4** in the [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md)
 using the [typed direct result contract](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract).
@@ -77,3 +77,8 @@ entry-flag analysis and machine liveness before specifying one shared transfer
 authority. Preserve the distinction between possible clobbers and definitions,
 including conditional operations, calls and machine blocks. Document migration
 boundaries and focused acceptance cases; do not implement issue 5 in this task.
+
+Completed: the [shared design](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#guaranteed-register-and-flag-definitions)
+now specifies one guaranteed-definition authority in the existing machine effect
+structure, migration of entry/liveness and compatibility consumers, conservative
+call handling, and emission/elision acceptance cases. Issue 5 is not implemented.

@@ -1,8 +1,9 @@
-# MIR6502 call input and result contracts
+# MIR6502 call and machine fact contracts
 
 Status, 2026-11-17: the input/state contract for issue **3** and the
 [typed result contract](#typed-direct-result-contract) for issue **4** are
-implemented. Covers the corresponding entries in the
+implemented. The [guaranteed register/flag contract](#guaranteed-register-and-flag-definitions)
+for issue **5** is proposed. Covers the corresponding entries in the
 [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md), based on the
 [fact-contract audit](MIR6502_FACT_CONTRACT_AUDIT_2026-11-16.md).
 
@@ -13,8 +14,8 @@ placement, deletion and reordering.
 
 This distinction belongs in MIR6502. Existing typed storage identities, ABI
 descriptions and machine operands provide the evidence; consumers must not look
-back into SemIR or infer a role from a source name. Flag-definition coverage and
-physical-overlap precision remain the separate repairs numbered 5–6.
+back into SemIR or infer a role from a source name. The final section covers
+register/flag definitions; physical-overlap precision remains issue 6.
 
 ## The defect
 
@@ -333,3 +334,182 @@ its callers no longer inherit `$A0` solely from those result reads. `Ord` must
 retain its real `$A3` argument requirement. Other entry, write-footprint and
 placement blockers remain independently authoritative; size improvement is a
 measurement, not the proof's acceptance condition.
+
+## Guaranteed register and flag definitions
+
+Proposed for issue **5**, 2026-11-17. Only guaranteed definitions may kill
+incoming register or flag values in liveness. A possible clobber invalidates
+value knowledge but cannot establish a definition. Apply this distinction to
+A/X/Y and individual C/Z/N/V flags as consistently as issue 2 applies it to homes.
+
+### Current disagreement
+
+The [effect classifier](../src/mir6502/analysis/effects.rs) reports broad machine
+writes and clobbers. Ordinary [machine liveness](../src/mir6502/analysis/machine_liveness.rs)
+merges `register_writes` with `register_clobbers`, and `flag_writes` with
+`flag_clobbers`. Entry analysis then replaces only the flag definitions with a
+separate `entry_flag_transfer` whitelist. Register definitions still inherit the
+ordinary transfer. Neither path provides a consistent guaranteed-definition rule.
+
+There are also two flag-entry answers: `scalar_entry_ignores_flags` uses ordinary
+liveness on a cloned body with conservative call observations, while
+`MirKnownCalleeEntryFlags` uses the narrower entry transfer. The shared native
+entry fact uses the latter transfer, with optional certified call inputs.
+
+For the selected byte operation that emits `CMP #$28` followed by `BCS`, C/N/Z
+are established by the comparison. The entry whitelist omits this ordinary
+immediate form and retains incoming C. This is the false dependency reported for
+the independent comparison controls and TN's `ArenaCursor`.
+
+Simply accepting every `Compare` is also wrong. In
+[comparison emission](../src/mir6502/emit.rs), Boolean compares can fold to
+constant loads, and equality with zero can call `emit_cmp_imm_for_z_branch`.
+The [tracked emitter](../src/codegen/tracked_emitter.rs) may omit that CMP when
+the existing Z/N flags already describe A. Such a comparison does not guarantee
+a fresh C definition. The current `definitely_overwrites_carry` assignment for
+all flag-destination compares is therefore broader than its name promises.
+
+### One authority, using the existing effect structure
+
+Make the existing `MirMachineEffects.register_writes` and `flag_writes` the
+guaranteed machine-definition sets. Audit their producers against the supported
+MIR recipes and emission. Move merely possible changes into the existing
+clobber sets. Keep `register_clobbers`, `conservative_register_clobbers` and
+`flag_clobbers` available for invalidation and preservation; none is a liveness
+kill. Do not add another parallel opcode summary or persistent fact cache.
+
+The contract for a guaranteed write is: every valid execution of this operation
+that reaches its continuation establishes the corresponding machine value. This
+is a boundary guarantee, not a demand for a fresh machine instruction when a
+proven equivalent value is already available. Its value may depend on an input:
+`ADC` with `FromPrevious` both reads and defines
+C. That input read must survive. A definition is not a preservation claim or a
+claim that the resulting value is independent of the inputs.
+
+For each operation or terminator, the shared transfer is:
+
+```text
+live_before = reads union (live_after minus guaranteed_writes)
+```
+
+Reads precede writes within the operation. CFG joins retain a requirement if any
+reachable path needs the incoming value. An unsupported recipe contributes no
+guaranteed physical definition; retain its possible effects and conservative
+reads. Uncertainty must not turn into a successful empty entry fact.
+
+Keep logical temp definitions separate. A pre-materialization `Compare` can
+define a Boolean temp without promising any particular physical flag recipe.
+Do not derive physical guarantees from its result type, destination name, or
+the union of registers touched by all possible implementations.
+
+### Selected forms and emission
+
+Start with the currently certified selected forms, moved into the central
+classifier, and add the missing unsigned byte comparisons after checking their
+actual emission. The rules must account for width, operands, destination,
+operator and carry mode; an opcode-family name alone is insufficient.
+
+| Selected behavior | Guaranteed-definition rule |
+| --- | --- |
+| Unconditional byte load or non-identity register transfer | Establish the destination and the flags the actual recipe defines |
+| A self-move or zero-count shift | No fresh physical definition from the omitted operation; retain genuine operand reads |
+| Unsigned byte relational comparison using A/X/Y and an immediate | CMP/CPX/CPY establish C/N/Z; V remains unchanged |
+| Equality comparison whose zero CMP may be omitted | No C definition; claim Z/N only if the emitted and reused paths both establish their required postconditions |
+| ALU operation with an internal carry initializer | Its incoming C is not read; use the recipe's guaranteed output flags |
+| ALU operation with `FromPrevious` | Retain the C read even when the same operation later defines C |
+| Variable-count or internally conditional recipe | Intersect definitions across all paths, including the zero-work path |
+| Possible clobber annotation | No guaranteed definition |
+
+An elided instruction may be safe because an earlier instruction established
+the needed value or flag. Audit the whole selected recipe, including elision:
+the same claimed postcondition must hold on every path, with genuine input reads
+retained. For example, tracked LDA/LDY load elision checks that the corresponding
+Z/N values already match, while omitted `CMP #0` does not establish carry. If
+this guarantee cannot be proved, leave that definition out; earlier operations
+can still discharge dependencies through normal dataflow. Do not add a second
+state-tracker replay in this repair.
+
+Keep existing emission and flag-reuse optimizations. This work repairs the facts
+describing their behavior; it does not force extra CMP instructions merely to
+make a summary true. Unsupported or ambiguous forms retain conservative facts.
+
+### Calls, assembly and query scope
+
+Call ABI clobbers and manual assembly clobbers describe possible changes.
+They do not initialize registers or flags. The result-home guarantees established
+by issue 4 remain separate: defining `$A0/$A1` does not prove A/X or flag outputs.
+Only an already-supported explicit physical result recipe may establish such
+register outputs. Do not add callee flag-result summaries in this repair.
+
+An uncertified call retains the existing conservative entry-observation policy.
+A certified acyclic call uses the child's actual input requirements. Neither
+policy turns possible call clobbers into definitions. Preserve canonical argument
+validation, reads-before-results ordering, and the distinction between explicit
+stack dependence and the ordinary balanced call/return convention.
+
+The bounded assembly decoder already derives instruction-level reads and writes
+from actual opcodes. Keep it as the authority for supported decoded instructions;
+annotations alone cannot replace that evidence. It should agree with native
+selected forms when both describe the same instructions. This does not expand
+decoded opcode coverage or admit assembly leaves to acyclic residence; issue 9
+remains separate.
+
+Queries may retain different documented eligibility and call policies. The
+integer-only flag wrapper and broader native-entry analysis need not accept
+exactly the same routines. On the same admitted body, entry stage and call policy,
+their flag answers must agree. Define `scalar_entry_ignores_flags` as the
+all-flags-unobserved projection of the shared flag-entry result; remove its
+independent cloned-body calculation.
+
+### Consumer migration and validity
+
+- Ordinary machine liveness and entry liveness subtract only the central
+  guaranteed sets. Remove the local `entry_flag_transfer` definition whitelist;
+  keep boundary read policy separate from operation definitions.
+- Make `MirKnownCalleeEntryFlags` and `MirCalleeEntryFact` consume that same
+  transfer. Continue propagating individual flags through the existing CFG solver.
+- Replace the separately assigned `definitely_overwrites_carry` and
+  `definitely_overwrites_overflow` facts with projections of guaranteed writes.
+  Update `materialize/flags.rs` consumers accordingly. A compatibility predicate
+  meaning “may change flags” must instead use the possible-write union.
+- Audit remaining uses of the machine write/clobber fields. Value invalidation,
+  interference, preservation and rewrite exit-state declarations must continue
+  considering all possible changes. Narrowing the definite sets must not
+  accidentally claim preservation.
+
+The guarantees belong to the current MIR operation and its supported emission
+contract. Width expansion, compare folding, flag reuse or replacement with a
+different recipe requires recomputing them. Existing owned body snapshots and
+candidate-local analyses remain the validity mechanism. No new cross-candidate
+cache or general generation framework is needed here; the broader freshness
+audit remains issue 8.
+
+### Focused acceptance and migration order
+
+First establish the central guaranteed-write contract and tests for selected
+forms. Then migrate the entry and ordinary-liveness consumers together with the
+carry/overflow compatibility queries. Finish with independent runtime controls
+and TN qualification. Do not leave the legacy and precise entry answers using
+different transfer definitions as the final state.
+
+Required controls:
+
+- Immediate unsigned comparisons remove false C inputs; a later V observation
+  still requires incoming V. Cover A/X/Y operands and expanded word comparisons.
+- Zero equality with reused Z, self-moves, zero shifts, constant-folded compares
+  and conditional recipes cannot manufacture missing flag definitions.
+- `ADC`/`SBC` with incoming carry retain that dependency; explicit initialization
+  removes it. A definition on only one branch does not discharge a joined input.
+- Finite call or machine clobbers followed by register/flag reads retain incoming
+  dependencies; possible writes still invalidate tracked values and preservation.
+- For matching scope, legacy all-flags queries, precise flag queries, native
+  entry facts and ordinary machine liveness agree. Mutating a producer invalidates
+  its entry witness and dependent callers.
+- Small emitted/VM controls vary initial flags and data at comparison boundaries.
+  Test both an emitted CMP and a reused-zero-flag path; preserve later carry use.
+
+For TN, re-audit `ArenaCursor` and callers such as `Alloc`, `Free`, `Push` and
+`Pull`. Remove a carry requirement only when every path proves it unnecessary.
+Keep independent memory, physical-overlap, entry and placement blockers visible.
+Record actual size changes under the existing final-cost and rollback rules;
+truthful facts are the acceptance condition, not a promised size reduction.

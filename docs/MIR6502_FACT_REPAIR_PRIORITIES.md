@@ -66,7 +66,7 @@ No full suite was run.
 | **2** | **Separate possible writes from definite definitions** | A conditional clobber currently makes earlier values appear dead. Fix operation effects, liveness and reaching definitions together. | **No new design.** The intended distinction is already documented; prepare a focused implementation plan. |
 | **3** | **Separate ABI arguments from existing program state** | Reading `allocp` must not require callers to supply `$E8/$E9` as arguments. Preserve genuine implicit assembly inputs. | [**Implemented.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md) |
 | **4** | **Represent typed results independently of parameter types** | Pointer parameters previously prevented proving return-home definitions, creating the spurious `$A0` requirement in `Ord` and `Items`. | [**Implemented.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract) |
-| **5** | **Unify guaranteed register/flag definitions** | Entry analyses disagree about ordinary comparisons, producing false carry requirements. | **Yes, for consolidation.** Adding another isolated CMP exception would leave the underlying inconsistency. |
+| **5** | **Unify guaranteed register/flag definitions** | Entry analyses disagree about ordinary comparisons, producing false carry requirements. | [**Design prepared.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#guaranteed-register-and-flag-definitions) Implementation pending. |
 | **6** | **Use backing and placement when checking physical overlap** | A write to a global at `$0600` should not exclude every ZP byte. Unknown placement must remain conservative. | **Yes.** Specify which address evidence is authoritative at each phase. |
 | **7** | **Finish separating read and write uncertainty** | An unknown pointee write currently makes otherwise bounded reads unknown. | **No.** Restore the existing directional-effects contract. |
 | **8** | **Make summary validity across transformations explicit** | Some consumers rely on undocumented assumptions about cached summaries surviving rewrites. No stale-summary failure was demonstrated. | **Yes, as documentation and hardening.** Avoid introducing a general cache framework without evidence it is needed. |
@@ -75,8 +75,9 @@ No full suite was run.
 ## Design work
 
 The shared [call-fact contract design](MIR6502_CALL_FACT_CONTRACT_DESIGN.md)
-covers the implemented contracts for **issues 3–4**.
-Extend it for **issues 5–6 and 8**, covering:
+covers the implemented contracts for **issues 3–4** and proposes the shared
+guaranteed register/flag contract for **issue 5**.
+Extend it for **issues 6 and 8**, covering:
 
 - Caller-supplied inputs versus existing state.
 - Possible effects versus guaranteed definitions and results.
@@ -92,6 +93,6 @@ after the shared contracts are repaired.
 
 ## Next implementation work
 
-Issues **1–4 are repaired**. Issue **5** is the next shared-contract design
-and implementation task. Issue **7** remains an independent targeted
+Issues **1–4 are repaired**. Issue **5** has a design and is ready for an
+implementation plan. Issue **7** remains an independent targeted
 correction that does not need to wait for the remaining shared design work.
