@@ -235,6 +235,9 @@ unresolved observation is now identified as Block's machine block m7, whose
 symbolic `(screen),Y` pointer fetch is not resolved by the observation scanner
 despite screen's fixed `$E6` address. This is a separate scanner limitation;
 DATA does not weaken the physical-observation requirement.
-The [fixed-address observation plan](MIR6502_FIXED_ADDRESS_OBSERVATION_IMPLEMENTATION_PLAN.md)
-scopes the next correction to typed fixed-storage resolution and its existing
-observation consumers.
+The completed [fixed-address observation plan](MIR6502_FIXED_ADDRESS_OBSERVATION_IMPLEMENTATION_PLAN.md)
+shares typed fixed-storage resolution between the scanner and physical collector.
+Its [qualification](benchmarks/6502-fixed-address-observations/README.md) resolves
+Block/m7 while preserving the exact 9,838-byte image. Sort's first unresolved
+observation is now _Cio/m11's layout-dependent `JMP (ErrorHandler)`; the selected
+program also retains unresolved blocks in _StrNam, Range and MakeJmp.

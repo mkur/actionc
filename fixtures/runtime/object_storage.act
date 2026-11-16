@@ -1,6 +1,17 @@
 ; Ordinary pointee writes beside live invocation-owned source homes.
 BYTE reserved=$E4
+BYTE observedBefore=$E5, observedAfter=$E8
+BYTE POINTER observed=$E6
+BYTE observedValue
 DATA menu=["Yes" 'Y "Abort" 'A $00]
+
+PROC ReadFixed=*()
+ASM
+  ldy #0
+  lda (observed),y
+  sta observedValue
+  rts
+ENDASM
 
 BYTE FUNC MenuKey(BYTE index)
   BYTE POINTER p

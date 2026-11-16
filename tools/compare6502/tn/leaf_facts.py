@@ -36,6 +36,7 @@ def main():
              "src/mir6502/analysis/known_callees.rs", "src/mir6502/analysis/effects.rs",
              "src/mir6502/analysis/machine_liveness.rs",
              "src/mir6502/analysis/known_callees/entry_inputs.rs",
+             "src/mir6502/analysis/known_callees/observations.rs",
              "src/mir6502/lower.rs", "src/mir6502/ir.rs", "src/mir6502/mod.rs",
              "src/mir6502/emit.rs", "src/mir6502/preparation.rs", "src/mir6502/verify.rs",
              "src/mir6502/analysis/storage_ownership/source_objects.rs",

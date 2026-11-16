@@ -1,6 +1,6 @@
 # MIR6502 fixed-address observations: implementation plan
 
-2026-11-16. Status: slice 1 implemented; execution coverage and TN qualification pending.
+2026-11-16. Status: both slices implemented and qualified.
 Applies the existing [unexposed-object contract](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md)
 and [storage-observation design](MIR6502_STORAGE_OBSERVATION_DESIGN.md).
 
@@ -133,3 +133,19 @@ bytes, conservative pointee effects and both fetched bytes' overlap protection.
 The physical collector still excludes generated scratch traffic. The four
 existing `object_storage_` unit controls and exact selected-input/executable
 rollback test also pass. No shared IR contract or emission recipe changed.
+
+Slice 2: both pipeline controls pass, including typed storage relocation input,
+actual ZP selection, declared-byte exclusion, LF/CRLF image identity and opaque
+fallback. The VM group passes with placement off/on in both runtimes, exercising
+the ASM reader, unchanged pointer/sentinels, swaps, arguments, results and stack.
+The diagnostic collector now retains scoped explicit observations for each
+machine block and hashes the shared observation implementation in its receipt.
+
+The [completed qualification](benchmarks/6502-fixed-address-observations/README.md)
+records Block/m7's resolved `$E6/$E7` fetches. TN remains byte-identical at 9,838
+bytes, with all routine footprints, leaf/caller facts, accepted trial costs and
+work counters unchanged. Sort's first unresolved observation is now _Cio/m11's
+layout-dependent `JMP (ErrorHandler)`. _StrNam/m13, Range/m34 and MakeJmp/m29 also
+remain unresolved. These are reported rather than added to this slice's scope.
+The unchanged TN image did not require repeating its dispatch VM test. No full
+suite, NIR sweep or historical baseline rebuild ran.

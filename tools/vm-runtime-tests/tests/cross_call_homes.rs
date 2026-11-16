@@ -55,6 +55,24 @@ fn object_storage_native_swaps_preserve_calls_pages_and_stack() {
             vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
             let mut observe = Observe { advance: entry("Touch"), arguments: vec![] };
             vm.bus_mut().ram_mut().write(0xe4, 0x5a);
+            let storage = |name: &str| output.map.storage_symbols.iter()
+                .find(|s| s.name.eq_ignore_ascii_case(name)).unwrap().address;
+            let pointer = storage("observed");
+            let before_pointer = storage("observedBefore");
+            let after_pointer = storage("observedAfter");
+            assert_eq!((pointer, before_pointer, after_pointer), (0xe6, 0xe5, 0xe8));
+            vm.bus_mut().ram_mut().write(before_pointer, 0x6c);
+            vm.bus_mut().ram_mut().write(after_pointer, 0xc6);
+            for (address, value) in [(0x7100u16, 0x39), (0x72ff, 0xa7)] {
+                let bytes = address.to_le_bytes();
+                vm.bus_mut().ram_mut().map(pointer, &bytes).unwrap();
+                vm.bus_mut().ram_mut().write(address, value);
+                vm = machine::call(vm, &mut observe, entry("ReadFixed"), &[]);
+                assert_eq!(machine::bytes(&vm, storage("observedValue"), 1), [value]);
+                assert_eq!(machine::bytes(&vm, pointer, 2), bytes);
+                assert_eq!(machine::bytes(&vm, before_pointer, 1), [0x6c]);
+                assert_eq!(machine::bytes(&vm, after_pointer, 1), [0xc6]);
+            }
             let menu = output.map.storage_symbols.iter().find(|s| s.name == "menu").unwrap();
             let [lo, hi] = menu.address.to_le_bytes();
             let [next_lo, next_hi] = (menu.address+8).to_le_bytes();
@@ -97,6 +115,9 @@ fn object_storage_native_swaps_preserve_calls_pages_and_stack() {
                             assert_eq!(machine::bytes(&vm, base-1, 1), vec![0xc3]);
                             assert_eq!(machine::bytes(&vm, base+initial.len() as u16, 1), vec![0x3c]);
                             assert_eq!(machine::bytes(&vm, 0xe4, 1), vec![0x5a]);
+                            assert_eq!(machine::bytes(&vm, before_pointer, 1), [0x6c]);
+                            assert_eq!(machine::bytes(&vm, after_pointer, 1), [0xc6]);
+                            assert_eq!(machine::bytes(&vm, pointer, 2), 0x72ffu16.to_le_bytes());
                         }
                     }
                 }

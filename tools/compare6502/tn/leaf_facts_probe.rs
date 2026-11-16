@@ -98,6 +98,7 @@ fn dump_tn_leaf_facts() {
     let raw = MirKnownCalleeSummaries::analyze(p);
     let mut calls = mir::parameter_homes::ResidenceCalls::new(p, MirCalleeEntryStage::ActualEntry);
     let mut inventory = Vec::new();
+    let mut machine_observations = Vec::new();
     let mut leaves = Vec::new();
     let mut listing = String::new();
     let footprints: Vec<_> = output.map.routine_ranges.iter().map(|r| {
@@ -112,6 +113,21 @@ fn dump_tn_leaf_facts() {
                 "kind":format!("{:?}",s.kind)})).collect::<Vec<_>>()})
     }).collect();
     for r in &p.routines {
+        for b in &r.blocks {
+            for op in &b.ops {
+                let MirOp::MachineBlock { id, .. } = op else { continue; };
+                let machine = p.machine_blocks.iter().find(|m| m.id == *id).unwrap();
+                let observations = machine_storage_observations(machine, r, p);
+                let ranges = |ranges: &[mir::analysis::effects::MirMemoryRange]| ranges.iter()
+                    .map(|range| json!({"identity":format!("{:?}",range.base),
+                        "fixed_address":fixed_storage_address(p,&range.base),"bytes":range.bytes}))
+                    .collect::<Vec<_>>();
+                machine_observations.push(json!({"routine":r.name,"routine_id":r.id.0,
+                    "block":b.label,"machine_block":id.0,"complete":observations.is_some(),
+                    "reads":observations.as_ref().map(|o|ranges(&o.reads)),
+                    "writes":observations.as_ref().map(|o|ranges(&o.writes))}));
+            }
+        }
         let ops: Vec<_> = r.blocks.iter().flat_map(|b| &b.ops).collect();
         let call_count = ops.iter().filter(|o| matches!(o, MirOp::Call {..} | MirOp::RuntimeHelper {..})).count();
         let machine_count = ops.iter().filter(|o| matches!(o, MirOp::MachineBlock {..})).count();
@@ -188,6 +204,8 @@ fn dump_tn_leaf_facts() {
         "config":format!("{config:?}"),"packaged_bytes":image.len(),
         "layout_replay_identical":true,"routine_count":p.routines.len(),
         "inventory":inventory,"footprints":footprints,"leaf_candidates":leaves,
+        "machine_observations":machine_observations,
+        "machine_observation_scope":"explicit operands and pointer fetches; not a complete memory-effect summary",
         "qualification":{"generation_seconds":generation_seconds,"resident_kib":resident_kib,
             "sample_scope":"single traced source-to-executable generation; not peak RSS",
             "manifest":manifest,"decisions":decisions},

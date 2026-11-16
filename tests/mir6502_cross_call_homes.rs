@@ -28,6 +28,18 @@ fn object_storage_indexed_callers_select_resident_homes_in_one_trial() {
         let n = nir(&source);
         assert_eq!(n.statics.iter().filter(|s| s.name == "menu").count(), 1);
         assert!(!n.routines.iter().any(|r| r.name == "menu"));
+        let p = mir6502::lower_program(&n).unwrap();
+        let observed = p.globals.iter().find(|g| g.name == "observed").unwrap();
+        assert_eq!(observed.backing, mir6502::MirGlobalBacking::Absolute(0xe6));
+        assert!(n.routines.iter().filter(|r| r.name == "ReadFixed")
+            .flat_map(|r| &r.blocks).flat_map(|b| &b.ops).any(|op| {
+                let actionc::nir::NirOp::ForeignCode { code, .. } = op else { return false; };
+                let actionc::nir::NirForeignCodePayload::Bytes { relocations, .. } = &code.payload
+                    else { return false; };
+                relocations.iter().any(|r| r.required_address_bits == Some(8)
+                    && r.target == actionc::nir::NirForeignCodeTarget::Storage(
+                        actionc::nir::NirStorageId::Global(observed.id)))
+            }), "must exercise the typed fixed-global scanner path");
         let config = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
         let mut trace = Mir6502Trace::default();
         let output = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
@@ -41,7 +53,7 @@ fn object_storage_indexed_callers_select_resident_homes_in_one_trial() {
                 s.scope == actionc::codegen::CodegenSymbolScope::Routine(name.into())
                 && s.kind == actionc::codegen::CodegenSymbolKind::Local).collect();
             assert!(homes.iter().any(|s| s.address < 256), "{name}: {homes:?}; {events:?}");
-            assert!(homes.iter().all(|s| !(s.address..s.address+s.size).contains(&0xe4)));
+            assert!(homes.iter().all(|s| !(s.address..s.address+s.size).any(|a| (0xe4..=0xe8).contains(&a))));
         }
         let image = actionc::codegen::format_load_file(&output);
         if let Some(old) = &reference { assert_eq!(old, &image); } else { reference = Some(image); }
