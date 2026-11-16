@@ -424,10 +424,12 @@ fn private_storage_machine_observations_survive_unknown_effects() {
             p.machine_blocks.push(MirMachineBlock { id: MirMachineBlockId(0),
                 source_span: None, items: bytes.into_iter().map(MirMachineItem::Byte).collect() });
             let inventory = machine_storage_observations(&p.machine_blocks[0], &p.routines[0], &p).unwrap();
-            assert_eq!(inventory.reads.iter().any(|a| a.base == MirMem::Absolute(0x6fff)), opcode != 0x8d);
-            assert_eq!(inventory.writes.iter().any(|a| a.base == MirMem::Absolute(0x6fff)), opcode != 0xad);
+            let reads: Vec<_> = inventory.reads.iter().flat_map(|a| a.resolve(&p, p.routines[0].id, None).unwrap()).collect();
+            let writes: Vec<_> = inventory.writes.iter().flat_map(|a| a.resolve(&p, p.routines[0].id, None).unwrap()).collect();
+            assert_eq!(reads.iter().any(|a| a.base == MirMem::Absolute(0x6fff)), opcode != 0x8d);
+            assert_eq!(writes.iter().any(|a| a.base == MirMem::Absolute(0x6fff)), opcode != 0xad);
             for address in [0x80, 0x81] {
-                assert!(inventory.reads.iter().any(|a| a.base == MirMem::FixedZeroPage(MirFixedZpSlot(address))));
+                assert!(reads.iter().any(|a| a.base == MirMem::FixedZeroPage(MirFixedZpSlot(address))));
             }
             assert_eq!(MirKnownCalleeSummaries::analyze_for_rewriting(&p)
                 .get(RoutineId(0)).unwrap().reads(), &MirKnownMemoryReads::Unknown);

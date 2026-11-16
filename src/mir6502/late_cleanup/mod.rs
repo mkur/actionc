@@ -220,13 +220,16 @@ fn machine_observations(
                 continue;
             };
             for access in if writes { inventory.writes } else { inventory.reads } {
-                // Source identities are covered by the complete source inventory;
-                // typed private identities are exposed by StorageOwnership.
-                if matches!(access.base, MirMem::Absolute(_) | MirMem::FixedZeroPage(_)) {
+                if let Some(ranges) = access.resolve(program, routine.id, Some(memory)) {
+                    // Include the full physical extent, even beyond the named object.
+                    for range in ranges {
+                        observations.push(ReadObservation { owner: routine.id, site: None,
+                            address: memory.address(routine.id, &range.base),
+                            mem: Some(range.base), bytes: range.bytes });
+                    }
+                } else {
                     observations.push(ReadObservation {
-                        owner: routine.id, site: None,
-                        address: memory.address(routine.id, &access.base),
-                        mem: Some(access.base), bytes: access.bytes,
+                        owner: routine.id, site: None, mem: None, address: None, bytes: 1,
                     });
                 }
             }

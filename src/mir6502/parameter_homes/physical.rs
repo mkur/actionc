@@ -31,6 +31,8 @@ pub(super) struct UnresolvedObservation {
     routine_id: u32,
     block: String,
     machine_block: u32,
+    stage: &'static str,
+    operand: Option<String>,
 }
 
 impl UnresolvedObservation {
@@ -39,8 +41,8 @@ impl UnresolvedObservation {
             routine: Some(self.routine),
             block: Some(self.block),
             message: format!(
-                "source-object physical observation: unresolved explicit operand in machine block m{} (owner r{})",
-                self.machine_block, self.routine_id
+                "source-object physical observation: unresolved explicit operand in machine block m{} (owner r{}, stage {}, operand {:?})",
+                self.machine_block, self.routine_id, self.stage, self.operand
             ),
         }]
     }
@@ -50,7 +52,7 @@ pub(super) fn unresolved_observation(p: &MirProgram) -> Option<UnresolvedObserva
     p.routines
         .iter()
         .any(has_pointee_writes)
-        .then(|| numeric_observations(p).err())
+        .then(|| numeric_observations(p, None).err())
         .flatten()
 }
 
@@ -104,7 +106,7 @@ pub(in crate::mir6502) fn verify(
     if objects.is_empty() {
         return Ok(());
     }
-    let observations = numeric_observations(p).map_err(UnresolvedObservation::diagnostics)?;
+    let observations = numeric_observations(p, Some(memory)).map_err(UnresolvedObservation::diagnostics)?;
     for object in objects {
         check(object, memory, &observations)?;
     }
@@ -114,25 +116,18 @@ pub(in crate::mir6502) fn verify(
 pub(super) fn verify_relocation(
     old: &super::super::preparation::Executable,
     new: &super::super::preparation::Executable,
-    references: &[&MirProgram],
+    old_input: &MirProgram,
+    new_input: &MirProgram,
 ) -> Result<(), Vec<MirDiagnostic>> {
     let objects = records(&new.program, &new.memory)?;
     if objects.is_empty() {
         return Ok(());
     }
-    let sources: Vec<_> = references
-        .iter()
-        .copied()
-        .chain([&old.program, &new.program])
-        .collect();
-    let addresses: Vec<_> = sources
-        .iter()
-        .map(|p| ObjectAddressControl::new(p))
-        .collect();
-    let mut observations = Vec::new();
-    for p in sources {
-        observations.extend(numeric_observations(p).map_err(UnresolvedObservation::diagnostics)?);
-    }
+    // Retained inputs are resolved only in the executable produced from them.
+    let sources = [(old_input, &old.memory), (new_input, &new.memory),
+        (&old.program, &old.memory), (&new.program, &new.memory)];
+    let addresses: Vec<_> = sources.iter().map(|(p, _)| ObjectAddressControl::new(p)).collect();
+    let observations = resolve_sources(&sources)?;
     for object in objects {
         let previous = old
             .memory
@@ -168,6 +163,14 @@ pub(super) fn verify_relocation(
     Ok(())
 }
 
+fn resolve_sources(sources: &[(&MirProgram, &MirPhysicalMemory)]) -> Result<Vec<(u16, u16)>, Vec<MirDiagnostic>> {
+    let mut observations = Vec::new();
+    for (p, memory) in sources {
+        observations.extend(numeric_observations(p, Some(memory)).map_err(UnresolvedObservation::diagnostics)?);
+    }
+    Ok(observations)
+}
+
 fn check(
     object: &SourceStorage,
     memory: &MirPhysicalMemory,
@@ -200,7 +203,7 @@ fn check(
 /// Generated FixedZeroPage operands are checked by residence, not mistaken for
 /// source exposure. Unknown pointee footprints are deliberately not numeric
 /// observations; undecodable explicit machine operands still prevent a proof.
-fn numeric_observations(p: &MirProgram) -> Result<Vec<(u16, u16)>, UnresolvedObservation> {
+fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMemory>) -> Result<Vec<(u16, u16)>, UnresolvedObservation> {
     let mut out = Vec::new();
     for r in &p.routines {
         for b in &r.blocks {
@@ -258,6 +261,7 @@ fn numeric_observations(p: &MirProgram) -> Result<Vec<(u16, u16)>, UnresolvedObs
                         routine_id: r.id.0,
                         block: b.label.clone(),
                         machine_block: id.0,
+                        stage: "decode", operand: None,
                     };
                     let machine = p
                         .machine_blocks
@@ -267,8 +271,12 @@ fn numeric_observations(p: &MirProgram) -> Result<Vec<(u16, u16)>, UnresolvedObs
                     let inventory =
                         machine_storage_observations(machine, r, p).ok_or_else(unresolved)?;
                     for access in inventory.reads.iter().chain(&inventory.writes) {
-                        if let Some(a) = fixed_storage_address(p, &access.base) {
-                            out.push((a, access.bytes));
+                        if let Some(ranges) = access.resolve(p, r.id, memory) {
+                            out.extend(ranges.iter().map(|range|
+                                (fixed_storage_address(p, &range.base).expect("resolved physical address"), range.bytes)));
+                        } else if memory.is_some() {
+                            return Err(UnresolvedObservation { stage: "layout",
+                                operand: Some(format!("{access:?}")), ..unresolved() });
                         }
                     }
                 }
@@ -291,6 +299,45 @@ fn numeric_base(p: &MirProgram, mem: &MirMem) -> Option<u16> {
 mod tests {
     use super::*;
     #[test]
+    fn symbolic_observation_retained_sources_use_their_own_layouts_and_protect_old_and_new_homes() {
+        let source = "PROC POINTER ptr\nPROC Probe=*()\nASM\n jmp (ptr)\nENDASM\nPROC Main() RETURN";
+        let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
+        let model = crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern()).unwrap();
+        let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+        let p = crate::mir6502::lower_program(&nir).unwrap();
+        let id = p.globals.iter().find(|g| g.name == "ptr").unwrap().id;
+        let map = |address| {
+            let mut m = MirPhysicalMemory::default();
+            m.protect_source_storage(Some(vec![SourceStorage { object: SourceObject::Global(id),
+                binding: None, offset: 0, address, bytes: 2 }]));
+            m
+        };
+        let old = map(0x30ff);
+        let new = map(0x4100);
+        // A later cleanup may remove the operation; its retained input still observes it.
+        let mut removed = p.clone();
+        for r in &mut removed.routines { for b in &mut r.blocks {
+            b.ops.retain(|op| !matches!(op, MirOp::MachineBlock { .. }));
+        }}
+        assert!(numeric_observations(&p, None).unwrap().is_empty()); // Decodable pending.
+        assert!(numeric_observations(&removed, Some(&new)).unwrap().is_empty());
+        let observed = resolve_sources(&[(&p, &old), (&p, &new), (&removed, &new)]).unwrap();
+        assert_eq!(observed, [(0x30ff, 1), (0x3000, 1), (0x4100, 1), (0x4101, 1)]);
+        for address in [0x30ff, 0x3000, 0x4100, 0x4101, 0xe4] {
+            let object = SourceStorage { object: SourceObject::Routine { owner: RoutineId(99),
+                slot: MirStorageId(0), base: MirStorageBase::Local(crate::nir::LocalId(0)) },
+                binding: None, offset: 0, address, bytes: 1 };
+            let mut m = MirPhysicalMemory::default();
+            m.protect_source_storage(Some(vec![object.clone()]));
+            assert_eq!(check(&object, &m, &observed).is_ok(), address == 0xe4);
+        }
+        let missing = MirPhysicalMemory::default();
+        let errors = resolve_sources(&[(&p, &old), (&p, &missing)]).unwrap_err();
+        assert!(errors[0].message.contains("stage layout"));
+        assert!(errors[0].message.contains("PointerFetch"));
+    }
+
+    #[test]
     fn fixed_observation_alias_fetches_protect_both_lanes_without_observing_scratch() {
         let source = "BYTE POINTER ptr=$E4 BYTE POINTER link=ptr+2\nPROC Probe=*()\nASM\n lda (link),y\n rts\nENDASM\nPROC Main() RETURN";
         let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
@@ -304,7 +351,7 @@ mod tests {
             dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xac))),
             src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte,
         });
-        let observations = numeric_observations(&p).unwrap();
+        let observations = numeric_observations(&p, None).unwrap();
         assert!(observations.contains(&(0xe6, 1)));
         assert!(observations.contains(&(0xe7, 1)));
         assert!(!observations.contains(&(0xac, 1)));

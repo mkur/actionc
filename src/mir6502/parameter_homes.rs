@@ -329,7 +329,7 @@ fn try_proposal(
         &child,
     );
     let trial = trial.and_then(|candidate| {
-        physical::verify_relocation(baseline, &candidate, &[&selected.input, &input])?;
+        physical::verify_relocation(baseline, &candidate, &selected.input, &input)?;
         Ok(candidate)
     });
     let accepted = trial.as_ref().is_ok_and(|p| p.improves(baseline));

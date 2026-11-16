@@ -3,12 +3,6 @@
 use super::*;
 use crate::mir6502::analysis::effects::MirMemoryRange;
 
-#[derive(Default)]
-pub(in crate::mir6502) struct MachineStorageObservations {
-    pub reads: Vec<MirMemoryRange>,
-    pub writes: Vec<MirMemoryRange>,
-}
-
 /// Resolve only explicit fixed backing, without consulting an emitted layout or
 /// replacing the caller's logical identity. Relocation addends are already in
 /// the memory offset; each alias contributes its own offset exactly once.
@@ -61,7 +55,7 @@ pub(in crate::mir6502) struct StorageObservation {
 }
 
 #[derive(Default, Debug)]
-pub(in crate::mir6502) struct DecodedStorageObservations {
+pub(in crate::mir6502) struct MachineStorageObservations {
     pub reads: Vec<StorageObservation>,
     pub writes: Vec<StorageObservation>,
 }
@@ -97,11 +91,11 @@ impl StorageAddress {
 
 /// This is an explicit exposure inventory, never a complete memory-effect summary.
 /// None means invalid/opaque operands; a typed unresolved address remains pending.
-pub(in crate::mir6502) fn decode_storage_observations(
+pub(in crate::mir6502) fn machine_storage_observations(
     machine: &MirMachineBlock,
     routine: &MirRoutine,
     program: &MirProgram,
-) -> Option<DecodedStorageObservations> {
+) -> Option<MachineStorageObservations> {
     use crate::asm6502::InlineAsmRelocationKind as Kind;
     use crate::mir6502::ir::MirInlineAsmTarget as Target;
     let mut addresses = BTreeMap::new();
@@ -137,7 +131,7 @@ pub(in crate::mir6502) fn decode_storage_observations(
             memory: None,
         }).collect())
     })?;
-    let mut result = DecodedStorageObservations::default();
+    let mut result = MachineStorageObservations::default();
     let mut index = 0;
     while index < bytes.len() {
         let (mnemonic, mode, len) = crate::codegen::decode_6502_opcode(bytes[index].value?)?;
@@ -171,31 +165,26 @@ pub(in crate::mir6502) fn decode_storage_observations(
     Some(result)
 }
 
-/// Compatibility projection until final-layout consumers discharge symbolic
-/// observations. It deliberately preserves their earlier conservative boundary.
-pub(in crate::mir6502) fn machine_storage_observations(
-    machine: &MirMachineBlock,
-    routine: &MirRoutine,
-    program: &MirProgram,
-) -> Option<MachineStorageObservations> {
-    let decoded = decode_storage_observations(machine, routine, program)?;
-    let project = |observations: Vec<StorageObservation>| -> Option<Vec<MirMemoryRange>> {
-        let mut ranges = Vec::new();
-        for observation in observations {
-            let base = offset_memory(observation.address.base, observation.address.addend)?;
-            if !machine_memory_within_object(&base, routine, program) { return None; }
-            match observation.extent {
-                ObservationExtent::Bytes(bytes) => ranges.push(MirMemoryRange { base, bytes }),
-                ObservationExtent::FullZeroPage => ranges.push(MirMemoryRange { base: absolute_mem(0), bytes: 256 }),
-                ObservationExtent::PointerFetch => {
-                    let address = fixed_storage_address(program, &base)?;
-                    let high = (address & 0xff00) | u16::from((address as u8).wrapping_add(1));
-                    ranges.push(MirMemoryRange { base, bytes: 1 });
-                    ranges.push(MirMemoryRange { base: absolute_mem(high), bytes: 1 });
-                }
-            }
-        }
-        Some(ranges)
-    };
-    Some(MachineStorageObservations { reads: project(decoded.reads)?, writes: project(decoded.writes)? })
+impl StorageObservation {
+    /// Resolve this explicit operand against its executable's authoritative map.
+    /// None without a map is pending; None with a map is a failed obligation.
+    pub fn resolve(
+        &self,
+        program: &MirProgram,
+        owner: RoutineId,
+        memory: Option<&crate::mir6502::analysis::record_bases::MirPhysicalMemory>,
+    ) -> Option<Vec<MirMemoryRange>> {
+        let base = fixed_storage_address(program, &self.address.base)
+            .or_else(|| memory?.assembly_address(owner, &self.address.base))?;
+        let address = self.address.at(base)?;
+        let ranges = match self.extent {
+            ObservationExtent::Bytes(bytes) => vec![(address, bytes)],
+            ObservationExtent::FullZeroPage => vec![(0, 256)],
+            ObservationExtent::PointerFetch => vec![(address, 1),
+                ((address & 0xff00) | u16::from((address as u8).wrapping_add(1)), 1)],
+        };
+        Some(ranges.into_iter().map(|(address, bytes)| MirMemoryRange {
+            base: absolute_mem(address), bytes,
+        }).collect())
+    }
 }

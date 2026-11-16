@@ -157,6 +157,33 @@ impl MirPhysicalMemory {
                 .find_map(|(r, m, a, _)| (*r == routine && m == mem).then_some(*a)),
         }
     }
+    /// Source assembler symbols address their declared data, including descriptor
+    /// backing. This differs from a normal load of the descriptor's pointer cell.
+    pub(in crate::mir6502) fn assembly_address(&self, owner: RoutineId, mem: &MirMem) -> Option<u16> {
+        let offset = match mem {
+            MirMem::Global { offset, .. } | MirMem::Static { offset, .. }
+            | MirMem::Param { offset, .. } | MirMem::Local { offset, .. } => *offset,
+            _ => return self.address(owner, mem),
+        };
+        let mut candidates = self.source_storage()?.iter().filter(|record| match (&record.object, mem) {
+            (SourceObject::Global(a), MirMem::Global { id: b, .. })
+            | (SourceObject::Static(a), MirMem::Static { id: b, .. }) => a == b,
+            (SourceObject::Routine { owner: a, base, .. }, MirMem::Param { id, .. }) =>
+                *a == owner && *base == MirStorageBase::Param(*id),
+            (SourceObject::Routine { owner: a, base, .. }, MirMem::Local { id, .. }) =>
+                *a == owner && matches!(base, MirStorageBase::Local(b) | MirStorageBase::LocalAlias { id: b, .. } if b == id),
+            _ => false,
+        }).filter_map(|record| {
+            let lane = if matches!(record.binding, Some(SourceBinding::Parameter(MirParamHome::Lanes(_)))) {
+                offset.checked_sub(record.offset)?
+            } else { offset };
+            (lane < record.bytes).then_some(())?;
+            record.address.checked_add(lane)
+        });
+        let address = candidates.next()?;
+        candidates.next().is_none().then_some(address)
+    }
+
     pub(in crate::mir6502) fn ordinary(&self, routine: RoutineId, mem: &MirMem) -> bool {
         if let MirMem::Global { id, offset } = mem
             && let Some((address, size, true)) = self.globals.get(id)

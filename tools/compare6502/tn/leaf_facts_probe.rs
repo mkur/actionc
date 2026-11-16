@@ -117,24 +117,25 @@ fn dump_tn_leaf_facts() {
             for op in &b.ops {
                 let MirOp::MachineBlock { id, .. } = op else { continue; };
                 let machine = p.machine_blocks.iter().find(|m| m.id == *id).unwrap();
-                let observations = machine_storage_observations(machine, r, p);
-                let decoded = observations::decode_storage_observations(machine, r, p);
+                let decoded = machine_storage_observations(machine, r, p);
                 let expressions = |accesses: &[observations::StorageObservation]| accesses.iter()
                     .map(|access| json!({"identity":format!("{:?}", access.address.base),
                         "addend":access.address.addend,"requires_zero_page":access.address.requires_zero_page,
                         "extent":format!("{:?}",access.extent),"fixed_address":access.address.fixed(p)}))
                     .collect::<Vec<_>>();
-                let ranges = |ranges: &[mir::analysis::effects::MirMemoryRange]| ranges.iter()
-                    .map(|range| json!({"identity":format!("{:?}",range.base),
-                        "fixed_address":fixed_storage_address(p,&range.base),"bytes":range.bytes}))
-                    .collect::<Vec<_>>();
+                let resolve = |accesses: &[observations::StorageObservation]| accesses.iter()
+                    .map(|access| access.resolve(p, r.id, Some(&physical)))
+                    .collect::<Option<Vec<_>>>().map(|ranges| ranges.into_iter().flatten()
+                        .map(|range| json!({"address":physical.address(r.id, &range.base),"bytes":range.bytes}))
+                        .collect::<Vec<_>>());
+                let reads = decoded.as_ref().and_then(|o|resolve(&o.reads));
+                let writes = decoded.as_ref().and_then(|o|resolve(&o.writes));
                 machine_observations.push(json!({"routine":r.name,"routine_id":r.id.0,
-                    "block":b.label,"machine_block":id.0,"complete":observations.is_some(),
+                    "block":b.label,"machine_block":id.0,"complete":reads.is_some() && writes.is_some(),
                     "decoded":decoded.is_some(),
                     "read_expressions":decoded.as_ref().map(|o|expressions(&o.reads)),
                     "write_expressions":decoded.as_ref().map(|o|expressions(&o.writes)),
-                    "reads":observations.as_ref().map(|o|ranges(&o.reads)),
-                    "writes":observations.as_ref().map(|o|ranges(&o.writes))}));
+                    "reads":reads,"writes":writes}));
             }
         }
         let ops: Vec<_> = r.blocks.iter().flat_map(|b| &b.ops).collect();

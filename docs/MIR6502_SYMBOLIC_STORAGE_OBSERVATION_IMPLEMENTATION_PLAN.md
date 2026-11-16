@@ -1,6 +1,6 @@
 # MIR6502 symbolic storage observations: implementation plan
 
-2026-11-16. Status: slices 1–2 implemented; slices 3–4 pending.
+2026-11-16. Status: slices 1–3 implemented; slice 4 pending.
 Continues the completed [fixed-address observation plan](MIR6502_FIXED_ADDRESS_OBSERVATION_IMPLEMENTATION_PLAN.md)
 under the [unexposed-object contract](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md)
 and [storage-observation design](MIR6502_STORAGE_OBSERVATION_DESIGN.md).
@@ -261,3 +261,15 @@ placement/cleanup behavior conservative until slice 3 installs layout resolution
 that projection is removed in slice 3. The diagnostic probe records decoded
 expressions and counts SArgs capture as a helper call. Local symbolic operands
 also receive source-derived execution coverage in slice 4.
+
+Slice 3: placement and cleanup consume the same typed observations and final-map
+resolver; the compatibility projection is removed. Source-storage records resolve
+assembler data addresses, including descriptor backing and local identities.
+Retained input/executable pairs use their own maps, and unresolved final operands
+report their owner, block, stage and expression. Eighteen `observation_` unit
+controls pass, including local indexed emission agreement, ZP validation, pointer
+page changes, missing maps and retained old/new observations. Four existing
+`object_storage_` units, the machine-observation cleanup control, exact rollback,
+and both object-storage pipeline controls also pass. The pipeline exercises
+LF/CRLF and preserves actual positive ZP selection plus opaque/independent fallback.
+No extra materialization, emission stage or subset retry was introduced.
