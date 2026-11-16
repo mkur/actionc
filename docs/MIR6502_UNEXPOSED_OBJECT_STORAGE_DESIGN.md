@@ -432,7 +432,9 @@ new edge copies or complex region splitting.
 
 Classify each object and value region independently. `PopUp` passes `@c` to
 Range; keeping `c` inline must not reject an unrelated direct home or optional
-working copy. Keep routine-wide ABI and structural verification, but do not
+working copy. Direct address formation for such an inline object is admissible
+through its existing typed address-reference effects. Keep routine-wide ABI and
+structural verification, but do not
 turn one object's exposure or persistence into a veto for every other object.
 Unsupported effects can end a proposed region; this is not permission to lower
 unsupported executable operations or weaken their normal verification.

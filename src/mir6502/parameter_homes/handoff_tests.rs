@@ -373,7 +373,7 @@ fn capture_boundary_supplies_working_homes_from_canonical_inputs() {
         input: Arc::new(resume.core.checkpoint.input.program.clone()),
         executable: baseline,
     };
-    let proposal = propose(&selected.input).unwrap();
+    let proposal = propose(&selected.input, false).unwrap();
     let selected = try_proposal(
         &nir,
         selected,
@@ -757,7 +757,7 @@ fn an_extra_expanded_entry_requirement_restores_the_complete_selected_artifact()
         input: Arc::new(resume.core.checkpoint.input.program.clone()),
         executable: baseline,
     };
-    let leaf = propose(&selected.input).unwrap();
+    let leaf = propose(&selected.input, false).unwrap();
     let selected = try_proposal(
         &nir,
         selected,

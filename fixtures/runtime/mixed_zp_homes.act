@@ -1,0 +1,22 @@
+BYTE outC=$900, outTail=$901
+CARD outPrior=$902, exposed=$904
+
+BYTE FUNC TouchByte(BYTE value)
+RETURN(value+1)
+
+CARD FUNC Mixed(BYTE c CARD keep BYTE tail)
+  CARD prior
+  exposed=@c
+  prior==+1
+  c=TouchByte(c)
+  keep==+1
+  keep==+2
+  tail==+1
+  outC=c
+  outTail=tail
+  outPrior=prior
+RETURN(keep)
+
+PROC Main()
+  Mixed(7,$1234,9)
+RETURN

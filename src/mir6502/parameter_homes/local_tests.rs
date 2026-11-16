@@ -336,7 +336,7 @@ fn object_storage_admission_keeps_shift_and_helper_boundaries() {
     for op in ["LSH", "RSH"] {
         for count in 0..=9 {
             let p = source(&format!("BYTE FUNC Shift(BYTE x,keep) x=x {op} {count} RETURN(x XOR keep)"));
-            assert_eq!(super::super::eligible_with_calls(&ObjectAddressControl::new(&p), &p.routines[0], false), count <= 8);
+            assert_eq!(super::super::eligible_with_calls(&ObjectAddressControl::new(&p), &p.routines[0], false, false), count <= 8);
         }
     }
     for text in [
@@ -346,6 +346,6 @@ fn object_storage_admission_keeps_shift_and_helper_boundaries() {
         "CARD FUNC Exposed(CARD x) CARD p p=@x RETURN(p)",
     ] {
         let p = source(text);
-        assert!(!super::super::eligible_with_calls(&ObjectAddressControl::new(&p), &p.routines[0], false), "{text}");
+        assert!(!super::super::eligible_with_calls(&ObjectAddressControl::new(&p), &p.routines[0], false, false), "{text}");
     }
 }

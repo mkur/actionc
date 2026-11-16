@@ -1,6 +1,6 @@
 # MIR6502 direct ZP homes and value lifetimes: implementation plan
 
-Prepared 2026-11-16. Status: slice 1 complete; slices 2–4 pending.
+Prepared 2026-11-16. Status: slices 1–2 complete; slices 3–4 pending.
 
 First delivery of the
 [ZP lifetime design](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md#zp-home-lifetimes-and-persistent-storage).
@@ -11,6 +11,12 @@ this delivery; dedicated persistent reservations have the follow-on boundary bel
 Slice 1 validation: all 53 parameter-home unit tests passed, including the new
 logical call-site/entry-dependence control. The existing local initialization,
 physical clobber, handoff, observation and rollback controls remain green.
+
+Slice 2 validation: all 54 placement unit tests and the new mixed-home VM
+control passed. The VM covers gate off/on, both runtimes, repeated calls and
+LF/CRLF through the source-loading path. The new discovery gate remains off
+by default pending qualification. Direct Param/Local address formation is the
+only added body shape; addressed objects retain inline homes.
 
 ## Outcome and scope
 
@@ -109,7 +115,9 @@ verification/tests.
 4. Retain local persistence, initialization, alias and fixed-address exclusions.
    Keep register-only/handoff strategies under their current eligibility unless
    their mixed-object behavior is independently covered; this slice broadens
-   direct memory placement only.
+   direct memory placement only. Direct `LeaAddr` of a Param/Local is admitted
+   for this mixed case; its addressed object remains inline and its existing
+   structured address-reference effects remain authoritative.
 5. Retain the current whole-call exclusion rule until slice 3. Use existing
    reservations, physical layout and final acceptance; no new allocator or trial.
 

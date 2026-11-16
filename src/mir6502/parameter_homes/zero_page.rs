@@ -2,18 +2,19 @@
 //! with existing temporary allocation; final expansion checks the lifetime.
 use super::*;
 
-pub(super) fn bindings(program: &MirProgram, routine: &MirRoutine) -> Option<Vec<MirParamBinding>> {
+pub(super) fn bindings(program: &MirProgram, routine: &MirRoutine, addresses: &ObjectAddressControl<'_>) -> Option<Vec<MirParamBinding>> {
     // A single read-only byte already has the optimal legacy forwarding path.
     if routine.frame.params.len() == 1 && routine.frame.params[0].storage_size == 1 {
         return None;
     }
-    bindings_avoiding(program, routine, &BTreeSet::new())
+    bindings_avoiding(program, routine, &BTreeSet::new(), addresses)
 }
 
 pub(super) fn bindings_avoiding(
     program: &MirProgram,
     routine: &MirRoutine,
     forbidden: &BTreeSet<u8>,
+    addresses: &ObjectAddressControl<'_>,
 ) -> Option<Vec<MirParamBinding>> {
     let mut used = used_bytes(program, routine, forbidden);
     let total: u16 = routine.frame.params.iter().map(|p| p.storage_size).sum();
@@ -24,7 +25,9 @@ pub(super) fn bindings_avoiding(
             return None;
         };
         let width = slot.storage_size;
-        let home = if absent_parameter(routine, id) {
+        let home = if !eligible_parameter(addresses, routine, slot) {
+            MirParamHome::Inline
+        } else if absent_parameter(routine, id) {
             MirParamHome::Absent
         } else {
             // Reuse an incoming fixed lane first, then ABI-window storage and

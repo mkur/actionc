@@ -22,6 +22,29 @@ fn programs(source: &str) -> (MirProgram, MirProgram) {
     (input, expanded)
 }
 
+#[test]
+fn mixed_objects_keep_exposed_and_persistent_homes_inline() {
+    let source = include_str!("../../../../fixtures/runtime/mixed_zp_homes.act").replace("\r\n", "\n");
+    let (input, selected) = programs(&source);
+    assert!(propose(&input, &selected, true, false, &Trace::disabled()).is_none());
+    let proposed = propose(&input, &selected, true, true, &Trace::disabled()).unwrap();
+    let r = proposed.routines.iter().find(|r| r.name == "Mixed").unwrap();
+    let homes = r.frame.parameter_homes.as_ref().unwrap();
+    assert_eq!(homes[0].home, MirParamHome::Inline);
+    assert!(matches!(homes[1].home, MirParamHome::ZeroPage(_)));
+    assert!(matches!(homes[2].home, MirParamHome::ZeroPage(_)));
+    assert!(r.frame.local_homes.as_ref().is_none_or(|b| b.iter().all(|b| b.home == MirLocalHome::Inline)));
+    let expanded = mir::materialize_program(proposed, &Default::default()).unwrap();
+    let r = expanded.routines.iter().find(|r| r.name == "Mixed").unwrap();
+    assert!(verify_storage(&expanded, r, MirCalleeEntryStage::ActualEntry).is_empty());
+    assert!(verify_lifetimes(r, Some(&mut ResidenceCalls::new(&expanded, MirCalleeEntryStage::ActualEntry))).is_empty());
+
+    // An address-only parameter cannot become Absent or enter register binding.
+    let (input, _) = programs("CARD exposed CARD FUNC Leaf(BYTE c CARD keep BYTE tail) exposed=@c keep==+1 keep==+2 RETURN(keep)");
+    let proposed = super::super::propose(&input, true).unwrap();
+    assert_eq!(proposed.routines[0].frame.parameter_homes.as_ref().unwrap()[0].home, MirParamHome::Inline);
+}
+
 fn hold(p: &MirProgram) -> &MirRoutine {
     p.routines.iter().find(|r| r.name == "Hold").unwrap()
 }
@@ -60,9 +83,9 @@ fn clobber_second(p: &mut MirProgram, byte: MirFixedZpSlot) {
 fn multiple_leaf_calls_admit_distinct_and_repeated_targets_only_when_enabled() {
     for source in [SOURCE.to_string(), SOURCE.replace("Second(5)", "First(5)")] {
         let (input, selected) = programs(&source);
-        assert!(propose(&input, &selected, false, &Trace::disabled()).is_none());
+        assert!(propose(&input, &selected, false, false, &Trace::disabled()).is_none());
         let session = Mir6502Trace::default();
-        let proposed = propose(&input, &selected, true, &session.context()).unwrap();
+        let proposed = propose(&input, &selected, true, false, &session.context()).unwrap();
         assert!(hold(&proposed).frame.parameter_homes.is_some());
         assert!(hold(&proposed).frame.local_homes.is_some());
         let expanded = mir::materialize_program(proposed, &Default::default()).unwrap();
@@ -90,7 +113,7 @@ fn multiple_leaf_calls_admit_distinct_and_repeated_targets_only_when_enabled() {
 #[test]
 fn multiple_leaf_calls_union_includes_second_callee_word_lane_and_local() {
     let (input, selected) = programs(SOURCE);
-    let proposed = propose(&input, &selected, true, &Trace::disabled()).unwrap();
+    let proposed = propose(&input, &selected, true, false, &Trace::disabled()).unwrap();
     let bytes = hold(&proposed).frame.resident_bytes();
     assert_eq!(
         bytes.len(),
@@ -100,7 +123,7 @@ fn multiple_leaf_calls_union_includes_second_callee_word_lane_and_local() {
     for (_, byte) in bytes {
         let mut changed = selected.clone();
         clobber_second(&mut changed, byte);
-        let safe = propose(&input, &changed, true, &Trace::disabled()).unwrap();
+        let safe = propose(&input, &changed, true, false, &Trace::disabled()).unwrap();
         assert!(
             hold(&safe)
                 .frame
@@ -155,7 +178,7 @@ fn multiple_leaf_calls_validate_later_sites_even_with_cached_entry_facts() {
                 });
         }
         let session = Mir6502Trace::default();
-        assert!(propose(&input, &selected, true, &session.context()).is_none());
+        assert!(propose(&input, &selected, true, false, &session.context()).is_none());
         let events = session.events();
         let rejected = events
             .iter()
@@ -193,7 +216,7 @@ fn multiple_leaf_calls_invalid_second_site_restores_exact_selected_artifact() {
         executable: baseline,
     };
     let mut proposal =
-        propose(&selected.input, &selected.executable.program, true, &trace).unwrap();
+        propose(&selected.input, &selected.executable.program, true, false, &trace).unwrap();
     let MirOp::Call { args, .. } = second_call(&mut proposal) else {
         unreachable!()
     };

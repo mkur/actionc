@@ -6,6 +6,7 @@ pub(super) fn propose(
     input: &MirProgram,
     selected: &MirProgram,
     multiple: bool,
+    lifetimes: bool,
     trace: &super::super::trace::Trace,
 ) -> Option<MirProgram> {
     let addresses = ObjectAddressControl::new(input);
@@ -15,7 +16,7 @@ pub(super) fn propose(
         .iter()
         .enumerate()
         .filter_map(|(index, routine)| {
-            if !eligible_with_calls(&addresses, routine, true) {
+            if !eligible_with_calls(&addresses, routine, true, lifetimes) {
                 if trace.enabled() && routine.blocks.iter().flat_map(|b| &b.ops)
                     .any(|op| matches!(op, MirOp::Call { .. }))
                 {
@@ -78,7 +79,7 @@ pub(super) fn propose(
                 if r.frame.parameter_has_memory(id) && matches!(r.frame.parameter_home(id), None | Some(MirParamHome::Inline)))));
         let mut changed = false;
         if ordinary_params
-            && let Some(bindings) = zero_page::bindings_avoiding(input, &candidate, &forbidden)
+            && let Some(bindings) = zero_page::bindings_avoiding(input, &candidate, &forbidden, &addresses)
         {
             install_bindings(&mut candidate, bindings);
             changed = true;

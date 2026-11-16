@@ -47,7 +47,7 @@ pub(super) fn select_output(
         input: Arc::new(resume.core.checkpoint.input.program.clone()),
         executable: baseline,
     };
-    if let Some(proposal) = propose(&selected.input) {
+    if let Some(proposal) = propose(&selected.input, config.enable_zp_home_lifetimes) {
         selected = try_proposal(
             nir,
             selected,
@@ -72,7 +72,7 @@ pub(super) fn select_output(
     }
     if config.enable_cross_call_home_selection {
         if let Some(proposal) = cross_call::propose(&selected.input, &selected.executable.program,
-            config.enable_multiple_leaf_call_homes, trace).or_else(|| {
+            config.enable_multiple_leaf_call_homes, config.enable_zp_home_lifetimes, trace).or_else(|| {
                 (!spills::discover(&selected.executable.program, config.enable_multiple_leaf_call_homes).is_empty())
                     .then(|| (*selected.input).clone())
             }) {
@@ -85,18 +85,20 @@ pub(super) fn select_output(
     selected.executable
 }
 
-fn propose(input: &MirProgram) -> Option<MirProgram> {
+fn propose(input: &MirProgram, mixed: bool) -> Option<MirProgram> {
     let addresses = ObjectAddressControl::new(input);
     let observations = physical::observations_complete(input);
     let mut proposal = input.clone();
     let mut changed = false;
     for routine in &mut proposal.routines {
-        if !eligible_with_calls(&addresses, routine, false)
+        if !eligible_with_calls(&addresses, routine, false, mixed)
             || (!observations && physical::has_pointee_writes(routine)) {
             continue;
         }
         if let Some(bindings) =
-            register_bindings(routine).or_else(|| zero_page::bindings(input, routine))
+            routine.frame.params.iter().all(|p| eligible_parameter(&addresses, routine, p))
+                .then(|| register_bindings(routine)).flatten()
+                .or_else(|| zero_page::bindings(input, routine, &addresses))
         {
             install_bindings(routine, bindings);
             changed = true;
@@ -139,7 +141,7 @@ fn install_bindings(routine: &mut MirRoutine, bindings: Vec<MirParamBinding>) {
 
 /// Deliberately closed expansion set. Additional shapes must establish their
 /// hidden helper, scratch, and observable-memory behavior before admission.
-fn eligible_with_calls(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, calls: bool) -> bool {
+fn eligible_with_calls(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, calls: bool, mixed: bool) -> bool {
     use super::analysis::effects::{classify_op, writes_ordinary_pointee};
     routine.abi == MirRoutineAbi::Action
         && routine.frame.parameter_homes.is_none()
@@ -151,16 +153,7 @@ fn eligible_with_calls(addresses: &ObjectAddressControl<'_>, routine: &MirRoutin
             .map(|p| p.abi_byte_width().unwrap_or(5))
             .sum::<u16>()
             <= 4
-        && routine.frame.params.iter().all(|p| {
-            matches!(p.base, MirStorageBase::Param(id) if addresses.compiler_controls_address(routine.id, &MirMem::Param { id, offset: 0 }))
-                && scalar_parameter_cell(p)
-                && p.offset == 0
-                && p.init.is_none()
-                && matches!(
-                    (p.scalar_width, p.storage_size),
-                    (Some(MirWidth::Byte), 1) | (Some(MirWidth::Word), 2)
-                )
-        })
+        && (mixed || routine.frame.params.iter().all(|p| eligible_parameter(addresses, routine, p)))
         // Data-dependent pointer arithmetic has a separate fused staging
         // strategy. Keep it on the legacy path until that consumer cooperates
         // with resident homes. This first pointer slice admits immediate word
@@ -192,7 +185,8 @@ fn eligible_with_calls(addresses: &ObjectAddressControl<'_>, routine: &MirRoutin
                                     | MirBinaryOp::Xor,
                                 ..
                             }
-                    ) || matches!(op,
+                    ) || (mixed && matches!(op, MirOp::LeaAddr { target: MirMem::Param { .. } | MirMem::Local { .. }, .. }))
+                        || matches!(op,
                         MirOp::Binary { op: MirBinaryOp::Lsh | MirBinaryOp::Rsh,
                             width: MirWidth::Byte, right: MirValue::ConstU8(0..=8) | MirValue::ConstU16(0..=8), .. })
                         || matches!(op, MirOp::Load { src, width: MirWidth::Byte | MirWidth::Word, .. }
@@ -200,6 +194,13 @@ fn eligible_with_calls(addresses: &ObjectAddressControl<'_>, routine: &MirRoutin
                             if native_address(src)))
             })
         })
+}
+
+fn eligible_parameter(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, p: &MirStorageSlot) -> bool {
+    matches!(p.base, MirStorageBase::Param(id) if addresses.compiler_controls_address(routine.id, &MirMem::Param { id, offset: 0 }))
+        && scalar_parameter_cell(p) && p.offset == 0 && p.init.is_none()
+        && matches!((p.scalar_width, p.storage_size),
+            (Some(MirWidth::Byte), 1) | (Some(MirWidth::Word), 2))
 }
 
 fn scalar_parameter_cell(slot: &MirStorageSlot) -> bool {
@@ -486,6 +487,7 @@ pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
             continue;
         };
         let width = slot.storage_size;
+        if binding.home == MirParamHome::Inline { continue; }
         if slot.offset != 0
             || slot.init.is_some()
             || !scalar_parameter_cell(slot)
@@ -685,7 +687,7 @@ mod tests {
             backing: MirGlobalBacking::Absolute(0xa0),
             init: None,
         });
-        assert!(zero_page::bindings(&p, &p.routines[0]).is_none());
+        assert!(zero_page::bindings(&p, &p.routines[0], &ObjectAddressControl::new(&p)).is_none());
     }
 
     #[test]
@@ -860,7 +862,7 @@ mod tests {
                 executable: baseline,
             };
             if leaf_path != 0 {
-                let mut proposal = propose(&selected.input).expect("leaf controls qualify");
+                let mut proposal = propose(&selected.input, false).expect("leaf controls qualify");
                 if leaf_path == 2 {
                     proposal.routines[0].frame.parameter_homes = Some(vec![]);
                 }
