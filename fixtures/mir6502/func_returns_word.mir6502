@@ -2,11 +2,13 @@ mir6502 program
 global g1 out: word storage global+0
 
 routine r0 Get
+  result-abi word @ $A0/$A1
 b0 bb0:
   store.w fixed_zp $A0, #$1234
   return
 
 routine r1 Main
+  result-abi void
 b0 bb1:
   call r0 args=[] result=v0.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.w global g1+0, v0

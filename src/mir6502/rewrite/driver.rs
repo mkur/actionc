@@ -2167,6 +2167,7 @@ mod tests {
 
     fn routine(op: MirOp) -> MirRoutine {
         MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),

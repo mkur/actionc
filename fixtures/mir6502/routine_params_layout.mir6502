@@ -1,5 +1,6 @@
 mir6502 program
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   return

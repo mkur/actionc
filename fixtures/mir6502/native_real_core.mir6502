@@ -6,6 +6,7 @@ static s0 __nir_real_Main_0: REAL bytes [$40 $01 $25 $00 $00 $00] section=rodata
 static s1 __nir_real_Main_1: REAL bytes [$3F $50 $00 $00 $00 $00] section=rodata align=1 mutable=false display="0.5"
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   packed_real_copy global g0+0+0, static s0+0+0
   store.b global g1+0, #$40

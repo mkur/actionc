@@ -4,6 +4,7 @@ global g1 h: byte storage global+1
 global g2 size: word storage global+2
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   store.b global g0+0, #$24
   store.b global g1+0, #$0B

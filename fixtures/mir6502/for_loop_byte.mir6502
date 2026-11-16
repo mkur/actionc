@@ -3,6 +3,7 @@ global g0 i: byte storage global+0
 global g1 sum: byte storage global+1
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   store.b global g0+0, #$00
   jump b1

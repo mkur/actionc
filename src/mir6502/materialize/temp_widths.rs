@@ -147,6 +147,7 @@ mod tests {
     #[test]
     fn routine_widths_retain_typed_block_parameters() {
         let routine = MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),

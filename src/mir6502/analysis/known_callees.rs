@@ -1885,6 +1885,7 @@ mod tests {
 
     fn routine(id: u32, ops: Vec<MirOp>, terminator: MirTerminator) -> MirRoutine {
         MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(id),

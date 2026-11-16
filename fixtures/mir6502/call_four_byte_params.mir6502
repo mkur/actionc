@@ -2,6 +2,7 @@ mir6502 program
 global g0 out: byte absolute $4000
 
 routine r0 Take
+  result-abi void
 b0 bb0:
   v0 =.b load param p0+0
   v1 =.b load param p1+0
@@ -14,6 +15,7 @@ b0 bb0:
   return
 
 routine r1 Main
+  result-abi void
 b0 bb1:
   call r0 args=[#$01.b -> a, #$02.b -> x, #$03.b -> y, #$04.b -> fixed_zp $A3] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   return

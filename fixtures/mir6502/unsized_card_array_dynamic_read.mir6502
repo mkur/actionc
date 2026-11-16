@@ -4,6 +4,7 @@ global g1 i: byte storage global+2
 global g2 out: word storage global+3
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   store.b global g1+0, #$01
   v1 =.w load computed #$0600[#$01;2]+0

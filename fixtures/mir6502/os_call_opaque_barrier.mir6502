@@ -2,10 +2,12 @@ mir6502 program
 static s0 __nir_str_Main_0: Char* bytes [$05 $52 $45 $41 $44 $59] section=rodata align=1 mutable=false display="READY"
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   call r1 args=[static_addr s0.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags
   return
 
 routine r1 SYS.PrintE
+  result-abi void
 b0 bb1:
   unreachable

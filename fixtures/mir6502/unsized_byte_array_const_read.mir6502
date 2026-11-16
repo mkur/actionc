@@ -3,6 +3,7 @@ global g0 screen: byte storage global+0 size=2 init bytes=[$80 $05] zero_fill=0 
 global g1 out: byte storage global+2
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.b load computed #$0580[#$02;1]+0
   store.b global g1+0, v0

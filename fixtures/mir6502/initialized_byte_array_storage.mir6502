@@ -3,6 +3,7 @@ global g0 data: byte storage global+0 size=2 init descriptor size=2 backing=g0 b
 global g1 out: byte storage global+2
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.w lea global g0+0
   v1 =.b load *global g0+0+1

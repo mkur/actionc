@@ -65,6 +65,7 @@ fn inventory(p: &MirProgram, output: Option<&crate::codegen::CodegenOutput>) -> 
 }
 fn simple_routine(id:u32,ops:Vec<MirOp>) -> MirRoutine {
     MirRoutine {id:RoutineId(id),name:format!("r{id}"),abi:MirRoutineAbi::Action,inline:Default::default(),
+        direct_result_abi: None,
         scalar_signature:Some(MirScalarSignature {params:vec![],result:vec![]}),
         frame:MirFrame {direct_parameter_abi:Some(vec![]),..Default::default()},temps:vec![],effects:MirEffects::default(),
         blocks:vec![MirBlock {id:MirBlockId(0),label:"b0".into(),params:vec![],ops,terminator:MirTerminator::Return}]}

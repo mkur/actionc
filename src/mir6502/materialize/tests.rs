@@ -204,6 +204,7 @@ fn txa_direct_store_routine(
     }];
     blocks.extend(successor_blocks);
     MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -433,6 +434,7 @@ fn known_call_result_reuse_program(
         width: MirWidth::Byte,
     };
     let caller = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -511,6 +513,7 @@ fn known_call_result_reuse_program(
         });
     }
     let callee = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(1),
@@ -652,6 +655,7 @@ fn direct_word_to_indirect_copy_test_program(x_live: bool) -> MirProgram {
         statics: Vec::new(),
         globals: Vec::new(),
         routines: vec![MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
@@ -785,6 +789,7 @@ fn indirect_direct_transform_store_test_program(value_source: MirMem) -> MirProg
         statics: Vec::new(),
         globals: Vec::new(),
         routines: vec![MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
@@ -990,6 +995,7 @@ fn word_rsh8_high_projection_test_routine(terminator: MirTerminator) -> MirRouti
         }
     }
     MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -1139,6 +1145,7 @@ fn constant_word_shift_projections_lower_before_helper_selection() {
         ),
     ];
     let mut routine = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -1332,6 +1339,7 @@ fn small_constant_word_shifts_lower_to_bounded_carry_chains() {
         ),
     ];
     let mut routine = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -1558,6 +1566,7 @@ fn helper_indexed_store_test_program(helper: MirRuntimeHelper, consumer_lo: u8) 
         statics: Vec::new(),
         globals: Vec::new(),
         routines: vec![MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
@@ -1749,6 +1758,7 @@ fn indirect_word_load_fold_keeps_lane_live_in_successor() {
 #[test]
 fn collapse_empty_jump_blocks_redirects_predecessors() {
     let mut routine = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -1816,6 +1826,7 @@ fn collapse_empty_jump_blocks_redirects_predecessors() {
 #[test]
 fn collapse_empty_jump_blocks_keeps_self_loop_targets() {
     let mut routine = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -2597,6 +2608,7 @@ fn paired_word_arithmetic_compare_proof_rejects_live_fixed_scratch() {
         },
     ]);
     let routine = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -3005,6 +3017,7 @@ fn direct_word_equality_proof_keeps_operand_live_in_successor() {
         width: MirWidth::Word,
     });
     let routine = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -3040,6 +3053,7 @@ fn direct_word_compare_proof_keeps_condition_live_in_successor() {
         width: MirWidth::Byte,
     });
     let routine = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -3766,6 +3780,7 @@ fn addressed_byte_compare_routine(value_live_after: bool) -> MirRoutine {
         });
     }
     MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -3850,6 +3865,7 @@ fn dual_indirect_compare_routine(op: MirCompareOp, pointer_live_after: bool) -> 
         });
     }
     MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -4088,6 +4104,7 @@ fn dual_indexed_compare_routine(
     });
 
     MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -4810,6 +4827,7 @@ fn signed_word_lt_branch_uses_compact_overflow_path_for_direct_values() {
 fn compare_operand_prebranch_fold_enables_compact_signed_word_branch() {
     let mut program = empty_test_program();
     program.routines.push(MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -9302,6 +9320,7 @@ fn scaled_y_word_read_rewrite_rejects_interleaved_indirect_y_store() {
     let source = DEFAULT_POINTER_PAIR;
     let destination = DEST_POINTER_PAIR;
     let routine = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -9363,6 +9382,7 @@ fn scaled_y_word_read_rewrite_rejects_interleaved_indirect_y_store() {
 #[test]
 fn scaled_y_word_store_rewrite_selects_staged_sources() {
     let routine = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -10332,6 +10352,7 @@ fn direct_indexed_binary_program(source: MirMem) -> MirProgram {
             init: None,
         }],
         routines: vec![MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
@@ -11480,6 +11501,7 @@ fn stored_call_result_alias_proof_rejects_a_successor_use() {
         },
     ];
     let routine = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -13484,6 +13506,7 @@ fn dead_spill_store_keeps_value_read_before_store_on_next_iteration() {
         offset: 0,
     };
     let mut routine = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -13707,6 +13730,7 @@ fn cross_block_spill_coloring_routine(
         vec![read(first), write(second, 2)]
     };
     MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -15054,6 +15078,7 @@ fn exact_known_callee_zn_provenance_folds_a_zero_compare() {
         },
     ]);
     let callee = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(1),
@@ -20000,6 +20025,7 @@ fn hot_induction_address_routine(with_barrier: bool) -> MirRoutine {
         });
     }
     MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -21725,6 +21751,7 @@ fn pre_home_fixed_point_is_idempotent_after_convergence() {
 
 fn ssa_lite_edge_test_routine(blocks: Vec<MirBlock>) -> MirRoutine {
     MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -21742,6 +21769,7 @@ fn empty_test_program() -> MirProgram {
         statics: Vec::new(),
         globals: Vec::new(),
         routines: vec![MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
@@ -21831,6 +21859,7 @@ fn exact_terminal_indirect_jump_gets_structured_machine_effects() {
     }];
     program.routines.extend([
         MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(1),
@@ -21848,6 +21877,7 @@ fn exact_terminal_indirect_jump_gets_structured_machine_effects() {
             effects: MirEffects::default(),
         },
         MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(2),
@@ -21967,6 +21997,7 @@ fn known_callee_exit_accumulator_elides_return_slot_reload() {
         effects: MirEffects::default(),
     };
     let caller = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -21996,6 +22027,7 @@ fn known_callee_exit_accumulator_elides_return_slot_reload() {
         effects: MirEffects::default(),
     };
     let callee = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(1),
@@ -22093,6 +22125,7 @@ fn known_callee_word_result_placement_stores_proven_high_lane_first() {
         effects: MirEffects::default(),
     };
     let caller = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -22136,6 +22169,7 @@ fn known_callee_word_result_placement_stores_proven_high_lane_first() {
         effects: MirEffects::default(),
     };
     let callee = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(1),
@@ -22170,6 +22204,7 @@ fn known_callee_word_result_placement_stores_proven_high_lane_first() {
         *target = MirCallTarget::Routine(RoutineId(0));
     }
     let observer = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(2),
@@ -22268,6 +22303,7 @@ fn known_callee_index_param_carrier_program(callee_ops: Vec<MirOp>) -> MirProgra
         effects: MirEffects::default(),
     };
     let caller = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -22316,6 +22352,7 @@ fn known_callee_index_param_carrier_program(callee_ops: Vec<MirOp>) -> MirProgra
         effects: MirEffects::default(),
     };
     let callee = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(1),
@@ -22344,6 +22381,7 @@ fn leaf_word_param_result_routine() -> MirRoutine {
     };
     let result = |offset| MirMem::FixedZeroPage(MirFixedZpSlot(0xA0 + offset as u8));
     MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -22680,6 +22718,7 @@ fn known_callee_word_result_placement_keeps_absolute_store_order() {
         terminator: MirTerminator::Return,
     }]);
     let callee = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(1),
@@ -22757,6 +22796,7 @@ fn known_callee_preserves_staged_pointer_bytes_it_cannot_write() {
         effects: MirEffects::default(),
     };
     let caller = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
@@ -22789,6 +22829,7 @@ fn known_callee_preserves_staged_pointer_bytes_it_cannot_write() {
         effects: MirEffects::default(),
     };
     let callee = MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(1),

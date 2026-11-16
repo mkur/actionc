@@ -1,6 +1,7 @@
 mir6502 program
 
 routine r0 test
+  result-abi word @ $A0/$A1
 b0 bb0:
   v0 =.w load param p0+0
   v1 =.b load param p1+0
@@ -10,6 +11,7 @@ b0 bb0:
   return
 
 routine r1 Main
+  result-abi void
 b0 bb1:
   call r0 args=[#$000A.w -> a:x, #$02.b -> y] result=v1.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   return

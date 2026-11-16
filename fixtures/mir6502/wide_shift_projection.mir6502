@@ -4,6 +4,7 @@ global g1 middle: word absolute $0600
 global g2 upper: byte absolute $0602
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.w load global g0+0
   v8 =.w load global g0+2

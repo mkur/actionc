@@ -4,6 +4,7 @@ global g1 h: byte storage global+1
 global g2 size: word storage global+2
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.b load global g0+0
   v1 =.b v0 add #$01 carry_in=- carry_out=ignore

@@ -8,6 +8,7 @@ global g5 byteTimesEight: word storage global+9
 global g6 truncatedTimes32: byte storage global+11
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.w load global g0+0
   v1 =.w v0 mul #$02 carry_in=- carry_out=ignore

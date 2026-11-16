@@ -799,6 +799,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                direct_result_abi: None,
                 scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),

@@ -3,6 +3,7 @@ machine m0 items=[$A2 $00]
 machine m1 items=[$E8]
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   machine m0 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp
   machine m1 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp

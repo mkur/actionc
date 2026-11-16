@@ -10,5 +10,6 @@ global g7 allocp: word absolute $00E8
 global g8 drvdef_1: byte absolute $07CB size=8
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   return

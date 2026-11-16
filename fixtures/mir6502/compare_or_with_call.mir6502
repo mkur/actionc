@@ -4,11 +4,13 @@ global g1 flag: byte storage global+1
 global g2 out: byte storage global+2
 
 routine r0 Next
+  result-abi byte @ $A0
 b0 bb0:
   store.b fixed_zp $A0, #$FF
   return
 
 routine r1 Main
+  result-abi void
 b0 bb1:
   store.b global g0+0, #$10
   store.b global g1+0, #$00

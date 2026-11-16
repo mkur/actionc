@@ -4,6 +4,7 @@ global g1 out: word storage global+2
 global g2 count: byte storage global+4
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.w load global g0+0
   v1 =.b load global g2+0

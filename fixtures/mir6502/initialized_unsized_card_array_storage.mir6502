@@ -3,6 +3,7 @@ global g0 words: word storage global+0 init descriptor size=2 backing=g0 bytes=[
 global g1 out: word storage global+2
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.w lea global g0+0
   v1 =.w load *global g0+0+2

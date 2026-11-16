@@ -105,6 +105,7 @@ mod tests {
             runtime_helpers: vec![],
         };
         let r = MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),

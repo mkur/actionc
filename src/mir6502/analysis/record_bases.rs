@@ -625,6 +625,7 @@ mod tests {
             id: RoutineId(0),
             name: "Bases".into(),
             inline: Default::default(),
+            direct_result_abi: None,
             scalar_signature: None,
             abi: MirRoutineAbi::Action,
             frame: MirFrame::default(),

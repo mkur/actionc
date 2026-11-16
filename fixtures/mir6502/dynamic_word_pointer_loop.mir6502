@@ -3,6 +3,7 @@ global g0 source: byte storage global+0 size=4 init bytes=[$01 $02 $03 $04] zero
 global g1 result: byte storage global+4
 
 routine r0 SumBytes
+  result-abi byte @ $A0
 b0 bb0:
   store.b local l0+0, #$00
   jump b1(#$0000:word)
@@ -24,6 +25,7 @@ b3 bb3:
   return
 
 routine r1 Main
+  result-abi void
 b0 bb4:
   v0 =.w lea global g0+0
   call r0 args=[v0.w -> a:x, #$0004.w -> y:fixed_zp $A3] result=v2.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags

@@ -77,6 +77,16 @@ pub(super) const fn action_arg_width_bytes(width: MirWidth) -> u16 {
     }
 }
 
+/// Canonical byte homes for the supported direct Action result contract.
+/// These are memory return slots, independent of incoming A/X/Y arguments.
+pub(super) fn direct_result_slots(result: super::ir::MirDirectResultAbi) -> &'static [u8] {
+    match result.width() {
+        None => &[],
+        Some(MirWidth::Byte) => &[0xa0],
+        Some(MirWidth::Word) => &[0xa0, 0xa1],
+    }
+}
+
 fn action_arg_byte_home(offset: u16) -> MirArgHome {
     match offset {
         0 => MirArgHome::Reg(MirReg::A),

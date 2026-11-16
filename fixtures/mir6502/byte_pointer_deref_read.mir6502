@@ -3,6 +3,7 @@ global g0 p: word storage global+0
 global g1 x: byte storage global+2
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   store.w global g0+0, #$0580
   v1 =.b load *#$0580+0

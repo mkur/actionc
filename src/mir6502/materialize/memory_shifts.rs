@@ -120,6 +120,7 @@ mod tests {
             name: "Shift".into(),
             abi: MirRoutineAbi::Action,
             inline: Default::default(),
+            direct_result_abi: None,
             scalar_signature: None,
             temps: vec![],
             frame: MirFrame::default(),

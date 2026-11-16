@@ -3,6 +3,7 @@ global g0 words: word storage global+0 size=8 init zero_fill=8 section=global mu
 global g1 i: byte storage global+8
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   store.b global g1+0, #$01
   v0 =.w lea global g0+0

@@ -3,6 +3,7 @@ global g0 p: word storage global+0
 global g1 out: byte storage global+2
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.w load global g0+0
   v1 = cmp.w v0 ne #$0000

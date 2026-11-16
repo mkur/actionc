@@ -4,6 +4,7 @@ global g1 b: byte storage global+1
 global g2 out: byte storage global+2
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.b load global g0+0
   v1 = cmp.b v0 ne #$00

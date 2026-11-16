@@ -4,6 +4,7 @@ global g1 i: byte storage global+300
 global g2 out: byte storage global+301
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   store.b global g1+0, #$02
   v0 =.w lea global g0+0

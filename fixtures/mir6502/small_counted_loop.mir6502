@@ -2,6 +2,7 @@ mir6502 program
 global g0 result: byte storage global+0
 
 routine r0 ShiftEight
+  result-abi byte @ $A0
 b0 bb0:
   store.b local l0+0, #$00
   jump b1
@@ -36,6 +37,7 @@ b6 bb3:
   return
 
 routine r1 Main
+  result-abi void
 b0 bb7:
   call r0 args=[#$01.b -> a] result=v0.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.b global g0+0, v0

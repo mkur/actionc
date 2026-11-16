@@ -5,6 +5,7 @@ global g2 out: byte storage global+2
 global g3 data: byte storage global+3 size=4 init bytes=[$00 $01 $00 $01] zero_fill=0 section=global mutable=true
 
 routine r0 More
+  result-abi byte @ $A0
 b0 bb0:
   v0 =.b load param p0+0
   v1 = cmp.b v0 lt #$04
@@ -17,6 +18,7 @@ b2 bb1:
   return
 
 routine r1 Main
+  result-abi void
 b0 bb3:
   store.b global g0+0, #$00
   store.b global g1+0, #$00

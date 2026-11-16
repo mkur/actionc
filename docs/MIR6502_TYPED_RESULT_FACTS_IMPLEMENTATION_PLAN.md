@@ -1,6 +1,6 @@
 # MIR6502 typed result facts implementation plan
 
-Status: ready for implementation, 2026-11-16.
+Status: slice 1 complete; slices 2–3 pending, 2026-11-16.
 
 Implements issue **4** in the [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md)
 using the [typed direct result contract](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract).
@@ -19,6 +19,12 @@ Commit each slice separately. Keep tests focused on MIR6502 and the changed cons
   explicitly. Do not infer result typing from their instructions.
 - Check metadata lowering, unsupported types, printer distinctions, and compilation
   of constructor consumers. This slice must not change executable output.
+
+Completed: three focused lowering/metadata tests and the MIR6502 snapshot target
+passed. The 168 snapshot changes add only `result-abi` diagnostic lines; the
+fixture harness's original lowering path verified every other line unchanged.
+The snapshot target also checks CRLF normalization. Generated runtime entries
+and untyped test constructors explicitly retain Unknown.
 
 ## Slice 2 — Prove and compose returned definitions
 

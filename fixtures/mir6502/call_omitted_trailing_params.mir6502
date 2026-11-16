@@ -4,10 +4,12 @@ static s1 __nir_str_Main_1: Char* bytes [$03 $74 $77 $6F] section=rodata align=1
 static s2 __nir_str_Main_2: Char* bytes [$05 $74 $68 $72 $65 $65] section=rodata align=1 mutable=false display="three"
 
 routine r0 VarPrint
+  result-abi void
 b0 bb0:
   return
 
 routine r1 Main
+  result-abi void
 b0 bb1:
   call r0 args=[static_addr s0.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   call r0 args=[static_addr s1.w -> a:x, #$0001.w -> y:fixed_zp $A3] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags

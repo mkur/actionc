@@ -4864,6 +4864,7 @@ mod tests {
 
     fn routine(id: RoutineId, name: &str, blocks: Vec<MirBlock>) -> MirRoutine {
         MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id,

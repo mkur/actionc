@@ -182,6 +182,7 @@ mod trace_tests {
             id: RoutineId(0),
             name: "scan".into(),
             abi: MirRoutineAbi::Action,
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             temps: vec![],

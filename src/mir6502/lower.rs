@@ -739,6 +739,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
             MirRoutine {
                 inline: routine.inline,
                 scalar_signature: scalar_signature(&routine.signature),
+                direct_result_abi: direct_result_abi(&routine.signature),
                 id: RoutineId(routine.id.0),
                 name: routine.name.clone(),
                 abi: if routine_has_external_interface(routine) {
@@ -1018,6 +1019,24 @@ fn direct_parameter_abi(signature: &nir::NirCallableSignature) -> Option<Vec<sup
     };
     if let Some(result) = &signature.result { lane(result)?; }
     signature.params.iter().map(lane).collect()
+}
+
+fn direct_result_abi(signature: &nir::NirCallableSignature) -> Option<super::ir::MirDirectResultAbi> {
+    use super::ir::MirDirectResultAbi;
+    let Some(ty) = &signature.result else { return Some(MirDirectResultAbi::Void); };
+    let width = mir_width(ty)?;
+    if ty.kind.integer().is_some_and(|integer|
+        u16::from(integer.bits) == 8 * super::abi::action_arg_width_bytes(width))
+    {
+        Some(MirDirectResultAbi::Scalar(width))
+    } else if matches!(ty.kind, NirTypeKind::Pointer { address_space, .. }
+        if address_space == crate::target::TargetLayout::DATA_ADDRESS_SPACE)
+        && width == MirWidth::Word
+    {
+        Some(MirDirectResultAbi::Pointer)
+    } else {
+        None
+    }
 }
 
 fn scalar_signature(signature: &nir::NirCallableSignature) -> Option<super::ir::MirScalarSignature> {
@@ -4597,6 +4616,9 @@ mod tests {
         assert_eq!(slot.scalar_width, None);
     }
 }
+
+#[cfg(test)]
+mod direct_results_tests;
 
 #[cfg(test)]
 mod direct_parameter_abi_tests {

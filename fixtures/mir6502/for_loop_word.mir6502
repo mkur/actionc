@@ -3,6 +3,7 @@ global g0 i: word storage global+0
 global g1 sum: word storage global+2
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   store.w global g0+0, #$0000
   jump b1

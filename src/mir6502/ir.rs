@@ -246,6 +246,9 @@ pub struct MirRoutine {
     /// Integer-only logical scalar signature from verified NIR. Pointer,
     /// aggregate, variadic and compiler-owned machine entries have no such facts.
     pub scalar_signature: Option<MirScalarSignature>,
+    /// Declared direct result from verified NIR, independent of parameter types.
+    /// None is Unknown; a typed declaration alone does not prove a definition.
+    pub direct_result_abi: Option<MirDirectResultAbi>,
     pub id: RoutineId,
     pub name: String,
     pub abi: MirRoutineAbi,
@@ -260,6 +263,23 @@ pub struct MirScalarSignature {
     /// One entry per logical source parameter, including both LONG word lanes.
     pub params: Vec<Vec<MirWidth>>,
     pub result: Vec<MirWidth>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MirDirectResultAbi {
+    Void,
+    Scalar(MirWidth),
+    Pointer,
+}
+
+impl MirDirectResultAbi {
+    pub const fn width(self) -> Option<MirWidth> {
+        match self {
+            Self::Void => None,
+            Self::Scalar(width) => Some(width),
+            Self::Pointer => Some(MirWidth::Word),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

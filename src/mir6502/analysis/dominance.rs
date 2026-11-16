@@ -96,6 +96,7 @@ mod tests {
     #[test]
     fn combines_block_dominance_with_intra_block_order() {
         let routine = MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),

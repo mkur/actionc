@@ -24,6 +24,7 @@ fn slot(id: u32, size: u16) -> MirStorageSlot {
 fn routine() -> MirRoutine {
     MirRoutine {
         inline: Default::default(),
+        direct_result_abi: None,
         scalar_signature: None,
         id: RoutineId(7),
         name: "Independent".into(),

@@ -2,11 +2,13 @@ mir6502 program
 global g0 text: byte storage global+0 size=3 init bytes=[$02 $48 $49] zero_fill=0 section=global mutable=true
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.w lea global g0+0
   call r1 args=[v0.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags
   return
 
 routine r1 SYS.Print
+  result-abi void
 b0 bb1:
   unreachable

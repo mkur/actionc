@@ -3,11 +3,13 @@ global g1 fp: word storage global+0
 global g2 out: byte storage global+2
 
 routine r0 Get
+  result-abi byte @ $A0
 b0 bb0:
   store.b fixed_zp $A0, #$07
   return
 
 routine r1 Main
+  result-abi void
 b0 bb1:
   store.w global g1+0, routine_addr r0
   call indirect routine_addr r0.w args=[] result=v0.b <- return+0 clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags

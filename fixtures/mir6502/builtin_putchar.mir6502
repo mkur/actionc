@@ -1,10 +1,12 @@
 mir6502 program
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   call r1 args=[#$41.b -> a] result=- clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags
   return
 
 routine r1 SYS.Put
+  result-abi void
 b0 bb1:
   unreachable

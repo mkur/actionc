@@ -5,6 +5,7 @@ global g2 right: byte storage global+10 size=8 init zero_fill=8 section=global m
 global g3 out: byte storage global+18
 
 routine r0 Take
+  result-abi void
 b0 bb0:
   v0 =.w load param p0+0
   v1 =.b load computed v0[#$00;1]+0
@@ -12,6 +13,7 @@ b0 bb0:
   return
 
 routine r1 Main
+  result-abi void
 b0 bb1:
   v0 =.w lea global g1+0
   store.w global g0+0, v0

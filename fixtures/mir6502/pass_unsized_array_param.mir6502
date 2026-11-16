@@ -3,6 +3,7 @@ global g0 screen: byte storage global+0 size=2 init bytes=[$80 $05] zero_fill=0 
 global g1 out: byte storage global+2
 
 routine r0 Take
+  result-abi void
 b0 bb0:
   v0 =.w load param p0+0
   v1 =.b load computed v0[#$00;1]+0
@@ -10,6 +11,7 @@ b0 bb0:
   return
 
 routine r1 Main
+  result-abi void
 b0 bb1:
   call r0 args=[#$0580.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   return

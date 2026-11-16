@@ -1071,6 +1071,7 @@ mod tests {
 
     fn routine() -> MirRoutine {
         MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
@@ -1194,6 +1195,7 @@ mod tests {
             lo: MirFixedZpSlot(0xAC),
         });
         let routine = MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),

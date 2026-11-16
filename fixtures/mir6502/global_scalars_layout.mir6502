@@ -4,6 +4,7 @@ global g1 w: word storage global+1
 global g2 i: word storage global+3
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   store.b global g0+0, #$01
   store.w global g1+0, #$1234

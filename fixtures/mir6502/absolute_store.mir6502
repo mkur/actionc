@@ -2,6 +2,7 @@ mir6502 program
 global g0 COLOR: byte absolute $02C8
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   store.b global g0+0, #$04
   return

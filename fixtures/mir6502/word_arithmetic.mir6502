@@ -3,6 +3,7 @@ global g0 x: word storage global+0
 global g1 y: word storage global+2
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   store.w global g0+0, #$0001
   store.w global g1+0, #$0103

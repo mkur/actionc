@@ -3,6 +3,7 @@ global g0 low_out: byte storage global+0
 global g1 high_out: byte storage global+1
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   store.w local l2+0, #$1234
   v0 =.b load local l0+0

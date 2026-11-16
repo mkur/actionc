@@ -5,6 +5,7 @@ global g2 c: byte storage global+2
 global g3 result: byte storage global+3
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   store.b global g0+0, #$01
   store.b global g1+0, #$02

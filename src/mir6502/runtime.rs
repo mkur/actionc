@@ -277,6 +277,7 @@ fn bind_generated_helper(
         items,
     });
     program.routines.push(MirRoutine {
+        direct_result_abi: None,
         scalar_signature: None,
         inline: Default::default(),
         id: routine_id,

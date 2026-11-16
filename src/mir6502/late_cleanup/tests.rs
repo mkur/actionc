@@ -40,6 +40,7 @@ pub(super) fn program(ops: Vec<MirOp>) -> MirProgram {
         routines: vec![MirRoutine {
             id: RoutineId(0),
             name: "Main".into(),
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             abi: MirRoutineAbi::ProgramEntry,

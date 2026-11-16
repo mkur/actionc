@@ -86,6 +86,22 @@ pub(super) fn format_routine(routine: &super::ir::MirRoutine) -> String {
 fn write_routine(out: &mut String, routine: &super::ir::MirRoutine) {
     let _ = writeln!(out);
     let _ = writeln!(out, "routine r{} {}", routine.id.0, routine.name);
+    let result = match routine.direct_result_abi {
+        None => "unknown",
+        Some(super::ir::MirDirectResultAbi::Void) => "void",
+        Some(super::ir::MirDirectResultAbi::Scalar(MirWidth::Byte)) => "byte",
+        Some(super::ir::MirDirectResultAbi::Scalar(MirWidth::Word)) => "word",
+        Some(super::ir::MirDirectResultAbi::Pointer) => "pointer",
+    };
+    let _ = write!(out, "  result-abi {result}");
+    if let Some(contract) = routine.direct_result_abi {
+        let slots = super::abi::direct_result_slots(contract);
+        if !slots.is_empty() {
+            let homes = slots.iter().map(|s| format!("${s:02X}")).collect::<Vec<_>>().join("/");
+            let _ = write!(out, " @ {homes}");
+        }
+    }
+    let _ = writeln!(out);
     if routine.inline.requested() {
         let _ = writeln!(out, "  inline prefer");
     }

@@ -2,10 +2,12 @@ mir6502 program
 global g0 vec: word absolute $0200
 
 routine r0 Target
+  result-abi void
 b0 bb0:
   return
 
 routine r1 Main
+  result-abi void
 b0 bb1:
   store.w global g0+0, routine_addr r0
   return

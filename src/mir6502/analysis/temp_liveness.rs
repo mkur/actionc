@@ -290,6 +290,7 @@ mod tests {
     #[test]
     fn edge_arguments_are_predecessor_uses_and_block_params_are_entry_defs() {
         let routine = MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),

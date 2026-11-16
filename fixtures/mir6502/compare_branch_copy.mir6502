@@ -3,6 +3,7 @@ global g0 input: LongCard absolute $06E0 size=4
 global g1 result: byte absolute $0600
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.w load global g0+0
   v3 =.w load global g0+2

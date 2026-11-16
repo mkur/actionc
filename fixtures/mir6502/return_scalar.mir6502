@@ -1,6 +1,7 @@
 mir6502 program
 
 routine r0 One
+  result-abi byte @ $A0
 b0 bb0:
   store.b fixed_zp $A0, #$01
   return

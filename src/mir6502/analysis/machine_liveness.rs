@@ -583,6 +583,7 @@ mod tests {
 
     fn routine(blocks: Vec<MirBlock>) -> MirRoutine {
         MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
@@ -735,6 +736,7 @@ mod tests {
             MirTerminator::Return,
         )]);
         let callee = MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(1),

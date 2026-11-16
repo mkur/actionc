@@ -4,6 +4,7 @@ global g1 rec: Pair storage global+0 size=3
 global g2 p: word storage global+3
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.w lea global g1+0
   store.w global g2+0, v0

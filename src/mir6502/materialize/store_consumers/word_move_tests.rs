@@ -128,6 +128,7 @@ fn frame_source() -> MirRoutine {
         name: "WordMove".into(),
         abi: MirRoutineAbi::Action,
         inline: Default::default(),
+        direct_result_abi: None,
         scalar_signature: None,
         effects: Default::default(),
         temps: (0..4).map(|id| MirTemp { id: MirTempId(id) }).collect(),

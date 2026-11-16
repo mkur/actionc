@@ -4,12 +4,14 @@ global g2 h: byte storage global+1
 global g3 size: word storage global+2
 
 routine r0 Take
+  result-abi word @ $A0/$A1
 b0 bb0:
   v0 =.w load param p0+0
   store.w fixed_zp $A0, v0
   return
 
 routine r1 Main
+  result-abi void
 b0 bb1:
   store.b global g1+0, #$24
   store.b global g2+0, #$0B

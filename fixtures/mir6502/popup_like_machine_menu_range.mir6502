@@ -6,11 +6,13 @@ static s0 __nir_str_PopLike_0: Char* bytes [$02 $2B $2A] section=rodata align=1 
 machine m0 items=["First" 'F' "Second" 'S' "Cancel" 'C' $00]
 
 routine r0 menu
+  result-abi void
 b0 bb0:
   machine m0 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp
   unreachable
 
 routine r1 RangeLike
+  result-abi byte @ $A0
 b0 bb1:
   v0 =.w load param p0+0
   v1 =.b load computed v0[#$00;1]+0
@@ -79,6 +81,7 @@ b12 bb4:
   return
 
 routine r2 MenuKey
+  result-abi byte @ $A0
 b0 bb14:
   v0 =.w load param p0+0
   v2 =.b load *v0+0
@@ -90,6 +93,7 @@ b0 bb14:
   return
 
 routine r3 Next
+  result-abi word @ $A0/$A1
 b0 bb15:
   v0 =.w load param p0+0
   v2 =.b load *v0+0
@@ -99,6 +103,7 @@ b0 bb15:
   return
 
 routine r4 Items
+  result-abi byte @ $A0
 b0 bb16:
   store.b local l0+0, #$00
   jump b1
@@ -121,6 +126,7 @@ b3 bb19:
   return
 
 routine r5 Ord
+  result-abi byte @ $A0
 b0 bb20:
   store.b local l0+0, #$00
   jump b1
@@ -150,6 +156,7 @@ b5 bb23:
   return
 
 routine r6 FindItem
+  result-abi word @ $A0/$A1
 b0 bb26:
   jump b1
 b1 bb27:
@@ -177,6 +184,7 @@ b5 bb29:
   return
 
 routine r7 PopLike
+  result-abi byte @ $A0
 b0 bb32:
   v0 =.w load param p0+0
   store.w local l3+0, v0
@@ -217,6 +225,7 @@ b4 bb35:
   return
 
 routine r8 Main
+  result-abi void
 b0 bb37:
   store.b global g1+0, #$00
   v0 =.w routine_addr r0

@@ -5,6 +5,7 @@ global g2 rp: word storage global+3
 global g3 out: byte storage global+5
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.w lea global g1+0
   store.w global g2+0, v0

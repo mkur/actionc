@@ -3569,6 +3569,7 @@ mod tests {
             offset: 0,
         };
         let mut routine = MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: crate::mir6502::ir::RoutineId(0),
@@ -3698,6 +3699,7 @@ mod tests {
             width: MirWidth::Byte,
         });
         MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: crate::mir6502::ir::RoutineId(0),
@@ -4021,6 +4023,7 @@ mod tests {
             block(5, Vec::new(), MirTerminator::Return),
         ]);
         MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: crate::mir6502::ir::RoutineId(0),
@@ -4504,6 +4507,7 @@ mod tests {
     fn ascending_head_tested_loop(initial: u8, exclusive_bound: u8) -> MirRoutine {
         let counter = MirMem::Absolute(0x0080);
         MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: crate::mir6502::ir::RoutineId(0),
@@ -5042,6 +5046,7 @@ mod tests {
             },
         ]);
         MirRoutine {
+            direct_result_abi: None,
             scalar_signature: None,
             inline: Default::default(),
             id: crate::mir6502::ir::RoutineId(0),

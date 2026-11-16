@@ -3,15 +3,18 @@ machine m0 items=[<Target >Target]
 machine m1 items=[$6C go]
 
 routine r0 Target
+  result-abi void
 b0 bb0:
   return
 
 routine r1 Table
+  result-abi void
 b0 bb1:
   machine m0 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp
   unreachable
 
 routine r2 Main
+  result-abi void
   local l0 init routine_address r1 size=2 size_word=- section=local mutable=true
 b0 bb2:
   v0 =.w lea local l0+0

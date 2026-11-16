@@ -108,6 +108,7 @@ fn retired_capture_cfg_join_requires_matching_origins_on_every_path() {
         id: OWNER,
         name: "Join".into(),
         inline: Default::default(),
+        direct_result_abi: None,
         scalar_signature: None,
         abi: MirRoutineAbi::Action,
         frame: MirFrame::default(),

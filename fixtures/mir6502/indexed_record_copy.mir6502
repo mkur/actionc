@@ -5,6 +5,7 @@ global g2 current: Effect storage global+48 size=12
 global g3 index: byte storage global+60
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.w lea global g1+0
   v1 =.b load global g3+0

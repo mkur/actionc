@@ -5,11 +5,13 @@ global g2 picked: word storage global+2
 machine m0 items=["First" 'F' "Second" 'S' "Cancel" 'C' $00]
 
 routine r0 menu
+  result-abi void
 b0 bb0:
   machine m0 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp
   unreachable
 
 routine r1 MenuKey
+  result-abi byte @ $A0
 b0 bb1:
   v0 =.w load param p0+0
   v2 =.b load *v0+0
@@ -21,6 +23,7 @@ b0 bb1:
   return
 
 routine r2 Next
+  result-abi word @ $A0/$A1
 b0 bb2:
   v0 =.w load param p0+0
   v2 =.b load *v0+0
@@ -30,6 +33,7 @@ b0 bb2:
   return
 
 routine r3 Ord
+  result-abi byte @ $A0
 b0 bb3:
   store.b local l0+0, #$00
   jump b1
@@ -59,6 +63,7 @@ b5 bb6:
   return
 
 routine r4 Main
+  result-abi void
 b0 bb9:
   v0 =.w routine_addr r0
   call r2 args=[v0.w -> a:x] result=v1.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags

@@ -3,10 +3,12 @@ global g0 ZP: byte absolute $00E4
 machine m0 items=[$34 $0348 $F2F8 $FFFF @ZP @ZP+1 <@ZP >@ZP @Target <Target >Target]
 
 routine r0 Target
+  result-abi void
 b0 bb0:
   return
 
 routine r1 Main
+  result-abi void
 b0 bb1:
   machine m0 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp
   return

@@ -4,6 +4,7 @@ global g1 i: byte absolute $00E0
 global g2 x: byte storage global+0
 
 routine r0 Main
+  result-abi void
 b0 bb0:
   v0 =.w load global g0+0
   v1 =.b load global g1+0
