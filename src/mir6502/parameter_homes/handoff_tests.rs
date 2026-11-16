@@ -646,8 +646,15 @@ fn r_id(p: &MirProgram, index: usize) -> RoutineId {
 
 #[test]
 fn actual_entry_does_not_invent_missing_or_conditional_capture() {
+    for abi in [MirRoutineAbi::Action, MirRoutineAbi::ActionObservable] {
+        check_missing_or_conditional_capture(abi);
+    }
+}
+
+fn check_missing_or_conditional_capture(abi: MirRoutineAbi) {
     use MirCalleeEntryStage::{ActualEntry, PlannedCapture};
     let (mut p, index, id) = entry_probe();
+    p.routines[index].abi = abi.clone();
     let capture_low = MirOp::Store {
         dst: MirAddr::Direct(MirMem::Param { id, offset: 0 }),
         src: MirValue::Def(MirDef::Reg(MirReg::A)),
@@ -667,13 +674,12 @@ fn actual_entry_does_not_invent_missing_or_conditional_capture() {
             .fixed,
         BTreeSet::from([0xa1])
     );
-    assert!(
-        MirCalleeEntryFact::analyze(&p, r_id(&p, index), PlannedCapture)
-            .unwrap()
-            .inputs
-            .fixed
-            .is_empty()
-    );
+    let planned = MirCalleeEntryFact::analyze(&p, r_id(&p, index), PlannedCapture);
+    if abi == MirRoutineAbi::Action {
+        assert!(planned.unwrap().inputs.fixed.is_empty());
+    } else {
+        assert!(planned.is_none());
+    }
     let r = &mut p.routines[index];
     let mut overwrite = r.blocks[0].clone();
     overwrite.id = MirBlockId(990);
@@ -697,6 +703,54 @@ fn actual_entry_does_not_invent_missing_or_conditional_capture() {
         .inputs;
     assert_eq!(inputs.fixed, BTreeSet::from([0xa0, 0xa1]));
     assert!(inputs.flags.c);
+}
+
+#[test]
+fn native_current_location_actual_entries_keep_abi_inputs_and_freshness() {
+    use MirCalleeEntryStage::{ActualEntry, PlannedCapture};
+    for (params, body, bytes) in [
+        ("", "out=1", 0),
+        ("BYTE a", "out=a", 1),
+        ("CARD a", "out=a", 2),
+        ("CARD POINTER p", "out=p^", 2),
+        ("CARD a,b", "out=a+ b", 4),
+    ] {
+        let mut ordinary = None;
+        for marker in ["", "=*"] {
+            let p = source(&format!("CARD out\nPROC Sink{marker}({params}) {body} RETURN\nPROC Main() RETURN"));
+            let p = super::super::materialize_program(p, &Default::default()).unwrap();
+            let index = p.routines.iter().position(|r| r.name == "Sink").unwrap();
+            let r = &p.routines[index];
+            let fact = MirCalleeEntryFact::analyze(&p, r.id, ActualEntry).unwrap();
+            assert!(fact.is_current(&p, ActualEntry));
+            assert!(!fact.is_current(&p, PlannedCapture));
+            assert_eq!(fact.inputs.fixed, if bytes == 4 { BTreeSet::from([0xa3]) } else { BTreeSet::new() });
+            if marker.is_empty() {
+                ordinary = Some(fact.inputs);
+                continue;
+            }
+            assert_eq!(r.abi, MirRoutineAbi::ActionObservable);
+            assert!(r.frame.parameter_homes.is_none());
+            assert_eq!(Some(&fact.inputs), ordinary.as_ref());
+            assert!(MirCalleeEntryFact::analyze(&p, r.id, PlannedCapture).is_none());
+            let mut changed = p.clone();
+            changed.routines[index].blocks[0].ops.insert(0, MirOp::Load {
+                dst: MirDef::Reg(MirReg::Y),
+                src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xac))),
+                width: MirWidth::Byte,
+            });
+            assert!(!fact.is_current(&changed, ActualEntry));
+            assert!(MirCalleeEntryFact::analyze(&changed, r.id, ActualEntry).unwrap().inputs.fixed.contains(&0xac));
+            for abi in [MirRoutineAbi::ExternalInterface, MirRoutineAbi::ProgramEntryObservable] {
+                let mut invalid = p.clone();
+                invalid.routines[index].abi = abi;
+                assert!(MirCalleeEntryFact::analyze(&invalid, r.id, ActualEntry).is_none());
+            }
+            let mut invalid = p.clone();
+            invalid.routines[index].frame.direct_parameter_abi = None;
+            assert!(MirCalleeEntryFact::analyze(&invalid, r.id, ActualEntry).is_none());
+        }
+    }
 }
 
 #[test]

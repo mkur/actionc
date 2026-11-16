@@ -93,7 +93,13 @@ fn scalar_inputs(
     routine: &MirRoutine,
     stage: MirCalleeEntryStage,
 ) -> Option<Inputs> {
-    if !direct_parameter_abi_is_complete(routine)
+    // An observable native entry still uses the Action ABI. Its actual body
+    // can supply a contract without granting permission to invent capture or
+    // move its own storage. Planned capture remains compiler-owned only.
+    let supported_entry = matches!(routine.abi, MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry)
+        || (routine.abi == MirRoutineAbi::ActionObservable
+            && stage == MirCalleeEntryStage::ActualEntry);
+    if !supported_entry || !direct_parameter_abi_is_complete(routine)
         || routine.blocks.iter().flat_map(|b| &b.ops).any(|o| {
             matches!(
                 o,
@@ -261,10 +267,7 @@ fn direct_parameter_abi_is_complete(routine: &MirRoutine) -> bool {
     let Some(parameters) = &routine.frame.direct_parameter_abi else {
         return false;
     };
-    matches!(
-        routine.abi,
-        MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry
-    ) && parameters.len() == routine.frame.params.len()
+    parameters.len() == routine.frame.params.len()
         && parameters
             .iter()
             .copied()

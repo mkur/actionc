@@ -824,6 +824,18 @@ and observable entry conventions keep their existing shared entry analysis;
 formal declarations alone do not authorize inventing a prologue. Source-owned
 storage, exposure and reservation checks continue to govern placement.
 
+Native current-location (`=*`) callees may also supply an `ActualEntry` fact
+from their existing expanded operations. Entry placement does not change their
+Action argument ABI or imply unknown writes. This permission does not synthesize
+observable-entry capture: `PlannedCapture` remains unsupported for these native
+entries. Their ABI classification, own storage policy, entry labels and
+patchability remain intact. Shared facts still require the supported finite
+signature, closed native leaf body and complete effects; machine/OS, SArgs and
+nonleaf residence admission are separate extensions. The
+[native current-location plan](MIR6502_NATIVE_CURRENT_LOCATION_CALLEES_IMPLEMENTATION_PLAN.md)
+uses these facts to qualify caller residence without granting unrelated
+inlining, handoff or storage-removal permissions.
+
 Keep the correction in shared callee-entry analysis. It must consume complete
 typed MIR ABI/declaration, binding and effect facts. Pointer parameters require
 the same completeness; the presence or absence of `scalar_signature` alone
