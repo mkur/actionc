@@ -44,6 +44,20 @@ retained audit passed for nine controls and all 95 selected TN routines.
 bytes, and retains the separate carry blocker. TN remains 9,811 bytes and is
 byte-identical to the audited image. No full suite was run.
 
+**Issue 4 is implemented.** Direct result metadata is independent of parameter
+types. Native ActualEntry leaf and acyclic facts prove each result byte on all
+returning paths; call sites reject conflicting known result contracts.
+
+Validation: three focused lowering/metadata tests, the MIR6502 snapshot target,
+39 entry/handoff/residence tests, and the pointer-parameter result VM control
+passed. VM coverage includes both runtimes, LF/CRLF, page boundaries and carry
+wraparound. The retained audit passed for nine controls and all 95 TN routines.
+`Next` proves `$A0/$A1`; `Ord` retains only `$A3` as a fixed input, and `Items`
+has none. TN remains 9,811 bytes, byte-identical to the issue-3 image.
+`ArenaCursor` still has the separate carry blocker. See the
+[qualification receipt](benchmarks/6502-call-facts-audit/typed-results-qualification.json).
+No full suite was run.
+
 ## Prioritized issues
 
 | Order | Issue to solve | Why it matters | Design note needed? |
@@ -51,7 +65,7 @@ byte-identical to the audited image. No full suite was run.
 | **1** | **Preserve memory-region offsets and extents** | Incomplete read/write footprints can allow stale-value reuse or unsafe deletion. | **No.** Targeted correction to an existing contract. |
 | **2** | **Separate possible writes from definite definitions** | A conditional clobber currently makes earlier values appear dead. Fix operation effects, liveness and reaching definitions together. | **No new design.** The intended distinction is already documented; prepare a focused implementation plan. |
 | **3** | **Separate ABI arguments from existing program state** | Reading `allocp` must not require callers to supply `$E8/$E9` as arguments. Preserve genuine implicit assembly inputs. | [**Implemented.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md) |
-| **4** | **Represent typed results independently of parameter types** | Pointer parameters currently prevent proving return-home definitions. This creates the spurious `$A0` requirement in `Ord` and `Items`. | [**Design prepared.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract) Implementation pending. |
+| **4** | **Represent typed results independently of parameter types** | Pointer parameters previously prevented proving return-home definitions, creating the spurious `$A0` requirement in `Ord` and `Items`. | [**Implemented.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract) |
 | **5** | **Unify guaranteed register/flag definitions** | Entry analyses disagree about ordinary comparisons, producing false carry requirements. | **Yes, for consolidation.** Adding another isolated CMP exception would leave the underlying inconsistency. |
 | **6** | **Use backing and placement when checking physical overlap** | A write to a global at `$0600` should not exclude every ZP byte. Unknown placement must remain conservative. | **Yes.** Specify which address evidence is authoritative at each phase. |
 | **7** | **Finish separating read and write uncertainty** | An unknown pointee write currently makes otherwise bounded reads unknown. | **No.** Restore the existing directional-effects contract. |
@@ -61,7 +75,7 @@ byte-identical to the audited image. No full suite was run.
 ## Design work
 
 The shared [call-fact contract design](MIR6502_CALL_FACT_CONTRACT_DESIGN.md)
-covers **issue 3** and proposes the typed result contract for **issue 4**.
+covers the implemented contracts for **issues 3–4**.
 Extend it for **issues 5–6 and 8**, covering:
 
 - Caller-supplied inputs versus existing state.
@@ -78,6 +92,6 @@ after the shared contracts are repaired.
 
 ## Next implementation work
 
-Issues **1–3 are repaired**. Issue **4** now has a design note and is ready
-for implementation planning. Issue **7** remains an independent targeted
+Issues **1–4 are repaired**. Issue **5** is the next shared-contract design
+and implementation task. Issue **7** remains an independent targeted
 correction that does not need to wait for the remaining shared design work.

@@ -1,6 +1,6 @@
 # MIR6502 typed result facts implementation plan
 
-Status: slices 1–2 complete; slice 3 pending, 2026-11-17.
+Status: slices 1–3 complete; issue-5 design follow-up pending, 2026-11-17.
 
 Implements issue **4** in the [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md)
 using the [typed direct result contract](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract).
@@ -59,6 +59,15 @@ than the independent integer-specialization signature.
   Record actual image size and remaining blockers; savings are not required.
 - Update contract and priority status with qualification. Run diff/link checks;
   broaden tests only for a failure or newly affected consumer.
+
+Completed: the focused VM control passed across default/optimized compilation,
+both runtimes and LF/CRLF inputs, checking returned values, retained caller state
+and unchanged pointees over page/carry boundaries. The retained audit passed for
+nine controls and all 95 selected TN routines. `Next` proves `$A0/$A1`; `Ord`
+keeps `$A3` and `Items` has no fixed-byte input. TN remains **9,811 bytes**, with
+the same image hash as issue 3. The independent Unknown-result control still
+requires `$A0`. The [receipt](benchmarks/6502-call-facts-audit/typed-results-qualification.json)
+records the facts and checks. No full suite was run.
 
 ## Follow-up — Design issue 5
 

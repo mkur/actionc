@@ -1415,13 +1415,13 @@ do not infer a result definition from an incidental `$A0` store or a map signatu
 Calls do not logically initialize caller locals merely by touching their homes.
 Do not export mutable native exit N/Z facts to make an entry proof succeed.
 
-The first implementation propagates definite result bytes only with a complete
-integer scalar signature containing one byte/word result and an all-returning-path
-physical definition proof. Pointer-parameter routines do not carry that signature;
-retain their return-home dependencies conservatively. Broadening that typed ABI
-contract is separate from guessing definitions from stores or layout metadata.
-The proposed [typed result contract](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract)
-addresses that gap without changing the integer-only signature's meaning.
+Definite call definitions use the independent declared direct result ABI and an
+all-returning-path physical definition proof for each byte. Pointer parameters
+do not erase a byte, word or data-pointer result contract. Void, Unknown,
+conditional writes and possible clobbers cannot manufacture result definitions;
+at least one reachable normal return is required. The
+[typed result contract](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract)
+defines this proof without changing the integer-only signature's meaning.
 
 An entry fact that depends on another routine must become stale when that
 dependency's body, binding, ABI or relevant backing changes, even if the outer

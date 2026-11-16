@@ -7,6 +7,7 @@ use mir::ir::*;
 fn entry(f: Option<&MirCalleeEntryFact>) -> Value {
     f.map_or(Value::Null, |f| json!({"registers":format!("{:?}",f.inputs.registers),
         "flags":format!("{:?}",f.inputs.flags),"fixed":f.inputs.fixed,
+        "defined_results":f.defined_results,
         "current":f.is_current(&CURRENT.with(|p|p.borrow().clone().unwrap()), MirCalleeEntryStage::ActualEntry)}))
 }
 thread_local! { static CURRENT: std::cell::RefCell<Option<MirProgram>> = const {std::cell::RefCell::new(None)}; }
@@ -48,6 +49,7 @@ fn inventory(p: &MirProgram, output: Option<&crate::codegen::CodegenOutput>) -> 
             .map(|o|json!({"op":format!("{o:?}"),"effects":format!("{:?}",classify_op(o).machine)})).collect();
         json!({"id":r.id.0,"name":r.name,"abi":format!("{:?}",r.abi),
             "scalar_signature":format!("{:?}",r.scalar_signature),"direct_parameter_abi":format!("{:?}",r.frame.direct_parameter_abi),
+            "direct_result_abi":format!("{:?}",r.direct_result_abi),
             "declared_effects":format!("{:?}",r.effects),"leaf_entry":entry(leaf.as_ref()),"acyclic_entry":entry(f.as_deref()),
             "acyclic_failure":format!("{:?}",acyclic.failure(r.id)),
             "legacy_ignores_flags":known.scalar_entry_ignores_flags(r.id),
@@ -128,8 +130,13 @@ fn synthetic() -> Value {
     fetch.frame.direct_parameter_abi=Some(vec![MirDirectParamAbi::Pointer]);
     CURRENT.with(|s|*s.borrow_mut()=Some(p.clone()));
     let without_signature=entry(MirAcyclicEntryAnalysis::new(&p).analyze(target).as_deref());
+    assert_eq!(with_signature["fixed"],without_signature["fixed"]);
+    p.routines.iter_mut().find(|r|r.name=="Fetch").unwrap().direct_result_abi=None;
+    CURRENT.with(|s|*s.borrow_mut()=Some(p.clone()));
+    let without_result=entry(MirAcyclicEntryAnalysis::new(&p).analyze(target).as_deref());
+    assert!(without_result["fixed"].as_array().unwrap().contains(&json!(0xa0)));
     CURRENT.with(|s|*s.borrow_mut()=None);
-    json!({"may_write_liveness":may_writes,"typed_result_composition":{"integer_parameter":with_signature,"pointer_parameter":without_signature},
+    json!({"may_write_liveness":may_writes,"typed_result_composition":{"integer_parameter":with_signature,"pointer_parameter":without_signature,"unknown_result":without_result},
         "structured_regions":result,"store_only_reads":format!("{reads:?}"),
         "store_only_effects":format!("{:?}",classify_op(&routine.blocks[0].ops[0]).memory)})
 }
@@ -166,7 +173,13 @@ fn audit_call_facts() {
     let n=crate::nir::optimize_program(&crate::nir::lower_program(&crate::semantic::ir::lower_program(&loaded.program,&model))).unwrap();
     let e=selected(&n,&mir::Mir6502Config::optimized());
     let image=crate::codegen::format_load_file(&e.output);
-    std::fs::write(root.join("tn.json"),serde_json::to_string_pretty(&inventory(&e.program,Some(&e.output))).unwrap()).unwrap();
+    let facts=inventory(&e.program,Some(&e.output));
+    let routine=|name|facts["routines"].as_array().unwrap().iter().find(|r|r["name"]==name).unwrap();
+    assert_eq!(routine("Next")["leaf_entry"]["defined_results"],json!([0xa0,0xa1]));
+    assert_eq!(routine("Next")["acyclic_entry"]["defined_results"],json!([0xa0,0xa1]));
+    assert_eq!(routine("Ord")["acyclic_entry"]["fixed"],json!([0xa3]));
+    assert_eq!(routine("Items")["acyclic_entry"]["fixed"],json!([]));
+    std::fs::write(root.join("tn.json"),serde_json::to_string_pretty(&facts).unwrap()).unwrap();
     std::fs::write(root.join("tn.xex"),image).unwrap();
     println!("audited all {} selected TN routines",e.program.routines.len());
 }

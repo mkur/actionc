@@ -26,6 +26,64 @@ fn entry(out: &actionc::codegen::CodegenOutput, name: &str) -> u16 {
 }
 
 #[test]
+fn callee_facts_pointer_parameters_return_bytes_and_words_without_losing_caller_state() {
+    let source = "BYTE observedByte=$0680
+        CARD observedWord=$0681
+        BYTE FUNC FetchByte(BYTE POINTER p) RETURN(p^)
+        CARD FUNC FetchWord(CARD POINTER p) RETURN(p^)
+        CARD FUNC Hold(CARD keep BYTE POINTER p)
+          BYTE b
+          CARD w
+          b=FetchByte(p)
+          w=FetchWord(CARD POINTER(p))
+          observedByte=b
+          observedWord=w
+        RETURN(keep+b+w)
+        PROC Main() RETURN".replace("\r\n", "\n");
+    let optimized = Mir6502Config {
+        enable_small_leaf_inlining: false,
+        ..Mir6502Config::optimized()
+    };
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let mut lf_image = None;
+        for (config, crlf) in [
+            (Mir6502Config::default(), false),
+            (optimized.clone(), false),
+            (optimized.clone(), true),
+        ] {
+            let text = if crlf { source.replace('\n', "\r\n") } else { source.clone() };
+            let out = compile(&text, &config, runtime);
+            if config == optimized {
+                let image = actionc::codegen::format_load_file(&out);
+                if crlf { assert_eq!(lf_image.as_ref(), Some(&image)); }
+                else { lf_image = Some(image); }
+            }
+            let mut vm = load(&out, runtime);
+            for address in [0x0700u16, 0x07ff] {
+                for value in [0u16, 0x00ff, 0x0100, 0xffff] {
+                    for keep in [0u16, 0x00ff, 0xff00, 0xffff] {
+                        for (i, byte) in value.to_le_bytes().into_iter().enumerate() {
+                            vm.bus_mut().ram_mut().write(address + i as u16, byte);
+                        }
+                        let mut args = keep.to_le_bytes().to_vec();
+                        args.extend(address.to_le_bytes());
+                        vm = machine::call(vm, &mut Observe, entry(&out, "Hold"), &args);
+                        let expected = keep.wrapping_add(value & 0xff).wrapping_add(value);
+                        assert_eq!(machine::bytes(&vm, 0xa0, 2), expected.to_le_bytes(),
+                            "{runtime:?} p={address:04x} value={value:04x} keep={keep:04x} optimized={} CRLF={crlf}",
+                            config == optimized);
+                        assert_eq!(machine::bytes(&vm, 0x680, 1), [value as u8]);
+                        assert_eq!(machine::bytes(&vm, 0x681, 2), value.to_le_bytes());
+                        assert_eq!(machine::bytes(&vm, address, 2), value.to_le_bytes());
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+#[test]
 fn callee_facts_global_state_reads_preserve_state_and_live_caller_values() {
     let optimized = Mir6502Config {
         enable_small_leaf_inlining: false,

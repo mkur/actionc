@@ -1,0 +1,124 @@
+{
+  "qualified_on": "2026-11-17",
+  "production_revision": "63691f81b7c5bd935083c754351a5ff8fb0fb28a",
+  "audit_probe_sha256": "4fc347746a2a49c04d9315f98b906330a3b8971e0f7f04937f900068c2dff60d",
+  "audit_hook_removed": true,
+  "tn_bytes": 9811,
+  "tn_sha256": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+  "byte_identical_to_issue_3": true,
+  "checks": {
+    "lowering_metadata_tests": 3,
+    "entry_handoff_residence_tests": 39,
+    "mir_snapshot_target": "passed; 168 snapshots changed only by result-abi lines",
+    "vm_control": "callee_facts_pointer_parameters_return_bytes_and_words_without_losing_caller_state",
+    "vm_coverage": "default and optimized; cart and standalone; LF/CRLF; page boundaries and carry wraparound",
+    "audit_controls": 9,
+    "audit_tn_routines": 95,
+    "full_suite_run": false
+  },
+  "tn_facts": {
+    "ArenaCursor": {
+      "result_abi": "Some(Scalar(Word))",
+      "fixed_inputs_before": [],
+      "acyclic_after": {
+        "current": true,
+        "defined_results": [
+          160,
+          161
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: true, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+      },
+      "leaf_after": null
+    },
+    "Next": {
+      "result_abi": "Some(Scalar(Word))",
+      "fixed_inputs_before": [],
+      "acyclic_after": {
+        "current": true,
+        "defined_results": [
+          160,
+          161
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "leaf_after": {
+        "current": true,
+        "defined_results": [
+          160,
+          161
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      }
+    },
+    "Ord": {
+      "result_abi": "Some(Scalar(Byte))",
+      "fixed_inputs_before": [
+        160,
+        163
+      ],
+      "acyclic_after": {
+        "current": true,
+        "defined_results": [
+          160
+        ],
+        "fixed": [
+          163
+        ],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }"
+      },
+      "leaf_after": null
+    },
+    "Items": {
+      "result_abi": "Some(Scalar(Byte))",
+      "fixed_inputs_before": [
+        160
+      ],
+      "acyclic_after": {
+        "current": true,
+        "defined_results": [
+          160
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "leaf_after": null
+    }
+  },
+  "independent_result_control": {
+    "integer_parameter": {
+      "current": true,
+      "defined_results": [
+        160
+      ],
+      "fixed": [],
+      "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+      "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+    },
+    "pointer_parameter": {
+      "current": true,
+      "defined_results": [
+        160
+      ],
+      "fixed": [],
+      "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+      "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+    },
+    "unknown_result": {
+      "current": true,
+      "defined_results": [],
+      "fixed": [
+        160
+      ],
+      "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+      "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+    }
+  }
+}

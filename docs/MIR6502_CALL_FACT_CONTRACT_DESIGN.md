@@ -1,8 +1,8 @@
 # MIR6502 call input and result contracts
 
-Status, 2026-11-16: the input/state contract for issue **3** is implemented;
-the [typed result contract](#typed-direct-result-contract) for issue **4** is
-proposed. Covers the corresponding entries in the
+Status, 2026-11-17: the input/state contract for issue **3** and the
+[typed result contract](#typed-direct-result-contract) for issue **4** are
+implemented. Covers the corresponding entries in the
 [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md), based on the
 [fact-contract audit](MIR6502_FACT_CONTRACT_AUDIT_2026-11-16.md).
 
@@ -209,15 +209,16 @@ improvement is not an acceptance condition for this contract repair.
 
 ## Typed direct result contract
 
-Proposed for issue **4**. A routine's result ABI must remain known when its
+Implemented for issue **4**. A routine's result ABI must remain known when its
 parameters include pointers. Result typing identifies the permitted output
 homes; a separate body proof establishes which bytes are actually defined on
 every returning path.
 
-The current `MirScalarSignature` combines integer-only parameter and result
+`MirScalarSignature` combines integer-only parameter and result
 facts. A pointer parameter makes that entire signature unavailable.
 `direct_parameter_abi` supports pointer parameters but does not retain a result
-contract, so `acyclic::defined_results` cannot certify the ordinary return slots.
+contract. Previously, `acyclic::defined_results` therefore could not certify
+the ordinary return slots.
 In the TN qualification after issue 3, `Next` requires A/X and writes `$A0/$A1`,
 but `Ord` still inherits `$A0` as an input alongside its genuine `$A3` argument.
 `Items` also inherits `$A0`. A possible-write footprint cannot repair this gap.

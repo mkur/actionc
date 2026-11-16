@@ -32,6 +32,12 @@ Entry/exit facts are read from the selected program, after final selection.
 `precise_entry_flags` does not compose known call contracts. The acyclic entry
 does. A null entry means the corresponding proof failed or is unsupported.
 
+The current probe also records `direct_result_abi` and each entry fact's
+`defined_results`. Its issue-4 checks require matching integer/pointer-parameter
+result composition, retain the Unknown-result negative control, and verify the
+corrected `Next`/`Ord`/`Items` facts. Archived JSON remains the original audit
+evidence; these checks describe the repaired compiler.
+
 Direct call `op` indices are local to their block. The compact census preserves
 order but is not a unique-site patching format. Calls embedded inside machine
 payloads do not appear in the direct MIR call list.
