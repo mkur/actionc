@@ -30,6 +30,34 @@ impl VmRunHooks for Observe {
 }
 
 #[test]
+fn sargs_capture_executes_all_lanes_and_returns_past_descriptor() {
+    let source = "BYTE out0=$900 CARD out1=$901 BYTE out2=$903,out3=$904
+PROC Capture(BYTE a CARD word BYTE c,d)
+ out0=a out1=word out2=c out3=d RETURN
+PROC Main() Capture(1,$2345,6,7) RETURN";
+    let file = support::Source::new(source);
+    let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+    let model = actionc::semantic::analyze(&loaded.program).unwrap();
+    let nir = actionc::nir::lower_program(&actionc::semantic::ir::lower_program(&loaded.program, &model));
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = mir6502::generate_output_with_config_and_runtime(&nir, 0x3000,
+            &Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() }, runtime).unwrap();
+        let capture = output.routine_addresses.iter().find(|r| r.name == "Capture").unwrap().address;
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        let mut hooks = Observe { advance: 0, arguments: vec![] };
+        vm.bus_mut().ram_mut().write(0x8ff, 0x5a);
+        vm.bus_mut().ram_mut().write(0x905, 0xa5);
+        for arguments in [[0x91, 0xfe, 0x7f, 0x37, 0x82], [1, 0, 0x80, 0xff, 0]] {
+            vm = machine::call(vm, &mut hooks, capture, &arguments);
+            assert_eq!(machine::bytes(&vm, 0x900, 5), arguments, "{runtime:?}");
+            assert_eq!(machine::bytes(&vm, 0x8ff, 1), [0x5a]);
+            assert_eq!(machine::bytes(&vm, 0x905, 1), [0xa5]);
+        }
+    }
+}
+
+#[test]
 fn object_storage_native_swaps_preserve_calls_pages_and_stack() {
     let source = include_str!("../../../fixtures/runtime/object_storage.act").replace("\r\n", "\n");
     let file = support::Source::new(&source);

@@ -137,6 +137,7 @@ pub(super) fn try_promote(
                 op,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
                     | MirOp::Barrier { .. }
             ) {
@@ -192,6 +193,7 @@ pub(super) fn try_promote(
                 op,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
                     | MirOp::Barrier { .. }
             ) {

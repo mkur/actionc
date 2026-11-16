@@ -2182,7 +2182,7 @@ fn helper_indexed_store_placement_at(
     }
 
     let helper_index = (index + 4..=index + 10)
-        .find(|candidate| matches!(ops.get(*candidate), Some(MirOp::RuntimeHelper { .. })))?;
+        .find(|candidate| matches!(ops.get(*candidate), Some(MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. })))?;
     if ops[index + 4..helper_index]
         .iter()
         .any(|op| op_reads_mem(op, &staged_lo) || op_reads_mem(op, &staged_hi))
@@ -2716,6 +2716,7 @@ fn materialized_pointer_has_word_store_consumers(
             } if *op_consumer == consumer => return false,
             MirOp::Call { .. }
             | MirOp::RuntimeHelper { .. }
+            | MirOp::SArgsCapture { .. }
             | MirOp::Barrier { .. }
             | MirOp::MachineBlock { .. } => return false,
             _ => {}

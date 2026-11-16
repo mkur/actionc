@@ -354,7 +354,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::PackedRealCompare { .. } => MirOpKind::PackedRealCompare,
         MirOp::PackedRealCopy { .. } => MirOpKind::PackedRealCopy,
         MirOp::Call { .. } => MirOpKind::Call,
-        MirOp::RuntimeHelper { .. } => MirOpKind::RuntimeHelper,
+        MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. } => MirOpKind::RuntimeHelper,
         MirOp::MaterializeAddress { .. } => MirOpKind::MaterializeAddress,
         MirOp::MaterializeIndexedAddress { .. } => MirOpKind::MaterializeIndexedAddress,
         MirOp::AdvanceAddress { .. } => MirOpKind::AdvanceAddress,
@@ -837,6 +837,17 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             if clobbers.flags {
                 summary.machine.flag_clobbers = MirFlagSet::all();
             }
+            summary.machine.writes_any_flags_compat = true;
+            summary.machine.unknown_flag_or_a_effects = true;
+        }
+        MirOp::SArgsCapture { first_param, effects, .. } => {
+            for arg in super::super::materialize::helper_args(&super::super::ir::MirRuntimeHelper::SArgs) {
+                record_arg_home_read(&arg, &mut summary);
+            }
+            summary.memory.address_references.push(MirMem::Param { id: *first_param, offset: 0 });
+            apply_structured_effects(effects, false, &mut summary);
+            summary.machine.conservative_register_clobbers =
+                incomplete_call_clobbers(effects.clobbers, effects.preserves);
             summary.machine.writes_any_flags_compat = true;
             summary.machine.unknown_flag_or_a_effects = true;
         }

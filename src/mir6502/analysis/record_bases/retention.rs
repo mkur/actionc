@@ -132,6 +132,7 @@ impl CallWrites {
                     op,
                     MirOp::Call { .. }
                         | MirOp::RuntimeHelper { .. }
+                        | MirOp::SArgsCapture { .. }
                         | MirOp::MachineBlock { .. }
                         | MirOp::Barrier { .. }
                 ) {
@@ -750,7 +751,7 @@ pub(in crate::mir6502) fn entered_loops(
         let safe=body.ops.iter().all(|op| {
             if matches!(op,MirOp::UpdateMem {op:MirUpdateOp::Inc,mem,width:MirWidth::Byte} if mem==counter) {increments+=1;return true;}
             if matches!(op,MirOp::Call {..}) {return calls.for_call(op,r.id,map).is_some_and(|writes|!writes.contains(&address));}
-            if matches!(op,MirOp::MachineBlock {..} | MirOp::RuntimeHelper {..} | MirOp::Barrier {..}) {return false;}
+            if matches!(op,MirOp::MachineBlock {..} | MirOp::RuntimeHelper {..} | MirOp::SArgsCapture { .. } | MirOp::Barrier {..}) {return false;}
             let e=classify_op(op);
             if e.memory.indirect_writes || e.memory.may_write_any || e.memory.opaque || e.homes.unknown_writes {return false;}
             e.memory.direct_writes.iter().all(|w|map.address(r.id,&w.base).is_some_and(|a|address.wrapping_sub(a)>=w.bytes))

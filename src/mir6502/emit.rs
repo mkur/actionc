@@ -3569,6 +3569,40 @@ fn emit_op(
             emitter,
         ),
         MirOp::Call { target, .. } => emit_call(ctx, routine, block, target, emitter),
+        MirOp::SArgsCapture { first_param, byte_count, .. } => {
+            // The descriptor copies a contiguous frame; validate actual layout too.
+            let target_mem = MirMem::Param { id: *first_param, offset: 0 };
+            let start = ctx.layout.direct_mem(routine, &target_mem).map(resolved_mem_address);
+            let frame = ctx.mir.routines.iter().find(|r| r.id == routine).map(|r| &r.frame);
+            let contiguous = frame.is_some_and(|frame| {
+                let mut offset = 0u16;
+                frame.params.iter().all(|slot| {
+                    let MirStorageBase::Param(id) = slot.base else { return false; };
+                    let actual = ctx.layout.direct_mem(routine, &MirMem::Param { id, offset: 0 }).map(resolved_mem_address);
+                    let expected = start.and_then(|start| start.checked_add(offset));
+                    offset = offset.saturating_add(slot.storage_size);
+                    actual.is_some() && actual == expected
+                }) && offset == *byte_count
+            });
+            if !contiguous || !(1..=256).contains(byte_count) {
+                unsupported(ctx, routine, block, "SArgs capture frame is not contiguous");
+                return;
+            }
+            // Emit the helper and its descriptor atomically; this is never a tail call.
+            let helper = MirOp::RuntimeHelper {
+                helper: super::ir::MirRuntimeHelper::SArgs,
+                args: super::materialize::helper_args(&super::ir::MirRuntimeHelper::SArgs),
+                result: None, additional_results: Vec::new(),
+                effects: super::materialize::helper_effects(&super::ir::MirRuntimeHelper::SArgs),
+            };
+            emit_op(ctx, routine, block, &helper, emitter);
+            let target = MirInlineAsmTarget::Memory(MirMem::Param { id: *first_param, offset: 0 });
+            // Preserve the two byte relocations used by the original descriptor.
+            for kind in [InlineAsmRelocationKind::Low8, InlineAsmRelocationKind::High8] {
+                emit_inline_asm_relocation(ctx, routine, block, 0, kind, &target, 0, false, SYNTHETIC_SPAN, emitter);
+            }
+            emitter.emit_u8((byte_count - 1) as u8);
+        }
         MirOp::RuntimeHelper { helper, .. } => {
             let Some(decl) = ctx
                 .mir

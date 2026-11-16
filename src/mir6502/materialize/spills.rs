@@ -69,7 +69,7 @@ pub(super) fn home_access_counts(
 }
 
 fn op_read_homes(op: &MirOp) -> BTreeSet<MirHomeStorage> {
-    if matches!(op, MirOp::RuntimeHelper { .. }) {
+    if matches!(op, MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. }) {
         return BTreeSet::new();
     }
     classify_op(op)
@@ -81,7 +81,7 @@ fn op_read_homes(op: &MirOp) -> BTreeSet<MirHomeStorage> {
 }
 
 fn op_write_homes(op: &MirOp) -> BTreeSet<MirHomeStorage> {
-    if matches!(op, MirOp::RuntimeHelper { .. }) {
+    if matches!(op, MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. }) {
         return BTreeSet::new();
     }
     classify_op(op)
@@ -225,7 +225,7 @@ fn block_predecessor_counts(blocks: &[MirBlock]) -> BTreeMap<MirBlockId, usize> 
 }
 
 pub(super) fn op_is_call_barrier(op: &MirOp) -> bool {
-    matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. })
+    matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. })
 }
 
 fn op_reads_spill(op: Option<&MirOp>, spill: MirSpillId) -> bool {
@@ -812,7 +812,7 @@ pub(super) fn can_remove_spill_reload_at(
         | Some(MirOp::CopyIndirectBytesToFixedZp { .. })
         | Some(MirOp::AbsoluteWordSubToIndirect { .. })
         | Some(MirOp::IndirectWordCompound { .. })
-        | Some(MirOp::RuntimeHelper { .. }) => true,
+        | Some(MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. }) => true,
         Some(MirOp::Load { .. })
         | Some(MirOp::CopyBytes { .. })
         | Some(MirOp::LoadImm { .. })
@@ -959,6 +959,7 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
         | MirOp::CopyBytes { .. }
         | MirOp::Call { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::MaterializeAddress { .. }
         | MirOp::MaterializeIndexedAddress { .. }
         | MirOp::AdvanceAddress { .. }
@@ -1541,6 +1542,7 @@ fn live_range_preserves_fixed_pair(
                     }
                 }
                 MirOp::RuntimeHelper { .. }
+                | MirOp::SArgsCapture { .. }
                 | MirOp::MachineBlock { .. }
                 | MirOp::Barrier { .. } => return false,
                 _ if op_may_write_fixed_pair(op, fixed_lo) => return false,
@@ -1849,6 +1851,7 @@ fn pair_live_across_private_zp_barrier(
                 op,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
                     | MirOp::Barrier { .. }
             ) && homes.iter().any(|home| {
@@ -2389,6 +2392,7 @@ fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
         | MirOp::LeaAddr { .. }
         | MirOp::UpdateReg { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
@@ -2545,6 +2549,7 @@ fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, Mir
         | MirOp::LeaAddr { .. }
         | MirOp::UpdateReg { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
@@ -2705,6 +2710,7 @@ where
         | MirOp::LeaAddr { .. }
         | MirOp::UpdateReg { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
@@ -2863,6 +2869,7 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
         MirOp::LoadIndirect { dst, .. } => collect_def_spills(dst, spills),
         MirOp::UpdateReg { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
         MirOp::IndirectByteCompound { .. }

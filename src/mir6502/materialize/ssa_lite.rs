@@ -386,7 +386,7 @@ impl SsaLiteValueEnv {
             MirOp::Call { .. } => {
                 self.kill_all();
             }
-            MirOp::RuntimeHelper { .. } | MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => {
+            MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. } | MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => {
                 self.kill_all();
             }
             MirOp::StoreIndirect { .. } | MirOp::IndirectByteCompound { .. } => {
@@ -671,7 +671,7 @@ impl SsaLiteV2ObserveEnv {
             | MirOp::LoadIndirect { dst, .. } => {
                 self.kill_def(dst, SsaLiteV2KillReason::Unknown);
             }
-            MirOp::Call { .. } | MirOp::RuntimeHelper { .. } => {
+            MirOp::Call { .. } | MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. } => {
                 self.kill_all(SsaLiteV2KillReason::Call);
             }
             MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => {
@@ -1411,6 +1411,7 @@ fn op_values(op: &MirOp) -> Vec<&MirValue> {
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::BinaryDirectIndexedByte { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareDirectIndexedBytes { .. }
         | MirOp::CompareIndirectBytes { .. }
@@ -2087,6 +2088,7 @@ impl LiveTempByteLanes {
             }
             MirOp::LoadImm { .. }
             | MirOp::RuntimeHelper { .. }
+            | MirOp::SArgsCapture { .. }
             | MirOp::LoadIndirect { .. }
             | MirOp::CompareDirectIndexedBytes { .. }
             | MirOp::CompareIndirectBytes { .. }
@@ -3685,6 +3687,7 @@ fn ssa_lite_redundant_reload_decision_after(
             op,
             MirOp::Call { .. }
                 | MirOp::RuntimeHelper { .. }
+                | MirOp::SArgsCapture { .. }
                 | MirOp::Barrier { .. }
                 | MirOp::MachineBlock { .. }
         ) {

@@ -39,6 +39,7 @@ pub(super) fn op_def(op: &MirOp) -> Option<&MirDef> {
         | MirOp::PackedRealCompare { .. }
         | MirOp::PackedRealCopy { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::MaterializeAddress { .. }
         | MirOp::MaterializeIndexedAddress { .. }
         | MirOp::AdvanceAddress { .. }

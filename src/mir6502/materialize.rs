@@ -1438,6 +1438,7 @@ fn materialize_core(
             .flat_map(|block| &block.ops)
             .filter_map(|op| match op {
                 MirOp::RuntimeHelper { helper, .. } => Some(*helper),
+                MirOp::SArgsCapture { .. } => Some(MirRuntimeHelper::SArgs),
                 _ => None,
             })
             .collect::<Vec<_>>());
@@ -6498,3 +6499,6 @@ fn materialize_byte_value_to_a(value: MirValue, out: &mut Vec<MirOp>) -> MirValu
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+#[path = "materialize/sargs_capture_tests.rs"]
+mod sargs_capture_tests;

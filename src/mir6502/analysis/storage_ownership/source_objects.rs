@@ -25,7 +25,7 @@ impl<'a> ObjectAddressControl<'a> {
                     cells.extend(classify_op(op).memory.address_references);
                     // Raw machine operands can name a source home without a
                     // typed address use. Keep the existing owning-body guard.
-                    if matches!(op, MirOp::MachineBlock { .. }) {
+                    if matches!(op, MirOp::MachineBlock { .. } | MirOp::SArgsCapture { .. }) {
                         machine_owners.insert(r.id);
                     }
                 }

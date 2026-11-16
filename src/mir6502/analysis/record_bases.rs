@@ -402,6 +402,7 @@ impl State {
                 op,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
                     | MirOp::Barrier { .. }
             )

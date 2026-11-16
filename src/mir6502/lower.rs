@@ -1457,7 +1457,7 @@ fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
             collect_packed_real_fixed_zero_page(destination, *destination_offset, slots);
         }
         MirOp::Call { effects, .. }
-        | MirOp::RuntimeHelper { effects, .. }
+        | MirOp::RuntimeHelper { effects, .. } | MirOp::SArgsCapture { effects, .. }
         | MirOp::Barrier { effects }
         | MirOp::MachineBlock { effects, .. } => {
             collect_effect_fixed_zero_page(&effects.memory_reads, slots);

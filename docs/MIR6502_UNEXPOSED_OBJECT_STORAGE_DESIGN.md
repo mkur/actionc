@@ -124,6 +124,33 @@ contextual consumers must identify the object and applicable lifetime explicitly
 
 ## Ordinary pointee effects and physical effects
 
+### Symbolic observations and ABI descriptors
+
+The [symbolic-observation plan](MIR6502_SYMBOLIC_STORAGE_OBSERVATION_IMPLEMENTATION_PLAN.md)
+extends this boundary in commit-sized slices. MIR6502 owns SArgs parameter
+capture as one typed operation containing its helper call and inline descriptor.
+The descriptor references a parameter ID in its owning routine and an explicit
+byte count. Emission resolves the contiguous frame and writes the ABI bytes.
+Descriptor bytes are not executable assembly; the helper retains its conservative
+memory/register/stack effects and the complete captured frame retains protection.
+This representation does not authorize a new SArgs home-placement strategy.
+
+Explicit machine observations retain typed storage identity, signed addends,
+operand encoding and addressing behavior. An indexed encoded base can precede
+its named object; this does not prove an out-of-bounds runtime access or supply
+an index bound. Exact callee-summary checks remain separate. A decodable operand
+awaiting layout is a pending physical obligation, distinct from opaque code.
+
+Final resolution validates the encoded base under emission's relocation rules,
+then applies ISA indexing and pointer-fetch wrapping. Each retained input uses
+its corresponding executable layout, with missing mappings failing the proof.
+Both old and proposed homes remain checked, and cleanup retains logical exposure
+as well as physical ranges beyond the named object. Unresolved final obligations
+cannot approve relocation or deletion. The existing single proposal, whole-image
+cost guard, preservation replay and exact rollback remain unchanged.
+
+### Effect classification
+
 For a qualified unexposed object, use the following distinction in placement
 and verification:
 

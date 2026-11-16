@@ -353,6 +353,7 @@ fn loop_has_unsupported_effects(routine: &MirRoutine, counted: &MirDynamicWordCo
                     op,
                     MirOp::Call { .. }
                         | MirOp::RuntimeHelper { .. }
+                        | MirOp::SArgsCapture { .. }
                         | MirOp::Barrier { .. }
                         | MirOp::MachineBlock { .. }
                         | MirOp::StoreIndirect { .. }

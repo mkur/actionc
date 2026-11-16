@@ -41,7 +41,7 @@ impl<'a> InvocationHomes<'a> {
                 }
             }
             for op in r.blocks.iter().flat_map(|b| &b.ops) {
-                if matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. }) {
+                if matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. }) {
                     abi.extend(classify_op(op).homes.reads.iter().filter_map(|h| {
                         if let MirHomeByte::FixedZeroPage(s) = h { Some(*s) } else { None }
                     }));
@@ -55,7 +55,7 @@ impl<'a> InvocationHomes<'a> {
                 || !verify_storage_with_address_control(source, r, MirCalleeEntryStage::ActualEntry, &addresses).is_empty()
                 || r.blocks.iter().flat_map(|b| &b.ops).any(|op| match op {
                     MirOp::Call { .. } => calls.writes(op).is_err(),
-                    MirOp::RuntimeHelper { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. } => true,
+                    MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. } => true,
                     _ => false,
                 })
                 || !verify_residence(r, Some(&mut calls), Some(&addresses)).is_empty()
@@ -127,7 +127,7 @@ impl<'a> InvocationHomes<'a> {
         let MirSite::Op { block, op_index } = site else { return None; };
         let r = self.source.routines.iter().find(|r| r.id == owner)?;
         let op = r.blocks.iter().find(|b| b.id == block)?.ops.get(op_index)?;
-        if matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. }) { return None; }
+        if matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. }) { return None; }
         let e = classify_op(op);
         let observed = e.memory.direct_reads.iter().any(|range| (0..range.bytes).any(|i| {
             let byte = match range.base {

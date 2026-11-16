@@ -56,6 +56,7 @@ pub(super) fn collect_temp_widths(ops: &[MirOp]) -> BTreeMap<MirTempId, MirWidth
                 widths.insert(*id, MirWidth::Byte);
             }
             MirOp::RuntimeHelper { .. }
+            | MirOp::SArgsCapture { .. }
             | MirOp::MaterializeAddress { .. }
             | MirOp::MaterializeIndexedAddress { .. }
             | MirOp::AdvanceAddress { .. }

@@ -342,7 +342,7 @@ fn expand_group(
             let retained_helpers = body
                 .ops
                 .iter()
-                .any(|op| matches!(op, MirOp::RuntimeHelper { .. }));
+                .any(|op| matches!(op, MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. }));
             let mut result_ids = BTreeMap::new();
             for (result, arg) in results.iter().zip(&edge.args) {
                 if let (MirDef::VTemp(dest), MirValue::Def(MirDef::VTemp(source))) =

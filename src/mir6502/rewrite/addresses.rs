@@ -84,6 +84,7 @@ pub(in crate::mir6502) fn discover_address_displacements(
                             op,
                             MirOp::Call { .. }
                                 | MirOp::RuntimeHelper { .. }
+                                | MirOp::SArgsCapture { .. }
                                 | MirOp::Barrier { .. }
                                 | MirOp::MachineBlock { .. }
                         )
@@ -278,6 +279,7 @@ pub(in crate::mir6502) fn discover_record_element_consumers(
                         op,
                         MirOp::Call { .. }
                             | MirOp::RuntimeHelper { .. }
+                            | MirOp::SArgsCapture { .. }
                             | MirOp::Barrier { .. }
                             | MirOp::MachineBlock { .. }
                     )

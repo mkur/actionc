@@ -3838,6 +3838,7 @@ pub(in crate::mir6502) fn discover_param_address_consumers(
                     op,
                     MirOp::Call { .. }
                         | MirOp::RuntimeHelper { .. }
+                        | MirOp::SArgsCapture { .. }
                         | MirOp::MachineBlock { .. }
                         | MirOp::Barrier { .. }
                 )
@@ -4264,6 +4265,7 @@ pub(in crate::mir6502) fn stored_call_result_alias_candidate(
                 op,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::Barrier { .. }
                     | MirOp::MachineBlock { .. }
             )

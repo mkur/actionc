@@ -852,6 +852,12 @@ pub enum MirOp {
         additional_results: Vec<MirCallResult>,
         effects: MirEffects,
     },
+    /// Atomic SArgs call and inline frame descriptor, introduced by ABI capture.
+    SArgsCapture {
+        first_param: ParamId,
+        byte_count: u16,
+        effects: MirEffects,
+    },
     RuntimeHelper {
         helper: MirRuntimeHelper,
         args: Vec<MirArgHome>,

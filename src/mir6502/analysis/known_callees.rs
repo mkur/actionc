@@ -47,7 +47,7 @@ fn scalar_entry_ignores_flags(routine: &MirRoutine) -> bool {
     for op in probe.blocks.iter_mut().flat_map(|b| &mut b.ops) {
         match op {
             MirOp::Call { effects, .. }
-            | MirOp::RuntimeHelper { effects, .. }
+            | MirOp::RuntimeHelper { effects, .. } | MirOp::SArgsCapture { effects, .. }
             | MirOp::Barrier { effects } => effects.reads.flags = true,
             _ => {}
         }
@@ -612,7 +612,7 @@ fn summarize_op_reads(
             }
             return;
         }
-        MirOp::RuntimeHelper { effects, .. } => {
+        MirOp::RuntimeHelper { effects, .. } | MirOp::SArgsCapture { effects, .. } => {
             summarize_structured_reads(&effects.memory_reads, effects.opaque, reads);
             return;
         }
@@ -730,7 +730,7 @@ fn summarize_op_writes(
             }
             return;
         }
-        MirOp::RuntimeHelper { effects, .. } => {
+        MirOp::RuntimeHelper { effects, .. } | MirOp::SArgsCapture { effects, .. } => {
             summarize_structured_writes(&effects.memory_writes, effects.opaque, writes);
             return;
         }

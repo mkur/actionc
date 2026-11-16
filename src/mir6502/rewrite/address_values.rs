@@ -335,6 +335,7 @@ fn safe_to_move_address(
                 block.ops[i],
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
                     | MirOp::Barrier { .. }
             )

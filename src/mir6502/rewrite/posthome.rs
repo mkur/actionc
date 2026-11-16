@@ -134,6 +134,7 @@ fn estimated_op_cost(op: &MirOp) -> (u16, u16) {
         MirOp::CompareDirectIndexedBytes { .. } => (6, 8),
         MirOp::CompareIndirectBytes { .. } => (6, 12),
         MirOp::CompareIndirectWords { .. } => (9, 20),
+        MirOp::SArgsCapture { .. } => (6, 6),
         MirOp::Call { .. } | MirOp::RuntimeHelper { .. } => (3, 6),
         MirOp::MaterializeAddress { .. } => (6, 8),
         MirOp::MaterializeIndexedAddress { scale: 3, .. } => (26, 40),

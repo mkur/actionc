@@ -4,8 +4,8 @@ use super::stats::MirPeepholeStats;
 use crate::mir6502::analysis::effects::{MirMemoryRange, classify_op, classify_terminator};
 use crate::mir6502::ir::{
     MirAddr, MirBlock, MirByteIndexedSource, MirCallTarget, MirCond,
-    MirDataRelocationTarget, MirDef, MirEffects, MirFixedZpSlot, MirMachineBlock,
-    MirMachineBlockId, MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirReg,
+    MirDataRelocationTarget, MirDef, MirFixedZpSlot, MirMachineBlock,
+    MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirReg,
     MirRoutine, MirRoutineAbi, MirRuntimeHelper, MirStorageBase, MirStorageClass, MirStorageInit,
     MirTerminator, MirValue, MirWidth,
 };
@@ -14,7 +14,7 @@ use std::collections::BTreeSet;
 
 pub(super) fn prepend_action_abi_param_prologue(
     routine: &mut crate::mir6502::ir::MirRoutine,
-    machine_blocks: &mut Vec<MirMachineBlock>,
+    _machine_blocks: &mut Vec<MirMachineBlock>,
     helpers: &mut Vec<MirRuntimeHelper>,
 ) {
     if routine.frame.params.is_empty() {
@@ -32,7 +32,7 @@ pub(super) fn prepend_action_abi_param_prologue(
     let prologue = if arg_bytes <= crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES {
         action_abi_direct_param_prologue(routine)
     } else {
-        action_abi_sargs_param_prologue(routine, arg_bytes, machine_blocks, helpers)
+        action_abi_sargs_param_prologue(routine, arg_bytes, helpers)
     };
     if prologue.is_empty() {
         return;
@@ -651,6 +651,7 @@ fn op_references_param_storage(op: &MirOp) -> bool {
         }
         MirOp::CopyDirectWordToIndirect { source, .. } => mem_references_param_storage(source),
         MirOp::AbsoluteWordSubToIndirect { rhs, .. } => mem_references_param_storage(rhs),
+        MirOp::SArgsCapture { .. } => true,
         MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
@@ -738,50 +739,19 @@ fn mem_references_param_storage(mem: &MirMem) -> bool {
 fn action_abi_sargs_param_prologue(
     routine: &crate::mir6502::ir::MirRoutine,
     arg_bytes: u16,
-    machine_blocks: &mut Vec<MirMachineBlock>,
     helpers: &mut Vec<MirRuntimeHelper>,
 ) -> Vec<MirOp> {
-    let Some(frame_name) = routine
-        .frame
-        .params
-        .iter()
-        .find_map(|param| param.name.clone())
-    else {
+    let Some(MirStorageBase::Param(first_param)) = routine.frame.params.first().map(|p| &p.base)
+    else { return action_abi_direct_param_prologue(routine); };
+    if u8::try_from(arg_bytes.saturating_sub(1)).is_err() {
         return action_abi_direct_param_prologue(routine);
-    };
-    let Ok(byte_count_minus_one) = u8::try_from(arg_bytes.saturating_sub(1)) else {
-        return action_abi_direct_param_prologue(routine);
-    };
+    }
     helpers.push(MirRuntimeHelper::SArgs);
-    let id = MirMachineBlockId(machine_blocks.len() as u32);
-    machine_blocks.push(MirMachineBlock {
-        source_span: None,
-        id,
-        items: vec![
-            MirMachineItem::AddressByte {
-                high: false,
-                name: frame_name.clone(),
-            },
-            MirMachineItem::AddressByte {
-                high: true,
-                name: frame_name,
-            },
-            MirMachineItem::Byte(byte_count_minus_one),
-        ],
-    });
-    vec![
-        MirOp::RuntimeHelper {
-            additional_results: Vec::new(),
-            helper: MirRuntimeHelper::SArgs,
-            args: super::helper_args(&MirRuntimeHelper::SArgs),
-            result: None,
-            effects: helper_effects(&MirRuntimeHelper::SArgs),
-        },
-        MirOp::MachineBlock {
-            id,
-            effects: MirEffects::default(),
-        },
-    ]
+    vec![MirOp::SArgsCapture {
+        first_param: *first_param,
+        byte_count: arg_bytes,
+        effects: helper_effects(&MirRuntimeHelper::SArgs),
+    }]
 }
 
 fn parameter_byte_width(param: &crate::mir6502::ir::MirStorageSlot) -> u16 {

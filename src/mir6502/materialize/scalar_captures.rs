@@ -336,6 +336,7 @@ fn forward_loads(program: &mut MirProgram, config: &Mir6502Config) -> BTreeMap<R
                     op,
                     MirOp::Call { .. }
                         | MirOp::RuntimeHelper { .. }
+                        | MirOp::SArgsCapture { .. }
                         | MirOp::MachineBlock { .. }
                         | MirOp::Barrier { .. }
                 ) || effect.memory.opaque

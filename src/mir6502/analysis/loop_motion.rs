@@ -200,6 +200,7 @@ fn safe_loop(r: &MirRoutine, f: &MirNaturalLoop) -> bool {
                 op,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
                     | MirOp::Barrier { .. }
             ) && !e.memory.indirect_writes

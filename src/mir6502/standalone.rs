@@ -473,7 +473,7 @@ fn visit_op_storage(
             }
             visit_effect_storage(effects, globals, statics);
         }
-        MirOp::RuntimeHelper { effects, .. }
+        MirOp::RuntimeHelper { effects, .. } | MirOp::SArgsCapture { effects, .. }
         | MirOp::Barrier { effects }
         | MirOp::MachineBlock { effects, .. } => visit_effect_storage(effects, globals, statics),
         MirOp::MaterializeIndexedAddress { base, index, .. } => {
@@ -734,7 +734,7 @@ fn rebase_op(
             }
             rebase_effects(effects, globals, statics)?;
         }
-        MirOp::RuntimeHelper { effects, .. }
+        MirOp::RuntimeHelper { effects, .. } | MirOp::SArgsCapture { effects, .. }
         | MirOp::Barrier { effects }
         | MirOp::MachineBlock { effects, .. } => rebase_effects(effects, globals, statics)?,
         MirOp::MaterializeIndexedAddress { base, index, .. } => {
@@ -868,6 +868,7 @@ pub(super) fn append_runtime_helper_requirements(
         .flat_map(|block| &block.ops)
         .filter_map(|op| match op {
             MirOp::RuntimeHelper { helper, .. } => Some(*helper),
+            MirOp::SArgsCapture { .. } => Some(MirRuntimeHelper::SArgs),
             _ => None,
         })
         .collect::<BTreeSet<_>>();
@@ -1696,6 +1697,7 @@ pub(in crate::mir6502) fn visit_op_routines(op: &MirOp, routines: &mut BTreeSet<
         | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::AbsoluteWordSubToIndirect { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. }
         | MirOp::CopyIndirectWord { .. }

@@ -2220,6 +2220,25 @@ impl MirVerifier {
                     }
                 }
             }
+            MirOp::SArgsCapture { first_param, byte_count, effects } => {
+                let expected = routine.frame.params.iter().try_fold(0u16, |n, slot| {
+                    let width = slot.abi_byte_width()?;
+                    (matches!(slot.base, MirStorageBase::Param(_)) && slot.offset == 0
+                        && slot.storage_size == width).then_some(())?;
+                    n.checked_add(width)
+                });
+                if self.phase == MirPhase::PreMaterialization
+                    || !matches!(routine.abi, MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry)
+                    || routine.frame.params.first().map(|p| &p.base) != Some(&MirStorageBase::Param(*first_param))
+                    || expected != Some(*byte_count)
+                    || !(crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES + 1..=256).contains(byte_count)
+                    || routine.frame.parameter_homes.is_some()
+                    || *effects != super::materialize::helper_effects(&super::ir::MirRuntimeHelper::SArgs)
+                {
+                    self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                        "SArgs capture requires a contiguous unbound ABI frame, valid target/count and canonical effects after materialization"));
+                }
+            }
             MirOp::RuntimeHelper { helper, args, effects, additional_results, .. } => {
                 if self.phase == MirPhase::PreEmission
                     && (*args != super::materialize::helper_args(helper)

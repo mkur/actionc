@@ -352,7 +352,7 @@ fn classify_leaf(routine: &MirRoutine) -> Result<LeafRoutine, &'static str> {
         return Err("cfg");
     }
     let has_helpers = routine.blocks.iter().flat_map(|b| &b.ops)
-        .any(|op| matches!(op, MirOp::RuntimeHelper { .. }));
+        .any(|op| matches!(op, MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. }));
     if has_helpers && (!requested || routine.blocks.len() != 1) {
         return Err("helper-control");
     }

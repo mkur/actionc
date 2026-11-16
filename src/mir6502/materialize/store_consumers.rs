@@ -4005,6 +4005,7 @@ fn word_operand_temp_producer_kind(op: &MirOp) -> (&'static str, &'static str) {
         | MirOp::PackedRealCompare { .. }
         | MirOp::PackedRealCopy { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::MaterializeAddress { .. }
         | MirOp::MaterializeIndexedAddress { .. }
         | MirOp::AdvanceAddress { .. }

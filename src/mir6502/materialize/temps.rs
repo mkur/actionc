@@ -307,6 +307,7 @@ fn op_is_sinkable_temp_producer(op: &MirOp) -> bool {
         | MirOp::PackedRealCompare { .. }
         | MirOp::PackedRealCopy { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::MaterializeAddress { .. }
         | MirOp::MaterializeIndexedAddress { .. }
         | MirOp::AdvanceAddress { .. }
@@ -564,6 +565,7 @@ pub(in crate::mir6502) fn replace_op_temp_values(
         | MirOp::UpdateReg { .. }
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::PackedRealCompare { .. }
         | MirOp::IndirectByteCompound { .. }
@@ -1096,6 +1098,7 @@ fn invalidate_staged_address_for_op(
         } => *op_consumer == *consumer,
         MirOp::Call { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => true,
     };

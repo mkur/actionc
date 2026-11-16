@@ -868,6 +868,7 @@ fn rewrite_full_range_loop_block(
                 op,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::Barrier { .. }
                     | MirOp::MachineBlock { .. }
             )
@@ -1245,6 +1246,7 @@ fn rewrite_induction_loop_block(
                 op,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::Barrier { .. }
                     | MirOp::MachineBlock { .. }
             )
@@ -1484,6 +1486,7 @@ fn operation_takes_induction_address(
         | MirOp::CompareIndirectWords { .. }
         | MirOp::PackedRealCompare { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
@@ -2259,6 +2262,7 @@ fn head_tested_byte_underflow_body_is_supported(
                 op,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::Barrier { .. }
                     | MirOp::MachineBlock { .. }
             ) && !operation_may_write_physical_mem(routine, layout, op, &counted.induction)
@@ -2517,6 +2521,7 @@ fn full_range_descending_ops_are_supported(ops: &[MirOp], induction: &MirMem) ->
             op,
             MirOp::Call { .. }
                 | MirOp::RuntimeHelper { .. }
+                | MirOp::SArgsCapture { .. }
                 | MirOp::Barrier { .. }
                 | MirOp::MachineBlock { .. }
         ) && !classify_op(op).memory.definitely_writes(induction)

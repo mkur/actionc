@@ -251,7 +251,7 @@ pub(super) fn inputs_correspond(
         .blocks
         .iter()
         .flat_map(|b| &b.ops)
-        .any(|op| matches!(op, MirOp::RuntimeHelper { .. }))
+        .any(|op| matches!(op, MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. }))
     {
         return true;
     }

@@ -99,6 +99,7 @@ fn scalar_inputs(
                 o,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::Barrier { .. }
                     | MirOp::MachineBlock { .. }
             )

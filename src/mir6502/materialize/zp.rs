@@ -100,6 +100,7 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
             | MirOp::PackedRealCompare { .. }
             | MirOp::Call { .. }
             | MirOp::RuntimeHelper { .. }
+            | MirOp::SArgsCapture { .. }
             | MirOp::Barrier { .. }
             | MirOp::LeaAddr { .. }
             | MirOp::UpdateMem { .. }
@@ -310,7 +311,7 @@ fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
             collect_effect_fixed_zero_page(&effects.memory_reads, slots);
             collect_effect_fixed_zero_page(&effects.memory_writes, slots);
         }
-        MirOp::RuntimeHelper { effects, .. }
+        MirOp::RuntimeHelper { effects, .. } | MirOp::SArgsCapture { effects, .. }
         | MirOp::Barrier { effects }
         | MirOp::MachineBlock { effects, .. } => {
             collect_effect_fixed_zero_page(&effects.memory_reads, slots);
@@ -532,6 +533,7 @@ fn resolve_op_consumers(
         | MirOp::PackedRealCopy { .. }
         | MirOp::Call { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
     }

@@ -733,7 +733,7 @@ fn op_kind(op: &MirOp) -> &'static str {
             }
         }
         MirOp::Call { .. } => "call",
-        MirOp::RuntimeHelper { .. } => "runtime-helper",
+        MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. } => "runtime-helper",
         MirOp::MaterializeAddress { .. } => "materialize-address",
         MirOp::MaterializeIndexedAddress { .. } => "materialize-indexed-address",
         MirOp::AdvanceAddress { .. } => "advance-address",
@@ -1621,6 +1621,7 @@ fn record_op_uses(
         | MirOp::UpdateReg { .. }
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
@@ -1886,7 +1887,7 @@ fn live_across_barriers(
                     live.insert(*lane);
                 }
             }
-            if matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. }) {
+            if matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. }) {
                 call_live.extend(live.intersection(&live_after).copied());
             }
             if matches!(op, MirOp::MachineBlock { .. }) {

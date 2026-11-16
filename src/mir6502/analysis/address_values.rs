@@ -239,6 +239,7 @@ pub(in crate::mir6502) fn local_pointer_store(
                 block.ops[i],
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
                     | MirOp::Barrier { .. }
             )

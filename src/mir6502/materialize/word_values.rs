@@ -286,6 +286,7 @@ fn op_blocks_deferred_direct_read(op: &MirOp) -> bool {
         MirOp::PackedRealCopy { .. } => true,
         MirOp::Call { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => true,
         MirOp::Load { .. }

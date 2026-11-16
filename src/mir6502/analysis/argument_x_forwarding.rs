@@ -71,6 +71,7 @@ pub(in crate::mir6502) fn shape(r: &MirRoutine, site: MirSite) -> Result<Shape, 
             b.ops[i],
             MirOp::Call { .. }
                 | MirOp::RuntimeHelper { .. }
+                | MirOp::SArgsCapture { .. }
                 | MirOp::MachineBlock { .. }
                 | MirOp::Barrier { .. }
         ) {

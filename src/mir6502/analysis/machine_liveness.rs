@@ -438,7 +438,7 @@ fn entry_flag_transfer(op: &MirOp) -> MirMachineTransfer {
     };
     if effects.machine.unknown_flag_or_a_effects
         || effects.machine.opaque_flag_or_a_effects
-        || matches!(op, MirOp::Call {..} | MirOp::RuntimeHelper {..} | MirOp::Barrier {..} | MirOp::MachineBlock {..})
+        || matches!(op, MirOp::Call {..} | MirOp::RuntimeHelper {..} | MirOp::SArgsCapture { .. } | MirOp::Barrier {..} | MirOp::MachineBlock {..})
     {
         transfer.reads.flags = MirFlagSet::all();
     }

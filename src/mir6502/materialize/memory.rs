@@ -61,7 +61,7 @@ fn terminator_reads_mem(terminator: &MirTerminator, mem: &MirMem) -> bool {
 
 pub(super) fn op_reads_mem(op: &MirOp, mem: &MirMem) -> bool {
     // Runtime-helper ABI homes were outside the old local memory query.
-    !matches!(op, MirOp::RuntimeHelper { .. }) && classify_op(op).memory.reads(mem)
+    !matches!(op, MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. }) && classify_op(op).memory.reads(mem)
 }
 
 #[cfg(test)]
@@ -92,7 +92,7 @@ pub(in crate::mir6502) fn op_may_write_mem(op: &MirOp, mem: &MirMem) -> bool {
                 .iter()
                 .any(|region| structured_region_may_write_mem(region, mem));
     }
-    if matches!(op, MirOp::RuntimeHelper { .. }) {
+    if matches!(op, MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. }) {
         effects.memory.may_write_any_compat
     } else {
         effects.memory.may_write_compat(mem)

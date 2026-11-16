@@ -64,6 +64,7 @@ pub(in crate::mir6502) fn reads_confined(
                 op,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
                     | MirOp::Barrier { .. }
             ) || effect.memory.indirect_writes
@@ -396,6 +397,7 @@ pub(in crate::mir6502) fn has_only_named_reads(program: &MirProgram) -> bool {
                     }),
                     MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
                     | MirOp::Barrier { .. } => false,
                     _ => {

@@ -744,6 +744,7 @@ fn update_fixed_zero_page_values(
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => state.fixed_zero_page.clear(),
         MirOp::Call { target, .. } => {

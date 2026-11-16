@@ -236,6 +236,7 @@ fn terminal_call(
             op,
             MirOp::Call { .. }
                 | MirOp::RuntimeHelper { .. }
+                | MirOp::SArgsCapture { .. }
                 | MirOp::MachineBlock { .. }
                 | MirOp::Barrier { .. }
         )

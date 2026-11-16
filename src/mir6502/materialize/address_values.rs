@@ -918,7 +918,7 @@ mod tests {
                     !r.blocks
                         .iter()
                         .flat_map(|b| &b.ops)
-                        .any(|op| matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. })),
+                        .any(|op| matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. })),
                     "{runtime:?}/{name}: no multiply call"
                 );
                 assert!(

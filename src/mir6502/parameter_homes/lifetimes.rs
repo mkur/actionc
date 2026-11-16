@@ -44,6 +44,7 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
                 op,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
+                    | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
                     | MirOp::Barrier { .. }
             ) && !consumes && invocation.is_none() {

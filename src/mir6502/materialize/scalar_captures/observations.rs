@@ -341,6 +341,7 @@ fn ordinary_op(p: &MirProgram, r: &MirRoutine, op: &MirOp) -> bool {
         op,
         MirOp::Call { .. }
             | MirOp::RuntimeHelper { .. }
+            | MirOp::SArgsCapture { .. }
             | MirOp::MachineBlock { .. }
             | MirOp::Barrier { .. }
             | MirOp::CopyBytes {

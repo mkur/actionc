@@ -415,6 +415,7 @@ fn callee_writes_in_bounds(
             MirOp::Call { .. }
             | MirOp::MachineBlock { .. }
             | MirOp::RuntimeHelper { .. }
+            | MirOp::SArgsCapture { .. }
             | MirOp::Barrier { .. } => return false,
             _ => {
                 let e = classify_op(op).memory;

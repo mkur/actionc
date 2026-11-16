@@ -1049,6 +1049,7 @@ fn remap_op_temp(op: &mut MirOp, old: MirTempId, new: MirTempId) {
         | MirOp::AbsoluteWordSubToIndirect { .. }
         | MirOp::PackedRealCompare { .. }
         | MirOp::RuntimeHelper { .. }
+        | MirOp::SArgsCapture { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }
@@ -1259,6 +1260,7 @@ fn unsupported_unrolled_effect(op: &MirOp) -> bool {
         op,
         MirOp::Call { .. }
             | MirOp::RuntimeHelper { .. }
+            | MirOp::SArgsCapture { .. }
             | MirOp::Barrier { .. }
             | MirOp::MachineBlock { .. }
             | MirOp::CopyBytes { .. }

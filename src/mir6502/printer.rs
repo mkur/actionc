@@ -773,6 +773,8 @@ fn op_summary(op: &MirOp) -> String {
             register_set_summary(&abi.preserves),
             effects_summary(effects)
         ),
+        MirOp::SArgsCapture { first_param, byte_count, effects } => format!(
+            "sargs-capture param p{} bytes={} effects={}", first_param.0, byte_count, effects_summary(effects)),
         MirOp::RuntimeHelper {
             helper,
             args,
