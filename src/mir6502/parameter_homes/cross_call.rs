@@ -12,6 +12,14 @@ pub(super) fn propose(
 ) -> Option<MirProgram> {
     let addresses = ObjectAddressControl::new(input);
     let unresolved_observation = physical::unresolved_observation(input);
+    // Layout-independent numeric observations are already authoritative. Avoid
+    // known conflicts before the one combined trial; symbolic/old-home overlaps
+    // still require final-layout verification and exact rollback.
+    let observed_zp: BTreeSet<u8> = if lifetimes {
+        let observations = physical::numeric_observations(input, None).unwrap_or_default();
+        (0..=255u16).filter(|byte| observations.iter().any(|(start, bytes)|
+            byte.wrapping_sub(*start) < *bytes)).map(|b| b as u8).collect()
+    } else { BTreeSet::new() };
     let candidates: Vec<_> = input
         .routines
         .iter()
@@ -82,7 +90,9 @@ pub(super) fn propose(
             call_writes.push((*site, writes));
         }
         let forbidden = |mem: &MirMem, width: u16| {
-            let mut forbidden = BTreeSet::new();
+            let mut forbidden = if physical::has_pointee_writes(routine) {
+                observed_zp.clone()
+            } else { BTreeSet::new() };
             for (site, writes) in &call_writes {
                 let crosses = (0..width).any(|offset| {
                     let lane = match *mem {

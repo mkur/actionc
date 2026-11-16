@@ -186,9 +186,21 @@ fn pointer_scratch_pairs_are_available_only_with_proved_lifetimes() {
     assert_eq!(homes, vec![(0xaa, 2), (0xae, 2)]);
 }
 #[test]
-fn indirect_writes_and_helper_leaves_retain_exact_fallback() {
+fn ordinary_pointee_write_uses_the_existing_object_storage_contract() {
+    let n = nir("PROC Subject(BYTE POINTER p BYTE value) p^=value RETURN PROC Main() DO OD RETURN");
+    let old = output(&n, false, Runtime::Standalone, 0x3000).0;
+    let new = output(&n, true, Runtime::Standalone, 0x3000).0;
+    assert!(size(&new) < size(&old));
+    // This admission predates value-lifetime placement: native pointee writes
+    // already use object-specific address control and physical observation.
+    let prior = mir6502::generate_output_with_config_and_runtime(&n, 0x3000,
+        &Mir6502Config { enable_zp_home_lifetimes: false, ..config(true) }, Runtime::Standalone).unwrap();
+    assert_eq!(new, prior);
+}
+
+#[test]
+fn helper_and_machine_leaves_retain_exact_fallback() {
     for source in [
-        "PROC Subject(BYTE POINTER p BYTE value) p^=value RETURN",
         "CARD FUNC Subject(CARD value,factor) RETURN(value*factor)",
         "PROC Subject=*(CARD value) [$60]",
     ] {

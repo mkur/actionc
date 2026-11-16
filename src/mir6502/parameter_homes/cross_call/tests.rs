@@ -83,6 +83,20 @@ fn call_lifetime_proofs_recheck_lanes_sites_and_unknown_boundaries() {
     }
 }
 
+#[test]
+fn call_lifetimes_exclude_known_numeric_observations_before_the_shared_trial() {
+    let (input, selected) = programs("PROC Observer=*()\nASM\n lda ($A2),y\n rts\nENDASM\nCARD FUNC First(CARD x) RETURN(x+1) CARD FUNC Writer(CARD ARRAY a) CARD h First(1) h=a(0) a(0)=h h==+1 RETURN(h)");
+    let proposed = propose(&input, &selected, true, true, &Trace::disabled()).unwrap();
+    let writer = proposed.routines.iter().find(|r| r.name == "Writer").unwrap();
+    assert!(!writer.frame.resident_bytes().is_empty());
+    assert!(writer.frame.resident_bytes().iter().all(|(_, b)| ![0xa2, 0xa3].contains(&b.0)));
+    let expanded = mir::materialize_program(proposed, &Default::default()).unwrap();
+    let writer = expanded.routines.iter().find(|r| r.name == "Writer").unwrap();
+    assert!(verify_residence(writer,
+        Some(&mut ResidenceCalls::new(&expanded, MirCalleeEntryStage::ActualEntry)),
+        Some(&ObjectAddressControl::new(&expanded))).is_empty());
+}
+
 fn hold(p: &MirProgram) -> &MirRoutine {
     p.routines.iter().find(|r| r.name == "Hold").unwrap()
 }

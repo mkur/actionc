@@ -1,0 +1,804 @@
+{
+  "date": "2026-11-16",
+  "baseline_revision": "56526393",
+  "scope": "Direct invocation homes and live-call exclusions; dedicated persistent homes and working copies remain deferred.",
+  "measurement": {
+    "revision": "207756601e8d6f6c983e6fd3217fc33a45ef7a6d",
+    "inputs_sha256": {
+      "samples/tn/modern/TN.ACT": "e6f03f6bb6a6260547197785d9ac85c9a1ee544f66cc889ed417c5adb56073bd",
+      "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+      "tools/compare6502/tn/leaf_facts.py": "3415b76a7966123f3f68aea504a2f3c7a13e7c6838190827bff289b9d88ef6b6",
+      "tools/compare6502/tn/leaf_facts_probe.rs": "1cb4e6e8eff00789357c19142726891ec8d68a688d26f15ef63d94e9ff9669da",
+      "src/mir6502/analysis/known_callees.rs": "6c1b3ddfa39eb49bc7d8db6d8789342beb59d74c6f892e06d4300fa322a7a11d",
+      "src/mir6502/analysis/effects.rs": "42e7ccfa3e5c52d487beb3a1113abb6d4ad4fb4778ab4a9c2e4696b77e36ecb7",
+      "src/mir6502/analysis/home_liveness.rs": "a4191ef5c9b5e39786ec52786d8b83ff09cd9dd542dfe284bc8f572d0c41ab95",
+      "src/mir6502/analysis/home_definitions.rs": "108184953d8e7f1d187b24b239c23edc51b3f2025d9ba93ef5b1dc8428306a3a",
+      "src/mir6502/analysis/machine_liveness.rs": "bf5a51f8db6840836761c1cafda84863400c0e444051bf1f374177a7e501eeb9",
+      "src/mir6502/analysis/known_callees/entry_inputs.rs": "28ceab3bf654539e9891896656369f5f175a9b6714c206d65f7a52b9bcd42c1e",
+      "src/mir6502/analysis/known_callees/observations.rs": "729514ecbba08cb3e716c723fd7469e549e7462c0f3d07230dc48b03cd9ec65e",
+      "src/mir6502/analysis/record_bases.rs": "1d256aa97857cccee51e3fff897acaaf972ce56d6763b060794e81b6a03401f8",
+      "src/mir6502/materialize/abi.rs": "06fbf72240c5ce91ae834d9faeec8b69dd27df34c3aad14a91b5222c271c433e",
+      "src/mir6502/materialize/runtime.rs": "996f25e14c663b6842749285947be4450cc6dbf42f5fd3804c3d29c8e1f8f1c5",
+      "src/mir6502/late_cleanup/mod.rs": "d5501755b29de2da9f9e5079a5485d3fc3e03a73f724d44a9d5f9776e52b960c",
+      "src/mir6502/lower.rs": "fee7c5d28627f2d9d05c9899a947d6f6b849158e41353871ce136752100f2dce",
+      "src/mir6502/ir.rs": "af263021aa108f7ac92edc31ca909109b0153287236c3dc2817c01f7420c50e6",
+      "src/mir6502/mod.rs": "717c29b6bb2e15de3afee0eeb0422d2acf79965745f9961019eaac599578a6a1",
+      "src/mir6502/emit.rs": "8bb32bf8f889f718453c40b3d98a87cf0cbefb106087dccd35daa75a20d0c5a4",
+      "src/mir6502/preparation.rs": "8f82d6ba846e411851827604d1d23251dcf6fb43b7247f54be9da59f5e2acd38",
+      "src/mir6502/verify.rs": "b20956e0bcab88cb769dde57a5960f724522abda550808b9ac0e2e75d59b9f99",
+      "src/mir6502/analysis/storage_ownership/source_objects.rs": "7d11da6aa626670fe84f49af09f5b6980404cafa09d97f7f5fed8253b401374a",
+      "src/mir6502/parameter_homes.rs": "20803e8599ba8a0e9f32ff0e80c667a35fdde4258db80b5d8329a93395481cef",
+      "src/mir6502/parameter_homes/cross_call.rs": "3e67d10fb7a99685e74e1edc7be1e0005797cd0fcc005725bd93a80a8b1b7856",
+      "src/mir6502/parameter_homes/lifetimes.rs": "834fa7f382aa29b4ae7693b06482f3491d5f00bef4d933325519df5ed850b671",
+      "src/mir6502/parameter_homes/locals.rs": "88a0d176b2babd96dc7b9d606a7fd60af6457c15dad761e04d5804d486ebf854",
+      "src/mir6502/parameter_homes/observations.rs": "83fceac85c1d408470d587dca06d50d72671553f8d989edc01467edb68d5ff09",
+      "src/mir6502/parameter_homes/physical.rs": "6a5dd06a32efa148a65a353d9cb766b9e2a547ff8c0cb3810f59fb6ab963c227",
+      "src/mir6502/parameter_homes/zero_page.rs": "20efd5871694109c41df934aced3c2927ec1ca2e6e19f02416143ae810e331ab",
+      "src/mir6502/parameter_homes/logical.rs": "cc3d0fba87d60782d3f3b4098096e1c1c4019b4262cfcf215f846abbeb09644b",
+      "src/mir6502/passes.rs": "14ef936335a8d7f9f17fdfbd21257b56999e2695f1e10097960911e5d40659a7"
+    },
+    "compiler_diff_sha256": "779b8f11e2ffedd98f53cbc12a766501e83fc0e38f68292954cfd5e65fead732",
+    "zp_home_lifetimes": "compare",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "mir6502::analysis::known_callees::tn_leaf_facts_audit::dump_tn_leaf_facts",
+      "--",
+      "--exact",
+      "--ignored",
+      "--nocapture"
+    ],
+    "outputs_sha256": {
+      "off/facts.json": "ca4314dd5d125a862160ad5053e4b9de9232cdc0617c7a5acaa7eeb57e2d6daf",
+      "off/leaves.asm": "f648df4495172e0fd4745cb08b9fe2eadc39c7391ca67681ce11e79bea7fb960",
+      "off/tn.xex": "d3dcc9692c79d7b1850614f40d35b2879c20eb9c0be29f1ca498ba09f67eac10",
+      "off/map.txt": "735739bde421693097532c6684a6a9ce1dadb47a1cad60d01930febaad7fe698",
+      "off/relocations.txt": "49c43b1581a0e4c1a4d31df36855281551d6bc8b58ad18a3a93f6643e46b94c7",
+      "off/selected.mir": "9459d9165bb7d372d456966ec6e2dc3be84765869523a765f21601d786539372",
+      "off/controls.mir": "b206f70ecbe71a5f265a7359d88e444eade67290fc730457c37e39c98d495195",
+      "off/controls.asm": "185abdd1e80ce957062f1e6dc0ae8a9a3a5bd9eb0bc1e16ab45a557dc7e3303e",
+      "on/facts.json": "c54581e2a30feca81076ded6041baf0ecb461b28c13caa4d2c5c9293ce905dd9",
+      "on/leaves.asm": "d4700f732731ec5817e6a97adb6a6b736a51895592c7a01a7d5ecb64f4c327d6",
+      "on/tn.xex": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+      "on/map.txt": "2454d4f818032023dc3915413587c741c29a35868b47166ffbed284147668248",
+      "on/relocations.txt": "10c3af5599bfa8f80e146463cf4fafaeb72db74a309abf82c70a17251e48925d",
+      "on/selected.mir": "3bdb462a4933a55beb7ed425f880468255b37e2773917ef2084f821901555900",
+      "on/controls.mir": "b206f70ecbe71a5f265a7359d88e444eade67290fc730457c37e39c98d495195",
+      "on/controls.asm": "0bdcc8c260adc69b6e492e3ecf8c4b67c3cdb66cc50aa940c867ec16407ea2f5"
+    },
+    "hook_removed": true
+  },
+  "config": {
+    "off": "Mir6502Config { enable_parameter_home_selection: true, enable_parameter_argument_handoff: true, enable_cross_call_home_selection: true, enable_multiple_leaf_call_homes: true, enable_zp_home_lifetimes: false, enable_record_base_reuse: true, enable_record_base_writes: true, enable_record_base_parameter_origins: true, select_runtime_helpers: true, select_widening_byte_multiply: false, enable_peepholes: true, enable_captured_byte_comparisons: true, enable_argument_staging_reduction: true, enable_argument_x_forwarding: true, enable_argument_x_bitwise_forwarding: true, enable_precise_callee_entry_flags: true, enable_pointer_byte_plus_one_fusion: true, enable_pointer_load_sharing: true, enable_word_load_sharing: true, enable_late_private_store_cleanup: true, enable_scoped_storage_observation: true, enable_late_dead_register_cleanup: true, enable_late_register_reuse: true, enable_late_spill_pruning: false, enable_tiny_constant_fills: true, enable_copy_value_forwarding: true, enable_register_copy_forwarding: true, enable_pointer_call_retention: true, enable_bounded_call_pointer_retention: true, enable_checked_range_pointer_retention: true, enable_pointer_loop_retention: true, enable_pointer_promotion: true, enable_constructor_store_elision: true, enable_constructor_home_elision: true, enable_constructor_payload_forwarding: true, enable_argument_capture_forwarding: true, enable_pattern_binding_forwarding: true, enable_scalar_capture_call_elision: true, enable_scalar_capture_pointer_elision: true, enable_word_inc_update: true, enable_direct_byte_word_update: true, enable_small_loop_unrolling: true, enable_small_leaf_inlining: true, enable_address_values: true, enable_indexed_address_values: true, enable_call_predicate_arguments: true, enable_call_predicate_abi: true, enable_comparison_loop_pointers: true, enable_comparison_loop_fusion: true, enable_comparison_loop_y: true, enable_private_memory_shifts: true, enable_dead_register_arithmetic: true, enable_captured_bound_motion: true, peephole_report: Off }",
+    "on": "Mir6502Config { enable_parameter_home_selection: true, enable_parameter_argument_handoff: true, enable_cross_call_home_selection: true, enable_multiple_leaf_call_homes: true, enable_zp_home_lifetimes: true, enable_record_base_reuse: true, enable_record_base_writes: true, enable_record_base_parameter_origins: true, select_runtime_helpers: true, select_widening_byte_multiply: false, enable_peepholes: true, enable_captured_byte_comparisons: true, enable_argument_staging_reduction: true, enable_argument_x_forwarding: true, enable_argument_x_bitwise_forwarding: true, enable_precise_callee_entry_flags: true, enable_pointer_byte_plus_one_fusion: true, enable_pointer_load_sharing: true, enable_word_load_sharing: true, enable_late_private_store_cleanup: true, enable_scoped_storage_observation: true, enable_late_dead_register_cleanup: true, enable_late_register_reuse: true, enable_late_spill_pruning: false, enable_tiny_constant_fills: true, enable_copy_value_forwarding: true, enable_register_copy_forwarding: true, enable_pointer_call_retention: true, enable_bounded_call_pointer_retention: true, enable_checked_range_pointer_retention: true, enable_pointer_loop_retention: true, enable_pointer_promotion: true, enable_constructor_store_elision: true, enable_constructor_home_elision: true, enable_constructor_payload_forwarding: true, enable_argument_capture_forwarding: true, enable_pattern_binding_forwarding: true, enable_scalar_capture_call_elision: true, enable_scalar_capture_pointer_elision: true, enable_word_inc_update: true, enable_direct_byte_word_update: true, enable_small_loop_unrolling: true, enable_small_leaf_inlining: true, enable_address_values: true, enable_indexed_address_values: true, enable_call_predicate_arguments: true, enable_call_predicate_abi: true, enable_comparison_loop_pointers: true, enable_comparison_loop_fusion: true, enable_comparison_loop_y: true, enable_private_memory_shifts: true, enable_dead_register_arithmetic: true, enable_captured_bound_motion: true, peephole_report: Off }"
+  },
+  "runtime": "ActionCart",
+  "origin": 12288,
+  "packaged_bytes": {
+    "off": 9815,
+    "on": 9811
+  },
+  "routine_footprints": {
+    "off": [
+      {
+        "code_bytes": 30,
+        "homes": [],
+        "inline_home_bytes": 0,
+        "name": "Next",
+        "zp_home_bytes": 0
+      },
+      {
+        "code_bytes": 51,
+        "homes": [
+          {
+            "address": 226,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "item",
+            "size": 2
+          },
+          {
+            "address": 228,
+            "kind": "Local",
+            "name": "c",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Ord",
+        "zp_home_bytes": 5
+      },
+      {
+        "code_bytes": 37,
+        "homes": [
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 226,
+            "kind": "Local",
+            "name": "c",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Items",
+        "zp_home_bytes": 3
+      },
+      {
+        "code_bytes": 53,
+        "homes": [
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 226,
+            "kind": "Parameter",
+            "name": "ch",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "FindItem",
+        "zp_home_bytes": 3
+      },
+      {
+        "code_bytes": 261,
+        "homes": [
+          {
+            "address": 13210,
+            "kind": "Parameter",
+            "name": "mp",
+            "size": 2
+          },
+          {
+            "address": 13212,
+            "kind": "Parameter",
+            "name": "c",
+            "size": 1
+          },
+          {
+            "address": 13213,
+            "kind": "Parameter",
+            "name": "spc",
+            "size": 1
+          },
+          {
+            "address": 13214,
+            "kind": "Local",
+            "name": "ch",
+            "size": 1
+          },
+          {
+            "address": 13215,
+            "kind": "Local",
+            "name": "d",
+            "size": 1
+          },
+          {
+            "address": 13216,
+            "kind": "Local",
+            "name": "limit",
+            "size": 1
+          },
+          {
+            "address": 13217,
+            "kind": "Local",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 13219,
+            "kind": "Local",
+            "name": "PopUp::block0::block1::item",
+            "size": 2
+          }
+        ],
+        "inline_home_bytes": 11,
+        "name": "PopUp",
+        "zp_home_bytes": 0
+      },
+      {
+        "code_bytes": 20,
+        "homes": [
+          {
+            "address": 160,
+            "kind": "Parameter",
+            "name": "s+0",
+            "size": 1
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "t+0",
+            "size": 1
+          },
+          {
+            "address": 163,
+            "kind": "Parameter",
+            "name": "t+1",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Strcpy",
+        "zp_home_bytes": 3
+      },
+      {
+        "code_bytes": 105,
+        "homes": [
+          {
+            "address": 160,
+            "kind": "Parameter",
+            "name": "s",
+            "size": 2
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "t",
+            "size": 2
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Fnamecmp",
+        "zp_home_bytes": 4
+      },
+      {
+        "code_bytes": 238,
+        "homes": [
+          {
+            "address": 226,
+            "kind": "Local",
+            "name": "h",
+            "size": 2
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Sort",
+        "zp_home_bytes": 2
+      },
+      {
+        "code_bytes": 47,
+        "homes": [
+          {
+            "address": 13306,
+            "kind": "Parameter",
+            "name": "b",
+            "size": 1
+          },
+          {
+            "address": 13307,
+            "kind": "Parameter",
+            "name": "divisor",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 2,
+        "name": "PrintNonzeroDigit",
+        "zp_home_bytes": 0
+      },
+      {
+        "code_bytes": 673,
+        "homes": [
+          {
+            "address": 24827,
+            "kind": "Local",
+            "name": "lentab",
+            "size": 32
+          },
+          {
+            "address": 24859,
+            "kind": "Local",
+            "name": "copytab",
+            "size": 16
+          },
+          {
+            "address": 13326,
+            "kind": "Local",
+            "name": "mem",
+            "size": 2
+          },
+          {
+            "address": 13328,
+            "kind": "Local",
+            "name": "len",
+            "size": 2
+          },
+          {
+            "address": 13330,
+            "kind": "Local",
+            "name": "files",
+            "size": 1
+          },
+          {
+            "address": 13331,
+            "kind": "Local",
+            "name": "j",
+            "size": 1
+          },
+          {
+            "address": 13332,
+            "kind": "Local",
+            "name": "k",
+            "size": 1
+          },
+          {
+            "address": 13333,
+            "kind": "Local",
+            "name": "flag",
+            "size": 1
+          },
+          {
+            "address": 13334,
+            "kind": "Local",
+            "name": "diskswap",
+            "size": 1
+          },
+          {
+            "address": 13335,
+            "kind": "Local",
+            "name": "isopen",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 58,
+        "name": "Copy",
+        "zp_home_bytes": 0
+      }
+    ],
+    "on": [
+      {
+        "code_bytes": 30,
+        "homes": [],
+        "inline_home_bytes": 0,
+        "name": "Next",
+        "zp_home_bytes": 0
+      },
+      {
+        "code_bytes": 51,
+        "homes": [
+          {
+            "address": 226,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "item",
+            "size": 2
+          },
+          {
+            "address": 228,
+            "kind": "Local",
+            "name": "c",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Ord",
+        "zp_home_bytes": 5
+      },
+      {
+        "code_bytes": 37,
+        "homes": [
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 226,
+            "kind": "Local",
+            "name": "c",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Items",
+        "zp_home_bytes": 3
+      },
+      {
+        "code_bytes": 53,
+        "homes": [
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 226,
+            "kind": "Parameter",
+            "name": "ch",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "FindItem",
+        "zp_home_bytes": 3
+      },
+      {
+        "code_bytes": 261,
+        "homes": [
+          {
+            "address": 13210,
+            "kind": "Parameter",
+            "name": "mp",
+            "size": 2
+          },
+          {
+            "address": 13212,
+            "kind": "Parameter",
+            "name": "c",
+            "size": 1
+          },
+          {
+            "address": 13213,
+            "kind": "Parameter",
+            "name": "spc",
+            "size": 1
+          },
+          {
+            "address": 13214,
+            "kind": "Local",
+            "name": "ch",
+            "size": 1
+          },
+          {
+            "address": 13215,
+            "kind": "Local",
+            "name": "d",
+            "size": 1
+          },
+          {
+            "address": 13216,
+            "kind": "Local",
+            "name": "limit",
+            "size": 1
+          },
+          {
+            "address": 13217,
+            "kind": "Local",
+            "name": "menu",
+            "size": 2
+          },
+          {
+            "address": 13219,
+            "kind": "Local",
+            "name": "PopUp::block0::block1::item",
+            "size": 2
+          }
+        ],
+        "inline_home_bytes": 11,
+        "name": "PopUp",
+        "zp_home_bytes": 0
+      },
+      {
+        "code_bytes": 20,
+        "homes": [
+          {
+            "address": 160,
+            "kind": "Parameter",
+            "name": "s+0",
+            "size": 1
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "t+0",
+            "size": 1
+          },
+          {
+            "address": 163,
+            "kind": "Parameter",
+            "name": "t+1",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Strcpy",
+        "zp_home_bytes": 3
+      },
+      {
+        "code_bytes": 105,
+        "homes": [
+          {
+            "address": 160,
+            "kind": "Parameter",
+            "name": "s",
+            "size": 2
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "t",
+            "size": 2
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Fnamecmp",
+        "zp_home_bytes": 4
+      },
+      {
+        "code_bytes": 238,
+        "homes": [
+          {
+            "address": 226,
+            "kind": "Local",
+            "name": "h",
+            "size": 2
+          }
+        ],
+        "inline_home_bytes": 0,
+        "name": "Sort",
+        "zp_home_bytes": 2
+      },
+      {
+        "code_bytes": 44,
+        "homes": [
+          {
+            "address": 13306,
+            "kind": "Parameter",
+            "name": "b",
+            "size": 1
+          },
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "divisor",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 1,
+        "name": "PrintNonzeroDigit",
+        "zp_home_bytes": 1
+      },
+      {
+        "code_bytes": 673,
+        "homes": [
+          {
+            "address": 24823,
+            "kind": "Local",
+            "name": "lentab",
+            "size": 32
+          },
+          {
+            "address": 24855,
+            "kind": "Local",
+            "name": "copytab",
+            "size": 16
+          },
+          {
+            "address": 13325,
+            "kind": "Local",
+            "name": "mem",
+            "size": 2
+          },
+          {
+            "address": 13327,
+            "kind": "Local",
+            "name": "len",
+            "size": 2
+          },
+          {
+            "address": 13329,
+            "kind": "Local",
+            "name": "files",
+            "size": 1
+          },
+          {
+            "address": 13330,
+            "kind": "Local",
+            "name": "j",
+            "size": 1
+          },
+          {
+            "address": 13331,
+            "kind": "Local",
+            "name": "k",
+            "size": 1
+          },
+          {
+            "address": 13332,
+            "kind": "Local",
+            "name": "flag",
+            "size": 1
+          },
+          {
+            "address": 13333,
+            "kind": "Local",
+            "name": "diskswap",
+            "size": 1
+          },
+          {
+            "address": 13334,
+            "kind": "Local",
+            "name": "isopen",
+            "size": 1
+          }
+        ],
+        "inline_home_bytes": 58,
+        "name": "Copy",
+        "zp_home_bytes": 0
+      }
+    ]
+  },
+  "work": {
+    "off": {
+      "cross_call_home_trials": 1,
+      "emission_invocations": 146,
+      "inner_emission_probes": 876,
+      "late_cleanup_preservation_replays": 17,
+      "materializations": 6,
+      "parameter_argument_handoff_trials": 1,
+      "parameter_home_trials": 3,
+      "pipeline_attempts": 67,
+      "rewrite_analysis_builds": 47646,
+      "source_storage_inventory_builds": 61,
+      "storage_observation_snapshot_builds": 3
+    },
+    "on": {
+      "cross_call_home_trials": 1,
+      "emission_invocations": 146,
+      "inner_emission_probes": 876,
+      "late_cleanup_preservation_replays": 17,
+      "materializations": 6,
+      "parameter_argument_handoff_trials": 1,
+      "parameter_home_trials": 3,
+      "pipeline_attempts": 67,
+      "rewrite_analysis_builds": 47646,
+      "source_storage_inventory_builds": 61,
+      "storage_observation_snapshot_builds": 3
+    }
+  },
+  "layout_replay_identical": {
+    "off": true,
+    "on": true
+  },
+  "zp_allocation_scope": "Static per-routine union of mapped scalar homes and allocated virtual ZP slots; excludes source-owned globals and ABI/helper transient accesses. Not a runtime high-water measurement.",
+  "zp_allocations": {
+    "off": {
+      "maximum_per_routine": {
+        "name": "Sort",
+        "count": 7,
+        "bytes": [
+          226,
+          227,
+          228,
+          229,
+          234,
+          235,
+          236
+        ]
+      },
+      "program_union": [
+        160,
+        161,
+        162,
+        163,
+        226,
+        227,
+        228,
+        229,
+        234,
+        235,
+        236
+      ]
+    },
+    "on": {
+      "maximum_per_routine": {
+        "name": "Sort",
+        "count": 7,
+        "bytes": [
+          226,
+          227,
+          228,
+          229,
+          234,
+          235,
+          236
+        ]
+      },
+      "program_union": [
+        160,
+        161,
+        162,
+        163,
+        226,
+        227,
+        228,
+        229,
+        234,
+        235,
+        236
+      ]
+    }
+  },
+  "popup_blocker": {
+    "call_count": 13,
+    "call_index": 5,
+    "reason": "unsupported residence callee",
+    "routine": "PopUp"
+  },
+  "independent_control": {
+    "source": "fixtures/runtime/live_call_homes.act",
+    "before_bytes": 248,
+    "after_bytes": 225
+  },
+  "validation": {
+    "status": "passed",
+    "unit_filter": "mir6502::parameter_homes",
+    "unit_passed": 56,
+    "integration_targets": {
+      "mir6502_call_abi": 11,
+      "mir6502_cross_call_homes": 18,
+      "mir6502_parameter_argument_handoff": 6,
+      "mir6502_parameter_homes": 5,
+      "mir6502_parameter_pointers": 6
+    },
+    "integration_optional_ignored": 2,
+    "vm_manifest": "tools/vm-runtime-tests/Cargo.toml",
+    "vm_targets": {
+      "cross_call_homes": 11,
+      "parameter_argument_handoff": 4,
+      "parameter_homes": 3,
+      "parameter_pointer_homes": 4
+    },
+    "qualification_note": "Updated old whole-routine rejection expectations to test mixed admission and preserved live-value rejection. Corrected the TN execution test to permit Standalone rollback, then reran that oracle in both runtimes. Removed temporary diagnostic tracing afterward and rebuilt the test target.",
+    "runtimes": [
+      "ActionCart",
+      "Standalone"
+    ],
+    "origins": [
+      12288,
+      16839
+    ],
+    "newline_coverage": "New mixed/lifetime fixtures and existing pointer/handoff controls loaded as LF and CRLF; final TN MADS listing reconstructed in both forms.",
+    "cli_equal_to_qualified_image": true,
+    "mads_listing_reconstruction": [
+      "LF",
+      "CRLF"
+    ],
+    "documentation_links_and_hashes": "checked",
+    "temporary_probe_hook_removed": true,
+    "full_repository_suites_run": false
+  },
+  "final_cli": {
+    "packaged_bytes": 9811,
+    "sha256": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+    "qualified_image_identical": true,
+    "mads_listing_reconstruction": [
+      "lf",
+      "crlf"
+    ]
+  },
+  "final_compiler_input_changes": {
+    "src/mir6502/passes.rs": "b9573ff3f13f32906a41996164659d42ef18bc1c0ac4780388376ad10db0aff6"
+  },
+  "final_compiler_input_changes_note": "Only optimized-default enablement changed after explicit off/on measurement; normal CLI image matches the measured on image exactly.",
+  "standalone": {
+    "selected_packaged_bytes": 10025,
+    "divisor_address": 13321,
+    "cross_call_trial_accepted": false,
+    "reason": "invalid-trial",
+    "diagnostic": "source-object physical observation: unresolved explicit operand in machine block m35 (owner r96, stage decode, operand None)",
+    "routine": "ACTION.RUNTIME.SYSLIB::Error",
+    "execution_oracle": "passed"
+  }
+}

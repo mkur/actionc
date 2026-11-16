@@ -19,6 +19,93 @@ struct Observe {
     arguments: Vec<u16>,
 }
 
+struct PrintObserve {
+    entry: u16,
+    divisor: u16,
+    output: Vec<u8>,
+}
+impl VmRunHooks for PrintObserve {
+    type Error = String;
+    fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {
+        let r = vm.cpu().registers();
+        if r.pc == self.entry {
+            self.output.push(r.a);
+            // Putchar has no preservation contract for this home. Its value
+            // must already be dead; b, which survives the call, stays inline.
+            vm.bus_mut().ram_mut().write(self.divisor, 0xee);
+        }
+        Ok(())
+    }
+}
+
+#[test]
+fn recursive_call_boundaries_require_no_surviving_resident_value() {
+    let file = support::Source::new("CARD FUNC Dead(CARD x) IF x THEN x=Dead(x-1) FI RETURN(x+1) CARD FUNC Live(CARD x) IF x THEN RETURN(Live(x-1)+x+1) FI RETURN(1) PROC Main() RETURN");
+    let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+    let model = actionc::semantic::analyze_with_options(&loaded.program,
+        actionc::semantic::SemanticOptions::modern()).unwrap();
+    let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
+        &actionc::semantic::ir::lower_program(&loaded.program, &model))).unwrap();
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for enabled in [false, true] {
+            let output = mir6502::generate_output_with_config_and_runtime(&nir, 0x3000,
+                &Mir6502Config { enable_zp_home_lifetimes: enabled,
+                    enable_small_leaf_inlining: false, ..Mir6502Config::optimized() }, runtime).unwrap();
+            let home = |name: &str| output.map.storage_symbols.iter().find(|s|
+                s.scope == actionc::codegen::CodegenSymbolScope::Routine(name.into()) && s.name == "x").unwrap().address;
+            assert_eq!(home("Dead") < 256, enabled);
+            assert!(home("Live") >= 256);
+            let (mut vm, profile) = support::vm_for(runtime);
+            vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+            let mut hooks = Observe { advance: 0, arguments: vec![] };
+            for depth in [0u16, 1, 7, 32, 1] {
+                for name in ["Dead", "Live"] {
+                    let entry = output.routine_addresses.iter().find(|r| r.name == name).unwrap().address;
+                    vm = machine::call(vm, &mut hooks, entry, &depth.to_le_bytes());
+                    // Action locals/params have static homes. Live.x becomes
+                    // zero in the deepest activation; placement cannot invent
+                    // automatic preservation of the outer invocation's x.
+                    assert_eq!(machine::bytes(&vm, 0xa0, 2), (depth + 1).to_le_bytes(), "{name} {enabled}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn tn_print_digit_preserves_result_when_dead_divisor_is_clobbered() {
+    let loaded = actionc::includes::load_program_with_expanded_source(root().join("samples/tn/modern/TN.ACT")).unwrap();
+    let model = actionc::semantic::analyze_with_options(&loaded.program,
+        actionc::semantic::SemanticOptions::modern()).unwrap();
+    let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
+        &actionc::semantic::ir::lower_program(&loaded.program, &model))).unwrap();
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = mir6502::generate_output_with_config_and_runtime(&nir, 0x3000,
+            &Mir6502Config::optimized(), runtime).unwrap();
+        let entry = |name| output.routine_addresses.iter().find(|r| r.name == name).unwrap().address;
+        let home = |name| output.map.storage_symbols.iter().find(|s|
+            s.scope == actionc::codegen::CodegenSymbolScope::Routine("PrintNonzeroDigit".into()) && s.name == name).unwrap().address;
+        assert!(home("b") >= 256);
+        if runtime == Runtime::ActionCart { assert!(home("divisor") < 256); }
+        println!("{runtime:?} divisor home ${:04X}", home("divisor"));
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        // Isolate the compiled digit routine from screen/hardware setup. The
+        // hook observes its real output argument and clobbers the dead home.
+        vm.bus_mut().ram_mut().write(entry("Putchar"), 0x60);
+        let mut hooks = PrintObserve { entry: entry("Putchar"), divisor: home("divisor"), output: vec![] };
+        for divisor in [10u8, 100] {
+            for b in [0u8, 1, 9, 10, 99, 100, 109, 199, 200, 255] {
+                hooks.output.clear();
+                vm = machine::call(vm, &mut hooks, entry("PrintNonzeroDigit"), &[b, divisor]);
+                assert_eq!(machine::bytes(&vm, 0xa0, 1), [b % divisor]);
+                let expected = if b < divisor { vec![] } else { vec![b'0' | (b / divisor)] };
+                assert_eq!(hooks.output, expected, "{runtime:?} {b}/{divisor}");
+            }
+        }
+    }
+}
+
 #[test]
 fn live_call_homes_preserve_values_between_alternating_subtrees() {
     let lf = include_str!("../../../fixtures/runtime/live_call_homes.act").replace("\r\n", "\n");

@@ -19,6 +19,7 @@ fn value_lifetimes_allow_dead_call_boundaries_and_sibling_reuse() {
         &Mir6502Config { enable_zp_home_lifetimes: false, ..config }, Runtime::ActionCart).unwrap();
     let events = trace.events();
     assert!(actionc::codegen::format_load_file(&new).len() < actionc::codegen::format_load_file(&old).len(), "{events:#?}");
+    println!("live-call control: {} -> {} bytes", actionc::codegen::format_load_file(&old).len(), actionc::codegen::format_load_file(&new).len());
     let home = |routine: &str, name: &str| new.map.storage_symbols.iter().find(|s|
         s.scope == actionc::codegen::CodegenSymbolScope::Routine(routine.into()) && s.name == name).unwrap();
     assert!(home("Short", "keep").address >= 256, "live across unsupported Nested");
@@ -26,6 +27,27 @@ fn value_lifetimes_allow_dead_call_boundaries_and_sibling_reuse() {
     assert!(home("Gone", "keep").address < 256, "dead at Nested");
     assert_eq!(home("Short", "n").address, home("Sibling", "n").address);
     assert_eq!(trace.manifest()["work"]["cross_call_home_trials"], 1);
+}
+
+#[test]
+fn zp_home_lifetimes_default_and_parent_gates_match_explicit_selection() {
+    let source = include_str!("../fixtures/runtime/mixed_zp_homes.act").replace("\r\n", "\n");
+    let n = nir(&source);
+    let default = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+    assert!(default.enable_zp_home_lifetimes);
+    let compile = |c: &Mir6502Config| mir6502::generate_output_with_config_and_runtime(&n, 0x3000, c, Runtime::ActionCart).unwrap();
+    assert_eq!(compile(&default), compile(&Mir6502Config { enable_zp_home_lifetimes: true, ..default.clone() }));
+    for parent in 0..3 {
+        let mut config = default.clone();
+        match parent {
+            0 => config.enable_peepholes = false,
+            1 => config.enable_parameter_home_selection = false,
+            _ => config.enable_cross_call_home_selection = false,
+        }
+        let enabled = compile(&config);
+        config.enable_zp_home_lifetimes = false;
+        assert_eq!(enabled, compile(&config));
+    }
 }
 
 #[test]
@@ -124,24 +146,38 @@ fn object_storage_indexed_callers_select_resident_homes_in_one_trial() {
 }
 
 #[test]
-fn object_storage_numeric_dispatch_conflict_rolls_back() {
+fn object_storage_numeric_dispatch_conflict_is_avoided_or_rolls_back() {
     let source = include_str!("../fixtures/runtime/object_storage.act").replace("\r\n", "\n")
         .replace("sta dispatchVector+1", "sta $A1")
         .replace("sta dispatchVector", "sta $A0")
         .replace("jmp (dispatchVector)", "jmp ($A0)");
     let n = nir(&source);
-    let config = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
-    let mut trace = Mir6502Trace::default();
-    let selected = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
-    let events = trace.events();
-    let result = events.iter().find(|e| e.kind == "cross-call-home-result").unwrap();
-    assert_eq!(result.data["accepted"], false);
-    assert_eq!(result.data["reason"], "invalid-trial");
-    assert!(result.data["diagnostics"].as_str().unwrap().contains("numeric observation overlaps"));
-    let baseline = mir6502::generate_output_with_config_and_runtime(&n, 0x3000,
-        &Mir6502Config { enable_cross_call_home_selection: false, ..config }, Runtime::ActionCart).unwrap();
-    assert_eq!(actionc::codegen::format_load_file(&selected), actionc::codegen::format_load_file(&baseline));
-    assert_eq!(trace.manifest()["work"]["cross_call_home_trials"], 1);
+    for lifetimes in [false, true] {
+        let config = Mir6502Config { enable_small_leaf_inlining: false,
+            enable_zp_home_lifetimes: lifetimes, ..Mir6502Config::optimized() };
+        let mut trace = Mir6502Trace::default();
+        let selected = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
+        let events = trace.events();
+        let result = events.iter().find(|e| e.kind == "cross-call-home-result").unwrap();
+        let baseline = mir6502::generate_output_with_config_and_runtime(&n, 0x3000,
+            &Mir6502Config { enable_cross_call_home_selection: false, ..config }, Runtime::ActionCart).unwrap();
+        if lifetimes {
+            assert_eq!(result.data["accepted"], true);
+            assert!(selected.bytes.len() < baseline.bytes.len());
+            for name in ["SwapWords", "SwapBytes"] {
+                let homes: Vec<_> = selected.map.storage_symbols.iter().filter(|s|
+                    s.scope == actionc::codegen::CodegenSymbolScope::Routine(name.into()) && s.address < 256).collect();
+                assert!(!homes.is_empty());
+                assert!(homes.iter().all(|s| !(s.address..s.address+s.size).any(|b| [0xa0, 0xa1].contains(&b))));
+            }
+        } else {
+            assert_eq!(result.data["accepted"], false);
+            assert_eq!(result.data["reason"], "invalid-trial");
+            assert!(result.data["diagnostics"].as_str().unwrap().contains("numeric observation overlaps"));
+            assert_eq!(selected, baseline);
+        }
+        assert_eq!(trace.manifest()["work"]["cross_call_home_trials"], 1);
+    }
 }
 
 #[test]
@@ -302,8 +338,8 @@ fn unsupported_calls_exposed_objects_and_exhaustion_retain_the_fallback() {
         "CARD FUNC Leaf(CARD x) RETURN(x+1) CARD FUNC Exposed(CARD x) x=Leaf(x) RETURN(@x)",
         "BYTE ARRAY window(4)=$A0,pool(16)=$E0 CARD FUNC Leaf(CARD x) RETURN(x+1) CARD FUNC Subject(CARD x,y) RETURN(Leaf(x)+y)",
         "CARD FUNC Leaf(CARD x) RETURN(x+1)",
-        "CARD FUNC Recurse(CARD x) IF x THEN x=Recurse(x-1) FI RETURN(x)",
-        "CARD FUNC Helper(CARD x,y) RETURN(x*y) CARD FUNC Caller(CARD x,y) RETURN(Helper(x,3)+y)",
+        "CARD FUNC Recurse(CARD x) IF x THEN RETURN(Recurse(x-1)+x) FI RETURN(x)",
+        "CARD FUNC Helper(CARD x,y) RETURN(x*y) CARD FUNC Caller(CARD x,y) RETURN(Helper(x,3)+x+y)",
         "PROC Machine(BYTE x)\nASM\n rts\nENDASM\nBYTE FUNC Caller(BYTE x) Machine(x) RETURN(x)",
     ] {
         let n = nir(source);
@@ -370,7 +406,7 @@ fn raw_nir_keeps_the_same_bounded_proof_and_output_contract() {
 }
 
 #[test]
-fn nested_callee_remains_inline_even_when_its_own_leaf_call_qualifies() {
+fn nested_callee_keeps_only_the_callers_live_argument_inline() {
     let n = nir(
         "CARD FUNC Leaf(CARD x) RETURN(x+1) CARD FUNC Nested(CARD x) x=Leaf(x) RETURN(x) CARD FUNC Caller(CARD x,y) RETURN(Nested(x)+y)",
     );
@@ -390,12 +426,13 @@ fn nested_callee_remains_inline_even_when_its_own_leaf_call_qualifies() {
         .filter(|s| s.scope == actionc::codegen::CodegenSymbolScope::Routine("Caller".into()))
         .collect();
     assert_eq!(homes.len(), 2);
-    assert!(homes.iter().all(|s| s.address >= 256));
+    assert!(homes.iter().find(|s| s.name == "x").unwrap().address < 256);
+    assert!(homes.iter().find(|s| s.name == "y").unwrap().address >= 256);
     assert!(
         trace
             .events()
             .iter()
-            .any(|e| e.kind == "cross-call-candidate"
+            .any(|e| e.kind == "cross-call-home-ineligible"
                 && e.data["routine"] == "Caller"
                 && e.data["reason"] == "unsupported residence callee")
     );

@@ -256,13 +256,16 @@ complete rollback on a failed proof or cost check.
 
 ## ZP home lifetimes and persistent storage
 
-Proposed 2026-11-16. This extends placement policy without changing Action local
-persistence or relaxing the address-control contract above.
+Direct invocation placement implemented 2026-11-16; dedicated persistent homes
+and working copies remain proposed. This extends placement policy without
+changing Action local persistence or relaxing the address-control contract above.
 
 The [implementation plan](MIR6502_ZP_HOME_LIFETIMES_IMPLEMENTATION_PLAN.md)
-delivers direct invocation placement and lifetime-based sharing first, in four
-slices. Dedicated persistent reservations have a separate initialization and
-global-preservation boundary; working copies remain optional follow-on work.
+delivers direct invocation placement and lifetime-based sharing in four slices.
+The [qualification](benchmarks/6502-zp-home-lifetimes/README.md) records the
+optimized default, focused execution checks and TN's four-byte saving. Dedicated
+persistent reservations have a separate initialization and global-preservation
+boundary; working copies remain optional follow-on work.
 
 ### Decision
 
@@ -318,13 +321,18 @@ Use the existing call graph, logical liveness and physical reservations:
 - Sibling subtrees may reuse bytes when neither has a retained value crossing
   execution of the other. This must hold for their relevant descendants too.
 - A caller's home conflicts with descendant writes while its value is live
-  across the call. Whole-invocation exclusion remains a valid conservative
-  policy until finer liveness is supported.
+  across the call. Discovery now computes exclusions separately for each object
+  using logical byte liveness; expanded residence verification repeats that
+  proof after physical placement. Distinct objects within one routine remain
+  conservatively disjoint.
 - Argument setup, result delivery, helpers and scratch participate in the same
   interference check. A disjoint source call graph alone does not certify them.
 - Recursion, callbacks, interrupts and unresolved targets require applicable
   preservation/non-overlap facts. Missing facts retain the existing placement;
   this extension does not add general recursive or asynchronous analysis.
+  A proven-dead value at a supported direct native call needs no preservation,
+  even for reentry. This does not turn static parameters into automatic storage
+  or certify any value that crosses a recursive call.
 
 Source persistence alone does not force a program-long reservation when all
 relevant values are proved dead before reuse. An entry read does require
@@ -334,7 +342,9 @@ proves it unnecessary. Do not infer death merely from a routine returning.
 Reuse the coordinated proposal and sibling-reuse rules in the
 [acyclic call-chain design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-zp-placement-through-acyclic-call-chains).
 Do not create a second call-graph allocator or another per-subtree compilation
-trial. Narrower live intervals can refine this machinery in a separate slice.
+trial. The implemented live-call refinement retains one combined trial and the
+existing leaf-only preservation certificates; nested contract composition is
+still separate work.
 
 ### Dedicated persistent ZP homes
 
@@ -448,6 +458,22 @@ contract for Range/Getchar; return-home forwarding remains a separate candidate.
 The first direct-placement slice keeps result slots excluded even at a dead
 call boundary. Reusing those bytes requires a distinct handoff between the
 source value and the returned value, beyond proving that the source value died.
+
+Dead boundaries still require supported call inputs. The implemented slice
+admits direct native Action entries with canonical flattened ABI lanes, checking
+any available actual-entry requirements. It does not admit observable assembly
+entries, machine bodies, SArgs capture or barriers through this path. Unknown
+preservation clobbers every resident byte at a dead boundary; it never becomes
+an exact public memory summary. `PopUp` therefore remains inline: its first
+entry-admission blocker is Range's five-byte SArgs capture. Independently,
+`menu` is entry-dependent and `c` is exposed by `@c`.
+
+For native pointee writers, discovery excludes layout-independent numeric ZP
+observations using the existing physical-observation inventory. This avoids
+known conflicts before the combined trial. Symbolic observations, old-home
+overlaps, setup/scratch clobbers and preservation replay still require the final
+candidate's proofs. Failure or non-improvement restores the exact selected
+artifact; discovery adds neither subset retries nor another continuation.
 
 A direct home is authoritative. A live value must survive the callee's physical
 clobbers; it cannot be invalidated and reloaded from a nonexistent backing copy.

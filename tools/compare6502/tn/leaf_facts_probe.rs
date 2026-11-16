@@ -38,13 +38,27 @@ fn summary_json(
 #[test]
 #[ignore = "explicit diagnostic generator; see tools/compare6502/tn/leaf_facts.py"]
 fn dump_tn_leaf_facts() {
-    let started = std::time::Instant::now();
     let destination = std::path::PathBuf::from(std::env::var_os("ACTIONC_LEAF_FACTS_OUTPUT").unwrap());
+    match std::env::var("ACTIONC_LEAF_FACTS_ZP_HOME_LIFETIMES").as_deref().unwrap_or("default") {
+        "compare" => {
+            dump_facts(destination.join("off"), Some(false));
+            dump_facts(destination.join("on"), Some(true));
+        }
+        "off" => dump_facts(destination, Some(false)),
+        "on" => dump_facts(destination, Some(true)),
+        "default" => dump_facts(destination, None),
+        mode => panic!("unknown ZP lifetime mode: {mode}"),
+    }
+}
+
+fn dump_facts(destination: std::path::PathBuf, zp_lifetimes: Option<bool>) {
+    let started = std::time::Instant::now();
     let loaded = crate::includes::load_program_with_expanded_source("samples/tn/modern/TN.ACT").unwrap();
     let model = crate::semantic::analyze_with_options(&loaded.program, crate::semantic::SemanticOptions::modern()).unwrap();
     let nir = crate::nir::optimize_program(&crate::nir::lower_program(
         &crate::semantic::ir::lower_program(&loaded.program, &model))).unwrap();
-    let config = mir::Mir6502Config::optimized();
+    let mut config = mir::Mir6502Config::optimized();
+    if let Some(enabled) = zp_lifetimes { config.enable_zp_home_lifetimes = enabled; }
     let runtime = crate::runtime::Runtime::ActionCart;
     let origin = 0x3000;
     let session = mir::trace::Mir6502Trace::new(mir::trace::TraceOptions {
@@ -74,7 +88,7 @@ fn dump_tn_leaf_facts() {
         .and_then(|o| String::from_utf8(o.stdout).ok()?.trim().parse::<u64>().ok());
     let manifest = session.manifest();
     let decisions: Vec<_> = session.events().into_iter().filter(|e| matches!(e.kind,
-        "cross-call-ineligible" | "cross-call-candidate" | "cross-call-home-result"
+        "cross-call-ineligible" | "cross-call-candidate" | "cross-call-home-ineligible" | "cross-call-home-result"
         | "parameter-home-result" | "parameter-argument-handoff-result"
         | "final-artifact-selection")).collect();
     let image = crate::codegen::format_load_file(output);
@@ -208,7 +222,7 @@ fn dump_tn_leaf_facts() {
     }
     std::fs::create_dir_all(&destination).unwrap();
     std::fs::write(destination.join("selected.mir"), mir::format_program(p)).unwrap();
-    let controls = ["Sort", "Fnamecmp", "Ord", "Items", "FindItem", "Next"];
+    let controls = ["Sort", "Fnamecmp", "Ord", "Items", "FindItem", "Next", "PopUp"];
     std::fs::write(destination.join("controls.mir"), mir::printer::format_program_filtered(p,
         |id| p.routines.iter().any(|r| r.id == id && controls.contains(&r.name.as_str())))).unwrap();
     let mut controls_asm = String::new();

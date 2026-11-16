@@ -1,6 +1,6 @@
 # MIR6502 direct ZP homes and value lifetimes: implementation plan
 
-Prepared 2026-11-16. Status: slices 1–3 complete; slice 4 pending.
+Prepared 2026-11-16. Status: all four slices complete.
 
 First delivery of the
 [ZP lifetime design](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md#zp-home-lifetimes-and-persistent-storage).
@@ -14,8 +14,8 @@ physical clobber, handoff, observation and rollback controls remain green.
 
 Slice 2 validation: all 54 placement unit tests and the new mixed-home VM
 control passed. The VM covers gate off/on, both runtimes, repeated calls and
-LF/CRLF through the source-loading path. The new discovery gate remains off
-by default pending qualification. Direct Param/Local address formation is the
+LF/CRLF through the source-loading path. The new discovery gate remained off
+by default in this slice pending qualification. Direct Param/Local address formation is the
 only added body shape; addressed objects retain inline homes.
 
 Slice 3 validation: all 55 placement unit tests, the new final-output integration
@@ -25,6 +25,23 @@ validate flattened ABI lanes after word expansion. Calls outside a value
 lifetime still exclude result slots: result/home handoff is not part of this
 slice. The same uncertified target is accepted at a dead boundary and rejected
 when a value must survive it; malformed inputs and either-lane clobbers reject.
+
+Slice 4 measurement: the same-compiler gate-off/on TN comparison is **9,815 →
+9,811 bytes**; gate off matches the retained baseline exactly. Only
+PrintNonzeroDigit changes: its dead-at-Putchar `divisor` moves to `$A2`, saving
+three instruction bytes and one inline byte. Known numeric ZP observations now
+exclude conflicting bytes during discovery for native pointee writers; final
+physical checks and rollback remain unchanged. The independent live-call
+control shrinks 248 → 225 bytes. Work counts and static ZP allocation maxima
+are unchanged. See the [qualification receipt](benchmarks/6502-zp-home-lifetimes/README.md).
+
+Slice 4 validation: all 56 placement unit tests, 46 selected integration tests
+and 22 VM tests passed. The optimized default is enabled. The normal CLI image
+matches the gate-on measurement; MADS reconstructs it exactly from LF and CRLF
+listings. Two optional MADS matrix tests were not run. The Standalone TN trial
+safely rolls back on an unresolved generated Error assembly observation; its
+execution oracle passes with the retained inline home. PopUp's SArgs entry
+blocker and persistent/exposed objects remain outside this delivery.
 
 ## Outcome and scope
 

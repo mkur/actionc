@@ -24,7 +24,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path("build/tn-leaf-facts"))
     parser.add_argument("--expect-image", type=Path)
+    parser.add_argument("--zp-home-lifetimes", choices=["default", "off", "on", "compare"],
+                        default="default", help="compare writes off/ and on/ using one compiler build")
     args = parser.parse_args()
+    if args.zp_home_lifetimes == "compare" and args.expect_image:
+        parser.error("--expect-image requires a single output, not compare")
     destination = args.output.resolve()
     destination.mkdir(parents=True, exist_ok=True)
     source = ROOT / "src/mir6502/analysis/known_callees.rs"
@@ -46,12 +50,14 @@ def main():
              "src/mir6502/parameter_homes.rs", "src/mir6502/parameter_homes/cross_call.rs",
              "src/mir6502/parameter_homes/lifetimes.rs", "src/mir6502/parameter_homes/locals.rs",
              "src/mir6502/parameter_homes/observations.rs", "src/mir6502/parameter_homes/physical.rs",
-             "src/mir6502/parameter_homes/zero_page.rs"]
+             "src/mir6502/parameter_homes/zero_page.rs",
+             "src/mir6502/parameter_homes/logical.rs", "src/mir6502/passes.rs"]
     receipt = {
         "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         "inputs_sha256": {p: digest(ROOT / p) for p in paths},
         "compiler_diff_sha256": hashlib.sha256(subprocess.check_output(
             ["git", "diff", "HEAD", "--", "src", "Cargo.toml", "Cargo.lock"], cwd=ROOT)).hexdigest(),
+        "zp_home_lifetimes": args.zp_home_lifetimes,
     }
     env = os.environ.copy()
     env.update(CARGO_TARGET_DIR=str(ROOT / "build/checked-arena/shared-target"),
@@ -59,6 +65,7 @@ def main():
                CARGO_PROFILE_DEV_OPT_LEVEL="1", CARGO_PROFILE_TEST_OPT_LEVEL="1",
                CARGO_INCREMENTAL="0", CARGO_BUILD_JOBS="2",
                ACTIONC_LEAF_FACTS_OUTPUT=str(destination))
+    env["ACTIONC_LEAF_FACTS_ZP_HOME_LIFETIMES"] = args.zp_home_lifetimes
     if args.expect_image:
         env["ACTIONC_LEAF_FACTS_EXPECT_IMAGE"] = str(args.expect_image.resolve())
         receipt["expected_image_sha256"] = digest(args.expect_image)
@@ -76,9 +83,12 @@ def main():
         if current.count(HOOK) != 1:
             raise RuntimeError("Temporary hook changed; remove it manually without discarding other edits.")
         source.write_bytes(current.replace(HOOK, b"", 1))
-    receipt["outputs_sha256"] = {p: digest(destination / p) for p in [
+    outputs = [
         "facts.json", "leaves.asm", "tn.xex", "map.txt", "relocations.txt",
-        "selected.mir", "controls.mir", "controls.asm"]}
+        "selected.mir", "controls.mir", "controls.asm"]
+    prefixes = ["off/", "on/"] if args.zp_home_lifetimes == "compare" else [""]
+    receipt["outputs_sha256"] = {prefix + p: digest(destination / (prefix + p))
+                                for prefix in prefixes for p in outputs}
     receipt["hook_removed"] = HOOK not in source.read_bytes()
     (destination / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
 
