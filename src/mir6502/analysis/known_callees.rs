@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod bounded_memory;
 mod observations;
-pub(in crate::mir6502) use observations::machine_storage_observations;
+pub(in crate::mir6502) use observations::{fixed_storage_address, machine_storage_observations};
 mod entry_inputs;
 pub(in crate::mir6502) use entry_inputs::{MirCalleeEntryFact, MirCalleeEntryStage};
 pub(in crate::mir6502) use bounded_memory::BoundedMachine;
@@ -1868,6 +1868,9 @@ fn mems_may_alias(left: &MirMem, right: &MirMem) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    mod fixed_observations {
+        include!("known_callees/fixed_observations_tests.rs");
+    }
     use crate::mir6502::ir::{
         MirAddr, MirBlock, MirBlockId, MirCallAbi, MirDef, MirEffects, MirFrame, MirGlobal,
         MirMachineBlockId, MirRegisterSet, MirRoutineAbi, MirValue, MirWidth, MirZpAllocation,

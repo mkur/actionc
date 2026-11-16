@@ -4,7 +4,7 @@
 use super::*;
 use crate::mir6502::analysis::{
     effects::{classify_op, classify_terminator, writes_ordinary_pointee},
-    known_callees::machine_storage_observations,
+    known_callees::{fixed_storage_address, machine_storage_observations},
     record_bases::{MirPhysicalMemory, SourceBinding, SourceObject, SourceStorage},
 };
 
@@ -267,10 +267,8 @@ fn numeric_observations(p: &MirProgram) -> Result<Vec<(u16, u16)>, UnresolvedObs
                     let inventory =
                         machine_storage_observations(machine, r, p).ok_or_else(unresolved)?;
                     for access in inventory.reads.iter().chain(&inventory.writes) {
-                        if let Some(a) = numeric_base(p, &access.base) {
+                        if let Some(a) = fixed_storage_address(p, &access.base) {
                             out.push((a, access.bytes));
-                        } else if let MirMem::FixedZeroPage(s) = access.base {
-                            out.push((u16::from(s.0), access.bytes));
                         }
                     }
                 }
@@ -282,16 +280,9 @@ fn numeric_observations(p: &MirProgram) -> Result<Vec<(u16, u16)>, UnresolvedObs
 
 fn numeric_base(p: &MirProgram, mem: &MirMem) -> Option<u16> {
     match mem {
-        MirMem::Absolute(a) => Some(*a),
-        MirMem::Global { id, offset } => {
-            p.globals
-                .iter()
-                .find(|g| g.id == *id)
-                .and_then(|g| match g.backing {
-                    MirGlobalBacking::Absolute(a) => Some(a.wrapping_add(*offset)),
-                    _ => None,
-                })
-        }
+        MirMem::Absolute(_) | MirMem::Global { .. } => fixed_storage_address(p, mem),
+        // Generated scratch traffic is checked by residence. Only the explicit
+        // machine inventory above records FixedZeroPage as a source observer.
         _ => None,
     }
 }
@@ -299,6 +290,36 @@ fn numeric_base(p: &MirProgram, mem: &MirMem) -> Option<u16> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fixed_observation_alias_fetches_protect_both_lanes_without_observing_scratch() {
+        let source = "BYTE POINTER ptr=$E4 BYTE POINTER link=ptr+2\nPROC Probe=*()\nASM\n lda (link),y\n rts\nENDASM\nPROC Main() RETURN";
+        let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
+        let model = crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern()).unwrap();
+        let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+        let mut p = crate::mir6502::lower_program(&nir).unwrap();
+        let ptr = p.globals.iter().find(|g| g.name == "ptr").unwrap().id;
+        let link = p.globals.iter_mut().find(|g| g.name == "link").unwrap();
+        link.backing = MirGlobalBacking::Alias { target: ptr, offset: 2 };
+        p.routines.last_mut().unwrap().blocks[0].ops.push(MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xac))),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte,
+        });
+        let observations = numeric_observations(&p).unwrap();
+        assert!(observations.contains(&(0xe6, 1)));
+        assert!(observations.contains(&(0xe7, 1)));
+        assert!(!observations.contains(&(0xac, 1)));
+        for address in [0xe6, 0xe7, 0x4000] {
+            let record = SourceStorage {
+                object: SourceObject::Routine { owner: RoutineId(99), slot: MirStorageId(0),
+                    base: MirStorageBase::Local(crate::nir::LocalId(0)) },
+                binding: None, offset: 0, address, bytes: 1,
+            };
+            let mut memory = MirPhysicalMemory::default();
+            memory.protect_source_storage(Some(vec![record.clone()]));
+            assert_eq!(check(&record, &memory, &observations).is_ok(), address == 0x4000);
+        }
+    }
+
     #[test]
     fn object_storage_physical_ranges_protect_old_and_new_lanes() {
         let old = SourceStorage {

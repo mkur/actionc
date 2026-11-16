@@ -109,6 +109,14 @@ Generated fixed-ZP scratch operands remain the residence verifier's responsibili
 Different invocations may reuse certified compiler-chosen homes, but fixed source
 declarations and aliases retain protection in both layouts.
 
+Explicit fixed globals and their typed alias chains share one address query in
+the machine scanner and physical collector. The query retains logical identity
+and resolves only declared fixed backing, with checked offsets and bounded alias
+traversal. Indirect pointer fetches remain separate byte observations, including
+zero-page and NMOS JMP page wrapping. This does not establish a pointee footprint
+or make generated scratch traffic a source observation. Layout-dependent storage
+still requires the existing authoritative placement evidence.
+
 Keep every declaration in the physical storage inventory, including unexposed
 objects and unused aliases. Address control is not permission for another
 allocation to overlap that object. Keep `source_storage_disjoint` conservative;
@@ -227,3 +235,6 @@ unresolved observation is now identified as Block's machine block m7, whose
 symbolic `(screen),Y` pointer fetch is not resolved by the observation scanner
 despite screen's fixed `$E6` address. This is a separate scanner limitation;
 DATA does not weaken the physical-observation requirement.
+The [fixed-address observation plan](MIR6502_FIXED_ADDRESS_OBSERVATION_IMPLEMENTATION_PLAN.md)
+scopes the next correction to typed fixed-storage resolution and its existing
+observation consumers.
