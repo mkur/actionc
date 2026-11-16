@@ -218,6 +218,12 @@ savings survive. Materializations and emissions are unchanged; final emission
 now retains four additional source-storage inventories.
 
 The follow-up [labeled data block plan](LABELED_DATA_BLOCK_IMPLEMENTATION_PLAN.md)
-introduces explicit `DATA name = [...]` declarations so menu data can leave the
+implements explicit `DATA name = [...]` declarations so menu data can leave the
 executable machine-block scan while retaining storage and relocation protection.
-Unclassified raw machine blocks remain conservative.
+Unclassified raw machine blocks remain conservative. The
+[DATA qualification](benchmarks/6502-labeled-data/README.md) preserves all six
+TN table payloads and the 9,838-byte image size. Sort remains inline: the first
+unresolved observation is now identified as Block's machine block m7, whose
+symbolic `(screen),Y` pointer fetch is not resolved by the observation scanner
+despite screen's fixed `$E6` address. This is a separate scanner limitation;
+DATA does not weaken the physical-observation requirement.

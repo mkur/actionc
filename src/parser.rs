@@ -1824,7 +1824,7 @@ impl<'a> Parser<'a> {
             if self.collect_selection_operand(&mut tokens) { end = tokens.last().unwrap().span.end; continue; }
             if paren_depth == 0
                 && bracket_depth == 0
-                && ((!tokens.is_empty() && self.check_stop(stop))
+                && ((!tokens.is_empty() && self.check_stop(stop, tokens.last()))
                     || (tokens.is_empty() && self.check_initializer_leading_stop(stop)))
             {
                 break;
@@ -1948,7 +1948,9 @@ impl<'a> Parser<'a> {
                 .keywords
                 .iter()
                 .any(|keyword| self.check_keyword(*keyword))
-            || (stop.stop_at_top_level && self.is_routine_boundary())
+            || (stop.stop_at_top_level
+                && self.is_routine_boundary()
+                && !self.data_starts_operand(None))
     }
 
     fn collect_tokens_until_statement_assignment(&mut self) -> Vec<Token> {
@@ -1972,7 +1974,7 @@ impl<'a> Parser<'a> {
             {
                 break;
             }
-            if paren_depth == 0 && bracket_depth == 0 && self.is_statement_boundary() {
+            if paren_depth == 0 && bracket_depth == 0 && self.is_statement_boundary(tokens.last()) {
                 break;
             }
 
@@ -2014,7 +2016,7 @@ impl<'a> Parser<'a> {
             {
                 break;
             }
-            if paren_depth == 0 && bracket_depth == 0 && self.is_statement_boundary() {
+            if paren_depth == 0 && bracket_depth == 0 && self.is_statement_boundary(tokens.last()) {
                 break;
             }
 
@@ -2424,10 +2426,10 @@ impl<'a> Parser<'a> {
         !self.is_routine_boundary()
     }
 
-    fn is_statement_boundary(&self) -> bool {
+    fn is_statement_boundary(&self, previous: Option<&Token>) -> bool {
         self.is_let_start_at(self.pos)
             || self.is_local_use_start_at(self.pos)
-            || self.is_routine_boundary()
+            || (self.is_routine_boundary() && !self.data_starts_operand(previous))
             || self.check_keyword(Keyword::Include)
             || self.check_keyword(Keyword::Set)
             || self.check_keyword(Keyword::Define)
@@ -2514,8 +2516,11 @@ impl<'a> Parser<'a> {
         keywords.iter().any(|keyword| self.check_keyword(*keyword))
     }
 
-    fn check_stop(&self, stop: Stop) -> bool {
-        if stop.stop_at_top_level && self.is_top_level_start() {
+    fn check_stop(&self, stop: Stop, previous: Option<&Token>) -> bool {
+        if stop.stop_at_top_level
+            && self.is_top_level_start()
+            && !self.data_starts_operand(previous)
+        {
             return true;
         }
         if stop.stop_before_decl_start && self.is_decl_start() {

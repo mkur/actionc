@@ -550,7 +550,7 @@ RETURN
 ; Data for popup menus; each raw byte block ends with $00.
 ;
 
-PROC drives=*()
+DATA drives =
 [  "R" 'R
    "1" '1 "2" '2 
    "3" '3 "4" '4
@@ -559,11 +559,11 @@ PROC drives=*()
    "8" '8 "9" '9
    "Frm" 'F $00]
 
-PROC delcancel=*()
+DATA delcancel =
 [  "Delete" 'D
    "Cancel" 'C $00]
 
-PROC density=*()
+DATA density =
 [  "Single"  'S
    "Medium"  'M
    "Double"  'D
@@ -571,15 +571,15 @@ PROC density=*()
    "720K"  '7 $00]
 
  
-PROC yesabort=*()  
+DATA yesabort =
 [  "Yes"  'Y
    "Abort" 'A $00]
 
-PROC lockunlock=*()
+DATA lockunlock =
 [  "Lock"   'L
    "Unlock" 'U $00]
 
-PROC yescancel=*()
+DATA yescancel =
 [  "Yes"    'Y 
    "Cancel" 'C $00]
 

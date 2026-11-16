@@ -111,6 +111,7 @@ pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
     lowered_atari_case!("control_flow"),
     lowered_atari_case!("call_forms"),
     lowered_atari_case!("data_relocations"),
+    lowered_atari_case!("labeled_data"),
     lowered_atari_case!("for_condition"),
     lowered_atari_case!("inline_asm_fixed_array"),
     lowered_atari_case!("integer_operations"),
@@ -451,6 +452,7 @@ pub enum NirFeature {
     DataFragmentAddress,
     DataAddressEncodingPointer,
     DataAddressEncodingTargetByte,
+    DataAddressTargetStatic,
     DataAddressTargetStorage,
     DataAddressTargetRoutine,
     DataAddressTargetAbsolute,
@@ -532,6 +534,7 @@ pub enum NirFeature {
     ForeignInlineAssembly,
     ForeignPayloadStructured,
     ForeignPayloadBytes,
+    ForeignTargetStatic,
     ForeignTargetStorage,
     ForeignTargetRoutine,
     ForeignTargetAbsolute,
@@ -922,6 +925,7 @@ fn visit_data_image(image: &NirDataImage, features: &mut BTreeSet<NirFeature>) {
                     }
                 });
                 features.insert(match target {
+                    NirDataAddressTarget::Static(_) => NirFeature::DataAddressTargetStatic,
                     NirDataAddressTarget::Storage(_) => NirFeature::DataAddressTargetStorage,
                     NirDataAddressTarget::Routine(_) => NirFeature::DataAddressTargetRoutine,
                     NirDataAddressTarget::Absolute(_) => NirFeature::DataAddressTargetAbsolute,
@@ -1307,6 +1311,7 @@ fn visit_machine_item(item: &NirMachineItem, features: &mut BTreeSet<NirFeature>
 
 fn visit_foreign_target(target: NirForeignCodeTarget, features: &mut BTreeSet<NirFeature>) {
     features.insert(match target {
+        NirForeignCodeTarget::Static(_) => NirFeature::ForeignTargetStatic,
         NirForeignCodeTarget::Storage(_) => NirFeature::ForeignTargetStorage,
         NirForeignCodeTarget::Routine(_) => NirFeature::ForeignTargetRoutine,
         NirForeignCodeTarget::Absolute(_) => NirFeature::ForeignTargetAbsolute,

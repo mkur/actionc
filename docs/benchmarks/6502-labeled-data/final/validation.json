@@ -1,0 +1,72 @@
+{
+  "baseline_revision": "996c8842",
+  "baseline_scope": "only the five failed optimizer unit tests and the failed NIR snapshot check, in a clean detached worktree",
+  "shared_checks": {
+    "nir_sweep": {
+      "passed": 52,
+      "failed": 0
+    },
+    "cargo_test": {
+      "unit_passed": 3449,
+      "unit_failed": 5,
+      "unit_ignored": 16,
+      "scope": "stopped after library failures; full integration suite did not run"
+    },
+    "nir_fixtures_match_snapshots": "fails on the same pre-existing enum_values snapshot as baseline"
+  },
+  "focused_checks": {
+    "labeled_data_frontend_unit_tests": 6,
+    "labeled_data_integration_tests": 6,
+    "object_storage_pipeline_tests": 2,
+    "object_storage_unit_controls": 4,
+    "selected_input_rollback_controls": 1,
+    "object_storage_vm_groups": 1,
+    "tn_dispatch_vm_tests": 2,
+    "nir_feature_inventory": 1,
+    "nir_feature_floors": 2
+  },
+  "baseline_comparison": [
+    {
+      "test": "mir6502::materialize::constructor_storage::tests::constructor_storage_protects_incoming_pointer_across_known_calls",
+      "baseline_exit": 101,
+      "current_exit": 101,
+      "same_failure": true,
+      "failure": "assertion `left == right` failed\n  left: 0\n right: 2"
+    },
+    {
+      "test": "mir6502::materialize::pointer_retention::tests::pointer_retention_calls_keep_hardware_mapping_and_unowned_access_barriers",
+      "baseline_exit": 101,
+      "current_exit": 101,
+      "same_failure": true,
+      "failure": "an inspectable indexed RAM table read must stay usable"
+    },
+    {
+      "test": "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_audits_effects_and_bounds_in_each_callee_frame",
+      "baseline_exit": 101,
+      "current_exit": 101,
+      "same_failure": true,
+      "failure": "assertion failed: proven(&p)"
+    },
+    {
+      "test": "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_checks_successors_and_frame_exposure",
+      "baseline_exit": 101,
+      "current_exit": 101,
+      "same_failure": true,
+      "failure": "assertion failed: proven(&p)"
+    },
+    {
+      "test": "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_is_path_sensitive_and_costed_after_forwarding",
+      "baseline_exit": 101,
+      "current_exit": 101,
+      "same_failure": true,
+      "failure": "callee Save Some(MirKnownCalleeExitSummary { accumulator: None, zn: None, preserves: MirRegisterSet { a: false, x: true, y: true, flags: false, sp: false }, reads: Exact([Param { id: ParamId(0), offset: 0 }, Param { id: ParamId(0), offset: 1 }]), writes: Unknown })"
+    },
+    {
+      "test": "nir_fixtures_match_snapshots",
+      "baseline_exit": 101,
+      "current_exit": 101,
+      "same_failure": true,
+      "failure": "enum_values: printed EnumIdentity uses SymbolId(83), existing snapshot uses SymbolId(82)"
+    }
+  ]
+}

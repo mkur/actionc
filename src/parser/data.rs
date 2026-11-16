@@ -1,6 +1,13 @@
 use super::*;
 
 impl Parser<'_> {
+    pub(super) fn data_starts_operand(&self, previous: Option<&Token>) -> bool {
+        // Whitespace does not delimit statements. In `x=data y=1`, the
+        // `data y=` prefix is an operand followed by an assignment, not DATA.
+        self.is_contextual_at(self.pos, "DATA")
+            && !previous.is_some_and(token_can_end_expr)
+    }
+
     pub(super) fn is_data_decl_at(&self, pos: usize) -> bool {
         self.is_contextual_at(pos, "DATA")
             && matches!(

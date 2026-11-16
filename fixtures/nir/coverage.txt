@@ -30,6 +30,7 @@ DataFragmentInteger
 DataFragmentAddress
 DataAddressEncodingPointer
 DataAddressEncodingTargetByte
+DataAddressTargetStatic
 DataAddressTargetStorage
 DataAddressTargetRoutine
 DataAddressTargetAbsolute
@@ -107,11 +108,13 @@ ForeignLegacyMachineBlock
 ForeignInlineAssembly
 ForeignPayloadStructured
 ForeignPayloadBytes
+ForeignTargetStatic
 ForeignTargetStorage
 ForeignTargetAbsolute
 MachineItemByte
 MachineItemStringLiteral
 MachineItemCharLiteral
+MachineItemRelocation
 EffectsPure
 EffectsRegions
 EffectsUnknown

@@ -1,0 +1,10 @@
+nir program
+static head:Byte bytes=[$02 $4F $4B $00 $00 $4B $9A $00 $00 $00 $00] fragments=[3:ptr16@as0(s0), 7:atari-6502-byte0(s1), 8:atari-6502-byte1(s1), 9:ptr16@as0(s1)] = "DATA head"
+static tail:Byte bytes=[$00] fragments=[0:int8=$0] = "DATA tail"
+
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[p]
+  local p: Byte* duration=routine-static size=2 align=1
+bb0:
+  store p = &head
+  machine target=atari-6502 items=4 effects=opaque
+  return

@@ -1,6 +1,7 @@
 # Labeled data block implementation plan
 
-2026-11-16. Status: slices 1–2 implemented; TN qualification in progress.
+2026-11-16. Status: implemented and qualified. Shared-check failures below also
+reproduce on the pre-DATA baseline.
 Follow-up to the [unexposed-object qualification](benchmarks/6502-unexposed-object-storage/README.md).
 
 ## Contract
@@ -92,3 +93,36 @@ Standalone, checking menu records/mutation, swaps, arguments, stack and sentinel
 The six frontend tests, four object-storage unit controls and exact selected-input
 rollback control also pass. Classic SemIR projection reuses initialized inline
 byte-array storage so maintained TN classic builds remain supported.
+
+Slice 3: TN and TNDBG use DATA for all six menu tables. All 204 payload bytes
+and self-address relocations match the baseline. TN remains 9,838 bytes; every
+remaining routine's code/home counts and all three accepted trial costs are
+unchanged. Sort is still rejected before proposal. The first unresolved block is
+now identified as Block/m7: symbolic `(screen),Y` pointer fetches do not resolve
+through screen's fixed global address. See the
+[qualification and retained evidence](benchmarks/6502-labeled-data/README.md).
+The TN run exposed a contextual-DATA expression-boundary bug; the correction
+passes same-line, LF and CRLF operand/assignment cases. All five exact-emission
+integration tests pass on the final parser correction.
+
+TN's two dispatch VM tests pass, compiling TN and TNDBG in classic Optimized and
+MIR6502 modes with ActionCart, exercising the real menu, dispatcher and panel
+routines, and checking LF/CRLF symbol lookup. UI/command hooks do not test MyDOS
+disk operations. The new `labeled_data` NIR snapshot and three feature-inventory
+entries are an intentional additive IR contract: typed static relocation targets
+in data images and foreign-code references, including machine relocations.
+Existing program snapshots are unchanged. The DATA snapshot also passes through
+the actual parser/lowering/printer path with LF and CRLF source; all six final
+DATA integration tests pass.
+
+Final shared checks: the NIR sweep passes all 52 fixtures; feature inventory and
+both feature floors pass. `cargo test` reports 3,449 passing library tests, five
+failures and 16 ignored tests, then stops before the full integration suite.
+`cargo test nir_fixtures_match_snapshots` fails on the existing `enum_values`
+snapshot's printed enum identity (expected SymbolId(82), actual SymbolId(83)).
+All five optimizer failures and that snapshot failure reproduce with identical
+assertions on clean pre-DATA commit `996c8842`. See the
+[baseline comparison](benchmarks/6502-labeled-data/final/validation.json).
+The remaining failures concern constructor-storage call protection, indexed
+pointer-retention observations and three scalar-call-elision controls. They are
+not fixed by this DATA slice; full repository validation is not green.

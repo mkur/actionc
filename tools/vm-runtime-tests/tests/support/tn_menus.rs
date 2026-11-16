@@ -1,5 +1,5 @@
 //! Exercise PopUp and its actual lookup/bar routines; stub input and drawing.
-use super::{machine, routine_address};
+use super::{global_address, machine, routine_address};
 use actionc::compiler::CompiledProgram;
 use actionc_vm::{CompilerVm, VmRunHooks};
 use std::collections::{BTreeMap, VecDeque};
@@ -151,7 +151,7 @@ pub fn check(compiled: &CompiledProgram) {
         hooks.limit = if case.menu == "density" { 4 } else { 1 };
         hooks.lookups.clear();
         hooks.bars.clear();
-        let menu = routine(case.menu);
+        let menu = global_address(&listing, case.menu);
         vm = machine::call(
             vm,
             &mut hooks,

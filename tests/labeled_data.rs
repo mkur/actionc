@@ -1,6 +1,50 @@
 //! Exact static payload and address relocation checks across NIR backends.
 use actionc::{compiler::Runtime, mir68k, mir6502, mir65816, nir, target::TargetId};
 
+#[test]
+fn labeled_data_nir_fixture_preserves_the_contract_with_lf_and_crlf() {
+    let source = include_str!("../fixtures/nir/labeled_data.act").replace("\r\n", "\n");
+    let expected = include_str!("../fixtures/nir/labeled_data.nir").replace("\r\n", "\n");
+    for source in [source.clone(), source.replace('\n', "\r\n")] {
+        let ast = actionc::parser::parse(&actionc::lexer::tokenize(&source).unwrap()).unwrap();
+        let model = actionc::semantic::analyze_with_options(
+            &ast, actionc::semantic::SemanticOptions::modern(),
+        ).unwrap();
+        let n = nir::lower_program(&actionc::semantic::ir::lower_program(&ast, &model));
+        nir::verify_program(&n).unwrap();
+        assert_eq!(nir::format_program(&n), expected);
+    }
+}
+
+#[test]
+fn labeled_data_identifier_operands_do_not_start_declarations() {
+    for separator in [" ", "\n", "\r\n"] {
+        let source = [
+            "CARD FUNC Copy(CARD data)",
+            "CARD captured,pushed",
+            "pushed=data",
+            "captured=1+data",
+            "pushed=2",
+            "RETURN(captured)",
+            "DATA table=[0]",
+            "PROC Main()",
+            "BYTE data=2,next",
+            "BYTE copied=data",
+            "next=1+data",
+            "data=3",
+            "RETURN",
+        ].join(separator);
+        let ast = actionc::parser::parse(&actionc::lexer::tokenize(&source).unwrap()).unwrap();
+        let model = actionc::semantic::analyze_with_options(
+            &ast, actionc::semantic::SemanticOptions::modern(),
+        ).unwrap();
+        let n = nir::lower_program(&actionc::semantic::ir::lower_program(&ast, &model));
+        nir::verify_program(&n).unwrap();
+        assert_eq!(n.routines.len(), 2);
+        assert_eq!(n.statics.len(), 1);
+    }
+}
+
 fn semantic(target: TargetId) -> actionc::semantic::ir::SemProgram {
     let source = "DATA links=[@bytes <@bytes >@bytes @links+2] DATA bytes=[\"OK\" 'K $1234] PROC Main() RETURN";
     let ast = actionc::parser::parse(&actionc::lexer::tokenize(source).unwrap()).unwrap();

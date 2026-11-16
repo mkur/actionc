@@ -1,0 +1,8 @@
+DATA head=["OK" 'K <@tail >@tail @tail]
+DATA tail=[$00]
+
+PROC Main()
+  BYTE POINTER p
+  p=@head
+  [$A9 <@tail $A2 >@tail]
+RETURN
