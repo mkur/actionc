@@ -2136,6 +2136,43 @@ mod tests {
     }
 
     #[test]
+    fn structured_region_callee_writes_invalidate_cached_bytes_at_nonzero_offsets() {
+        use crate::mir6502::ir::{MirMemoryRegion, MirMemoryRegionKind};
+        use crate::nir::SymbolId;
+
+        let source = |offset| MirMem::Static { id: SymbolId(0), offset };
+        let slots = [(2, 0xac), (3, 0xad), (4, 0xae), (5, 0xaf)];
+        let mut ops = Vec::new();
+        for (offset, slot) in slots {
+            ops.push(load_a(source(offset)));
+            ops.push(store_a(MirMem::FixedZeroPage(MirFixedZpSlot(slot))));
+        }
+        ops.push(call(1));
+        let caller = routine(vec![block(0, ops, MirTerminator::Return)]);
+
+        // The known native callee forwards a structured external write effect.
+        // Its caller must forget cached bytes 3 and 4, but retain neighbors.
+        let mut external = call(2);
+        let MirOp::Call { target, effects, .. } = &mut external else { unreachable!() };
+        *target = MirCallTarget::Runtime { name: "ExternalWriter".into(), address: Some(0x9000) };
+        effects.memory_writes = MirMemoryEffect::Regions(vec![MirMemoryRegion {
+            kind: MirMemoryRegionKind::Static(SymbolId(0)), offset: 3, size: 2,
+        }]);
+        let mut callee = routine(vec![block(1, vec![external], MirTerminator::Return)]);
+        callee.id = RoutineId(1);
+        let values = analyze_caller_with_known_callee(caller, callee);
+        let after_call = MirSite::Terminator { block: MirBlockId(0) };
+        for (offset, slot) in slots {
+            let expected = match offset {
+                3 | 4 => None,
+                _ => Some(MirMachineValue::DirectMem(source(offset))),
+            };
+            assert_eq!(values.fixed_zero_page_value_at(after_call, MirFixedZpSlot(slot)),
+                Ok(expected), "cached source offset {offset}");
+        }
+    }
+
+    #[test]
     fn known_callee_invalidates_only_pointer_facts_it_may_write() {
         let low_source = spill(1);
         let high_source = spill(2);

@@ -1,0 +1,660 @@
+[
+  {
+    "case": "global_zp",
+    "facts": {
+      "globals": "[\n    MirGlobal {\n        id: SymbolId(\n            0,\n        ),\n        name: \"state\",\n        kind: \"Byte\",\n        width: Some(\n            Byte,\n        ),\n        storage_size: 1,\n        backing: Absolute(\n            232,\n        ),\n        init: None,\n    },\n]",
+      "packaged_bytes": 28,
+      "routines": [
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": {
+            "current": true,
+            "fixed": [
+              232
+            ],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+          },
+          "acyclic_failure": "None",
+          "assembly": "3000  A5 E8     LDA $E8\n3002  85 A0     STA $A0\n3004  60        RTS",
+          "calls": [],
+          "comparisons": [],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([])",
+          "id": 0,
+          "leaf_entry": {
+            "current": true,
+            "fixed": [
+              232
+            ],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+          },
+          "legacy_ignores_flags": true,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+          "mir": "mir6502 program\nglobal g0 state: byte absolute $00E8\n\nroutine r0 ReadState\nb0 bb0:\n  a =.b load global g0+0\n  store.b fixed_zp $A0, a\n  return\n",
+          "name": "ReadState",
+          "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+          "preserves_e4": true,
+          "reads": "Exact([Global { id: SymbolId(0), offset: 0 }])",
+          "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+          "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        },
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": {
+            "current": true,
+            "fixed": [
+              232
+            ],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }"
+          },
+          "acyclic_failure": "None",
+          "assembly": "3005  A8        TAY\n3006  20 00 30  JSR $3000\n3009  98        TYA\n300A  18        CLC\n300B  69 01     ADC #$01\n300D  85 A0     STA $A0\n300F  60        RTS",
+          "calls": [
+            {
+              "acyclic_inputs": "Err(\"extra-entry-fixed-byte\")",
+              "acyclic_writes": "Err(\"extra-entry-fixed-byte\")",
+              "leaf_inputs": "Err(\"extra-entry-fixed-byte\")",
+              "leaf_writes": "Err(\"extra-entry-fixed-byte\")",
+              "op": 1,
+              "target": "Routine(RoutineId(0))"
+            }
+          ],
+          "comparisons": [],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([Scalar(Byte)])",
+          "id": 1,
+          "leaf_entry": null,
+          "legacy_ignores_flags": false,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+          "mir": "mir6502 program\nglobal g0 state: byte absolute $00E8\n\nroutine r1 Hold\nb0 bb1:\n  y =.b a\n  call r0 args=[] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags\n  a =.b y\n  a =.b a add #$01 carry_in=clear carry_out=ignore\n  store.b fixed_zp $A0, a\n  return\n",
+          "name": "Hold",
+          "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+          "preserves_e4": true,
+          "reads": "Exact([Global { id: SymbolId(0), offset: 0 }])",
+          "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [Byte] })",
+          "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        }
+      ]
+    },
+    "source": "BYTE state=$E8 BYTE FUNC ReadState() RETURN(state) BYTE FUNC Hold(BYTE keep) ReadState() RETURN(keep+1)"
+  },
+  {
+    "case": "global_ram",
+    "facts": {
+      "globals": "[\n    MirGlobal {\n        id: SymbolId(\n            0,\n        ),\n        name: \"state\",\n        kind: \"Byte\",\n        width: Some(\n            Byte,\n        ),\n        storage_size: 1,\n        backing: Absolute(\n            1536,\n        ),\n        init: None,\n    },\n]",
+      "packaged_bytes": 29,
+      "routines": [
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+          },
+          "acyclic_failure": "None",
+          "assembly": "3000  AD 00 06  LDA $0600\n3003  85 A0     STA $A0\n3005  60        RTS",
+          "calls": [],
+          "comparisons": [],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([])",
+          "id": 0,
+          "leaf_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+          },
+          "legacy_ignores_flags": true,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+          "mir": "mir6502 program\nglobal g0 state: byte absolute $0600\n\nroutine r0 ReadState\nb0 bb0:\n  a =.b load global g0+0\n  store.b fixed_zp $A0, a\n  return\n",
+          "name": "ReadState",
+          "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+          "preserves_e4": true,
+          "reads": "Exact([Global { id: SymbolId(0), offset: 0 }])",
+          "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+          "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        },
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }"
+          },
+          "acyclic_failure": "None",
+          "assembly": "3006  A8        TAY\n3007  20 00 30  JSR $3000\n300A  98        TYA\n300B  18        CLC\n300C  69 01     ADC #$01\n300E  85 A0     STA $A0\n3010  60        RTS",
+          "calls": [
+            {
+              "acyclic_inputs": "Ok(())",
+              "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(160))]))",
+              "leaf_inputs": "Ok(())",
+              "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(160))]))",
+              "op": 1,
+              "target": "Routine(RoutineId(0))"
+            }
+          ],
+          "comparisons": [],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([Scalar(Byte)])",
+          "id": 1,
+          "leaf_entry": null,
+          "legacy_ignores_flags": false,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+          "mir": "mir6502 program\nglobal g0 state: byte absolute $0600\n\nroutine r1 Hold\nb0 bb1:\n  y =.b a\n  call r0 args=[] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags\n  a =.b y\n  a =.b a add #$01 carry_in=clear carry_out=ignore\n  store.b fixed_zp $A0, a\n  return\n",
+          "name": "Hold",
+          "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+          "preserves_e4": true,
+          "reads": "Exact([Global { id: SymbolId(0), offset: 0 }])",
+          "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [Byte] })",
+          "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        }
+      ]
+    },
+    "source": "BYTE state=$600 BYTE FUNC ReadState() RETURN(state) BYTE FUNC Hold(BYTE keep) ReadState() RETURN(keep+1)"
+  },
+  {
+    "case": "global_alias_zp",
+    "facts": {
+      "globals": "[\n    MirGlobal {\n        id: SymbolId(\n            0,\n        ),\n        name: \"state\",\n        kind: \"Byte\",\n        width: Some(\n            Byte,\n        ),\n        storage_size: 1,\n        backing: Absolute(\n            232,\n        ),\n        init: None,\n    },\n    MirGlobal {\n        id: SymbolId(\n            1,\n        ),\n        name: \"alias\",\n        kind: \"Byte\",\n        width: Some(\n            Byte,\n        ),\n        storage_size: 1,\n        backing: Absolute(\n            232,\n        ),\n        init: None,\n    },\n]",
+      "packaged_bytes": 28,
+      "routines": [
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": {
+            "current": true,
+            "fixed": [
+              232
+            ],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+          },
+          "acyclic_failure": "None",
+          "assembly": "3000  A5 E8     LDA $E8\n3002  85 A0     STA $A0\n3004  60        RTS",
+          "calls": [],
+          "comparisons": [],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([])",
+          "id": 0,
+          "leaf_entry": {
+            "current": true,
+            "fixed": [
+              232
+            ],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+          },
+          "legacy_ignores_flags": true,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+          "mir": "mir6502 program\nglobal g0 state: byte absolute $00E8\nglobal g1 alias: byte absolute $00E8\n\nroutine r0 ReadState\nb0 bb0:\n  a =.b load global g1+0\n  store.b fixed_zp $A0, a\n  return\n",
+          "name": "ReadState",
+          "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+          "preserves_e4": true,
+          "reads": "Exact([Global { id: SymbolId(1), offset: 0 }])",
+          "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+          "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        },
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": {
+            "current": true,
+            "fixed": [
+              232
+            ],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }"
+          },
+          "acyclic_failure": "None",
+          "assembly": "3005  A8        TAY\n3006  20 00 30  JSR $3000\n3009  98        TYA\n300A  18        CLC\n300B  69 01     ADC #$01\n300D  85 A0     STA $A0\n300F  60        RTS",
+          "calls": [
+            {
+              "acyclic_inputs": "Err(\"extra-entry-fixed-byte\")",
+              "acyclic_writes": "Err(\"extra-entry-fixed-byte\")",
+              "leaf_inputs": "Err(\"extra-entry-fixed-byte\")",
+              "leaf_writes": "Err(\"extra-entry-fixed-byte\")",
+              "op": 1,
+              "target": "Routine(RoutineId(0))"
+            }
+          ],
+          "comparisons": [],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([Scalar(Byte)])",
+          "id": 1,
+          "leaf_entry": null,
+          "legacy_ignores_flags": false,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+          "mir": "mir6502 program\nglobal g0 state: byte absolute $00E8\nglobal g1 alias: byte absolute $00E8\n\nroutine r1 Hold\nb0 bb1:\n  y =.b a\n  call r0 args=[] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags\n  a =.b y\n  a =.b a add #$01 carry_in=clear carry_out=ignore\n  store.b fixed_zp $A0, a\n  return\n",
+          "name": "Hold",
+          "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+          "preserves_e4": true,
+          "reads": "Exact([Global { id: SymbolId(1), offset: 0 }])",
+          "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [Byte] })",
+          "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        }
+      ]
+    },
+    "source": "BYTE state=$E8 BYTE alias=state BYTE FUNC ReadState() RETURN(alias) BYTE FUNC Hold(BYTE keep) ReadState() RETURN(keep+1)"
+  },
+  {
+    "case": "compare_byte",
+    "facts": {
+      "globals": "[]",
+      "packaged_bytes": 26,
+      "routines": [
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: true, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }"
+          },
+          "acyclic_failure": "None",
+          "assembly": "3000  C9 28     CMP #$28\n3002  B0 05     BCS $3009\n3004  A9 01     LDA #$01\n3006  85 A0     STA $A0\n3008  60        RTS\n3009  A9 00     LDA #$00\n300B  85 A0     STA $A0\n300D  60        RTS",
+          "calls": [],
+          "comparisons": [
+            {
+              "effects": "MirMachineEffects { register_reads: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }, register_writes: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, register_clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, conservative_register_clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flag_reads: MirFlagSet { c: false, z: false, n: false, v: false }, flag_writes: MirFlagSet { c: true, z: true, n: true, v: false }, flag_clobbers: MirFlagSet { c: false, z: false, n: false, v: false }, uses_previous_carry: false, definitely_overwrites_carry: true, definitely_overwrites_overflow: false, writes_any_flags_compat: true, unknown_flag_or_a_effects: false, opaque_flag_or_a_effects: false }",
+              "op": "Compare { dst: Flags, op: Lt, left: Def(Reg(A)), right: ConstU8(40), width: Byte, signed: false }"
+            }
+          ],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([Scalar(Byte)])",
+          "id": 0,
+          "leaf_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: true, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }"
+          },
+          "legacy_ignores_flags": true,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: true, z: false, n: false, v: false } })",
+          "mir": "mir6502 program\n\nroutine r0 Check\nb0 bb0:\n  flags = cmp.b a lt #$28\n  branch fused b0:0 c_clear ? b1 : b2\nb1 bb2:\n  a =.b #1\n  store.b fixed_zp $A0, a\n  return\nb2 bb1:\n  a =.b #0\n  store.b fixed_zp $A0, a\n  return\n",
+          "name": "Check",
+          "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: false } }",
+          "preserves_e4": true,
+          "reads": "Exact([])",
+          "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [Byte] })",
+          "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        }
+      ]
+    },
+    "source": "BYTE FUNC Check(BYTE x) IF x<40 THEN RETURN(1) FI RETURN(0)"
+  },
+  {
+    "case": "compare_word",
+    "facts": {
+      "globals": "[]",
+      "packaged_bytes": 29,
+      "routines": [
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: true, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+          },
+          "acyclic_failure": "None",
+          "assembly": "3000  C9 00     CMP #$00\n3002  8A        TXA\n3003  E9 28     SBC #$28\n3005  B0 05     BCS $300C\n3007  A9 01     LDA #$01\n3009  85 A0     STA $A0\n300B  60        RTS\n300C  A9 00     LDA #$00\n300E  85 A0     STA $A0\n3010  60        RTS",
+          "calls": [],
+          "comparisons": [
+            {
+              "effects": "MirMachineEffects { register_reads: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }, register_writes: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, register_clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, conservative_register_clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flag_reads: MirFlagSet { c: false, z: false, n: false, v: false }, flag_writes: MirFlagSet { c: true, z: true, n: true, v: false }, flag_clobbers: MirFlagSet { c: false, z: false, n: false, v: false }, uses_previous_carry: false, definitely_overwrites_carry: true, definitely_overwrites_overflow: false, writes_any_flags_compat: true, unknown_flag_or_a_effects: false, opaque_flag_or_a_effects: false }",
+              "op": "Compare { dst: Flags, op: Lt, left: Def(Reg(A)), right: ConstU8(0), width: Byte, signed: false }"
+            }
+          ],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([Scalar(Word)])",
+          "id": 0,
+          "leaf_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: true, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+          },
+          "legacy_ignores_flags": true,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }, flags: MirFlagSet { c: true, z: false, n: false, v: false } })",
+          "mir": "mir6502 program\n\nroutine r0 Check\nb0 bb0:\n  flags = cmp.b a lt #$00\n  a =.b x\n  a =.b a sub #$28 carry_in=previous carry_out=ignore\n  branch flag c_clear ? b1 : b2\nb1 bb2:\n  a =.b #1\n  store.b fixed_zp $A0, a\n  return\nb2 bb1:\n  a =.b #0\n  store.b fixed_zp $A0, a\n  return\n",
+          "name": "Check",
+          "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: false } }",
+          "preserves_e4": true,
+          "reads": "Exact([])",
+          "scalar_signature": "Some(MirScalarSignature { params: [[Word]], result: [Byte] })",
+          "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        }
+      ]
+    },
+    "source": "BYTE FUNC Check(CARD x) IF x<$2800 THEN RETURN(1) FI RETURN(0)"
+  },
+  {
+    "case": "integer_result",
+    "facts": {
+      "globals": "[]",
+      "packaged_bytes": 26,
+      "routines": [
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+          },
+          "acyclic_failure": "None",
+          "assembly": "3000  85 AC     STA $AC\n3002  86 AD     STX $AD\n3004  A0 00     LDY #$00\n3006  B1 AC     LDA ($AC),Y\n3008  85 A0     STA $A0\n300A  60        RTS",
+          "calls": [],
+          "comparisons": [],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([Scalar(Word)])",
+          "id": 0,
+          "leaf_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+          },
+          "legacy_ignores_flags": true,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+          "mir": "mir6502 program\n\nroutine r0 Fetch\nb0 bb0:\n  store.b fixed_zp $AC, a\n  store.b fixed_zp $AD, x\n  a =.b load_indirect (zp$AC),y+0\n  store.b fixed_zp $A0, a\n  return\n",
+          "name": "Fetch",
+          "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+          "preserves_e4": true,
+          "reads": "Unknown",
+          "scalar_signature": "Some(MirScalarSignature { params: [[Word]], result: [Byte] })",
+          "writes": "Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        },
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+          },
+          "acyclic_failure": "None",
+          "assembly": "300B  4C 00 30  JMP $3000",
+          "calls": [
+            {
+              "acyclic_inputs": "Ok(())",
+              "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160))]))",
+              "leaf_inputs": "Ok(())",
+              "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160))]))",
+              "op": 0,
+              "target": "Routine(RoutineId(0))"
+            }
+          ],
+          "comparisons": [],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([Scalar(Word)])",
+          "id": 1,
+          "leaf_entry": null,
+          "legacy_ignores_flags": false,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+          "mir": "mir6502 program\n\nroutine r1 Middle\nb0 bb1:\n  call r0 args=[a.b -> a, x.b -> x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags\n  return\n",
+          "name": "Middle",
+          "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+          "preserves_e4": true,
+          "reads": "Unknown",
+          "scalar_signature": "Some(MirScalarSignature { params: [[Word]], result: [Byte] })",
+          "writes": "Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        }
+      ]
+    },
+    "source": "BYTE FUNC Fetch(CARD p) BYTE POINTER q q=BYTE POINTER(p) RETURN(q^) BYTE FUNC Middle(CARD p) RETURN(Fetch(p))"
+  },
+  {
+    "case": "pointer_result",
+    "facts": {
+      "globals": "[]",
+      "packaged_bytes": 26,
+      "routines": [
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+          },
+          "acyclic_failure": "None",
+          "assembly": "3000  85 AC     STA $AC\n3002  86 AD     STX $AD\n3004  A0 00     LDY #$00\n3006  B1 AC     LDA ($AC),Y\n3008  85 A0     STA $A0\n300A  60        RTS",
+          "calls": [],
+          "comparisons": [],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([Pointer])",
+          "id": 0,
+          "leaf_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+          },
+          "legacy_ignores_flags": false,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+          "mir": "mir6502 program\n\nroutine r0 Fetch\nb0 bb0:\n  store.b fixed_zp $AC, a\n  store.b fixed_zp $AD, x\n  a =.b load_indirect (zp$AC),y+0\n  store.b fixed_zp $A0, a\n  return\n",
+          "name": "Fetch",
+          "precise_entry_flags": "Unknown",
+          "preserves_e4": true,
+          "reads": "Unknown",
+          "scalar_signature": "None",
+          "writes": "Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        },
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+          },
+          "acyclic_failure": "None",
+          "assembly": "300B  4C 00 30  JMP $3000",
+          "calls": [
+            {
+              "acyclic_inputs": "Ok(())",
+              "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160))]))",
+              "leaf_inputs": "Ok(())",
+              "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160))]))",
+              "op": 0,
+              "target": "Routine(RoutineId(0))"
+            }
+          ],
+          "comparisons": [],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([Scalar(Word)])",
+          "id": 1,
+          "leaf_entry": null,
+          "legacy_ignores_flags": false,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+          "mir": "mir6502 program\n\nroutine r1 Middle\nb0 bb1:\n  call r0 args=[a.b -> a, x.b -> x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags\n  return\n",
+          "name": "Middle",
+          "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+          "preserves_e4": true,
+          "reads": "Unknown",
+          "scalar_signature": "Some(MirScalarSignature { params: [[Word]], result: [Byte] })",
+          "writes": "Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        }
+      ]
+    },
+    "source": "BYTE FUNC Fetch(BYTE POINTER p) RETURN(p^) BYTE FUNC Middle(CARD p) RETURN(Fetch(BYTE POINTER(p)))"
+  },
+  {
+    "case": "global_write_ram",
+    "facts": {
+      "globals": "[\n    MirGlobal {\n        id: SymbolId(\n            0,\n        ),\n        name: \"state\",\n        kind: \"Byte\",\n        width: Some(\n            Byte,\n        ),\n        storage_size: 1,\n        backing: Absolute(\n            1536,\n        ),\n        init: None,\n    },\n]",
+      "packaged_bytes": 33,
+      "routines": [
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+          },
+          "acyclic_failure": "None",
+          "assembly": "3000  A9 01     LDA #$01\n3002  8D 00 06  STA $0600\n3005  A9 00     LDA #$00\n3007  85 A0     STA $A0\n3009  60        RTS",
+          "calls": [],
+          "comparisons": [],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([])",
+          "id": 0,
+          "leaf_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+          },
+          "legacy_ignores_flags": true,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+          "mir": "mir6502 program\nglobal g0 state: byte absolute $0600\n\nroutine r0 Touch\nb0 bb0:\n  a =.b #1\n  store.b global g0+0, a\n  a =.b #0\n  store.b fixed_zp $A0, a\n  return\n",
+          "name": "Touch",
+          "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+          "preserves_e4": false,
+          "reads": "Exact([])",
+          "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+          "writes": "Exact([Global { id: SymbolId(0), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        },
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }"
+          },
+          "acyclic_failure": "None",
+          "assembly": "300A  A8        TAY\n300B  20 00 30  JSR $3000\n300E  98        TYA\n300F  18        CLC\n3010  69 01     ADC #$01\n3012  85 A0     STA $A0\n3014  60        RTS",
+          "calls": [
+            {
+              "acyclic_inputs": "Ok(())",
+              "acyclic_writes": "Ok(Exact([Global { id: SymbolId(0), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160))]))",
+              "leaf_inputs": "Ok(())",
+              "leaf_writes": "Ok(Exact([Global { id: SymbolId(0), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160))]))",
+              "op": 1,
+              "target": "Routine(RoutineId(0))"
+            }
+          ],
+          "comparisons": [],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([Scalar(Byte)])",
+          "id": 1,
+          "leaf_entry": null,
+          "legacy_ignores_flags": false,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+          "mir": "mir6502 program\nglobal g0 state: byte absolute $0600\n\nroutine r1 Hold\nb0 bb1:\n  y =.b a\n  call r0 args=[] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags\n  a =.b y\n  a =.b a add #$01 carry_in=clear carry_out=ignore\n  store.b fixed_zp $A0, a\n  return\n",
+          "name": "Hold",
+          "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+          "preserves_e4": false,
+          "reads": "Exact([])",
+          "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [Byte] })",
+          "writes": "Exact([Global { id: SymbolId(0), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        }
+      ]
+    },
+    "source": "BYTE state=$600 BYTE FUNC Touch() state=1 RETURN(0) BYTE FUNC Hold(BYTE keep) Touch() RETURN(keep+1)"
+  },
+  {
+    "case": "asm_leaf",
+    "facts": {
+      "globals": "[]",
+      "packaged_bytes": 28,
+      "routines": [
+        {
+          "abi": "ActionObservable",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": null,
+          "acyclic_failure": "Some((RoutineId(0), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+          "assembly": "3002  85 AC     STA $AC\n3004  86 AD     STX $AD\n3006  A0 00     LDY #$00\n3008  B1 AC     LDA ($AC),Y\n300A  85 A0     STA $A0\n300C  60        RTS",
+          "calls": [],
+          "comparisons": [],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([Scalar(Word)])",
+          "id": 0,
+          "leaf_entry": {
+            "current": true,
+            "fixed": [],
+            "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+            "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+          },
+          "legacy_ignores_flags": false,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+          "mir": "mir6502 program\nmachine m0 items=[$85 Low8(Absolute(172)+0) $86 Low8(Absolute(173)+0) $A0 $00 $B1 Low8(Absolute(172)+0) $85 Low8(Absolute(160)+0) $60]\n\nroutine r0 Fetch\nb0 bb0:\n  machine m0 effects=stack=0,reads=unknown,writes=unknown,clobbers=a|y|flags\n  unreachable\n",
+          "name": "Fetch",
+          "precise_entry_flags": "Unknown",
+          "preserves_e4": true,
+          "reads": "Unknown",
+          "scalar_signature": "Some(MirScalarSignature { params: [[Word]], result: [Byte] })",
+          "writes": "Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))"
+        },
+        {
+          "abi": "Action",
+          "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+          "acyclic_entry": null,
+          "acyclic_failure": "Some((RoutineId(0), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+          "assembly": "300D  4C 02 30  JMP $3002",
+          "calls": [
+            {
+              "acyclic_inputs": "Err(\"unsupported residence callee\")",
+              "acyclic_writes": "Err(\"unsupported residence callee\")",
+              "leaf_inputs": "Err(\"unsupported residence callee\")",
+              "leaf_writes": "Err(\"unsupported residence callee\")",
+              "op": 0,
+              "target": "Routine(RoutineId(0))"
+            }
+          ],
+          "comparisons": [],
+          "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+          "direct_parameter_abi": "Some([Scalar(Word)])",
+          "id": 1,
+          "leaf_entry": null,
+          "legacy_ignores_flags": false,
+          "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+          "mir": "mir6502 program\nmachine m0 items=[$85 Low8(Absolute(172)+0) $86 Low8(Absolute(173)+0) $A0 $00 $B1 Low8(Absolute(172)+0) $85 Low8(Absolute(160)+0) $60]\n\nroutine r1 Middle\nb0 bb1:\n  call r0 args=[a.b -> a, x.b -> x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags\n  return\n",
+          "name": "Middle",
+          "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+          "preserves_e4": true,
+          "reads": "Unknown",
+          "scalar_signature": "Some(MirScalarSignature { params: [[Word]], result: [Byte] })",
+          "writes": "Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160))])",
+          "zn": "None"
+        }
+      ]
+    },
+    "source": ";@actionc clobbers $AC/$AD $A0\nBYTE FUNC Fetch=*(CARD p)\nASM\n sta $AC\n stx $AD\n ldy #0\n lda ($AC),y\n sta $A0\n rts\nENDASM\nBYTE FUNC Middle(CARD p) RETURN(Fetch(p))"
+  }
+]

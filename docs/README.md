@@ -186,6 +186,12 @@ crowding the active reference set.
 - [MIR6502 optimization pipeline audit](MIR6502_OPTIMIZATION_PIPELINE_AUDIT.md) -
   implemented phase order, value homes, fact lifetimes, layout authority and
   cleanup coverage, audited on 2026-11-13.
+- [MIR6502 fact-contract audit](MIR6502_FACT_CONTRACT_AUDIT_2026-11-16.md) -
+  unsafe effect projections, entry/result contract mismatches, physical
+  preservation limits and a repair order, with TN and independent probes.
+- [MIR6502 fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md) -
+  prioritized issues from the audit, design-note requirements and the first
+  implementation work.
 - [MIR6502 phase tracing implementation plan](MIR6502_PHASE_TRACING_IMPLEMENTATION_PLAN.md) -
   six diagnostic slices for selected/trial history, home decisions, cleanup
   blockers and final emission, with unchanged generated artifacts.

@@ -1,0 +1,3811 @@
+{
+  "revision": "2c5ae7add99f42aeb22ed34fc068ee60f2c9ea80",
+  "packaged_bytes": 9811,
+  "routines": [
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(0), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Word), Scalar(Word), Scalar(Byte)])",
+      "id": 0,
+      "leaf_entry": {
+        "current": true,
+        "fixed": [
+          163,
+          164
+        ],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }"
+      },
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "MovePage",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Word], [Word], [Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 1,
+      "leaf_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }"
+      },
+      "legacy_ignores_flags": true,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+      "name": "ArenaStop",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+      "preserves_e4": false,
+      "reads": "Exact([])",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [] })",
+      "writes": "Exact([Global { id: SymbolId(14), offset: 0 }])",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161))))",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [
+          232,
+          233
+        ],
+        "flags": "MirFlagSet { c: true, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([])",
+      "id": 2,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "ArenaCursor",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Exact([Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, Spill { id: MirSpillId(3), offset: 0 }, Spill { id: MirSpillId(2), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }])",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [Word] })",
+      "writes": "Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(1))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(1))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161))))",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [
+          232,
+          233
+        ],
+        "flags": "MirFlagSet { c: true, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([Scalar(Word)])",
+      "id": 3,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Alloc",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": false,
+      "reads": "Exact([Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, Spill { id: MirSpillId(3), offset: 0 }, Spill { id: MirSpillId(2), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160)), Local { id: LocalId(1), offset: 1 }, Spill { id: MirSpillId(8), offset: 0 }, Local { id: LocalId(1), offset: 0 }])",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Word]], result: [Word] })",
+      "writes": "Exact([Local { id: LocalId(1), offset: 0 }, Local { id: LocalId(1), offset: 1 }, Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), Spill { id: MirSpillId(8), offset: 0 }, Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }])",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 2,
+          "target": "Routine(RoutineId(2))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(1))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(Global { id: SymbolId(12), offset: 1 }))",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [
+          232,
+          233
+        ],
+        "flags": "MirFlagSet { c: true, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([Scalar(Word)])",
+      "id": 4,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Free",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": false,
+      "reads": "Exact([Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, Spill { id: MirSpillId(3), offset: 0 }, Spill { id: MirSpillId(2), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160)), Local { id: LocalId(1), offset: 0 }, Local { id: LocalId(1), offset: 1 }])",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Word]], result: [] })",
+      "writes": "Exact([Local { id: LocalId(1), offset: 0 }, Local { id: LocalId(1), offset: 1 }, Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }])",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 2,
+          "target": "Routine(RoutineId(2))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(1))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(1))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(Global { id: SymbolId(12), offset: 1 }))",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [
+          232,
+          233
+        ],
+        "flags": "MirFlagSet { c: true, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([Scalar(Word)])",
+      "id": 5,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Push",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Word]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 2,
+          "target": "Routine(RoutineId(2))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(1))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161))))",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [
+          232,
+          233
+        ],
+        "flags": "MirFlagSet { c: true, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([])",
+      "id": 6,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Pull",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [Word] })",
+      "writes": "Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), FixedZeroPage(MirFixedZpSlot(228)), FixedZeroPage(MirFixedZpSlot(229)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(227)), Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))])",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 0,
+          "target": "Routine(RoutineId(2))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(1))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(7), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 7,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "CalcAdr",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Exact([Global { id: SymbolId(10), offset: 0 }, Global { id: SymbolId(11), offset: 0 }])",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "Some(DirectMem(Global { id: SymbolId(3), offset: 0 }))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(8), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte), Scalar(Byte)])",
+      "id": 8,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Position",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Exact([])",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte], [Byte]], result: [] })",
+      "writes": "Exact([Global { id: SymbolId(3), offset: 0 }, Global { id: SymbolId(4), offset: 0 }])",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "Some(DirectMem(Global { id: SymbolId(4), offset: 0 }))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte), Scalar(Byte)])",
+      "id": 9,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Relpos",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Exact([Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(6), offset: 0 }])",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte], [Byte]], result: [] })",
+      "writes": "Exact([Global { id: SymbolId(3), offset: 0 }, Global { id: SymbolId(4), offset: 0 }])",
+      "zn": "Some(DirectMem(Global { id: SymbolId(4), offset: 0 }))",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(10), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 10,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Internal",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": true,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [Byte] })",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160))])",
+      "zn": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(11), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 11,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Ascii",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": true,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [Byte] })",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160))])",
+      "zn": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(12), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 12,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Getchar",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(7), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 13,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Putchar",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 1,
+          "target": "Routine(RoutineId(7))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 3,
+          "target": "Routine(RoutineId(10))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(7), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Pointer])",
+      "id": 14,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: true } })",
+      "name": "Print",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(13))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(7), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Pointer])",
+      "id": 15,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "PrintE",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(14))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(16), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte), Scalar(Byte), Scalar(Byte)])",
+      "id": 16,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Block",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte], [Byte], [Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(17), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 17,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "_ImageAdvance",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Exact([Global { id: SymbolId(10), offset: 0 }, Global { id: SymbolId(11), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(164)), FixedZeroPage(MirFixedZpSlot(161))])",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Exact([Global { id: SymbolId(10), offset: 0 }, Global { id: SymbolId(11), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(18), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Word), Scalar(Byte), Scalar(Byte)])",
+      "id": 18,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "GetImage",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Word], [Byte], [Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(19), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Word), Scalar(Byte), Scalar(Byte)])",
+      "id": 19,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "PutImage",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Word], [Byte], [Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([])",
+      "id": 20,
+      "leaf_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+      },
+      "legacy_ignores_flags": true,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+      "name": "Error",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+      "preserves_e4": true,
+      "reads": "Exact([])",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Exact([])",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(21), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 21,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "_Cio",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(22), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 22,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "_LodChn",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": true,
+      "reads": "Exact([])",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Exact([])",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(23), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 23,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "_StrNam",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(24), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 24,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "GetD",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [Byte] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(25), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte), Scalar(Byte)])",
+      "id": 25,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "PutD",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte], [Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(26), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte), Scalar(Word), Scalar(Byte), Scalar(Byte)])",
+      "id": 26,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Open",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte], [Word], [Byte], [Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(27), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 27,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Close",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(28), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte), Scalar(Word), Scalar(Byte)])",
+      "id": 28,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Input",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte], [Word], [Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(29), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 29,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: true, y: true, flags: false, sp: false }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "_BlockIO",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(30), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte), Scalar(Word), Scalar(Word)])",
+      "id": 30,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Bget",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte], [Word], [Word]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(31), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte), Scalar(Word), Scalar(Word)])",
+      "id": 31,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Bput",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte], [Word], [Word]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(32), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte), Scalar(Byte), Scalar(Byte), Scalar(Byte), Scalar(Word)])",
+      "id": 32,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Xio",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte], [Byte], [Byte], [Byte], [Word]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(0), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 33,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "SavePos",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 2,
+          "target": "Routine(RoutineId(3))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 10,
+          "target": "Routine(RoutineId(0))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(0), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 34,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "RestorePos",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 0,
+          "target": "Routine(RoutineId(2))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(1))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 20,
+          "target": "Routine(RoutineId(0))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(Global { id: SymbolId(4), offset: 0 }))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(35), Some(Op { block: MirBlockId(0), op_index: 27 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte), Scalar(Byte), Scalar(Byte), Scalar(Byte)])",
+      "id": 35,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "Window",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte], [Byte], [Byte], [Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(33))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 17,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 28,
+          "target": "Routine(RoutineId(3))"
+        },
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 33,
+          "target": "Routine(RoutineId(5))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 39,
+          "target": "Routine(RoutineId(18))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 40,
+          "target": "Routine(RoutineId(33))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 44,
+          "target": "Routine(RoutineId(16))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 45,
+          "target": "Routine(RoutineId(7))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 8,
+          "target": "Routine(RoutineId(9))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 36,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "CloseWindow",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(34))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 4,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 5,
+          "target": "Routine(RoutineId(6))"
+        },
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 10,
+          "target": "Routine(RoutineId(4))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 16,
+          "target": "Routine(RoutineId(19))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 17,
+          "target": "Routine(RoutineId(34))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(37), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Pointer, Scalar(Byte), Pointer])",
+      "id": 37,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Range",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 0,
+          "target": "Routine(RoutineId(12))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Pointer, Scalar(Byte), Scalar(Byte)])",
+      "id": 38,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "InputLine",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(33))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 2,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 5,
+          "target": "Routine(RoutineId(16))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 6,
+          "target": "Routine(RoutineId(12))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 12,
+          "target": "Routine(RoutineId(16))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 3,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(13))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 3,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 9,
+          "target": "Routine(RoutineId(16))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 9,
+          "target": "Routine(RoutineId(13))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 6,
+          "target": "Routine(RoutineId(34))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([Pointer])",
+      "id": 39,
+      "leaf_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+      "name": "Key",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": true,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(174)), FixedZeroPage(MirFixedZpSlot(175)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160))])",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161))))",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([Pointer])",
+      "id": 40,
+      "leaf_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+      "name": "Next",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": true,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(174)), FixedZeroPage(MirFixedZpSlot(175)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [
+          160,
+          163
+        ],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([Pointer, Pointer])",
+      "id": 41,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: true } })",
+      "name": "Ord",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(227)), FixedZeroPage(MirFixedZpSlot(162)), FixedZeroPage(MirFixedZpSlot(228)), FixedZeroPage(MirFixedZpSlot(174)), FixedZeroPage(MirFixedZpSlot(175)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 3,
+          "target": "Routine(RoutineId(40))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [
+          160
+        ],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([Pointer])",
+      "id": 42,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "Items",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": true,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(163)), FixedZeroPage(MirFixedZpSlot(162)), FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(174)), FixedZeroPage(MirFixedZpSlot(175)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 3,
+          "target": "Routine(RoutineId(40))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161))))",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [
+          160
+        ],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([Pointer, Scalar(Byte)])",
+      "id": 43,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "FindItem",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": true,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(162)), FixedZeroPage(MirFixedZpSlot(163)), FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(174)), FixedZeroPage(MirFixedZpSlot(175)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(39))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(40))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(7), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Pointer])",
+      "id": 44,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "DrawMenu",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 8,
+          "target": "Routine(RoutineId(40))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161))))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Pointer, Scalar(Byte)])",
+      "id": 45,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "MoveMenuBar",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 13,
+          "target": "Routine(RoutineId(40))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 2,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 12,
+          "target": "Routine(RoutineId(16))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(0), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Pointer, Scalar(Byte), Scalar(Byte)])",
+      "id": 46,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "PopUp",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 7,
+          "target": "Routine(RoutineId(5))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 8,
+          "target": "Routine(RoutineId(33))"
+        },
+        {
+          "acyclic_inputs": "Err(\"extra-entry-fixed-byte\")",
+          "op": 17,
+          "target": "Routine(RoutineId(42))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 22,
+          "target": "Routine(RoutineId(44))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 26,
+          "target": "Routine(RoutineId(45))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 9,
+          "target": "Routine(RoutineId(37))"
+        },
+        {
+          "acyclic_inputs": "Err(\"extra-entry-fixed-byte\")",
+          "op": 14,
+          "target": "Routine(RoutineId(43))"
+        },
+        {
+          "acyclic_inputs": "Err(\"extra-entry-fixed-byte\")",
+          "op": 8,
+          "target": "Routine(RoutineId(41))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 3,
+          "target": "Routine(RoutineId(45))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 7,
+          "target": "Routine(RoutineId(45))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(34))"
+        },
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 1,
+          "target": "Routine(RoutineId(6))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(39))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(Global { id: SymbolId(55), offset: 0 }))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(10), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 47,
+      "leaf_entry": null,
+      "legacy_ignores_flags": true,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: false } })",
+      "name": "Init",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: false } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 3,
+          "target": "Routine(RoutineId(10))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(0), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Pointer, Pointer])",
+      "id": 48,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+      "name": "Strcpy",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 7,
+          "target": "Routine(RoutineId(0))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(0), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Pointer, Pointer])",
+      "id": 49,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+      "name": "Strcat",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 26,
+          "target": "Routine(RoutineId(0))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([Pointer, Scalar(Byte)])",
+      "id": 50,
+      "leaf_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }"
+      },
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+      "name": "Instr",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), FixedZeroPage(MirFixedZpSlot(162)), Global { id: SymbolId(0), offset: 0 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))])",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(7), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Pointer])",
+      "id": 51,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: true } })",
+      "name": "PrintFname",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(13))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(52), Some(Op { block: MirBlockId(1), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 52,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "GetAnyKey",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(53), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Word), Scalar(Byte)])",
+      "id": 53,
+      "leaf_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }"
+      },
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Store",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Exact([FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Word], [Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "Some(ConstU8(0))",
+      "calls": []
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(54), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Word)])",
+      "id": 54,
+      "leaf_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Value",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": true,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Word]], result: [Byte] })",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+      "zn": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "calls": []
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "Some(DirectMem(Global { id: SymbolId(55), offset: 0 }))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 55,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "CloseAll",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(36))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [
+          163
+        ],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([Pointer, Pointer])",
+      "id": 56,
+      "leaf_entry": {
+        "current": true,
+        "fixed": [
+          163
+        ],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }"
+      },
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+      "name": "Fnamecmp",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": true,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), FixedZeroPage(MirFixedZpSlot(162)), FixedZeroPage(MirFixedZpSlot(163))])",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([])",
+      "id": 57,
+      "leaf_entry": null,
+      "legacy_ignores_flags": true,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+      "name": "Sort",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 15,
+          "target": "Routine(RoutineId(56))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(8), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 58,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "Path",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 2,
+          "target": "Routine(RoutineId(8))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 6,
+          "target": "Routine(RoutineId(16))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 8,
+          "target": "Routine(RoutineId(13))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 13,
+          "target": "Routine(RoutineId(13))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 7,
+          "target": "Routine(RoutineId(13))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 59,
+      "leaf_entry": null,
+      "legacy_ignores_flags": true,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: true } })",
+      "name": "Draw",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 2,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 11,
+          "target": "Routine(RoutineId(19))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 14,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 11,
+          "target": "Routine(RoutineId(19))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 60,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "Inv",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 3,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 7,
+          "target": "Routine(RoutineId(16))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 10,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 14,
+          "target": "Routine(RoutineId(16))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 17,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 21,
+          "target": "Routine(RoutineId(16))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 61,
+      "leaf_entry": null,
+      "legacy_ignores_flags": true,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "UpdDis",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(59))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 4,
+          "target": "Routine(RoutineId(60))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(62), Some(Op { block: MirBlockId(0), op_index: 6 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 62,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "DrawWinFrame",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 12,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 15,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 20,
+          "target": "Routine(RoutineId(13))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 23,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 26,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 32,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 35,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(13))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(13))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(13))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(13))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(13))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 2,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 6,
+          "target": "Routine(RoutineId(16))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 9,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 12,
+          "target": "Routine(RoutineId(15))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(15))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(15))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(15))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 8,
+          "target": "Routine(RoutineId(15))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(Global { id: SymbolId(78), offset: 0 }))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(11), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Pointer])",
+      "id": 63,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "Convert",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "None",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 1,
+          "target": "Routine(RoutineId(11))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 1,
+          "target": "Routine(RoutineId(11))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+      },
+      "acyclic_failure": "None",
+      "direct_parameter_abi": "Some([])",
+      "id": 64,
+      "leaf_entry": {
+        "current": true,
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+      },
+      "legacy_ignores_flags": true,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+      "name": "TaggedFiles",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+      "preserves_e4": true,
+      "reads": "Exact([Global { id: SymbolId(81), offset: 8 }])",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160))])",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(54), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 65,
+      "leaf_entry": null,
+      "legacy_ignores_flags": true,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "IsTagged",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": true,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [Byte] })",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 4,
+          "target": "Routine(RoutineId(54))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(54), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 66,
+      "leaf_entry": null,
+      "legacy_ignores_flags": true,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+      "name": "RowMarker",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+      "preserves_e4": true,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [Byte] })",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 8,
+          "target": "Routine(RoutineId(54))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(54), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 67,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "IsProtected",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": true,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [Byte] })",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(66))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(54), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 68,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "IsDirectory",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": true,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [Byte] })",
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(66))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(53), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 69,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Tag",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(65))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 11,
+          "target": "Routine(RoutineId(53))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 12,
+          "target": "Routine(RoutineId(64))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(53), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 70,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: true } })",
+      "name": "TagAll",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 9,
+          "target": "Routine(RoutineId(53))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(61))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(54), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 71,
+      "leaf_entry": null,
+      "legacy_ignores_flags": true,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+      "name": "FindNext",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [Byte] })",
+      "writes": "Exact([Global { id: SymbolId(1), offset: 0 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(65))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(10), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 72,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "FormatDirectoryRow",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 7,
+          "target": "Routine(RoutineId(10))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 12,
+          "target": "Routine(RoutineId(10))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 13,
+          "target": "Routine(RoutineId(10))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 36,
+          "target": "Routine(RoutineId(10))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(0), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte), Scalar(Byte)])",
+      "id": 73,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "SetWin",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte], [Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(58))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 2,
+          "target": "Routine(RoutineId(27))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 10,
+          "target": "Routine(RoutineId(26))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 5,
+          "target": "Routine(RoutineId(28))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 3,
+          "target": "Routine(RoutineId(57))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 7,
+          "target": "Routine(RoutineId(72))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 6,
+          "target": "Routine(RoutineId(10))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(62))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 10,
+          "target": "Routine(RoutineId(70))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 12,
+          "target": "Routine(RoutineId(60))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 17,
+          "target": "Routine(RoutineId(0))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 25,
+          "target": "Routine(RoutineId(0))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "Some(DirectMem(Global { id: SymbolId(5), offset: 0 }))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(74), Some(Op { block: MirBlockId(0), op_index: 10 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 74,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "SwapWin",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 3,
+          "target": "Routine(RoutineId(73))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(0), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 75,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "Dir",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(73))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(7), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte), Scalar(Byte)])",
+      "id": 76,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: true } })",
+      "name": "PrintNonzeroDigit",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte], [Byte]], result: [Byte] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(13))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(7), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 77,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "PrintB",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(76))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 3,
+          "target": "Routine(RoutineId(76))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 6,
+          "target": "Routine(RoutineId(13))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 78,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "GoTo",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(61))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(Global { id: SymbolId(91), offset: 0 }))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(32), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 79,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Xloop",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 1,
+          "target": "Routine(RoutineId(55))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(64))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 9,
+          "target": "Routine(RoutineId(32))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(71))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(78))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 6,
+          "target": "Routine(RoutineId(63))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 16,
+          "target": "Routine(RoutineId(32))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 23,
+          "target": "Routine(RoutineId(53))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 26,
+          "target": "Routine(RoutineId(71))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(63))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 15,
+          "target": "Routine(RoutineId(32))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 80,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Delete",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(64))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(35))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 8,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 10,
+          "target": "Routine(RoutineId(77))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 13,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(35))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 8,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 14,
+          "target": "Routine(RoutineId(63))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 20,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 23,
+          "target": "Routine(RoutineId(51))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 2,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 8,
+          "target": "Routine(RoutineId(46))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(79))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 81,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "Format",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(35))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 8,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 11,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 14,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 20,
+          "target": "Routine(RoutineId(46))"
+        },
+        {
+          "acyclic_inputs": "Err(\"extra-entry-fixed-byte\")",
+          "op": 3,
+          "target": "Routine(RoutineId(43))"
+        },
+        {
+          "acyclic_inputs": "Err(\"extra-entry-fixed-byte\")",
+          "op": 11,
+          "target": "Routine(RoutineId(41))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 8,
+          "target": "Routine(RoutineId(35))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 11,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 14,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 17,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 20,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 26,
+          "target": "Routine(RoutineId(46))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 9,
+          "target": "Routine(RoutineId(32))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "Some(DirectMem(Global { id: SymbolId(55), offset: 0 }))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 82,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "NewDrive",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 4,
+          "target": "Routine(RoutineId(35))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 7,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 15,
+          "target": "Routine(RoutineId(46))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(35))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 8,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 11,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 14,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 17,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 18,
+          "target": "Routine(RoutineId(12))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 19,
+          "target": "Routine(RoutineId(36))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 22,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 28,
+          "target": "Routine(RoutineId(46))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 30,
+          "target": "Routine(RoutineId(55))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(81))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(55))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 3,
+          "target": "Routine(RoutineId(73))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(75))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(55))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 83,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "Attrib",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(64))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(35))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 8,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 14,
+          "target": "Routine(RoutineId(46))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(67))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(79))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(0), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 84,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "SwapScr",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 2,
+          "target": "Routine(RoutineId(3))"
+        },
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 8,
+          "target": "Routine(RoutineId(3))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 14,
+          "target": "Routine(RoutineId(8))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 20,
+          "target": "Routine(RoutineId(18))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 2,
+          "target": "Routine(RoutineId(8))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 10,
+          "target": "Routine(RoutineId(0))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 16,
+          "target": "Routine(RoutineId(18))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 19,
+          "target": "Routine(RoutineId(8))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 25,
+          "target": "Routine(RoutineId(19))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(12), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 85,
+      "leaf_entry": null,
+      "legacy_ignores_flags": true,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "View",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(63))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 13,
+          "target": "Routine(RoutineId(26))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 14,
+          "target": "Routine(RoutineId(33))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 15,
+          "target": "Routine(RoutineId(84))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 2,
+          "target": "Routine(RoutineId(25))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 4,
+          "target": "Routine(RoutineId(24))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 2,
+          "target": "Routine(RoutineId(25))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 3,
+          "target": "Routine(RoutineId(12))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 4,
+          "target": "Routine(RoutineId(34))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(84))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 86,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "MkDir",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(35))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 8,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 11,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 17,
+          "target": "Routine(RoutineId(38))"
+        },
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 2,
+          "target": "Routine(RoutineId(3))"
+        },
+        {
+          "acyclic_inputs": "Err(\"extra-entry-flags-or-stack\")",
+          "op": 7,
+          "target": "Routine(RoutineId(4))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 13,
+          "target": "Routine(RoutineId(48))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 19,
+          "target": "Routine(RoutineId(49))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 29,
+          "target": "Routine(RoutineId(32))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 87,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "Rename",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(35))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 8,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 14,
+          "target": "Routine(RoutineId(63))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 17,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 20,
+          "target": "Routine(RoutineId(51))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 26,
+          "target": "Routine(RoutineId(48))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 32,
+          "target": "Routine(RoutineId(49))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 35,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 38,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 41,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 47,
+          "target": "Routine(RoutineId(38))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(49))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 15,
+          "target": "Routine(RoutineId(32))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 88,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "Copy",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 2,
+          "target": "Routine(RoutineId(74))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(74))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(64))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(69))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(35))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 8,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 11,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 12,
+          "target": "Routine(RoutineId(52))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 13,
+          "target": "Routine(RoutineId(36))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(69))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(71))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 8,
+          "target": "Routine(RoutineId(63))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 10,
+          "target": "Routine(RoutineId(27))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 18,
+          "target": "Routine(RoutineId(26))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(78))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 9,
+          "target": "Routine(RoutineId(30))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(71))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(35))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 8,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 11,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 12,
+          "target": "Routine(RoutineId(52))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 13,
+          "target": "Routine(RoutineId(36))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(78))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 12,
+          "target": "Routine(RoutineId(63))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 13,
+          "target": "Routine(RoutineId(74))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 1,
+          "target": "Routine(RoutineId(27))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 9,
+          "target": "Routine(RoutineId(26))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 13,
+          "target": "Routine(RoutineId(31))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 20,
+          "target": "Routine(RoutineId(74))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(71))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 1,
+          "target": "Routine(RoutineId(27))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 3,
+          "target": "Routine(RoutineId(69))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 8,
+          "target": "Routine(RoutineId(74))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 9,
+          "target": "Routine(RoutineId(75))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 10,
+          "target": "Routine(RoutineId(74))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 11,
+          "target": "Routine(RoutineId(58))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 13,
+          "target": "Routine(RoutineId(59))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(89), Some(Op { block: MirBlockId(2), op_index: 9 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 89,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "Quit",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(35))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 8,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 11,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 17,
+          "target": "Routine(RoutineId(46))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(84))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(90), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([Scalar(Byte)])",
+      "id": 90,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "MakeJmp",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": []
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(91), Some(Op { block: MirBlockId(23), op_index: 6 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 91,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "Handle",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(60))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 1,
+          "target": "Routine(RoutineId(27))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 14,
+          "target": "Routine(RoutineId(37))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 19,
+          "target": "Routine(RoutineId(50))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 0,
+          "target": "Routine(RoutineId(90))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(69))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(61))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(63))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 7,
+          "target": "Routine(RoutineId(68))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 10,
+          "target": "Routine(RoutineId(50))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 9,
+          "target": "Routine(RoutineId(32))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(84))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(61))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(61))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(78))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(78))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 0,
+          "target": "Routine(RoutineId(90))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(84))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 1,
+          "target": "Routine(RoutineId(12))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(84))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 1,
+          "target": "Routine(RoutineId(60))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 2,
+          "target": "Routine(RoutineId(74))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 3,
+          "target": "Routine(RoutineId(58))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(82))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 3,
+          "target": "Routine(RoutineId(73))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(84))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 2,
+          "target": "Routine(RoutineId(25))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 3,
+          "target": "Routine(RoutineId(12))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 4,
+          "target": "Routine(RoutineId(84))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(55))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(75))"
+        }
+      ]
+    },
+    {
+      "abi": "Action",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(8), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 92,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "InitPanels",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(73))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(73))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 2,
+          "target": "Routine(RoutineId(73))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 0,
+          "target": "Routine(RoutineId(74))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 1,
+          "target": "Routine(RoutineId(58))"
+        }
+      ]
+    },
+    {
+      "abi": "ActionObservable",
+      "accumulator": "None",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(93), Some(Op { block: MirBlockId(1), op_index: 1 }), \"unsupported native call closure operation\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 93,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+      "name": "NavError",
+      "precise_entry_flags": "Unknown",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(84))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 2,
+          "target": "Routine(RoutineId(55))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 8,
+          "target": "Routine(RoutineId(35))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 11,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 14,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 16,
+          "target": "Routine(RoutineId(77))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 18,
+          "target": "Routine(RoutineId(27))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 20,
+          "target": "Routine(RoutineId(27))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 21,
+          "target": "Routine(RoutineId(52))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(82))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 0,
+          "target": "Routine(RoutineId(92))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 2,
+          "target": "Routine(RoutineId(74))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 3,
+          "target": "Routine(RoutineId(58))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(59))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 0,
+          "target": "Routine(RoutineId(91))"
+        }
+      ]
+    },
+    {
+      "abi": "ProgramEntry",
+      "accumulator": "Some(DirectMem(Global { id: SymbolId(55), offset: 0 }))",
+      "acyclic_entry": null,
+      "acyclic_failure": "Some((RoutineId(94), None, \"uncertified native entry\"))",
+      "direct_parameter_abi": "Some([])",
+      "id": 94,
+      "leaf_entry": null,
+      "legacy_ignores_flags": false,
+      "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+      "name": "NavInit",
+      "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+      "preserves_e4": false,
+      "reads": "Unknown",
+      "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+      "writes": "Unknown",
+      "zn": "None",
+      "calls": [
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 4,
+          "target": "Routine(RoutineId(47))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 5,
+          "target": "Routine(RoutineId(35))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 8,
+          "target": "Routine(RoutineId(9))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 11,
+          "target": "Routine(RoutineId(15))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 12,
+          "target": "Routine(RoutineId(52))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unknown residence callee entry\")",
+          "op": 13,
+          "target": "Routine(RoutineId(55))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 6,
+          "target": "Routine(RoutineId(84))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 9,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 12,
+          "target": "Routine(RoutineId(8))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 15,
+          "target": "Routine(RoutineId(14))"
+        },
+        {
+          "acyclic_inputs": "Ok(())",
+          "op": 16,
+          "target": "Routine(RoutineId(92))"
+        },
+        {
+          "acyclic_inputs": "Err(\"unsupported residence callee\")",
+          "op": 17,
+          "target": "Routine(RoutineId(91))"
+        }
+      ]
+    }
+  ]
+}

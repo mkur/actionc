@@ -37,6 +37,14 @@ they never saturate or drop an offset. A truncated address byte cannot retain
 the full object's identity unless emission verifies a zero-page operand. Symbolic
 accesses outside a declared object, or unresolved byte selections, fail closed.
 
+Structured read/write region summaries preserve the region's storage identity,
+starting byte offset and full extent. Both directions use the same checked byte
+projection. Named offsets and absolute addresses must fit in 16 bits; ZeroPage
+regions must fit entirely in `$00-$FF`. An unsupported region or an extent that
+cannot be represented makes that direction Unknown, rather than truncating,
+wrapping or saturating the footprint. The last byte (`$FFFF` or `$FF`) is valid,
+and a zero-size region with a representable start contributes no accesses.
+
 Native-callee write summaries project the shared directional effects. Unbounded
 pointee reads do not erase complete direct writes, physical home bindings or
 address-pair writes. Indirect/opaque writes and unresolved write homes remain

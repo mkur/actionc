@@ -1,0 +1,28 @@
+{
+  "revision": "2c5ae7add99f42aeb22ed34fc068ee60f2c9ea80",
+  "original_module_sha256": "2e8f233e5cf1e997da764da4b50d2e3d51b249c526a22a7a738480e6a6fd6d83",
+  "probe_sha256": "5c55e43e949e849a629a6587fa971a985147907f75ba8c56edfe0053afb937fb",
+  "command": [
+    "cargo",
+    "test",
+    "--lib",
+    "mir6502::analysis::known_callees::call_facts_audit::audit_call_facts",
+    "--",
+    "--exact",
+    "--ignored",
+    "--nocapture"
+  ],
+  "return_code": 0,
+  "hook_removed": true,
+  "tn_bytes": 9811,
+  "tn_sha256": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+  "tn_matches_preexisting_qualification": true,
+  "test_result": "1 passed; 3501 filtered out; no full test suite",
+  "scope": "9 source controls, synthetic contract probes, all 95 selected TN routines",
+  "artifacts": {
+    "synthetic.json": "f536545b633e0af6805d99dacf09f0a834e9fe414cea99204d342d5f5dc0045a",
+    "controls.json": "a72e5ad2a878308fae3587beb1b9e79cf6dc475d5a918059c15c8df6e1f6c603",
+    "selected.asm": "1ae31f35b5ee36af54a2d8faba83bf28cb332cc82bf1546d5929ab9dca8a7bfa",
+    "tn.compact.json": "2bedbea74ba086380c2db7d5cb1fadf4f48a840d2295edd6facd1b9b62d2d7a0"
+  }
+}

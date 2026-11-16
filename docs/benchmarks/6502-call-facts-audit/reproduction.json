@@ -1,0 +1,22 @@
+{
+  "revision": "2c5ae7add99f42aeb22ed34fc068ee60f2c9ea80",
+  "original_module_sha256": "2e8f233e5cf1e997da764da4b50d2e3d51b249c526a22a7a738480e6a6fd6d83",
+  "probe_sha256": "01c3c7b68ac6d422df23adde4316f6b74c8931508924cc04a85cb3bca4c38080",
+  "command": [
+    "cargo",
+    "test",
+    "--lib",
+    "mir6502::analysis::known_callees::call_facts_audit::audit_call_facts",
+    "--",
+    "--exact",
+    "--ignored",
+    "--nocapture"
+  ],
+  "return_code": 0,
+  "hook_removed": true,
+  "tn_bytes": 9811,
+  "tn_sha256": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+  "matches_audited_tn_image": true,
+  "archived_facts_match": true,
+  "production_module_unchanged": true
+}

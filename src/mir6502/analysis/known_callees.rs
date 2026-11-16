@@ -15,7 +15,8 @@ use crate::mir6502::analysis::machine_values::{MirMachineValue, MirMachineValueA
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
     MirCallTarget, MirFixedZpSlot, MirGlobalBacking, MirMachineAtom, MirMachineBlock,
-    MirMachineByteSelector, MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp,
+    MirMachineByteSelector, MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegion,
+    MirMemoryRegionKind, MirOp,
     MirProgram, MirReg, MirRegisterSet, MirRoutine, MirStorageBase, MirTerminator, RoutineId,
 };
 
@@ -671,30 +672,39 @@ fn summarize_structured_reads(
         MirMemoryEffect::Unknown | MirMemoryEffect::All => reads.make_unknown(),
         MirMemoryEffect::Regions(regions) => {
             for region in regions {
-                let base = match region.kind {
-                    MirMemoryRegionKind::Global(id) => MirMem::Global { id, offset: 0 },
-                    MirMemoryRegionKind::Static(id) => MirMem::Static { id, offset: 0 },
-                    MirMemoryRegionKind::Local(id) => MirMem::Local { id, offset: 0 },
-                    MirMemoryRegionKind::Param(id) => MirMem::Param { id, offset: 0 },
-                    MirMemoryRegionKind::AbsoluteRange => MirMem::Absolute(region.offset),
-                    MirMemoryRegionKind::ZeroPage => {
-                        let Ok(slot) = u8::try_from(region.offset) else {
-                            reads.make_unknown();
-                            return;
-                        };
-                        MirMem::FixedZeroPage(MirFixedZpSlot(slot))
-                    }
-                    MirMemoryRegionKind::Stack => {
-                        reads.make_unknown();
-                        return;
-                    }
+                let Some(bytes) = structured_region_bytes(region) else {
+                    reads.make_unknown();
+                    return;
                 };
-                for offset in 0..region.size {
-                    reads.record(offset_mem(&base, offset));
+                for byte in bytes {
+                    reads.record(byte);
                 }
             }
         }
     }
+}
+
+/// Project a complete region into byte identities for both effect directions.
+/// Check the last byte before expansion so an overflowing extent cannot silently
+/// saturate into a smaller footprint. Empty supported regions contribute no bytes.
+fn structured_region_bytes(region: &MirMemoryRegion) -> Option<impl Iterator<Item = MirMem>> {
+    let last = region.offset.checked_add(region.size.saturating_sub(1))?;
+    if region.kind == MirMemoryRegionKind::ZeroPage && last > u16::from(u8::MAX) {
+        return None;
+    }
+    let offset = region.offset;
+    let base = match region.kind {
+        MirMemoryRegionKind::Global(id) => MirMem::Global { id, offset },
+        MirMemoryRegionKind::Static(id) => MirMem::Static { id, offset },
+        MirMemoryRegionKind::Local(id) => MirMem::Local { id, offset },
+        MirMemoryRegionKind::Param(id) => MirMem::Param { id, offset },
+        MirMemoryRegionKind::AbsoluteRange => MirMem::Absolute(offset),
+        MirMemoryRegionKind::ZeroPage => {
+            MirMem::FixedZeroPage(MirFixedZpSlot(u8::try_from(offset).ok()?))
+        }
+        MirMemoryRegionKind::Stack => return None,
+    };
+    Some((0..region.size).map(move |delta| offset_mem(&base, delta)))
 }
 
 fn summarize_routine_writes(
@@ -830,26 +840,12 @@ fn summarize_structured_writes(
         MirMemoryEffect::Unknown | MirMemoryEffect::All => writes.make_unknown(),
         MirMemoryEffect::Regions(regions) => {
             for region in regions {
-                let base = match region.kind {
-                    MirMemoryRegionKind::Global(id) => MirMem::Global { id, offset: 0 },
-                    MirMemoryRegionKind::Static(id) => MirMem::Static { id, offset: 0 },
-                    MirMemoryRegionKind::Local(id) => MirMem::Local { id, offset: 0 },
-                    MirMemoryRegionKind::Param(id) => MirMem::Param { id, offset: 0 },
-                    MirMemoryRegionKind::AbsoluteRange => MirMem::Absolute(region.offset),
-                    MirMemoryRegionKind::ZeroPage => {
-                        let Ok(slot) = u8::try_from(region.offset) else {
-                            writes.make_unknown();
-                            return;
-                        };
-                        MirMem::FixedZeroPage(MirFixedZpSlot(slot))
-                    }
-                    MirMemoryRegionKind::Stack => {
-                        writes.make_unknown();
-                        return;
-                    }
+                let Some(bytes) = structured_region_bytes(region) else {
+                    writes.make_unknown();
+                    return;
                 };
-                for offset in 0..region.size {
-                    writes.record(offset_mem(&base, offset));
+                for byte in bytes {
+                    writes.record(byte);
                 }
             }
         }
@@ -1932,6 +1928,95 @@ mod tests {
             routines,
             machine_blocks,
             runtime_helpers: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn structured_region_summaries_preserve_identity_offset_and_extent() {
+        use crate::mir6502::ir::MirMemoryRegion;
+        use crate::nir::{LocalId, ParamId, SymbolId};
+        for (kind, expected) in [
+            (MirMemoryRegionKind::Global(SymbolId(7)), vec![
+                MirMem::Global { id: SymbolId(7), offset: 3 },
+                MirMem::Global { id: SymbolId(7), offset: 4 },
+            ]),
+            (MirMemoryRegionKind::Static(SymbolId(7)), vec![
+                MirMem::Static { id: SymbolId(7), offset: 3 },
+                MirMem::Static { id: SymbolId(7), offset: 4 },
+            ]),
+            (MirMemoryRegionKind::Local(LocalId(7)), vec![
+                MirMem::Local { id: LocalId(7), offset: 3 },
+                MirMem::Local { id: LocalId(7), offset: 4 },
+            ]),
+            (MirMemoryRegionKind::Param(ParamId(7)), vec![
+                MirMem::Param { id: ParamId(7), offset: 3 },
+                MirMem::Param { id: ParamId(7), offset: 4 },
+            ]),
+            (MirMemoryRegionKind::AbsoluteRange, vec![MirMem::Absolute(3), MirMem::Absolute(4)]),
+            (MirMemoryRegionKind::ZeroPage, vec![absolute_mem(3), absolute_mem(4)]),
+        ] {
+            let effect = MirMemoryEffect::Regions(vec![MirMemoryRegion { kind, offset: 3, size: 2 }]);
+            let mut reads = MirKnownMemoryReads::exact();
+            let mut writes = MirKnownMemoryWrites::exact();
+            summarize_structured_reads(&effect, false, &mut reads);
+            summarize_structured_writes(&effect, false, &mut writes);
+            assert_eq!(reads, MirKnownMemoryReads::Exact(expected.clone()), "{effect:?}");
+            assert_eq!(writes, MirKnownMemoryWrites::Exact(expected.clone()), "{effect:?}");
+            for byte in expected {
+                assert!(writes.may_write_mem(&byte), "{effect:?}: {byte:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn structured_region_summaries_check_complete_extent_without_saturation() {
+        use crate::mir6502::ir::MirMemoryRegion;
+        use crate::nir::{LocalId, ParamId, SymbolId};
+        for (kind, last) in [
+            (MirMemoryRegionKind::Global(SymbolId(0)), u16::MAX),
+            (MirMemoryRegionKind::Static(SymbolId(0)), u16::MAX),
+            (MirMemoryRegionKind::Local(LocalId(0)), u16::MAX),
+            (MirMemoryRegionKind::Param(ParamId(0)), u16::MAX),
+            (MirMemoryRegionKind::AbsoluteRange, u16::MAX),
+            (MirMemoryRegionKind::ZeroPage, 255),
+        ] {
+            for (offset, size, exact) in [(last, 0, true), (last, 1, true),
+                (last - 1, 2, true), (last, 2, false), (last - 1, 3, false)] {
+                let effect = MirMemoryEffect::Regions(vec![
+                    MirMemoryRegion { kind: MirMemoryRegionKind::AbsoluteRange, offset: 0x600, size: 1 },
+                    MirMemoryRegion { kind: kind.clone(), offset, size },
+                ]);
+                let mut reads = MirKnownMemoryReads::exact();
+                let mut writes = MirKnownMemoryWrites::exact();
+                summarize_structured_reads(&effect, false, &mut reads);
+                summarize_structured_writes(&effect, false, &mut writes);
+                if exact {
+                    let MirKnownMemoryReads::Exact(bytes) = reads else { panic!("{effect:?}") };
+                    assert_eq!(bytes.len(), usize::from(size) + 1, "{effect:?}");
+                    assert_eq!(writes, MirKnownMemoryWrites::Exact(bytes), "{effect:?}");
+                } else {
+                    assert_eq!(reads, MirKnownMemoryReads::Unknown, "{effect:?}");
+                    assert_eq!(writes, MirKnownMemoryWrites::Unknown, "{effect:?}");
+                }
+            }
+        }
+        for (effect, opaque) in [
+            (MirMemoryEffect::Regions(vec![MirMemoryRegion {
+                kind: MirMemoryRegionKind::ZeroPage, offset: 256, size: 1,
+            }]), false),
+            (MirMemoryEffect::Regions(vec![MirMemoryRegion {
+                kind: MirMemoryRegionKind::Stack, offset: 0, size: 1,
+            }]), false),
+            (MirMemoryEffect::Unknown, false),
+            (MirMemoryEffect::All, false),
+            (MirMemoryEffect::None, true),
+        ] {
+            let mut reads = MirKnownMemoryReads::exact();
+            let mut writes = MirKnownMemoryWrites::exact();
+            summarize_structured_reads(&effect, opaque, &mut reads);
+            summarize_structured_writes(&effect, opaque, &mut writes);
+            assert_eq!(reads, MirKnownMemoryReads::Unknown, "{effect:?}");
+            assert_eq!(writes, MirKnownMemoryWrites::Unknown, "{effect:?}");
         }
     }
 

@@ -1,0 +1,90 @@
+{
+  "may_write_liveness": [
+    {
+      "call_effects": "MirOpEffectSummary { kind: Call, logical: MirLogicalEffects { temp_uses: [], classified_temp_uses: [], temp_defs: [], full_temp_defs_compat: {} }, homes: MirHomeEffects { reads: {}, writes: {}, unknown_reads: false, unknown_writes: true }, memory: MirMemoryEffects { direct_references: [], address_references: [], direct_reads: [], direct_writes: [], structured_reads: None, structured_writes: Unknown, indirect_reads: false, indirect_writes: true, opaque: false, reads: [], definite_writes: [], may_write_any: true, has_unknown_effects: true, may_write_any_compat: true, has_unknown_effects_compat: true }, machine: MirMachineEffects { register_reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, register_writes: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, register_clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, conservative_register_clobbers: MirRegisterSet { a: true, x: true, y: true, flags: true, sp: false }, flag_reads: MirFlagSet { c: false, z: false, n: false, v: false }, flag_writes: MirFlagSet { c: false, z: false, n: false, v: false }, flag_clobbers: MirFlagSet { c: false, z: false, n: false, v: false }, uses_previous_carry: false, definitely_overwrites_carry: false, definitely_overwrites_overflow: false, writes_any_flags_compat: true, unknown_flag_or_a_effects: true, opaque_flag_or_a_effects: false }, addresses: MirAddressConsumerEffects { pair_reads: {}, pair_writes: {} }, projected_spill_reads: {}, projected_spill_writes: {}, projected_spill_byte_reads: {}, projected_spill_byte_writes: {}, removable_when_results_dead: false }",
+      "definition_dead_after_store": "Ok(false)",
+      "effect": "Unknown",
+      "live_after_store": "Ok(true)"
+    },
+    {
+      "call_effects": "MirOpEffectSummary { kind: Call, logical: MirLogicalEffects { temp_uses: [], classified_temp_uses: [], temp_defs: [], full_temp_defs_compat: {} }, homes: MirHomeEffects { reads: {}, writes: {FixedZeroPage(MirFixedZpSlot(228))}, unknown_reads: false, unknown_writes: false }, memory: MirMemoryEffects { direct_references: [], address_references: [], direct_reads: [], direct_writes: [], structured_reads: None, structured_writes: Regions([MirMemoryRegion { kind: ZeroPage, offset: 228, size: 1 }]), indirect_reads: false, indirect_writes: false, opaque: false, reads: [], definite_writes: [], may_write_any: false, has_unknown_effects: false, may_write_any_compat: true, has_unknown_effects_compat: true }, machine: MirMachineEffects { register_reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, register_writes: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, register_clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, conservative_register_clobbers: MirRegisterSet { a: true, x: true, y: true, flags: true, sp: false }, flag_reads: MirFlagSet { c: false, z: false, n: false, v: false }, flag_writes: MirFlagSet { c: false, z: false, n: false, v: false }, flag_clobbers: MirFlagSet { c: false, z: false, n: false, v: false }, uses_previous_carry: false, definitely_overwrites_carry: false, definitely_overwrites_overflow: false, writes_any_flags_compat: true, unknown_flag_or_a_effects: true, opaque_flag_or_a_effects: false }, addresses: MirAddressConsumerEffects { pair_reads: {}, pair_writes: {} }, projected_spill_reads: {}, projected_spill_writes: {}, projected_spill_byte_reads: {}, projected_spill_byte_writes: {}, removable_when_results_dead: false }",
+      "definition_dead_after_store": "Ok(true)",
+      "effect": "Regions([MirMemoryRegion { kind: ZeroPage, offset: 228, size: 1 }])",
+      "live_after_store": "Ok(false)"
+    }
+  ],
+  "store_only_effects": "MirMemoryEffects { direct_references: [], address_references: [], direct_reads: [MirMemoryRange { base: FixedZeroPage(MirFixedZpSlot(172)), bytes: 1 }, MirMemoryRange { base: FixedZeroPage(MirFixedZpSlot(173)), bytes: 1 }], direct_writes: [], structured_reads: None, structured_writes: None, indirect_reads: false, indirect_writes: true, opaque: false, reads: [FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))], definite_writes: [], may_write_any: true, has_unknown_effects: true, may_write_any_compat: true, has_unknown_effects_compat: true }",
+  "store_only_reads": "Unknown",
+  "structured_regions": [
+    {
+      "expected_byte": "Global { id: SymbolId(0), offset: 3 }",
+      "kind": "Global(SymbolId(0))",
+      "may_write_expected_byte": true,
+      "offset": 3,
+      "reads": "Exact([Global { id: SymbolId(0), offset: 0 }, Global { id: SymbolId(0), offset: 1 }])",
+      "size": 2,
+      "writes": "Exact([Global { id: SymbolId(0), offset: 0 }, Global { id: SymbolId(0), offset: 1 }])"
+    },
+    {
+      "expected_byte": "Static { id: SymbolId(0), offset: 3 }",
+      "kind": "Static(SymbolId(0))",
+      "may_write_expected_byte": false,
+      "offset": 3,
+      "reads": "Exact([Static { id: SymbolId(0), offset: 0 }, Static { id: SymbolId(0), offset: 1 }])",
+      "size": 2,
+      "writes": "Exact([Static { id: SymbolId(0), offset: 0 }, Static { id: SymbolId(0), offset: 1 }])"
+    },
+    {
+      "expected_byte": "Local { id: LocalId(0), offset: 3 }",
+      "kind": "Local(LocalId(0))",
+      "may_write_expected_byte": false,
+      "offset": 3,
+      "reads": "Exact([Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }])",
+      "size": 2,
+      "writes": "Exact([Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }])"
+    },
+    {
+      "expected_byte": "Param { id: ParamId(0), offset: 3 }",
+      "kind": "Param(ParamId(0))",
+      "may_write_expected_byte": false,
+      "offset": 3,
+      "reads": "Exact([Param { id: ParamId(0), offset: 0 }, Param { id: ParamId(0), offset: 1 }])",
+      "size": 2,
+      "writes": "Exact([Param { id: ParamId(0), offset: 0 }, Param { id: ParamId(0), offset: 1 }])"
+    },
+    {
+      "expected_byte": "Absolute(3)",
+      "kind": "AbsoluteRange",
+      "may_write_expected_byte": true,
+      "offset": 3,
+      "reads": "Exact([Absolute(3), Absolute(4)])",
+      "size": 2,
+      "writes": "Exact([Absolute(3), Absolute(4)])"
+    },
+    {
+      "expected_byte": "FixedZeroPage(MirFixedZpSlot(3))",
+      "kind": "ZeroPage",
+      "may_write_expected_byte": true,
+      "offset": 3,
+      "reads": "Exact([FixedZeroPage(MirFixedZpSlot(3)), FixedZeroPage(MirFixedZpSlot(4))])",
+      "size": 2,
+      "writes": "Exact([FixedZeroPage(MirFixedZpSlot(3)), FixedZeroPage(MirFixedZpSlot(4))])"
+    }
+  ],
+  "typed_result_composition": {
+    "integer_parameter": {
+      "current": true,
+      "fixed": [],
+      "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+      "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+    },
+    "pointer_parameter": {
+      "current": true,
+      "fixed": [
+        160
+      ],
+      "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+      "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+    }
+  }
+}
