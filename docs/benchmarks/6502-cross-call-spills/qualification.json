@@ -1,0 +1,70 @@
+{
+  "baseline_revision": "3e38eb01",
+  "runtime": "ActionCart",
+  "origin": 12288,
+  "mode": "mir6502",
+  "baseline_bytes": 9824,
+  "final_bytes": 9815,
+  "saved_bytes": 9,
+  "baseline_sha256": "76496fc2c4415ba09e613584e5f0ef7f3a0978a0132f6efb7e07aa9208650804",
+  "final_sha256": "d3dcc9692c79d7b1850614f40d35b2879c20eb9c0be29f1ca498ba09f67eac10",
+  "final_cli_matches_probe": true,
+  "source_and_compiler_sha256": {
+    "samples/tn/modern/TN.ACT": "e6f03f6bb6a6260547197785d9ac85c9a1ee544f66cc889ed417c5adb56073bd",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "src/mir6502/materialize.rs": "8fe503c3311c2a35579b65894e3cce7da7e74a3350571a42967a40645861a0f6",
+    "src/mir6502/materialize/spills.rs": "d9e014b4e74af446b8a04039c850c0c3f5d2f64bbaa9141246a268eeacffee9c",
+    "src/mir6502/preparation.rs": "8f82d6ba846e411851827604d1d23251dcf6fb43b7247f54be9da59f5e2acd38",
+    "src/mir6502/parameter_homes.rs": "5ba8a8da69e6d9033271b51ceae6473c0d081dbe61b9dc477d1ce3e6ae4cd570",
+    "src/mir6502/parameter_homes/spills.rs": "3bfc92156dcf79e226be44969c2d38a02873b8e307b238f7171d78dfffe8c2f4",
+    "src/mir6502/parameter_homes/physical.rs": "6a5dd06a32efa148a65a353d9cb766b9e2a547ff8c0cb3810f59fb6ab963c227"
+  },
+  "changed_routines": [
+    {
+      "routine": "Sort",
+      "code_before": 246,
+      "code_after": 238,
+      "inline_bytes_before": 1,
+      "inline_bytes_after": 0,
+      "gap_zero_page": 236
+    }
+  ],
+  "command": [
+    "build/checked-arena/shared-target/debug/actionc",
+    "--mode",
+    "mir6502",
+    "--runtime",
+    "cart",
+    "--origin",
+    "$3000",
+    "-o",
+    "build/cross-call-spills/checked.xex",
+    "samples/tn/modern/TN.ACT"
+  ],
+  "validation": {
+    "placement_units": {
+      "passed": 52
+    },
+    "existing_spill_units": {
+      "passed": 2
+    },
+    "continuation_units": {
+      "passed": 4
+    },
+    "placement_integration": {
+      "passed": 16,
+      "ignored": 1
+    },
+    "cross_call_vm": {
+      "passed": 7
+    },
+    "tn_sort_vm": {
+      "passed": 1,
+      "runtimes": [
+        "ActionCart",
+        "Standalone"
+      ]
+    },
+    "full_suites_run": false
+  }
+}

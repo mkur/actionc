@@ -221,6 +221,16 @@ fn tn_and_independent_pointer_loops_preserve_results_and_read_order() {
         }
     }
 }
+#[test]
+fn tn_sort_preserves_order_with_cross_call_spill_placement() {
+    let source = actionc::includes::load_program_with_expanded_source(root().join("samples/tn/modern/TN.ACT"))
+        .unwrap().source.replace("\r\n", "\n");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = compile(&source, runtime, 0x3000, true);
+        sort_through_optimized_caller(load(&output, runtime), &output);
+    }
+}
+
 fn sort_through_optimized_caller(mut vm: CompilerVm, output: &actionc::codegen::CodegenOutput) {
     let global = |name| {
         output

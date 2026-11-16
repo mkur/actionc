@@ -1212,7 +1212,7 @@ pub(super) fn prune_unused_spills(routine: &mut MirRoutine) {
     prune_unused_spills_traced(routine, &crate::mir6502::trace::Trace::disabled())
 }
 
-pub(super) fn prune_unused_spills_traced(
+pub(in crate::mir6502) fn prune_unused_spills_traced(
     routine: &mut MirRoutine,
     trace: &crate::mir6502::trace::Trace,
 ) {
@@ -1893,7 +1893,7 @@ fn spill_crosses_call(routine: &MirRoutine, interval: &SpillUseInterval) -> bool
     })
 }
 
-fn spill_uses_zero_offset_only(routine: &MirRoutine, spill: MirSpillId) -> bool {
+pub(in crate::mir6502) fn spill_uses_zero_offset_only(routine: &MirRoutine, spill: MirSpillId) -> bool {
     for block in &routine.blocks {
         for op in &block.ops {
             if !op_spill_uses_zero_offset_only(op, spill) {
@@ -2473,7 +2473,7 @@ fn remap_mem_spills(mem: &mut MirMem, remap: &BTreeMap<MirSpillId, MirSpillId>) 
     }
 }
 
-fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirZpSlot>) {
+pub(in crate::mir6502) fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirZpSlot>) {
     match op {
         MirOp::ComputeAddress { base,index,.. } => { remap_value_spills_to_zero_page(base,remap);if let Some(index)=index {remap_value_spills_to_zero_page(index,remap);} },
 
@@ -2563,7 +2563,7 @@ fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, Mir
     }
 }
 
-fn remap_terminator_spills_to_zero_page(
+pub(in crate::mir6502) fn remap_terminator_spills_to_zero_page(
     terminator: &mut MirTerminator,
     remap: &BTreeMap<MirSpillId, MirZpSlot>,
 ) {

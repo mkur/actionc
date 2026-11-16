@@ -116,6 +116,7 @@ pub(super) fn resume_output(
     origin: u16,
     runtime: crate::runtime::Runtime,
     trace: &super::trace::Trace,
+    spill_fallback: Option<&Executable>,
 ) -> Result<Executable, Vec<super::MirDiagnostic>> {
     trace.count("parameter_home_trials", 1);
     let original = &resume.core.checkpoint.input;
@@ -124,9 +125,17 @@ pub(super) fn resume_output(
         config: original.config.clone(),
         helpers: original.helpers.clone(),
     };
+    let spill_source = spill_fallback.map(|_| input.program.clone());
     let mut program = super::materialize::resume_core(input, origin, trace)?;
     super::verify_program(&program, MirPhase::PostMaterialization)?;
     super::runtime::resolve_helpers(&mut program, runtime)?;
+    // Discover against this materialization: spill IDs are not stable across
+    // core replay or coloring. Retain its unmodified layout for observation checks.
+    let spill_baseline = spill_fallback.map(|_| program.clone());
+    let spill_homes = if spill_fallback.is_some() {
+        super::parameter_homes::spills::place(&mut program, config.enable_multiple_leaf_call_homes, trace)
+    } else { Vec::new() };
+    super::verify_program(&program, MirPhase::PostMaterialization)?;
     let mut preservation = super::late_cleanup::preservation::Preservation::new(
         config.enable_peepholes && config.enable_late_private_store_cleanup,
     );
@@ -149,7 +158,15 @@ pub(super) fn resume_output(
         trace,
         &mut preservation,
     )?;
-    super::finalize_output(nir, program, origin, runtime, trace)
+    let candidate = super::finalize_output(nir, program, origin, runtime, trace)?;
+    if let Some(before) = spill_baseline.filter(|_| !spill_homes.is_empty()) {
+        // Re-emitting the unmodified core provides authoritative addresses for
+        // the original spill identities, before downstream cleanup can retire them.
+        let old = super::finalize_output(nir, before, origin, runtime, trace)?;
+        super::parameter_homes::spills::verify(&spill_homes, &old, &candidate,
+            spill_source.as_ref().unwrap(), spill_fallback.unwrap())?;
+    }
+    Ok(candidate)
 }
 
 #[cfg(test)]
@@ -267,7 +284,7 @@ mod tests {
                 .unwrap();
             let event_start = session.events().len();
             let result =
-                resume_output(&n, &resume, proposal, &config, 0x3000, runtime, &trace).unwrap();
+                resume_output(&n, &resume, proposal, &config, 0x3000, runtime, &trace, None).unwrap();
             assert_eq!(baseline.output, result.output);
             assert_eq!(baseline.costs, result.costs);
             assert!(!result.improves(&baseline));

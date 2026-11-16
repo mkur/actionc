@@ -222,6 +222,30 @@ stale facts never validate a caller rewrite. Accept only a valid, strictly
 smaller complete image, with exact rollback otherwise. No subset retries,
 extra materialization stage or per-object compilation is added.
 
+### Loop-carried compiler spills
+
+An optimized source local can become a compiler spill before placement. Its
+absence from the source-local binding table must not permanently exclude it
+from ZP. Use `StorageOwnership` to select private byte spills, retaining address
+exposure, source-owned bytes and definite entry initialization as exclusions.
+
+The first slice considers CFG-spanning byte spills in callers of ordinary leaves.
+Each selected byte has an exclusive invocation-long allocation in `$E0..$EF`;
+every call must preserve it. Unknown calls, assembly, helpers, exhausted capacity
+and wider spill accesses remain ineligible. Ordinary pointee stores use the
+existing private-storage boundary, without relaxing physical scratch checks.
+
+Discover these spills after core materialization and coloring, inside the same
+combined cross-call placement trial. Do not carry spill IDs across core replay.
+Allocate before late cleanup so its decisions and preservation witnesses are
+rebuilt for the new homes. Keep downstream frames fixed. Recheck final callee
+writes, scratch conflicts and explicit observations in retained source, accepted
+fallback, original core and final layouts. Protect the fallback's entire inline
+spill inventory for affected callers when coloring prevents an ID correspondence.
+A single measurement of the original core supplies the old spill addresses.
+Acceptance remains strict whole-image improvement, with
+complete rollback on a failed proof or cost check.
+
 ## Ownership of the boundary and scope
 
 Source meaning and persistent-local behavior remain owned by SemIR and carried

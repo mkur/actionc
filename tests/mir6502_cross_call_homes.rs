@@ -7,6 +7,30 @@ fn nir(source: &str) -> actionc::nir::NirProgram {
     nir_mode(source, true)
 }
 
+#[test]
+fn loop_carried_spills_join_the_existing_placement_trial() {
+    let lf = include_str!("../fixtures/runtime/cross_call_spills.act").replace("\r\n", "\n");
+    for (runtime, origin) in [(Runtime::ActionCart, 0x3000), (Runtime::Standalone, 0x41c7)] {
+        let mut image = None;
+        for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+            let n = nir(&source);
+            let config = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+            let mut trace = Mir6502Trace::default();
+            let new = mir6502::generate_output_with_trace(&n, origin, &config, runtime, &mut trace).unwrap();
+            let events = trace.events();
+            assert!(events.iter().any(|e| e.kind == "cross-call-spill-home" && e.data["routine"] == "Hold"), "{events:#?}");
+            let result = events.iter().find(|e| e.kind == "cross-call-home-result").unwrap();
+            assert_eq!(result.data["accepted"], true, "{result:?}");
+            assert_eq!(trace.manifest()["work"]["cross_call_home_trials"], 1);
+            let old = mir6502::generate_output_with_config_and_runtime(&n, origin,
+                &Mir6502Config { enable_cross_call_home_selection: false, ..config }, runtime).unwrap();
+            assert!(new.bytes.len() < old.bytes.len());
+            let bytes = actionc::codegen::format_load_file(&new);
+            if let Some(previous) = &image { assert_eq!(previous, &bytes); } else { image = Some(bytes); }
+        }
+    }
+}
+
 fn nir_mode(source: &str, optimize: bool) -> actionc::nir::NirProgram {
     let ast = actionc::parser::parse(&actionc::lexer::tokenize(source).unwrap()).unwrap();
     let model =

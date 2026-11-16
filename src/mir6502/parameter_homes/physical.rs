@@ -163,7 +163,7 @@ pub(super) fn verify_relocation(
     Ok(())
 }
 
-fn resolve_sources(sources: &[(&MirProgram, &MirPhysicalMemory)]) -> Result<Vec<(u16, u16)>, Vec<MirDiagnostic>> {
+pub(super) fn resolve_sources(sources: &[(&MirProgram, &MirPhysicalMemory)]) -> Result<Vec<(u16, u16)>, Vec<MirDiagnostic>> {
     let mut observations = Vec::new();
     for (p, memory) in sources {
         observations.extend(numeric_observations(p, Some(memory)).map_err(UnresolvedObservation::diagnostics)?);
@@ -203,7 +203,7 @@ fn check(
 /// Generated FixedZeroPage operands are checked by residence, not mistaken for
 /// source exposure. Unknown pointee footprints are deliberately not numeric
 /// observations; undecodable explicit machine operands still prevent a proof.
-fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMemory>) -> Result<Vec<(u16, u16)>, UnresolvedObservation> {
+pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMemory>) -> Result<Vec<(u16, u16)>, UnresolvedObservation> {
     let mut out = Vec::new();
     for r in &p.routines {
         for b in &r.blocks {

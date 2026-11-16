@@ -1,0 +1,21 @@
+BYTE start=$0900,total=$0901
+
+BYTE FUNC TouchByte(BYTE x)
+  RETURN(x XOR $5A)
+
+PROC Hold()
+  BYTE gap
+  gap=start
+  total=0
+  WHILE gap DO
+    total==+gap
+    total==+TouchByte(gap)
+    total==XOR gap
+    IF gap&1 THEN total==+gap FI
+    gap==RSH 1
+  OD
+RETURN
+
+PROC Main()
+  Hold()
+RETURN

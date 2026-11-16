@@ -18,6 +18,46 @@ struct Observe {
     advance: u16,
     arguments: Vec<u16>,
 }
+
+#[test]
+fn loop_carried_spills_survive_leaf_calls_and_repeated_invocations() {
+    let lf = include_str!("../../../fixtures/runtime/cross_call_spills.act").replace("\r\n", "\n");
+    for (runtime, origin) in [(Runtime::ActionCart, 0x3000), (Runtime::Standalone, 0x41c7)] {
+        let mut expected_image = None;
+        for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+            let file = support::Source::new(&source);
+            let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+            let model = actionc::semantic::analyze_with_options(&loaded.program,
+                actionc::semantic::SemanticOptions::modern()).unwrap();
+            let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
+                &actionc::semantic::ir::lower_program(&loaded.program, &model))).unwrap();
+            let output = mir6502::generate_output_with_config_and_runtime(&nir, origin,
+                &Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() }, runtime).unwrap();
+            let image = actionc::codegen::format_load_file(&output);
+            if let Some(previous) = &expected_image { assert_eq!(previous, &image); } else { expected_image = Some(image.clone()); }
+            let entry = |name| output.routine_addresses.iter().find(|r| r.name == name).unwrap().address;
+            let (mut vm, profile) = support::vm_for(runtime);
+            vm.load_atari_object_for_execution(profile, &image).unwrap();
+            let mut observe = Observe { advance: entry("TouchByte"), arguments: vec![] };
+            for start in [0u8, 1, 2, 3, 0x7f, 0x80, 0xff, 0] {
+                vm.bus_mut().ram_mut().write(0x900, start);
+                let mut gap = start;
+                let mut total = 0u8;
+                let mut arguments = Vec::new();
+                while gap != 0 {
+                    arguments.push(gap);
+                    total = total.wrapping_add(gap).wrapping_add(gap ^ 0x5a) ^ gap;
+                    if gap & 1 != 0 { total = total.wrapping_add(gap); }
+                    gap >>= 1;
+                }
+                observe.arguments.clear();
+                vm = machine::call(vm, &mut observe, entry("Hold"), &[]);
+                assert_eq!(machine::bytes(&vm, 0x901, 1), [total], "{runtime:?} start={start}");
+                assert_eq!(observe.arguments.iter().map(|x| *x as u8).collect::<Vec<_>>(), arguments);
+            }
+        }
+    }
+}
 impl VmRunHooks for Observe {
     type Error = String;
     fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {

@@ -12,6 +12,7 @@ pub(super) use observations::InvocationHomes;
 mod locals;
 mod calls;
 mod cross_call;
+pub(super) mod spills;
 mod handoff;
 #[cfg(test)]
 mod mixed_tests;
@@ -70,7 +71,10 @@ pub(super) fn select_output(
     }
     if config.enable_cross_call_home_selection {
         if let Some(proposal) = cross_call::propose(&selected.input, &selected.executable.program,
-            config.enable_multiple_leaf_call_homes, trace) {
+            config.enable_multiple_leaf_call_homes, trace).or_else(|| {
+                (!spills::discover(&selected.executable.program, config.enable_multiple_leaf_call_homes).is_empty())
+                    .then(|| (*selected.input).clone())
+            }) {
             selected = try_proposal(nir, selected, &resume, proposal,
                 "cross-call-homes", config, origin, runtime, trace);
         } else {
@@ -327,6 +331,7 @@ fn try_proposal(
         origin,
         runtime,
         &child,
+        (stage == "cross-call-homes").then_some(baseline),
     );
     let trial = trial.and_then(|candidate| {
         physical::verify_relocation(baseline, &candidate, &selected.input, &input)?;
