@@ -28,8 +28,24 @@ impl Analyzer {
                             .push(Diagnostic::new(data.span, "DATA block is too large"));
                         return;
                     };
+                    let start = offset;
                     offset = next;
                     result.push(element);
+                    if matches!(item, MachineItem::StringLiteral(_)) {
+                        let width = self.data_address_width(owner, None);
+                        result.push(Element::Address {
+                            target: Target::Symbol(owner),
+                            selector: None,
+                            addend: start,
+                            width,
+                        });
+                        let Some(next) = offset.checked_add(i32::from(width)) else {
+                            self.diagnostics
+                                .push(Diagnostic::new(data.span, "DATA block is too large"));
+                            return;
+                        };
+                        offset = next;
+                    }
                 }
                 Err(reason) => self.diagnostics.push(Diagnostic::new(data.span, reason)),
             }
@@ -88,6 +104,7 @@ impl Analyzer {
             MachineItem::CharLiteral(ch) => {
                 return Ok(Element::Bytes(vec![
                     source_char_byte(*ch).ok_or("DATA character is outside the byte encoding")?,
+                    0x9A,
                 ]));
             }
             MachineItem::Name(name) => (MachineAddressAtom::Name(name.clone()), None, 0),

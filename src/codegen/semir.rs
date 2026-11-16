@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 mod case;
 mod selection;
 mod aggregate_calls;
+mod data;
 #[cfg(test)]
 mod case_tests;
 #[cfg(test)]
@@ -395,10 +396,7 @@ impl SemIrAstLowerer<'_> {
             // CONST declarations are source metadata by this boundary.  Every
             // executable reference already carries its typed literal value.
             SemItem::Const(_) => return None,
-            SemItem::Data(data) => {
-                self.unsupported(data.span, "DATA requires a NIR backend");
-                return None;
-            }
+            SemItem::Data(data) => Item::Declaration(self.data_declaration(data)?),
             SemItem::Include(include) => Item::Include(IncludeDirective {
                 path: include.path.clone(),
                 span: include.span,
@@ -1464,7 +1462,9 @@ fn classic_projection_names(program: &SemProgram) -> BTreeMap<SymbolId, String> 
         .filter_map(sem_item_symbol)
         .map(|symbol| symbol.name.to_ascii_uppercase())
         .collect::<BTreeSet<_>>();
-    let mut output = BTreeMap::new();
+    let mut output = program.modules.iter().flat_map(|module| &module.items)
+        .filter_map(sem_item_symbol).map(|symbol| (symbol.id, symbol.name.clone()))
+        .collect::<BTreeMap<_, _>>();
 
     for routine in program
         .modules

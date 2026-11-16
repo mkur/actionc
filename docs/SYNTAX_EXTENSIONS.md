@@ -729,7 +729,7 @@ handler = @OtherProc     ; accepted
 
 ## Labeled Data Blocks
 
-NIR backends accept module-level mutable byte storage with an addressable label:
+The compiler accepts module-level mutable byte storage with an addressable label:
 
 ```action
 DATA yesabort = [
@@ -744,8 +744,11 @@ PROC Main()
 RETURN
 ```
 
-The payload is exactly `[3 'Y 'e 's 'Y 5 'A 'b 'o 'r 't 'A 0]`.
-Strings have a one-byte length; characters occupy one byte. Integer literals
+Literal encoding matches existing raw machine blocks. Each string contains a
+one-byte length, its encoded bytes, then a pointer back to that length byte.
+Each character contains its encoded byte followed by `$9A`. On 6502 the example
+occupies 19 bytes: the `"Yes" 'Y` record is 8 bytes and `"Abort" 'A` is 10,
+followed by the explicit zero. Integer literals
 occupy one byte through 255 and two through 65535, in target byte order. Nothing
 adds a descriptor, terminator, or return instruction. `@yesabort` addresses the
 first payload byte; use a pointer to read or modify it. Calling the label or
@@ -761,8 +764,8 @@ variant members named DATA retain their meaning.
 DATA is not allowed inside control-flow or lexical blocks. A DATA declaration
 following a routine starts a module-level declaration, just as a new routine
 declaration ends the previous routine. Only literal `[...]` initializers are
-implemented; generators are reserved for future work. The classic backend
-reports that DATA requires a NIR backend. Existing raw machine blocks retain
+implemented; generators are reserved for future work. The classic backend projects resolved DATA onto initialized inline byte storage.
+Existing raw machine blocks retain
 their executable, conservative interpretation.
 
 ## Machine Block Label Bytes

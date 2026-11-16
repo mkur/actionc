@@ -1,6 +1,6 @@
 # Labeled data block implementation plan
 
-2026-11-16. Status: slice 1 implemented; emission/observation qualification in progress.
+2026-11-16. Status: slices 1–2 implemented; TN qualification in progress.
 Follow-up to the [unexposed-object qualification](benchmarks/6502-unexposed-object-storage/README.md).
 
 ## Contract
@@ -16,7 +16,8 @@ DATA yesabort = [
 Declare named, mutable byte storage at module scope. `@yesabort` addresses its
 first byte; the label is not a callable routine or a scalar variable cell.
 Preserve the existing raw-block literal encoding, including length-prefixed
-strings, character bytes and supported address expressions. Add no descriptor,
+strings with trailing self-addresses, character bytes with `$9A` markers, and
+supported address expressions. Add no descriptor,
 terminator, routine entry or `RTS`. Preserve symbolic addresses as typed
 relocations; do not guess unresolved operand widths. Placement may change while
 the declared payload and symbolic address references remain correct.
@@ -79,6 +80,15 @@ declaration; do not restrict shared-contract validation to MIR6502.
 
 Slice 1: six focused `cargo test --lib labeled_data` cases pass, covering
 LF/CRLF parsing, typed fragments, forward/cyclic references, named-module linker
-retention, target pointer widths, invalid uses, and explicit classic-backend
-rejection. The new static relocation target required updating all three backend
+retention, target pointer widths, invalid uses, and rejection of an unlowered AST at the direct legacy codegen API. The new static relocation target required updating all three backend
 consumers in this slice; slice 2 checks their emitted bytes and observations.
+
+Slice 2: four exact-emission tests pass across classic 6502, MIR6502 (both
+runtimes), 65816 and 68k. The raw-menu comparison verifies string self-addresses
+and character `$9A` markers. Two indexed-caller pipeline controls pass with
+LF/CRLF input; the paired opaque block still rejects placement and reports its
+owner/block. The VM group passes with placement off/on in ActionCart and
+Standalone, checking menu records/mutation, swaps, arguments, stack and sentinels.
+The six frontend tests, four object-storage unit controls and exact selected-input
+rollback control also pass. Classic SemIR projection reuses initialized inline
+byte-array storage so maintained TN classic builds remain supported.

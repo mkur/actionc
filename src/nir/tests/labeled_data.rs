@@ -18,12 +18,14 @@ fn labeled_data_is_typed_mutable_storage_with_forward_relocations() {
                 .image
                 .project_constants(crate::target::Endian::Little)
                 .unwrap(),
-            [3, b'Y', b'e', b's', b'Y', 0x34, 0x12, 0, 0, 0, 0, 0, 0]
+            [
+                3, b'Y', b'e', b's', 0, 0, b'Y', 0x9A, 0x34, 0x12, 0, 0, 0, 0, 0, 0
+            ]
         );
         assert!(first.image.fragments.iter().any(|f| matches!(f,
             NirDataFragment::Address { target: NirDataAddressTarget::Static(id), .. } if *id == second.id)));
         assert!(first.image.fragments.iter().any(|f| matches!(f,
-            NirDataFragment::Address { target: NirDataAddressTarget::Static(id), addend: 11, .. } if *id == first.id)));
+            NirDataFragment::Address { target: NirDataAddressTarget::Static(id), addend: 14, .. } if *id == first.id)));
         assert!(!format_program(&n).contains("foreign"));
         let mut bad = n.clone();
         for fragment in &mut bad.statics[0].image.fragments {
@@ -144,10 +146,8 @@ fn labeled_data_resolves_explicit_numeric_and_resident_addresses() {
     assert_eq!(n.statics[0].image.fragments.len(), 3);
     assert!(n.statics[1].image.bytes.is_empty());
     let ast = parse(&tokenize("DATA x=[0] PROC Main() RETURN").unwrap()).unwrap();
-    assert!(
-        crate::codegen::generate(&ast)
-            .unwrap_err()
-            .iter()
-            .any(|d| d.message.contains("DATA requires a NIR backend"))
-    );
+    assert!(crate::codegen::generate(&ast).unwrap_err().iter().any(|d| {
+        d.message
+            .contains("DATA requires semantic lowering before code generation")
+    }));
 }

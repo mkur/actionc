@@ -1,5 +1,16 @@
 ; Ordinary pointee writes beside live invocation-owned source homes.
 BYTE reserved=$E4
+DATA menu=["Yes" 'Y "Abort" 'A $00]
+
+BYTE FUNC MenuKey(BYTE index)
+  BYTE POINTER p
+  p=@menu
+  WHILE index>0 DO
+    p==+p^+5
+    index==-1
+  OD
+  p==+p^+3
+RETURN(p^)
 
 BYTE FUNC Touch(BYTE x)
 RETURN(x+1)

@@ -1298,15 +1298,17 @@ operation, routine entry, descriptor, implicit terminator, or return instruction
 Its presence cannot introduce a machine block or an instruction-scanner input.
 
 Literal integers occupy one byte through 255 and two through 65535; strings
-carry a one-byte length followed by encoded bytes, and characters occupy one
-byte. Full symbolic addresses use the selected target's pointer width; integer
+carry a one-byte length, encoded bytes, and a trailing pointer back to the
+length byte. Characters carry their encoded byte followed by `$9A`. This is the
+existing Action! raw-block literal layout, not array-initializer string syntax.
+Full symbolic addresses use the selected target's pointer width; integer
 fragments use its endianness. Explicit `<`/`>` selectors retain target identity.
 `*` denotes the current initializer position relative to its DATA object.
 The literal initializer has its own AST/SemIR variant so a future generator can
 produce the same image without changing label semantics. No generators are
 implemented. Labels require `@label` in value expressions and are not callable.
-The legacy code generator diagnoses DATA as unsupported; NIR backends consume
-its resolved image. Unrecognized or mixed executable raw blocks remain opaque.
+The classic backend projects resolved DATA onto initialized inline byte storage;
+NIR backends consume its resolved image. Unrecognized or mixed executable raw blocks remain opaque.
 
 Recommended static data shape:
 

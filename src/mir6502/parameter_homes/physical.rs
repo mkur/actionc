@@ -22,7 +22,36 @@ pub(super) fn has_pointee_writes(r: &MirRoutine) -> bool {
 /// A known missing obligation rejects discovery, before it can poison the
 /// combined trial. Concrete overlaps still require both authoritative layouts.
 pub(super) fn observations_complete(p: &MirProgram) -> bool {
-    !p.routines.iter().any(has_pointee_writes) || numeric_observations(p).is_some()
+    unresolved_observation(p).is_none()
+}
+
+#[derive(Debug, serde::Serialize)]
+pub(super) struct UnresolvedObservation {
+    routine: String,
+    routine_id: u32,
+    block: String,
+    machine_block: u32,
+}
+
+impl UnresolvedObservation {
+    fn diagnostics(self) -> Vec<MirDiagnostic> {
+        vec![MirDiagnostic {
+            routine: Some(self.routine),
+            block: Some(self.block),
+            message: format!(
+                "source-object physical observation: unresolved explicit operand in machine block m{} (owner r{})",
+                self.machine_block, self.routine_id
+            ),
+        }]
+    }
+}
+
+pub(super) fn unresolved_observation(p: &MirProgram) -> Option<UnresolvedObservation> {
+    p.routines
+        .iter()
+        .any(has_pointee_writes)
+        .then(|| numeric_observations(p).err())
+        .flatten()
 }
 
 fn records<'a>(
@@ -75,8 +104,7 @@ pub(in crate::mir6502) fn verify(
     if objects.is_empty() {
         return Ok(());
     }
-    let observations =
-        numeric_observations(p).ok_or_else(|| error("unresolved explicit operand"))?;
+    let observations = numeric_observations(p).map_err(UnresolvedObservation::diagnostics)?;
     for object in objects {
         check(object, memory, &observations)?;
     }
@@ -103,9 +131,7 @@ pub(super) fn verify_relocation(
         .collect();
     let mut observations = Vec::new();
     for p in sources {
-        observations.extend(
-            numeric_observations(p).ok_or_else(|| error("unresolved retained explicit operand"))?,
-        );
+        observations.extend(numeric_observations(p).map_err(UnresolvedObservation::diagnostics)?);
     }
     for object in objects {
         let previous = old
@@ -174,7 +200,7 @@ fn check(
 /// Generated FixedZeroPage operands are checked by residence, not mistaken for
 /// source exposure. Unknown pointee footprints are deliberately not numeric
 /// observations; undecodable explicit machine operands still prevent a proof.
-fn numeric_observations(p: &MirProgram) -> Option<Vec<(u16, u16)>> {
+fn numeric_observations(p: &MirProgram) -> Result<Vec<(u16, u16)>, UnresolvedObservation> {
     let mut out = Vec::new();
     for r in &p.routines {
         for b in &r.blocks {
@@ -227,8 +253,19 @@ fn numeric_observations(p: &MirProgram) -> Option<Vec<(u16, u16)>> {
                     out.push((a, if *width == MirWidth::Word { 257 } else { 256 }));
                 }
                 if let MirOp::MachineBlock { id, .. } = op {
-                    let machine = p.machine_blocks.iter().find(|m| m.id == *id)?;
-                    let inventory = machine_storage_observations(machine, r, p)?;
+                    let unresolved = || UnresolvedObservation {
+                        routine: r.name.clone(),
+                        routine_id: r.id.0,
+                        block: b.label.clone(),
+                        machine_block: id.0,
+                    };
+                    let machine = p
+                        .machine_blocks
+                        .iter()
+                        .find(|m| m.id == *id)
+                        .ok_or_else(unresolved)?;
+                    let inventory =
+                        machine_storage_observations(machine, r, p).ok_or_else(unresolved)?;
                     for access in inventory.reads.iter().chain(&inventory.writes) {
                         if let Some(a) = numeric_base(p, &access.base) {
                             out.push((a, access.bytes));
@@ -240,7 +277,7 @@ fn numeric_observations(p: &MirProgram) -> Option<Vec<(u16, u16)>> {
             }
         }
     }
-    Some(out)
+    Ok(out)
 }
 
 fn numeric_base(p: &MirProgram, mem: &MirMem) -> Option<u16> {

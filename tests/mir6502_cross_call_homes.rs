@@ -26,6 +26,8 @@ fn object_storage_indexed_callers_select_resident_homes_in_one_trial() {
     let mut reference = None;
     for source in [lf.clone(), lf.replace('\n', "\r\n")] {
         let n = nir(&source);
+        assert_eq!(n.statics.iter().filter(|s| s.name == "menu").count(), 1);
+        assert!(!n.routines.iter().any(|r| r.name == "menu"));
         let config = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
         let mut trace = Mir6502Trace::default();
         let output = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
@@ -60,6 +62,10 @@ fn object_storage_missing_numeric_inventory_keeps_independent_callers() {
         &Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() },
         Runtime::ActionCart, &mut trace).unwrap();
     let events = trace.events();
+    let observation = &events.iter().find(|e| e.kind == "cross-call-ineligible"
+        && e.data["reason"] == "unresolved explicit observation").unwrap().data["observation"];
+    assert_eq!(observation["routine"], "Opaque");
+    assert!(observation["machine_block"].is_number());
     for name in ["SwapWords", "SwapBytes"] {
         assert!(events.iter().any(|e| e.kind == "cross-call-ineligible"
             && e.data["routine"] == name && e.data["reason"] == "unresolved explicit observation"));

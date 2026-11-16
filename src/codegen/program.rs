@@ -4,7 +4,7 @@ impl Generator {
     pub(super) fn generate_program(&mut self, program: &Program) {
         for item in program.modules.iter().flat_map(|module| &module.items) {
             if let Item::Data(data) = item {
-                self.diagnostics.push(Diagnostic::new(data.span, "DATA requires a NIR backend"));
+                self.diagnostics.push(Diagnostic::new(data.span, "DATA requires semantic lowering before code generation"));
                 return;
             }
         }

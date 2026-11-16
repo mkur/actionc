@@ -55,6 +55,23 @@ fn object_storage_native_swaps_preserve_calls_pages_and_stack() {
             vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
             let mut observe = Observe { advance: entry("Touch"), arguments: vec![] };
             vm.bus_mut().ram_mut().write(0xe4, 0x5a);
+            let menu = output.map.storage_symbols.iter().find(|s| s.name == "menu").unwrap();
+            let [lo, hi] = menu.address.to_le_bytes();
+            let [next_lo, next_hi] = (menu.address+8).to_le_bytes();
+            let payload = [3, b'Y', b'e', b's', lo, hi, b'Y', 0x9A, 5, b'A', b'b', b'o', b'r', b't', next_lo, next_hi, b'A', 0x9A, 0];
+            assert_eq!(menu.size as usize, payload.len());
+            assert_eq!(machine::bytes(&vm, menu.address, payload.len()), payload);
+            let before = machine::bytes(&vm, menu.address-1, 1);
+            let after = machine::bytes(&vm, menu.address+menu.size, 1);
+            for (index, key) in [(0, b'Y'), (1, b'A')] {
+                vm = machine::call(vm, &mut observe, entry("MenuKey"), &[index]);
+                assert_eq!(machine::bytes(&vm, 0xa0, 1), [key]);
+            }
+            vm.bus_mut().ram_mut().write(menu.address+6, b'Z');
+            vm = machine::call(vm, &mut observe, entry("MenuKey"), &[0]);
+            assert_eq!(machine::bytes(&vm, 0xa0, 1), [b'Z']);
+            assert_eq!(machine::bytes(&vm, menu.address-1, 1), before);
+            assert_eq!(machine::bytes(&vm, menu.address+menu.size, 1), after);
             for (name, word) in [("SwapWords", true), ("SwapBytes", false)] {
                 for base in [0x7000u16, 0x70fd] {
                     for index in [2u8, 4] {
