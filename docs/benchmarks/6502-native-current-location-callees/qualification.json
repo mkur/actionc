@@ -1,0 +1,242 @@
+{
+  "date": "2026-11-16",
+  "baseline": {
+    "revision": "0578144279b277257ca98acbfe00fdc720ed4dc1",
+    "mismatches": [
+      "src/mir6502/passes.rs"
+    ],
+    "source_sha256": {
+      "samples/tn/modern/TN.ACT": "e6f03f6bb6a6260547197785d9ac85c9a1ee544f66cc889ed417c5adb56073bd",
+      "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d"
+    },
+    "tn_sha256": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+    "measurement_binary_sha256": "d9a9bae424095a482d729adef21f1b25bd80bcd5d8c5e87ee2e17c80b1573d38",
+    "control_sha256": "30b27bbffb7e1b3f38904dd479264ffb9b0d879ae3283f68eb6e98fe838ac9a2",
+    "retained_tn_match": true,
+    "baseline_note": "Pre-fix linked compiler reproduces the qualified TN image exactly. The retained receipt predates the passes.rs optimized-default enablement; no TN source drift."
+  },
+  "implementation_revision": "11d16f0c653ac208cfbb7769eb791360fc50bb22",
+  "config": {
+    "runtime": "ActionCart",
+    "origin": "$3000",
+    "optimized": true,
+    "control_small_leaf_inlining": false,
+    "tn_small_leaf_inlining": true
+  },
+  "inputs_sha256": {
+    "fixtures/runtime/native_current_location_homes.act": "30b27bbffb7e1b3f38904dd479264ffb9b0d879ae3283f68eb6e98fe838ac9a2",
+    "samples/tn/modern/TN.ACT": "e6f03f6bb6a6260547197785d9ac85c9a1ee544f66cc889ed417c5adb56073bd",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "src/mir6502/analysis/known_callees/entry_inputs.rs": "e0595d142fca253857604906cd9f0a3205e50c0f4f0e4f214cd7f6320843b9a6",
+    "src/mir6502/parameter_homes/calls.rs": "1bc93660c4cfad27c9e20661f94470acda19468750d97fd24b6d92d4e892454a",
+    "src/mir6502/passes.rs": "b9573ff3f13f32906a41996164659d42ef18bc1c0ac4780388376ad10db0aff6"
+  },
+  "control": {
+    "before": {
+      "packaged_bytes": 120,
+      "image_sha256": "51da6d3eb72d4a8740562c81e08cb1dd3fdf84b676518c461a5beed1ff5d2eb7",
+      "map_sha256": "c890f523d16f8b1678fedd3e7dd5646fc1d706877a0de49ac75c5aab93af14b6",
+      "routine_instruction_bytes": {
+        "Touch": 20,
+        "Hold": 79,
+        "Main": 1
+      },
+      "homes": [
+        {
+          "name": "x",
+          "routine": "Touch",
+          "kind": "Parameter",
+          "address": 12288,
+          "bytes": 2
+        },
+        {
+          "name": "b",
+          "routine": "Touch",
+          "kind": "Parameter",
+          "address": 12290,
+          "bytes": 1
+        },
+        {
+          "name": "keep",
+          "routine": "Hold",
+          "kind": "Parameter",
+          "address": 12291,
+          "bytes": 2
+        },
+        {
+          "name": "n",
+          "routine": "Hold",
+          "kind": "Parameter",
+          "address": 12293,
+          "bytes": 1
+        },
+        {
+          "name": "work",
+          "routine": "Hold",
+          "kind": "Local",
+          "address": 12294,
+          "bytes": 2
+        }
+      ],
+      "work": {
+        "emission_invocations": 3,
+        "inner_emission_probes": 6,
+        "materializations": 1,
+        "pipeline_attempts": 25,
+        "rewrite_analysis_builds": 245,
+        "source_storage_inventory_builds": 3
+      }
+    },
+    "after": {
+      "packaged_bytes": 101,
+      "image_sha256": "7e50d3bf286204ed2d9bbacee279d87b8d0014585e287fcea64ccfe478694e61",
+      "map_sha256": "6547821df866e661d616bce52c00d80b6a843a99fd712b5987ddb9cd2f884775",
+      "routine_instruction_bytes": {
+        "Touch": 20,
+        "Hold": 65,
+        "Main": 1
+      },
+      "homes": [
+        {
+          "name": "x",
+          "routine": "Touch",
+          "kind": "Parameter",
+          "address": 12288,
+          "bytes": 2
+        },
+        {
+          "name": "b",
+          "routine": "Touch",
+          "kind": "Parameter",
+          "address": 12290,
+          "bytes": 1
+        },
+        {
+          "name": "keep",
+          "routine": "Hold",
+          "kind": "Parameter",
+          "address": 160,
+          "bytes": 2
+        },
+        {
+          "name": "n",
+          "routine": "Hold",
+          "kind": "Parameter",
+          "address": 162,
+          "bytes": 1
+        },
+        {
+          "name": "work",
+          "routine": "Hold",
+          "kind": "Local",
+          "address": 224,
+          "bytes": 2
+        }
+      ],
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 6,
+        "inner_emission_probes": 12,
+        "materializations": 2,
+        "parameter_home_trials": 1,
+        "pipeline_attempts": 35,
+        "rewrite_analysis_builds": 488,
+        "source_storage_inventory_builds": 6
+      }
+    }
+  },
+  "tn": {
+    "before": {
+      "packaged_bytes": 9811,
+      "image_sha256": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+      "map_sha256": "2454d4f818032023dc3915413587c741c29a35868b47166ffbed284147668248",
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 146,
+        "inner_emission_probes": 876,
+        "late_cleanup_preservation_replays": 17,
+        "materializations": 6,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 3,
+        "pipeline_attempts": 67,
+        "rewrite_analysis_builds": 47646,
+        "source_storage_inventory_builds": 61,
+        "storage_observation_snapshot_builds": 3
+      }
+    },
+    "after": {
+      "packaged_bytes": 9811,
+      "image_sha256": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+      "map_sha256": "2454d4f818032023dc3915413587c741c29a35868b47166ffbed284147668248",
+      "work": {
+        "cross_call_home_trials": 1,
+        "emission_invocations": 146,
+        "inner_emission_probes": 876,
+        "late_cleanup_preservation_replays": 17,
+        "materializations": 6,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 3,
+        "pipeline_attempts": 67,
+        "rewrite_analysis_builds": 47646,
+        "source_storage_inventory_builds": 61,
+        "storage_observation_snapshot_builds": 3
+      }
+    },
+    "byte_identical": true,
+    "homes_identical": true,
+    "routine_sizes_identical": true,
+    "selected_routines": {
+      "Copy": 673,
+      "SwapWin": 32,
+      "Ord": 51,
+      "Sort": 238,
+      "PopUp": 261
+    },
+    "blockers": {
+      "Copy": "unsupported caller body or signature: pointer reads with variable word arithmetic",
+      "SwapWin": "native nonleaf; observable native nonleaf entry composition remains unsupported"
+    }
+  },
+  "checks": {
+    "placement_unit": 58,
+    "cross_call_integration": 19,
+    "call_abi": 11,
+    "optional_mads_ignored": 1,
+    "vm": {
+      "target": "cross_call_homes",
+      "filter": "native_current_location",
+      "groups_passed": 1,
+      "runtimes": [
+        "ActionCart",
+        "Standalone"
+      ],
+      "placement": [
+        "off",
+        "on"
+      ],
+      "source_newlines": [
+        "LF",
+        "CRLF"
+      ],
+      "invocations_per_combination": 7,
+      "total_invocations": 56,
+      "observed_callee_calls": 112,
+      "checks": [
+        "host-derived return value",
+        "A/X/Y arguments at actual callee entry",
+        "fixed output memory",
+        "unrelated sentinels",
+        "balanced stack",
+        "direct entry without JMP trampoline",
+        "selected caller homes",
+        "LF/CRLF byte-identical output"
+      ]
+    },
+    "notes": [
+      "The first integration run passed 18 cross-call cases and 11 ABI cases; its new positive fixture hit the unrelated Global-write alias exclusion. Only the fixture was corrected and the affected group rerun successfully.",
+      "Optional MADS listing reconstruction was not run; emission logic is unchanged.",
+      "No full compiler or unrelated backend suite was run."
+    ]
+  },
+  "artifacts": "build/native-current-location/{before,after}-{control,tn}/"
+}

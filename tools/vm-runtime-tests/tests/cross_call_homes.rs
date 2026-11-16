@@ -38,6 +38,70 @@ impl VmRunHooks for PrintObserve {
     }
 }
 
+struct NativeEntryObserve {
+    entry: u16,
+    arguments: Vec<(u16, u8)>,
+}
+impl VmRunHooks for NativeEntryObserve {
+    type Error = String;
+    fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {
+        let r = vm.cpu().registers();
+        if r.pc == self.entry {
+            self.arguments.push((u16::from_le_bytes([r.a, r.x]), r.y));
+        }
+        Ok(())
+    }
+}
+
+#[test]
+fn native_current_location_callees_preserve_values_arguments_and_direct_entry() {
+    let lf = include_str!("../../../fixtures/runtime/native_current_location_homes.act").replace("\r\n", "\n");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for enabled in [false, true] {
+            let mut expected_image = None;
+            for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+                let file = support::Source::new(&source);
+                let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+                let model = actionc::semantic::analyze_with_options(&loaded.program,
+                    actionc::semantic::SemanticOptions::modern()).unwrap();
+                let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
+                    &actionc::semantic::ir::lower_program(&loaded.program, &model))).unwrap();
+                let output = mir6502::generate_output_with_config_and_runtime(&nir, 0x3000,
+                    &Mir6502Config { enable_small_leaf_inlining: false,
+                        enable_cross_call_home_selection: enabled, ..Mir6502Config::optimized() }, runtime).unwrap();
+                let image = actionc::codegen::format_load_file(&output);
+                if let Some(previous) = &expected_image { assert_eq!(previous, &image); }
+                else { expected_image = Some(image.clone()); }
+                let entry = |name| output.routine_addresses.iter().find(|r| r.name == name).unwrap().address;
+                for name in ["keep", "n", "work"] {
+                    let home = output.map.storage_symbols.iter().find(|s|
+                        s.scope == actionc::codegen::CodegenSymbolScope::Routine("Hold".into()) && s.name == name).unwrap();
+                    assert_eq!(home.address < 256, enabled, "{runtime:?} {name}");
+                }
+                let (mut vm, profile) = support::vm_for(runtime);
+                vm.load_atari_object_for_execution(profile, &image).unwrap();
+                assert_ne!(vm.bus().ram().read(entry("Touch")), 0x4c, "direct entry gained a JMP trampoline");
+                let mut hooks = NativeEntryObserve { entry: entry("Touch"), arguments: vec![] };
+                for (keep, n) in [(0u16, 0u8), (0xfe, 1), (0xff, 255), (0x12ff, 128),
+                    (0x7fff, 255), (0xffff, 255), (0, 0)] {
+                    hooks.arguments.clear();
+                    vm.bus_mut().ram_mut().write(0x67f, 0x5a);
+                    vm.bus_mut().ram_mut().write(0x683, 0xa5);
+                    vm = machine::call(vm, &mut hooks, entry("Hold"), &[keep as u8, (keep >> 8) as u8, n]);
+                    let work = keep.wrapping_add(257);
+                    let result = keep.wrapping_add(work).wrapping_add(u16::from(n));
+                    assert_eq!(machine::bytes(&vm, 0xa0, 2), result.to_le_bytes(), "{runtime:?} {enabled} {keep} {n}");
+                    assert_eq!(hooks.arguments, [(keep, n), (work, n.wrapping_add(1))]);
+                    assert_eq!(machine::bytes(&vm, 0x680, 2), work.to_le_bytes());
+                    assert_eq!(machine::bytes(&vm, 0x682, 1), [n.wrapping_add(1)]);
+                    assert_eq!(machine::bytes(&vm, 0x67f, 1), [0x5a]);
+                    assert_eq!(machine::bytes(&vm, 0x683, 1), [0xa5]);
+                }
+            }
+        }
+    }
+}
+
 #[test]
 fn recursive_call_boundaries_require_no_surviving_resident_value() {
     let file = support::Source::new("CARD FUNC Dead(CARD x) IF x THEN x=Dead(x-1) FI RETURN(x+1) CARD FUNC Live(CARD x) IF x THEN RETURN(Live(x-1)+x+1) FI RETURN(1) PROC Main() RETURN");

@@ -1,6 +1,6 @@
 # MIR6502 native current-location callees: implementation plan
 
-Prepared 2026-11-16. Status: slices 1–2 complete; slice 3 pending.
+Prepared 2026-11-16. Status: all three slices complete.
 
 Slice 1: native observable leaves now support actual-entry analysis while
 planned capture remains excluded. All 18 shared-entry/capture/handoff unit
@@ -15,6 +15,14 @@ with five caller-home bytes in ZP and the callee's own parameters still inline.
 The ordinary-declaration and caller-spill controls also pass. The initial
 fixture used global writes, whose existing conservative alias rule excluded
 all ZP; fixed-address locals isolate this correction without changing that rule.
+
+Slice 3: the focused VM group passed in ActionCart/Standalone, with placement
+off/on and LF/CRLF loaded from source files. It checks 56 caller invocations and
+112 real callee entries. Explicit native-nonleaf and assembly `=*` fallback
+controls also passed. TN remains **9,811 bytes**, byte-identical to the baseline;
+routine/home maps and compiler work counters are unchanged. See the
+[qualification receipt](benchmarks/6502-native-current-location-callees/README.md)
+for the independent 19-byte saving, retained scope and remaining TN blockers.
 
 Implement in three slices, committing each after its focused checks pass.
 Preserve unrelated working-tree changes, including the existing call-chain

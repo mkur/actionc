@@ -37,6 +37,22 @@ fn native_current_location_callees_allow_caller_homes_and_spills() {
         &Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() },
         Runtime::ActionCart, &mut trace).unwrap();
     assert!(trace.events().iter().any(|e| e.kind == "cross-call-spill-home" && e.data["routine"] == "Hold"));
+
+    for (callee, reason) in [
+        ("CARD FUNC Leaf(CARD x) RETURN(x+1) CARD FUNC Native=*(CARD x) RETURN(Leaf(x))",
+            "nonleaf observable residence entry"),
+        ("PROC Native=*(CARD x)\nASM\n rts\nENDASM", "unsupported residence callee"),
+    ] {
+        let n = nir(&format!("{callee}\nCARD FUNC Hold(CARD keep) Native(keep) RETURN(keep+1)"));
+        let config = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+        let mut trace = Mir6502Trace::default();
+        let new = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
+        let old = mir6502::generate_output_with_config_and_runtime(&n, 0x3000,
+            &Mir6502Config { enable_cross_call_home_selection: false, ..config }, Runtime::ActionCart).unwrap();
+        assert_eq!(new, old);
+        assert!(trace.events().iter().any(|e| e.kind == "cross-call-candidate"
+            && e.data["routine"] == "Hold" && e.data["reason"] == reason));
+    }
 }
 
 #[test]
