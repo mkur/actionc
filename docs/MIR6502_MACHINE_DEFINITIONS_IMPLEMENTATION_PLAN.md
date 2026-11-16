@@ -1,6 +1,6 @@
 # MIR6502 guaranteed machine definitions implementation plan
 
-Status: ready for implementation, 2026-11-17.
+Status: slice 1 complete; slice 2 in progress, 2026-11-17.
 
 Implements issue **5** from the [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md)
 and the [guaranteed register/flag design](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#guaranteed-register-and-flag-definitions).
@@ -29,6 +29,10 @@ callee eligibility and assembly coverage unchanged.
   invalidation and rewrite checks. Record the definition defects for slice 2.
 - Do not narrow the existing definition producers in this slice. Run affected
   effect, value-availability and rewrite unit tests, then commit.
+
+Slice 1 validation: 69 focused effect, machine-value, loop-motion, address-rewrite
+and register-reuse unit tests passed. Possible clobbers still invalidate cached
+register/flag values without claiming definitions.
 
 ## Slice 2 — Share guaranteed definitions
 

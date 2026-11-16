@@ -116,7 +116,7 @@ pub(super) fn fold_redundant_register_reloads(
                                 block.id.0, op_index
                             ),
                         );
-                        let written_flags = classify_op(op).machine.flag_writes;
+                        let written_flags = classify_op(op).machine.possible_flag_writes();
                         if written_flags.any()
                             && !context.flags_dead_after(written_flags, point).is_proven()
                         {

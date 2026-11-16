@@ -182,7 +182,7 @@ pub(in crate::mir6502) fn discover_address_stores(
                 .exclusive_word_temp_definition(*temp, site)
                 .is_proven()
                 || !context.flags_dead_after(
-                    classify_op(&ops[0]).machine.flag_writes,
+                    classify_op(&ops[0]).machine.possible_flag_writes(),
                     MirSite::Op {
                         block: block.id,
                         op_index: start,
@@ -268,7 +268,7 @@ pub(in crate::mir6502) fn discover_address_stores(
                         )
                         .is_ok_and(|(store, _)| store == start + 1)
                             && context.flags_dead_after(
-                                classify_op(&block.ops[field]).machine.flag_writes,
+                                classify_op(&block.ops[field]).machine.possible_flag_writes(),
                                 field_site,
                             )
                             && context

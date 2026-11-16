@@ -475,12 +475,8 @@ fn apply_op(
     if let Some(value) = explicit_zn_result(op, &before, known_callees) {
         state.zn = Some(value);
         state.zn_register = zn_register;
-    } else if effects.machine.flag_writes.z
-        || effects.machine.flag_writes.n
-        || effects.machine.flag_clobbers.z
-        || effects.machine.flag_clobbers.n
-        || effects.machine.unknown_flag_or_a_effects
-        || effects.machine.opaque_flag_or_a_effects
+    } else if effects.machine.possible_flag_writes().z
+        || effects.machine.possible_flag_writes().n
     {
         state.zn = None;
         state.zn_register = zn_register;
@@ -1237,6 +1233,28 @@ mod tests {
             result: None,
             effects: MirEffects::default(),
         }
+    }
+
+    #[test]
+    fn finite_machine_clobbers_invalidate_values_without_definitions() {
+        let r = routine(vec![block(0, vec![
+            MirOp::LoadImm { dst: MirDef::Reg(MirReg::X), value: 7, width: MirWidth::Byte },
+            MirOp::MachineBlock {
+                id: crate::mir6502::ir::MirMachineBlockId(0),
+                effects: MirEffects {
+                    clobbers: MirRegisterSet { x: true, flags: true, ..Default::default() },
+                    ..Default::default()
+                },
+            },
+        ], MirTerminator::Return)]);
+        let effects = classify_op(&r.blocks[0].ops[1]);
+        assert!(!effects.machine.register_writes.x && !effects.machine.flag_writes.any());
+        assert!(effects.machine.possible_register_writes().x);
+        assert!(effects.machine.possible_flag_writes().any());
+        let after = MirSite::Terminator { block: MirBlockId(0) };
+        let values = analyze(&r);
+        assert_eq!(values.register_at(after, MirReg::X), Ok(None));
+        assert_eq!(values.zn_value_at(after), Ok(None));
     }
 
     fn analyze_caller_with_known_callee(

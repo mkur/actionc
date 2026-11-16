@@ -135,7 +135,7 @@ fn discover_register_reuse(
             let matches = |reg| matches!(context.register_value_at(reg, point), MirProof::Proven(ref v) if *v == value);
             let mut exit = MirExitStateChange::default();
             let (replacement, stat) = if matches(*dst) {
-                exit.flags = classify_op(op).machine.flag_writes;
+                exit.flags = classify_op(op).machine.possible_flag_writes();
                 (vec![], "late-redundant-register-load")
             } else if *dst == MirReg::A {
                 let Some(src) = [MirReg::X, MirReg::Y].into_iter().find(|reg| matches(*reg)) else {

@@ -64,7 +64,7 @@ pub(in crate::mir6502) fn discover_address_displacements(
                     } => (MirValue::Def(MirDef::VTemp(*root)), *delta),
                     _ => break,
                 };
-                let flags = classify_op(&block.ops[index]).machine.flag_writes;
+                let flags = classify_op(&block.ops[index]).machine.possible_flag_writes();
                 if !context.flags_dead_after(flags, site) {
                     break;
                 }
@@ -256,7 +256,7 @@ pub(in crate::mir6502) fn discover_record_element_consumers(
             }
             if [multiply, add].into_iter().any(|i| {
                 !context.flags_dead_after(
-                    classify_op(&block.ops[i]).machine.flag_writes,
+                    classify_op(&block.ops[i]).machine.possible_flag_writes(),
                     MirSite::Op {
                         block: block.id,
                         op_index: i,

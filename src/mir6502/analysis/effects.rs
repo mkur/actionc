@@ -222,6 +222,31 @@ pub(in crate::mir6502) struct MirMachineEffects {
     pub opaque_flag_or_a_effects: bool,
 }
 
+impl MirMachineEffects {
+    /// Possible changes invalidate values and constrain rewrites. This union
+    /// must never be used as a guaranteed-definition/liveness-kill set.
+    pub(in crate::mir6502) fn possible_register_writes(&self) -> MirRegisterSet {
+        let mut writes = self.register_writes;
+        merge_register_sets(&mut writes, self.register_clobbers);
+        merge_register_sets(&mut writes, self.conservative_register_clobbers);
+        writes
+    }
+
+    pub(in crate::mir6502) fn possible_flag_writes(&self) -> MirFlagSet {
+        if self.unknown_flag_or_a_effects || self.opaque_flag_or_a_effects
+            || self.conservative_register_clobbers.flags
+        {
+            return MirFlagSet::all();
+        }
+        MirFlagSet {
+            c: self.flag_writes.c || self.flag_clobbers.c,
+            z: self.flag_writes.z || self.flag_clobbers.z,
+            n: self.flag_writes.n || self.flag_clobbers.n,
+            v: self.flag_writes.v || self.flag_clobbers.v,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirAddressConsumerEffects {
     pub pair_reads: BTreeSet<MirHomeByte>,
@@ -290,9 +315,7 @@ impl MirOpEffectSummary {
     }
 
     pub(in crate::mir6502) fn may_clobber_reg_compat(&self, reg: MirReg) -> bool {
-        self.writes_reg(reg)
-            || register_set_contains(self.machine.register_clobbers, reg)
-            || register_set_contains(self.machine.conservative_register_clobbers, reg)
+        register_set_contains(self.machine.possible_register_writes(), reg)
     }
 
     pub(in crate::mir6502) fn reads_spill_byte_compat(&self, id: MirSpillId, offset: u16) -> bool {
@@ -1927,6 +1950,30 @@ mod tests {
         MirEdgeArg, MirMachineBlockId, MirOpRef, MirRuntimeHelper, MirUnaryOp, MirUpdateOp,
         RoutineId,
     };
+
+    #[test]
+    fn possible_machine_changes_include_clobbers_without_claiming_definitions() {
+        let mut effects = MirMachineEffects {
+            register_writes: MirRegisterSet { a: true, ..Default::default() },
+            register_clobbers: MirRegisterSet { x: true, ..Default::default() },
+            conservative_register_clobbers: MirRegisterSet { y: true, ..Default::default() },
+            flag_writes: MirFlagSet { z: true, n: true, ..Default::default() },
+            flag_clobbers: MirFlagSet { c: true, ..Default::default() },
+            ..Default::default()
+        };
+        let possible = effects.possible_register_writes();
+        assert!(possible.a && possible.x && possible.y);
+        assert!(!effects.register_writes.x && !effects.register_writes.y);
+        assert_eq!(effects.possible_flag_writes(), MirFlagSet {
+            c: true, z: true, n: true, v: false,
+        });
+        assert!(!effects.flag_writes.c);
+        effects.unknown_flag_or_a_effects = true;
+        assert_eq!(effects.possible_flag_writes(), MirFlagSet::all());
+        let opaque = classify_op(&MirOp::Barrier { effects: MirEffects::default() });
+        assert_eq!(opaque.machine.possible_flag_writes(), MirFlagSet::all());
+        assert!(opaque.may_clobber_reg_compat(MirReg::A));
+    }
 
     fn temp(id: u32) -> MirDef {
         MirDef::VTemp(MirTempId(id))

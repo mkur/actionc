@@ -241,7 +241,7 @@ fn add_dependencies(
     let effects = classify_op(op);
     // Removing an abstract arithmetic definition must not remove a live flag
     // producer; inserting it must not replace incoming machine state either.
-    if !c.flags_dead_after(effects.machine.flag_writes, site) {
+    if !c.flags_dead_after(effects.machine.possible_flag_writes(), site) {
         return None;
     }
     for access in &effects.logical.temp_uses {

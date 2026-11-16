@@ -146,7 +146,7 @@ pub(in crate::mir6502) fn discover_known_pointer_locals(
                 block: block.id,
                 op_index: end,
             };
-            if !context.flags_dead_after(classify_op(op).machine.flag_writes, site) {
+            if !context.flags_dead_after(classify_op(op).machine.possible_flag_writes(), site) {
                 continue;
             }
             let mut replacement = block.ops[start..end + 1].to_vec();
@@ -318,7 +318,7 @@ fn safe_to_move_address(
     (start..end).all(|i| {
         let e = classify_op(&block.ops[i]);
         context.flags_dead_after(
-            e.machine.flag_writes,
+            e.machine.possible_flag_writes(),
             MirSite::Op {
                 block: block.id,
                 op_index: i,
