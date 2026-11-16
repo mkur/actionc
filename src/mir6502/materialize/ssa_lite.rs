@@ -2,8 +2,6 @@ mod home_values;
 use crate::mir6502::ir::MirFixedZpSlot;
 use super::dead_spills::block_successor_indices;
 use super::defs::{op_def, split_def_as_temp};
-#[cfg(test)]
-use super::flags::{op_writes_flags, terminator_consumes_flags};
 use super::layout::MaterializeLayout;
 use super::peepholes::mem_is_private_scratch;
 use super::stats::MirPeepholeStats;
@@ -3693,11 +3691,10 @@ fn ssa_lite_redundant_reload_decision_after(
         ) {
             return SsaLiteReloadDecision::RetainCallBarrier;
         }
-        if op_writes_flags(op) {
-            return SsaLiteReloadDecision::RemoveCallFree;
-        }
     }
-    if terminator_consumes_flags(terminator) {
+    let live = crate::mir6502::analysis::machine_liveness::MirMachineLiveness::flags_observed_before_tail(
+        &ops[index.saturating_add(1).min(ops.len())..], terminator);
+    if live.z || live.n {
         SsaLiteReloadDecision::RetainFlags
     } else {
         SsaLiteReloadDecision::RemoveCallFree

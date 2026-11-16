@@ -879,7 +879,7 @@ fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], 
     match delta {
         MirEffectDelta::ForwardedKnownPointerLocal => unreachable!("checked before projection"),
         MirEffectDelta::MaterializedRetainedPointerField => unreachable!("checked before projection"),
-        MirEffectDelta::Unchanged => original == replacement,
+        MirEffectDelta::Unchanged => same_possible_effects(original, replacement),
         MirEffectDelta::DeferredPredicateArguments => unreachable!("checked before projection"),
         MirEffectDelta::SelectedResultRegister(register) => {
             if !register_is_set(replacement.register_writes, register) {
@@ -891,7 +891,7 @@ fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], 
             clear_register(&mut replacement.register_reads, register);
             clear_register(&mut replacement.register_writes, register);
             clear_register(&mut replacement.register_clobbers, register);
-            original == replacement
+            same_possible_effects(original, replacement)
         }
         MirEffectDelta::ForwardedReturnSlot { base, width } => {
             let bytes = match width {
@@ -906,7 +906,7 @@ fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], 
                 original.memory_reads.push(format!("fixed-zp:{}", slot.0));
             }
             original.memory_reads.sort();
-            original == replacement
+            same_possible_effects(original, replacement)
         }
         MirEffectDelta::MaterializedCallArguments => unreachable!("handled before projection"),
         MirEffectDelta::ForwardedCallResultStore {
@@ -934,7 +934,7 @@ fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], 
                 original.flag_writes = MirFlagSet::default();
                 replacement.flag_writes = MirFlagSet::default();
             }
-            original == replacement
+            same_possible_effects(original, replacement)
         }
         MirEffectDelta::MaterializedStoreConsumer
         | MirEffectDelta::MaterializedRuntimeHelperStoreConsumer
@@ -1002,7 +1002,7 @@ fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], 
                 return false;
             }
             original.memory_reads = replacement.memory_reads.clone();
-            original == replacement
+            same_possible_effects(original, replacement)
         }
     }
 }
@@ -1739,6 +1739,18 @@ struct ObservableEffects {
     flag_clobbers: MirFlagSet,
 }
 
+/// Effect preservation compares possible changes. Selection may refine a
+/// possible write into a guaranteed definition without introducing a new
+/// observable effect. Keep definitions until selected-result checks above have
+/// independently required them; never substitute a may-write for that proof.
+fn same_possible_effects(mut original: ObservableEffects, mut replacement: ObservableEffects) -> bool {
+    for effects in [&mut original, &mut replacement] {
+        effects.register_writes = MirRegisterSet::default();
+        effects.flag_writes = MirFlagSet::default();
+    }
+    original == replacement
+}
+
 fn observable_effects(ops: &[MirOp]) -> ObservableEffects {
     let mut out = ObservableEffects::default();
     for op in ops {
@@ -1788,11 +1800,11 @@ fn observable_effects(ops: &[MirOp]) -> ObservableEffects {
         merge_registers(&mut out.register_writes, effects.machine.register_writes);
         merge_registers(
             &mut out.register_clobbers,
-            effects.machine.register_clobbers,
+            effects.machine.possible_register_writes(),
         );
         merge_flags(&mut out.flag_reads, effects.machine.flag_reads);
         merge_flags(&mut out.flag_writes, effects.machine.flag_writes);
-        merge_flags(&mut out.flag_clobbers, effects.machine.flag_clobbers);
+        merge_flags(&mut out.flag_clobbers, effects.machine.possible_flag_writes());
     }
     out.memory_reads.sort();
     out.memory_writes.sort();

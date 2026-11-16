@@ -1,6 +1,6 @@
 # MIR6502 guaranteed machine definitions implementation plan
 
-Status: slice 1 complete; slice 2 in progress, 2026-11-17.
+Status: slices 1–2 complete; qualification in progress, 2026-11-17.
 
 Implements issue **5** from the [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md)
 and the [guaranteed register/flag design](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#guaranteed-register-and-flag-definitions).
@@ -53,6 +53,13 @@ register/flag values without claiming definitions.
   call policies and freshness. Include changed rewrite/loop consumers.
 - Commit only after the focused consumers pass together. Broaden within MIR6502
   when a failure exposes another affected consumer.
+
+Slice 2 validation: 373 focused MIR6502 unit tests passed (one diagnostic test
+ignored). Coverage includes effect producers, all entry queries, machine values,
+call facts, forwarding, rewrite transactions, CFG and local cleanup. Older local
+flag-redefinition helpers now replay the shared transfer; rewrite effect
+comparison accepts definition refinement while retaining possible effects and
+explicit selected-result requirements.
 
 ## Slice 3 — Qualify the repaired contract
 

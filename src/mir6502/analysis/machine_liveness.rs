@@ -257,6 +257,19 @@ impl MirMachineLiveness {
         }
     }
 
+    /// Block-local compatibility clients use the same per-flag transfer as
+    /// routine entry proofs. Calls remain conservative observation boundaries.
+    pub(in crate::mir6502) fn flags_observed_before_tail(
+        ops: &[MirOp], terminator: &MirTerminator,
+    ) -> MirFlagSet {
+        let mut live = terminator_transfer(&classify_terminator(terminator))
+            .apply(MirMachineLiveSet::default());
+        for op in ops.iter().rev() {
+            live = entry_flag_transfer(op).apply(live);
+        }
+        live.flags
+    }
+
     pub(in crate::mir6502) fn block_by_id(
         &self,
         block: MirBlockId,
@@ -414,45 +427,8 @@ fn op_transfer(op: &MirOp, known_callees: &MirKnownCalleeSummaries) -> MirMachin
 
 // May-clobbers are not certified definitions for incoming flag proofs.
 fn entry_flag_transfer(op: &MirOp) -> MirMachineTransfer {
-    use crate::mir6502::ir::{MirAddressConsumer, MirBinaryOp, MirCondDest, MirDef, MirValue, MirWidth};
     let effects = classify_op(op);
     let mut transfer = op_transfer(op, &MirKnownCalleeSummaries::default());
-    transfer.writes.flags = match op {
-        // Both selected unsigned byte recipes always emit LDA/CMP. Unlike a
-        // general compare, neither can fold away or reuse earlier flags.
-        MirOp::CompareIndirectBytes { dst: MirCondDest::Flags, left, right,
-            offset, signed: false, .. }
-            if (matches!((left, right), (MirAddressConsumer::IndirectIndexedY(_),
-                    MirAddressConsumer::IndirectIndexedY(_))) && *offset <= 255)
-                || (left.uses_live_y() && right.uses_live_y() && *offset == 0) =>
-            effects.machine.flag_writes,
-        // Instr-like array readers compare the loaded byte with a direct
-        // memory operand. This selected form always emits CMP as well.
-        MirOp::Compare { dst: MirCondDest::Flags,
-            left: MirValue::Def(MirDef::Reg(MirReg::A)),
-            right: MirValue::PointerCell(_), width: MirWidth::Byte, signed: false, .. } =>
-            effects.machine.flag_writes,
-        MirOp::LoadImm { dst: MirDef::Reg(_), width: MirWidth::Byte, .. }
-        | MirOp::Load { dst: MirDef::Reg(_), width: MirWidth::Byte, .. }
-        | MirOp::LoadIndirect { .. }
-        | MirOp::UpdateMem { width: MirWidth::Byte, .. }
-        | MirOp::UpdateReg { .. } => effects.machine.flag_writes,
-        // A native indexed ALU instruction always executes and defines its
-        // documented flags. Initialized carry is internal; FromPrevious still
-        // contributes an incoming C read through op_transfer.
-        MirOp::BinaryDirectIndexedByte { .. } => effects.machine.flag_writes,
-        MirOp::Move { dst: MirDef::Reg(dst),
-            src: MirValue::Def(MirDef::Reg(src)),
-            width: MirWidth::Byte } if dst != src => effects.machine.flag_writes,
-        MirOp::Binary { op: MirBinaryOp::Add | MirBinaryOp::Sub
-                | MirBinaryOp::And | MirBinaryOp::Or | MirBinaryOp::Xor,
-            dst: MirDef::Reg(MirReg::A),
-            left: MirValue::Def(MirDef::Reg(MirReg::A)),
-            right: MirValue::ConstU8(_), width: MirWidth::Byte, .. } => effects.machine.flag_writes,
-        // Self-moves, zero shifts, folded compares and address recipes may
-        // emit no flag definition. Uncertified forms retain dependencies.
-        _ => MirFlagSet::default(),
-    };
     if effects.machine.unknown_flag_or_a_effects
         || effects.machine.opaque_flag_or_a_effects
         || matches!(op, MirOp::Call {..} | MirOp::RuntimeHelper {..} | MirOp::SArgsCapture { .. } | MirOp::Barrier {..} | MirOp::MachineBlock {..})
@@ -477,11 +453,10 @@ fn machine_reads(effects: &MirMachineEffects) -> MirMachineLiveSet {
 }
 
 fn machine_writes(effects: &MirMachineEffects) -> MirMachineLiveSet {
-    let mut registers = normalized_registers(effects.register_writes);
-    merge_registers(&mut registers, effects.register_clobbers);
-    let mut flags = effects.flag_writes;
-    merge_flags(&mut flags, effects.flag_clobbers);
-    MirMachineLiveSet { registers, flags }
+    MirMachineLiveSet {
+        registers: normalized_registers(effects.register_writes),
+        flags: effects.flag_writes,
+    }
 }
 
 fn block_uses_and_defs(transfers: &MirMachineBlockTransfers) -> MirMachineBlockFacts {
@@ -666,9 +641,6 @@ mod tests {
             compare(C::LiveIndirectIndexedY(pair), C::IndirectIndexedY(pair), 0),
             compare(C::LiveIndirectIndexedY(pair), C::LiveIndirectIndexedY(pair), 1),
             compare(C::PagedIndirectIndexedY(pair), C::PagedIndirectIndexedY(pair), 0),
-            MirOp::Compare { dst: MirCondDest::Flags, op: MirCompareOp::Eq,
-                left: MirValue::Def(MirDef::Reg(MirReg::A)), right: MirValue::ConstU8(0),
-                width: MirWidth::Byte, signed: false },
         ] {
             assert_eq!(entry_flag_transfer(&op).writes.flags, MirFlagSet::default(), "{op:?}");
         }
@@ -759,8 +731,10 @@ mod tests {
         let conservative = MirMachineLiveness::analyze(&caller, &cfg);
         let known = MirMachineLiveness::analyze_with_known_callees(&caller, &cfg, &summaries);
 
+        // ABI clobbers alone cannot kill the preceding value, even without
+        // a known callee's explicit preservation fact.
         assert!(
-            conservative
+            !conservative
                 .register_dead_after(MirReg::Y, op_site(0, 0))
                 .unwrap()
         );

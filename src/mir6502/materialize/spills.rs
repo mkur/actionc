@@ -846,16 +846,12 @@ pub(super) fn can_remove_spill_reload_before_later_a_use(
     index: usize,
     terminator: &MirTerminator,
 ) -> bool {
-    let mut flags_overwritten = false;
-    for op in ops.iter().skip(index.saturating_add(1)) {
-        let op_writes_flags = op_writes_flags(op);
-        if op_reads_reg(op, MirReg::A) {
-            return !terminator_consumes_flags(terminator) || flags_overwritten || op_writes_flags;
-        }
-        if op_may_clobber_reg(op, MirReg::A) {
-            return false;
-        }
-        flags_overwritten |= op_writes_flags;
+    let tail = &ops[index.saturating_add(1).min(ops.len())..];
+    let live = crate::mir6502::analysis::machine_liveness::MirMachineLiveness::flags_observed_before_tail(tail, terminator);
+    if live.z || live.n { return false; }
+    for op in tail {
+        if op_reads_reg(op, MirReg::A) { return true; }
+        if op_may_clobber_reg(op, MirReg::A) { return false; }
     }
     false
 }

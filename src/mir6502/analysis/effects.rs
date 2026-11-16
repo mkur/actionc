@@ -4,9 +4,9 @@ use std::collections::BTreeSet;
 
 use crate::mir6502::ir::{
     MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirByteIndexedSource, MirCallTarget,
-    MirCarryIn, MirCond, MirCondDest, MirDef, MirEffects, MirFixedZpSlot, MirFlag, MirFlagTest,
+    MirCarryIn, MirCompareOp, MirCond, MirCondDest, MirDef, MirEffects, MirFixedZpSlot, MirFlag, MirFlagTest,
     MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirPointerPair, MirReg, MirRegisterSet,
-    MirResultHome, MirSpillId, MirTempId, MirTerminator, MirUpdateOp, MirValue, MirWidth, MirZpSlot,
+    MirResultHome, MirSpillId, MirTempId, MirTerminator, MirUnaryOp, MirUpdateOp, MirValue, MirWidth, MirZpSlot,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -208,16 +208,15 @@ impl MirMemoryEffects {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirMachineEffects {
     pub register_reads: MirRegisterSet,
+    /// Guaranteed boundary definitions, never merely possible clobbers.
     pub register_writes: MirRegisterSet,
     pub register_clobbers: MirRegisterSet,
     pub conservative_register_clobbers: MirRegisterSet,
     pub flag_reads: MirFlagSet,
+    /// Guaranteed boundary definitions; reads are applied before these kills.
     pub flag_writes: MirFlagSet,
     pub flag_clobbers: MirFlagSet,
     pub uses_previous_carry: bool,
-    pub definitely_overwrites_carry: bool,
-    pub definitely_overwrites_overflow: bool,
-    pub writes_any_flags_compat: bool,
     pub unknown_flag_or_a_effects: bool,
     pub opaque_flag_or_a_effects: bool,
 }
@@ -234,7 +233,7 @@ impl MirMachineEffects {
 
     pub(in crate::mir6502) fn possible_flag_writes(&self) -> MirFlagSet {
         if self.unknown_flag_or_a_effects || self.opaque_flag_or_a_effects
-            || self.conservative_register_clobbers.flags
+            || self.register_clobbers.flags || self.conservative_register_clobbers.flags
         {
             return MirFlagSet::all();
         }
@@ -395,15 +394,23 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
     });
 
     match op {
-        MirOp::LoadImm { dst, width, .. } => {
+        MirOp::LoadImm { dst, width, value } => {
             record_def(dst, *width, &mut summary);
-            mark_register_result_flags(dst, &mut summary);
+            if *width == MirWidth::Byte && *value <= 255 {
+                mark_register_result_flags(dst, &mut summary);
+            } else {
+                possible_register_result(dst, &mut summary);
+            }
             summary.removable_when_results_dead = true;
         }
         MirOp::Load { dst, src, width } => {
             record_load_addr(src, *width, &mut summary);
             record_def(dst, *width, &mut summary);
-            mark_register_result_flags(dst, &mut summary);
+            if *width == MirWidth::Byte {
+                mark_register_result_flags(dst, &mut summary);
+            } else {
+                possible_register_result(dst, &mut summary);
+            }
             summary.removable_when_results_dead = true;
         }
         MirOp::Store {
@@ -421,36 +428,51 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             record_aggregate_copy_read(source, *size, &mut summary);
             record_aggregate_copy_write(destination, *size, &mut summary);
         }
-        MirOp::Unary {
-            op: crate::mir6502::ir::MirUnaryOp::SignMask, dst, src, width,
-        } => {
+        MirOp::Move { dst, src, width } => {
             record_value(src, &mut summary);
             record_def(dst, *width, &mut summary);
-            summary.machine.flag_writes = MirFlagSet::all();
-            summary.machine.definitely_overwrites_carry = true;
-            summary.machine.definitely_overwrites_overflow = true;
+            if matches!((dst, src), (MirDef::Reg(dst), MirValue::Def(MirDef::Reg(src))) if dst == src) {
+                // Emission is a no-op, including its flag state.
+                summary.machine.register_writes = MirRegisterSet::default();
+            } else if *width == MirWidth::Byte && selected_byte_move(dst, src) {
+                mark_register_result_flags(dst, &mut summary);
+            } else {
+                possible_register_result(dst, &mut summary);
+            }
             summary.removable_when_results_dead = true;
         }
-        MirOp::Move { dst, src, width }
-        | MirOp::Unary {
-            dst, src, width, ..
-        } => {
+        MirOp::Unary { op, dst, src, width } => {
             record_value(src, &mut summary);
             record_def(dst, *width, &mut summary);
-            mark_register_result_flags(dst, &mut summary);
+            let mut flags = MirFlagSet::default();
+            write_zn(&mut flags);
+            if matches!(op, MirUnaryOp::Neg | MirUnaryOp::SignMask) {
+                flags.c = true;
+                flags.v = true;
+            }
+            if *width == MirWidth::Byte && *dst == MirDef::Reg(MirReg::A)
+                && selected_byte_value(src)
+            {
+                summary.machine.flag_writes = flags;
+            } else {
+                possible_register_result(dst, &mut summary);
+                summary.machine.flag_clobbers = flags;
+            }
             summary.removable_when_results_dead = true;
         }
         MirOp::ComputeAddress { dst, base, index, .. } => {
             record_value_as(base, MirTempUseKind::Address, &mut summary);
             if let Some(index) = index { record_value_as(index, MirTempUseKind::Address, &mut summary); }
             record_def(dst, MirWidth::Word, &mut summary);
-            summary.machine.flag_writes = MirFlagSet::all();
+            possible_register_result(dst, &mut summary);
+            summary.machine.flag_clobbers = MirFlagSet::all();
             summary.removable_when_results_dead = true;
         }
         MirOp::LeaAddr { dst, target, width } => {
             record_home_reference(target, &mut summary);
             push_unique_mem(&mut summary.memory.address_references, target);
             record_def(dst, *width, &mut summary);
+            possible_register_result(dst, &mut summary);
             summary.removable_when_results_dead = true;
         }
         MirOp::Extend {
@@ -461,7 +483,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         } => {
             record_value(src, &mut summary);
             record_def(dst, *to_width, &mut summary);
-            mark_register_result_flags(dst, &mut summary);
+            possible_register_result(dst, &mut summary);
             summary.removable_when_results_dead = true;
         }
         MirOp::Binary {
@@ -478,14 +500,36 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             record_def(dst, *width, &mut summary);
             summary.machine.uses_previous_carry =
                 matches!(carry_in, Some(MirCarryIn::FromPrevious));
-            let initializes_carry =
-                matches!(carry_in, None | Some(MirCarryIn::Clear | MirCarryIn::Set));
-            if matches!(op, MirBinaryOp::Add | MirBinaryOp::Sub) && initializes_carry {
-                summary.machine.definitely_overwrites_carry = true;
-                summary.machine.definitely_overwrites_overflow = true;
+            let selected = *width == MirWidth::Byte
+                && *dst == MirDef::Reg(MirReg::A) && selected_byte_value(left);
+            let alu = matches!(op, MirBinaryOp::Add | MirBinaryOp::Sub
+                | MirBinaryOp::And | MirBinaryOp::Or | MirBinaryOp::Xor)
+                && (byte_constant(right).is_some() || matches!(right, MirValue::PointerCell(_)))
+                && (!matches!(op, MirBinaryOp::Add | MirBinaryOp::Sub) || carry_in.is_some());
+            let shift = matches!(op, MirBinaryOp::Lsh | MirBinaryOp::Rsh)
+                && byte_constant(right).is_some_and(|count| count > 0);
+            if selected && (alu || shift) {
+                record_binary_flags(*op, &mut summary.machine.flag_writes);
+            } else if selected && matches!(op, MirBinaryOp::Lsh | MirBinaryOp::Rsh)
+                && byte_constant(right) == Some(0)
+            {
+                // Only evaluation of the left operand remains. A itself is
+                // a no-op; another selected byte source establishes A and NZ.
+                summary.machine.uses_previous_carry = false;
+                if *left == MirValue::Def(MirDef::Reg(MirReg::A)) {
+                    summary.machine.register_writes = MirRegisterSet::default();
+                } else {
+                    write_zn(&mut summary.machine.flag_writes);
+                }
+            } else {
+                possible_register_result(dst, &mut summary);
+                record_binary_flags(*op, &mut summary.machine.flag_clobbers);
             }
-            record_binary_flags(*op, &mut summary.machine.flag_writes);
-            mark_register_result_flags(dst, &mut summary);
+            if selected && alu && matches!(op, MirBinaryOp::Add | MirBinaryOp::Sub) {
+                summary.machine.uses_previous_carry = !matches!((op, carry_in),
+                    (MirBinaryOp::Add, Some(MirCarryIn::Clear))
+                    | (MirBinaryOp::Sub, Some(MirCarryIn::Set)));
+            }
             summary.removable_when_results_dead = true;
             if matches!(
                 op,
@@ -530,34 +574,27 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             set_register(&mut summary.machine.register_writes, MirReg::A);
             summary.machine.uses_previous_carry =
                 matches!(carry_in, Some(MirCarryIn::FromPrevious));
-            let initializes_carry =
-                matches!(carry_in, None | Some(MirCarryIn::Clear | MirCarryIn::Set));
-            if matches!(op, MirBinaryOp::Add | MirBinaryOp::Sub) && initializes_carry {
-                summary.machine.definitely_overwrites_carry = true;
-                summary.machine.definitely_overwrites_overflow = true;
-            }
             record_binary_flags(*op, &mut summary.machine.flag_writes);
-            summary.machine.writes_any_flags_compat = summary.machine.flag_writes.any();
         }
         MirOp::UpdateMem { op, mem, width } => {
             record_memory_range_read(mem, *width, &mut summary);
             record_definite_memory_range_write(mem, *width, &mut summary);
             write_zn(&mut summary.machine.flag_writes);
+            if *width == MirWidth::Word && *op == MirUpdateOp::Dec {
+                summary.machine.register_writes.a = true;
+            }
             if matches!(op, MirUpdateOp::Lsr | MirUpdateOp::Ror) {
                 summary.machine.flag_writes.c = true;
-                summary.machine.definitely_overwrites_carry = *op == MirUpdateOp::Lsr;
                 if *op == MirUpdateOp::Ror {
                     summary.machine.flag_reads.c = true;
                     summary.machine.uses_previous_carry = true;
                 }
             }
-            summary.machine.writes_any_flags_compat = true;
         }
         MirOp::UpdateReg { reg, .. } => {
             set_register(&mut summary.machine.register_reads, *reg);
             set_register(&mut summary.machine.register_writes, *reg);
             write_zn(&mut summary.machine.flag_writes);
-            summary.machine.writes_any_flags_compat = true;
         }
         MirOp::UpdateIndexedMem { base, .. } => {
             let addr = MirAddr::AbsoluteIndexedX { base: base.clone() };
@@ -565,7 +602,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             record_store_addr(&addr, MirWidth::Byte, &mut summary);
             set_register(&mut summary.machine.register_reads, MirReg::X);
             write_zn(&mut summary.machine.flag_writes);
-            summary.machine.writes_any_flags_compat = true;
         }
         MirOp::AddByteToWordMem { mem, value } | MirOp::SubByteFromWordMem { mem, value } => {
             let high = offset_mem(mem, 1);
@@ -576,7 +612,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             record_definite_memory_write(&high, &mut summary);
             summary.machine.conservative_register_clobbers.a = true;
             summary.machine.flag_clobbers = MirFlagSet::all();
-            summary.machine.writes_any_flags_compat = true;
         }
         MirOp::OffsetPointerByIndirectByte {
             dst,
@@ -601,7 +636,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
                 summary.homes.unknown_reads = true;
             }
             summary.machine.flag_clobbers = MirFlagSet::all();
-            summary.machine.writes_any_flags_compat = true;
         }
         MirOp::CopyIndirectWord {
             source,
@@ -622,7 +656,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.machine.conservative_register_clobbers.x = true;
             summary.machine.conservative_register_clobbers.y = true;
             summary.machine.flag_clobbers = MirFlagSet::all();
-            summary.machine.writes_any_flags_compat = true;
         }
         MirOp::CopyDirectWordToIndirect {
             source,
@@ -641,7 +674,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.machine.conservative_register_clobbers.x = true;
             summary.machine.conservative_register_clobbers.y = true;
             summary.machine.flag_clobbers = MirFlagSet::all();
-            summary.machine.writes_any_flags_compat = true;
         }
         MirOp::CopyIndirectBytesToFixedZp {
             source,
@@ -662,7 +694,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
                 n: true,
                 ..MirFlagSet::default()
             };
-            summary.machine.writes_any_flags_compat = true;
         }
         MirOp::AbsoluteWordSubToIndirect {
             source,
@@ -684,11 +715,8 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.machine.conservative_register_clobbers.x = true;
             summary.machine.conservative_register_clobbers.y = true;
             summary.machine.flag_clobbers = MirFlagSet::all();
-            summary.machine.writes_any_flags_compat = true;
         }
-        MirOp::Compare {
-            dst, left, right, ..
-        } => {
+        MirOp::Compare { dst, op, left, right, width, signed } => {
             record_value(left, &mut summary);
             record_value(right, &mut summary);
             match dst {
@@ -706,16 +734,38 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
                     });
                     // Materializing a Boolean compare result branches to load
                     // canonical 0/1 into A before storing the temp home.
-                    set_register(&mut summary.machine.register_writes, MirReg::A);
                     summary.machine.conservative_register_clobbers.a = true;
                 }
-                MirCondDest::Flags => {
-                    summary.machine.definitely_overwrites_carry = true;
-                }
+                MirCondDest::Flags => {}
             }
-            summary.machine.flag_writes.c = true;
-            write_zn(&mut summary.machine.flag_writes);
-            summary.machine.writes_any_flags_compat = true;
+            let selected = *width == MirWidth::Byte && !signed && selected_byte_value(left)
+                && (byte_constant(right).is_some() || matches!(right, MirValue::PointerCell(_)));
+            if selected {
+                write_zn(&mut summary.machine.flag_writes);
+                if matches!(dst, MirCondDest::Temp(_)) {
+                    // Boolean arms (including a folded constant) load 0/1.
+                    summary.machine.register_writes.a = true;
+                    summary.machine.flag_clobbers.c = true;
+                } else {
+                    let index_compare = matches!(left, MirValue::Def(MirDef::Reg(MirReg::X | MirReg::Y)))
+                        && byte_constant(right).is_some();
+                    let omitted_zero_cmp = !index_compare && matches!(op, MirCompareOp::Eq | MirCompareOp::Ne)
+                        && byte_constant(right) == Some(0);
+                    summary.machine.flag_writes.c = !omitted_zero_cmp;
+                    summary.machine.flag_clobbers.c = omitted_zero_cmp;
+                    if !index_compare && *left != MirValue::Def(MirDef::Reg(MirReg::A)) {
+                        summary.machine.register_writes.a = true;
+                    }
+                }
+            } else {
+                // Unselected word/Boolean recipes have logical results, not
+                // a guaranteed physical comparison at this stage.
+                summary.machine.conservative_register_clobbers.a = true;
+                summary.machine.flag_clobbers = MirFlagSet {
+                    c: true, z: true, n: true,
+                    v: !matches!(op, MirCompareOp::Eq | MirCompareOp::Ne) && (*width != MirWidth::Byte || *signed),
+                };
+            }
             summary.removable_when_results_dead = matches!(dst, MirCondDest::Temp(_));
         }
         MirOp::CompareIndirectBytes {
@@ -723,6 +773,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             left,
             right,
             offset,
+            signed,
             ..
         }
         | MirOp::CompareIndirectWords {
@@ -730,6 +781,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             left,
             right,
             offset,
+            signed,
             ..
         } => {
             record_consumer_read(*left, &mut summary);
@@ -752,13 +804,24 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
                         offset: 0,
                     });
                 }
-                MirCondDest::Flags => {
-                    summary.machine.definitely_overwrites_carry = true;
-                }
+                MirCondDest::Flags => {}
             }
-            summary.machine.flag_writes.c = true;
-            write_zn(&mut summary.machine.flag_writes);
-            summary.machine.writes_any_flags_compat = true;
+            let word = matches!(op, MirOp::CompareIndirectWords { .. });
+            let ordinary = matches!((left, right),
+                (MirAddressConsumer::IndirectIndexedY(_), MirAddressConsumer::IndirectIndexedY(_)))
+                && *offset <= if word { 254 } else { 255 };
+            let live = !word && left.uses_live_y() && right.uses_live_y() && *offset == 0;
+            if *dst == MirCondDest::Flags && !signed && (ordinary || live) {
+                summary.machine.flag_writes.c = true;
+                summary.machine.flag_writes.v = word;
+                write_zn(&mut summary.machine.flag_writes);
+            } else {
+                summary.machine.register_writes = MirRegisterSet::default();
+                summary.machine.conservative_register_clobbers.a = true;
+                summary.machine.conservative_register_clobbers.y = true;
+                summary.machine.flag_writes = MirFlagSet::default();
+                summary.machine.flag_clobbers = MirFlagSet::all();
+            }
             summary.removable_when_results_dead = matches!(dst, MirCondDest::Temp(_));
         }
         MirOp::CompareDirectIndexedBytes {
@@ -766,6 +829,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             left,
             right,
             index,
+            signed,
             ..
         } => {
             record_memory_read(left, &mut summary);
@@ -787,13 +851,16 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
                         offset: 0,
                     });
                 }
-                MirCondDest::Flags => {
-                    summary.machine.definitely_overwrites_carry = true;
-                }
+                MirCondDest::Flags => {}
             }
-            summary.machine.flag_writes.c = true;
-            write_zn(&mut summary.machine.flag_writes);
-            summary.machine.writes_any_flags_compat = true;
+            if *dst == MirCondDest::Flags && !signed && matches!(index, MirReg::X | MirReg::Y) {
+                summary.machine.flag_writes.c = true;
+                write_zn(&mut summary.machine.flag_writes);
+            } else {
+                summary.machine.register_writes = MirRegisterSet::default();
+                summary.machine.conservative_register_clobbers.a = true;
+                summary.machine.flag_clobbers = MirFlagSet::all();
+            }
             summary.removable_when_results_dead = matches!(dst, MirCondDest::Temp(_));
         }
         MirOp::PackedRealCompare { .. } => {
@@ -811,7 +878,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.machine.conservative_register_clobbers.a = true;
             summary.machine.flag_clobbers.c = true;
             write_zn(&mut summary.machine.flag_writes);
-            summary.machine.writes_any_flags_compat = true;
         }
         MirOp::PackedRealCopy {
             source,
@@ -828,7 +894,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             set_register(&mut summary.machine.register_writes, MirReg::A);
             summary.machine.conservative_register_clobbers.a = true;
             if matches!(source, MirAddr::Direct(_)) && matches!(destination, MirAddr::Direct(_)) {
-                set_register(&mut summary.machine.register_writes, MirReg::X);
+                // The forward-overlap fallback is unrolled and preserves X.
                 summary.machine.conservative_register_clobbers.x = true;
             } else {
                 set_register(&mut summary.machine.register_writes, MirReg::Y);
@@ -836,7 +902,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
                 summary.machine.flag_clobbers.c = true;
             }
             write_zn(&mut summary.machine.flag_writes);
-            summary.machine.writes_any_flags_compat = true;
         }
         MirOp::Call {
             target,
@@ -865,7 +930,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             if clobbers.flags {
                 summary.machine.flag_clobbers = MirFlagSet::all();
             }
-            summary.machine.writes_any_flags_compat = true;
             summary.machine.unknown_flag_or_a_effects = true;
         }
         MirOp::SArgsCapture { first_param, effects, .. } => {
@@ -876,7 +940,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             apply_structured_effects(effects, false, &mut summary);
             summary.machine.conservative_register_clobbers =
                 incomplete_call_clobbers(effects.clobbers, effects.preserves);
-            summary.machine.writes_any_flags_compat = true;
             summary.machine.unknown_flag_or_a_effects = true;
         }
         MirOp::RuntimeHelper {
@@ -906,7 +969,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             apply_structured_effects(effects, false, &mut summary);
             summary.machine.conservative_register_clobbers =
                 incomplete_call_clobbers(effects.clobbers, effects.preserves);
-            summary.machine.writes_any_flags_compat = true;
             summary.machine.unknown_flag_or_a_effects = true;
         }
         MirOp::MaterializeAddress { consumer, value } => {
@@ -935,7 +997,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
                 );
             }
             summary.machine.flag_clobbers = MirFlagSet::all();
-            summary.machine.writes_any_flags_compat = true;
         }
         MirOp::AdvanceAddress {
             consumer, index, ..
@@ -982,7 +1043,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.memory.has_unknown_effects_compat = true;
             summary.machine.conservative_register_clobbers.a = true;
             summary.machine.flag_clobbers = MirFlagSet::all();
-            summary.machine.writes_any_flags_compat = true;
         }
         MirOp::IndirectWordCompound {
             target,
@@ -1011,7 +1071,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.machine.conservative_register_clobbers.a = true;
             summary.machine.conservative_register_clobbers.y = true;
             summary.machine.flag_clobbers = MirFlagSet::all();
-            summary.machine.writes_any_flags_compat = true;
         }
         MirOp::Barrier { effects } => {
             apply_structured_effects(effects, true, &mut summary);
@@ -1027,6 +1086,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         }
     }
 
+    summary.machine.flag_reads.c |= summary.machine.uses_previous_carry;
     summary
 }
 
@@ -1585,14 +1645,12 @@ fn record_indirect_y_access(
     if !consumer.preserves_index_in_y() {
         set_register(&mut summary.machine.register_writes, MirReg::Y);
         write_zn(&mut summary.machine.flag_writes);
-        summary.machine.writes_any_flags_compat = true;
         return;
     }
     set_register(&mut summary.machine.register_reads, MirReg::Y);
     if offset == 1 {
         set_register(&mut summary.machine.register_writes, MirReg::Y);
         write_zn(&mut summary.machine.flag_writes);
-        summary.machine.writes_any_flags_compat = true;
     }
 }
 
@@ -1760,10 +1818,45 @@ fn mark_may_write_any(summary: &mut MirOpEffectSummary) {
     summary.memory.may_write_any_compat = true;
 }
 
+/// Emit-ready sources handled by emit_value_to_a; placement still owns the
+/// actual address. Other forms need selection before physical guarantees.
+fn selected_byte_value(value: &MirValue) -> bool {
+    byte_constant(value).is_some() || matches!(value,
+        MirValue::Def(MirDef::Reg(_)) | MirValue::PointerCell(_)
+        | MirValue::StorageAddrByte { byte: 0 | 1, .. }
+        | MirValue::RoutineAddrByte { byte: 0 | 1, .. })
+}
+
+fn byte_constant(value: &MirValue) -> Option<u8> {
+    match value {
+        MirValue::ConstU8(value) => Some(*value),
+        MirValue::ConstU16(value) => u8::try_from(*value).ok(),
+        _ => None,
+    }
+}
+
+fn selected_byte_move(dst: &MirDef, src: &MirValue) -> bool {
+    match dst {
+        MirDef::Reg(MirReg::A) => selected_byte_value(src),
+        MirDef::Reg(MirReg::X | MirReg::Y) => byte_constant(src).is_some() || matches!(src,
+            MirValue::Def(MirDef::Reg(MirReg::A))
+            | MirValue::StorageAddrByte { byte: 0 | 1, .. }
+            | MirValue::RoutineAddrByte { byte: 0 | 1, .. }),
+        _ => false,
+    }
+}
+
+fn possible_register_result(dst: &MirDef, summary: &mut MirOpEffectSummary) {
+    if let MirDef::Reg(reg) = dst {
+        summary.machine.register_writes = MirRegisterSet::default();
+        set_register(&mut summary.machine.conservative_register_clobbers, *reg);
+        write_zn(&mut summary.machine.flag_clobbers);
+    }
+}
+
 fn mark_register_result_flags(def: &MirDef, summary: &mut MirOpEffectSummary) {
     if matches!(def, MirDef::Reg(_)) {
         write_zn(&mut summary.machine.flag_writes);
-        summary.machine.writes_any_flags_compat = true;
     }
 }
 
@@ -2024,8 +2117,8 @@ mod tests {
             width: MirWidth::Byte,
         });
         assert_eq!(effects.machine.flag_writes, MirFlagSet::all());
-        assert!(effects.machine.definitely_overwrites_carry);
-        assert!(effects.machine.definitely_overwrites_overflow);
+        assert!(effects.machine.flag_writes.c);
+        assert!(effects.machine.flag_writes.v);
         assert!(!effects.machine.uses_previous_carry);
     }
 
@@ -2588,11 +2681,13 @@ mod tests {
         }
         assert!(effects.memory.indirect_reads);
         assert!(effects.memory.has_unknown_effects);
-        assert!(effects.writes_reg(MirReg::A));
-        assert!(effects.writes_reg(MirReg::Y));
-        assert!(effects.machine.flag_writes.c);
-        assert!(effects.machine.flag_writes.z);
-        assert!(effects.machine.flag_writes.n);
+        assert!(!effects.writes_reg(MirReg::A));
+        assert!(effects.machine.possible_register_writes().a);
+        assert!(!effects.writes_reg(MirReg::Y));
+        assert!(effects.machine.possible_register_writes().y);
+        assert!(effects.machine.possible_flag_writes().c);
+        assert!(effects.machine.possible_flag_writes().z);
+        assert!(effects.machine.possible_flag_writes().n);
         assert!(
             effects
                 .logical
@@ -3038,3 +3133,7 @@ mod tests {
         assert!(!combined.memory.direct_reads.is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "machine_definitions_tests.rs"]
+mod machine_definitions_tests;

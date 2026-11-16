@@ -3591,7 +3591,8 @@ fn dead_a_load_before_flag_overwrite_shape_at(ops: &[MirOp], index: usize) -> Op
     (same_value_index_load
         && !op_reads_reg(next, MirReg::A)
         && !op_uses_previous_carry(next)
-        && op_writes_flags(next))
+        && classify_op(next).machine.flag_writes.z
+        && classify_op(next).machine.flag_writes.n)
     .then_some(MirReg::A)
 }
 
@@ -3612,7 +3613,8 @@ fn dead_reg_write_before_overwrite_shape_at(ops: &[MirOp], index: usize) -> Opti
     if !op_writes_reg(next, reg)
         || op_reads_reg(next, reg)
         || op_uses_previous_carry(next)
-        || !op_writes_flags(next)
+        || !classify_op(next).machine.flag_writes.z
+        || !classify_op(next).machine.flag_writes.n
     {
         return None;
     }

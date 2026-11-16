@@ -989,6 +989,10 @@ fn explicit_zn_result(
     before: &MirMachineValueState,
     known_callees: &MirKnownCalleeSummaries,
 ) -> Option<MirMachineValue> {
+    let flags = classify_op(op).machine.flag_writes;
+    if !matches!(op, MirOp::Call { .. }) && !(flags.z && flags.n) {
+        return None;
+    }
     match op {
         MirOp::LoadImm {
             dst: MirDef::Reg(_),
@@ -1049,6 +1053,10 @@ fn explicit_zn_register_result(
     op: &MirOp,
     known_callees: &MirKnownCalleeSummaries,
 ) -> Option<MirReg> {
+    let flags = classify_op(op).machine.flag_writes;
+    if !matches!(op, MirOp::Call { .. }) && !(flags.z && flags.n) {
+        return None;
+    }
     match op {
         MirOp::LoadImm {
             dst: MirDef::Reg(reg),
@@ -1255,6 +1263,19 @@ mod tests {
         let values = analyze(&r);
         assert_eq!(values.register_at(after, MirReg::X), Ok(None));
         assert_eq!(values.zn_value_at(after), Ok(None));
+    }
+
+    #[test]
+    fn self_move_preserves_prior_zn_provenance_instead_of_claiming_a() {
+        let r = routine(vec![block(0, vec![
+            MirOp::LoadImm { dst: MirDef::Reg(MirReg::A), value: 7, width: MirWidth::Byte },
+            MirOp::LoadImm { dst: MirDef::Reg(MirReg::X), value: 0, width: MirWidth::Byte },
+            MirOp::Move { dst: MirDef::Reg(MirReg::A), src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte },
+        ], MirTerminator::Return)]);
+        let values = analyze(&r);
+        let after = MirSite::Terminator { block: MirBlockId(0) };
+        assert_eq!(values.register_at(after, MirReg::A), Ok(Some(MirMachineValue::ConstU8(7))));
+        assert_eq!(values.zn_value_at(after), Ok(Some(MirMachineValue::ConstU8(0))));
     }
 
     fn analyze_caller_with_known_callee(

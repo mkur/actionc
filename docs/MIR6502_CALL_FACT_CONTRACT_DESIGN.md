@@ -342,16 +342,16 @@ incoming register or flag values in liveness. A possible clobber invalidates
 value knowledge but cannot establish a definition. Apply this distinction to
 A/X/Y and individual C/Z/N/V flags as consistently as issue 2 applies it to homes.
 
-### Current disagreement
+### Motivating disagreement
 
-The [effect classifier](../src/mir6502/analysis/effects.rs) reports broad machine
-writes and clobbers. Ordinary [machine liveness](../src/mir6502/analysis/machine_liveness.rs)
-merges `register_writes` with `register_clobbers`, and `flag_writes` with
-`flag_clobbers`. Entry analysis then replaces only the flag definitions with a
-separate `entry_flag_transfer` whitelist. Register definitions still inherit the
-ordinary transfer. Neither path provides a consistent guaranteed-definition rule.
+Before this repair, the [effect classifier](../src/mir6502/analysis/effects.rs)
+reported broad machine writes and clobbers. Ordinary [machine liveness](../src/mir6502/analysis/machine_liveness.rs)
+merged `register_writes` with `register_clobbers`, and `flag_writes` with
+`flag_clobbers`. Entry analysis then replaced only the flag definitions with a
+separate `entry_flag_transfer` whitelist. Register definitions still inherited the
+ordinary transfer. Neither path provided a consistent guaranteed-definition rule.
 
-There are also two flag-entry answers: `scalar_entry_ignores_flags` uses ordinary
+There were also two flag-entry answers: `scalar_entry_ignores_flags` uses ordinary
 liveness on a cloned body with conservative call observations, while
 `MirKnownCalleeEntryFlags` uses the narrower entry transfer. The shared native
 entry fact uses the latter transfer, with optional certified call inputs.
@@ -366,7 +366,7 @@ Simply accepting every `Compare` is also wrong. In
 constant loads, and equality with zero can call `emit_cmp_imm_for_z_branch`.
 The [tracked emitter](../src/codegen/tracked_emitter.rs) may omit that CMP when
 the existing Z/N flags already describe A. Such a comparison does not guarantee
-a fresh C definition. The current `definitely_overwrites_carry` assignment for
+a fresh C definition. The old `definitely_overwrites_carry` assignment for
 all flag-destination compares is therefore broader than its name promises.
 
 ### One authority, using the existing effect structure

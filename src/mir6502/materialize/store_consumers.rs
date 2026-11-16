@@ -9,7 +9,7 @@ use super::word_sources::{
     word_consumer_byte_value_is_safe, word_consumer_load_source, word_consumer_pointer_mem_is_safe,
 };
 use super::*;
-use crate::mir6502::analysis::effects::MirFlagSet;
+use crate::mir6502::analysis::effects::{MirFlagSet, classify_op};
 use crate::mir6502::ir::{MirRegisterSet, MirRoutine, MirStorageClass};
 use crate::mir6502::rewrite::context::{MirExitStateChange, PostHomeRewriteContext};
 use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
@@ -3720,7 +3720,9 @@ fn can_forward_word_binary_to_word_direct_store(
 }
 
 fn binary_flags_may_be_live_after(ops: &[MirOp], start: usize, terminator: &MirTerminator) -> bool {
-    terminator_consumes_flags(terminator) && !ops[start..].iter().any(op_writes_flags)
+    crate::mir6502::analysis::machine_liveness::MirMachineLiveness::flags_observed_before_tail(
+        &ops[start..], terminator,
+    ).any()
 }
 
 fn byte_binary_store_addr_is_supported(store_dst: &MirAddr) -> bool {
@@ -4278,13 +4280,14 @@ fn tail_allows_inc_dec_update_after(
         if a_live && op_reads_reg(op, MirReg::A) {
             return false;
         }
-        if carry_live && op_uses_previous_carry(op) {
+        let machine = classify_op(op).machine;
+        if (carry_live && machine.flag_reads.c) || (overflow_live && machine.flag_reads.v) {
             return false;
         }
         if !a_live && !carry_live && !overflow_live {
             return true;
         }
-        if op_writes_reg(op, MirReg::A) {
+        if machine.register_writes.a {
             a_live = false;
         }
         if op_overwrites_carry(op) {
@@ -4293,13 +4296,9 @@ fn tail_allows_inc_dec_update_after(
         if op_overwrites_overflow(op) {
             overflow_live = false;
         }
-        if op_clobbers_unknown_flag_or_a_effects(op) {
-            a_live = false;
-            carry_live = false;
-            overflow_live = false;
-            continue;
-        }
-        if op_has_opaque_flag_or_a_effects(op) && (a_live || carry_live || overflow_live) {
+        if (op_clobbers_unknown_flag_or_a_effects(op) || op_has_opaque_flag_or_a_effects(op))
+            && (a_live || carry_live || overflow_live)
+        {
             return false;
         }
     }
@@ -5153,3 +5152,18 @@ fn explicit_byte_carry(op: MirBinaryOp, carry_in: Option<MirCarryIn>) -> Option<
 
 #[cfg(test)]
 mod word_move_tests;
+
+#[cfg(test)]
+mod machine_definition_tests {
+    use super::*;
+    #[test]
+    fn inc_dec_tail_does_not_treat_finite_clobber_as_a_definition() {
+        let clobber = MirOp::MachineBlock { id: super::super::super::ir::MirMachineBlockId(0),
+            effects: MirEffects { clobbers: MirRegisterSet { a: true, flags: true, ..Default::default() }, ..Default::default() } };
+        let read_a = MirOp::Store { dst: MirAddr::Direct(MirMem::Absolute(0x7000)),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte };
+        assert!(!tail_allows_inc_dec_update_after(&[clobber.clone(), read_a.clone()], 0, &MirTerminator::Return));
+        let load = MirOp::LoadImm { dst: MirDef::Reg(MirReg::A), value: 0, width: MirWidth::Byte };
+        assert!(tail_allows_inc_dec_update_after(&[clobber, load, read_a], 0, &MirTerminator::Return));
+    }
+}

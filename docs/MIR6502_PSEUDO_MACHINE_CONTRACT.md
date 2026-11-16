@@ -65,6 +65,16 @@ definitions, may kill an incoming home value, replace a reaching definition,
 initialize an allocated private byte, or supply a replacement read. A finite
 may-write cannot establish a value any more than an unknown may-write can.
 
+Machine effects use the same distinction: `register_writes` and `flag_writes`
+are guaranteed boundary definitions, while declared/conservative clobbers are
+possible changes. Liveness applies reads before subtracting guaranteed writes.
+Value invalidation and rewrite effect preservation use the possible-change union;
+selecting a concrete recipe may refine a possible write into a definition, but a
+selected result still requires an actual guaranteed definition. Finite call or
+machine annotations never initialize machine values. Identity moves and zero-work
+shifts do not establish flags. These rules also govern local cleanup and CFG
+redefinition checks; they do not maintain separate definition whitelists.
+
 **Entry requirements** describe incoming machine values observed before a
 guaranteed definition. Typed global reads remain program-memory observations,
 including when backed by ZP, and do not become caller-supplied arguments.
@@ -861,26 +871,28 @@ enables this extension; the conservative default keeps it off. See the
 MIR6502 analysis metadata can describe incoming C/N/Z/V observations as a
 known mask or unknown. Entry proofs use certified definitions; conservative
 flag clobbers and register self-moves do not kill an incoming dependency.
-Only certified byte definitions discharge input bits; other shapes retain
-dependencies. Every nested call, helper
-or barrier observes all flags, and machine-block eligibility stays closed.
-Incoming masks establish neither incidental output flag values nor a weaker
-ABI preservation contract.
+Definitions come from the central operation classifier, shared with ordinary
+machine liveness and local cleanup. Nested uncertified calls, helpers and barriers
+observe all flags under the conservative entry policy; certified acyclic calls
+use the child's actual inputs. Machine-block eligibility stays closed. Incoming
+masks establish neither incidental output flag values nor a weaker ABI
+preservation contract.
 
-Unsigned `CompareIndirectBytes` with a Flags destination definitely defines
-C/N/Z and preserves V when both consumers are ordinary indirect-Y with a byte
-offset, or both are live-Y with offset zero. Both selected recipes execute a
-real CMP. Signed, temporary-result, mixed/unsupported consumers and general
-comparisons that may fold or reuse flags retain their conservative entry
-dependencies. A definition on only one CFG arm cannot discharge another arm's
-incoming flags; observations before the compare remain entry requirements.
-Unsigned byte Flags comparisons of A against a direct memory operand also
-definitely define C/N/Z: their selected CMP cannot be omitted. This does not
-certify immediate equality-to-zero comparisons, which can reuse earlier flags.
+Selected unsigned byte CMP/CPX/CPY comparisons establish C/N/Z and preserve V.
+The supported direct-memory and indirect comparisons use the same rule. For
+A equality/inequality with zero, emission may reuse existing N/Z instead of
+executing CMP: N/Z have the comparison postcondition, but C is only possibly
+changed. Folded Boolean compares establish A and N/Z, without guaranteeing C.
+Unselected word recipes do not promise physical definitions; their selected
+byte chains are analyzed after expansion. Reads of incoming carry remain reads
+even when ADC/SBC/rotate also define carry. A definition on only one CFG arm
+cannot discharge another arm's incoming flags. Layout-dependent packed-REAL
+copies only possibly change X because their forward-overlap path is unrolled.
 
 `enable_precise_callee_entry_flags` permits additional late argument-X
 admissions when only N/Z are unobserved. The optimized configuration enables
-it; the conservative default keeps it off. The coarse all-flags path retains its existing policy. A typed
+it; the conservative default keeps it off. The coarse all-flags answer is the
+all-bits projection of the same eligible entry analysis. A typed
 witness records the target, requested bits and immutable callee body; driver
 reconstruction checks the supplied snapshot and final replay uses proposed
 callee facts. Consumed input bits and published output facts must survive the

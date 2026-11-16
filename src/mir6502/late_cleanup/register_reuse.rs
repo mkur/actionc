@@ -467,8 +467,8 @@ mod tests {
                     bytes(&program(expanded.clone()))
                 );
                 let effects = classify_op(&expanded[2]);
-                assert!(effects.machine.definitely_overwrites_carry);
-                assert!(effects.machine.definitely_overwrites_overflow);
+                assert!(effects.machine.flag_writes.c);
+                assert!(effects.machine.flag_writes.v);
                 assert!(effects.memory.indirect_reads);
                 assert!(!effects.memory.indirect_writes);
                 assert!(classify_op(&expanded[5]).machine.uses_previous_carry);

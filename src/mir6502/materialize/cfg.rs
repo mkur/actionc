@@ -3001,7 +3001,6 @@ fn machine_flag_unobserved_before_redefinition(
                 return false;
             }
             if effects.machine.flag_writes.contains(flag)
-                || effects.machine.flag_clobbers.contains(flag)
             {
                 redefined = true;
                 break;
@@ -3047,7 +3046,6 @@ fn machine_register_unobserved_before_redefinition(
                 return false;
             }
             if register_read(&effects.machine.register_writes, register)
-                || register_read(&effects.machine.register_clobbers, register)
             {
                 redefined = true;
                 break;
@@ -3407,8 +3405,8 @@ fn resolved_empty_jump_target(
 mod tests {
     use super::*;
     use crate::mir6502::ir::{
-        MirAddr, MirCompareOp, MirCondDest, MirDef, MirEdge, MirFlagTest, MirMem, MirProgram,
-        MirReg, MirWidth,
+        MirAddr, MirBinaryOp, MirCarryIn, MirCarryOut, MirCompareOp, MirCondDest, MirDef, MirEdge, MirFlagTest, MirMem, MirProgram,
+        MirReg, MirRegisterSet, MirWidth,
     };
 
     fn block(id: u32, ops: Vec<MirOp>, terminator: MirTerminator) -> MirBlock {
@@ -3419,6 +3417,30 @@ mod tests {
             ops,
             terminator,
         }
+    }
+
+    #[test]
+    fn redefinition_scans_keep_reads_after_finite_clobbers() {
+        let mut r = crate::mir6502::analysis::argument_x_forwarding::tests::baseline().routines.remove(0);
+        let clobber = MirOp::MachineBlock { id: crate::mir6502::ir::MirMachineBlockId(0),
+            effects: crate::mir6502::ir::MirEffects {
+                clobbers: MirRegisterSet { a: true, flags: true, ..Default::default() }, ..Default::default()
+            }};
+        let read_a = MirOp::Store { dst: MirAddr::Direct(MirMem::Absolute(0x7000)),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte };
+        r.blocks = vec![block(0, vec![clobber, read_a], MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::CSet),
+            then_edge: MirEdge::plain(MirBlockId(1)), else_edge: MirEdge::plain(MirBlockId(1)),
+        }), block(1, vec![], MirTerminator::Return)];
+        let cfg = MirCfg::from_routine(&r).unwrap();
+        assert!(!machine_register_unobserved_before_redefinition(&r, &cfg, MirBlockId(0), MirReg::A));
+        assert!(!machine_flag_unobserved_before_redefinition(&r, &cfg, MirBlockId(0), MirBlockId(99), MirFlag::C));
+        // A real definition restores both proofs; annotation alone did not.
+        r.blocks[0].ops.insert(1, MirOp::Binary { op: MirBinaryOp::Add, dst: MirDef::Reg(MirReg::A),
+            left: MirValue::ConstU8(1), right: MirValue::ConstU8(1), width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::Clear), carry_out: MirCarryOut::Ignore });
+        assert!(machine_register_unobserved_before_redefinition(&r, &cfg, MirBlockId(0), MirReg::A));
+        assert!(machine_flag_unobserved_before_redefinition(&r, &cfg, MirBlockId(0), MirBlockId(99), MirFlag::C));
     }
 
     fn layout_for(routine: &MirRoutine) -> MaterializeLayout {
