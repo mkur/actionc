@@ -4,12 +4,14 @@ use super::*;
 use crate::mir6502::analysis::{
     effects::{MirFlagSet, classify_terminator},
     home_liveness::{MirHomeBlockTransfers, MirHomeLiveness, MirHomeTransfer},
-    machine_liveness::MirMachineLiveness,
+    machine_liveness::{MirMachineLiveness, MirMachineLiveSet},
 };
 use crate::mir6502::ir::{
     MirDef, MirDirectParamAbi, MirFlag, MirParamLane, MirRoutineAbi, MirStorageClass, MirValue, MirWidth,
 };
 use std::sync::Arc;
+
+mod acyclic;
 
 /// The caller establishes this boundary; bindings and operation prefixes cannot.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,12 +33,20 @@ pub(in crate::mir6502) struct MirCalleeEntryFact {
     machines: Vec<MirMachineBlock>,
     global_backings: Vec<(crate::nir::SymbolId, MirGlobalBacking, u16)>,
     pub inputs: Inputs,
+    dependencies: BTreeMap<RoutineId, Arc<MirCalleeEntryFact>>,
+    defined_results: BTreeSet<u8>,
 }
 impl MirCalleeEntryFact {
     pub fn analyze(
         program: &MirProgram,
         target: RoutineId,
         stage: MirCalleeEntryStage,
+    ) -> Option<Self> {
+        Self::analyze_with_dependencies(program, target, stage, None)
+    }
+    fn analyze_with_dependencies(
+        program: &MirProgram, target: RoutineId, stage: MirCalleeEntryStage,
+        dependencies: Option<BTreeMap<RoutineId, Arc<Self>>>,
     ) -> Option<Self> {
         let routine = program.routines.iter().find(|r| r.id == target)?;
         if routine.effects.opaque || routine.effects.may_call_os {
@@ -55,10 +65,11 @@ impl MirCalleeEntryFact {
             })
             .map(|id| program.machine_blocks.iter().find(|m| m.id == id).cloned())
             .collect::<Option<_>>()?;
-        let inputs = if !machines.is_empty() {
-            BoundedMachine::analyze(routine, program)?.entry_inputs()?
+        let (inputs, defined_results) = if !machines.is_empty() {
+            if dependencies.is_some() { return None; }
+            (BoundedMachine::analyze(routine, program)?.entry_inputs()?, BTreeSet::new())
         } else {
-            scalar_inputs(program, routine, stage)?
+            scalar_inputs(program, routine, stage, dependencies.as_ref())?
         };
         Some(Self {
             source: Arc::new(routine.clone()),
@@ -70,10 +81,13 @@ impl MirCalleeEntryFact {
                 .map(|g| (g.id, g.backing.clone(), g.storage_size))
                 .collect(),
             inputs,
+            dependencies: dependencies.unwrap_or_default(),
+            defined_results,
         })
     }
     pub fn is_current(&self, program: &MirProgram, stage: MirCalleeEntryStage) -> bool {
         self.stage == stage
+            && self.dependencies.values().all(|d| d.is_current(program, stage))
             && program.routines.iter().any(|r| r == self.source.as_ref())
             && self
                 .machines
@@ -92,7 +106,8 @@ fn scalar_inputs(
     program: &MirProgram,
     routine: &MirRoutine,
     stage: MirCalleeEntryStage,
-) -> Option<Inputs> {
+    dependencies: Option<&BTreeMap<RoutineId, Arc<MirCalleeEntryFact>>>,
+) -> Option<(Inputs, BTreeSet<u8>)> {
     // An observable native entry still uses the Action ABI. Its actual body
     // can supply a contract without granting permission to invent capture or
     // move its own storage. Planned capture remains compiler-owned only.
@@ -103,12 +118,12 @@ fn scalar_inputs(
         || routine.blocks.iter().flat_map(|b| &b.ops).any(|o| {
             matches!(
                 o,
-                MirOp::Call { .. }
-                    | MirOp::RuntimeHelper { .. }
+                MirOp::RuntimeHelper { .. }
                     | MirOp::SArgsCapture { .. }
                     | MirOp::Barrier { .. }
                     | MirOp::MachineBlock { .. }
-            )
+            ) || (matches!(o, MirOp::Call { .. })
+                && (stage != MirCalleeEntryStage::ActualEntry || dependencies.is_none()))
         })
     {
         return None;
@@ -187,6 +202,23 @@ fn scalar_inputs(
     for block in &routine.blocks {
         let mut ops = Vec::new();
         for op in &block.ops {
+            if let MirOp::Call { target: MirCallTarget::Routine(target), args, .. } = op {
+                let fact = dependencies?.get(target)?;
+                let callee = program.routines.iter().find(|r| r.id == *target)?;
+                let lanes = crate::mir6502::abi::canonical_call_lanes(callee, args).ok()?;
+                let mut reads = fact.inputs.fixed.iter().map(|s|
+                    MirHomeByte::FixedZeroPage(MirFixedZpSlot(*s))).collect::<BTreeSet<_>>();
+                reads.extend(lanes.iter().filter_map(|lane| match lane {
+                    MirParamLane::ZeroPage(s) => Some(MirHomeByte::FixedZeroPage(*s)), _ => None,
+                }));
+                ops.push(MirHomeTransfer {
+                    reads,
+                    writes: fact.defined_results.iter().map(|s|
+                        MirHomeByte::FixedZeroPage(MirFixedZpSlot(*s))).collect(),
+                });
+                continue;
+            }
+            if matches!(op, MirOp::Call { .. }) { return None; }
             let e = classify_op(op);
             if e.memory.opaque {
                 return None;
@@ -214,8 +246,30 @@ fn scalar_inputs(
             },
         );
     }
+    // A typed ABI result is a definite definition only when every returning
+    // path really defines it. Never infer this from a possible write footprint.
+    let defined_results = if dependencies.is_some() {
+        acyclic::defined_results(routine, &cfg, &transfers)
+    } else { BTreeSet::new() };
     let homes = MirHomeLiveness::analyze_transfers(routine, &cfg, transfers);
-    let live = MirMachineLiveness::entry_inputs(routine, &cfg)?;
+    let live = if let Some(dependencies) = dependencies {
+        MirMachineLiveness::entry_inputs_with_calls(routine, &cfg, &|op| {
+            let MirOp::Call { target: MirCallTarget::Routine(target), args, .. } = op else { unreachable!() };
+            let inputs = &dependencies[target].inputs;
+            let mut registers = inputs.registers;
+            for arg in args {
+                for lane in crate::mir6502::abi::physical_lanes(&arg.home, arg.width).unwrap() {
+                    match lane {
+                        MirParamLane::Reg(MirReg::A) => registers.a = true,
+                        MirParamLane::Reg(MirReg::X) => registers.x = true,
+                        MirParamLane::Reg(MirReg::Y) => registers.y = true,
+                        _ => {},
+                    }
+                }
+            }
+            MirMachineLiveSet { registers, flags: inputs.flags }
+        })?
+    } else { MirMachineLiveness::entry_inputs(routine, &cfg)? };
     // A retained lane has no memory capture. Conservatively require its
     // canonical register even if this body happens not to observe it.
     let retained = |reg| {
@@ -232,7 +286,7 @@ fn scalar_inputs(
                 })
             })
     };
-    Some(Inputs {
+    Some((Inputs {
         registers: MirRegisterSet {
             a: live.register_live(MirReg::A) || retained(MirReg::A),
             x: live.register_live(MirReg::X) || retained(MirReg::X),
@@ -257,7 +311,7 @@ fn scalar_inputs(
                 }
             })
             .collect(),
-    })
+    }, defined_results))
 }
 
 /// Byte widths alone cannot distinguish a pointer from an aggregate or a

@@ -17,6 +17,12 @@ using the existing ordinary-call batch. The
 is implemented and [qualified](benchmarks/6502-whole-image-cost/README.md).
 Compiler baseline `8626beff` applied the per-routine veto.
 
+The [broader-placement extension](#proposed-extension-zp-placement-through-acyclic-call-chains)
+below is proposed, not implemented. It extends the same home-selection authority
+through acyclic native call chains, retaining per-object call-site lifetimes and
+native `=*` actual-entry analysis. Entry-contract composition and coordinated
+placement use the existing single ordinary-call batch.
+
 The completed [leaf implementation plan](MIR6502_PARAMETER_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
 covers the leaf scope. The [handoff implementation plan](MIR6502_PARAMETER_ARGUMENT_HANDOFF_IMPLEMENTATION_PLAN.md)
 records the completed slices and qualification gates for the extension.
@@ -1295,3 +1301,298 @@ homes, all changed routine footprints, artifact hashes and compiler work. Both
 arms remain bounded to one ordinary-call continuation. An unchanged TN result
 is acceptable if independent savings and correctness are established; report the
 remaining blocker and retain exact fallback.
+
+## Proposed extension: ZP placement through acyclic call chains
+
+The [implementation plan](MIR6502_ACYCLIC_CALL_HOMES_IMPLEMENTATION_PLAN.md)
+divides this extension into four separately committed slices with focused checks.
+
+Proposed 2026-11-15; revised 2026-11-16 for implemented value lifetimes and native
+current-location callee admission. This extension is not implemented. Extend
+direct parameter/local residence beyond leaf routines and their immediate
+callers. Keep the existing binding tables, per-object call-site liveness,
+reservation policy, call ABI and whole-image transaction. Entry-dependent locals
+still require retained-value preservation; this extension does not make them
+invocation-local. MIR6502 owns the change; no source-language or NIR contract
+change is required.
+
+### Motivation and first boundary
+
+The [current qualification](benchmarks/6502-native-current-location-callees/README.md)
+records optimized ActionCart TN at `$3000`, **9,811 packaged bytes**, unchanged
+by native `=*` leaf admission. The
+[lifetime qualification](benchmarks/6502-zp-home-lifetimes/README.md) records
+Sort's `h` at `$E2/$E3`, its loop-carried `gap` spill at `$EC`, and
+PrintNonzeroDigit's `divisor` at `$A2`, alongside the established small-routine
+homes. Sort has 238 instruction bytes and no inline scalar/spill home. Its old
+Fnamecmp entry-flag blocker has been resolved.
+
+The motivating chain is `Caller -> Ord -> Next`. Ord already has ZP homes
+because Next is a supported leaf. A value in Caller that survives Ord still
+fails the nonleaf preservation check. Values dead at that call, or first
+defined afterwards, can already qualify under the lifetime rules. Distinguish
+source homes from spills, transient ABI/scratch use and source-owned ZP;
+an absent mapped home may also reflect capture/storage elimination.
+
+The current restrictions occur in distinct places:
+
+| Boundary | Current behavior | Intended extension |
+| --- | --- | --- |
+| Native write summaries | Already propagate through acyclic direct calls | Reuse their transitive coverage and directional read/write distinction. |
+| `ResidenceCalls::writes` | Certifies ordinary and native `=*` leaves; rejects callees containing calls | Certify supported acyclic native call closures for values live across invocation. |
+| `MirCalleeEntryFact` | Analyzes native `=*` actual entries, but native entry analysis still rejects calls | Compose supported nested entry obligations through actual setup and CFG. |
+| Call-input admission | Ordinary native dead boundaries can use the existing fallback; native `=*` calls require a complete actual-entry fact | Add composed facts without weakening input checks or removing existing ordinary dead-call eligibility. |
+| Placement discovery | Filters selected callee writes per object and call-site lifetime | Also exclude proposed descendant homes at the calls crossed by that object's values. |
+| Caller/object eligibility | Mixed inline/ZP homes, supported operations, unexposed scalars, at most four incoming bytes | Retain current ownership, entry-dependence, ABI and operation rules. |
+
+The first new case is `Outer -> Middle -> Leaf`, including several callees,
+diamonds, repeated sites and loops within a routine. A newly certified nonleaf
+contract requires a supported native call closure with complete entry
+requirements and conservative write coverage. This includes native
+`ActionObservable` (`=*`) callees through their actual entries. Keep their ABI
+classification, entry/patchability rules and own storage policy unchanged;
+analyzing their effects grants no new inlining, handoff or home-movement
+permission. Traversal uses `RoutineId`, not names or source order. A routine can
+supply a callee contract while all its own objects stay inline.
+
+Recursive call components, calls reaching such components, indirect/unresolved
+targets, OS calls, machine bodies, barriers, SArgs and unsupported helpers remain
+outside the new composition scope. Failure to certify such a closure rejects
+the new contract, not every home in its caller. Preserve existing ordinary
+dead-call behavior, including its recursive-call controls; it does not grant
+recursive preservation. Native `=*` entries still require complete actual-entry
+facts even at dead boundaries. Unknown writes cannot preserve a live home.
+Unknown pointee reads alone do not invalidate independently complete writes,
+but observations, inputs and ordering retain their existing proofs. Source-owned
+and ABI storage do not become unobservable.
+
+Call depth is only one remaining TN limit. Copy still fails the pointer-read/
+variable-word-arithmetic body guard; its SwapWin call also needs nonleaf entry
+composition. PopUp encounters Range's five-byte SArgs entry, and its `menu` and
+`c` independently have retained-value and address-exposure obligations. Assembly
+and OS boundaries retain their current restrictions. Complete write summaries
+can still exclude the entire pool: the existing Global-write alias rule is
+conservative about every ZP byte. This extension does not repair those separate
+limits or promise homes for these routines. No TN-specific admission rule is
+permitted.
+
+### Compose entry obligations in the shared analysis
+
+Extend [entry analysis](../src/mir6502/analysis/known_callees/entry_inputs.rs),
+not a private approximation inside the selector. Reuse the existing register,
+flag and home liveness machinery with supported call transfers. Analyze callees
+before callers, caching each result within one immutable program snapshot.
+Reject recursion or an unavailable dependency instead of treating it as an empty
+input set. The new nested-call proof operates at `ActualEntry`, analyzing each
+callee's real expanded capture and body. Preserve the existing `PlannedCapture`
+scope; in particular, do not synthesize a native `=*` prologue or broaden
+terminal handoff as a side effect. Discovery uses selected actual entries;
+final residence checks rebuild those facts from the expanded candidate.
+
+At each nested call, the callee's required registers, individual flags and fixed
+bytes are observations at that boundary. Propagate them backwards through actual
+argument setup and all CFG paths. A requirement established by the enclosing
+routine is not an extra input to that routine; a requirement not established on
+every relevant path remains an entry obligation. Keep canonical ABI validation
+at every site, including later calls to a previously validated target.
+
+Preservation, possible writes and definite definitions remain distinct. A
+may-write footprint must not kill an incoming-value dependency. Only an existing
+certified definition, including a typed ABI result guaranteed on return where
+available, can do so. Otherwise retain the dependency or reject the entry proof;
+do not infer a result definition from an incidental `$A0` store or a map signature.
+Calls do not logically initialize caller locals merely by touching their homes.
+Do not export mutable native exit N/Z facts to make an entry proof succeed.
+
+An entry fact that depends on another routine must become stale when that
+dependency's body, binding, ABI or relevant backing changes, even if the outer
+body is unchanged. Keep the existing source/phase identity checks and include
+transitive dependencies, or confine the dependent facts to the immutable owning
+analysis context. A routine-ID-only cache shared between selected and trial
+programs is insufficient. Extend freshness tests alongside this contract.
+
+### Complete transitive write coverage
+
+Reuse [known-callee summaries](../src/mir6502/analysis/known_callees.rs) and
+`MirKnownMemoryWrites::preserves_fixed_byte`. A caller value that survives an
+invocation must avoid its entire write footprint: entry capture, working homes,
+argument/result delivery for nested calls, allocated temporaries, implicit data
+scratch and all descendant writes. A byte restored before return still belongs
+to the possible write set. Both lanes of a word or pointer require coverage.
+Liveness decides where the footprint constrains a home; it does not narrow the
+published footprint itself.
+
+Resolve each routine's bound/virtual homes in that routine's own frame before
+using them as physical ZP exclusions. A descendant's `ParamId` or `LocalId` must
+never be interpreted in the caller's frame. Preserve existing storage identities
+for other memory queries; unresolved physical coverage cannot become a claim of
+ZP preservation. Fixed-ZP and absolute spellings alias. Implicit balanced CPU
+stack traffic remains governed by the existing stack/ABI contract; explicit
+stack-address accesses remain memory effects.
+
+This is a precision extension of the shared facts, not a new alias analysis.
+Unknown read footprints stay Unknown. Exact writes grant no permission to reorder
+or delete pointee reads, discard observable source stores, or weaken explicit
+assembly/ABI observations.
+
+### Coordinate proposed homes in one batch
+
+Simply allowing non-leaf callees is insufficient: two routines could choose the
+same apparently unused byte from old summaries, then clobber one another in the
+candidate. Coordinate discovery without trial-compiling each call-graph level.
+
+Start from the same immutable selected executable and retained pre-capture input
+used by the current ordinary-call trial. Use one deterministic callee-before-caller
+traversal of its supported acyclic call graph, with stable routine-ID ordering
+between unrelated routines. Build one proposal. Reuse the implemented logical
+home analysis for each parameter/local byte and each direct call site; do not
+replace it with a routine-wide union. For each candidate object:
+
+- At a call crossed by its value, exclude the selected callee's complete
+  transitive writes and every ZP home proposed for that callee or a descendant
+  in this batch. If either word lane is live, apply the exclusions to the whole
+  home. Missing preservation evidence makes this object ineligible across that
+  call, without excluding unrelated objects that do not cross it.
+- At a call where the value is dead, add no invocation-preservation exclusion
+  for it. Its last argument read precedes invocation effects; a later source
+  definition begins a new value lifetime. Still check call inputs and actual
+  argument setup, explicit observations and expanded physical conflicts.
+- Keep the existing source-owned, scratch, ABI and same-routine object
+  reservations. Preserve the exclusion of return slots at dead calls: reusing
+  them needs a separately proved source-value/result handoff.
+
+The additional exclusions are a small per-routine set of planned resident bytes,
+propagated upwards by union. They are placement constraints, not published callee
+effects. Keep selected writes even if a proposed home appears to make an old
+write unnecessary. This conservative rule avoids depending on predicted cleanup
+and does not need a placement fixed point. Already selected bindings stay fixed;
+only eligible remaining inline objects are considered by their existing path.
+
+Sibling routines may reuse a byte when their invocations do not overlap; there
+is no global unique-home assignment. An ancestor value live across either
+sibling must avoid its writes and proposed descendant homes. A value dead at
+that call may share those bytes under the existing checks, even if the same
+object receives a new value later. Keep one fixed authoritative home per object
+and conservatively disjoint source homes within a routine. This uses existing
+value lifetimes without adding region-specific homes, save/restore sequences,
+backing copies or a new allocator.
+
+For `Caller -> Ord -> Next`, a caller value live across Ord excludes the writes
+of both Ord and Next, plus any proposed homes in that subtree. A caller local
+defined after Ord has no preservation obligation for that call. If Caller calls
+Ord twice and the value survives only the second site, only that site's
+invocation footprint constrains it. Validate inputs at both sites even when the
+target's summary is cached.
+
+Proposed-home exclusions do not predict every change in generated scratch or
+entry capture. After the single core continuation, rebuild contracts from the
+expanded candidate and verify every resident caller, including deeper chains
+and routines whose own bindings did not change. A new hidden clobber or entry
+requirement rejects the batch. Never publish the discovery exclusions as proof
+that the emitted candidate preserves a byte.
+
+### Selection, layout and acceptance remain one transaction
+
+Add nested-call candidates to the existing combined ordinary-call proposal with
+the established single/multiple-leaf callers. This section extends the previous
+leaf-only discovery rule and specifies callee-before-caller order for the new
+scope. It does not add a trial per depth, a second ordinary-call batch, a subset
+retry or a separate preliminary compile to preserve an unmeasured subset's gains.
+`cross_call_home_trials` remains zero or one; an empty proposal adds no continuation.
+
+Qualify behind one nested-call discovery gate subordinate to the existing
+peephole, parameter-home, cross-call and value-lifetime gates. The multiple-call
+gate continues to govern the allowed number of sites. With the new gate off,
+retain current selection behavior and ordering. Do not enable it by default
+before qualification.
+
+Final acceptance requires valid bindings, actual entry/argument supply at each
+site, expanded lifetime verification, authoritative physical layout and replay
+of every earlier consumed preservation obligation. Facts and certificates from
+the selected program cannot substitute for proofs about the candidate. Keep
+bindings fixed during terminal cleanup; layout changes still require the existing
+physical alias checks and preservation replay.
+
+Require a strictly smaller complete packaged image. Report individual routine
+growth without reinstating the old per-routine veto. Include captures, copies,
+helpers, branch expansion and removed inline storage in final cost, and report
+ZP occupancy separately. Unknown cost, equality, growth or any failed proof
+restores the complete selected artifact entering this trial: program, bindings,
+bytes, maps, relocations, reservations and facts. The new batch can fail as a
+whole; this extension makes no promise to retain hypothetical subset savings.
+
+### Further widening follows measured blockers
+
+Retain the mixed bindings and per-object exposure/lifetime filtering that are
+already implemented. Exposed or entry-dependent siblings can stay inline;
+their presence does not itself reject an eligible scalar. Preserve current
+ordinary pointee-write admission and the final physical-observation proof.
+Broader call depth adds no new storage shape or native operation.
+
+Separate qualified follow-ups may:
+
+1. Certify additional operations, including the currently excluded combination
+   of pointer reads and variable word arithmetic. Account for helpers and scratch
+   that appear only after expansion.
+2. Extend placement of a native `=*` routine's own homes through the relevant
+   ownership and ABI checks. Availability of a callee contract alone does not
+   authorize this change.
+3. Admit supported machine/helper boundaries only through explicit, complete
+   contracts for the relevant entry, writes, preservation and observations.
+   Existing clobber/effect declarations may supply these facts; do not invent a
+   manual-annotation language or pointer-range inference for TN as part of this
+   extension.
+
+More than four incoming bytes, new ABI/result coalescing, recursive residence,
+within-routine home coloring, split-home regions, retained-value reservations,
+save/restore insertion and loop register allocation remain deferred. Existing
+per-call value-lifetime checks are part of this extension, not a deferred
+optimization. The proposed smaller Ord register sequence is independent of
+expanding ZP homes. No larger ZP pool is assumed.
+
+### Focused evidence and diagnostics
+
+Keep the user's minimal-testing scope. Use grouped checks of the changed shared
+analyses and small independent execution controls, then one final TN gate-off/on
+comparison. Reuse passing coverage for unchanged ownership and ABI rules.
+
+- Entry/write composition: a three-level chain, a diamond and repeated/conditional
+  calls, with ordinary and native `=*` middle routines; an extra fixed-byte or
+  carry input supplied on all paths versus one path; typed result delivery versus
+  a mere possible write. Include recursive and unsupported descendants and a
+  changed grandchild with an unchanged outer body. Native `=*` actual-entry
+  composition must leave planned observable capture and its own home policy
+  unchanged.
+- Placement/lifetimes: parent and child both proposed, a grandchild's one-lane
+  clobber, sibling reuse, setup/result interference, loop-carried values and
+  mixed eligible/exposed/entry-dependent objects. Cover a value dead before a
+  nested call, one defined after it, and one live across it; repeat the same
+  target with only one crossed site. Check actual caller/descendant sharing at
+  a dead boundary and preserve the existing ordinary unknown/recursive dead-call
+  fallback. Force an expansion-time conflict and check exact rollback.
+- One VM group: a live byte/word or pointer across nested calls, page crossing,
+  canonical arguments, host-computed results, observable memory sentinels and
+  stack balance. Use default/optimized ActionCart and a small Standalone control;
+  normalize and exercise LF/CRLF when fixture instrumentation depends on newlines.
+- One final TN ActionCart `$3000` A/B: use the same compiler/source/configuration
+  except for the new gate. The qualified 9,811-byte image is a reference, not an
+  oracle for future revisions; record baseline drift explicitly. Retain Ord,
+  Items, FindItem, Strcpy, Instr, Fnamecmp, Next, Sort and PrintNonzeroDigit as
+  controls. Measure callers of Ord and other supported nonleaf routines; report
+  remaining body, entry, write and capacity blockers in larger routines.
+
+Extend existing diagnostics with the failed routine/site/dependency, object and
+crossed call site, entry or write blocker, proposed descendant exclusions,
+actual selected homes, all changed routine footprints, complete image size and
+artifact hashes. Distinguish
+unsupported body/call, unknown facts, source/ABI conflicts, ZP exhaustion and
+cost rejection. Count program-level trials and record one compile-time sample;
+do not add a benchmark matrix or repeated timing runs. Gate-off/on programs
+retain zero or one ordinary-call continuation each.
+
+A successful independent nested-call control must both execute correctly and
+save final bytes. TN savings are measured rather than promised. If an otherwise
+eligible TN caller remains inline, record the actual limiting contract instead
+of widening effects or weakening the transaction to force placement. Broaden
+checks only for an affected contract or observed failure; this documentation
+change itself requires content/link checks, not compiler test runs.

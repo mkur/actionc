@@ -19,8 +19,8 @@ use crate::mir6502::ir::{
 /// destroying another.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirMachineLiveSet {
-    registers: MirRegisterSet,
-    flags: MirFlagSet,
+    pub registers: MirRegisterSet,
+    pub flags: MirFlagSet,
 }
 
 impl MirMachineLiveSet {
@@ -149,7 +149,7 @@ impl MirMachineLiveness {
         return_registers: MirRegisterSet,
         known_callees: &MirKnownCalleeSummaries,
     ) -> Self {
-        Self::analyze_with_policy(routine, cfg, return_registers, known_callees, false)
+        Self::analyze_with_policy(routine, cfg, return_registers, known_callees, false, None)
     }
 
     /// Incoming flags observed before certified definitions. Calls/helpers and
@@ -164,15 +164,26 @@ impl MirMachineLiveness {
     pub(in crate::mir6502) fn entry_inputs(routine: &MirRoutine, cfg: &MirCfg) -> Option<MirMachineLiveSet> {
         let entry = cfg.entry()?;
         let facts = Self::analyze_with_policy(routine, cfg, MirRegisterSet::default(),
-            &MirKnownCalleeSummaries::default(), true);
+            &MirKnownCalleeSummaries::default(), true, None);
         #[cfg(test)]
         super::entry_flags::record_evaluations(facts.evaluations());
         facts.live_in(entry)
     }
 
+    /// Entry composition supplies certified call observations, independently
+    /// of rewrite clobbers. Balanced call/return stack traffic is not an input.
+    pub(in crate::mir6502) fn entry_inputs_with_calls(
+        routine: &MirRoutine, cfg: &MirCfg,
+        calls: &dyn Fn(&MirOp) -> MirMachineLiveSet,
+    ) -> Option<MirMachineLiveSet> {
+        Self::analyze_with_policy(routine, cfg, MirRegisterSet::default(),
+            &MirKnownCalleeSummaries::default(), true, Some(calls)).live_in(cfg.entry()?)
+    }
+
     fn analyze_with_policy(
         routine: &MirRoutine, cfg: &MirCfg, return_registers: MirRegisterSet,
         known_callees: &MirKnownCalleeSummaries, entry_flags: bool,
+        calls: Option<&dyn Fn(&MirOp) -> MirMachineLiveSet>,
     ) -> Self {
         let transfers = routine
             .blocks
@@ -181,7 +192,13 @@ impl MirMachineLiveness {
                 let ops = block
                     .ops
                     .iter()
-                    .map(|op| if entry_flags { entry_flag_transfer(op) } else { op_transfer(op, known_callees) })
+                    .map(|op| {
+                        if matches!(op, MirOp::Call { .. }) && let Some(calls) = calls {
+                            // Possible call writes never certify a definition.
+                            MirMachineTransfer { reads: calls(op), writes: MirMachineLiveSet::default() }
+                        } else if entry_flags { entry_flag_transfer(op) }
+                        else { op_transfer(op, known_callees) }
+                    })
                     .collect();
                 let terminator = terminator_transfer(&classify_terminator(&block.terminator));
                 (block.id, MirMachineBlockTransfers { ops, terminator })

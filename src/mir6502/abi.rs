@@ -50,6 +50,26 @@ pub(super) fn physical_lanes(home: &MirArgHome, width: MirWidth) -> Option<Vec<s
     super::ir::MirParamHome::Lanes(lanes).lanes(action_arg_width_bytes(width))
 }
 
+/// Validate each physical call boundary, including repeated sites to a cached
+/// callee. This checks supplied lanes, not whether extra entry inputs are met.
+pub(super) fn canonical_call_lanes(
+    callee: &super::ir::MirRoutine, args: &[super::ir::MirCallArg],
+) -> Result<Vec<super::ir::MirParamLane>, &'static str> {
+    let signature = callee.frame.direct_parameter_abi.as_ref().ok_or("unknown residence ABI")?;
+    let expected_bytes: u16 = signature.iter().map(|p| action_arg_width_bytes(p.width())).sum();
+    let supplied_bytes: u16 = args.iter().map(|a| action_arg_width_bytes(a.width)).sum();
+    if expected_bytes != supplied_bytes { return Err("mismatched residence arguments"); }
+    let mut outgoing = Vec::new();
+    for arg in args {
+        let lanes = physical_lanes(&arg.home, arg.width).ok_or("unsupported residence argument")?;
+        let expected = physical_lanes(&action_arg_home(outgoing.len() as u16, arg.width), arg.width)
+            .ok_or("unsupported residence ABI")?;
+        if lanes != expected { return Err("noncanonical residence arguments"); }
+        outgoing.extend(lanes);
+    }
+    Ok(outgoing)
+}
+
 pub(super) const fn action_arg_width_bytes(width: MirWidth) -> u16 {
     match width {
         MirWidth::Byte => 1,
