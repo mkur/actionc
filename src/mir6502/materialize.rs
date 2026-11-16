@@ -157,8 +157,10 @@ use dead_spills::remove_dead_spill_stores_traced;
 use defs::{op_def, split_def_as_temp};
 use flags::{
     op_clobbers_unknown_flag_or_a_effects, op_has_opaque_flag_or_a_effects, op_overwrites_carry,
-    op_overwrites_overflow, op_uses_previous_carry, op_writes_flags, terminator_consumes_flags,
+    op_overwrites_overflow, op_uses_previous_carry,
 };
+#[cfg(test)]
+use flags::{op_writes_flags, terminator_consumes_flags};
 use home_census::{
     HomeFateTracker, apply_register_home_plan, record_final_home_allocations,
     record_home_demand_census,

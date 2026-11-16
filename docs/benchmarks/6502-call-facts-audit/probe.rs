@@ -161,6 +161,11 @@ fn audit_call_facts() {
         let config=mir::Mir6502Config {enable_small_leaf_inlining:false,..mir::Mir6502Config::optimized()};
         let e=selected(&n,&config);
         let facts=inventory(&e.program,Some(&e.output));
+        if matches!(name, "compare_byte" | "compare_word") {
+            let check=facts["routines"].as_array().unwrap().iter().find(|r|r["name"]=="Check").unwrap();
+            assert_eq!(check["acyclic_entry"]["flags"], json!(format!("{:?}",mir::analysis::effects::MirFlagSet::default())));
+            assert_eq!(check["legacy_ignores_flags"],json!(true));
+        }
         std::fs::write(root.join(format!("{name}.act")),source).unwrap();
         std::fs::write(root.join(format!("{name}.xex")),crate::codegen::format_load_file(&e.output)).unwrap();
         cases.push(json!({"case":name,"source":source,"facts":facts}));
@@ -179,6 +184,11 @@ fn audit_call_facts() {
     assert_eq!(routine("Next")["acyclic_entry"]["defined_results"],json!([0xa0,0xa1]));
     assert_eq!(routine("Ord")["acyclic_entry"]["fixed"],json!([0xa3]));
     assert_eq!(routine("Items")["acyclic_entry"]["fixed"],json!([]));
+    for name in ["ArenaCursor", "Alloc"] {
+        assert_eq!(routine(name)["acyclic_entry"]["flags"],json!(format!("{:?}",mir::analysis::effects::MirFlagSet::default())));
+        assert_eq!(routine(name)["acyclic_entry"]["fixed"],json!([]));
+        assert_eq!(routine(name)["acyclic_entry"]["defined_results"],json!([0xa0,0xa1]));
+    }
     std::fs::write(root.join("tn.json"),serde_json::to_string_pretty(&facts).unwrap()).unwrap();
     std::fs::write(root.join("tn.xex"),image).unwrap();
     println!("audited all {} selected TN routines",e.program.routines.len());

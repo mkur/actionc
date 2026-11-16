@@ -58,6 +58,20 @@ has none. TN remains 9,811 bytes, byte-identical to the issue-3 image.
 [qualification receipt](benchmarks/6502-call-facts-audit/typed-results-qualification.json).
 No full suite was run.
 
+**Issue 5 is implemented.** Ordinary liveness, entry proofs and local cleanup
+share guaranteed register/flag definitions. Clobbers remain possible changes;
+zero-CMP reuse, identity moves, zero shifts and conditional recipes cannot
+invent definitions. The coarse entry query projects the precise query.
+
+Validation: 373 focused unit tests, seven loop integration tests, three callee-fact
+VM controls and the C/V observer VM matrix passed. The nine-control/95-routine
+audit removes the false acyclic carry inputs of `ArenaCursor` and `Alloc` while
+retaining issue-4 results. TN remains byte-identical at 9,811 bytes. Two older
+A→X/precise-entry size assertions fail identically on pre-repair `2ce87047`;
+expectations are unchanged. See the
+[qualification receipt](benchmarks/6502-call-facts-audit/machine-definitions-qualification.json).
+No full suite was run.
+
 ## Prioritized issues
 
 | Order | Issue to solve | Why it matters | Design note needed? |
@@ -66,7 +80,7 @@ No full suite was run.
 | **2** | **Separate possible writes from definite definitions** | A conditional clobber currently makes earlier values appear dead. Fix operation effects, liveness and reaching definitions together. | **No new design.** The intended distinction is already documented; prepare a focused implementation plan. |
 | **3** | **Separate ABI arguments from existing program state** | Reading `allocp` must not require callers to supply `$E8/$E9` as arguments. Preserve genuine implicit assembly inputs. | [**Implemented.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md) |
 | **4** | **Represent typed results independently of parameter types** | Pointer parameters previously prevented proving return-home definitions, creating the spurious `$A0` requirement in `Ord` and `Items`. | [**Implemented.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract) |
-| **5** | **Unify guaranteed register/flag definitions** | Entry analyses disagree about ordinary comparisons, producing false carry requirements. | [**Design prepared.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#guaranteed-register-and-flag-definitions) Implementation pending. |
+| **5** | **Unify guaranteed register/flag definitions** | Entry analyses disagree about ordinary comparisons, producing false carry requirements. | [**Implemented.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#guaranteed-register-and-flag-definitions) |
 | **6** | **Use backing and placement when checking physical overlap** | A write to a global at `$0600` should not exclude every ZP byte. Unknown placement must remain conservative. | **Yes.** Specify which address evidence is authoritative at each phase. |
 | **7** | **Finish separating read and write uncertainty** | An unknown pointee write currently makes otherwise bounded reads unknown. | **No.** Restore the existing directional-effects contract. |
 | **8** | **Make summary validity across transformations explicit** | Some consumers rely on undocumented assumptions about cached summaries surviving rewrites. No stale-summary failure was demonstrated. | **Yes, as documentation and hardening.** Avoid introducing a general cache framework without evidence it is needed. |
@@ -75,8 +89,7 @@ No full suite was run.
 ## Design work
 
 The shared [call-fact contract design](MIR6502_CALL_FACT_CONTRACT_DESIGN.md)
-covers the implemented contracts for **issues 3–4** and proposes the shared
-guaranteed register/flag contract for **issue 5**.
+covers the implemented contracts for **issues 3–5**.
 Extend it for **issues 6 and 8**, covering:
 
 - Caller-supplied inputs versus existing state.
@@ -93,6 +106,6 @@ after the shared contracts are repaired.
 
 ## Next implementation work
 
-Issues **1–4 are repaired**. Issue **5** has a design and is ready for an
+Issues **1–5 are repaired**. Issue **6** is next for design and an
 implementation plan. Issue **7** remains an independent targeted
 correction that does not need to wait for the remaining shared design work.

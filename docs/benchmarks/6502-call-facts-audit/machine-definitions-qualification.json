@@ -1,0 +1,160 @@
+{
+  "qualified_on": "2026-11-17",
+  "production_revision": "ce1e26169f3892bc43c7655dfeca06cfb0beb6f4",
+  "audit_probe_sha256": "b4e3930830606c2a230f14cc061aed7b96f6d4c14af4ba9ef02dd8c24ab42c88",
+  "audit_hook_removed": true,
+  "tn_bytes_before": 9811,
+  "tn_bytes_after": 9811,
+  "tn_sha256": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+  "byte_identical_to_issue_4": true,
+  "checks": {
+    "slice_1_unit_tests": 69,
+    "slice_2_unit_tests": 373,
+    "loop_integration_tests": 7,
+    "callee_facts_vm_controls": [
+      "guaranteed_compare_definitions_match_emitted_carry_behavior",
+      "pointer_parameters_return_bytes_and_words_without_losing_caller_state",
+      "compare_entry_ignores_incoming_flags_and_preserves_caller"
+    ],
+    "flag_observer_vm": "callee_entry_flags_observers_match_host_oracle_with_lf_and_crlf",
+    "vm_coverage": "cart and standalone; default/optimized configurations; LF/CRLF real source loading; all C/Z/N/V combinations at real CMP and omitted zero-CMP boundaries; later ADC carry observation; pointer results and live caller state",
+    "audit_controls": 9,
+    "audit_tn_routines": 95,
+    "full_suite_run": false
+  },
+  "existing_integration_failures": {
+    "reproduced_on": "2ce87047",
+    "isolated_checkout_clean": true,
+    "argument_x_forwarding_baseline_verifies_modes_runtimes_and_origins": {
+      "actual_saving": 2,
+      "expected_saving": 4
+    },
+    "callee_entry_flags_baseline_matches_modes_runtimes_and_origins": {
+      "actual_saving": 0,
+      "expected_saving": 2
+    },
+    "expectations_changed": false
+  },
+  "tn_facts": {
+    "ArenaCursor": {
+      "acyclic_before": {
+        "current": true,
+        "defined_results": [
+          160,
+          161
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: true, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+      },
+      "acyclic_after": {
+        "current": true,
+        "defined_results": [
+          160,
+          161
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+      },
+      "conservative_flag_query_after": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: true } }"
+    },
+    "Alloc": {
+      "acyclic_before": {
+        "current": true,
+        "defined_results": [
+          160,
+          161
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: true, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "acyclic_after": {
+        "current": true,
+        "defined_results": [
+          160,
+          161
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "conservative_flag_query_after": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }"
+    },
+    "Next": {
+      "acyclic_before": {
+        "current": true,
+        "defined_results": [
+          160,
+          161
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "acyclic_after": {
+        "current": true,
+        "defined_results": [
+          160,
+          161
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "conservative_flag_query_after": "Unknown"
+    },
+    "Ord": {
+      "acyclic_before": {
+        "current": true,
+        "defined_results": [
+          160
+        ],
+        "fixed": [
+          163
+        ],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }"
+      },
+      "acyclic_after": {
+        "current": true,
+        "defined_results": [
+          160
+        ],
+        "fixed": [
+          163
+        ],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }"
+      },
+      "conservative_flag_query_after": "Unknown"
+    },
+    "Items": {
+      "acyclic_before": {
+        "current": true,
+        "defined_results": [
+          160
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "acyclic_after": {
+        "current": true,
+        "defined_results": [
+          160
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }"
+      },
+      "conservative_flag_query_after": "Unknown"
+    }
+  },
+  "remaining_blockers": {
+    "Copy": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+    "PopUp": "Some((RoutineId(0), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))"
+  },
+  "remaining_global_overlap_control": "global_write_ram Touch writes state at $0600 but still reports that $E4 is not preserved; issue 6 remains open"
+}

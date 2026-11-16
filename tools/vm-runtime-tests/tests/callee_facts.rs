@@ -262,3 +262,65 @@ fn callee_facts_array_pointer_entry_preserves_caller_across_search() {
         }
     }
 }
+
+#[test]
+fn callee_facts_guaranteed_compare_definitions_match_emitted_carry_behavior() {
+    let source = "BYTE input=$0680\nBYTE FUNC Rel()\nIF input>=40 THEN RETURN(1) FI RETURN(0)\nBYTE FUNC Zero()\nIF input=0 THEN RETURN(1) FI RETURN(0)\nPROC Main() RETURN\n";
+    let optimized = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let mut lf_image = None;
+        for (config, crlf) in [(Mir6502Config::default(), false), (optimized.clone(), false), (optimized.clone(), true)] {
+            // Both newline forms go through the real source loader.
+            let out = compile(&if crlf { source.replace('\n', "\r\n") } else { source.to_owned() }, &config, runtime);
+            if config == optimized {
+                let image = actionc::codegen::format_load_file(&out);
+                if crlf { assert_eq!(lf_image.as_ref(), Some(&image)); } else { lf_image = Some(image); }
+            }
+            let mut vm = load(&out, runtime);
+            for name in ["Rel", "Zero"] {
+                let range = out.map.routine_ranges.iter().find(|r| r.name == name).unwrap();
+                let code = &out.bytes[usize::from(range.start - out.origin)..usize::from(range.end - out.origin)];
+                let mut cursor = 0;
+                let mut comparisons = vec![];
+                loop {
+                    // Bound the probe to the expected straight-line load/store
+                    // and immediate-CMP recipe; reject unfamiliar instructions.
+                    let len = match code[cursor] {
+                        0x90 | 0xb0 | 0xf0 | 0xd0 | 0x30 | 0x10 | 0x70 | 0x50 => break,
+                        0xad | 0x8d => 3, // LDA/STA absolute
+                        0xa5 | 0x85 | 0xa9 => 2, // LDA/STA ZP; LDA immediate
+                        0xc9 => { comparisons.push(code[cursor..cursor + 2].to_vec()); 2 }
+                        opcode => panic!("unexpected comparison prefix opcode {opcode:02x}"),
+                    };
+                    cursor += len;
+                }
+                if name == "Rel" { assert_eq!(comparisons, vec![vec![0xc9, 40]]); }
+                else { assert!(comparisons.is_empty(), "zero comparison should reuse LDA flags: {comparisons:?}"); }
+                // Execute the exact generated prefix, then observe C using ADC.
+                // No instruction in this appended observation initializes C.
+                let mut prefix = code[..cursor].to_vec();
+                prefix.extend([0xa9, 0, 0x69, 0, 0x8d, 0x81, 0x06, 0x60]);
+                vm.bus_mut().ram_mut().map(0x780, &prefix).unwrap();
+                for value in [0u8, 1, 39, 40, 41, 127, 128, 255] {
+                    vm.bus_mut().ram_mut().write(0x680, value);
+                    for mask in 0..16u8 {
+                        let status = 0x20 | (mask & 3) | ((mask & 4) << 5) | ((mask & 8) << 3);
+                        for target in [entry(&out, name), 0x780] {
+                            vm.bus_mut().ram_mut().map(0x740, &[
+                                0xa9, status, 0x48, 0x28, 0x20, target as u8, (target >> 8) as u8, 0x60,
+                            ]).unwrap();
+                            vm = machine::call(vm, &mut Observe, 0x740, &[]);
+                            if target == 0x780 {
+                                let carry = if name == "Rel" { u8::from(value >= 40) } else { mask & 1 };
+                                assert_eq!(machine::bytes(&vm, 0x681, 1), [carry], "{name} value={value} flags={mask}");
+                            } else {
+                                let expected = if name == "Rel" { value >= 40 } else { value == 0 };
+                                assert_eq!(machine::bytes(&vm, 0xa0, 1), [u8::from(expected)]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

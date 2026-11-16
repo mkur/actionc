@@ -1,6 +1,6 @@
 # MIR6502 guaranteed machine definitions implementation plan
 
-Status: slices 1–2 complete; qualification in progress, 2026-11-17.
+Status: all three implementation slices complete and qualified, 2026-11-17.
 
 Implements issue **5** from the [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md)
 and the [guaranteed register/flag design](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#guaranteed-register-and-flag-definitions).
@@ -73,6 +73,17 @@ explicit selected-result requirements.
   remaining placement blockers and image size/hash. Do not require size savings.
 - Save qualification evidence, update the contract and priorities, check links
   and diffs, and commit the qualification slice.
+
+Qualification: three callee-fact VM controls, the C/V observer VM matrix
+(both runtimes, LF/CRLF), and seven loop integration tests passed. The existing
+A→X and precise-entry size-delta assertions fail identically on pre-repair
+`2ce87047` (2 versus 4 bytes; 0 versus 2 bytes). Their expectations are unchanged.
+
+The retained audit passed for nine independent controls and all 95 TN routines.
+`ArenaCursor` and `Alloc` have no acyclic incoming flags; issue-4 result facts
+remain intact. TN is 9,811 bytes, byte-identical to issue 4. See the
+[qualification receipt](benchmarks/6502-call-facts-audit/machine-definitions-qualification.json).
+No full suite was run.
 
 ## Follow-up — Design issue 6
 

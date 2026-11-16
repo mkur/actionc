@@ -337,7 +337,7 @@ measurement, not the proof's acceptance condition.
 
 ## Guaranteed register and flag definitions
 
-Proposed for issue **5**, 2026-11-17. Only guaranteed definitions may kill
+Implemented and qualified for issue **5**, 2026-11-17. Only guaranteed definitions may kill
 incoming register or flag values in liveness. A possible clobber invalidates
 value knowledge but cannot establish a definition. Apply this distinction to
 A/X/Y and individual C/Z/N/V flags as consistently as issue 2 applies it to homes.
@@ -513,3 +513,14 @@ For TN, re-audit `ArenaCursor` and callers such as `Alloc`, `Free`, `Push` and
 Keep independent memory, physical-overlap, entry and placement blockers visible.
 Record actual size changes under the existing final-cost and rollback rules;
 truthful facts are the acceptance condition, not a promised size reduction.
+
+Issue-5 qualification: 373 focused unit tests, seven loop integration tests,
+three callee-fact VM controls and the C/V observer VM matrix passed. The retained
+audit covers nine controls and all 95 TN routines. `ArenaCursor` and `Alloc`
+now require no incoming flags under certified acyclic composition; the
+conservative nested-call policy remains intentionally broader. Issue-4 result
+facts remain intact. TN is unchanged at 9,811 bytes, including its image hash.
+Two old size-delta integration assertions fail identically on pre-repair
+`2ce87047`; their expectations were not changed. See the
+[implementation plan](MIR6502_MACHINE_DEFINITIONS_IMPLEMENTATION_PLAN.md) and
+[qualification receipt](benchmarks/6502-call-facts-audit/machine-definitions-qualification.json).
