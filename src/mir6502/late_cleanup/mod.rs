@@ -557,7 +557,7 @@ fn select_definitions(
             && baseline.routines.iter().any(|r| !r.frame.resident_bytes().is_empty()))
             .then(|| {
                 trace.count("storage_observation_snapshot_builds", 1);
-                InvocationHomes::with_references(&baseline, &references)
+                InvocationHomes::with_references_and_calls(&baseline, &references, config.acyclic_call_homes_enabled())
             });
         let old = measure(&baseline, &references, origin, runtime, trace)?;
         let CleanupCandidate { program: proposed, deletions, reuse } = match apply_traced(&baseline, Some(&old.memory), remove_producers, reuse_registers, trace, "physical-deletion", facts.as_ref()) {

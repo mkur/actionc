@@ -4,7 +4,7 @@ mod bounded_memory;
 mod observations;
 pub(in crate::mir6502) use observations::{fixed_storage_address, machine_storage_observations};
 mod entry_inputs;
-pub(in crate::mir6502) use entry_inputs::{MirCalleeEntryFact, MirCalleeEntryStage};
+pub(in crate::mir6502) use entry_inputs::{MirAcyclicEntryAnalysis, MirCalleeEntryFact, MirCalleeEntryStage};
 pub(in crate::mir6502) use bounded_memory::BoundedMachine;
 
 use crate::analysis::dataflow::{DataflowDirection, DataflowProblem, solve_dataflow};

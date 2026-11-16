@@ -2,14 +2,15 @@
 //! the representation; construction never imports another candidate's summaries.
 use super::*;
 use crate::mir6502::analysis::known_callees::{
-    MirCalleeEntryFact, MirKnownCalleeSummaries, MirKnownMemoryWrites,
+    MirAcyclicEntryAnalysis, MirCalleeEntryFact, MirKnownCalleeSummaries, MirKnownMemoryWrites,
 };
 use std::collections::BTreeMap;
 
 pub(in crate::mir6502) struct ResidenceCalls<'a> {
     program: &'a MirProgram,
     known: MirKnownCalleeSummaries,
-    entries: BTreeMap<RoutineId, Option<MirCalleeEntryFact>>,
+    entries: BTreeMap<RoutineId, Option<Arc<MirCalleeEntryFact>>>,
+    acyclic: Option<MirAcyclicEntryAnalysis<'a>>,
     stage: MirCalleeEntryStage,
 }
 
@@ -19,8 +20,23 @@ impl<'a> ResidenceCalls<'a> {
             program,
             known: MirKnownCalleeSummaries::analyze_for_rewriting(program),
             entries: BTreeMap::new(),
+            acyclic: None,
             stage,
         }
+    }
+
+    /// Explicit opt-in for source-home discovery and validation of supplied
+    /// bindings. Spill discovery and planned handoff retain the leaf contract.
+    pub fn with_acyclic(program: &'a MirProgram, stage: MirCalleeEntryStage) -> Self {
+        let mut facts = Self::new(program, stage);
+        facts.acyclic = Some(MirAcyclicEntryAnalysis::new(program));
+        facts
+    }
+
+    fn entry(&mut self, target: RoutineId) -> Option<Arc<MirCalleeEntryFact>> {
+        if let Some(analysis) = &mut self.acyclic { return analysis.analyze(target); }
+        self.entries.entry(target).or_insert_with(||
+            MirCalleeEntryFact::analyze(self.program, target, self.stage).map(Arc::new)).clone()
     }
 
     /// Validate the ordinary call boundary even when no resident value survives
@@ -39,17 +55,17 @@ impl<'a> ResidenceCalls<'a> {
             .any(|op| matches!(op, MirOp::MachineBlock { .. } | MirOp::SArgsCapture { .. } | MirOp::Barrier { .. })) {
             return Err("unsupported residence callee");
         }
-        if callee.abi == MirRoutineAbi::ActionObservable
+        if self.acyclic.is_none() && callee.abi == MirRoutineAbi::ActionObservable
             && callee.blocks.iter().flat_map(|b| &b.ops).any(|op| matches!(op, MirOp::Call { .. })) {
             return Err("nonleaf observable residence entry");
         }
         let outgoing = super::super::abi::canonical_call_lanes(callee, args)?;
-        match self.entries.entry(*target)
-            .or_insert_with(|| MirCalleeEntryFact::analyze(self.program, *target, self.stage)) {
-            Some(entry) => handoff::inputs_supplied(entry, &outgoing)?,
+        let observable = callee.abi == MirRoutineAbi::ActionObservable;
+        match self.entry(*target) {
+            Some(entry) => handoff::inputs_supplied(&entry, &outgoing)?,
             // Native observable entries are admitted by their actual contract,
             // never by assuming that a missing fact means no extra inputs.
-            None if callee.abi == MirRoutineAbi::ActionObservable =>
+            None if observable =>
                 return Err("unknown residence callee entry"),
             None => {},
         }
@@ -77,18 +93,17 @@ impl<'a> ResidenceCalls<'a> {
             || callee.blocks.iter().flat_map(|b| &b.ops).any(|op| {
                 matches!(
                     op,
-                    MirOp::Call { .. }
-                        | MirOp::RuntimeHelper { .. }
+                    MirOp::RuntimeHelper { .. }
                         | MirOp::SArgsCapture { .. }
                         | MirOp::MachineBlock { .. }
                         | MirOp::Barrier { .. }
-                )
+                ) || (self.acyclic.is_none() && matches!(op, MirOp::Call { .. }))
             })
         {
             return Err("unsupported residence callee");
         }
         self.inputs(call)?;
-        self.entries.get(target).and_then(Option::as_ref)
+        self.entry(*target)
             .ok_or("unknown residence callee entry")?;
         let writes = self
             .known
@@ -105,6 +120,73 @@ impl<'a> ResidenceCalls<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn chain_program(observable: bool, inline_middle: bool, dead: bool) -> MirProgram {
+        let source = format!("BYTE FUNC Touch(BYTE x) RETURN(x+1) BYTE FUNC Middle{}(BYTE x) RETURN(Touch(x)) CARD FUNC Hold(CARD keep) Middle(7) {} RETURN(keep)",
+            if observable { "=*" } else { "" }, if dead { "keep=8" } else { "" });
+        let ast = crate::parser::parse(&crate::lexer::tokenize(&source).unwrap()).unwrap();
+        let model = crate::semantic::analyze(&ast).unwrap();
+        let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+        let mut p = crate::mir6502::lower_program(&nir).unwrap();
+        for (r, slot) in p.routines.iter_mut().zip([0xe8, 0xea, 0xe4]) {
+            if r.name == "Middle" && (observable || inline_middle) { continue; }
+            let MirStorageBase::Param(param) = r.frame.params[0].base else { panic!() };
+            r.frame.parameter_homes = Some(vec![MirParamBinding {
+                param, home: MirParamHome::ZeroPage(MirFixedZpSlot(slot)) }]);
+            r.frame.fixed_zero_page.extend((0..r.frame.params[0].storage_size)
+                .map(|i| MirFixedZpSlot(slot + i as u8)));
+        }
+        crate::mir6502::materialize_program(p, &crate::mir6502::Mir6502Config::default()).unwrap()
+    }
+
+    fn verify_chain(p: &MirProgram) -> Vec<MirDiagnostic> {
+        let hold = p.routines.iter().find(|r| r.name == "Hold").unwrap();
+        verify_lifetimes(hold, Some(&mut ResidenceCalls::with_acyclic(p, MirCalleeEntryStage::ActualEntry)))
+    }
+
+    #[test]
+    fn acyclic_residence_checks_descendant_lanes_and_keeps_leaf_scope_explicit() {
+        for (observable, inline) in [(false, false), (false, true), (true, true)] {
+            let p = chain_program(observable, inline, false);
+            assert!(verify_chain(&p).is_empty());
+            let call = p.routines.iter().find(|r| r.name == "Hold").unwrap()
+                .blocks.iter().flat_map(|b| &b.ops).find(|o| matches!(o, MirOp::Call { .. })).unwrap();
+            assert!(ResidenceCalls::new(&p, MirCalleeEntryStage::ActualEntry).writes(call).is_err());
+            assert!(ResidenceCalls::with_acyclic(&p, MirCalleeEntryStage::ActualEntry).writes(call).is_ok());
+            for byte in [0xe4, 0xe5] {
+                for absolute in [false, true] {
+                    let mut bad = p.clone();
+                    let mut op = store(byte);
+                    if absolute {
+                        let MirOp::Store { dst, .. } = &mut op else { unreachable!() };
+                        *dst = MirAddr::Direct(MirMem::Absolute(u16::from(byte)));
+                    }
+                    bad.routines[0].blocks[0].ops.insert(0, op);
+                    assert!(!verify_chain(&bad).is_empty(), "{observable} {inline} {byte:x} {absolute}");
+                }
+            }
+            // Resolve the grandchild's symbolic object in its own frame.
+            let mut moved = p.clone();
+            let MirStorageBase::Param(param) = moved.routines[0].frame.params[0].base else { panic!() };
+            moved.routines[0].frame.parameter_homes.as_mut().unwrap()[0].home =
+                MirParamHome::ZeroPage(MirFixedZpSlot(0xe5));
+            moved.routines[0].blocks[0].ops.insert(0, MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Param { id: param, offset: 0 }),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte });
+            assert!(!verify_chain(&moved).is_empty());
+        }
+    }
+
+    #[test]
+    fn acyclic_residence_retains_ordinary_dead_boundary_fallback() {
+        for observable in [false, true] {
+            for dead in [false, true] {
+                let mut p = chain_program(observable, true, dead);
+                p.routines[0].effects.opaque = true;
+                assert_eq!(verify_chain(&p).is_empty(), dead && !observable);
+            }
+        }
+    }
 
     fn program() -> MirProgram {
         let ast = crate::parser::parse(&crate::lexer::tokenize(

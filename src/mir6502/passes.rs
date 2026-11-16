@@ -10,6 +10,8 @@ pub struct Mir6502Config {
     pub enable_multiple_leaf_call_homes: bool,
     /// Select direct ZP homes per object and per live call.
     pub enable_zp_home_lifetimes: bool,
+    /// Extend source-home placement through supported acyclic native calls.
+    pub enable_acyclic_call_homes: bool,
     /// Final-layout, same-block record base reuse with exact exit state repair.
     pub enable_record_base_reuse: bool,
     /// Admit indirect field writes only with complete disjoint destination proofs.
@@ -123,6 +125,7 @@ impl Default for Mir6502Config {
             enable_cross_call_home_selection: false,
             enable_multiple_leaf_call_homes: false,
             enable_zp_home_lifetimes: false,
+            enable_acyclic_call_homes: false,
             enable_record_base_reuse: false,
             enable_record_base_writes: false,
             enable_record_base_parameter_origins: false,
@@ -184,6 +187,7 @@ impl Mir6502Config {
             enable_cross_call_home_selection: true,
             enable_multiple_leaf_call_homes: true,
             enable_zp_home_lifetimes: true,
+            enable_acyclic_call_homes: false,
             enable_captured_byte_comparisons: true,
             enable_argument_staging_reduction: true,
             enable_argument_x_forwarding: true,
@@ -222,5 +226,13 @@ impl Mir6502Config {
             enable_checked_range_pointer_retention: true,
             ..Self::default()
         }
+    }
+}
+
+impl Mir6502Config {
+    pub(super) fn acyclic_call_homes_enabled(&self) -> bool {
+        self.enable_acyclic_call_homes && self.enable_peepholes
+            && self.enable_parameter_home_selection && self.enable_cross_call_home_selection
+            && self.enable_zp_home_lifetimes
     }
 }

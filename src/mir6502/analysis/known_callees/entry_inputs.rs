@@ -12,6 +12,7 @@ use crate::mir6502::ir::{
 use std::sync::Arc;
 
 mod acyclic;
+pub(in crate::mir6502) use acyclic::MirAcyclicEntryAnalysis;
 
 /// The caller establishes this boundary; bindings and operation prefixes cannot.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
