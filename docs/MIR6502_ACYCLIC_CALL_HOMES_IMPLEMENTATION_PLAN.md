@@ -1,6 +1,6 @@
 # MIR6502 acyclic call homes: implementation plan
 
-Prepared 2026-11-16. Status: slices 1–3 complete; slice 4 pending.
+Prepared 2026-11-16. Status: all four slices complete.
 
 Implement the [acyclic call-chain design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-zp-placement-through-acyclic-call-chains)
 in four slices. Commit each slice after its focused checks pass. Preserve
@@ -15,7 +15,7 @@ machine-liveness tests pass. Production placement is unchanged.
 
 Slice 2 adds explicit acyclic residence queries and expanded verification,
 including native `=*` middle routines, while keeping leaf-only spill discovery
-and gate-off cleanup. The new gate remains disabled. All 60 parameter-home unit
+and gate-off cleanup. The gate stayed disabled in this slice. All 60 parameter-home unit
 tests, 16 ownership-certificate tests and five ABI unit tests pass.
 
 Slice 3 coordinates retained/selected call dependencies and proposed subtree
@@ -24,7 +24,16 @@ homes in the existing single transaction. The independent control saves 14 bytes
 parameter-home tests and three composed-entry groups pass, including dead-boundary
 sharing and exact rollback for a capture clobber in an unchanged caller. The
 cross-call/ABI integration targets pass 32 cases; one optional MADS case is
-ignored. The new gate remains disabled pending execution and TN qualification.
+ignored. The gate stayed disabled until slice 4 execution and TN qualification.
+
+Slice 4 qualifies the optimized default. The new VM group passes 70 invocations
+and 280 observed nested entries across the selected runtime/configuration and
+LF/CRLF controls. Default/parent-gate and historical leaf-scope regressions pass,
+as do the existing lifetime-sharing and recursive-boundary VM groups. TN is
+unchanged at 9,811 bytes, byte-for-byte, with identical maps and work counters.
+See the [qualification receipt](benchmarks/6502-acyclic-call-homes/README.md) for
+the two independent 14-byte savings and remaining TN blockers. The conservative
+default remains disabled.
 
 ## Outcome and scope
 
@@ -263,5 +272,6 @@ is planned for this backend analysis/selection change. Substantial emission or
 shared frontend/NIR contract changes would require revisiting this scope and
 running the repository's corresponding mandatory checks.
 
-This planning change itself requires content, relative-link and whitespace
-checks only; it changes no executable behavior.
+The original planning-only change used content, relative-link and whitespace
+checks. Implementation validation is recorded in the completed slice notes and
+qualification receipt.

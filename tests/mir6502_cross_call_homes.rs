@@ -22,6 +22,11 @@ fn acyclic_call_homes_coordinate_one_profitable_batch() {
         let home = |routine: &str, name: &str| new.map.storage_symbols.iter().find(|s|
             s.scope == actionc::codegen::CodegenSymbolScope::Routine(routine.into()) && s.name == name).unwrap().address;
         let events = trace.events();
+        if !observable {
+            let default = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+            assert_eq!(new, mir6502::generate_output_with_config_and_runtime(&n, 0x3000,
+                &default, Runtime::ActionCart).unwrap());
+        }
         for name in ["keep", "n", "work"] { assert!(home("Hold", name) < 256, "{name} {events:#?}"); }
         if observable { assert!(home("Middle", "x") >= 256 && home("Middle", "c") >= 256); }
         else {
@@ -37,7 +42,7 @@ fn acyclic_call_homes_coordinate_one_profitable_batch() {
 #[test]
 fn acyclic_call_homes_respect_parent_gates_and_empty_proposals() {
     assert!(!Mir6502Config::default().enable_acyclic_call_homes);
-    assert!(!Mir6502Config::optimized().enable_acyclic_call_homes);
+    assert!(Mir6502Config::optimized().enable_acyclic_call_homes);
     let source = include_str!("../fixtures/runtime/acyclic_call_homes.act").replace("\r\n", "\n");
     let n = nir(&source);
     for parent in 0..5 {
@@ -66,7 +71,7 @@ fn native_current_location_callees_allow_caller_homes_and_spills() {
     let source = include_str!("../fixtures/runtime/native_current_location_homes.act").replace("\r\n", "\n");
     for marker in ["=*", ""] {
         let n = nir(&source.replace("Touch=*", &format!("Touch{marker}")));
-        let config = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+        let config = Mir6502Config { enable_small_leaf_inlining: false, enable_acyclic_call_homes: false, ..Mir6502Config::optimized() };
         let mut trace = Mir6502Trace::default();
         let new = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
         let old = mir6502::generate_output_with_config_and_runtime(&n, 0x3000,
@@ -88,7 +93,7 @@ fn native_current_location_callees_allow_caller_homes_and_spills() {
         .replace("FUNC TouchByte(", "FUNC TouchByte=*(");
     let mut trace = Mir6502Trace::default();
     mir6502::generate_output_with_trace(&nir(&spills), 0x3000,
-        &Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() },
+        &Mir6502Config { enable_small_leaf_inlining: false, enable_acyclic_call_homes: false, ..Mir6502Config::optimized() },
         Runtime::ActionCart, &mut trace).unwrap();
     assert!(trace.events().iter().any(|e| e.kind == "cross-call-spill-home" && e.data["routine"] == "Hold"));
 
@@ -98,7 +103,7 @@ fn native_current_location_callees_allow_caller_homes_and_spills() {
         ("PROC Native=*(CARD x)\nASM\n rts\nENDASM", "unsupported residence callee"),
     ] {
         let n = nir(&format!("{callee}\nCARD FUNC Hold(CARD keep) Native(keep) RETURN(keep+1)"));
-        let config = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+        let config = Mir6502Config { enable_small_leaf_inlining: false, enable_acyclic_call_homes: false, ..Mir6502Config::optimized() };
         let mut trace = Mir6502Trace::default();
         let new = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
         let old = mir6502::generate_output_with_config_and_runtime(&n, 0x3000,
@@ -113,7 +118,7 @@ fn native_current_location_callees_allow_caller_homes_and_spills() {
 fn value_lifetimes_allow_dead_call_boundaries_and_sibling_reuse() {
     let source = include_str!("../fixtures/runtime/live_call_homes.act").replace("\r\n", "\n");
     let n = nir_mode(&source, false);
-    let config = Mir6502Config { enable_small_leaf_inlining: false,
+    let config = Mir6502Config { enable_small_leaf_inlining: false, enable_acyclic_call_homes: false,
         enable_zp_home_lifetimes: true, ..Mir6502Config::optimized() };
     let mut trace = Mir6502Trace::default();
     let new = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
@@ -513,7 +518,7 @@ fn nested_callee_keeps_only_the_callers_live_argument_inline() {
         "CARD FUNC Leaf(CARD x) RETURN(x+1) CARD FUNC Nested(CARD x) x=Leaf(x) RETURN(x) CARD FUNC Caller(CARD x,y) RETURN(Nested(x)+y)",
     );
     let config = Mir6502Config {
-        enable_small_leaf_inlining: false,
+        enable_small_leaf_inlining: false, enable_acyclic_call_homes: false,
         enable_cross_call_home_selection: true,
         ..Mir6502Config::optimized()
     };

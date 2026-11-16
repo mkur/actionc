@@ -53,6 +53,78 @@ impl VmRunHooks for NativeEntryObserve {
     }
 }
 
+struct AcyclicObserve {
+    entries: [(u16, &'static str); 3],
+    arguments: Vec<(&'static str, u8)>,
+}
+impl VmRunHooks for AcyclicObserve {
+    type Error = String;
+    fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {
+        let r = vm.cpu().registers();
+        if let Some((_, name)) = self.entries.iter().find(|(entry, _)| *entry == r.pc) {
+            self.arguments.push((*name, r.a));
+        }
+        Ok(())
+    }
+}
+
+#[test]
+fn acyclic_call_homes_preserve_nested_arguments_values_and_stack() {
+    let lf = include_str!("../../../fixtures/runtime/acyclic_call_homes.act").replace("\r\n", "\n");
+    let optimized = |enabled| Mir6502Config { enable_small_leaf_inlining: false,
+        enable_acyclic_call_homes: enabled, ..Mir6502Config::optimized() };
+    for (observable, runtime, config) in [
+        (false, Runtime::ActionCart, Mir6502Config::default()),
+        (false, Runtime::ActionCart, optimized(false)),
+        (false, Runtime::ActionCart, optimized(true)),
+        (false, Runtime::Standalone, optimized(true)),
+        (true, Runtime::ActionCart, optimized(true)),
+    ] {
+        let lf = if observable { lf.replace("FUNC Middle(", "FUNC Middle=*(") } else { lf.clone() };
+        let mut expected_image = None;
+        for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+            let file = support::Source::new(&source);
+            let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+            let model = actionc::semantic::analyze_with_options(&loaded.program,
+                actionc::semantic::SemanticOptions::modern()).unwrap();
+            let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
+                &actionc::semantic::ir::lower_program(&loaded.program, &model))).unwrap();
+            let output = mir6502::generate_output_with_config_and_runtime(&nir, 0x3000, &config, runtime).unwrap();
+            let image = actionc::codegen::format_load_file(&output);
+            if let Some(previous) = &expected_image { assert_eq!(previous, &image); }
+            else { expected_image = Some(image.clone()); }
+            let entry = |name| output.routine_addresses.iter().find(|r| r.name == name).unwrap().address;
+            for name in ["keep", "n", "work"] {
+                let home = output.map.storage_symbols.iter().find(|s|
+                    s.scope == actionc::codegen::CodegenSymbolScope::Routine("Hold".into()) && s.name == name).unwrap();
+                assert_eq!(home.address < 256, config.enable_acyclic_call_homes, "{runtime:?} {name}");
+            }
+            let (mut vm, profile) = support::vm_for(runtime);
+            vm.load_atari_object_for_execution(profile, &image).unwrap();
+            if observable { assert_ne!(vm.bus().ram().read(entry("Middle")), 0x4c); }
+            let mut hooks = AcyclicObserve {
+                entries: [(entry("Middle"), "Middle"), (entry("Sibling"), "Sibling"), (entry("Touch"), "Touch")],
+                arguments: vec![],
+            };
+            for (keep, n) in [(0u16, 0u8), (0xfe, 1), (0xff, 255), (0x12ff, 128),
+                (0x7fff, 255), (0xffff, 255), (0, 0)] {
+                hooks.arguments.clear();
+                vm.bus_mut().ram_mut().write(0x67f, 0x5a);
+                vm.bus_mut().ram_mut().write(0x682, 0xa5);
+                vm = machine::call(vm, &mut hooks, entry("Hold"), &[keep as u8, (keep >> 8) as u8, n]);
+                let seen = n.wrapping_mul(2).wrapping_add(4);
+                let result = keep.wrapping_add(keep.wrapping_add(257)).wrapping_add(u16::from(seen));
+                assert_eq!(machine::bytes(&vm, 0xa0, 2), result.to_le_bytes(), "{runtime:?} {observable} {keep} {n}");
+                assert_eq!(hooks.arguments, [("Middle", n), ("Touch", n.wrapping_add(1)),
+                    ("Sibling", n.wrapping_add(1)), ("Touch", n.wrapping_add(3))]);
+                assert_eq!(machine::bytes(&vm, 0x680, 2), [n.wrapping_add(3), seen]);
+                assert_eq!(machine::bytes(&vm, 0x67f, 1), [0x5a]);
+                assert_eq!(machine::bytes(&vm, 0x682, 1), [0xa5]);
+            }
+        }
+    }
+}
+
 #[test]
 fn native_current_location_callees_preserve_values_arguments_and_direct_entry() {
     let lf = include_str!("../../../fixtures/runtime/native_current_location_homes.act").replace("\r\n", "\n");

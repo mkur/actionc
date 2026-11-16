@@ -18,7 +18,8 @@ is implemented and [qualified](benchmarks/6502-whole-image-cost/README.md).
 Compiler baseline `8626beff` applied the per-routine veto.
 
 The [broader-placement extension](#proposed-extension-zp-placement-through-acyclic-call-chains)
-below is proposed, not implemented. It extends the same home-selection authority
+is implemented and [qualified](benchmarks/6502-acyclic-call-homes/README.md).
+It extends the same home-selection authority
 through acyclic native call chains, retaining per-object call-site lifetimes and
 native `=*` actual-entry analysis. Entry-contract composition and coordinated
 placement use the existing single ordinary-call batch.
@@ -1308,8 +1309,9 @@ The [implementation plan](MIR6502_ACYCLIC_CALL_HOMES_IMPLEMENTATION_PLAN.md)
 divides this extension into four separately committed slices with focused checks.
 
 Proposed 2026-11-15; revised 2026-11-16 for implemented value lifetimes and native
-current-location callee admission. The extension is implemented behind a disabled
-discovery gate; execution and TN qualification remain pending. Extend
+current-location callee admission. Implemented and
+[qualified](benchmarks/6502-acyclic-call-homes/README.md) on 2026-11-16: enabled
+in optimized configurations, disabled in the conservative default. Extend
 direct parameter/local residence beyond leaf routines and their immediate
 callers. Keep the existing binding tables, per-object call-site liveness,
 reservation policy, call ABI and whole-image transaction. Entry-dependent locals
@@ -1329,15 +1331,16 @@ homes. Sort has 238 instruction bytes and no inline scalar/spill home. Its old
 Fnamecmp entry-flag blocker has been resolved.
 
 The motivating chain is `Caller -> Ord -> Next`. Ord already has ZP homes
-because Next is a supported leaf. A value in Caller that survives Ord still
-fails the nonleaf preservation check. Values dead at that call, or first
+because Next is a supported leaf. A value in Caller that survives Ord previously
+failed the nonleaf preservation check. It can now qualify when the complete
+composed entry and write contracts are supported. Values dead at that call, or first
 defined afterwards, can already qualify under the lifetime rules. Distinguish
 source homes from spills, transient ABI/scratch use and source-owned ZP;
 an absent mapped home may also reflect capture/storage elimination.
 
-The current restrictions occur in distinct places:
+The extension addresses distinct boundaries:
 
-| Boundary | Current behavior | Intended extension |
+| Boundary | Prior behavior | Implemented extension |
 | --- | --- | --- |
 | Native write summaries | Already propagate through acyclic direct calls | Reuse their transitive coverage and directional read/write distinction. |
 | `ResidenceCalls::writes` | Certifies ordinary and native `=*` leaves; rejects callees containing calls | Certify supported acyclic native call closures for values live across invocation. |
@@ -1368,8 +1371,8 @@ but observations, inputs and ordering retain their existing proofs. Source-owned
 and ABI storage do not become unobservable.
 
 Call depth is only one remaining TN limit. Copy still fails the pointer-read/
-variable-word-arithmetic body guard; its SwapWin call also needs nonleaf entry
-composition. PopUp encounters Range's five-byte SArgs entry, and its `menu` and
+variable-word-arithmetic body guard; its SwapWin call must independently qualify
+through the composed entry contract. PopUp encounters Range's five-byte SArgs entry, and its `menu` and
 `c` independently have retained-value and address-exposure obligations. Assembly
 and OS boundaries retain their current restrictions. Complete write summaries
 can still exclude the entire pool: the existing Global-write alias rule is
@@ -1404,6 +1407,12 @@ available, can do so. Otherwise retain the dependency or reject the entry proof;
 do not infer a result definition from an incidental `$A0` store or a map signature.
 Calls do not logically initialize caller locals merely by touching their homes.
 Do not export mutable native exit N/Z facts to make an entry proof succeed.
+
+The first implementation propagates definite result bytes only with a complete
+integer scalar signature containing one byte/word result and an all-returning-path
+physical definition proof. Pointer-parameter routines do not carry that signature;
+retain their return-home dependencies conservatively. Broadening that typed ABI
+contract is separate from guessing definitions from stores or layout metadata.
 
 An entry fact that depends on another routine must become stale when that
 dependency's body, binding, ABI or relevant backing changes, even if the outer
@@ -1501,11 +1510,11 @@ scope. It does not add a trial per depth, a second ordinary-call batch, a subset
 retry or a separate preliminary compile to preserve an unmeasured subset's gains.
 `cross_call_home_trials` remains zero or one; an empty proposal adds no continuation.
 
-Qualify behind one nested-call discovery gate subordinate to the existing
+The qualified `enable_acyclic_call_homes` discovery gate is subordinate to the existing
 peephole, parameter-home, cross-call and value-lifetime gates. The multiple-call
 gate continues to govern the allowed number of sites. With the new gate off,
-retain current selection behavior and ordering. Do not enable it by default
-before qualification.
+retain the previous selection behavior and ordering. The optimized default is
+enabled after qualification; the conservative default stays disabled.
 
 Final acceptance requires valid bindings, actual entry/argument supply at each
 site, expanded lifetime verification, authoritative physical layout and replay

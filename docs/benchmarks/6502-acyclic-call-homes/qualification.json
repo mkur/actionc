@@ -1,0 +1,732 @@
+{
+  "date": "2026-11-16",
+  "implementation_commits": [
+    "d674c5c8",
+    "4a87756a",
+    "b18938d3"
+  ],
+  "compiler": {
+    "base_revision": "b18938d3554ab1a6227243077fea25ffdecdf19e",
+    "pending_source_change": "enable_acyclic_call_homes=true in Mir6502Config::optimized()",
+    "sources_manifest_sha256": "251936b3be50954db5c43d6c766279858629b875699e9a50862c9a769b0b3333",
+    "sources_count": 605,
+    "passes_sha256": "4e65f16aa69e39ca1958bc43ba077350f9012a13e8c420f7c507ffa1d87bae66",
+    "library_sha256": "e888af3d878ce6260c39a464b349501d0a462c49051ba955f7979413fa4d6af8",
+    "probe_sha256": "a3e9fc495ce6354e5949ef080685f3cf2f5c76f520e9fe58c4a6019f794c0bff"
+  },
+  "configuration": {
+    "backend": "MIR6502",
+    "runtime": "ActionCart",
+    "origin": 12288,
+    "optimized_nir": true,
+    "optimized_mir": true,
+    "only_ab_difference": "enable_acyclic_call_homes",
+    "small_leaf_inlining": {
+      "tn": true,
+      "independent_controls": false
+    },
+    "rust_profile": "dev/test opt-level=1, debug=0; shared target",
+    "timing": "One traced MIR generation sample per build; excludes parsing/NIR and rustc. Not a performance benchmark."
+  },
+  "inputs_sha256": {
+    "samples/tn/modern/TN.ACT": "e6f03f6bb6a6260547197785d9ac85c9a1ee544f66cc889ed417c5adb56073bd",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "fixtures/runtime/acyclic_call_homes.act": "a72300b1041216c3ac236f91e1aa16d0351f4405b76e4a46d8df6161eddb3a7e",
+    "build/acyclic-call-homes/native.act": "76fe5624a4bb51f5d8954c841c952c677be4a0fae8d69d9623375fa8ece48dce",
+    "build/acyclic-call-homes/measure.rs": "a493488ac204a74a28d4879f2ba7b6e73987413e9c6e853d77798ecbf3b0047e",
+    "tools/vm-runtime-tests/Cargo.toml": "f6449cbdc58a154e459cee36cd0399f79dae91601cb79bee261cd3804f1c126e",
+    "tools/vm-runtime-tests/Cargo.lock": "88a5bf40bf2ba08f08641ff159221a3aa34bb1f5068932dbbc0f2b2e71d78c5d"
+  },
+  "results": {
+    "control": {
+      "packaged_bytes": {
+        "off": 139,
+        "on": 125,
+        "saved": 14
+      },
+      "compile_ms": {
+        "off": 97,
+        "on": 98
+      },
+      "changed_routines": [
+        {
+          "name": "Hold",
+          "off": {
+            "name": "Hold",
+            "code_bytes": 76,
+            "inline_home_bytes": 5,
+            "zp_home_bytes": 0,
+            "homes": [
+              {
+                "name": "keep",
+                "address": 12288,
+                "size": 2,
+                "kind": "Parameter"
+              },
+              {
+                "name": "n",
+                "address": 12290,
+                "size": 1,
+                "kind": "Parameter"
+              },
+              {
+                "name": "work",
+                "address": 12291,
+                "size": 2,
+                "kind": "Local"
+              }
+            ]
+          },
+          "on": {
+            "name": "Hold",
+            "code_bytes": 67,
+            "inline_home_bytes": 0,
+            "zp_home_bytes": 5,
+            "homes": [
+              {
+                "name": "keep",
+                "address": 224,
+                "size": 2,
+                "kind": "Parameter"
+              },
+              {
+                "name": "n",
+                "address": 163,
+                "size": 1,
+                "kind": "Parameter"
+              },
+              {
+                "name": "work",
+                "address": 226,
+                "size": 2,
+                "kind": "Local"
+              }
+            ]
+          }
+        }
+      ],
+      "named_zp_occupancy": {
+        "off": {
+          "named_home_bytes_sum": 4,
+          "distinct_named_home_bytes": 2,
+          "addresses": [
+            161,
+            162
+          ],
+          "scope": "Mapped source parameter/local homes; excludes transient scratch and anonymous spills."
+        },
+        "on": {
+          "named_home_bytes_sum": 9,
+          "distinct_named_home_bytes": 7,
+          "addresses": [
+            161,
+            162,
+            163,
+            224,
+            225,
+            226,
+            227
+          ],
+          "scope": "Mapped source parameter/local homes; excludes transient scratch and anonymous spills."
+        }
+      },
+      "work": {
+        "off": {
+          "cross_call_home_trials": 1,
+          "emission_invocations": 4,
+          "inner_emission_probes": 8,
+          "materializations": 2,
+          "parameter_home_trials": 1,
+          "pipeline_attempts": 35,
+          "rewrite_analysis_builds": 817,
+          "source_storage_inventory_builds": 4
+        },
+        "on": {
+          "cross_call_home_trials": 1,
+          "emission_invocations": 4,
+          "inner_emission_probes": 8,
+          "materializations": 2,
+          "parameter_home_trials": 1,
+          "pipeline_attempts": 35,
+          "rewrite_analysis_builds": 818,
+          "source_storage_inventory_builds": 4
+        }
+      },
+      "outputs_sha256": {
+        "off": {
+          "image.xex": "c14c0edb39be55059145d400c2a8e543806c9a71f5b9c71872aa30706ff58556",
+          "map.txt": "6e7956ec0d8d89e0de91e5c8951e9ace89009b1c7cbf7dfd33752fbf10b2a1c7",
+          "relocations.txt": "9ea092f02f61ab1fe9e3091d12051fe70261353f3fc04469423e40d11dc3ad28",
+          "selected.mir": "a7ff6d97f803dd964aed2f4b76ac53c5278462aeb00eb9725b52c3ea310f473e",
+          "summary.json": "c8a333213164c48bec00e0cd5cc6d88fcf0fb3ac3ec50030e851d7960d6d6b2a",
+          "manifest.json": "8b2ffcfbcac5978ec8f7a0555689344548025a2e74fe8993671bf9bde99f8829",
+          "events.jsonl": "f0cf70ee4dc07f5d3386c82e1b0eea9fb07866623ad4276ed509825fda997329",
+          "config.txt": "2ad764a1abaacbbd2921ffe3359a2b42e561406b3dcb8fe7ded7866df2319ff2"
+        },
+        "on": {
+          "image.xex": "b63c19a1e10da1919b2ab2535dfe5dafa3b40c34a31a03bf8a77d89c896514e1",
+          "map.txt": "afc81e42cf3be213d62a055514c43d43da558ccd45591b3648a60d6d7caeea59",
+          "relocations.txt": "0d3e656c263192ea48cb16ebcb61c2ea6060a9523c4837bfcc73f685892b7704",
+          "selected.mir": "784c4ed12d6c4c4f10ca3980629619de1a5710bf67247d81e27c42dfb494387e",
+          "summary.json": "c12acd6a6cfe8bc91a7fd0916006fd276bdcf01651920e19fc9bc93e02c67382",
+          "manifest.json": "f0120aaf8feb4619535bd1433de42919fa4e0f2fec75d1e2e3e362adab64d5ac",
+          "events.jsonl": "1cc9c7ca288b8df7a48fec747e385457053fa4d07f6eb47ac342b0c6ca9d61de",
+          "config.txt": "4ae1b8a1a58919f0ac8016c416c1147701b64f9c9df798129a93d3318be2ea9d"
+        }
+      }
+    },
+    "native": {
+      "packaged_bytes": {
+        "off": 145,
+        "on": 131,
+        "saved": 14
+      },
+      "compile_ms": {
+        "off": 104,
+        "on": 95
+      },
+      "changed_routines": [
+        {
+          "name": "Hold",
+          "off": {
+            "name": "Hold",
+            "code_bytes": 76,
+            "inline_home_bytes": 5,
+            "zp_home_bytes": 0,
+            "homes": [
+              {
+                "name": "keep",
+                "address": 12290,
+                "size": 2,
+                "kind": "Parameter"
+              },
+              {
+                "name": "n",
+                "address": 12292,
+                "size": 1,
+                "kind": "Parameter"
+              },
+              {
+                "name": "work",
+                "address": 12293,
+                "size": 2,
+                "kind": "Local"
+              }
+            ]
+          },
+          "on": {
+            "name": "Hold",
+            "code_bytes": 67,
+            "inline_home_bytes": 0,
+            "zp_home_bytes": 5,
+            "homes": [
+              {
+                "name": "keep",
+                "address": 224,
+                "size": 2,
+                "kind": "Parameter"
+              },
+              {
+                "name": "n",
+                "address": 162,
+                "size": 1,
+                "kind": "Parameter"
+              },
+              {
+                "name": "work",
+                "address": 226,
+                "size": 2,
+                "kind": "Local"
+              }
+            ]
+          }
+        }
+      ],
+      "named_zp_occupancy": {
+        "off": {
+          "named_home_bytes_sum": 2,
+          "distinct_named_home_bytes": 2,
+          "addresses": [
+            161,
+            162
+          ],
+          "scope": "Mapped source parameter/local homes; excludes transient scratch and anonymous spills."
+        },
+        "on": {
+          "named_home_bytes_sum": 7,
+          "distinct_named_home_bytes": 6,
+          "addresses": [
+            161,
+            162,
+            224,
+            225,
+            226,
+            227
+          ],
+          "scope": "Mapped source parameter/local homes; excludes transient scratch and anonymous spills."
+        }
+      },
+      "work": {
+        "off": {
+          "cross_call_home_trials": 1,
+          "emission_invocations": 4,
+          "inner_emission_probes": 8,
+          "materializations": 2,
+          "parameter_home_trials": 1,
+          "pipeline_attempts": 35,
+          "rewrite_analysis_builds": 817,
+          "source_storage_inventory_builds": 4
+        },
+        "on": {
+          "cross_call_home_trials": 1,
+          "emission_invocations": 4,
+          "inner_emission_probes": 8,
+          "materializations": 2,
+          "parameter_home_trials": 1,
+          "pipeline_attempts": 35,
+          "rewrite_analysis_builds": 818,
+          "source_storage_inventory_builds": 4
+        }
+      },
+      "outputs_sha256": {
+        "off": {
+          "image.xex": "2b2ac76c3fb5354be2a2db3b4e41c25da846bb6e5989653e91d995f6d50fe967",
+          "map.txt": "da570506c3ed1c910126c59336c99365582e3643ef566f1a1a31219d32c12917",
+          "relocations.txt": "87a18c4273ba784e1dc9853931d039b13d0bd11ab28661bc902b480b1211a78e",
+          "selected.mir": "372bfacb4ae80cbc11af4d80b8f3ff6c80e2a61c80669812853c8eaca7fec477",
+          "summary.json": "f4be14dcb275e9e6dba5cca411e386ad372e187be0d0f0fcfa2d10d4ede43186",
+          "manifest.json": "497e212b8eeb7ea59a52dbbbba42700b60d535089d66b0d97bcda17a540fccc0",
+          "events.jsonl": "93e94c96740819323b3a26b4a0da7388ec8308dba6e689c96c71325110eb0f17",
+          "config.txt": "2ad764a1abaacbbd2921ffe3359a2b42e561406b3dcb8fe7ded7866df2319ff2"
+        },
+        "on": {
+          "image.xex": "6432606d6061172a12582cc1da0fd225b64077739f724f790ac52e44feb6d8ee",
+          "map.txt": "7a8c9e2f5dc6d36a9208491e59d6074640c095fe4fe3d8c2a1944880f5dd9845",
+          "relocations.txt": "dec17023f1ca8a1423cb227c627b47074c6f6d135d12c072e19531e38cbbc64b",
+          "selected.mir": "2792ee39200746a85a898dd7926169b5a2ef88c2db01a603d6ba4221826c167c",
+          "summary.json": "4490a8014745b4a081e1ee84a34b5a4941a69136a8f1df3097a4b8d07bb89da6",
+          "manifest.json": "6a72fe27d90acedc2f4b73f483cd9d7c24f1ad26bf82f8d6b070e6c6d4fd5859",
+          "events.jsonl": "35ea671b9ef16955d8f1c445e5a064a4a24ed0e1838e6cad2393b1c5243eacb8",
+          "config.txt": "4ae1b8a1a58919f0ac8016c416c1147701b64f9c9df798129a93d3318be2ea9d"
+        }
+      }
+    },
+    "tn": {
+      "packaged_bytes": {
+        "off": 9811,
+        "on": 9811,
+        "saved": 0
+      },
+      "compile_ms": {
+        "off": 20094,
+        "on": 20004
+      },
+      "changed_routines": [],
+      "named_zp_occupancy": {
+        "off": {
+          "named_home_bytes_sum": 24,
+          "distinct_named_home_bytes": 7,
+          "addresses": [
+            160,
+            161,
+            162,
+            163,
+            226,
+            227,
+            228
+          ],
+          "scope": "Mapped source parameter/local homes; excludes transient scratch and anonymous spills."
+        },
+        "on": {
+          "named_home_bytes_sum": 24,
+          "distinct_named_home_bytes": 7,
+          "addresses": [
+            160,
+            161,
+            162,
+            163,
+            226,
+            227,
+            228
+          ],
+          "scope": "Mapped source parameter/local homes; excludes transient scratch and anonymous spills."
+        }
+      },
+      "work": {
+        "off": {
+          "cross_call_home_trials": 1,
+          "emission_invocations": 146,
+          "inner_emission_probes": 876,
+          "late_cleanup_preservation_replays": 17,
+          "materializations": 6,
+          "parameter_argument_handoff_trials": 1,
+          "parameter_home_trials": 3,
+          "pipeline_attempts": 67,
+          "rewrite_analysis_builds": 47646,
+          "source_storage_inventory_builds": 61,
+          "storage_observation_snapshot_builds": 3
+        },
+        "on": {
+          "cross_call_home_trials": 1,
+          "emission_invocations": 146,
+          "inner_emission_probes": 876,
+          "late_cleanup_preservation_replays": 17,
+          "materializations": 6,
+          "parameter_argument_handoff_trials": 1,
+          "parameter_home_trials": 3,
+          "pipeline_attempts": 67,
+          "rewrite_analysis_builds": 47646,
+          "source_storage_inventory_builds": 61,
+          "storage_observation_snapshot_builds": 3
+        }
+      },
+      "outputs_sha256": {
+        "off": {
+          "image.xex": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+          "map.txt": "2454d4f818032023dc3915413587c741c29a35868b47166ffbed284147668248",
+          "relocations.txt": "10c3af5599bfa8f80e146463cf4fafaeb72db74a309abf82c70a17251e48925d",
+          "selected.mir": "885db319b05e70a990b9a9823bfe80bd70d2be57510917391580846694beba96",
+          "summary.json": "4c71d1710d698a9a1b535d07c7e20ef116c9f374b5a9b0b4b392d9aec7e5cb23",
+          "manifest.json": "b8899b0d3a2954d2e677baac54281513afd56f552c40e3a3a06a454d1d240195",
+          "events.jsonl": "26fa2b87cfab01ab5bbd6284cb9e5e9e08133042dec7f985f79088f44e4ec1bf",
+          "config.txt": "0abd3721d113c285578932b3eeb9366c1c4e164be79f0d3110daf4f18c082ffc"
+        },
+        "on": {
+          "image.xex": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+          "map.txt": "2454d4f818032023dc3915413587c741c29a35868b47166ffbed284147668248",
+          "relocations.txt": "10c3af5599bfa8f80e146463cf4fafaeb72db74a309abf82c70a17251e48925d",
+          "selected.mir": "885db319b05e70a990b9a9823bfe80bd70d2be57510917391580846694beba96",
+          "summary.json": "7ddd5a6866a9edc3e5fb7c5999307ef48880fea5c1af362b03802a2b225f537f",
+          "manifest.json": "91f8a58c9ae3efdf240837744a13fca93749b067a9a272061bee7028fc76c95f",
+          "events.jsonl": "d36f6444c662a0bd1e43519f9fc3995522a79a4ee2eac0ff252c1cd22fc2a81f",
+          "config.txt": "32b925164924cf9469115a6c2f93fc9ef981046d5e89c48babb002678d378797"
+        }
+      },
+      "reference_packaged_bytes": 9811,
+      "reference_image_sha256": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+      "reference_drift_bytes": 0,
+      "unchanged_controls": [
+        {
+          "name": "Next",
+          "code_bytes": 30,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 0,
+          "homes": []
+        },
+        {
+          "name": "Ord",
+          "code_bytes": 51,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 5,
+          "homes": [
+            {
+              "name": "menu",
+              "address": 226,
+              "size": 2,
+              "kind": "Parameter"
+            },
+            {
+              "name": "item",
+              "address": 162,
+              "size": 2,
+              "kind": "Parameter"
+            },
+            {
+              "name": "c",
+              "address": 228,
+              "size": 1,
+              "kind": "Local"
+            }
+          ]
+        },
+        {
+          "name": "Items",
+          "code_bytes": 37,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 3,
+          "homes": [
+            {
+              "name": "menu",
+              "address": 162,
+              "size": 2,
+              "kind": "Parameter"
+            },
+            {
+              "name": "c",
+              "address": 226,
+              "size": 1,
+              "kind": "Local"
+            }
+          ]
+        },
+        {
+          "name": "FindItem",
+          "code_bytes": 53,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 3,
+          "homes": [
+            {
+              "name": "menu",
+              "address": 162,
+              "size": 2,
+              "kind": "Parameter"
+            },
+            {
+              "name": "ch",
+              "address": 226,
+              "size": 1,
+              "kind": "Parameter"
+            }
+          ]
+        },
+        {
+          "name": "Strcpy",
+          "code_bytes": 20,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 3,
+          "homes": [
+            {
+              "name": "s+0",
+              "address": 160,
+              "size": 1,
+              "kind": "Parameter"
+            },
+            {
+              "name": "t+0",
+              "address": 162,
+              "size": 1,
+              "kind": "Parameter"
+            },
+            {
+              "name": "t+1",
+              "address": 163,
+              "size": 1,
+              "kind": "Parameter"
+            }
+          ]
+        },
+        {
+          "name": "Instr",
+          "code_bytes": 55,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 3,
+          "homes": [
+            {
+              "name": "s",
+              "address": 160,
+              "size": 2,
+              "kind": "Parameter"
+            },
+            {
+              "name": "ch",
+              "address": 162,
+              "size": 1,
+              "kind": "Parameter"
+            }
+          ]
+        },
+        {
+          "name": "Fnamecmp",
+          "code_bytes": 105,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 4,
+          "homes": [
+            {
+              "name": "s",
+              "address": 160,
+              "size": 2,
+              "kind": "Parameter"
+            },
+            {
+              "name": "t",
+              "address": 162,
+              "size": 2,
+              "kind": "Parameter"
+            }
+          ]
+        },
+        {
+          "name": "Sort",
+          "code_bytes": 238,
+          "inline_home_bytes": 0,
+          "zp_home_bytes": 2,
+          "homes": [
+            {
+              "name": "h",
+              "address": 226,
+              "size": 2,
+              "kind": "Local"
+            }
+          ]
+        },
+        {
+          "name": "PrintNonzeroDigit",
+          "code_bytes": 44,
+          "inline_home_bytes": 1,
+          "zp_home_bytes": 1,
+          "homes": [
+            {
+              "name": "b",
+              "address": 13306,
+              "size": 1,
+              "kind": "Parameter"
+            },
+            {
+              "name": "divisor",
+              "address": 162,
+              "size": 1,
+              "kind": "Parameter"
+            }
+          ]
+        }
+      ],
+      "sort_spill": {
+        "address": 236,
+        "changed": false
+      },
+      "callers_of_ord": [
+        "PopUp",
+        "Format"
+      ],
+      "blockers": [
+        {
+          "kind": "cross-call-ineligible",
+          "data": {
+            "indirect_writes": true,
+            "machine_blocks": false,
+            "reason": "unsupported caller body or signature",
+            "routine": "Format"
+          }
+        },
+        {
+          "kind": "cross-call-ineligible",
+          "data": {
+            "indirect_writes": true,
+            "machine_blocks": false,
+            "reason": "unsupported caller body or signature",
+            "routine": "Copy"
+          }
+        },
+        {
+          "kind": "cross-call-candidate",
+          "data": {
+            "call_count": 2,
+            "call_index": 0,
+            "entry": "ArenaCursor: Inputs { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: true, z: false, n: false, v: false }, fixed: {232, 233} }",
+            "reason": "extra-entry-flags-or-stack",
+            "routine": "Alloc"
+          }
+        },
+        {
+          "kind": "cross-call-candidate",
+          "data": {
+            "call_count": 3,
+            "call_index": 0,
+            "entry": "ArenaCursor: Inputs { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: true, z: false, n: false, v: false }, fixed: {232, 233} }",
+            "reason": "extra-entry-flags-or-stack",
+            "routine": "Free"
+          }
+        },
+        {
+          "kind": "cross-call-candidate",
+          "data": {
+            "call_count": 2,
+            "call_index": 0,
+            "entry": "ArenaCursor: Inputs { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: true, z: false, n: false, v: false }, fixed: {232, 233} }",
+            "reason": "extra-entry-flags-or-stack",
+            "routine": "Push"
+          }
+        },
+        {
+          "kind": "cross-call-candidate",
+          "data": {
+            "call_count": 6,
+            "call_index": 0,
+            "entry": "Some(\"MovePage\") (RoutineId(0)) at Some(Op { block: MirBlockId(0), op_index: 0 }): unsupported native call closure operation",
+            "reason": "unknown residence callee entry",
+            "routine": "CloseWindow"
+          }
+        },
+        {
+          "kind": "cross-call-candidate",
+          "data": {
+            "call_count": 13,
+            "call_index": 0,
+            "entry": "Push: Inputs { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }, flags: MirFlagSet { c: true, z: false, n: false, v: false }, fixed: {232, 233} }",
+            "reason": "extra-entry-flags-or-stack",
+            "routine": "PopUp"
+          }
+        },
+        {
+          "kind": "cross-call-candidate",
+          "data": {
+            "call_count": 1,
+            "call_index": 0,
+            "entry": "Some(\"Relpos\") (RoutineId(9)) at Some(Op { block: MirBlockId(0), op_index: 0 }): unsupported native call closure operation",
+            "reason": "unknown residence callee entry",
+            "routine": "GoTo"
+          }
+        },
+        {
+          "kind": "cross-call-candidate",
+          "data": {
+            "call_count": 9,
+            "call_index": 0,
+            "entry": "Alloc: Inputs { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }, flags: MirFlagSet { c: true, z: false, n: false, v: false }, fixed: {232, 233} }",
+            "reason": "extra-entry-flags-or-stack",
+            "routine": "SwapScr"
+          }
+        }
+      ]
+    }
+  },
+  "validation": {
+    "new_entry_groups": 3,
+    "entry_handoff_regressions": 18,
+    "machine_liveness_tests": 11,
+    "parameter_home_tests": 63,
+    "ownership_tests": 16,
+    "abi_unit_tests": 5,
+    "call_abi_integration_tests": 11,
+    "cross_call_integration_tests": 21,
+    "optional_mads_ignored": 1,
+    "new_vm_group": {
+      "configurations": [
+        "default ActionCart",
+        "optimized ActionCart gate off",
+        "optimized ActionCart gate on",
+        "optimized Standalone gate on",
+        "native =* middle, optimized ActionCart gate on"
+      ],
+      "source_variants": [
+        "LF",
+        "CRLF"
+      ],
+      "hold_invocations": 70,
+      "nested_entries_observed": 280,
+      "checks": [
+        "host results",
+        "canonical arguments",
+        "byte/word boundaries",
+        "sentinels",
+        "stack balance",
+        "selected homes",
+        "native direct entry"
+      ]
+    },
+    "after_default_toggle": [
+      "2 acyclic/default/gate integration groups",
+      "3 historical leaf-scope integration groups",
+      "live_call_homes VM group",
+      "recursive_call_boundaries VM group"
+    ],
+    "full_compiler_suite": false,
+    "nir_sweep": false
+  },
+  "retained_limits": [
+    "Spill discovery remains leaf-only.",
+    "Assembly/OS, SArgs, unsupported helpers and recursive preservation remain excluded.",
+    "Definite result-byte propagation requires the existing scalar signature and writes on every returning path. Pointer-parameter routines such as Next lack that signature; no result fact is inferred from map data.",
+    "Global-write aliasing, source exposure and retained-value policies are unchanged."
+  ]
+}
