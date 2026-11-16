@@ -8,6 +8,60 @@ fn nir(source: &str) -> actionc::nir::NirProgram {
 }
 
 #[test]
+fn acyclic_call_homes_coordinate_one_profitable_batch() {
+    let source = include_str!("../fixtures/runtime/acyclic_call_homes.act").replace("\r\n", "\n");
+    for observable in [false, true] {
+        let source = if observable { source.replace("FUNC Middle(", "FUNC Middle=*(") } else { source.clone() };
+        let n = nir(&source);
+        let config = Mir6502Config { enable_small_leaf_inlining: false,
+            enable_acyclic_call_homes: true, ..Mir6502Config::optimized() };
+        let mut trace = Mir6502Trace::default();
+        let new = mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace).unwrap();
+        let old = mir6502::generate_output_with_config_and_runtime(&n, 0x3000,
+            &Mir6502Config { enable_acyclic_call_homes: false, ..config.clone() }, Runtime::ActionCart).unwrap();
+        let home = |routine: &str, name: &str| new.map.storage_symbols.iter().find(|s|
+            s.scope == actionc::codegen::CodegenSymbolScope::Routine(routine.into()) && s.name == name).unwrap().address;
+        let events = trace.events();
+        for name in ["keep", "n", "work"] { assert!(home("Hold", name) < 256, "{name} {events:#?}"); }
+        if observable { assert!(home("Middle", "x") >= 256 && home("Middle", "c") >= 256); }
+        else {
+            assert_eq!(home("Middle", "x"), home("Sibling", "x"));
+            assert_eq!(home("Middle", "c"), home("Sibling", "c"));
+        }
+        assert!(actionc::codegen::format_load_file(&new).len() < actionc::codegen::format_load_file(&old).len(), "{events:#?}");
+        assert_eq!(trace.manifest()["work"]["cross_call_home_trials"], 1);
+        println!("acyclic observable={observable}: {} -> {} bytes", actionc::codegen::format_load_file(&old).len(), actionc::codegen::format_load_file(&new).len());
+    }
+}
+
+#[test]
+fn acyclic_call_homes_respect_parent_gates_and_empty_proposals() {
+    assert!(!Mir6502Config::default().enable_acyclic_call_homes);
+    assert!(!Mir6502Config::optimized().enable_acyclic_call_homes);
+    let source = include_str!("../fixtures/runtime/acyclic_call_homes.act").replace("\r\n", "\n");
+    let n = nir(&source);
+    for parent in 0..5 {
+        let mut config = Mir6502Config { enable_small_leaf_inlining: false,
+            enable_acyclic_call_homes: true, ..Mir6502Config::optimized() };
+        match parent {
+            0 => config.enable_peepholes = false,
+            1 => config.enable_parameter_home_selection = false,
+            2 => config.enable_cross_call_home_selection = false,
+            3 => config.enable_zp_home_lifetimes = false,
+            _ => config.enable_multiple_leaf_call_homes = false,
+        }
+        let enabled = mir6502::generate_output_with_config_and_runtime(&n, 0x3000, &config, Runtime::ActionCart).unwrap();
+        config.enable_acyclic_call_homes = false;
+        let disabled = mir6502::generate_output_with_config_and_runtime(&n, 0x3000, &config, Runtime::ActionCart).unwrap();
+        assert_eq!(enabled, disabled, "parent={parent}");
+    }
+    let mut trace = Mir6502Trace::default();
+    mir6502::generate_output_with_trace(&nir("PROC Main() RETURN"), 0x3000,
+        &Mir6502Config { enable_acyclic_call_homes: true, ..Mir6502Config::optimized() }, Runtime::ActionCart, &mut trace).unwrap();
+    assert_eq!(trace.manifest()["work"]["cross_call_home_trials"].as_u64().unwrap_or(0), 0);
+}
+
+#[test]
 fn native_current_location_callees_allow_caller_homes_and_spills() {
     let source = include_str!("../fixtures/runtime/native_current_location_homes.act").replace("\r\n", "\n");
     for marker in ["=*", ""] {

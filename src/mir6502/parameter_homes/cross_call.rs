@@ -1,8 +1,11 @@
-//! One bounded proposal for homes across ordinary leaf calls. Selected callee facts
+//! One bounded proposal for homes across supported native calls. Selected callee facts
 //! filter candidates; the resumed executable must establish its own proofs.
 use super::*;
 use crate::mir6502::analysis::sites::MirSite;
+use std::collections::BTreeMap;
+mod chains;
 
+#[cfg(test)]
 pub(super) fn propose(
     input: &MirProgram,
     selected: &MirProgram,
@@ -10,6 +13,14 @@ pub(super) fn propose(
     lifetimes: bool,
     trace: &super::super::trace::Trace,
 ) -> Option<MirProgram> {
+    propose_with_scope(input, selected, multiple, lifetimes, false, trace)
+}
+
+pub(super) fn propose_with_scope(
+    input: &MirProgram, selected: &MirProgram, multiple: bool, lifetimes: bool,
+    acyclic: bool, trace: &super::super::trace::Trace,
+) -> Option<MirProgram> {
+    let acyclic = acyclic && lifetimes;
     let addresses = ObjectAddressControl::new(input);
     let unresolved_observation = physical::unresolved_observation(input);
     // Layout-independent numeric observations are already authoritative. Avoid
@@ -61,9 +72,18 @@ pub(super) fn propose(
     if candidates.is_empty() {
         return None;
     }
-    let mut facts = ResidenceCalls::new(selected, MirCalleeEntryStage::ActualEntry);
+    let chains = acyclic.then(|| chains::CallChains::new(input, selected));
+    let order = chains.as_ref().map(|c| c.order.clone())
+        .unwrap_or_else(|| candidates.iter().map(|(_, r, _)| r.id).collect());
+    let mut candidates: BTreeMap<_, _> = candidates.into_iter().map(|c| (c.1.id, c)).collect();
+    let mut planned = BTreeMap::new();
+    let mut facts = if acyclic { ResidenceCalls::with_acyclic(selected, MirCalleeEntryStage::ActualEntry) }
+        else { ResidenceCalls::new(selected, MirCalleeEntryStage::ActualEntry) };
     let mut proposal = None;
-    'caller: for (index, routine, calls) in candidates {
+    'caller: for id in order {
+        // Propagate through inline/otherwise ineligible middle routines too.
+        if let Some(chains) = &chains { planned.insert(id, chains.inherited(id, &planned)); }
+        let Some((index, routine, calls)) = candidates.remove(&id) else { continue; };
         let logical = if lifetimes {
             let Some(logical) = logical::LogicalHomes::new(routine) else { continue; };
             Some(logical)
@@ -73,13 +93,29 @@ pub(super) fn propose(
             if lifetimes && let Err(reason) = facts.inputs(call) {
                 trace.event("cross-call-candidate", || serde_json::json!({
                     "routine": routine.name, "reason": reason,
+                    "entry": facts.entry_description(call),
                     "call_count": calls.len(), "call_index": call_index,
                 }));
                 continue 'caller;
             }
             let writes = facts.writes(call).map(|writes| (0..=255u8)
                 .filter(|slot| !writes.preserves_fixed_byte(MirFixedZpSlot(*slot)))
-                .collect::<BTreeSet<_>>());
+                .collect::<BTreeSet<_>>()).and_then(|mut writes| {
+                    if let Some(chains) = &chains {
+                        let MirOp::Call { target: MirCallTarget::Routine(target), .. } = call else {
+                            return Err("unknown planning dependency");
+                        };
+                        if !chains.supports(*target) { return Err("recursive or missing retained call dependency"); }
+                        if let Some(bytes) = planned.get(target) { writes.extend(bytes); }
+                    }
+                    Ok(writes)
+                });
+            if acyclic && writes.is_err() {
+                trace.event("cross-call-dependency", || serde_json::json!({
+                    "routine": routine.name, "site": format!("{site:?}"),
+                    "reason": writes.as_ref().err(), "entry": facts.entry_description(call),
+                }));
+            }
             if !lifetimes && let Err(reason) = writes {
                 trace.event("cross-call-candidate", || serde_json::json!({
                     "routine": routine.name, "reason": reason,
@@ -154,6 +190,12 @@ pub(super) fn propose(
                 "local_bindings": format!("{:?}", candidate.frame.local_homes),
                 "call_count": calls.len(),
             }));
+            if let Some(bytes) = planned.get_mut(&id) {
+                bytes.extend(candidate.frame.resident_bytes().iter().map(|(_, slot)| slot.0));
+                trace.event("cross-call-planned-subtree", || serde_json::json!({
+                    "routine": routine.name, "routine_id": id.0, "resident_bytes": bytes,
+                }));
+            }
             proposal.get_or_insert_with(|| input.clone()).routines[index] = candidate;
         }
     }

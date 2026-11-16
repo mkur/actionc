@@ -39,6 +39,19 @@ impl<'a> ResidenceCalls<'a> {
             MirCalleeEntryFact::analyze(self.program, target, self.stage).map(Arc::new)).clone()
     }
 
+    /// Diagnostics read already established facts; tracing does not run analysis.
+    pub fn entry_description(&self, call: &MirOp) -> Option<String> {
+        let MirOp::Call { target: MirCallTarget::Routine(target), .. } = call else { return None; };
+        if let Some(analysis) = &self.acyclic {
+            if let Some((id, site, reason)) = analysis.failure(*target) {
+                let name = self.program.routines.iter().find(|r| r.id == id).map(|r| r.name.as_str());
+                return Some(format!("{name:?} ({id:?}) at {site:?}: {reason}"));
+            }
+            return analysis.cached(*target).map(|f| format!("{}: {:?}", f.source.name, f.inputs));
+        }
+        self.entries.get(target)?.as_ref().map(|f| format!("{}: {:?}", f.source.name, f.inputs))
+    }
+
     /// Validate the ordinary call boundary even when no resident value survives
     /// invocation. This grants no preservation or entry facts to other consumers.
     pub fn inputs(&mut self, call: &MirOp) -> Result<(), &'static str> {

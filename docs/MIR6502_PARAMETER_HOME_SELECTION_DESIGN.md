@@ -1308,7 +1308,8 @@ The [implementation plan](MIR6502_ACYCLIC_CALL_HOMES_IMPLEMENTATION_PLAN.md)
 divides this extension into four separately committed slices with focused checks.
 
 Proposed 2026-11-15; revised 2026-11-16 for implemented value lifetimes and native
-current-location callee admission. This extension is not implemented. Extend
+current-location callee admission. The extension is implemented behind a disabled
+discovery gate; execution and TN qualification remain pending. Extend
 direct parameter/local residence beyond leaf routines and their immediate
 callers. Keep the existing binding tables, per-object call-site liveness,
 reservation policy, call ABI and whole-image transaction. Entry-dependent locals

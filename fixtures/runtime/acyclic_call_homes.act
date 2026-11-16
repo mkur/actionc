@@ -1,0 +1,27 @@
+BYTE FUNC Touch(BYTE x)
+  BYTE observed=$680
+  observed=x
+RETURN(x+3)
+
+BYTE FUNC Middle(BYTE x)
+  BYTE c
+  c=x+1
+  Touch(c)
+RETURN(x+c)
+
+BYTE FUNC Sibling(BYTE x)
+  BYTE c
+  c=x+2
+  Touch(c)
+RETURN(x+c)
+
+CARD FUNC Hold(CARD keep BYTE n)
+  CARD work
+  BYTE seen=$681
+  work=keep+257
+  seen=Middle(n)
+  seen=Sibling(n+1)
+RETURN(keep+work+seen)
+
+PROC Main()
+RETURN

@@ -23,6 +23,117 @@ fn programs(source: &str) -> (MirProgram, MirProgram) {
 }
 
 #[test]
+fn acyclic_planning_coordinates_subtrees_independently_of_source_order() {
+    let source = include_str!("../../../../fixtures/runtime/acyclic_call_homes.act").replace("\r\n", "\n");
+    let (input, selected) = programs(&source);
+    let proposed = propose_with_scope(&input, &selected, true, true, true, &Trace::disabled()).unwrap();
+    let bytes = |name: &str| proposed.routines.iter().find(|r| r.name == name).unwrap()
+        .frame.resident_bytes().iter().map(|(_, s)| s.0).collect::<BTreeSet<_>>();
+    assert!(!bytes("Hold").is_empty());
+    assert_eq!(bytes("Middle"), bytes("Sibling"));
+    assert!(bytes("Hold").is_disjoint(&bytes("Middle")));
+    let mut reordered = input.clone();
+    reordered.routines.reverse();
+    let again = propose_with_scope(&reordered, &selected, true, true, true, &Trace::disabled()).unwrap();
+    for r in &proposed.routines {
+        assert_eq!(r.frame.resident_bytes(), again.routines.iter().find(|a| a.id == r.id).unwrap().frame.resident_bytes());
+    }
+    let expanded = mir::materialize_program(proposed, &Default::default()).unwrap();
+    mir::verify_program(&expanded, MirPhase::PostMaterialization).unwrap();
+
+    // A source-address-exposed parameter stays inline; its independent local
+    // and the outer caller still participate in the same chain proposal.
+    let exposed = source.replace("BYTE c\n", "BYTE c CARD address=$684\n  address=@x\n");
+    let (input, selected) = programs(&exposed);
+    let proposed = propose_with_scope(&input, &selected, true, true, true, &Trace::disabled()).unwrap();
+    let middle = proposed.routines.iter().find(|r| r.name == "Middle").unwrap();
+    assert!(middle.frame.parameter_homes.as_ref().is_none_or(|h| h.iter().all(|b| b.home == MirParamHome::Inline)));
+    assert!(middle.frame.resident_bytes().iter().any(|(m, _)| matches!(m, MirMem::Local { .. })));
+    assert!(!hold(&proposed).frame.resident_bytes().is_empty());
+}
+
+#[test]
+fn acyclic_planning_shares_dead_ancestor_bytes_and_keeps_per_site_lifetimes() {
+    let (input, selected) = programs("BYTE reserved=$A1 BYTE FUNC Leaf(BYTE a,b,c) RETURN(a+b+c) CARD FUNC Middle(CARD x) Leaf(1,2,3) RETURN(x) CARD FUNC Gone(CARD x) Leaf(1,2,3) Middle(x) RETURN(7) CARD FUNC Hold(CARD x) CARD n Middle(1) n=x Middle(2) RETURN(n)");
+    let session = Mir6502Trace::default();
+    let proposed = propose_with_scope(&input, &selected, true, true, true, &session.context()).unwrap();
+    let home = |name: &str| proposed.routines.iter().find(|r| r.name == name).unwrap().frame.resident_bytes();
+    for name in ["Middle", "Gone"] {
+        assert!(!home(name).is_empty(), "{name}: {:?}\n{}", session.events(), mir::format_program(&selected));
+    }
+    assert_eq!(home("Middle")[0].1, home("Gone")[0].1);
+    assert!(home("Hold").iter().all(|(_, s)| *s != home("Middle")[0].1));
+    let h = hold(&input);
+    let n = h.frame.locals.iter().find(|s| s.name.as_deref() == Some("n")).unwrap();
+    let MirStorageBase::Local(id) = n.base else { panic!() };
+    let sites: Vec<_> = h.blocks.iter().flat_map(|b| b.ops.iter().enumerate().filter_map(|(op_index, op)|
+        matches!(op, MirOp::Call { .. }).then_some(MirSite::Op { block: b.id, op_index }))).collect();
+    let logical = logical::LogicalHomes::new(h).unwrap();
+    assert_eq!(logical.live_after(&MirMem::Local { id, offset: 0 }, sites[0]), Some(false));
+    assert_eq!(logical.live_after(&MirMem::Local { id, offset: 0 }, sites[1]), Some(true));
+    mir::materialize_program(proposed, &Default::default()).unwrap();
+
+    // A retained cycle cannot borrow the selected acyclic graph's certificate.
+    let mut cyclic = input.clone();
+    let middle = cyclic.routines.iter().find(|r| r.name == "Middle").unwrap().id;
+    let mut op = cyclic.routines.iter().find(|r| r.name == "Gone").unwrap().blocks.iter()
+        .flat_map(|b| &b.ops).find(|o| matches!(o, MirOp::Call { target: MirCallTarget::Routine(id), .. } if *id == middle)).unwrap().clone();
+    if let MirOp::Call { args, result, .. } = &mut op {
+        for arg in args { arg.value = MirValue::ConstU8(1); }
+        *result = None;
+    }
+    cyclic.routines[0].blocks[0].ops.push(op);
+    let graph = chains::CallChains::new(&cyclic, &selected);
+    assert!(!graph.supports(middle));
+    let p = propose_with_scope(&cyclic, &selected, true, true, true, &Trace::disabled()).unwrap();
+    assert!(hold(&p).frame.resident_bytes().is_empty());
+    // Gone dies at Middle, but its earlier live call to Leaf now reaches the
+    // cycle too. Dead at one site must not hide the other site's obligation.
+    assert!(p.routines.iter().find(|r| r.name == "Gone").unwrap().frame.resident_bytes().is_empty());
+}
+
+#[test]
+fn acyclic_expanded_capture_conflict_rechecks_unchanged_callers_and_rolls_back() {
+    let source = include_str!("../../../../fixtures/runtime/acyclic_call_homes.act").replace("\r\n", "\n");
+    let n = nir(&source);
+    let config = mir::Mir6502Config { enable_small_leaf_inlining: false,
+        enable_acyclic_call_homes: true, ..mir::Mir6502Config::optimized() };
+    let runtime = crate::runtime::Runtime::ActionCart;
+    let session = Mir6502Trace::default();
+    let trace = session.context();
+    let (_, resume) = mir::prepare_program_for_emission(&n, 0x3000, &config, runtime, &trace).unwrap();
+    let resume = resume.unwrap();
+    let mut initial = resume.core.checkpoint.input.program.clone();
+    let h = initial.routines.iter_mut().find(|r| r.name == "Hold").unwrap();
+    let bindings = h.frame.params.iter().enumerate().map(|(i, slot)| {
+        let MirStorageBase::Param(param) = slot.base else { panic!() };
+        MirParamBinding { param, home: if i == 0 { MirParamHome::ZeroPage(MirFixedZpSlot(0xe8)) } else { MirParamHome::Inline } }
+    }).collect();
+    install_bindings(h, bindings);
+    let executable = mir::preparation::resume_output(&n, &resume, initial.clone(), &config, 0x3000, runtime, &trace, None).unwrap();
+    let selected = SelectedPlacement { input: Arc::new(initial), executable };
+    let mut proposal = propose_with_scope(&selected.input, &selected.executable.program, true, true, true, &trace).unwrap();
+    assert_eq!(hold(&proposal), hold(&selected.input));
+    let middle = proposal.routines.iter_mut().find(|r| r.name == "Middle").unwrap();
+    let MirStorageBase::Param(param) = middle.frame.params[0].base else { panic!() };
+    // The conflicting store is introduced by capture expansion, not present as
+    // a physical store in this retained input. Hold's own bindings never change.
+    install_bindings(middle, vec![MirParamBinding { param, home: MirParamHome::ZeroPage(MirFixedZpSlot(0xe8)) }]);
+    let expected_input = Arc::clone(&selected.input);
+    let expected = selected.executable.clone();
+    let result = try_proposal(&n, selected, &resume, proposal, "cross-call-homes", &config, 0x3000, runtime, &trace);
+    assert!(Arc::ptr_eq(&result.input, &expected_input));
+    assert_eq!(result.executable.program, expected.program);
+    assert_eq!(result.executable.output, expected.output);
+    assert_eq!(result.executable.memory, expected.memory);
+    assert_eq!(result.executable.costs, expected.costs);
+    assert_eq!(result.executable.trace_snapshot, expected.trace_snapshot);
+    assert_eq!(session.manifest()["work"]["cross_call_home_trials"], 1);
+    assert!(session.events().iter().any(|e| e.kind == "cross-call-home-result"
+        && e.data["reason"] == "invalid-trial"));
+}
+
+#[test]
 fn mixed_objects_keep_exposed_and_persistent_homes_inline() {
     let source = include_str!("../../../../fixtures/runtime/mixed_zp_homes.act").replace("\r\n", "\n");
     let (input, selected) = programs(&source);

@@ -1,6 +1,6 @@
 # MIR6502 acyclic call homes: implementation plan
 
-Prepared 2026-11-16. Status: slices 1–2 complete; slices 3–4 pending.
+Prepared 2026-11-16. Status: slices 1–3 complete; slice 4 pending.
 
 Implement the [acyclic call-chain design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-zp-placement-through-acyclic-call-chains)
 in four slices. Commit each slice after its focused checks pass. Preserve
@@ -17,6 +17,14 @@ Slice 2 adds explicit acyclic residence queries and expanded verification,
 including native `=*` middle routines, while keeping leaf-only spill discovery
 and gate-off cleanup. The new gate remains disabled. All 60 parameter-home unit
 tests, 16 ownership-certificate tests and five ABI unit tests pass.
+
+Slice 3 coordinates retained/selected call dependencies and proposed subtree
+homes in the existing single transaction. The independent control saves 14 bytes
+(139 → 125); its native `=*` middle variant saves 14 too (145 → 131). All 63
+parameter-home tests and three composed-entry groups pass, including dead-boundary
+sharing and exact rollback for a capture clobber in an unchanged caller. The
+cross-call/ABI integration targets pass 32 cases; one optional MADS case is
+ignored. The new gate remains disabled pending execution and TN qualification.
 
 ## Outcome and scope
 

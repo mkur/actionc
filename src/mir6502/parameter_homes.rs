@@ -71,8 +71,9 @@ pub(super) fn select_output(
         }
     }
     if config.enable_cross_call_home_selection {
-        if let Some(proposal) = cross_call::propose(&selected.input, &selected.executable.program,
-            config.enable_multiple_leaf_call_homes, config.enable_zp_home_lifetimes, trace).or_else(|| {
+        if let Some(proposal) = cross_call::propose_with_scope(&selected.input, &selected.executable.program,
+            config.enable_multiple_leaf_call_homes, config.enable_zp_home_lifetimes,
+            config.acyclic_call_homes_enabled(), trace).or_else(|| {
                 (!spills::discover(&selected.executable.program, config.enable_multiple_leaf_call_homes).is_empty())
                     .then(|| (*selected.input).clone())
             }) {
