@@ -71,7 +71,7 @@ fn acyclic_entries_compose_diamonds_results_and_transitive_freshness() {
         // Removing the typed guarantee or making the result store conditional
         // must not let an incidental/may-write erase the outer dependency.
         let mut untyped = p.clone();
-        untyped.routines[0].scalar_signature = None;
+        untyped.routines[0].direct_result_abi = None;
         assert!(fact(&untyped).inputs.fixed.contains(&0xa0));
         let mut conditional = p.clone();
         conditional.routines[0].blocks = vec![
@@ -82,6 +82,8 @@ fn acyclic_entries_compose_diamonds_results_and_transitive_freshness() {
         assert!(fact(&conditional).inputs.fixed.contains(&0xa0));
     }
 }
+
+mod results;
 
 #[test]
 fn acyclic_entry_requirements_follow_setup_on_every_path() {

@@ -73,6 +73,7 @@ impl<'a> ResidenceCalls<'a> {
             return Err("nonleaf observable residence entry");
         }
         let outgoing = super::super::abi::canonical_call_lanes(callee, args)?;
+        super::super::abi::validate_direct_call_result(callee, call)?;
         let observable = callee.abi == MirRoutineAbi::ActionObservable;
         match self.entry(*target) {
             Some(entry) => handoff::inputs_supplied(&entry, &outgoing)?,

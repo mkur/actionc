@@ -53,7 +53,9 @@ impl<'a> MirAcyclicEntryAnalysis<'a> {
             .map(|(op_index, op)| (MirSite::Op { block: b.id, op_index }, op))) {
             match op {
                 MirOp::Call { target: MirCallTarget::Routine(id), args, .. } => {
-                    if let Err(reason) = crate::mir6502::abi::canonical_call_lanes(self.routines.get(id)?, args) {
+                    let callee = self.routines.get(id)?;
+                    if let Err(reason) = crate::mir6502::abi::canonical_call_lanes(callee, args)
+                        .and_then(|_| crate::mir6502::abi::validate_direct_call_result(callee, op)) {
                         self.failures.insert(target, (target, Some(site), reason));
                         return None;
                     }
@@ -80,17 +82,20 @@ impl<'a> MirAcyclicEntryAnalysis<'a> {
     }
 }
 
-/// Limit definite return definitions to the typed scalar ABI, then prove the
+/// Limit definite return definitions to the declared direct result, then prove the
 /// physical writes on every returning path. An arbitrary scratch store, an
 /// untyped signature or a conditional result store grants no definition.
 pub(super) fn defined_results(
     routine: &MirRoutine, cfg: &MirCfg,
     transfers: &BTreeMap<crate::mir6502::ir::MirBlockId, MirHomeBlockTransfers>,
 ) -> BTreeSet<u8> {
-    let Some(signature) = &routine.scalar_signature else { return BTreeSet::new(); };
-    let [width] = signature.result.as_slice() else { return BTreeSet::new(); };
-    let slots: BTreeSet<_> = (0..crate::mir6502::abi::action_arg_width_bytes(*width))
-        .map(|i| 0xa0 + i as u8).collect();
+    let Some(result) = routine.direct_result_abi else { return BTreeSet::new(); };
+    let slots = crate::mir6502::abi::direct_result_slots(result);
+    if slots.is_empty() || !routine.blocks.iter().any(|b|
+        cfg.reachable().contains(&b.id) && matches!(b.terminator, MirTerminator::Return))
+    {
+        return BTreeSet::new();
+    }
     let mut definitions = transfers.clone();
     for block in &routine.blocks {
         let transfers = definitions.get_mut(&block.id).unwrap();
@@ -103,7 +108,7 @@ pub(super) fn defined_results(
     }
     let proof = MirHomeLiveness::analyze_transfers(routine, cfg, definitions);
     let Some(live) = cfg.entry().and_then(|entry| proof.live_in(entry)) else { return BTreeSet::new(); };
-    slots.into_iter().filter(|s| !live.contains(MirHomeByte::FixedZeroPage(MirFixedZpSlot(*s)))).collect()
+    slots.iter().copied().filter(|s| !live.contains(MirHomeByte::FixedZeroPage(MirFixedZpSlot(*s)))).collect()
 }
 
 #[cfg(test)]

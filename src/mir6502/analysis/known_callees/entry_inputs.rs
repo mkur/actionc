@@ -37,7 +37,8 @@ pub(in crate::mir6502) struct MirCalleeEntryFact {
     global_backings: Vec<(crate::nir::SymbolId, MirGlobalBacking, u16)>,
     pub inputs: MirEntryRequirements,
     dependencies: BTreeMap<RoutineId, Arc<MirCalleeEntryFact>>,
-    defined_results: BTreeSet<u8>,
+    /// Declared result bytes definitely defined on every normal-return path.
+    pub defined_results: BTreeSet<u8>,
 }
 impl MirCalleeEntryFact {
     pub fn analyze(
@@ -210,6 +211,7 @@ fn scalar_inputs(
                 let fact = dependencies?.get(target)?;
                 let callee = program.routines.iter().find(|r| r.id == *target)?;
                 let lanes = crate::mir6502::abi::canonical_call_lanes(callee, args).ok()?;
+                crate::mir6502::abi::validate_direct_call_result(callee, op).ok()?;
                 let mut reads = fact.inputs.fixed.iter().map(|s|
                     MirHomeByte::FixedZeroPage(MirFixedZpSlot(*s))).collect::<BTreeSet<_>>();
                 reads.extend(lanes.iter().filter_map(|lane| match lane {
@@ -252,7 +254,7 @@ fn scalar_inputs(
     }
     // A typed ABI result is a definite definition only when every returning
     // path really defines it. Never infer this from a possible write footprint.
-    let defined_results = if dependencies.is_some() {
+    let defined_results = if stage == MirCalleeEntryStage::ActualEntry {
         acyclic::defined_results(routine, &cfg, &transfers)
     } else { BTreeSet::new() };
     let homes = MirHomeLiveness::analyze_transfers(routine, &cfg, transfers);

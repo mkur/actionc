@@ -1,6 +1,6 @@
 # MIR6502 typed result facts implementation plan
 
-Status: slice 1 complete; slices 2–3 pending, 2026-11-16.
+Status: slices 1–2 complete; slice 3 pending, 2026-11-17.
 
 Implements issue **4** in the [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md)
 using the [typed direct result contract](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract).
@@ -40,6 +40,12 @@ and untyped test constructors explicitly retain Unknown.
   results and transitive invalidation after a result-only metadata change.
 - Run focused entry-fact and call-consumer unit tests. Preserve existing entry,
   parameter, call-closure and storage-safety restrictions.
+
+Completed: all 39 focused entry, handoff and residence tests passed, including
+six new result-proof groups. ActualEntry leaf/acyclic answers agree, result-only
+metadata changes invalidate ancestors, and every consumed result site is checked.
+The old untyped-result regression now removes the direct result contract rather
+than the independent integer-specialization signature.
 
 ## Slice 3 — Qualify and document issue 4
 

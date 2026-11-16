@@ -87,6 +87,38 @@ pub(super) fn direct_result_slots(result: super::ir::MirDirectResultAbi) -> &'st
     }
 }
 
+/// Validate retained result evidence at each physical call boundary. Unknown
+/// target typing grants no output definition; a known conflict rejects proof.
+pub(super) fn validate_direct_call_result(
+    callee: &super::ir::MirRoutine, call: &super::ir::MirOp,
+) -> Result<(), &'static str> {
+    use super::ir::{MirOp, MirResultHome};
+    let MirOp::Call { abi, result, additional_results, .. } = call else {
+        return Err("not a direct call result");
+    };
+    let Some(contract) = callee.direct_result_abi else { return Ok(()); };
+    let slots = direct_result_slots(contract);
+    let canonical = |home: &MirResultHome| {
+        let address = match home {
+            MirResultHome::ReturnSlot { offset } => 0xa0u16.checked_add(*offset),
+            MirResultHome::FixedZeroPage(slot) => Some(u16::from(slot.0)),
+            MirResultHome::Absolute(address) => Some(*address),
+            _ => None,
+        };
+        address.is_some() && address == slots.first().map(|s| u16::from(*s))
+    };
+    if !additional_results.is_empty() || !abi.additional_results.is_empty()
+        || abi.result.as_ref().is_some_and(|home| !canonical(home))
+        || result.as_ref().is_some_and(|result| {
+            abi.result.is_none() || Some(result.width) != contract.width()
+                || !canonical(&result.home)
+        })
+    {
+        return Err("mismatched direct result ABI");
+    }
+    Ok(())
+}
+
 fn action_arg_byte_home(offset: u16) -> MirArgHome {
     match offset {
         0 => MirArgHome::Reg(MirReg::A),
