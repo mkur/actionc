@@ -100,11 +100,20 @@ impl<'a> ResidenceCalls<'a> {
     }
 
     pub fn writes(&mut self, call: &MirOp) -> Result<MirKnownMemoryWrites, &'static str> {
+        self.writes_at(call, None)
+    }
+
+    pub fn writes_at(&mut self, call: &MirOp,
+        site: Option<(&MirRoutine, crate::mir6502::analysis::sites::MirSite)>,
+    ) -> Result<MirKnownMemoryWrites, &'static str> {
         if self.stage != MirCalleeEntryStage::ActualEntry {
             return Err("residence writes require expanded callee facts");
         }
         if let Some(s) = crate::mir6502::runtime_contracts::library_invocation(self.program, call) {
-            return Ok(MirKnownMemoryWrites::Exact(s.writes));
+            let values = site.and_then(|(routine, site)| {
+                Some((crate::mir6502::runtime_contracts::buffers::argument_values(self.program, routine)?, site))
+            });
+            return Ok(s.normal_writes(self.program, call, values.as_ref().map(|(v, site)| (v, *site))));
         }
         if matches!(call, MirOp::RuntimeHelper { .. }) {
             return crate::mir6502::runtime_contracts::helper_invocation(self.program, call)

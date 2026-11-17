@@ -12,6 +12,7 @@ pub(in crate::mir6502) struct InvocationSummary {
     pub definitions: Vec<MirMem>,
     pub register_definitions: MirRegisterSet,
     pub writes: Vec<MirMem>,
+    pub buffers: Vec<super::buffers::BufferAccess>,
 }
 
 impl InvocationSummary {
@@ -50,6 +51,7 @@ pub(in crate::mir6502) fn invocation(program: &MirProgram, routine: &MirRoutine,
             writes: capture.definitions.iter().cloned().chain(capture.scratch).collect(),
             definitions: capture.definitions,
             register_definitions: MirRegisterSet::default(),
+            buffers: Vec::new(),
         });
     }
     helper_invocation(program, op).or_else(|| super::library_invocation(program, op))
@@ -93,5 +95,5 @@ pub(in crate::mir6502) fn helper_invocation(program: &MirProgram, op: &MirOp) ->
         },
         _ => return None,
     };
-    Some(InvocationSummary { inputs: args.clone(), definitions, register_definitions, writes })
+    Some(InvocationSummary { inputs: args.clone(), definitions, register_definitions, writes, buffers: Vec::new() })
 }

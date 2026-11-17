@@ -51,7 +51,7 @@ pub(super) fn propose_with_scope(
                 }
                 return None;
             }
-            if unresolved_observation.is_some() && physical::has_pointee_writes(routine) {
+            if unresolved_observation.is_some() && physical::has_pointee_writes(input, routine) {
                 trace.event("cross-call-ineligible", || serde_json::json!({
                     "routine": routine.name, "reason": "unresolved explicit observation",
                     "observation": unresolved_observation,
@@ -99,8 +99,10 @@ pub(super) fn propose_with_scope(
                 }));
                 continue 'caller;
             }
-            let writes = facts.writes(call).map(|writes| (0..=255u8)
-                .filter(|slot| !writes.preserves_fixed_byte(MirFixedZpSlot(*slot), &fixed))
+            // Candidate objects are checked individually below by the existing
+            // ownership-aware binding selectors. Explicit ranges remain here.
+            let writes = facts.writes_at(call, Some((routine, *site))).map(|writes| (0..=255u8)
+                .filter(|slot| !writes.preserves_private_fixed_byte(MirFixedZpSlot(*slot), &fixed))
                 .collect::<BTreeSet<_>>()).and_then(|mut writes| {
                     if let Some(chains) = &chains
                         && super::super::runtime_contracts::library_invocation(selected, call).is_none() {
@@ -128,7 +130,8 @@ pub(super) fn propose_with_scope(
             call_writes.push((*site, writes));
         }
         let forbidden = |mem: &MirMem, width: u16| {
-            let mut forbidden = if physical::has_pointee_writes(routine) {
+            if !addresses.compiler_controls_address(routine.id, mem) { return None; }
+            let mut forbidden = if physical::has_pointee_writes(input, routine) {
                 observed_zp.clone()
             } else { BTreeSet::new() };
             for (site, writes) in &call_writes {

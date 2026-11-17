@@ -3,6 +3,7 @@
 use super::ir::*;
 pub(super) mod signatures;
 mod invocation;
+pub(super) mod buffers;
 pub(super) mod library;
 pub(super) use library::library_invocation;
 pub(super) use invocation::{invocation, helper_invocation};

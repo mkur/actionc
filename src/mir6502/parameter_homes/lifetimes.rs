@@ -50,7 +50,7 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
                     }
                     None
                 } else {
-                    match facts.writes(op) {
+                    match facts.writes_at(op, Some((routine, site))) {
                         Ok(writes) => Some(writes),
                         Err(reason) => return vec![MirDiagnostic::routine(&routine.name, reason)],
                     }
@@ -97,7 +97,11 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
             }
             if let Some(invocation) = invocation {
                 writes.extend(owned.iter().filter(|home| match home {
-                    MirHomeByte::FixedZeroPage(slot) => !invocation.preserves_fixed_byte(*slot, fixed.as_deref().expect("invocation has call facts")),
+                    MirHomeByte::FixedZeroPage(slot) => {
+                        let fixed = fixed.as_deref().expect("invocation has call facts");
+                        !(if private { invocation.preserves_private_fixed_byte(*slot, fixed) }
+                            else { invocation.preserves_fixed_byte(*slot, fixed) })
+                    },
                     _ => true,
                 }));
             }

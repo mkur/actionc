@@ -63,3 +63,45 @@ PROC Main() comparison=Compare() byteValue=SYS.Peek($600) cardValue=SYS.PeekC($6
     let shadow = program("INT FUNC SCompare(INT a,b) RETURN(a+b) PROC Main() SCompare(1,2) RETURN", crate::runtime::Runtime::ActionCart);
     assert!(shadow.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops).all(|op| !matches!(op, MirOp::Call { abi, .. } if abi.library.is_some())));
 }
+
+#[test]
+fn buffer_writes_keep_numeric_ranges_private_permissions_and_unknown_full_effects() {
+    use crate::mir6502::analysis::{sites::MirSite, storage_ownership::ObjectAddressControl};
+    let source = "MODULE CLIENT USE SYS
+BYTE ARRAY source(256)=$900,destination(256)=$B00 BYTE POINTER ptr=$700
+PROC Copies() SYS.SCopy(destination,source) SYS.SCopy($E0,source) RETURN
+PROC Dynamic() SYS.SCopy(ptr,source) RETURN
+PROC Forward(STRING dst) SYS.SCopy(dst,source) RETURN
+BYTE FUNC Exposed(BYTE keep) SYS.SCopy(@keep,source) RETURN(keep)
+PROC Main() RETURN ENDMODULE";
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        let p = program(source, runtime);
+        let r = p.routines.iter().find(|r| r.name.starts_with("M_CLIENT_COPIES_")).unwrap();
+        let values = buffers::argument_values(&p, r).unwrap();
+        let ranges: Vec<_> = r.blocks.iter().flat_map(|b| b.ops.iter().enumerate().filter_map(|(op_index, op)| {
+            let contract = library_invocation(&p, op)?;
+            assert_eq!(contract.buffers.len(), 2);
+            assert!(contract.definitions.is_empty());
+            Some(contract.buffers.iter().find(|b| b.write).unwrap().project(&p, op,
+                Some((&values, MirSite::Op { block: b.id, op_index }))))
+        })).collect();
+        assert_eq!(ranges, [(Some(0xb00),256),(Some(0xe0),256)]);
+        let full = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+        assert_eq!(full.get(r.id).unwrap().writes(), &MirKnownMemoryWrites::Unknown);
+        assert_eq!(full.get(r.id).unwrap().reads(), &MirKnownMemoryReads::Unknown);
+        let normal = MirKnownCalleeSummaries::analyze_for_residence(&p);
+        let writes = normal.get(r.id).unwrap().writes();
+        assert!(!writes.preserves_private_fixed_byte(MirFixedZpSlot(0xe4), normal.fixed_storage()));
+        let forward = p.routines.iter().find(|r| r.name.starts_with("M_CLIENT_FORWARD_")).unwrap();
+        assert_eq!(normal.get(forward.id).unwrap().writes(), &MirKnownMemoryWrites::Unknown);
+        let dynamic = p.routines.iter().find(|r| r.name.starts_with("M_CLIENT_DYNAMIC_")).unwrap();
+        let writes = normal.get(dynamic.id).unwrap().writes();
+        assert!(matches!(writes, MirKnownMemoryWrites::Pointee { numeric, .. } if numeric.is_empty()));
+        assert!(!writes.preserves_fixed_byte(MirFixedZpSlot(0xe4), normal.fixed_storage()));
+        assert!(writes.preserves_private_fixed_byte(MirFixedZpSlot(0xe4), normal.fixed_storage()));
+        assert!(!writes.preserves_private_fixed_byte(MirFixedZpSlot(0xa1), normal.fixed_storage()));
+        let exposed = p.routines.iter().find(|r| r.name.starts_with("M_CLIENT_EXPOSED_")).unwrap();
+        let MirStorageBase::Param(id) = exposed.frame.params[0].base else { panic!() };
+        assert!(!ObjectAddressControl::new(&p).compiler_controls_address(exposed.id, &MirMem::Param { id, offset: 0 }));
+    }
+}

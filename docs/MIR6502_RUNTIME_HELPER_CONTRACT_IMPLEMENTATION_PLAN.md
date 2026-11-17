@@ -1,6 +1,6 @@
 # MIR6502 runtime and standard library contract implementation plan
 
-Status: in progress, 2026-11-17. Slices 1–6 complete.
+Status: in progress, 2026-11-17. Slices 1–7 complete.
 
 Implement the [contract design](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md) in
 the slices below, committing each slice after its focused checks pass. Deliver
@@ -342,3 +342,16 @@ optimization level 1, debug info disabled and two build jobs.
   and a live caller ZP home. Binding tests retain Peek/PeekC identity at their
   shared cartridge address, reject missing/stale evidence and preserve local
   name shadowing. Assembly bytes and public declarations are unchanged.
+
+- Slice 7: library contract tests (2), physical-observation tests (3), and VM
+  `runtime_library_contracts scopy_` (1, both providers) passed. Copy cases cover
+  empty/one-byte/page-crossing/255-byte strings, guard bytes and identical source
+  and destination. A caller home at `$E0` saves 3 bytes in each provider's control.
+  Full buffer-writing footprints remain unknown; the residence projection keeps
+  scratch and numeric buffer bounds and requires existing private-object proof.
+  Repeated sites, unknown pointers, numeric collisions and exposed parameters
+  have focused checks. Parameterized native wrappers with buffer writes retain
+  unknown returning writes until argument substitution is supported.
+  Standalone qualification exposed literal machine words at opcode boundaries
+  in the physical scanner. Splitting those words into emitted bytes reuses its
+  existing relocation-aware reader and retains all physical checks.

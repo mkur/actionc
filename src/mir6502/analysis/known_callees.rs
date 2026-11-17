@@ -42,6 +42,9 @@ fn scalar_entry_ignores_flags(routine: &MirRoutine) -> bool {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) enum MirKnownMemoryWrites {
     Exact(Vec<MirMem>),
+    /// Residence-only projection: ordinary pointees plus fixed scratch and
+    /// explicit numeric buffer bounds. Other consumers treat this as unknown.
+    Pointee { fixed: Vec<MirMem>, numeric: Vec<(u16, u16)> },
     #[default]
     Unknown,
 }
@@ -57,7 +60,18 @@ impl MirKnownMemoryWrites {
                     | MirMem::Spill { .. } | MirMem::Static { .. })
                     || !fixed.may_overlap(write, &MirMem::FixedZeroPage(slot))
             }),
-            Self::Unknown => false,
+            Self::Pointee { .. } | Self::Unknown => false,
+        }
+    }
+
+    /// Requires the existing ObjectAddressControl proof for the caller object.
+    /// This permission never removes explicit numeric or scratch interference.
+    pub(in crate::mir6502) fn preserves_private_fixed_byte(&self, slot: MirFixedZpSlot, fixed: &MirFixedStorage) -> bool {
+        match self {
+            Self::Pointee { fixed: writes, numeric } =>
+                Self::Exact(writes.clone()).preserves_fixed_byte(slot, fixed)
+                    && numeric.iter().all(|(start, size)| u16::from(slot.0).wrapping_sub(*start) >= *size),
+            _ => self.preserves_fixed_byte(slot, fixed),
         }
     }
 
@@ -69,14 +83,14 @@ impl MirKnownMemoryWrites {
     pub(in crate::mir6502) fn may_write_mem(&self, mem: &MirMem, fixed: &MirFixedStorage) -> bool {
         match self {
             Self::Exact(writes) => writes.iter().any(|write| footprint_may_alias(write, mem, fixed)),
-            Self::Unknown => true,
+            Self::Pointee { .. } | Self::Unknown => true,
         }
     }
 
     pub(in crate::mir6502) fn may_write_caller_private_byte(&self, address: u16, fixed: &MirFixedStorage) -> bool {
         match self {
             Self::Exact(writes) => writes.iter().any(|write| footprint_may_access_caller_byte(write, address, fixed)),
-            Self::Unknown => true,
+            Self::Pointee { .. } | Self::Unknown => true,
         }
     }
 
@@ -85,8 +99,9 @@ impl MirKnownMemoryWrites {
     }
 
     fn record(&mut self, mem: MirMem) {
-        let Self::Exact(writes) = self else {
-            return;
+        let writes = match self {
+            Self::Exact(writes) | Self::Pointee { fixed: writes, .. } => writes,
+            Self::Unknown => return,
         };
         if !writes.contains(&mem) {
             writes.push(mem);
@@ -94,9 +109,18 @@ impl MirKnownMemoryWrites {
     }
 
     fn merge(&mut self, other: &Self) {
-        let Self::Exact(other) = other else {
-            *self = Self::Unknown;
-            return;
+        let other = match other {
+            Self::Exact(other) => other,
+            Self::Pointee { fixed, numeric } => {
+                if let Self::Exact(bytes) = self {
+                    *self = Self::Pointee { fixed: std::mem::take(bytes), numeric: Vec::new() };
+                }
+                if let Self::Pointee { numeric: ranges, .. } = self {
+                    for range in numeric { if !ranges.contains(range) { ranges.push(*range); } }
+                }
+                fixed
+            },
+            Self::Unknown => { *self = Self::Unknown; return; },
         };
         for mem in other {
             self.record(mem.clone());
@@ -443,7 +467,7 @@ fn summarize_mir_routine(
             MirRegisterSet::default()
         },
         reads: summarize_routine_reads(routine, callees),
-        writes: summarize_routine_writes(routine, callees, normal, program),
+        writes: summarize_routine_writes(routine, callees, normal, program, &values),
     }
 }
 
@@ -749,13 +773,21 @@ fn summarize_routine_writes(
     callees: &MirKnownCalleeSummaries,
     normal: Option<&MirProgram>,
     program: &MirProgram,
+    values: &MirMachineValueAvailability,
 ) -> MirKnownMemoryWrites {
     let mut writes = MirKnownMemoryWrites::exact();
+    let buffer_values = (normal.is_some() && routine.blocks.iter().flat_map(|b| &b.ops)
+        .any(|op| crate::mir6502::runtime_contracts::library::may_write_buffer(op)))
+        .then(|| crate::mir6502::runtime_contracts::buffers::argument_values(program, routine)).flatten();
     for block in &routine.blocks {
-        for op in &block.ops {
+        for (op_index, op) in block.ops.iter().enumerate() {
             if let Some(invocation) = normal.and_then(|p| crate::mir6502::runtime_contracts::invocation(p, routine, op))
                 .or_else(|| crate::mir6502::runtime_contracts::library_invocation(program, op)) {
-                for byte in invocation.writes { writes.record(byte); }
+                if normal.is_none() && invocation.buffers.iter().any(|b| b.write) {
+                    writes.make_unknown();
+                } else {
+                    writes.merge(&invocation.normal_writes(program, op, Some((buffer_values.as_ref().unwrap_or(values), MirSite::Op { block: block.id, op_index }))));
+                }
             } else {
                 summarize_op_writes(op, routine, callees, &mut writes);
             }
@@ -764,7 +796,14 @@ fn summarize_routine_writes(
             }
         }
     }
-    writes
+    // Buffer arguments have been instantiated in this body. A parameterized
+    // wrapper needs substitution at its caller before it may exclude that
+    // caller's private objects (a caller could supply an explicit numeric base).
+    // Keep the existing conservative boundary instead of losing that obligation.
+    if normal.is_some() && !routine.frame.params.is_empty()
+        && matches!(writes, MirKnownMemoryWrites::Pointee { .. }) {
+        MirKnownMemoryWrites::Unknown
+    } else { writes }
 }
 
 fn summarize_op_writes(

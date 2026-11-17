@@ -8,15 +8,28 @@ use crate::mir6502::analysis::{
     record_bases::{MirPhysicalMemory, SourceBinding, SourceObject, SourceStorage},
 };
 
-fn needs_proof(r: &MirRoutine) -> bool {
-    !r.frame.resident_bytes().is_empty() && has_pointee_writes(r)
+fn needs_proof(p: &MirProgram, r: &MirRoutine) -> bool {
+    !r.frame.resident_bytes().is_empty() && has_pointee_writes(p, r)
 }
 
-pub(super) fn has_pointee_writes(r: &MirRoutine) -> bool {
-    r.blocks
+pub(super) fn has_pointee_writes(p: &MirProgram, r: &MirRoutine) -> bool {
+    let own = r.blocks
         .iter()
         .flat_map(|b| &b.ops)
-        .any(writes_ordinary_pointee)
+        .any(writes_ordinary_pointee);
+    if own { return true; }
+    // A wrapper inherits the same layout obligation as its buffer call.
+    let mut pending = vec![r.id];
+    let mut seen = BTreeSet::new();
+    while let Some(id) = pending.pop() {
+        if !seen.insert(id) { continue; }
+        let Some(r) = p.routines.iter().find(|r| r.id == id) else { continue; };
+        for op in r.blocks.iter().flat_map(|b| &b.ops) {
+            if super::super::runtime_contracts::library::may_write_buffer(op) { return true; }
+            if let MirOp::Call { target: MirCallTarget::Routine(id), .. } = op { pending.push(*id); }
+        }
+    }
+    false
 }
 
 /// A known missing obligation rejects discovery, before it can poison the
@@ -51,7 +64,7 @@ impl UnresolvedObservation {
 pub(super) fn unresolved_observation(p: &MirProgram) -> Option<UnresolvedObservation> {
     p.routines
         .iter()
-        .any(has_pointee_writes)
+        .any(|r| has_pointee_writes(p, r))
         .then(|| numeric_observations(p, None).err())
         .flatten()
 }
@@ -60,14 +73,14 @@ fn records<'a>(
     p: &MirProgram,
     m: &'a MirPhysicalMemory,
 ) -> Result<Vec<&'a SourceStorage>, Vec<MirDiagnostic>> {
-    if !p.routines.iter().any(needs_proof) {
+    if !p.routines.iter().any(|r| needs_proof(p, r)) {
         return Ok(vec![]);
     }
     let inventory = m
         .source_storage()
         .ok_or_else(|| error("missing source-storage inventory"))?;
     let mut result = Vec::new();
-    for r in p.routines.iter().filter(|r| needs_proof(r)) {
+    for r in p.routines.iter().filter(|r| needs_proof(p, r)) {
         for (mem, _) in r.frame.resident_bytes() {
             let base = match mem {
                 MirMem::Param { id, .. } => MirStorageBase::Param(id),
@@ -206,6 +219,9 @@ fn check(
 pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMemory>) -> Result<Vec<(u16, u16)>, UnresolvedObservation> {
     let mut out = Vec::new();
     for r in &p.routines {
+        let values = r.blocks.iter().flat_map(|b| &b.ops)
+            .any(|op| super::super::runtime_contracts::library_invocation(p, op).is_some())
+            .then(|| super::super::runtime_contracts::buffers::argument_values(p, r)).flatten();
         for b in &r.blocks {
             for memory in b
                 .ops
@@ -240,7 +256,14 @@ pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMe
                     }
                 }
             }
-            for op in &b.ops {
+            for (op_index, op) in b.ops.iter().enumerate() {
+                if let Some(contract) = super::super::runtime_contracts::library_invocation(p, op) {
+                    for buffer in contract.buffers {
+                        let (base, bytes) = buffer.project(p, op, values.as_ref().map(|v|
+                            (v, crate::mir6502::analysis::sites::MirSite::Op { block: b.id, op_index })));
+                        if let Some(base) = base && bytes != 0 { out.push((base, bytes)); }
+                    }
+                }
                 if let MirOp::Load {
                     src: MirAddr::AbsoluteIndexedX { base } | MirAddr::AbsoluteIndexedY { base },
                     width,

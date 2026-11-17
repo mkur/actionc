@@ -563,3 +563,28 @@ library group with its affected MIR6502 integration/VM targets in both runtime
 bindings where supported. A newly certified entry with unchanged image size
 is a valid contract improvement. Run focused MIR6502 checks; documentation
 preparation itself requires only content and link validation.
+
+## Implemented buffer projection boundary
+
+Selected library calls carry argument-relative read/write accesses alongside
+fixed scratch. A length-prefixed string has a 256-byte upper bound; memory
+routines use the current word-count argument. A known zero count has no buffer
+access. Numeric ranges wrap at 16 bits, and an unknown count at a known address
+retains the maximum word-count bound. Unknown pointers remain ordinary pointees,
+subject to the existing source-object address-control contract.
+
+The current machine-value analysis supplies physical argument values at each
+expanded call. Fixed relocation constants are resolved in a local analysis view;
+no executable code or copied source-value cache is changed. Full read/write
+consumers that cannot represent scratch plus buffers retain `Unknown`. Only
+residence can use the combined footprint, and only an ownership proof permits
+excluding an ordinary pointee from an unexposed caller object. Numeric ranges
+and scratch always remain possible clobbers. Physical verification checks the
+old and proposed layouts, including wrappers containing buffer calls.
+
+Parameterized native wrappers currently retain unknown returning writes when
+they contain buffer writes. Their argument-relative effects would need caller
+substitution before private-home exclusion could be safe for a numeric argument.
+The implementation does not guess that mapping. Direct library invocations and
+parameterless wrappers are supported. This restriction is independent of entry
+certification, which can still describe the wrapper's canonical inputs/results.

@@ -99,7 +99,14 @@ pub(in crate::mir6502) fn machine_storage_observations(
     use crate::asm6502::InlineAsmRelocationKind as Kind;
     use crate::mir6502::ir::MirInlineAsmTarget as Target;
     let mut addresses = BTreeMap::new();
-    let bytes = flatten_machine_items_with(&machine.items, |item, remaining, at| {
+    // Compact Action machine words can contain an opcode and its operand, or
+    // straddle instruction boundaries. Their emitted little-endian bytes are
+    // already literal; retain symbolic relocation items for the existing reader.
+    let items: Vec<_> = machine.items.iter().flat_map(|item| match item {
+        MirMachineItem::Word(word) => vec![MirMachineItem::Byte(*word as u8), MirMachineItem::Byte((*word >> 8) as u8)],
+        other => vec![other.clone()],
+    }).collect();
+    let bytes = flatten_machine_items_with(&items, |item, remaining, at| {
         let MirMachineItem::Relocation { kind, target, addend, requires_zero_page, .. } = item else {
             return expand_machine_operand(item, remaining, routine, program);
         };

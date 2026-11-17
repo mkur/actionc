@@ -2,6 +2,7 @@
 //! contracts are reviewed here; ordinary native wrappers use existing analysis.
 use super::*;
 use super::invocation::InvocationSummary;
+use super::buffers::{BufferAccess, BufferExtent};
 
 pub(in crate::mir6502) fn bind(program: &MirProgram, interface: &MirRoutine, target: MirRuntimeHelperTarget) -> Arc<MirLibraryBinding> {
     let kind = match crate::runtime_bindings::binding_key(&interface.name).as_str() {
@@ -34,6 +35,9 @@ pub(in crate::mir6502) fn library_invocation(program: &MirProgram, op: &MirOp) -
             vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Pointer],
             MirDirectResultAbi::Scalar(MirWidth::Word),
             vec![0xa0,0xa1,0xa2,0xa4,0xa5,0xa6]),
+        MirLibraryRoutine::SCopy => (
+            vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Pointer],
+            MirDirectResultAbi::Void, vec![0xa0,0xa1,0xa2]),
         _ => return None,
     };
     if interface.frame.direct_parameter_abi.as_ref() != Some(&parameters)
@@ -52,7 +56,22 @@ pub(in crate::mir6502) fn library_invocation(program: &MirProgram, op: &MirOp) -
             .map(|s| MirMem::FixedZeroPage(MirFixedZpSlot(*s))).collect(),
         register_definitions: MirRegisterSet::default(),
         writes: writes.into_iter().map(|s| MirMem::FixedZeroPage(MirFixedZpSlot(s))).collect(),
+        buffers: match binding.kind? {
+            MirLibraryRoutine::SCompare => vec![
+                BufferAccess { pointer_byte: 0, extent: BufferExtent::String { length_pointer_byte: 0 }, write: false },
+                BufferAccess { pointer_byte: 2, extent: BufferExtent::String { length_pointer_byte: 2 }, write: false }],
+            MirLibraryRoutine::SCopy => vec![
+                BufferAccess { pointer_byte: 2, extent: BufferExtent::String { length_pointer_byte: 2 }, write: false },
+                BufferAccess { pointer_byte: 0, extent: BufferExtent::String { length_pointer_byte: 2 }, write: true }],
+            _ => return None,
+        },
     })
+}
+
+/// A conservative trigger for physical layout obligations, not a certificate.
+pub(in crate::mir6502) fn may_write_buffer(op: &MirOp) -> bool {
+    matches!(op, MirOp::Call { abi, .. } if abi.library.as_ref().is_some_and(|b|
+        matches!(b.kind, Some(MirLibraryRoutine::SCopy | MirLibraryRoutine::Zero | MirLibraryRoutine::SetBlock | MirLibraryRoutine::MoveBlock))))
 }
 
 impl std::fmt::Debug for MirLibraryBinding {

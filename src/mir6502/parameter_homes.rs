@@ -93,7 +93,7 @@ fn propose(input: &MirProgram, mixed: bool) -> Option<MirProgram> {
     let mut changed = false;
     for routine in &mut proposal.routines {
         if !eligible_with_calls(&addresses, routine, false, mixed)
-            || (!observations && physical::has_pointee_writes(routine)) {
+            || (!observations && physical::has_pointee_writes(input, routine)) {
             continue;
         }
         if let Some(bindings) =
