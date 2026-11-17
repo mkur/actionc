@@ -116,7 +116,7 @@ rebuilding a summary alone cannot do it.
 | **6** | **Use backing and placement when checking physical overlap** | A write to a global at `$0600` should not exclude every ZP byte. Unknown placement must remain conservative. | [**Fixed-global slice implemented and qualified.**](MIR6502_FIXED_BACKING_OVERLAP_IMPLEMENTATION_PLAN.md) Checked backing/aliases feed preservation, invalidation and caller-byte checks; wider owner-aware private overlap remains separate. |
 | **7** | **Finish separating read and write uncertainty** | Unknown pointee writes no longer erase bounded operand/carrier reads; actual pointee reads remain Unknown. | [**Implemented.**](MIR6502_DIRECTIONAL_READ_FACTS_IMPLEMENTATION_PLAN.md) Existing directional-effects contract restored. |
 | **8** | **Make summary validity across transformations explicit** | Some consumers rely on undocumented assumptions about cached summaries surviving rewrites. No stale-summary failure was demonstrated. | [**Core slice implemented.**](MIR6502_FACT_VALIDITY_IMPLEMENTATION_PLAN.md) Scoped reuse, shared compatibility checks and complete core fallback; existing entry and terminal owners retained. |
-| **9** | **Compose already-certified assembly leaf contracts** | Useful leaf knowledge is discarded by acyclic composition and residence admission. | [**Design extended.**](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-certified-assembly-leaves-in-acyclic-call-chains) Reuse existing ActualEntry certificates and separate write proofs; implementation pending. |
+| **9** | **Compose already-certified assembly leaf contracts** | Useful leaf knowledge was discarded by acyclic composition and residence admission. | [**Implemented and qualified.**](MIR6502_ASSEMBLY_LEAF_COMPOSITION_IMPLEMENTATION_PLAN.md) Existing ActualEntry certificates compose through native callers; live residence still requires complete writes. Independent control saves 7 bytes; TN saves 5. |
 
 ## Design work
 
@@ -144,8 +144,9 @@ unchanged.
 
 ## Next implementation work
 
-Issues **1–5, 7 and the core slice of 8 are repaired**. Issue **6** is qualified
+Issues **1–5, 7, 9 and the core slice of 8 are repaired**. Issue **6** is qualified
 for fixed globals and aliases; wider owner-aware private overlap remains
-separate. Issue **9** has a design and is ready for a focused implementation
-plan. Recovering issue 8's measured conservative fallback cost remains separate;
-retain the existing compatibility and rollback guards when recovering size.
+separate. Issue **9** connects certified assembly entries and writes without
+expanding decoder support or proving assembly result definitions. Recovering
+issue 8's measured conservative fallback cost remains separate; retain the
+existing compatibility and rollback guards when recovering size.

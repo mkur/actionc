@@ -1,6 +1,6 @@
 # MIR6502 certified assembly-leaf composition implementation plan
 
-Status: slices 1–2 implemented; final qualification in progress, 2026-11-17.
+Status: implemented and qualified, 2026-11-17.
 
 Implements [issue 9](MIR6502_FACT_REPAIR_PRIORITIES.md) under the
 [certified assembly-leaf design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-certified-assembly-leaves-in-acyclic-call-chains).
@@ -82,3 +82,16 @@ inputs, scoped admission, real placement and exact candidate rollback. The
 independent fixture is exercised with LF and CRLF. **162 focused tests pass**,
 including existing entry, residence, planning, core-validity and terminal
 transaction controls; three diagnostics are ignored (the audit runs separately).
+
+Slice 3 qualifies the void-assembly chain in ActionCart and Standalone with
+default, acyclic-gate-off and optimized configurations. Both focused VM groups
+pass, including LF/CRLF loading, byte/word boundary values, observable writes,
+sentinels and stack balance. The independent image shrinks **88 → 81 bytes**
+against the pre-extension compiler; the gate-off image matches that baseline.
+The audit passes for **14 controls and all 95 TN routines**. Existing control
+sizes are unchanged; TN shrinks **9,926 → 9,921 bytes**, entirely from `Tag`'s
+two new ZP homes. Entry/write/result limits and the existing core fallback
+remain intact. There is still one combined ordinary-call trial. No full test
+suite was run. See the
+[qualification receipt](benchmarks/6502-call-facts-audit/assembly-leaf-composition-qualification.json)
+for exact artifacts, hashes, test scope, fact deltas and one timing sample.

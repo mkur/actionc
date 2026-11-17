@@ -1622,9 +1622,10 @@ change itself requires content/link checks, not compiler test runs.
 
 ## Proposed extension: certified assembly leaves in acyclic call chains
 
-Proposed 2026-11-17 for [issue 9](MIR6502_FACT_REPAIR_PRIORITIES.md).
-Extend the acyclic-call contract above to accept assembly leaves already
-certified by the shared analysis. This widens coverage within MIR6502; it adds
+Implemented 2026-11-17 for [issue 9](MIR6502_FACT_REPAIR_PRIORITIES.md), following
+the [implementation plan](MIR6502_ASSEMBLY_LEAF_COMPOSITION_IMPLEMENTATION_PLAN.md).
+The acyclic-call contract accepts assembly leaves already certified by the
+shared analysis. This widens coverage within MIR6502; it adds
 no source syntax, annotation language, NIR form or assembly instruction support.
 The initial extension supersedes the blanket machine-callee exclusion only at
 the certified boundary described here. Machine routines' own homes remain under
@@ -1632,11 +1633,12 @@ their current ABI and storage rules.
 
 ### Existing evidence and the missing connection
 
-[Acyclic entry composition](../src/mir6502/analysis/known_callees/entry_inputs/acyclic.rs)
-currently rejects every `MachineBlock` before consulting the existing leaf
-entry producer. [ResidenceCalls](../src/mir6502/parameter_homes/calls.rs) separately
-rejects machine callees in both input and write queries. Removing just one
-rejection would leave the other consumer unable to use the certificate.
+Before this extension,
+[acyclic entry composition](../src/mir6502/analysis/known_callees/entry_inputs/acyclic.rs)
+rejected every `MachineBlock` before consulting the existing leaf entry producer.
+[ResidenceCalls](../src/mir6502/parameter_homes/calls.rs) separately rejected
+machine callees in both input and write queries. Both consumers now use the
+certificate within the acyclic scope defined below.
 
 The [audit](MIR6502_FACT_CONTRACT_AUDIT_2026-11-16.md#assembly-leaf-knowledge-does-not-compose)
 and the issue-8 selected TN inventory distinguish three cases:
@@ -1802,5 +1804,19 @@ Keep testing focused on the connection and its consumers:
 Diagnostics should distinguish missing leaf certification, unsupplied inputs,
 unknown writes, overlap/observation, missing result definitions and cost rejection.
 Include the target and failing site/dependency using existing trace facilities;
-do not add a second fact registry. This note changes no executable behavior and
-requires documentation/content/link checks only.
+do not add a second fact registry.
+
+### Qualified outcome
+
+The [qualification receipt](benchmarks/6502-call-facts-audit/assembly-leaf-composition-qualification.json)
+records 162 focused unit checks, two VM groups and the 14-control/95-routine
+audit. The independent void-assembly chain shrinks from **88 to 81 bytes**.
+TN shrinks from **9,926 to 9,921 bytes**: `Tag.i` moves to `$A2` and `Tag.a`
+to `$A3`, saving two inline bytes and three instruction bytes. `IsTagged` can
+compose `Value`'s certified entry and preserve `Tag`'s live home; the later
+`Store` call retains Unknown writes and crosses only dead candidate values.
+
+The existing 13 controls retain their sizes. `MovePage` retains Unknown writes;
+`CalcAdr`, `Internal` and `Ascii` still lack leaf entry certificates. Assembly
+result definitions remain empty. The one combined ordinary-call trial and all
+six issue-8 core fallbacks remain; no extra per-leaf trials were introduced.

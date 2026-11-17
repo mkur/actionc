@@ -26,6 +26,47 @@ fn entry(out: &actionc::codegen::CodegenOutput, name: &str) -> u16 {
 }
 
 #[test]
+fn certified_assembly_leaf_homes_preserve_caller_values_and_observations() {
+    let source = include_str!("../../../fixtures/runtime/certified_assembly_leaf_homes.act")
+        .replace("\r\n", "\n");
+    let optimized = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+    let off = Mir6502Config { enable_acyclic_call_homes: false, ..optimized.clone() };
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let baseline = compile(&source, &off, runtime);
+        let mut lf_image = None;
+        for (config, crlf) in [(Mir6502Config::default(), false), (off.clone(), false),
+            (optimized.clone(), false), (optimized.clone(), true)] {
+            let text = if crlf { source.replace('\n', "\r\n") } else { source.clone() };
+            let out = if config == off { baseline.clone() } else { compile(&text, &config, runtime) };
+            if config == optimized {
+                let image = actionc::codegen::format_load_file(&out);
+                assert!(image.len() < actionc::codegen::format_load_file(&baseline).len());
+                assert!(out.map.storage_symbols.iter().any(|s|
+                    s.scope == actionc::codegen::CodegenSymbolScope::Routine("Hold".into())
+                        && s.name == "keep" && s.address < 256 && s.size == 2));
+                if crlf { assert_eq!(lf_image.as_ref(), Some(&image)); }
+                else { lf_image = Some(image); }
+            }
+            let mut vm = load(&out, runtime);
+            for keep in [0u16, 0x00ff, 0xff00, 0xffff] {
+                for tag in [0u8, 1, 0x80, 0xff] {
+                    vm.bus_mut().ram_mut().map(0x700, &[0xa5, 0x5a]).unwrap();
+                    let mut args = keep.to_le_bytes().to_vec();
+                    args.push(tag);
+                    // The shared call helper asserts stack balance on return.
+                    vm = machine::call(vm, &mut Observe, entry(&out, "Hold"), &args);
+                    assert_eq!(machine::bytes(&vm, 0xa0, 2), keep.wrapping_add(u16::from(tag)).to_le_bytes(),
+                        "{runtime:?} keep={keep:04x} tag={tag:02x} optimized={} CRLF={crlf}", config == optimized);
+                    assert_eq!(machine::bytes(&vm, 0x680, 2), [7, tag]);
+                    assert_eq!(machine::bytes(&vm, 0xac, 2), [7, 0x5a]);
+                    assert_eq!(machine::bytes(&vm, 0x700, 2), [0xa5, 0x5a]);
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn callee_facts_pointer_parameters_return_bytes_and_words_without_losing_caller_state() {
     let source = "BYTE observedByte=$0680
         CARD observedWord=$0681

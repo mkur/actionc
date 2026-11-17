@@ -45,6 +45,14 @@ remain Unknown. The read-modify-write control retains Unknown reads. See the
 [directional-read qualification](directional-reads-qualification.json) for
 emission and VM checks, the changed `Push` footprint, and the unchanged TN image.
 
+The issue-9 probe retains those 13 controls and adds `asm_void_chain`, a void
+assembly PROC under a native wrapper with live caller values. It checks direct
+versus composed leaf entries, retains empty assembly result definitions, and
+requires an independent placement saving. TN checks distinguish `MovePage`'s
+certified entry from its Unknown writes and retain the unsupported
+`CalcAdr`/`Internal`/`Ascii` entries. See the
+[assembly-leaf qualification](assembly-leaf-composition-qualification.json).
+
 Direct call `op` indices are local to their block. The compact census preserves
 order but is not a unique-site patching format. Calls embedded inside machine
 payloads do not appear in the direct MIR call list.

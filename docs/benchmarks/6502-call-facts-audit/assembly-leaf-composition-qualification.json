@@ -1,0 +1,307 @@
+{
+  "qualified_on": "2026-11-17",
+  "production_revision": "4ab449a41d221ff04ce25fda6983ff1703a70f42",
+  "baseline_revision": "e42e29fc0c4e1ed5cae3eee5ad3f35361bbe6a7a",
+  "production_source_sha256": {
+    "src/mir6502/analysis/known_callees/entry_inputs/acyclic.rs": "44513eeb2d0cb7d5d87653fd758b94acd7737b6ebfd38657944d21ca4ae9307e",
+    "src/mir6502/parameter_homes/calls.rs": "0259057bc59273ffb797bf4150459981b20c19ef7e7e631d737d4ec9a8ebdbe9"
+  },
+  "fixture_source_sha256": {
+    "fixtures/runtime/certified_assembly_leaf_homes.act": "4177c89163a69b0c3fa9f61efbf105951702e05060ac08e8657bdd89ee3efb49",
+    "samples/tn/modern/TN.ACT": "e6f03f6bb6a6260547197785d9ac85c9a1ee544f66cc889ed417c5adb56073bd",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d"
+  },
+  "scope": "Compose existing ActualEntry machine-leaf certificates through native acyclic calls and require them in acyclic residence admission. No decoder, ABI, result-definition, private-alias or NIR extension.",
+  "audit": {
+    "revision": "5f92fc842b9e329aa24e5270a3ef56ff0cd70b80",
+    "original_module_sha256": "7a63c70d5a450b597053e10a303a9d7ee498360d8deff24c0b273cd72442d19c",
+    "probe_sha256": "97544b3b6168b3fca320d2df5108694654b6fda54546b38cab08744aebce6c3e",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "mir6502::analysis::known_callees::call_facts_audit::audit_call_facts",
+      "--",
+      "--exact",
+      "--ignored",
+      "--nocapture"
+    ],
+    "return_code": 0,
+    "hook_removed": true,
+    "tn_bytes": 9921,
+    "tn_sha256": "ea2bbfdd39b9613063ce83118401fe793882af6bf87987de7629262110876a2a",
+    "matches_audited_tn_image": false
+  },
+  "audit_ran_before_production_commit": true,
+  "post_audit_source_changes": "Comment-only adjustment in calls.rs; the committed production code also passed the focused VM controls and ordinary CLI build.",
+  "checks": {
+    "focused_unit_tests_passed": 162,
+    "diagnostic_tests_ignored": 3,
+    "unit_scope": [
+      "mir6502::analysis::known_callees",
+      "mir6502::parameter_homes::calls",
+      "mir6502::parameter_homes::cross_call",
+      "mir6502::materialize::callee_scope",
+      "mir6502::late_cleanup"
+    ],
+    "unit_execution": "Direct execution of the library test binary built by the retained audit runner, avoiding a rebuild solely to remove the temporary include. Slice 1 separately passed 17 entry-analysis tests.",
+    "vm_controls_passed": [
+      "certified_assembly_leaf_homes_preserve_caller_values_and_observations",
+      "callee_facts_fixed_backing_writes_preserve_live_values_and_source_reservations"
+    ],
+    "new_vm_coverage": "ActionCart and Standalone; default, optimized acyclic-off, optimized LF and optimized CRLF through actual parsing. Sixteen byte/word boundary pairs per configuration, wrapping results, observable stores, untouched sentinels and stack balance. Actual ZP placement and a smaller packaged image asserted. Optimized LF/CRLF images match.",
+    "new_vm_call_cases": 128,
+    "audit_controls": 14,
+    "audit_tn_routines": 95,
+    "ordinary_cli_control": "Same source and CLI flags as the pre-extension build; current 81-byte output is byte-identical to the audit control.",
+    "tn_execution": "Compiled and analyzed; TN itself was not executed end to end in this qualification.",
+    "full_suite_run": false,
+    "documentation": "Edited content, local links and anchors, receipt JSON and git diff --check."
+  },
+  "independent_control": {
+    "source": "fixtures/runtime/certified_assembly_leaf_homes.act",
+    "bytes_before": 88,
+    "bytes_after": 81,
+    "delta_bytes": -7,
+    "sha256_before": "15aa230025fe95e72cedad30242b2ec0d89717fe4a2d56be2daa37ea64f8dadd",
+    "sha256_after": "503bbe177bba6486146b3987121e5bbab18bfe4b8261e1d9dadf2e781a224af3",
+    "baseline_cli": "cargo run --bin actionc -- --mode mir6502 --origin 0x3000 -o build/assembly-leaf-facts/before/control.xex --listing build/assembly-leaf-facts/before/control.asm fixtures/runtime/certified_assembly_leaf_homes.act",
+    "current_cli": "cargo run --bin actionc -- --mode mir6502 --origin 0x3000 -o build/assembly-leaf-facts/control.xex --listing build/assembly-leaf-facts/control.asm fixtures/runtime/certified_assembly_leaf_homes.act",
+    "configuration": "ActionCart, origin $3000, optimized. Audit/VM disable small-leaf inlining; ordinary baseline/current CLI uses the optimized default and yields the same corresponding images.",
+    "acyclic_gate_off_bytes": 88,
+    "acyclic_gate_off_equals_pre_extension": true,
+    "scope_note": "The existing acyclic gate also controls native-chain placement; attribution uses the separately captured pre-extension image.",
+    "selected_homes": {
+      "Touch": [
+        {
+          "address": 12288,
+          "kind": "Parameter",
+          "name": "value",
+          "size": 1
+        }
+      ],
+      "Hold": [
+        {
+          "address": 160,
+          "kind": "Parameter",
+          "name": "keep",
+          "size": 2
+        },
+        {
+          "address": 162,
+          "kind": "Parameter",
+          "name": "tag",
+          "size": 1
+        },
+        {
+          "address": 163,
+          "kind": "Local",
+          "name": "n",
+          "size": 1
+        }
+      ]
+    },
+    "defined_assembly_results": []
+  },
+  "tn": {
+    "configuration": "ActionCart, origin $3000, Mir6502Config::optimized(), same source and configuration as the issue-8 baseline.",
+    "bytes_before": 9926,
+    "bytes_after": 9921,
+    "delta_bytes": -5,
+    "sha256_before": "6aba58bc66a01ebe25b0a469681ccfbf3044b38e2bce33431222ae9f1433abb5",
+    "sha256_after": "ea2bbfdd39b9613063ce83118401fe793882af6bf87987de7629262110876a2a",
+    "changed_mir_routines": [
+      "Tag"
+    ],
+    "changed_reads": [],
+    "changed_writes": [],
+    "changed_leaf_entry": [],
+    "changed_accumulator": [],
+    "changed_zn": [],
+    "new_acyclic_entries": [
+      "MovePage",
+      "Position",
+      "SavePos",
+      "RestorePos",
+      "Strcpy",
+      "Strcat",
+      "Store",
+      "Value",
+      "IsTagged",
+      "RowMarker",
+      "IsProtected",
+      "IsDirectory",
+      "Tag",
+      "FindNext"
+    ],
+    "changed_machine_entry": [
+      "Tag"
+    ],
+    "routine_byte_deltas": [
+      {
+        "routine": "Tag",
+        "before": 90,
+        "after": 87,
+        "delta": -3
+      }
+    ],
+    "home_changes": {
+      "Tag": {
+        "before": [
+          {
+            "address": 13239,
+            "kind": "Parameter",
+            "name": "i",
+            "size": 1
+          },
+          {
+            "address": 13240,
+            "kind": "Local",
+            "name": "a",
+            "size": 1
+          }
+        ],
+        "after": [
+          {
+            "address": 162,
+            "kind": "Parameter",
+            "name": "i",
+            "size": 1
+          },
+          {
+            "address": 163,
+            "kind": "Local",
+            "name": "a",
+            "size": 1
+          }
+        ]
+      }
+    },
+    "explanation": "Tag.i and Tag.a move to $A2/$A3: two fewer inline storage bytes and three fewer instruction bytes. Value now composes through IsTagged, allowing preservation of the live Tag home. Store retains Unknown writes but is crossed only by dead candidate values. Other physical addresses move with layout; their home policies do not change.",
+    "remaining_limits": {
+      "MovePage": "Leaf and acyclic entry agree; writes remain Unknown, excluding live preservation.",
+      "CalcAdr_Internal_Ascii": "Leaf and acyclic entry remain unavailable.",
+      "assembly_results": "defined_results remains empty; declared results and may-writes do not become guaranteed definitions.",
+      "Pull_core_fallback": "Six existing expanded-write declines remain; recovering the issue-8 fallback cost is outside this extension."
+    }
+  },
+  "core_accounting": {
+    "compile_seconds": 23.439388458,
+    "counted_compile_seconds": 23.310749167,
+    "counting_preserves_image": true,
+    "scope": "MIR preparation, parameter-home selection and output; frontend excluded; debug opt-level=1",
+    "work": {
+      "core_callee_contract_checks": 6,
+      "core_callee_scope_fallbacks": 6,
+      "core_callee_summary_builds": 12,
+      "core_callee_write_declines": 6,
+      "cross_call_home_trials": 1,
+      "emission_invocations": 146,
+      "inner_emission_probes": 1460,
+      "late_cleanup_preservation_replays": 17,
+      "materializations": 6,
+      "parameter_argument_handoff_trials": 1,
+      "parameter_home_trials": 3,
+      "pipeline_attempts": 67,
+      "rewrite_analysis_builds": 62695,
+      "source_storage_inventory_builds": 61,
+      "storage_observation_snapshot_builds": 3
+    }
+  },
+  "accounting_comparison": {
+    "baseline_compile_seconds": 23.457807958,
+    "baseline_work": {
+      "core_callee_contract_checks": 6,
+      "core_callee_scope_fallbacks": 6,
+      "core_callee_summary_builds": 12,
+      "core_callee_write_declines": 6,
+      "cross_call_home_trials": 1,
+      "emission_invocations": 146,
+      "inner_emission_probes": 1460,
+      "late_cleanup_preservation_replays": 17,
+      "materializations": 6,
+      "parameter_argument_handoff_trials": 1,
+      "parameter_home_trials": 3,
+      "pipeline_attempts": 67,
+      "rewrite_analysis_builds": 62694,
+      "source_storage_inventory_builds": 61,
+      "storage_observation_snapshot_builds": 3
+    },
+    "interpretation": "One local M1 sample per revision, frontend excluded, debug opt-level=1; no meaningful timing improvement claimed. One combined ordinary-call trial remains; no per-leaf trials. Work counts differ only by one additional rewrite-analysis build."
+  },
+  "retained_controls": [
+    {
+      "case": "global_zp",
+      "bytes_before": 30,
+      "bytes_after": 30
+    },
+    {
+      "case": "global_ram",
+      "bytes_before": 31,
+      "bytes_after": 31
+    },
+    {
+      "case": "global_alias_zp",
+      "bytes_before": 30,
+      "bytes_after": 30
+    },
+    {
+      "case": "compare_byte",
+      "bytes_before": 26,
+      "bytes_after": 26
+    },
+    {
+      "case": "compare_word",
+      "bytes_before": 29,
+      "bytes_after": 29
+    },
+    {
+      "case": "integer_result",
+      "bytes_before": 26,
+      "bytes_after": 26
+    },
+    {
+      "case": "pointer_result",
+      "bytes_before": 26,
+      "bytes_after": 26
+    },
+    {
+      "case": "global_write_ram",
+      "bytes_before": 35,
+      "bytes_after": 35
+    },
+    {
+      "case": "global_write_zp",
+      "bytes_before": 34,
+      "bytes_after": 34
+    },
+    {
+      "case": "global_write_alias_zp",
+      "bytes_before": 38,
+      "bytes_after": 38
+    },
+    {
+      "case": "store_only",
+      "bytes_before": 39,
+      "bytes_after": 39
+    },
+    {
+      "case": "read_modify_write",
+      "bytes_before": 41,
+      "bytes_after": 41
+    },
+    {
+      "case": "asm_leaf",
+      "bytes_before": 28,
+      "bytes_after": 28
+    }
+  ],
+  "local_logs": {
+    "slice1": "build/assembly-leaf-facts/slice1.log",
+    "units": "build/assembly-leaf-facts/units-final.log",
+    "vm": "build/assembly-leaf-facts/vm.log",
+    "audit": "build/assembly-leaf-facts/audit.log",
+    "baseline_cli": "build/assembly-leaf-facts/baseline.log",
+    "current_cli": "build/assembly-leaf-facts/control.log"
+  }
+}

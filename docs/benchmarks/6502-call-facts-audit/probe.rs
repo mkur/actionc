@@ -160,6 +160,8 @@ fn synthetic() -> Value {
 fn audit_call_facts() {
     let root=std::path::Path::new("build/call-facts-audit-20261116");
     let mut cases=vec![];
+    let assembly_control=include_str!(concat!(env!("CARGO_MANIFEST_DIR"),
+        "/fixtures/runtime/certified_assembly_leaf_homes.act")).replace("\r\n", "\n");
     for (name,source) in [
         ("global_zp","BYTE state=$E8 BYTE FUNC ReadState() RETURN(state) BYTE FUNC Hold(BYTE keep) ReadState() RETURN(keep+1)"),
         ("global_ram","BYTE state=$600 BYTE FUNC ReadState() RETURN(state) BYTE FUNC Hold(BYTE keep) ReadState() RETURN(keep+1)"),
@@ -174,6 +176,7 @@ fn audit_call_facts() {
         ("store_only","PROC WriteByte(BYTE POINTER p BYTE value) p^=value RETURN PROC Forward(BYTE POINTER p BYTE value) WriteByte(p,value) RETURN"),
         ("read_modify_write","PROC AddByte(BYTE POINTER p BYTE value) p^=p^+value RETURN"),
         ("asm_leaf",";@actionc clobbers $AC/$AD $A0\nBYTE FUNC Fetch=*(CARD p)\nASM\n sta $AC\n stx $AD\n ldy #0\n lda ($AC),y\n sta $A0\n rts\nENDASM\nBYTE FUNC Middle(CARD p) RETURN(Fetch(p))"),
+        ("asm_void_chain",assembly_control.as_str()),
     ] {
         let n=nir(source);
         let config=mir::Mir6502Config {enable_small_leaf_inlining:false,..mir::Mir6502Config::optimized()};
@@ -199,6 +202,23 @@ fn audit_call_facts() {
                 assert_eq!(matches!(summary.reads(),MirKnownMemoryReads::Exact(_)), name=="store_only", "{}: {:?}",r.name,summary.reads());
                 assert_eq!(summary.writes(),&MirKnownMemoryWrites::Unknown);
             }
+        }
+        if matches!(name, "asm_leaf" | "asm_void_chain") {
+            let leaf_name=if name=="asm_leaf" {"Fetch"} else {"Touch"};
+            let leaf=facts["routines"].as_array().unwrap().iter().find(|r|r["name"]==leaf_name).unwrap();
+            assert!(!leaf["leaf_entry"].is_null());
+            assert_eq!(leaf["leaf_entry"],leaf["acyclic_entry"]);
+            assert_eq!(leaf["acyclic_entry"]["defined_results"],json!([]));
+            let middle=facts["routines"].as_array().unwrap().iter().find(|r|r["name"]=="Middle").unwrap();
+            assert!(!middle["acyclic_entry"].is_null());
+            assert_eq!(middle["acyclic_entry"]["defined_results"],json!([]));
+        }
+        if name=="asm_void_chain" {
+            let off=selected(&n,&mir::Mir6502Config {enable_acyclic_call_homes:false,..config.clone()});
+            assert!(crate::codegen::format_load_file(&e.output).len()<crate::codegen::format_load_file(&off.output).len());
+            let hold=e.program.routines.iter().find(|r|r.name=="Hold").unwrap();
+            assert!(hold.frame.resident_bytes().len()>=2);
+            std::fs::write(root.join("asm_void_chain-off.xex"),crate::codegen::format_load_file(&off.output)).unwrap();
         }
         std::fs::write(root.join(format!("{name}.act")),source).unwrap();
         std::fs::write(root.join(format!("{name}.xex")),crate::codegen::format_load_file(&e.output)).unwrap();
@@ -243,6 +263,13 @@ fn audit_call_facts() {
         })).unwrap()).unwrap();
     }
     let routine=|name|facts["routines"].as_array().unwrap().iter().find(|r|r["name"]==name).unwrap();
+    assert!(!routine("MovePage")["leaf_entry"].is_null());
+    assert_eq!(routine("MovePage")["leaf_entry"],routine("MovePage")["acyclic_entry"]);
+    assert_eq!(routine("MovePage")["writes"],json!("Unknown"));
+    for name in ["CalcAdr","Internal","Ascii"] {
+        assert!(routine(name)["leaf_entry"].is_null());
+        assert!(routine(name)["acyclic_entry"].is_null());
+    }
     assert_eq!(routine("Next")["leaf_entry"]["defined_results"],json!([0xa0,0xa1]));
     assert_eq!(routine("Next")["acyclic_entry"]["defined_results"],json!([0xa0,0xa1]));
     assert_eq!(routine("Ord")["acyclic_entry"]["fixed"],json!([0xa3]));
