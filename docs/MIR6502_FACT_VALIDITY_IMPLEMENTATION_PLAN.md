@@ -1,6 +1,6 @@
 # MIR6502 fact validity implementation plan
 
-Status: ready to implement, 2026-11-17.
+Status: slice 1 implemented; core scope hardening in progress, 2026-11-17.
 
 Implements issue **8** from the [repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md),
 following [summary validity across transformations](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#summary-validity-across-transformations).
@@ -67,3 +67,11 @@ invalid assumptions. Fresh analysis alone never legitimizes already-applied
 dependent changes. Existing entry facts remain stage-scoped; candidate output,
 maps and proof state remain paired. No persistent cache or per-query dependency
 ledger is introduced.
+
+## Progress
+
+Slice 1 shares the compatibility query with terminal cleanup, checks the
+publication policy and fixed backing, and retains individual entry flags and
+single-byte preservation. Five new regressions plus the affected analysis and
+terminal controls pass: **143 passed, three diagnostic tests ignored**. No full
+suite was run.

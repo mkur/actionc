@@ -2,6 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod bounded_memory;
 mod fixed_storage;
+mod contracts;
+pub(in crate::mir6502) use contracts::MirCalleeContractChange;
 pub(in crate::mir6502) use fixed_storage::MirFixedStorage;
 use std::sync::Arc;
 mod observations;
@@ -221,6 +223,7 @@ impl MirKnownCalleeExitSummary {
 /// Program-wide summaries for direct MIR routine calls.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirKnownCalleeSummaries {
+    mutable_return_flags: bool,
     fixed_storage: Arc<MirFixedStorage>,
     routines: BTreeMap<RoutineId, MirKnownCalleeExitSummary>,
     direct_call_targets: BTreeSet<RoutineId>,
@@ -266,6 +269,7 @@ impl MirKnownCalleeSummaries {
             })
             .collect::<BTreeMap<_, _>>();
         let mut summaries = Self {
+            mutable_return_flags,
             fixed_storage: Arc::new(MirFixedStorage::new(program)),
             entry_flags: BTreeMap::new(),
             scalar_entries_ignoring_flags: program
@@ -1866,6 +1870,9 @@ fn offset_mem(mem: &MirMem, offset: u16) -> MirMem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    mod contracts {
+        include!("known_callees/contract_tests.rs");
+    }
     mod directional_reads {
         include!("known_callees/directional_reads_tests.rs");
     }

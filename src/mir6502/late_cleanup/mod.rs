@@ -424,44 +424,7 @@ fn callee_contracts_preserved(before: &MirProgram, after: &MirProgram) -> bool {
     let old = MirKnownCalleeSummaries::analyze_for_rewriting(before)
         .with_precise_entry_flags(before, &ids);
     let new = MirKnownCalleeSummaries::analyze_for_rewriting(after);
-    old.entry_inputs_preserved_by(after, &new)
-        && before.routines.iter().all(|r| {
-            let Some(a) = old.get(r.id) else {
-                return true;
-            };
-            let Some(b) = new.get(r.id) else {
-                return false;
-            };
-            // Exact effects are may-read/may-write sets: a subset preserves every
-            // earlier exclusion, whereas a newly unknown or enlarged set does not.
-            let writes = match (a.writes(), b.writes()) {
-                (MirKnownMemoryWrites::Unknown, _) => true,
-                (MirKnownMemoryWrites::Exact(a), MirKnownMemoryWrites::Exact(b)) => {
-                    b.iter().all(|m| a.contains(m))
-                }
-                _ => false,
-            };
-            let reads = match (a.reads(), b.reads()) {
-                (MirKnownMemoryReads::Unknown, _) => true,
-                (MirKnownMemoryReads::Exact(a), MirKnownMemoryReads::Exact(b)) => {
-                    b.iter().all(|m| a.contains(m))
-                }
-                _ => false,
-            };
-            writes
-                && reads
-                && (!old.accumulator_summary_is_observable(r.id)
-                    || a.accumulator().is_none()
-                    || a.accumulator() == b.accumulator())
-                && (a.zn().is_none() || a.zn() == b.zn())
-                && [MirReg::A, MirReg::X, MirReg::Y]
-                    .into_iter()
-                    .all(|reg| !a.preserves_register(reg) || b.preserves_register(reg))
-                && (0..255).all(|slot| {
-                    !a.preserves_fixed_pair(MirFixedZpSlot(slot), old.fixed_storage())
-                        || b.preserves_fixed_pair(MirFixedZpSlot(slot), new.fixed_storage())
-                })
-        })
+    old.contracts_preserved_by(after, &new).is_ok()
 }
 
 fn count_ops(program: &MirProgram) -> usize {
