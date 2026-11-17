@@ -945,6 +945,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.machine.unknown_flag_or_a_effects = true;
         }
         MirOp::RuntimeHelper {
+            helper,
             args,
             result,
             additional_results,
@@ -954,19 +955,13 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             for arg in args {
                 record_arg_home_read(arg, &mut summary);
             }
-            if let Some(result) = result {
-                record_result_home_write(result, &mut summary);
+            if let Some(home) = result {
+                let width = crate::mir6502::runtime_contracts::signatures::primary_result(*helper)
+                    .map_or(MirWidth::Byte, |r| r.width);
+                record_typed_result_write(home, width, &mut summary);
             }
             for result in additional_results {
-                match result.home {
-                    MirResultHome::FixedZeroPage(slot) => record_definite_memory_range_write(
-                        &MirMem::FixedZeroPage(slot), result.width, &mut summary),
-                    MirResultHome::Absolute(address) => record_definite_memory_range_write(
-                        &MirMem::Absolute(address), result.width, &mut summary),
-                    MirResultHome::ZeroPage(slot) => record_definite_memory_range_write(
-                        &MirMem::ZeroPage(slot), result.width, &mut summary),
-                    _ => record_result_home_write(&result.home, &mut summary),
-                }
+                record_typed_result_write(&result.home, result.width, &mut summary);
             }
             apply_structured_effects(effects, false, &mut summary);
             summary.machine.conservative_register_clobbers =
@@ -1721,6 +1716,15 @@ fn record_arg_home_read(home: &MirArgHome, summary: &mut MirOpEffectSummary) {
             summary.memory.indirect_reads = true;
             summary.memory.has_unknown_effects = true;
         }
+    }
+}
+
+fn record_typed_result_write(home: &MirResultHome, width: MirWidth, summary: &mut MirOpEffectSummary) {
+    match home {
+        MirResultHome::FixedZeroPage(slot) => record_definite_memory_range_write(&MirMem::FixedZeroPage(*slot), width, summary),
+        MirResultHome::Absolute(address) => record_definite_memory_range_write(&MirMem::Absolute(*address), width, summary),
+        MirResultHome::ZeroPage(slot) => record_definite_memory_range_write(&MirMem::ZeroPage(*slot), width, summary),
+        _ => record_result_home_write(home, summary),
     }
 }
 
@@ -2738,17 +2742,17 @@ mod tests {
         for memory_writes in [
             MirMemoryEffect::Regions(vec![MirMemoryRegion {
                 kind: MirMemoryRegionKind::ZeroPage,
-                offset: 0xe4,
+                offset: 0xc4,
                 size: 4,
             }]),
             MirMemoryEffect::Unknown,
         ] {
             let effects = classify_op(&MirOp::RuntimeHelper {
-                helper: MirRuntimeHelper::Mul,
-                args: vec![],
-                result: Some(MirResultHome::FixedZeroPage(MirFixedZpSlot(0xe4))),
+                helper: MirRuntimeHelper::Mul32,
+                args: crate::mir6502::materialize::helper_args(&MirRuntimeHelper::Mul32),
+                result: Some(MirResultHome::FixedZeroPage(MirFixedZpSlot(0xc4))),
                 additional_results: vec![MirHelperResult {
-                    home: MirResultHome::FixedZeroPage(MirFixedZpSlot(0xe6)),
+                    home: MirResultHome::FixedZeroPage(MirFixedZpSlot(0xc6)),
                     width: MirWidth::Word,
                 }],
                 effects: MirEffects {
@@ -2758,7 +2762,7 @@ mod tests {
             });
             assert_eq!(
                 effects.homes.definite_writes,
-                [0xe4, 0xe6, 0xe7]
+                [0xc4, 0xc5, 0xc6, 0xc7]
                     .map(|slot| MirHomeByte::FixedZeroPage(MirFixedZpSlot(slot)))
                     .into_iter()
                     .collect()
@@ -2777,7 +2781,7 @@ mod tests {
                     effects
                         .homes
                         .writes
-                        .contains(&MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xe5)))
+                        .contains(&MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xc5)))
                 );
             }
         }

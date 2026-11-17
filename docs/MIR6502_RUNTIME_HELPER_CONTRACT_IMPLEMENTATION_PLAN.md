@@ -1,6 +1,6 @@
 # MIR6502 runtime and standard library contract implementation plan
 
-Status: in progress, 2026-11-17. Slices 1–2 complete.
+Status: in progress, 2026-11-17. Slices 1–3 complete.
 
 Implement the [contract design](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md) in
 the slices below, committing each slice after its focused checks pass. Deliver
@@ -296,3 +296,13 @@ optimization level 1, debug info disabled and two build jobs.
   invocation effects remain unknown; only the explicit residence summary uses
   returning writes. Core structural checks precede resolution; mandatory full
   residence validation runs immediately after resolution, including replay.
+
+- Slice 3: shared helper signatures and explicit primary result widths;
+  argument byte lanes derive from the private ABI. Focused library filters:
+  `mir6502::runtime_contracts` (3), `mir6502::verify` (44),
+  `mir6502::analysis::effects` (27), and
+  `mir6502::materialize::sargs_capture_tests` (2) passed. Two legacy unit
+  fixtures used fictitious helper result homes; they now use real signatures
+  and explicit result capture. The wide result projection intentionally adds
+  the formerly omitted primary high byte. No helper body or executable fixture
+  was changed.

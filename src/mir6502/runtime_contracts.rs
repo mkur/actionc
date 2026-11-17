@@ -1,6 +1,7 @@
 //! Contracts for selected implementations. Capture semantics stay independent
 //! of the helper's return-address/descriptor implementation.
 use super::ir::*;
+pub(super) mod signatures;
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
@@ -8,6 +9,7 @@ impl MirRuntimeImplementation {
     pub(super) fn capture(
         program: &MirProgram,
         target: &MirRuntimeHelperTarget,
+        helper: Option<MirRuntimeHelper>,
     ) -> Option<Arc<Self>> {
         let mut pending = BTreeSet::new();
         match target {
@@ -52,6 +54,7 @@ impl MirRuntimeImplementation {
             routines.push(routine.clone());
         }
         Some(Arc::new(Self {
+            helper,
             target: target.clone(),
             routines,
             machines,
@@ -79,6 +82,12 @@ pub(super) fn selected_helper(
         .runtime_helpers
         .iter()
         .find(|d| d.helper == helper)?;
+    if declaration.binding.as_ref()?.helper != Some(helper)
+        || declaration.abi != signatures::helper_abi_for(helper)
+        || declaration.effects != signatures::helper_effects(&helper)
+        || declaration.additional_results != signatures::helper_additional_results(helper) {
+        return None;
+    }
     declaration
         .binding
         .as_ref()?

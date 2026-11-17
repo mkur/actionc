@@ -155,7 +155,7 @@ pub(super) fn resolve_helpers(
     }
     for helper in defaults {
         let index = program.runtime_helpers.iter().position(|d| d.helper == helper).unwrap();
-        let witness = super::ir::MirRuntimeImplementation::capture(program, &program.runtime_helpers[index].target);
+        let witness = super::ir::MirRuntimeImplementation::capture(program, &program.runtime_helpers[index].target, Some(helper));
         program.runtime_helpers[index].binding = witness;
     }
     Ok(())

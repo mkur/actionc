@@ -202,6 +202,11 @@ impl MirVerifier {
             }
         }
         for helper in &program.runtime_helpers {
+            if helper.abi != super::materialize::helper_abi_for(helper.helper)
+                || helper.effects != super::materialize::helper_effects(&helper.helper) {
+                self.diagnostics.push(MirDiagnostic::routine("runtime_helpers",
+                    "runtime helper declaration ABI/effects do not match its private signature"));
+            }
             if helper.additional_results != super::materialize::helper_additional_results(helper.helper) {
                 self.diagnostics.push(MirDiagnostic::routine("runtime_helpers",
                     "runtime helper additional result homes/widths do not match its signature"));
@@ -2252,12 +2257,17 @@ impl MirVerifier {
                         "SArgs capture requires a contiguous unbound ABI frame, valid target/count and canonical effects after materialization"));
                 }
             }
-            MirOp::RuntimeHelper { helper, args, effects, additional_results, .. } => {
+            MirOp::RuntimeHelper { helper, args, result, effects, additional_results } => {
                 if self.phase == MirPhase::PreEmission
                     && (*args != super::materialize::helper_args(helper)
                         || *effects != super::materialize::helper_effects(helper)) {
                     self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
                         "runtime helper call inputs/effects do not match its private signature"));
+                }
+                if result.as_ref().is_some_and(|home|
+                    super::runtime_contracts::signatures::primary_result(*helper).as_ref().map(|r| &r.home) != Some(home)) {
+                    self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                        "runtime helper primary result does not match its private signature"));
                 }
                 if *additional_results != super::materialize::helper_additional_results(*helper) {
                     self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
@@ -3571,17 +3581,13 @@ mod tests {
 
     #[test]
     fn private_scratch_verifier_keeps_abi_homes_external_and_unknown_writes_are_not_definitions() {
-        use crate::mir6502::{MirMemoryEffect, MirResultHome, MirZpSlot};
+        use crate::mir6502::{MirResultHome, MirZpSlot};
         let helper = MirOp::RuntimeHelper {
             additional_results: Vec::new(),
-            helper: MirRuntimeHelper::MulByte,
-            args: vec![MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA0))],
-            result: Some(MirResultHome::ZeroPage(MirZpSlot(0))),
-            effects: MirEffects {
-                memory_reads: MirMemoryEffect::Unknown,
-                memory_writes: MirMemoryEffect::Unknown,
-                ..MirEffects::default()
-            },
+            helper: MirRuntimeHelper::UDiv,
+            args: super::super::materialize::helper_args(&MirRuntimeHelper::UDiv),
+            result: Some(MirResultHome::RegisterPair { lo: MirReg::A, hi: MirReg::X }),
+            effects: super::super::materialize::helper_effects(&MirRuntimeHelper::UDiv),
         };
         let mut program = scratch_program(vec![block_with_ops(
             MirBlockId(0),
@@ -3589,6 +3595,8 @@ mod tests {
             vec![
                 private_load(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
                 helper,
+                MirOp::Store { dst: MirAddr::Direct(MirMem::ZeroPage(MirZpSlot(0))),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte },
                 private_load(MirMem::ZeroPage(MirZpSlot(0))),
             ],
             MirTerminator::Return,
