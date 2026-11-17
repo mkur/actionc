@@ -1,6 +1,6 @@
 # MIR6502 home admission using existing facts: implementation plan
 
-Prepared 2026-11-17. Status: proposed; implementation has not started.
+Prepared 2026-11-17. Status: in progress; slice 1 complete.
 
 Implement in five slices, committing each after its focused checks. This is the
 next qualified widening of the [home-selection design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#further-widening-follows-measured-blockers),
@@ -202,3 +202,11 @@ Normalize host text before newline-sensitive fixture processing, and verify
 actual LF/CRLF paths if such processing changes. Preserve binary/ATASCII bytes.
 No shared frontend/NIR changes are planned; if required, first revise the scope
 and follow the repository's mandatory shared-contract checks.
+
+## Implementation receipts
+
+- Slice 1: 68 existing parameter-home tests passed; the previously recorded
+  expanded-entry handoff failure was explicitly skipped. The new grouped
+  admission/trace test passed after correcting a reserved name in its sample.
+  Trace-off/on proposals and emitted output agree. Production admission is
+  unchanged; rejection events now retain a reason and the blocking site/op.

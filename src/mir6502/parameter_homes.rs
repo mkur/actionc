@@ -6,6 +6,7 @@ use super::preparation::{Resume, SelectedPlacement};
 use super::{diagnostics::MirDiagnostic, ir::*};
 use std::collections::BTreeSet;
 use std::sync::Arc;
+mod admission;
 mod lifetimes;
 mod logical;
 mod observations;
@@ -140,61 +141,8 @@ fn install_bindings(routine: &mut MirRoutine, bindings: Vec<MirParamBinding>) {
     routine.frame.parameter_homes = Some(bindings);
 }
 
-/// Deliberately closed expansion set. Additional shapes must establish their
-/// hidden helper, scratch, and observable-memory behavior before admission.
 fn eligible_with_calls(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, calls: bool, mixed: bool) -> bool {
-    use super::analysis::effects::{classify_op, writes_ordinary_pointee};
-    routine.abi == MirRoutineAbi::Action
-        && routine.frame.parameter_homes.is_none()
-        && (!routine.frame.params.is_empty() || (calls && !routine.frame.locals.is_empty()))
-        && routine
-            .frame
-            .params
-            .iter()
-            .map(|p| p.abi_byte_width().unwrap_or(5))
-            .sum::<u16>()
-            <= 4
-        && (mixed || routine.frame.params.iter().all(|p| eligible_parameter(addresses, routine, p)))
-        // Data-dependent pointer arithmetic has a separate fused staging
-        // strategy. Keep it on the legacy path until that consumer cooperates
-        // with resident homes. This first pointer slice admits immediate word
-        // arithmetic only; scalar routines retain their existing native scope.
-        && (!has_pointer_reads(routine) || routine.blocks.iter().flat_map(|b| &b.ops).all(|op| {
-            !matches!(op, MirOp::Binary { left, right, width: MirWidth::Word, .. }
-                if !matches!(left, MirValue::ConstU8(_) | MirValue::ConstU16(_))
-                && !matches!(right, MirValue::ConstU8(_) | MirValue::ConstU16(_)))
-        }))
-        && routine.blocks.iter().all(|b| {
-            b.ops.iter().all(|op| {
-                if matches!(op, MirOp::Call { .. }) { return calls; }
-                let effects = classify_op(op);
-                !effects.memory.opaque
-                    && (!effects.memory.indirect_writes || writes_ordinary_pointee(op))
-                    && (matches!(
-                        op,
-                        MirOp::LoadImm { .. }
-                            | MirOp::Move { .. }
-                            | MirOp::Extend { .. }
-                            | MirOp::Truncate { .. }
-                            | MirOp::Compare { .. }
-                            | MirOp::UpdateMem { .. }
-                            | MirOp::Binary {
-                                op: MirBinaryOp::Add
-                                    | MirBinaryOp::Sub
-                                    | MirBinaryOp::And
-                                    | MirBinaryOp::Or
-                                    | MirBinaryOp::Xor,
-                                ..
-                            }
-                    ) || (mixed && matches!(op, MirOp::LeaAddr { target: MirMem::Param { .. } | MirMem::Local { .. }, .. }))
-                        || matches!(op,
-                        MirOp::Binary { op: MirBinaryOp::Lsh | MirBinaryOp::Rsh,
-                            width: MirWidth::Byte, right: MirValue::ConstU8(0..=8) | MirValue::ConstU16(0..=8), .. })
-                        || matches!(op, MirOp::Load { src, width: MirWidth::Byte | MirWidth::Word, .. }
-                            | MirOp::Store { dst: src, width: MirWidth::Byte | MirWidth::Word, .. }
-                            if native_address(src)))
-            })
-        })
+    admission::check(addresses, routine, calls, mixed).is_ok()
 }
 
 fn eligible_parameter(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, p: &MirStorageSlot) -> bool {

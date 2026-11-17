@@ -36,13 +36,19 @@ pub(super) fn propose_with_scope(
         .iter()
         .enumerate()
         .filter_map(|(index, routine)| {
-            if !eligible_with_calls(&addresses, routine, true, lifetimes) {
+            if let Err(rejection) = admission::check(&addresses, routine, true, lifetimes) {
                 if trace.enabled() && routine.blocks.iter().flat_map(|b| &b.ops)
                     .any(|op| matches!(op, MirOp::Call { .. }))
                 {
                     trace.event("cross-call-ineligible", || serde_json::json!({
                         "routine": routine.name,
-                        "reason": "unsupported caller body or signature",
+                        "reason": rejection.reason.description(),
+                        "site": rejection.site.map(|site| format!("{site:?}")),
+                        "operation": rejection.site.and_then(|site| match site {
+                            MirSite::Op { block, op_index } => routine.blocks.iter().find(|b| b.id == block)
+                                .and_then(|b| b.ops.get(op_index)).map(|op| format!("{op:?}")),
+                            _ => None,
+                        }),
                         "indirect_writes": routine.blocks.iter().flat_map(|b| &b.ops)
                             .any(|op| super::super::analysis::effects::classify_op(op).memory.indirect_writes),
                         "machine_blocks": routine.blocks.iter().flat_map(|b| &b.ops)
