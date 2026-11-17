@@ -1,0 +1,192 @@
+{
+  "mir6502_units": {
+    "status": "FAILED",
+    "passed": 1536,
+    "failed": 6,
+    "ignored": 15,
+    "filtered_out": 2026,
+    "failures": [
+      "mir6502::materialize::constructor_storage::tests::constructor_storage_protects_incoming_pointer_across_known_calls",
+      "mir6502::materialize::pointer_retention::tests::pointer_retention_calls_keep_hardware_mapping_and_unowned_access_barriers",
+      "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_audits_effects_and_bounds_in_each_callee_frame",
+      "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_checks_successors_and_frame_exposure",
+      "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_is_path_sensitive_and_costed_after_forwarding",
+      "mir6502::parameter_homes::handoff_tests::an_extra_expanded_entry_requirement_restores_the_complete_selected_artifact"
+    ],
+    "log": "build/home-admission-final-units.log",
+    "log_sha256": "657853064336d9d6ddd88570df387b5e3399c0046153a89dcf149c9e4f5dd70e"
+  },
+  "call_abi_integration": {
+    "status": "ok",
+    "passed": 11,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0,
+    "failures": [],
+    "log": "build/home-admission-final-call-abi.log",
+    "log_sha256": "c53ab456a7f9064ac862ae6a243296f6805c320c835294519138a1ee1c4ed614"
+  },
+  "residence_library_abi_and_admission_vm": {
+    "status": "ok",
+    "passed": 22,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0,
+    "failures": [],
+    "log": "build/home-admission-final-controls-vm.log",
+    "log_sha256": "53f66789dff6b485b78f76792a739f97dcaafaf818f14f26df529def51e6c273"
+  },
+  "existing_shift_vm": {
+    "status": "ok",
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 24,
+    "failures": [],
+    "log": "build/home-admission-final-shifts-vm.log",
+    "log_sha256": "585114701405a73a6f0c7f7c618bc759e152358897eb09c24f2719f643b1a923"
+  },
+  "huffman_vm": {
+    "status": "ok",
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 2,
+    "failures": [],
+    "log": "build/home-admission-final-huffman-vm.log",
+    "log_sha256": "af2d3896efc7c9e550a4c1cd9da206b35981d73bbc8c0a71ec58a0a2a5dd7f6f"
+  },
+  "combined_fact_audit": {
+    "status": "ok",
+    "passed": 2,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 3583,
+    "failures": [],
+    "log": "build/home-admission-final-audit.log",
+    "log_sha256": "181b1f156b1e57fda9a5d4a94a4990208fbfbf86f06055b60fd79bf30ff8046d"
+  },
+  "focused_parameter_homes": {
+    "status": "ok",
+    "passed": 73,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 3510,
+    "failures": [],
+    "log": "build/home-admission-slice4.log",
+    "log_sha256": "f580e8104e0890a7af417b26a1dae291a6fd95321fa52422aec61c844a7ab709"
+  },
+  "focused_shift_expansion": {
+    "status": "ok",
+    "passed": 2,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 3581,
+    "failures": [],
+    "log": "build/home-admission-slice4-expansion.log",
+    "log_sha256": "4773e9cba9a33c52abc9cc45acd7ec7bd76a59a01cf756eee8cc94f68fccff22"
+  },
+  "helper_contract_units": {
+    "status": "ok",
+    "passed": 10,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 3571,
+    "failures": [],
+    "log": "build/home-admission-slice2-contracts.log",
+    "log_sha256": "b49e075f5592594e9538bff652761eac940372cd3c931024015f7f15a443df7c"
+  },
+  "wide_fault_vm": {
+    "status": "ok",
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 24,
+    "failures": [],
+    "log": "build/home-admission-slice2-fault-vm.log",
+    "log_sha256": "73553fe03dcb85c33c66aa9266d2b86371824e65398dfde273fa1ef26af1ce56"
+  },
+  "commands": [
+    {
+      "check": "call-abi",
+      "command": [
+        "cargo",
+        "test",
+        "--test",
+        "mir6502_call_abi"
+      ],
+      "return_code": 0,
+      "log": "build/home-admission-final-call-abi.log"
+    },
+    {
+      "check": "controls-vm",
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "tools/vm-runtime-tests/Cargo.toml",
+        "--test",
+        "cross_call_homes",
+        "--test",
+        "runtime_library_contracts",
+        "--test",
+        "wide_abi_homes",
+        "--test",
+        "home_admission",
+        "--",
+        "--nocapture"
+      ],
+      "return_code": 0,
+      "log": "build/home-admission-final-controls-vm.log"
+    },
+    {
+      "check": "shifts-vm",
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "tools/vm-runtime-tests/Cargo.toml",
+        "--test",
+        "wide_integers",
+        "small_word_shifts_preserve_carries_overlap_and_calls"
+      ],
+      "return_code": 0,
+      "log": "build/home-admission-final-shifts-vm.log"
+    },
+    {
+      "check": "huffman-vm",
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "tools/vm-runtime-tests/Cargo.toml",
+        "--test",
+        "huff_dec",
+        "--",
+        "huff_dec_mir6502",
+        "huff_dec_vectors_accept"
+      ],
+      "return_code": 0,
+      "log": "build/home-admission-final-huffman-vm.log"
+    },
+    {
+      "check": "audit",
+      "command": [
+        "python3",
+        "docs/benchmarks/6502-runtime-contracts/run.py"
+      ],
+      "return_code": 0,
+      "log": "build/home-admission-final-audit.log"
+    }
+  ],
+  "unit_command": [
+    "build/checked-arena/shared-target/debug/deps/actionc-60432645d6edf052",
+    "mir6502::",
+    "--test-threads=2"
+  ],
+  "baseline_failure_receipt": "../6502-wide-routine-abi/checks.json",
+  "scope": "MIR6502 units and affected ABI/VM controls; no other backend or repository-wide suite.",
+  "huffman_coverage": "185 vectors per provider; 370 executions; actual cartridge LF and standalone CRLF compilation/VM paths.",
+  "tn_execution": "Reused baseline execution: complete selected image and all routine code sizes are byte-identical.",
+  "temporary_audit_hook_removed": true
+}

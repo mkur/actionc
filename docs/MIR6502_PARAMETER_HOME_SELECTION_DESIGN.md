@@ -1546,10 +1546,11 @@ whole; this extension makes no promise to retain hypothetical subset savings.
 
 ### Further widening follows measured blockers
 
-The proposed [fact-driven admission implementation plan](MIR6502_FACT_DRIVEN_HOME_ADMISSION_IMPLEMENTATION_PLAN.md)
+The completed [fact-driven admission implementation plan](MIR6502_FACT_DRIVEN_HOME_ADMISSION_IMPLEMENTATION_PLAN.md)
 qualifies precise rejection reasons, existing helper contracts, global/static
-address formation and bounded constant word shifts in separate slices. Current
-operation exclusions remain until their corresponding slice is qualified.
+address formation and bounded constant word shifts in separate slices. The
+[qualification](benchmarks/6502-home-admission/README.md) records useful
+placements and the remaining arithmetic, write-footprint and overlap limits.
 Explicit runtime helpers are now admitted through their selected invocation
 contracts in the cross-call/lifetime path, including helper-only routines.
 Planning accounts for helper scratch and actual result homes; the resumed

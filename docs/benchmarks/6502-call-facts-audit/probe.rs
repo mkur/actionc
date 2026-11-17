@@ -280,7 +280,9 @@ fn audit_call_facts() {
         });
         let detailed=selected_traced(&n,&mir::Mir6502Config::optimized(),&session.context());
         assert_eq!(image,crate::codegen::format_load_file(&detailed.output));
-        let events:Vec<_>=session.events().into_iter().filter(|e|e.kind.starts_with("core-callee-")).collect();
+        let events:Vec<_>=session.events().into_iter().filter(|e|
+            e.kind.starts_with("core-callee-") || e.kind.starts_with("cross-call")
+                || e.kind.contains("parameter-home") || e.kind.contains("parameter-argument")).collect();
         std::fs::write(root.join("tn-contract-events.json"),serde_json::to_string_pretty(&json!({
             "events":events,"manifest":session.manifest(),"tracing_preserves_image":true
         })).unwrap()).unwrap();

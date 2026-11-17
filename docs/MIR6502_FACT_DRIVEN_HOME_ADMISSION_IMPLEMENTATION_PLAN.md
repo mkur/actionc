@@ -1,6 +1,6 @@
 # MIR6502 home admission using existing facts: implementation plan
 
-Prepared 2026-11-17. Status: in progress; slices 1–4 complete.
+Prepared 2026-11-17. Status: complete; all five slices qualified.
 
 Implement in five slices, committing each after its focused checks. This is the
 next qualified widening of the [home-selection design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#further-widening-follows-measured-blockers),
@@ -25,11 +25,11 @@ Start from `6167df8b` and the [wide ABI qualification](benchmarks/6502-wide-rout
 | Huffman driver, `$8000` | 3,781 | 0 | 8 |
 | Huffman portable without leaf inlining | 3,851 | 0 | 9 |
 
-The current `unsupported caller body or signature` diagnostic conflates:
+The baseline `unsupported caller body or signature` diagnostic conflated:
 
 | Routine | Actual discovery boundary |
 | --- | --- |
-| `ReadBit`, `Main` | No parameters or source locals to place. |
+| `ReadBit`, `Main` | No parameters or source locals to place; `Main` also hits the earlier program-entry ABI guard. |
 | `ReadBits` | Explicit Lsh32/Rsh32 helper operations are absent from the operation allowlist despite available contracts. `n` and `i` are narrow candidates; `value` is four bytes. |
 | `ReadHeader` | Record-index multiplication, word shifts and variable word arithmetic in a routine with pointer reads. |
 | Portable `Decode` | Global-address formation for `codes` and `heap` is excluded. |
@@ -73,8 +73,9 @@ Primary code: [eligibility](../src/mir6502/parameter_homes.rs),
 3. Emit reasons through existing trace events. Include the blocking operation
    kind/width/site where relevant. Use one deterministic first blocker; no
    diagnostic-only second analysis, new fact cache or broad tracing subsystem.
-4. Record `ReadBit`/`Main` as no candidate objects. Keep absent placement distinct
-   from an unavailable callee entry certificate.
+4. Distinguish `ReadBit`/`Main` having no candidate objects from an unavailable
+   callee entry certificate. Preserve deterministic guard priority: `Main`
+   reaches the program-entry ABI guard before the empty-object check.
 
 Checks: one grouped admission/trace test for distinct boundaries, existing
 parameter-home tests affected by the refactor, and a trace-off/on image equality
@@ -237,3 +238,14 @@ and follow the repository's mandatory shared-contract checks.
   both directions and counts zero/one/four. Nonzero cases save 15–20 payload
   bytes against home selection disabled; zero is an existing boundary control
   and saves 18 bytes against that gate, not a new optimization claim.
+- Slice 5: [qualification and remaining blockers](benchmarks/6502-home-admission/README.md)
+  record TN unchanged at 9,913 packaged bytes, portable Huffman 3,851 → 3,846
+  and the fixed driver 3,781 → 3,756. `ReadBits.n` gains `$E0/$E1`; the driver
+  also places `i` at `$E2/$E3`. Portable `i` is blocked by the unresolved
+  ordinary-global write overlap query, not helper availability. `Decode` now
+  reaches its unknown-returning-write boundary. No certificate/helper coverage
+  is lost. Full MIR6502 qualification has 1,536 passes and the same six baseline
+  failures; affected integration/VM checks and 370 Huffman vectors pass.
+  Traces preserve all images, the test-only audit hook is removed, and TN VM
+  execution is reused because its complete image is byte-identical. The
+  diagnostic priority for `Main` is clarified above; it remains ineligible.
