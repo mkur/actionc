@@ -9,6 +9,10 @@ See the [coverage inventory](MIR6502_RUNTIME_LIBRARY_CONTRACT_COVERAGE.md) for
 supported boundaries and the [qualification report](benchmarks/6502-runtime-contracts/README.md)
 for measured outcomes and remaining restrictions.
 
+The follow-up [wide routine ABI design](MIR6502_WIDE_ROUTINE_ABI_DESIGN.md)
+extends public LONGINT/LONGCARD signature metadata and its consumers while
+retaining the existing emitted calling convention and private helper layouts.
+
 Complete the MIR6502 contracts for runtime helpers and standard-library calls
 so native call composition and ZP residence can use their supported
 implementations as certified call boundaries. Keep arguments, entry

@@ -215,6 +215,10 @@ improvement is not an acceptance condition for this contract repair.
 
 ## Typed direct result contract
 
+The follow-up [wide routine ABI design](MIR6502_WIDE_ROUTINE_ABI_DESIGN.md)
+extends the byte/word subset described here to four-byte integer values and
+makes parameter discovery independent of result support.
+
 Implemented for issue **4**. A routine's result ABI must remain known when its
 parameters include pointers. Result typing identifies the permitted output
 homes; a separate body proof establishes which bytes are actually defined on
