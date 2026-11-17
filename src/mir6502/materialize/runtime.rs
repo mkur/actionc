@@ -22,6 +22,7 @@ pub(super) fn ensure_helper_decl(program: &mut MirProgram, helper: MirRuntimeHel
 
 pub(in crate::mir6502) fn deferred_helper_decl(helper: MirRuntimeHelper) -> MirRuntimeHelperDecl {
     MirRuntimeHelperDecl {
+        binding: None,
         // Helper discovery records a logical requirement.  The selected
         // runtime owns the later physical binding.
         target: MirRuntimeHelperTarget::Deferred,

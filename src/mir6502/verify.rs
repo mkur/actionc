@@ -4288,6 +4288,7 @@ mod tests {
     fn rejects_deferred_runtime_helper_target_before_emission() {
         let mut program = program_with_routines(Vec::new());
         program.runtime_helpers.push(MirRuntimeHelperDecl {
+            binding: None,
             additional_results: Vec::new(),
             helper: MirRuntimeHelper::Mul,
             target: MirRuntimeHelperTarget::Deferred,

@@ -169,6 +169,15 @@ pub struct MirRuntimeHelperDecl {
     pub abi: MirCallAbi,
     pub additional_results: Vec<MirHelperResult>,
     pub effects: MirEffects,
+    /// Evidence attached only by the runtime resolver for a supported default.
+    pub(crate) binding: Option<std::sync::Arc<MirRuntimeImplementation>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct MirRuntimeImplementation {
+    pub target: MirRuntimeHelperTarget,
+    pub routines: Vec<MirRoutine>,
+    pub machines: Vec<MirMachineBlock>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

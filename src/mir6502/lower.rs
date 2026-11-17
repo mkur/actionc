@@ -1075,6 +1075,7 @@ fn runtime_helper_decls_from_bindings(nir_program: &NirProgram) -> Vec<MirRuntim
             }
         };
         decls.push(MirRuntimeHelperDecl {
+            binding: None,
             effects: super::materialize::helper_effects(&helper),
             helper,
             target,

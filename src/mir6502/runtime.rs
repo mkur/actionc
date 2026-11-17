@@ -35,6 +35,9 @@ pub(super) fn resolve_helpers(
     program: &mut MirProgram,
     runtime: Runtime,
 ) -> Result<(), Vec<MirDiagnostic>> {
+    let defaults = program.runtime_helpers.iter()
+        .filter(|d| matches!(d.target, MirRuntimeHelperTarget::Deferred))
+        .map(|d| d.helper).collect::<Vec<_>>();
     bind_generated_byte_multiply(program);
     for helper in [MirRuntimeHelper::Mul32, MirRuntimeHelper::Lsh32, MirRuntimeHelper::Rsh32] {
         if !program.runtime_helpers.iter().any(|decl| decl.helper == helper) { continue; }
@@ -140,7 +143,7 @@ pub(super) fn resolve_helpers(
         .sort_by_key(|declaration| declaration.helper);
 
     if runtime == Runtime::Standalone {
-        return super::standalone::link_helpers(program);
+        super::standalone::link_helpers(program)?;
     }
 
     for declaration in &mut program.runtime_helpers {
@@ -149,6 +152,11 @@ pub(super) fn resolve_helpers(
         }
         declaration.target =
             MirRuntimeHelperTarget::KnownAbsolute(cartridge_address(declaration.helper));
+    }
+    for helper in defaults {
+        let index = program.runtime_helpers.iter().position(|d| d.helper == helper).unwrap();
+        let witness = super::ir::MirRuntimeImplementation::capture(program, &program.runtime_helpers[index].target);
+        program.runtime_helpers[index].binding = witness;
     }
     Ok(())
 }
@@ -322,6 +330,7 @@ mod tests {
             ]
             .into_iter()
             .map(|helper| MirRuntimeHelperDecl {
+                binding: None,
                 additional_results: Vec::new(),
                 helper,
                 target: MirRuntimeHelperTarget::Deferred,
@@ -358,6 +367,7 @@ mod tests {
                 routines: Vec::new(),
                 machine_blocks: Vec::new(),
                 runtime_helpers: vec![MirRuntimeHelperDecl {
+                    binding: None,
                     additional_results: Vec::new(),
                     helper: MirRuntimeHelper::MulByte,
                     target: MirRuntimeHelperTarget::Deferred,

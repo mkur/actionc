@@ -15,6 +15,7 @@ mod preparation;
 mod printer;
 mod rewrite;
 mod runtime;
+mod runtime_contracts;
 pub mod trace;
 pub(crate) mod standalone;
 mod verify;
@@ -6736,6 +6737,7 @@ mod tests {
             }],
             machine_blocks: Vec::new(),
             runtime_helpers: vec![MirRuntimeHelperDecl {
+                binding: None,
                 additional_results: Vec::new(),
                 helper: MirRuntimeHelper::Mul,
                 target: MirRuntimeHelperTarget::Deferred,
@@ -8061,6 +8063,7 @@ mod tests {
             }],
             machine_blocks: Vec::new(),
             runtime_helpers: vec![MirRuntimeHelperDecl {
+                binding: None,
                 additional_results: Vec::new(),
                 helper: MirRuntimeHelper::Mul,
                 target: MirRuntimeHelperTarget::KnownAbsolute(0xA000),

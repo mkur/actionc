@@ -1,6 +1,6 @@
 # MIR6502 runtime and standard library contract implementation plan
 
-Status: proposed, 2026-11-17. Implementation has not started.
+Status: in progress, 2026-11-17. Slice 1 complete.
 
 Implement the [contract design](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md) in
 the slices below, committing each slice after its focused checks pass. Deliver
@@ -271,3 +271,16 @@ The accepted result is accurate, current contracts used by existing analyses,
 with retained execution behavior and exact rollback on failed proofs/costs.
 Contract availability and ZP placement are separate outcomes. Unchanged TN or
 Huffman size is acceptable when independent restrictions still block placement.
+
+## Implementation checks
+
+All commands use `CARGO_TARGET_DIR=build/checked-arena/shared-target`, dev/test
+optimization level 1, debug info disabled and two build jobs.
+
+- Slice 1: `cargo test --lib sargs`: 11 passed. Includes mixed five-byte
+  capture metadata in both runtimes, stale/custom binding rejection and the
+  existing descriptor/relocation emission oracle at two origins. No admission
+  or emitted-code change. A test with unused call arguments encountered an
+  existing pre-materialization temp-cleanup loop; the metadata control now
+  constructs the callee without an unnecessary caller. Runtime calls remain
+  covered by the existing emission and upcoming VM controls.

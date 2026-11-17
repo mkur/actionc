@@ -1,0 +1,253 @@
+//! Contracts for selected implementations. Capture semantics stay independent
+//! of the helper's return-address/descriptor implementation.
+use super::ir::*;
+use std::collections::BTreeSet;
+use std::sync::Arc;
+
+impl MirRuntimeImplementation {
+    pub(super) fn capture(
+        program: &MirProgram,
+        target: &MirRuntimeHelperTarget,
+    ) -> Option<Arc<Self>> {
+        let mut pending = BTreeSet::new();
+        match target {
+            MirRuntimeHelperTarget::Routine(id) => {
+                pending.insert(*id);
+            }
+            MirRuntimeHelperTarget::KnownAbsolute(_) => {}
+            MirRuntimeHelperTarget::Deferred => return None,
+        }
+        let mut visited = BTreeSet::new();
+        let mut routines = Vec::new();
+        let mut machines = Vec::new();
+        while let Some(id) = pending.pop_first() {
+            if !visited.insert(id) {
+                continue;
+            }
+            let routine = program.routines.iter().find(|r| r.id == id)?;
+            for op in routine.blocks.iter().flat_map(|b| &b.ops) {
+                if let MirOp::Call {
+                    target: MirCallTarget::Routine(id),
+                    ..
+                } = op
+                {
+                    pending.insert(*id);
+                }
+                if let MirOp::MachineBlock { id, .. } = op {
+                    let machine = program.machine_blocks.iter().find(|m| m.id == *id)?;
+                    for item in &machine.items {
+                        if let MirMachineItem::Relocation {
+                            target: MirInlineAsmTarget::Routine(id),
+                            ..
+                        } = item
+                        {
+                            pending.insert(*id);
+                        }
+                    }
+                    if !machines.contains(machine) {
+                        machines.push(machine.clone());
+                    }
+                }
+            }
+            routines.push(routine.clone());
+        }
+        Some(Arc::new(Self {
+            target: target.clone(),
+            routines,
+            machines,
+        }))
+    }
+
+    pub(super) fn is_current(&self, program: &MirProgram, target: &MirRuntimeHelperTarget) -> bool {
+        self.target == *target
+            && self
+                .routines
+                .iter()
+                .all(|r| program.routines.iter().any(|now| now == r))
+            && self
+                .machines
+                .iter()
+                .all(|m| program.machine_blocks.iter().any(|now| now == m))
+    }
+}
+
+pub(super) fn selected_helper(
+    program: &MirProgram,
+    helper: MirRuntimeHelper,
+) -> Option<&MirRuntimeHelperDecl> {
+    let declaration = program
+        .runtime_helpers
+        .iter()
+        .find(|d| d.helper == helper)?;
+    declaration
+        .binding
+        .as_ref()?
+        .is_current(program, &declaration.target)
+        .then_some(declaration)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct CaptureSummary {
+    pub inputs: Vec<MirArgHome>,
+    pub definitions: Vec<MirMem>,
+    pub scratch: Vec<MirMem>,
+    pub state_reads: Vec<MirMem>,
+}
+
+pub(super) fn sargs_capture(
+    program: &MirProgram,
+    routine: &MirRoutine,
+    op: &MirOp,
+) -> Option<CaptureSummary> {
+    let MirOp::SArgsCapture {
+        first_param,
+        byte_count,
+        effects,
+    } = op
+    else {
+        return None;
+    };
+    selected_helper(program, MirRuntimeHelper::SArgs)?;
+    // The ABI's contiguous $A0-based area must fit in ZP. The descriptor's
+    // wider encoding alone does not establish a supported argument range.
+    if !(5..=96).contains(byte_count)
+        || routine.frame.parameter_homes.is_some()
+        || !matches!(
+            routine.abi,
+            MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry
+        )
+        || routine.frame.params.first()?.base != MirStorageBase::Param(*first_param)
+        || *effects != super::materialize::helper_effects(&MirRuntimeHelper::SArgs)
+    {
+        return None;
+    }
+    let mut definitions = Vec::new();
+    for slot in &routine.frame.params {
+        let MirStorageBase::Param(id) = slot.base else {
+            return None;
+        };
+        if slot.offset != 0 || slot.storage_size != slot.abi_byte_width()? {
+            return None;
+        }
+        definitions.extend((0..slot.storage_size).map(|offset| MirMem::Param { id, offset }));
+    }
+    if definitions.len() != usize::from(*byte_count) {
+        return None;
+    }
+    Some(CaptureSummary {
+        inputs: (0..*byte_count)
+            .map(|offset| super::abi::action_arg_home(offset, MirWidth::Byte))
+            .collect(),
+        definitions,
+        scratch: (0x82..=0x85)
+            .chain(0xa0..=0xa2)
+            .map(|b| MirMem::FixedZeroPage(MirFixedZpSlot(b)))
+            .collect(),
+        state_reads: vec![MirMem::FixedZeroPage(MirFixedZpSlot(0x11))],
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn program(source: &str, runtime: crate::runtime::Runtime) -> MirProgram {
+        let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
+        let model = crate::semantic::analyze(&ast).unwrap();
+        let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+        let mut p = crate::mir6502::materialize::materialize_program_with_reporting(
+            crate::mir6502::lower_program(&nir).unwrap(),
+            &super::super::Mir6502Config::default(),
+            0x3000,
+            false,
+        )
+        .unwrap();
+        super::super::runtime::resolve_helpers(&mut p, runtime).unwrap();
+        p
+    }
+
+    #[test]
+    fn sargs_summary_covers_all_lanes_and_rejects_invalid_or_stale_capture() {
+        for runtime in [
+            crate::runtime::Runtime::ActionCart,
+            crate::runtime::Runtime::Standalone,
+        ] {
+            let p = program(
+                "BYTE out PROC Capture(BYTE a CARD w BYTE POINTER p) out=a RETURN PROC Main() RETURN",
+                runtime,
+            );
+            let r = p.routines.iter().find(|r| r.name == "Capture").unwrap();
+            let op = r
+                .blocks
+                .iter()
+                .flat_map(|b| &b.ops)
+                .find(|op| matches!(op, MirOp::SArgsCapture { .. }))
+                .unwrap();
+            let summary = sargs_capture(&p, r, op).unwrap();
+            assert_eq!(
+                summary.inputs,
+                vec![
+                    MirArgHome::Reg(MirReg::A),
+                    MirArgHome::Reg(MirReg::X),
+                    MirArgHome::Reg(MirReg::Y),
+                    MirArgHome::FixedZeroPage(MirFixedZpSlot(0xa3)),
+                    MirArgHome::FixedZeroPage(MirFixedZpSlot(0xa4))
+                ]
+            );
+            assert_eq!(summary.definitions.len(), 5);
+            assert!(summary.definitions.contains(&MirMem::Param {
+                id: match r.frame.params[2].base {
+                    MirStorageBase::Param(id) => id,
+                    _ => unreachable!(),
+                },
+                offset: 1
+            }));
+            assert_eq!(summary.scratch.len(), 7);
+            assert_eq!(
+                summary.state_reads,
+                vec![MirMem::FixedZeroPage(MirFixedZpSlot(0x11))]
+            );
+            for count in [0, 4, 6, 97, 256] {
+                let mut bad = op.clone();
+                if let MirOp::SArgsCapture { byte_count, .. } = &mut bad {
+                    *byte_count = count;
+                }
+                assert!(sargs_capture(&p, r, &bad).is_none());
+            }
+            let mut bad = p.clone();
+            bad.runtime_helpers
+                .iter_mut()
+                .find(|d| d.helper == MirRuntimeHelper::SArgs)
+                .unwrap()
+                .target = MirRuntimeHelperTarget::KnownAbsolute(0x1234);
+            assert!(sargs_capture(&bad, r, op).is_none());
+            let mut bad = p.clone();
+            let d = bad
+                .runtime_helpers
+                .iter_mut()
+                .find(|d| d.helper == MirRuntimeHelper::SArgs)
+                .unwrap();
+            d.binding = None;
+            assert!(sargs_capture(&bad, r, op).is_none());
+            if let MirRuntimeHelperTarget::Routine(id) =
+                selected_helper(&p, MirRuntimeHelper::SArgs).unwrap().target
+            {
+                let mut bad = p.clone();
+                bad.routines.iter_mut().find(|r| r.id == id).unwrap().blocks[0]
+                    .ops
+                    .clear();
+                assert!(sargs_capture(&bad, r, op).is_none());
+            }
+        }
+        let p = program(
+            "CARD out PROC Small(CARD a,b) out=a RETURN PROC Main() RETURN",
+            crate::runtime::Runtime::ActionCart,
+        );
+        assert!(
+            !p.routines
+                .iter()
+                .flat_map(|r| &r.blocks)
+                .flat_map(|b| &b.ops)
+                .any(|op| matches!(op, MirOp::SArgsCapture { .. }))
+        );
+    }
+}
