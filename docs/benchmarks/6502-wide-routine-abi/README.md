@@ -42,9 +42,11 @@ routines. Packaged bytes exclude uninitialized storage.
 
 ## Remaining blockers and fallback
 
-- Source-home discovery still rejects the caller bodies of `ReadBit`,
-  `ReadBits`, `ReadHeader` and portable `Decode`. Its arithmetic/body gates and
-  eligibility for four-byte source objects were deliberately unchanged.
+- The generic body/signature rejection covers distinct causes: `ReadBit` and
+  `Main` have no parameters or source locals to place; `ReadBits` encounters the
+  explicit-helper exclusion; `ReadHeader` encounters arithmetic/pointer guards;
+  portable `Decode` encounters global-address formation. These admission gates
+  and eligibility for four-byte source objects were deliberately unchanged.
 - Driver `Decode` now has complete descendant entry inputs. Its two local-home
   candidates still fail across `WriteByte` because that callee's returning
   writes are unknown. `ReadHeader` and `BuildTree` also retain unknown writes;
