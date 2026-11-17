@@ -101,3 +101,46 @@ PROC Main() RETURN ENDMODULE";
         }
     }
 }
+
+#[test]
+fn memory_library_handles_dynamic_counts_pages_overlap_and_live_callers() {
+    let source = "MODULE CLIENT USE SYS
+BYTE POINTER dst=$700,src=$702 CARD count=$704
+PROC Clear() SYS.Zero(dst,count) RETURN
+PROC Fill() SYS.SetBlock(dst,count,$5A) RETURN
+PROC Copy() SYS.MoveBlock(dst,src,count) RETURN
+BYTE FUNC HoldClear(BYTE keep) Clear() RETURN(keep)
+BYTE FUNC HoldFill(BYTE keep) Fill() RETURN(keep)
+BYTE FUNC HoldCopy(BYTE keep) Copy() RETURN(keep)
+PROC Main() RETURN ENDMODULE";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = compile(source, runtime);
+        let address = |stem| output.routine_addresses.iter().find(|r| r.name.starts_with(stem)).unwrap().address;
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        for (stem, fill) in [("M_CLIENT_HOLDCLEAR_", Some(0u8)), ("M_CLIENT_HOLDFILL_", Some(0x5a)), ("M_CLIENT_HOLDCOPY_", None)] {
+            let entry = address(stem);
+            assert!(output.map.storage_symbols.iter().any(|s| matches!(&s.scope,
+                actionc::codegen::CodegenSymbolScope::Routine(name) if name.starts_with(stem) && s.address < 256)), "{runtime:?}: {stem} private home");
+            for count in [0u16, 1, 3, 255, 256, 257] {
+                vm.bus_mut().ram_mut().map(0x700, &[0xfe,0x09,0xfe,0x0d,count as u8,(count>>8) as u8]).unwrap();
+                let source: Vec<_> = (0..usize::from(count).max(1)).map(|i| (i as u8).wrapping_mul(17).wrapping_add(3)).collect();
+                vm.bus_mut().ram_mut().map(0xdfe, &source).unwrap();
+                vm.bus_mut().ram_mut().map(0x9fd, &vec![0xcc; usize::from(count)+2]).unwrap();
+                vm = machine::call(vm, &mut Observe, entry, &[0x83]);
+                assert_eq!(machine::bytes(&vm, 0xa0, 1), [0x83]);
+                let expected = fill.map_or_else(|| source[..usize::from(count)].to_vec(), |v| vec![v; usize::from(count)]);
+                assert_eq!(machine::bytes(&vm, 0x9fe, usize::from(count)), expected, "{runtime:?}: {stem}, {count}");
+                assert_eq!(machine::bytes(&vm, 0x9fd, 1), [0xcc]);
+                assert_eq!(machine::bytes(&vm, 0x9fe + count, 1), [0xcc]);
+                assert_eq!(machine::bytes(&vm, 0xdfe, source.len()), source);
+            }
+        }
+        // Forward copy supports a lower overlapping destination; this is not
+        // an arbitrary-overlap memmove promise.
+        vm.bus_mut().ram_mut().map(0x700, &[0xfe,0x09,0xff,0x09,4,0]).unwrap();
+        vm.bus_mut().ram_mut().map(0x9fd, &[0xcc,9,1,2,3,4,0xcc]).unwrap();
+        vm = machine::call(vm, &mut Observe, address("M_CLIENT_COPY_"), &[]);
+        assert_eq!(machine::bytes(&vm, 0x9fd, 7), [0xcc,1,2,3,4,4,0xcc]);
+    }
+}

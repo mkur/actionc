@@ -1,6 +1,6 @@
 # MIR6502 runtime and standard library contract implementation plan
 
-Status: in progress, 2026-11-17. Slices 1–7 complete.
+Status: in progress, 2026-11-17. Slices 1–8 complete.
 
 Implement the [contract design](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md) in
 the slices below, committing each slice after its focused checks pass. Deliver
@@ -355,3 +355,16 @@ optimization level 1, debug info disabled and two build jobs.
   Standalone qualification exposed literal machine words at opcode boundaries
   in the physical scanner. Splitting those words into emitted bytes reuses its
   existing relocation-aware reader and retains all physical checks.
+
+- Slice 8: all 10 runtime-contract unit cases passed in the broader MIR6502 run;
+  the freshly built `runtime_library_contracts` VM target passed all 3 cases in
+  both providers. Memory controls cover counts 0/1/3/255/256/257, page crossings,
+  lower overlapping destination, guards and live caller homes. The three memory
+  callers share `$E0`, saving 9 bytes in each provider's control. Contract checks
+  cover fifth/sixth lanes, zero extent, wrapping ranges, scratch collisions and
+  stale Zero/SetBlock fallthrough evidence. Public prelude identity is checked.
+  The count projection follows existing fixed-cell equalities for shared
+  constant stores. No helper or library instruction body changes.
+  The [coverage inventory](MIR6502_RUNTIME_LIBRARY_CONTRACT_COVERAGE.md) records
+  supported contracts and remaining returning dependencies. Broader test failures
+  are investigated against the starting revision during slice 9 qualification.

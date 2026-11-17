@@ -105,3 +105,71 @@ PROC Main() RETURN ENDMODULE";
         assert!(!ObjectAddressControl::new(&p).compiler_controls_address(exposed.id, &MirMem::Param { id, offset: 0 }));
     }
 }
+
+#[test]
+fn memory_library_contracts_cover_counts_later_lanes_and_fallthrough() {
+    use crate::mir6502::analysis::sites::MirSite;
+    let source = "MODULE CLIENT USE SYS
+PROC Calls()
+SYS.Zero($FFFE,0) SYS.Zero($FFFE,3)
+SYS.SetBlock($700,0,7) SYS.SetBlock($700,2,7)
+SYS.MoveBlock($800,$900,257)
+RETURN PROC Main() RETURN ENDMODULE";
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        let p = program(source, runtime);
+        let r = p.routines.iter().find(|r| r.name.starts_with("M_CLIENT_CALLS_")).unwrap();
+        let values = buffers::argument_values(&p, r).unwrap();
+        let fixed = crate::mir6502::analysis::known_callees::MirFixedStorage::new(&p);
+        let mut writes = Vec::new();
+        for b in &r.blocks { for (op_index, call) in b.ops.iter().enumerate() {
+            let Some(contract) = library_invocation(&p, call) else { continue; };
+            assert!(contract.definitions.is_empty());
+            let MirOp::Call { abi, .. } = call else { panic!() };
+            let binding = abi.library.as_ref().unwrap();
+            if binding.kind == Some(MirLibraryRoutine::MoveBlock) {
+                assert_eq!(contract.inputs.len(), 6);
+                let mut bad = call.clone();
+                let MirOp::Call { args, .. } = &mut bad else { unreachable!() };
+                args.pop();
+                assert!(library_invocation(&p, &bad).is_none());
+            }
+            if binding.kind == Some(MirLibraryRoutine::Zero) && runtime == crate::runtime::Runtime::Standalone {
+                let implementation = binding.implementation.as_ref().unwrap();
+                assert!(!implementation.fallthroughs.is_empty());
+                let (_, dependency) = implementation.fallthroughs[0];
+                let mut changed = p.clone();
+                changed.routines.iter_mut().find(|r| r.id == dependency).unwrap().blocks[0].ops.clear();
+                assert!(library_invocation(&changed, call).is_none());
+            }
+            let footprint = contract.normal_writes(&p, call, Some((&values, MirSite::Op { block: b.id, op_index })));
+            assert!(!footprint.preserves_private_fixed_byte(MirFixedZpSlot(0xa1), &fixed));
+            writes.push(footprint);
+        }}
+        assert_eq!(writes.len(), 5);
+        assert!(matches!(writes[0], MirKnownMemoryWrites::Exact(_)));
+        assert!(matches!(&writes[1], MirKnownMemoryWrites::Pointee { numeric, .. } if numeric == &[(0xfffe,3)]));
+        assert!(!writes[1].preserves_private_fixed_byte(MirFixedZpSlot(0), &fixed));
+        assert!(writes[1].preserves_private_fixed_byte(MirFixedZpSlot(1), &fixed));
+        assert!(matches!(writes[2], MirKnownMemoryWrites::Exact(_)));
+        assert!(matches!(&writes[3], MirKnownMemoryWrites::Pointee { numeric, .. } if numeric == &[(0x700,2)]));
+        assert!(matches!(&writes[4], MirKnownMemoryWrites::Pointee { numeric, .. } if numeric == &[(0x800,257)]), "{:?}", writes[4]);
+        for r in &p.routines {
+            if r.name.contains("SetBlock") || r.name.contains("MoveBlock") {
+                assert!(r.blocks.iter().flat_map(|b| &b.ops).all(|o| !matches!(o, MirOp::SArgsCapture { .. })));
+            }
+        }
+    }
+}
+
+#[test]
+fn prelude_identity_and_numeric_scratch_collision_remain_explicit() {
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        let p = program("BYTE ARRAY text=\"abc\" PROC Main() SCopy($A0,text) RETURN", runtime);
+        let r = p.routines.iter().find(|r| r.name == "Main").unwrap();
+        let values = buffers::argument_values(&p, r).unwrap();
+        let (block, op_index, call) = r.blocks.iter().flat_map(|b| b.ops.iter().enumerate().map(move |(i,o)|(b.id,i,o)))
+            .find(|(_,_,o)| library_invocation(&p,o).is_some()).unwrap();
+        let contract = library_invocation(&p,call).unwrap();
+        assert_eq!(contract.normal_writes(&p,call,Some((&values,crate::mir6502::analysis::sites::MirSite::Op {block,op_index}))), MirKnownMemoryWrites::Unknown);
+    }
+}

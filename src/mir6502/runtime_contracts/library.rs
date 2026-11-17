@@ -38,7 +38,15 @@ pub(in crate::mir6502) fn library_invocation(program: &MirProgram, op: &MirOp) -
         MirLibraryRoutine::SCopy => (
             vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Pointer],
             MirDirectResultAbi::Void, vec![0xa0,0xa1,0xa2]),
-        _ => return None,
+        MirLibraryRoutine::Zero => (
+            vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Scalar(MirWidth::Word)],
+            MirDirectResultAbi::Void, vec![0xa0,0xa1,0xa2,0xa3,0xa4]),
+        MirLibraryRoutine::SetBlock => (
+            vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Scalar(MirWidth::Word), MirDirectParamAbi::Scalar(MirWidth::Byte)],
+            MirDirectResultAbi::Void, vec![0xa0,0xa1,0xa2,0xa3]),
+        MirLibraryRoutine::MoveBlock => (
+            vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Pointer, MirDirectParamAbi::Scalar(MirWidth::Word)],
+            MirDirectResultAbi::Void, vec![0xa0,0xa1,0xa2,0xa3,0xa5]),
     };
     if interface.frame.direct_parameter_abi.as_ref() != Some(&parameters)
         || interface.direct_result_abi != Some(result)
@@ -63,7 +71,11 @@ pub(in crate::mir6502) fn library_invocation(program: &MirProgram, op: &MirOp) -
             MirLibraryRoutine::SCopy => vec![
                 BufferAccess { pointer_byte: 2, extent: BufferExtent::String { length_pointer_byte: 2 }, write: false },
                 BufferAccess { pointer_byte: 0, extent: BufferExtent::String { length_pointer_byte: 2 }, write: true }],
-            _ => return None,
+            MirLibraryRoutine::Zero | MirLibraryRoutine::SetBlock => vec![
+                BufferAccess { pointer_byte: 0, extent: BufferExtent::Count { argument_byte: 2 }, write: true }],
+            MirLibraryRoutine::MoveBlock => vec![
+                BufferAccess { pointer_byte: 2, extent: BufferExtent::Count { argument_byte: 4 }, write: false },
+                BufferAccess { pointer_byte: 0, extent: BufferExtent::Count { argument_byte: 4 }, write: true }],
         },
     })
 }

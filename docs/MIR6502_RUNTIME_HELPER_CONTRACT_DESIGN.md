@@ -588,3 +588,9 @@ substitution before private-home exclusion could be safe for a numeric argument.
 The implementation does not guess that mapping. Direct library invocations and
 parameterless wrappers are supported. This restriction is independent of entry
 certification, which can still describe the wrapper's canonical inputs/results.
+
+An explicit numeric buffer destination that can overwrite implementation scratch
+has an unknown returning write footprint: it could alter the implementation's
+pointer or count and escape the ordinary buffer bound. This rejection grants no
+new source diagnostic or change in runtime behavior. Existing private-storage
+rules still govern ordinary dynamic pointers.

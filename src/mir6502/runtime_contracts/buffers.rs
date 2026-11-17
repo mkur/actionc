@@ -63,7 +63,16 @@ impl super::invocation::InvocationSummary {
             let (address, bytes) = buffer.project(program, call, values);
             if bytes == 0 { continue; }
             has_pointee = true;
-            if let Some(address) = address { numeric.push((address, bytes)); }
+            if let Some(address) = address {
+                // An explicit destination overlapping implementation scratch
+                // may overwrite its pointers/counts and escape the normal
+                // buffer bound. Do not certify preservation for that case.
+                if self.writes.iter().filter_map(|m| fixed_storage_address(program, m))
+                    .any(|scratch| scratch.wrapping_sub(address) < bytes) {
+                    return MirKnownMemoryWrites::Unknown;
+                }
+                numeric.push((address, bytes));
+            }
         }
         if has_pointee {
             MirKnownMemoryWrites::Pointee { fixed: self.writes.clone(), numeric }
@@ -89,16 +98,16 @@ fn argument_byte(program: &MirProgram, call: &MirOp, offset: u16,
             let byte = (offset - start) as u8;
             // Expanded calls name physical input lanes. Read the current lane,
             // not the diagnostic value retained for a stack/ZP argument.
-            if width == 1 && let Some((values, site)) = values {
+            if let Some((values, site)) = values {
                 let current = match &arg.home {
-                    MirArgHome::Reg(reg) if matches!(arg.value, MirValue::Def(MirDef::Reg(_))) =>
+                    MirArgHome::Reg(reg) if width == 1 && matches!(arg.value, MirValue::Def(MirDef::Reg(_))) =>
                         Some(values.register_at(site, *reg).ok().flatten()),
                     MirArgHome::FixedZeroPage(slot) =>
-                        Some(values.fixed_zero_page_value_at(site, *slot).ok().flatten()),
+                        Some(values.fixed_zero_page_value_at(site, MirFixedZpSlot(slot.0.checked_add(byte)?)).ok().flatten()),
                     _ => None,
                 };
                 if let Some(current) = current {
-                    return match current { Some(MirMachineValue::ConstU8(b)) => Some(b), _ => None };
+                    return known_byte(values, site, current);
                 }
             }
             return constant_byte(program, &arg.value, byte);
@@ -106,6 +115,28 @@ fn argument_byte(program: &MirProgram, call: &MirOp, offset: u16,
         start += width;
     }
     None
+}
+
+fn known_byte(values: &MirMachineValueAvailability, site: MirSite,
+    mut value: Option<MirMachineValue>,
+) -> Option<u8> {
+    let mut seen = BTreeSet::new();
+    loop {
+        let memory = match value? {
+            MirMachineValue::ConstU8(byte) => return Some(byte),
+            MirMachineValue::DirectMem(memory) => memory,
+            _ => return None,
+        };
+        let slot = match memory {
+            MirMem::FixedZeroPage(slot) => slot,
+            MirMem::Absolute(address) => MirFixedZpSlot(u8::try_from(address).ok()?),
+            _ => return None,
+        };
+        if !seen.insert(slot) { return None; }
+        // The tracker invalidates these equalities when either cell changes.
+        // A shared constant store can therefore supply both count bytes.
+        value = values.fixed_zero_page_value_at(site, slot).ok().flatten();
+    }
 }
 
 fn constant_byte(program: &MirProgram, value: &MirValue, byte: u8) -> Option<u8> {
