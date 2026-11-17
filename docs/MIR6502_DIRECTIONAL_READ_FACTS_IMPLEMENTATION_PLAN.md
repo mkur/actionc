@@ -1,6 +1,6 @@
 # MIR6502 directional read facts implementation plan
 
-Status: slice 1 implemented; slice 2 qualification in progress, 2026-11-17.
+Status: implemented and qualified, 2026-11-17.
 
 Repairs issue **7** from the [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md),
 using the existing [directional-effects contract](MIR6502_PSEUDO_MACHINE_CONTRACT.md#callee-exit-value-and-flag-provenance).
@@ -73,3 +73,17 @@ The home-invalidation integration target also stops at an existing size
 expectation: `CheckRoom` is 83 bytes, versus the expected 89. A second clean
 `9a9a1661` checkout reproduces that exact failure. Its expectation remains
 unchanged and the rest of that test's runtime/origin matrix is not claimed.
+
+Slice 2 adds retained store-only/composed and read-modify-write audit controls
+and a VM oracle for byte stores, word copies/subtraction, aliasing and live caller
+state. The final focused unit selection and three VM controls pass, covering
+cart/standalone, default/optimized compilation, boundary values and LF/CRLF.
+Two late-cleanup integration controls also pass; the
+[qualification receipt](benchmarks/6502-call-facts-audit/directional-reads-qualification.json)
+records the revision and scope of each check.
+
+The final audit passes **13 controls and all 95 TN routines**. Only `Push` changes
+from Unknown to finite reads; write summaries, selected MIR and source-home
+placement are unchanged. TN stays **9,811 bytes**, byte-identical to the issue-6
+baseline. `Copy` and `PopUp` retain their unsupported-native-call-closure blockers.
+The temporary audit hook and baseline worktrees were removed.

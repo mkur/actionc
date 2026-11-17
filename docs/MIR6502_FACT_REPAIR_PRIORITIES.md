@@ -72,6 +72,23 @@ expectations are unchanged. See the
 [qualification receipt](benchmarks/6502-call-facts-audit/machine-definitions-qualification.json).
 No full suite was run.
 
+**Issue 7 is implemented.** Native read summaries no longer inherit write-only
+uncertainty. They retain complete direct operands and pointer carriers, using
+current virtual allocations and rejecting incomplete or overflowing extents.
+Actual pointee reads remain Unknown; unknown writes still invalidate values.
+
+Validation: 229 focused unit tests, two late-cleanup integration controls and
+three callee-fact VM controls passed.
+VM coverage includes both runtimes, default/optimized compilation, LF/CRLF,
+page boundaries, direct-source aliasing and live caller state. Three scalar-call
+elision assertions and the home-invalidation fixture's `CheckRoom` size assertion
+(83 bytes versus the expected 89) also fail on clean pre-repair `9a9a1661`; their
+expectations are unchanged. The retained audit passes 13 independent controls and all 95 TN
+routines. Only `Push` gains a finite read footprint; writes, placement and MIR
+remain unchanged. TN remains byte-identical at 9,811 bytes. See the
+[qualification receipt](benchmarks/6502-call-facts-audit/directional-reads-qualification.json).
+No full suite was run.
+
 ## Prioritized issues
 
 | Order | Issue to solve | Why it matters | Design note needed? |
@@ -82,7 +99,7 @@ No full suite was run.
 | **4** | **Represent typed results independently of parameter types** | Pointer parameters previously prevented proving return-home definitions, creating the spurious `$A0` requirement in `Ord` and `Items`. | [**Implemented.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract) |
 | **5** | **Unify guaranteed register/flag definitions** | Entry analyses disagree about ordinary comparisons, producing false carry requirements. | [**Implemented.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#guaranteed-register-and-flag-definitions) |
 | **6** | **Use backing and placement when checking physical overlap** | A write to a global at `$0600` should not exclude every ZP byte. Unknown placement must remain conservative. | [**Fixed-global slice implemented and qualified.**](MIR6502_FIXED_BACKING_OVERLAP_IMPLEMENTATION_PLAN.md) Checked backing/aliases feed preservation, invalidation and caller-byte checks; wider owner-aware private overlap remains separate. |
-| **7** | **Finish separating read and write uncertainty** | An unknown pointee write currently makes otherwise bounded reads unknown. | **No.** Restore the existing directional-effects contract. |
+| **7** | **Finish separating read and write uncertainty** | Unknown pointee writes no longer erase bounded operand/carrier reads; actual pointee reads remain Unknown. | [**Implemented.**](MIR6502_DIRECTIONAL_READ_FACTS_IMPLEMENTATION_PLAN.md) Existing directional-effects contract restored. |
 | **8** | **Make summary validity across transformations explicit** | Some consumers rely on undocumented assumptions about cached summaries surviving rewrites. No stale-summary failure was demonstrated. | **Yes, as documentation and hardening.** Avoid introducing a general cache framework without evidence it is needed. |
 | **9** | **Compose already-certified assembly leaf contracts** | Useful leaf knowledge is discarded by acyclic composition and residence admission. | **Extend the existing acyclic design after the repairs.** This is additional coverage, not a correctness fix. |
 
@@ -109,6 +126,6 @@ after the shared contracts are repaired.
 
 ## Next implementation work
 
-Issues **1–5 are repaired**. Issue **6** has a design and is ready for a focused
-implementation plan. Issue **7** remains an independent targeted
-correction that does not need to wait for the remaining shared design work.
+Issues **1–5 and 7 are repaired**. Issue **6** is qualified for fixed globals and
+aliases; wider owner-aware private overlap remains separate. The next design
+work is **issue 8**, making fact validity and required recomputation explicit.

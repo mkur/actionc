@@ -1,0 +1,140 @@
+{
+  "qualified_on": "2026-11-17",
+  "production_revision": "4371fa14eda9c5e2be61fb3c833247323cfbc573",
+  "production_module_sha256": "6bf2259372211cebf02c338b22a82038989490ff082bdc57b3084da4510eb429",
+  "scope": "Directional native read projection, complete store operands and current pointer-carrier placement; no new alias, ABI, storage-ownership or emission policy.",
+  "audit": {
+    "revision": "031bd51fce0a2d21db00b4b65529b2d3815ba65a",
+    "original_module_sha256": "6bf2259372211cebf02c338b22a82038989490ff082bdc57b3084da4510eb429",
+    "probe_sha256": "9e841bfdd6f2d951786b49f44cdd0a327004c4d9d96ffc1427a45dfa3afc62e4",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "mir6502::analysis::known_callees::call_facts_audit::audit_call_facts",
+      "--",
+      "--exact",
+      "--ignored",
+      "--nocapture"
+    ],
+    "return_code": 0,
+    "hook_removed": true,
+    "tn_bytes": 9811,
+    "tn_sha256": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+    "matches_audited_tn_image": true
+  },
+  "audit_ran_before_production_commit": true,
+  "checks": {
+    "focused_unit_tests_passed": 229,
+    "diagnostic_tests_ignored": 4,
+    "separately_executed_audit_ignored_in_unit_run": 1,
+    "unit_scope": [
+      "effects",
+      "known_callees",
+      "machine_values",
+      "home_liveness",
+      "home_definitions",
+      "late_cleanup",
+      "scalar_captures",
+      "word_load_sharing"
+    ],
+    "new_unit_tests": 7,
+    "emitted_read_oracle": "Decoded reads for StoreIndirect, CopyDirectWordToIndirect and AbsoluteWordSubToIndirect; verifies both pointer bytes and every direct lane against the emitted physical map; balanced implicit stack staging excluded by existing contract.",
+    "vm_controls_passed": [
+      "callee_facts_directional_stores_keep_state_and_handle_aliasing",
+      "callee_facts_fixed_backing_writes_preserve_live_values_and_source_reservations",
+      "callee_facts_pointer_parameters_return_bytes_and_words_without_losing_caller_state"
+    ],
+    "vm_coverage": "ActionCart and Standalone; default LF plus optimized LF/CRLF through actual source loading, with small-leaf inlining disabled in optimized runs. Store-only, read-modify-write, direct word copy/subtraction, page crossings, boundary values, direct-source aliasing and live caller state; existing global-write and pointer-return controls retained.",
+    "audit_controls": 13,
+    "audit_tn_routines": 95,
+    "all_previous_controls_unchanged": true,
+    "full_suite_run": false,
+    "late_cleanup_integration_tests_passed": [
+      "late_cleanup_master_gate_and_historical_materialized_dump_are_independent",
+      "late_producers_remove_independent_pointer_capture_loads"
+    ],
+    "late_cleanup_integration_revision": "031bd51fce0a2d21db00b4b65529b2d3815ba65a",
+    "raw_word_store_followup": "Unexpanded indirect word stores stay Unknown because their PointerCell value may imply a high lane not yet exposed by the byte-value effect query. Focused units and audit rerun after the guard. The three VM controls also pass after the guard.",
+    "vm_revision": "4371fa14eda9c5e2be61fb3c833247323cfbc573",
+    "focused_unit_revision": "4371fa14eda9c5e2be61fb3c833247323cfbc573"
+  },
+  "baseline_failures": {
+    "revision": "9a9a166145c17bca16be34f746f716bdc4548cd9",
+    "isolated_checkout_clean": true,
+    "tests": [
+      "scalar_call_elision_audits_effects_and_bounds_in_each_callee_frame",
+      "scalar_call_elision_checks_successors_and_frame_exposure",
+      "scalar_call_elision_is_path_sensitive_and_costed_after_forwarding"
+    ],
+    "expectations_changed": false,
+    "excluded_from_final_passing_unit_selection": true,
+    "temporary_worktree_removed": true,
+    "additional_integration_failure": {
+      "test": "home_value_invalidation_source_controls_have_stable_images_and_real_word_snapshots",
+      "assertion": "neutral-false-ActionCart-3000: CheckRoom; actual 83, expected 89",
+      "expectations_changed": false,
+      "remaining_matrix_completed": false,
+      "optional_mads_test_run": false
+    }
+  },
+  "tn": {
+    "bytes_before": 9811,
+    "bytes_after": 9811,
+    "byte_identical": true,
+    "sha256": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+    "changed_reads": [
+      {
+        "routine": "Push",
+        "before": "Unknown",
+        "after": "Exact([Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, Spill { id: MirSpillId(3), offset: 0 }, Spill { id: MirSpillId(2), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), Spill { id: MirSpillId(8), offset: 0 }, Local { id: LocalId(1), offset: 0 }, Local { id: LocalId(1), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))])",
+        "writes": "Unknown"
+      }
+    ],
+    "changed_writes": [],
+    "changed_mir_routines": [],
+    "changed_storage_routines": [],
+    "remaining_blockers": {
+      "Copy": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "PopUp": "Some((RoutineId(0), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))"
+    }
+  },
+  "directional_controls": [
+    {
+      "case": "store_only",
+      "bytes": 39,
+      "routines": [
+        {
+          "name": "WriteByte",
+          "reads": "Exact([FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+          "writes": "Unknown"
+        },
+        {
+          "name": "Forward",
+          "reads": "Exact([FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161))])",
+          "writes": "Unknown"
+        }
+      ]
+    },
+    {
+      "case": "read_modify_write",
+      "bytes": 41,
+      "routines": [
+        {
+          "name": "AddByte",
+          "reads": "Unknown",
+          "writes": "Unknown"
+        }
+      ]
+    }
+  ],
+  "local_logs": {
+    "units": "build/directional-read-facts/units-final.log",
+    "baseline": "build/directional-read-facts/baseline-check.log",
+    "vm": "build/directional-read-facts/vm-final.log",
+    "audit": "build/directional-read-facts/audit-final.log",
+    "late_cleanup_integration": "build/directional-read-facts/cleanup-integration.log",
+    "home_invalidation_integration": "build/directional-read-facts/integration.log",
+    "baseline_integration": "build/directional-read-facts/baseline-integration.log"
+  }
+}

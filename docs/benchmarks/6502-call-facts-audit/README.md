@@ -38,6 +38,13 @@ result composition, retain the Unknown-result negative control, and verify the
 corrected `Next`/`Ord`/`Items` facts. Archived JSON remains the original audit
 evidence; these checks describe the repaired compiler.
 
+The issue-7 probe adds store-only and read-modify-write controls, bringing the
+current census to 13 independent controls and 95 TN routines. Store-only reads
+must retain the pointer carrier, including through a native call, while writes
+remain Unknown. The read-modify-write control retains Unknown reads. See the
+[directional-read qualification](directional-reads-qualification.json) for
+emission and VM checks, the changed `Push` footprint, and the unchanged TN image.
+
 Direct call `op` indices are local to their block. The compact census preserves
 order but is not a unique-site patching format. Calls embedded inside machine
 payloads do not appear in the direct MIR call list.

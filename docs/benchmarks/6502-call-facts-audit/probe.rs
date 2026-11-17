@@ -98,12 +98,16 @@ fn synthetic() -> Value {
             "reads":format!("{reads:?}"),"writes":format!("{writes:?}"),"expected_byte":format!("{expected:?}"),
             "may_write_expected_byte":writes.may_write_mem(&expected, &MirFixedStorage::default())}));
     }
-    // A write through a pointer does not read the pointee, but broad unknown effects
-    // currently erase the otherwise separate read direction.
+    // A write through a pointer reads its carrier but not the pointee.
+    // Write uncertainty must remain independent of those finite reads.
     let store=MirOp::StoreIndirect { consumer:MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {lo:MirFixedZpSlot(0xac)}),offset:0,
         src:MirValue::Def(MirDef::Reg(MirReg::A)) };
     let routine=simple_routine(0,vec![store]);
     let mut reads=MirKnownMemoryReads::exact();summarize_op_reads(&routine.blocks[0].ops[0],&routine,&MirKnownCalleeSummaries::default(),&mut reads);
+    assert_eq!(reads,MirKnownMemoryReads::Exact(vec![absolute_mem(0xac),absolute_mem(0xad)]));
+    let mut writes=MirKnownMemoryWrites::exact();
+    summarize_op_writes(&routine.blocks[0].ops[0],&routine,&MirKnownCalleeSummaries::default(),&mut writes);
+    assert_eq!(writes,MirKnownMemoryWrites::Unknown);
     let zp=MirMem::FixedZeroPage(MirFixedZpSlot(0xe4));
     let home=mir::analysis::effects::MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xe4));
     let store_site=mir::analysis::sites::MirSite::Op {block:MirBlockId(0),op_index:0};
@@ -144,7 +148,7 @@ fn synthetic() -> Value {
     assert!(without_result["fixed"].as_array().unwrap().contains(&json!(0xa0)));
     CURRENT.with(|s|*s.borrow_mut()=None);
     json!({"may_write_liveness":may_writes,"typed_result_composition":{"integer_parameter":with_signature,"pointer_parameter":without_signature,"unknown_result":without_result},
-        "structured_regions":result,"store_only_reads":format!("{reads:?}"),
+        "structured_regions":result,"store_only_reads":format!("{reads:?}"),"store_only_writes":format!("{writes:?}"),
         "store_only_effects":format!("{:?}",classify_op(&routine.blocks[0].ops[0]).memory)})
 }
 
@@ -164,6 +168,8 @@ fn audit_call_facts() {
         ("global_write_ram","BYTE state=$600 BYTE FUNC Touch() state=1 RETURN(0) BYTE FUNC Hold(BYTE keep) Touch() RETURN(keep+1)"),
         ("global_write_zp","BYTE state=$E8 BYTE FUNC Touch() state=1 RETURN(0) BYTE FUNC Hold(BYTE keep) Touch() RETURN(keep+1)"),
         ("global_write_alias_zp","CARD state=$E8 CARD alias=state BYTE FUNC Touch() alias=$1234 RETURN(0) BYTE FUNC Hold(BYTE keep) Touch() RETURN(keep+1)"),
+        ("store_only","PROC WriteByte(BYTE POINTER p BYTE value) p^=value RETURN PROC Forward(BYTE POINTER p BYTE value) WriteByte(p,value) RETURN"),
+        ("read_modify_write","PROC AddByte(BYTE POINTER p BYTE value) p^=p^+value RETURN"),
         ("asm_leaf",";@actionc clobbers $AC/$AD $A0\nBYTE FUNC Fetch=*(CARD p)\nASM\n sta $AC\n stx $AD\n ldy #0\n lda ($AC),y\n sta $A0\n rts\nENDASM\nBYTE FUNC Middle(CARD p) RETURN(Fetch(p))"),
     ] {
         let n=nir(source);
@@ -182,6 +188,14 @@ fn audit_call_facts() {
             assert_eq!(touch["preserves_e8"],json!(name=="global_write_ram"));
             assert_eq!(touch["preserves_e9"],json!(name!="global_write_alias_zp"));
             assert_eq!(touch["preserves_ea"],json!(true));
+        }
+        if matches!(name, "store_only" | "read_modify_write") {
+            let known=MirKnownCalleeSummaries::analyze_for_rewriting(&e.program);
+            for r in &e.program.routines {
+                let summary=known.get(r.id).unwrap();
+                assert_eq!(matches!(summary.reads(),MirKnownMemoryReads::Exact(_)), name=="store_only", "{}: {:?}",r.name,summary.reads());
+                assert_eq!(summary.writes(),&MirKnownMemoryWrites::Unknown);
+            }
         }
         std::fs::write(root.join(format!("{name}.act")),source).unwrap();
         std::fs::write(root.join(format!("{name}.xex")),crate::codegen::format_load_file(&e.output)).unwrap();

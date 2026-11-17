@@ -374,3 +374,60 @@ fn callee_facts_fixed_backing_writes_preserve_live_values_and_source_reservation
         }
     }
 }
+
+#[test]
+fn callee_facts_directional_stores_keep_state_and_handle_aliasing() {
+    let source = "CARD source=$0680
+        PROC WriteByte(BYTE POINTER p BYTE value) p^=value RETURN
+        PROC AddByte(BYTE POINTER p BYTE value) p^=p^+value RETURN
+        PROC WriteSaved(CARD POINTER p) p^=source RETURN
+        PROC Difference(CARD POINTER p CARD value) p^=source-value RETURN
+        CARD FUNC Hold(CARD keep BYTE POINTER p BYTE value)
+          WriteByte(p,value)
+          AddByte(p,1)
+        RETURN(keep)
+        PROC Main() RETURN".replace("\r\n", "\n");
+    let optimized = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let mut lf_image = None;
+        for (config, crlf) in [(Mir6502Config::default(), false), (optimized.clone(), false), (optimized.clone(), true)] {
+            let text = if crlf { source.replace('\n', "\r\n") } else { source.clone() };
+            let out = compile(&text, &config, runtime);
+            if config == optimized {
+                let image = actionc::codegen::format_load_file(&out);
+                if crlf { assert_eq!(lf_image.as_ref(), Some(&image)); } else { lf_image = Some(image); }
+            }
+            let mut vm = load(&out, runtime);
+            for address in [0x700u16, 0x7ff] {
+                for value in [0u8, 1, 0x80, 0xff] {
+                    for keep in [0u16, 0x80ff, 0xffff] {
+                        vm.bus_mut().ram_mut().map(address - 1, &[0x55, 0xa5, 0xaa]).unwrap();
+                        let mut args = keep.to_le_bytes().to_vec();
+                        args.extend(address.to_le_bytes());
+                        args.push(value);
+                        vm = machine::call(vm, &mut Observe, entry(&out, "Hold"), &args);
+                        assert_eq!(machine::bytes(&vm, 0xa0, 2), keep.to_le_bytes(),
+                            "{runtime:?} value={value} keep={keep} CRLF={crlf}");
+                        assert_eq!(machine::bytes(&vm, address - 1, 3), [0x55, value.wrapping_add(1), 0xaa]);
+                    }
+                }
+            }
+            // Include overlap with the direct source, in both lane positions.
+            for address in [0x700u16, 0x7ff, 0x680, 0x681] {
+                for value in [0u16, 0x80ff, 0xffff] {
+                    vm.bus_mut().ram_mut().map(0x680, &value.to_le_bytes()).unwrap();
+                    vm = machine::call(vm, &mut Observe, entry(&out, "WriteSaved"), &address.to_le_bytes());
+                    assert_eq!(machine::bytes(&vm, address, 2), value.to_le_bytes(),
+                        "{runtime:?} copy address={address:04x} value={value:04x} CRLF={crlf}");
+                    for rhs in [0u16, 1, 0xff, 0xffff] {
+                        vm.bus_mut().ram_mut().map(0x680, &value.to_le_bytes()).unwrap();
+                        let args: Vec<_> = address.to_le_bytes().into_iter().chain(rhs.to_le_bytes()).collect();
+                        vm = machine::call(vm, &mut Observe, entry(&out, "Difference"), &args);
+                        assert_eq!(machine::bytes(&vm, address, 2), value.wrapping_sub(rhs).to_le_bytes(),
+                            "{runtime:?} subtract address={address:04x} value={value:04x} rhs={rhs:04x} CRLF={crlf}");
+                    }
+                }
+            }
+        }
+    }
+}
