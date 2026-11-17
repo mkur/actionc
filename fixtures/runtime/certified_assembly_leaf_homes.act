@@ -1,0 +1,29 @@
+; A void assembly leaf exposes inputs and writes without a result-definition proof.
+BYTE seen=$0680, seenTag=$0681
+CARD input=$0690, output=$0693
+BYTE inputTag=$0692
+
+;@actionc clobbers $AC/$AD
+PROC Touch=*(BYTE value)
+ASM
+  sta seen
+  sta $AC
+  ldx #$5A
+  stx $AD
+  rts
+ENDASM
+
+PROC Middle(BYTE value)
+  Touch(value)
+RETURN
+
+CARD FUNC Hold(CARD keep BYTE tag)
+  BYTE n
+  n=tag
+  Middle(7)
+  seenTag=n
+RETURN(keep+n)
+
+PROC Main()
+  output=Hold(input,inputTag)
+RETURN

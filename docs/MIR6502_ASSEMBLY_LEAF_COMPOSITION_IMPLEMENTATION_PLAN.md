@@ -1,6 +1,6 @@
 # MIR6502 certified assembly-leaf composition implementation plan
 
-Status: slice 1 implemented; residence admission in progress, 2026-11-17.
+Status: slices 1–2 implemented; final qualification in progress, 2026-11-17.
 
 Implements [issue 9](MIR6502_FACT_REPAIR_PRIORITIES.md) under the
 [certified assembly-leaf design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-certified-assembly-leaves-in-acyclic-call-chains).
@@ -73,3 +73,12 @@ diamond, repeated queries/sites, opposite routine order, unproved results,
 transitive freshness and unsupported/mixed bodies. All **17 focused entry-analysis
 tests pass**. The independent pre-extension control is 88 bytes; the retained TN
 baseline is 9,926 bytes.
+
+Slice 2 admits machine callees only through the acyclic certificate path, checks
+each site's canonical arguments, and keeps Unknown writes separate from entry
+admission. Four grouped regressions cover both word lanes/absolute aliases,
+live versus dead lifetimes, Unknown reads/writes, forbidden fallback, extra
+inputs, scoped admission, real placement and exact candidate rollback. The
+independent fixture is exercised with LF and CRLF. **162 focused tests pass**,
+including existing entry, residence, planning, core-validity and terminal
+transaction controls; three diagnostics are ignored (the audit runs separately).

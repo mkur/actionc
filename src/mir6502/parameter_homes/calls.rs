@@ -63,9 +63,12 @@ impl<'a> ResidenceCalls<'a> {
         };
         let callee = self.program.routines.iter().find(|r| r.id == *target)
             .ok_or("missing residence callee")?;
+        let machine = callee.blocks.iter().flat_map(|b| &b.ops)
+            .any(|op| matches!(op, MirOp::MachineBlock { .. }));
         if !matches!(callee.abi, MirRoutineAbi::Action | MirRoutineAbi::ActionObservable)
+            || (machine && self.acyclic.is_none())
             || callee.blocks.iter().flat_map(|b| &b.ops)
-            .any(|op| matches!(op, MirOp::MachineBlock { .. } | MirOp::SArgsCapture { .. } | MirOp::Barrier { .. })) {
+            .any(|op| matches!(op, MirOp::SArgsCapture { .. } | MirOp::Barrier { .. })) {
             return Err("unsupported residence callee");
         }
         if self.acyclic.is_none() && callee.abi == MirRoutineAbi::ActionObservable
@@ -77,9 +80,10 @@ impl<'a> ResidenceCalls<'a> {
         let observable = callee.abi == MirRoutineAbi::ActionObservable;
         match self.entry(*target) {
             Some(entry) => handoff::inputs_supplied(&entry, &outgoing)?,
-            // Native observable entries are admitted by their actual contract,
-            // never by assuming that a missing fact means no extra inputs.
-            None if observable =>
+            // Observable and machine entries require an actual certificate,
+            // including at dead boundaries. The absence of MIR call edges cannot
+            // exclude hidden calls or implicit inputs in a machine payload.
+            None if observable || machine =>
                 return Err("unknown residence callee entry"),
             None => {},
         }
@@ -113,9 +117,8 @@ impl<'a> ResidenceCalls<'a> {
                     op,
                     MirOp::RuntimeHelper { .. }
                         | MirOp::SArgsCapture { .. }
-                        | MirOp::MachineBlock { .. }
                         | MirOp::Barrier { .. }
-                ) || (self.acyclic.is_none() && matches!(op, MirOp::Call { .. }))
+                ) || (self.acyclic.is_none() && matches!(op, MirOp::Call { .. } | MirOp::MachineBlock { .. }))
             })
         {
             return Err("unsupported residence callee");
@@ -134,6 +137,9 @@ impl<'a> ResidenceCalls<'a> {
         Ok(writes)
     }
 }
+
+#[cfg(test)]
+mod assembly_tests;
 
 #[cfg(test)]
 mod tests {

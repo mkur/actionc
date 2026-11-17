@@ -23,6 +23,58 @@ fn programs(source: &str) -> (MirProgram, MirProgram) {
 }
 
 #[test]
+fn certified_assembly_leaf_planning_and_expanded_conflict_keep_artifacts_paired() {
+    let source = include_str!("../../../../fixtures/runtime/certified_assembly_leaf_homes.act")
+        .replace("\r\n", "\n");
+    let mut bindings = None;
+    for text in [source.clone(), source.replace('\n', "\r\n")] {
+        let (input, selected) = programs(&text);
+        let proposed = propose_with_scope(&input, &selected, true, true, true, &Trace::disabled()).unwrap();
+        assert!(!hold(&proposed).frame.resident_bytes().is_empty());
+        let leaf = proposed.routines.iter().find(|r| r.name == "Touch").unwrap();
+        assert!(leaf.frame.resident_bytes().is_empty());
+        let MirStorageBase::Param(keep) = hold(&input).frame.params.iter()
+            .find(|s| s.name.as_deref() == Some("keep")).unwrap().base else { panic!() };
+        assert!(matches!(hold(&proposed).frame.parameter_home(keep), Some(MirParamHome::ZeroPage(_))));
+        if let Some(off) = propose_with_scope(&input, &selected, true, true, false, &Trace::disabled()) {
+            assert!(hold(&off).frame.parameter_home(keep).is_none_or(|h| *h == MirParamHome::Inline));
+        }
+        let homes = hold(&proposed).frame.resident_bytes();
+        if let Some(expected) = &bindings { assert_eq!(&homes, expected); }
+        bindings = Some(homes);
+    }
+
+    let n = nir(&source);
+    let config = mir::Mir6502Config { enable_small_leaf_inlining: false,
+        ..mir::Mir6502Config::optimized() };
+    let runtime = crate::runtime::Runtime::ActionCart;
+    let session = Mir6502Trace::default();
+    let trace = session.context();
+    let (_, resume) = mir::prepare_program_for_emission(&n, 0x3000, &config, runtime, &trace).unwrap();
+    let resume = resume.unwrap();
+    let initial = resume.core.checkpoint.input.program.clone();
+    let executable = mir::preparation::resume_output(&n, &resume, initial.clone(), &config, 0x3000, runtime, &trace, None).unwrap();
+    let selected = SelectedPlacement { input: Arc::new(initial), executable };
+    let mut proposal = propose_with_scope(&selected.input, &selected.executable.program, true, true, true, &trace).unwrap();
+    let byte = hold(&proposal).frame.resident_bytes()[0].1.0;
+    // The selected payload was disjoint. A changed payload must be checked in
+    // the expanded candidate, not against the previously certified leaf.
+    proposal.machine_blocks[0].items.splice(0..0, [MirMachineItem::Byte(0x85), MirMachineItem::Byte(byte)]);
+    let expected_input = Arc::clone(&selected.input);
+    let expected = selected.executable.clone();
+    let result = try_proposal(&n, selected, &resume, proposal, "cross-call-homes", &config, 0x3000, runtime, &trace);
+    assert!(Arc::ptr_eq(&result.input, &expected_input));
+    assert_eq!(result.executable.program, expected.program);
+    assert_eq!(result.executable.output, expected.output);
+    assert_eq!(result.executable.memory, expected.memory);
+    assert_eq!(result.executable.costs, expected.costs);
+    assert_eq!(result.executable.trace_snapshot, expected.trace_snapshot);
+    assert_eq!(session.manifest()["work"]["cross_call_home_trials"], 1);
+    assert!(session.events().iter().any(|e| e.kind == "cross-call-home-result"
+        && e.data["reason"] == "invalid-trial"));
+}
+
+#[test]
 fn acyclic_planning_coordinates_subtrees_independently_of_source_order() {
     let source = include_str!("../../../../fixtures/runtime/acyclic_call_homes.act").replace("\r\n", "\n");
     let (input, selected) = programs(&source);
