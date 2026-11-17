@@ -1,0 +1,505 @@
+{
+  "qualified_on": "2026-11-17",
+  "production_revision": "57f78127ac3c858256c0fc5f553b6085459fc7f4",
+  "baseline_revision": "e92c2301",
+  "production_source_sha256": {
+    "src/mir6502/analysis/known_callees.rs": "7a63c70d5a450b597053e10a303a9d7ee498360d8deff24c0b273cd72442d19c",
+    "src/mir6502/analysis/known_callees/contracts.rs": "de633ccb5243724c58fd16c5243777c37728b8b77caacc71f8f4259e705d7e7e",
+    "src/mir6502/late_cleanup/mod.rs": "518f3bbb2134de01563fc02bfa154d30d72608d4790411aa65fe190ab5f21a51",
+    "src/mir6502/materialize.rs": "0fb71fb3bf950fba89fb95f67faddfc794df9c5099d7dcc70b163217adf9cdcc",
+    "src/mir6502/materialize/callee_scope.rs": "bc54b82e3a11b544bd7a5499b676c456f5740b259381b3c977d0079d17dfeb2b",
+    "src/mir6502/materialize/machine_value_census.rs": "1d2b59465a51e3db3748dee17f47b145f4392d41c2f5c1459294892593531866",
+    "src/mir6502/materialize/stats.rs": "0ac7df22fba530e898c3227c880d1088ab870cc03f93dd8e2c11b11087f58c25",
+    "src/mir6502/trace.rs": "6fab27edab9f8e071e6c07b168f23226dc03dd554ddff82a8ffbcdc00e2960ce"
+  },
+  "scope": "Shared callee-contract compatibility; checked core tail and complete conservative retry. No NIR, semantic, ABI admission, emission recipe or private-alias policy change.",
+  "audit": {
+    "revision": "f92fc6131780b334b898be3eb2b6a27c48bfa2e9",
+    "original_module_sha256": "7a63c70d5a450b597053e10a303a9d7ee498360d8deff24c0b273cd72442d19c",
+    "probe_sha256": "26bc6fe43586517d42b0e040a15478c073856388ce1e8f91c1be868ada913ede",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "mir6502::analysis::known_callees::call_facts_audit::audit_call_facts",
+      "--",
+      "--exact",
+      "--ignored",
+      "--nocapture"
+    ],
+    "return_code": 0,
+    "hook_removed": true,
+    "tn_bytes": 9926,
+    "tn_sha256": "6aba58bc66a01ebe25b0a469681ccfbf3044b38e2bce33431222ae9f1433abb5",
+    "matches_audited_tn_image": false
+  },
+  "audit_ran_before_production_commit": true,
+  "post_audit_source_changes": "Formatting only; focused integration and VM targets build the committed production source.",
+  "checks": {
+    "focused_unit_tests_passed": 165,
+    "new_unit_tests": 9,
+    "diagnostic_tests_ignored": 4,
+    "unit_scope": [
+      "known_callees",
+      "entry_flags",
+      "late_cleanup",
+      "materialize::callee_scope",
+      "materialize::machine_value_census",
+      "materialize::tests::known_call_result",
+      "trace::tests"
+    ],
+    "unit_execution": "Direct execution of the library test binary built by the retained audit runner; avoids rebuilding solely to remove the temporary include.",
+    "integration_tests_passed": [
+      "late_cleanup_master_gate_and_historical_materialized_dump_are_independent",
+      "late_producers_remove_independent_pointer_capture_loads",
+      "traced_generation_preserves_artifacts_and_captures_the_actual_final_mir",
+      "nested_trials_have_scoped_results_and_selected_inlining_is_replayed"
+    ],
+    "integration_coverage": "Selected output versus historical materialization; terminal gate and actual savings; both runtimes, origins $3000/$41C7 for terminal controls; LF/CRLF for artifact tracing; nested attempt ownership and selected inlining.",
+    "audit_controls": 13,
+    "audit_tn_routines": 95,
+    "full_suite_run": false,
+    "vm_controls_passed": [
+      "callee_facts_directional_stores_keep_state_and_handle_aliasing",
+      "callee_facts_fixed_backing_writes_preserve_live_values_and_source_reservations",
+      "callee_facts_pointer_parameters_return_bytes_and_words_without_losing_caller_state"
+    ],
+    "vm_coverage": "ActionCart and Standalone; default LF plus optimized LF/CRLF through actual source loading, with small-leaf inlining disabled in optimized runs. Page crossings, boundary values, direct-source aliasing, existing global state and live caller state.",
+    "tn_execution": "Audit compiles and analyzes TN; TN itself was not executed end to end in this qualification.",
+    "documentation": "Edited content, local links and anchors, receipt JSON and git diff --check passed."
+  },
+  "tn": {
+    "bytes_before": 9811,
+    "bytes_after": 9926,
+    "delta_bytes": 115,
+    "sha256_before": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+    "sha256_after": "6aba58bc66a01ebe25b0a469681ccfbf3044b38e2bce33431222ae9f1433abb5",
+    "changed_reads": [
+      {
+        "routine": "Alloc",
+        "before": "Exact([Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, Spill { id: MirSpillId(3), offset: 0 }, Spill { id: MirSpillId(2), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160)), Local { id: LocalId(1), offset: 1 }, Spill { id: MirSpillId(8), offset: 0 }, Local { id: LocalId(1), offset: 0 }])",
+        "after": "Exact([Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, Spill { id: MirSpillId(3), offset: 0 }, Spill { id: MirSpillId(2), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), Local { id: LocalId(1), offset: 1 }, Spill { id: MirSpillId(8), offset: 0 }, Local { id: LocalId(1), offset: 0 }])"
+      },
+      {
+        "routine": "Free",
+        "before": "Exact([Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, Spill { id: MirSpillId(3), offset: 0 }, Spill { id: MirSpillId(2), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160)), Local { id: LocalId(1), offset: 0 }, Local { id: LocalId(1), offset: 1 }])",
+        "after": "Exact([Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, Spill { id: MirSpillId(3), offset: 0 }, Spill { id: MirSpillId(2), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), Local { id: LocalId(1), offset: 0 }, Local { id: LocalId(1), offset: 1 }])"
+      }
+    ],
+    "changed_writes": [],
+    "changed_leaf_entry": [],
+    "changed_acyclic_entry": [],
+    "changed_accumulator": [],
+    "changed_zn": [],
+    "changed_machine_entry": [
+      {
+        "routine": "Delete",
+        "before": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+        "after": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })"
+      },
+      {
+        "routine": "Attrib",
+        "before": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+        "after": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })"
+      }
+    ],
+    "changed_acyclic_failure_locations": [
+      {
+        "routine": "Window",
+        "before": "Some((RoutineId(35), Some(Op { block: MirBlockId(0), op_index: 27 }), \"unsupported native call closure operation\"))",
+        "after": "Some((RoutineId(35), Some(Op { block: MirBlockId(0), op_index: 28 }), \"unsupported native call closure operation\"))"
+      }
+    ],
+    "changed_mir_routines": [
+      "Alloc",
+      "Free",
+      "Push",
+      "Putchar",
+      "Window",
+      "CloseWindow",
+      "InputLine",
+      "Ord",
+      "Items",
+      "FindItem",
+      "DrawMenu",
+      "MoveMenuBar",
+      "PopUp",
+      "Init",
+      "Sort",
+      "Convert",
+      "IsProtected",
+      "IsDirectory",
+      "Tag",
+      "FindNext",
+      "PrintB",
+      "Xloop",
+      "Delete",
+      "Format",
+      "NewDrive",
+      "Attrib",
+      "SwapScr",
+      "View",
+      "MkDir",
+      "Rename",
+      "Copy",
+      "Quit",
+      "Handle"
+    ],
+    "parameter_local_home_bindings_identical": true,
+    "storage_address_changes": [
+      "Large inline arrays in _StrNam, SetWin and Copy move by +115 with code growth; home kinds/sizes and ZP bindings do not change."
+    ],
+    "routine_byte_deltas": [
+      {
+        "routine": "Alloc",
+        "before": 79,
+        "after": 81,
+        "delta": 2
+      },
+      {
+        "routine": "Free",
+        "before": 64,
+        "after": 66,
+        "delta": 2
+      },
+      {
+        "routine": "Push",
+        "before": 90,
+        "after": 92,
+        "delta": 2
+      },
+      {
+        "routine": "Putchar",
+        "before": 19,
+        "after": 21,
+        "delta": 2
+      },
+      {
+        "routine": "Window",
+        "before": 319,
+        "after": 325,
+        "delta": 6
+      },
+      {
+        "routine": "CloseWindow",
+        "before": 47,
+        "after": 51,
+        "delta": 4
+      },
+      {
+        "routine": "InputLine",
+        "before": 208,
+        "after": 210,
+        "delta": 2
+      },
+      {
+        "routine": "Ord",
+        "before": 51,
+        "after": 53,
+        "delta": 2
+      },
+      {
+        "routine": "Items",
+        "before": 37,
+        "after": 39,
+        "delta": 2
+      },
+      {
+        "routine": "FindItem",
+        "before": 53,
+        "after": 59,
+        "delta": 6
+      },
+      {
+        "routine": "DrawMenu",
+        "before": 68,
+        "after": 70,
+        "delta": 2
+      },
+      {
+        "routine": "MoveMenuBar",
+        "before": 115,
+        "after": 117,
+        "delta": 2
+      },
+      {
+        "routine": "PopUp",
+        "before": 261,
+        "after": 280,
+        "delta": 19
+      },
+      {
+        "routine": "Init",
+        "before": 100,
+        "after": 102,
+        "delta": 2
+      },
+      {
+        "routine": "Convert",
+        "before": 131,
+        "after": 135,
+        "delta": 4
+      },
+      {
+        "routine": "IsProtected",
+        "before": 17,
+        "after": 19,
+        "delta": 2
+      },
+      {
+        "routine": "IsDirectory",
+        "before": 17,
+        "after": 19,
+        "delta": 2
+      },
+      {
+        "routine": "Tag",
+        "before": 88,
+        "after": 90,
+        "delta": 2
+      },
+      {
+        "routine": "PrintB",
+        "before": 17,
+        "after": 19,
+        "delta": 2
+      },
+      {
+        "routine": "Xloop",
+        "before": 209,
+        "after": 215,
+        "delta": 6
+      },
+      {
+        "routine": "Delete",
+        "before": 151,
+        "after": 153,
+        "delta": 2
+      },
+      {
+        "routine": "Format",
+        "before": 263,
+        "after": 271,
+        "delta": 8
+      },
+      {
+        "routine": "NewDrive",
+        "before": 201,
+        "after": 205,
+        "delta": 4
+      },
+      {
+        "routine": "Attrib",
+        "before": 94,
+        "after": 96,
+        "delta": 2
+      },
+      {
+        "routine": "SwapScr",
+        "before": 191,
+        "after": 195,
+        "delta": 4
+      },
+      {
+        "routine": "View",
+        "before": 98,
+        "after": 100,
+        "delta": 2
+      },
+      {
+        "routine": "MkDir",
+        "before": 127,
+        "after": 131,
+        "delta": 4
+      },
+      {
+        "routine": "Copy",
+        "before": 673,
+        "after": 679,
+        "delta": 6
+      },
+      {
+        "routine": "Quit",
+        "before": 101,
+        "after": 103,
+        "delta": 2
+      },
+      {
+        "routine": "Handle",
+        "before": 791,
+        "after": 799,
+        "delta": 8
+      }
+    ],
+    "explanation": "Every materialization rejects expanded writes in Pull at post-zp-remapping: added physical bytes $E2-$E5. A whole-tail retry drops native-callee assumptions, retaining reloads in several routines. This demonstrates weakened published guarantees, not an established TN runtime miscompile."
+  },
+  "core_accounting": {
+    "compile_seconds": 23.457807958,
+    "counted_compile_seconds": 23.404957042,
+    "counting_preserves_image": true,
+    "scope": "MIR preparation, parameter-home selection and output; frontend excluded; debug opt-level=1",
+    "work": {
+      "core_callee_contract_checks": 6,
+      "core_callee_scope_fallbacks": 6,
+      "core_callee_summary_builds": 12,
+      "core_callee_write_declines": 6,
+      "cross_call_home_trials": 1,
+      "emission_invocations": 146,
+      "inner_emission_probes": 1460,
+      "late_cleanup_preservation_replays": 17,
+      "materializations": 6,
+      "parameter_argument_handoff_trials": 1,
+      "parameter_home_trials": 3,
+      "pipeline_attempts": 67,
+      "rewrite_analysis_builds": 62694,
+      "source_storage_inventory_builds": 61,
+      "storage_observation_snapshot_builds": 3
+    },
+    "baseline_builds_per_core_traversal": 4,
+    "baseline_build_count_evidence": "Static inspection of e92c2301: three analyze_for_rewriting calls in materialize_core and one analyze call in fold_redundant_register_reloads; not a baseline run-wide counter.",
+    "current_tn_builds_per_materialization": 2,
+    "current_count_scope": "Six materializations; each builds the initial and post-ZP-remap summaries, declines, and reruns the bounded tail with zero native-callee summary builds. Counts do not cover every other analysis in the compiler."
+  },
+  "contract_trace": {
+    "declines": [
+      {
+        "boundary": "post-zp-remapping",
+        "fact": "expanded-writes",
+        "routine": 6
+      },
+      {
+        "boundary": "post-zp-remapping",
+        "fact": "expanded-writes",
+        "routine": 6
+      },
+      {
+        "boundary": "post-zp-remapping",
+        "fact": "expanded-writes",
+        "routine": 6
+      },
+      {
+        "boundary": "post-zp-remapping",
+        "fact": "expanded-writes",
+        "routine": 6
+      },
+      {
+        "boundary": "post-zp-remapping",
+        "fact": "expanded-writes",
+        "routine": 6
+      },
+      {
+        "boundary": "post-zp-remapping",
+        "fact": "expanded-writes",
+        "routine": 6
+      }
+    ],
+    "first_context": {
+      "after": "MirKnownCalleeExitSummary { accumulator: Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161)))), zn: None, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, reads: Unknown, writes: Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), FixedZeroPage(MirFixedZpSlot(228)), FixedZeroPage(MirFixedZpSlot(229)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(227)), Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]) }",
+      "before": "MirKnownCalleeExitSummary { accumulator: Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161)))), zn: None, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, reads: Unknown, writes: Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, Spill { id: MirSpillId(10), offset: 0 }, Spill { id: MirSpillId(11), offset: 0 }, Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]) }",
+      "routine": "Pull"
+    },
+    "all_contexts_equal": true,
+    "tracing_preserves_image": true,
+    "detail_bytes": 25916888,
+    "truncated_at": null,
+    "manifest_note": "Internal pipeline probe bypasses public generation finish; incomplete manifest is expected. No events were truncated."
+  },
+  "controls": [
+    {
+      "case": "global_zp",
+      "bytes_before": 28,
+      "bytes_after": 30,
+      "facts_identical": false
+    },
+    {
+      "case": "global_ram",
+      "bytes_before": 29,
+      "bytes_after": 31,
+      "facts_identical": false
+    },
+    {
+      "case": "global_alias_zp",
+      "bytes_before": 28,
+      "bytes_after": 30,
+      "facts_identical": false
+    },
+    {
+      "case": "compare_byte",
+      "bytes_before": 26,
+      "bytes_after": 26,
+      "facts_identical": true
+    },
+    {
+      "case": "compare_word",
+      "bytes_before": 29,
+      "bytes_after": 29,
+      "facts_identical": true
+    },
+    {
+      "case": "integer_result",
+      "bytes_before": 26,
+      "bytes_after": 26,
+      "facts_identical": true
+    },
+    {
+      "case": "pointer_result",
+      "bytes_before": 26,
+      "bytes_after": 26,
+      "facts_identical": true
+    },
+    {
+      "case": "global_write_ram",
+      "bytes_before": 33,
+      "bytes_after": 35,
+      "facts_identical": false
+    },
+    {
+      "case": "global_write_zp",
+      "bytes_before": 32,
+      "bytes_after": 34,
+      "facts_identical": false
+    },
+    {
+      "case": "global_write_alias_zp",
+      "bytes_before": 36,
+      "bytes_after": 38,
+      "facts_identical": false
+    },
+    {
+      "case": "store_only",
+      "bytes_before": 39,
+      "bytes_after": 39,
+      "facts_identical": true
+    },
+    {
+      "case": "read_modify_write",
+      "bytes_before": 41,
+      "bytes_after": 41,
+      "facts_identical": true
+    },
+    {
+      "case": "asm_leaf",
+      "bytes_before": 28,
+      "bytes_after": 28,
+      "facts_identical": true
+    }
+  ],
+  "baseline_failure_policy": "Existing failures documented in directional-reads-qualification.json were not rerun or altered. No expected output was weakened for this implementation.",
+  "local_logs": {
+    "units": "build/fact-validity/slice2-final.log",
+    "integration": "build/fact-validity/integration.log",
+    "vm": "build/fact-validity/vm.log",
+    "audit": "build/fact-validity/audit-final.log",
+    "baseline_audit": "build/fact-validity/baseline-audit.log",
+    "ordinary_audit": "build/fact-validity/ordinary-audit-timing.log"
+  },
+  "timing_comparison": {
+    "scope": "Uninstrumented 13-control plus 95-routine audit test execution, including MIR preparation, home selection, emission and fact inventory; excludes cargo build time. Same debug opt-level=1, local M1, one sample per revision.",
+    "baseline_seconds": 21.11,
+    "current_seconds": 24.07,
+    "delta_seconds": 2.96,
+    "interpretation": "Measured slowdown, not a controlled performance benchmark. Conservative replay adds local work despite fewer core summary builds. Detailed tracing is excluded.",
+    "baseline_log": "build/fact-validity/baseline-audit.log",
+    "current_log": "build/fact-validity/ordinary-audit-timing.log"
+  }
+}

@@ -833,9 +833,9 @@ rollback requirements. No new per-routine size veto is introduced.
 The initial implementation covers the three summary lifetimes in [core materialization](../src/mir6502/materialize.rs):
 the `known_callees` structural/cleanup group, `zero_page_known_callees` during
 call-result ZP reuse, and the `final_known_callees` group spanning later CFG,
-operand and dead-definition cleanup. Classify each mutation as preserving the
-frozen contract or ending that scope. Rebuilding after remapping is already
-present; make the preservation/replay obligation for earlier consumers explicit.
+operand and dead-definition cleanup. Each mutation must preserve the frozen
+contract or end that scope. Rebuilding after remapping also checks the
+preservation obligation for earlier consumers.
 
 [The core scope](../src/mir6502/materialize/callee_scope.rs) retains one checkpoint
 before the first of these consumers. At each changed boundary it independently
@@ -902,3 +902,10 @@ the affected runtimes and LF/CRLF when source loading is exercised. Re-run the
 retained 13-control/95-routine TN audit once at qualification, reporting facts,
 placement, actual image size and analysis cost. No full suite or TN size saving
 is a default acceptance requirement for this MIR6502-only hardening.
+
+Issue 8's [implementation plan and qualification](MIR6502_FACT_VALIDITY_IMPLEMENTATION_PLAN.md)
+record the accepted boundary and measured conservative cost. TN exercises the
+fallback at post-ZP remapping and grows by 115 bytes while retaining its entry
+proofs and parameter/local home choices. Recovering this cost must retain the
+compatibility/replay obligation; successful fresh analysis by itself is not a
+substitute.

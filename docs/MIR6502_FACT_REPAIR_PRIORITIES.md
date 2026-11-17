@@ -89,6 +89,21 @@ remain unchanged. TN remains byte-identical at 9,811 bytes. See the
 [qualification receipt](benchmarks/6502-call-facts-audit/directional-reads-qualification.json).
 No full suite was run.
 
+**Issue 8 is implemented.** Core summary consumers share an explicit validity
+scope and compatibility check with terminal cleanup. A changed callee contract
+restores all dependent core rewrites, home records and statistics before one
+conservative retry. Register-reload folding uses the same scoped facts.
+
+Qualification results are recorded in the
+[implementation plan](MIR6502_FACT_VALIDITY_IMPLEMENTATION_PLAN.md) and
+[receipt](benchmarks/6502-call-facts-audit/fact-validity-qualification.json).
+TN's checked attempts reject `Pull`'s expanded physical writes after ZP remapping;
+conservative fallback grows the image from 9,811 to 9,926 bytes (+115). Native
+entry proofs and parameter/local home choices are unchanged. This establishes
+a contract change, not a demonstrated TN miscompile. Recovering those bytes
+requires preserving the earlier contract or replaying with narrower assumptions;
+rebuilding a summary alone cannot do it.
+
 ## Prioritized issues
 
 | Order | Issue to solve | Why it matters | Design note needed? |
@@ -100,7 +115,7 @@ No full suite was run.
 | **5** | **Unify guaranteed register/flag definitions** | Entry analyses disagree about ordinary comparisons, producing false carry requirements. | [**Implemented.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#guaranteed-register-and-flag-definitions) |
 | **6** | **Use backing and placement when checking physical overlap** | A write to a global at `$0600` should not exclude every ZP byte. Unknown placement must remain conservative. | [**Fixed-global slice implemented and qualified.**](MIR6502_FIXED_BACKING_OVERLAP_IMPLEMENTATION_PLAN.md) Checked backing/aliases feed preservation, invalidation and caller-byte checks; wider owner-aware private overlap remains separate. |
 | **7** | **Finish separating read and write uncertainty** | Unknown pointee writes no longer erase bounded operand/carrier reads; actual pointee reads remain Unknown. | [**Implemented.**](MIR6502_DIRECTIONAL_READ_FACTS_IMPLEMENTATION_PLAN.md) Existing directional-effects contract restored. |
-| **8** | **Make summary validity across transformations explicit** | Some consumers rely on undocumented assumptions about cached summaries surviving rewrites. No stale-summary failure was demonstrated. | [**Design prepared.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#summary-validity-across-transformations) Scoped reuse, compatibility checks and replay; implementation pending. |
+| **8** | **Make summary validity across transformations explicit** | Some consumers rely on undocumented assumptions about cached summaries surviving rewrites. No stale-summary failure was demonstrated. | [**Core slice implemented.**](MIR6502_FACT_VALIDITY_IMPLEMENTATION_PLAN.md) Scoped reuse, shared compatibility checks and complete core fallback; existing entry and terminal owners retained. |
 | **9** | **Compose already-certified assembly leaf contracts** | Useful leaf knowledge is discarded by acyclic composition and residence admission. | **Extend the existing acyclic design after the repairs.** This is additional coverage, not a correctness fix. |
 
 ## Design work
@@ -110,7 +125,7 @@ covers the implemented contracts for **issues 3–5**.
 It also specifies the backing/placement contract for **issue 6**. Its fixed-global
 implementation is qualified; the initial slice retains the existing private-storage
 exclusions rather than claiming new owner-aware layout precision.
-Its proposed **issue 8** section specifies fact lifetime and rewrite
+Its **issue 8** section specifies implemented core fact lifetime and rewrite
 compatibility, retaining the shared distinctions:
 
 - Caller-supplied inputs versus existing state.
@@ -127,7 +142,8 @@ after the shared contracts are repaired.
 
 ## Next implementation work
 
-Issues **1–5 and 7 are repaired**. Issue **6** is qualified for fixed globals and
-aliases; wider owner-aware private overlap remains separate. Issue **8** now has
-a [design](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#summary-validity-across-transformations)
-and is ready for a focused implementation plan.
+Issues **1–5, 7 and the core slice of 8 are repaired**. Issue **6** is qualified
+for fixed globals and aliases; wider owner-aware private overlap remains
+separate. Follow-up work can address the measured conservative fallback before
+adding issue **9**'s assembly-composition coverage. Retain the existing
+compatibility and rollback guards when recovering size.

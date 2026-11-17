@@ -1,6 +1,6 @@
 # MIR6502 fact validity implementation plan
 
-Status: slices 1–2 implemented; final qualification in progress, 2026-11-17.
+Status: implemented and qualified in three slices, 2026-11-17.
 
 Implements issue **8** from the [repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md),
 following [summary validity across transformations](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#summary-validity-across-transformations).
@@ -85,3 +85,32 @@ reload-folding pass now borrows this same policy. Four new regressions cover
 scope reuse, metadata/placement invalidation, a real caller carrier rewrite in
 both routine orders, and conservative reload folding. **165 focused tests pass**
 (four ignored diagnostics, including the separately executed audit).
+
+Slice 3 qualification is complete: **four integration tests**, **three VM
+controls** and the **13-control/95-routine audit** pass. VM coverage includes
+both runtimes, default/optimized modes, LF/CRLF, aliasing and live caller state.
+Trace and work accounting preserve the generated image. No full suite was run;
+previously documented unrelated failures were not rerun or altered.
+
+TN grows **9,811 → 9,926 bytes (+115)**. All six materializations decline `Pull`'s
+expanded writes at `post-zp-remapping`: new physical writes to `$E2–$E5` weaken
+the earlier contract. The conservative retry retains more reloads, including
+in unrelated callers, because this initial scope tracks the whole published
+bundle rather than individual queries. Entry proofs and parameter/local home
+bindings are unchanged. `Alloc` and `Free` now retain a read of `$A1`; final write
+summaries are unchanged. Six independent global-state controls grow by two bytes
+each; the other seven controls are unchanged.
+
+The TN run builds **12 core bundles**, checks six changed boundaries and takes
+six bounded fallbacks. The old core had four analysis calls per full traversal;
+the new TN path builds two per materialization and none during conservative
+replay. This does not make compilation faster: the uninstrumented audit rises
+**21.11 → 24.07 seconds** in single local debug/opt-level-1 runs. TN's separately
+measured MIR-through-output compilation takes **23.46 seconds**. These are
+observations, not a controlled benchmark.
+
+See the [qualification receipt](benchmarks/6502-call-facts-audit/fact-validity-qualification.json)
+for hashes, routine deltas, trace evidence, commands/scopes and timing limits.
+Recovering the 115 bytes is follow-up optimization work: preserve the published
+contract or replay with narrower conservative assumptions. Fresh summaries alone
+cannot justify keeping the old caller rewrites.

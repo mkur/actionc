@@ -14,6 +14,9 @@ thread_local! { static CURRENT: std::cell::RefCell<Option<MirProgram>> = const {
 
 fn selected(n: &crate::nir::NirProgram, config: &mir::Mir6502Config) -> mir::preparation::Executable {
     let t=mir::trace::Trace::disabled();
+    selected_traced(n,config,&t)
+}
+fn selected_traced(n: &crate::nir::NirProgram, config: &mir::Mir6502Config, t: &mir::trace::Trace) -> mir::preparation::Executable {
     let (p,resume)=mir::prepare_program_for_emission(n,0x3000,config,crate::runtime::Runtime::ActionCart,&t).unwrap();
     let base=mir::finalize_output(n,p,0x3000,crate::runtime::Runtime::ActionCart,&t).unwrap();
     mir::parameter_homes::select_output(n,base,resume,config,0x3000,crate::runtime::Runtime::ActionCart,&t)
@@ -207,9 +210,38 @@ fn audit_call_facts() {
     let loaded=crate::includes::load_program_with_expanded_source("samples/tn/modern/TN.ACT").unwrap();
     let model=crate::semantic::analyze_with_options(&loaded.program,crate::semantic::SemanticOptions::modern()).unwrap();
     let n=crate::nir::optimize_program(&crate::nir::lower_program(&crate::semantic::ir::lower_program(&loaded.program,&model))).unwrap();
+    let started=std::time::Instant::now();
     let e=selected(&n,&mir::Mir6502Config::optimized());
+    let compile_seconds=started.elapsed().as_secs_f64();
     let image=crate::codegen::format_load_file(&e.output);
     let facts=inventory(&e.program,Some(&e.output));
+    // Keep evidence even when an assertion identifies a changed fact.
+    std::fs::write(root.join("tn.json"),serde_json::to_string_pretty(&facts).unwrap()).unwrap();
+    std::fs::write(root.join("tn.xex"),&image).unwrap();
+    if std::env::var_os("ACTIONC_CALL_FACT_PROFILE").is_some() {
+        let counts=std::rc::Rc::new(std::cell::RefCell::new(std::collections::BTreeMap::new()));
+        let t=mir::trace::Trace::with_counts(counts.clone());
+        let started=std::time::Instant::now();
+        let counted=selected_traced(&n,&mir::Mir6502Config::optimized(),&t);
+        let counted_seconds=started.elapsed().as_secs_f64();
+        assert_eq!(image,crate::codegen::format_load_file(&counted.output));
+        std::fs::write(root.join("tn-profile.json"),serde_json::to_string_pretty(&json!({
+            "compile_seconds":compile_seconds,"counted_compile_seconds":counted_seconds,
+            "work":&*counts.borrow(),"counting_preserves_image":true,
+            "scope":"MIR preparation, parameter-home selection and output; frontend excluded; debug opt-level=1"
+        })).unwrap()).unwrap();
+    }
+    if std::env::var_os("ACTIONC_CALL_FACT_DETAILS").is_some() {
+        let session=mir::trace::Mir6502Trace::new(mir::trace::TraceOptions {
+            routines:vec!["__facts_only__".into()],max_bytes:64*1024*1024,..Default::default()
+        });
+        let detailed=selected_traced(&n,&mir::Mir6502Config::optimized(),&session.context());
+        assert_eq!(image,crate::codegen::format_load_file(&detailed.output));
+        let events:Vec<_>=session.events().into_iter().filter(|e|e.kind.starts_with("core-callee-")).collect();
+        std::fs::write(root.join("tn-contract-events.json"),serde_json::to_string_pretty(&json!({
+            "events":events,"manifest":session.manifest(),"tracing_preserves_image":true
+        })).unwrap()).unwrap();
+    }
     let routine=|name|facts["routines"].as_array().unwrap().iter().find(|r|r["name"]==name).unwrap();
     assert_eq!(routine("Next")["leaf_entry"]["defined_results"],json!([0xa0,0xa1]));
     assert_eq!(routine("Next")["acyclic_entry"]["defined_results"],json!([0xa0,0xa1]));
@@ -220,7 +252,5 @@ fn audit_call_facts() {
         assert_eq!(routine(name)["acyclic_entry"]["fixed"],json!([]));
         assert_eq!(routine(name)["acyclic_entry"]["defined_results"],json!([0xa0,0xa1]));
     }
-    std::fs::write(root.join("tn.json"),serde_json::to_string_pretty(&facts).unwrap()).unwrap();
-    std::fs::write(root.join("tn.xex"),image).unwrap();
     println!("audited all {} selected TN routines",e.program.routines.len());
 }

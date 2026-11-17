@@ -57,6 +57,18 @@ From the repository root:
 python3 docs/benchmarks/6502-call-facts-audit/run.py
 ```
 
+For issue-8 validity accounting, add `ACTIONC_CALL_FACT_PROFILE=1`. This makes
+one extra TN compilation with work counters, saves `tn-profile.json`, and asserts
+that counting preserves the image. The ordinary and counted compile times cover
+MIR preparation, home selection and output; frontend time is excluded. Counters
+include rejected core attempts and their conservative retry.
+
+Optional `ACTIONC_CALL_FACT_DETAILS=1` makes another TN compilation with bounded
+diagnostic tracing, saving core contract-decline events in
+`tn-contract-events.json` and checking image equality. Its timing is not used as
+ordinary compile time. See the [validity qualification](fact-validity-qualification.json)
+for measured size, contract, placement and timing changes.
+
 The runner temporarily appends a test-only include to `known_callees.rs`, runs
 exactly one diagnostic library test, then removes the include in a `finally`
 block. Do not run concurrent builds or edits of that file. It honors an existing
