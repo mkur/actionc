@@ -1,0 +1,136 @@
+{
+  "audited_on": "2026-11-17",
+  "audit": {
+    "revision": "0a291ceb6178e19a7e60a6ed783cd6288bba2cb5",
+    "original_module_sha256": "7a63c70d5a450b597053e10a303a9d7ee498360d8deff24c0b273cd72442d19c",
+    "probe_sha256": "94a99bbaf13c1c64fbc4bfa6eeecf13c9445a143dd56728a138330200aabaecc",
+    "shared_probe_sha256": "97544b3b6168b3fca320d2df5108694654b6fda54546b38cab08744aebce6c3e",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "mir6502::analysis::known_callees::huffman_facts_audit::audit_huffman",
+      "--",
+      "--exact",
+      "--ignored",
+      "--nocapture"
+    ],
+    "return_code": 0,
+    "hook_removed": true
+  },
+  "source_sha256": {
+    "fixtures/runtime/tacle/huff_dec/huff_dec.act": "e995f977918056143de9369d9de01974f0c6f4e72087880460805da0b2b8b955",
+    "fixtures/runtime/tacle/huff_dec/types.inc": "935fcd00d150c407a885f3d7c8719e46e367f5310fc602ecc4e35c0ea37c3edf",
+    "fixtures/runtime/tacle/huff_dec/kernel.inc": "92e2944f5a765f72b59b9d1ebdf24c2aca1f70e44deda3f3628c2446a6234c3f",
+    "fixtures/runtime/tacle/huff_dec/vectors.txt": "720178b33345424ba0988e020fecc101f98d5d29a7c2b4687164ff3edde933b3",
+    "tools/vm-runtime-tests/fixtures/huff_dec_driver.act": "27a7b4859e807d12af244232a3c41599e1fe263aa8430a32c7412447828d4245",
+    "tools/vm-runtime-tests/tests/huff_dec.rs": "003e9af2d88732c7cc46c2d7f2b960199c241310becf230a34903c7ee685ffc2"
+  },
+  "compiler_changes": false,
+  "configurations": {
+    "portable": {
+      "source": "fixtures/runtime/tacle/huff_dec/huff_dec.act",
+      "origin": 8192,
+      "runtime": "ActionCart",
+      "optimization": "optimized",
+      "small_leaf_inlining": true,
+      "packaged_bytes": 3851,
+      "image_sha256": "ab5a5aeb7bf3fd4c65b10ebcbe54c5f288f7e497345e718a9c5b83829f49ee01",
+      "seconds": 1.848195542,
+      "work": {
+        "core_callee_contract_checks": 1,
+        "core_callee_read_declines": 1,
+        "core_callee_scope_fallbacks": 1,
+        "core_callee_summary_builds": 2,
+        "emission_invocations": 17,
+        "inner_emission_probes": 68,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 1200,
+        "source_storage_inventory_builds": 10
+      }
+    },
+    "driver": {
+      "source": "build/huffman-facts/driver/huff_dec.act",
+      "origin": 32768,
+      "runtime": "ActionCart",
+      "optimization": "optimized",
+      "small_leaf_inlining": true,
+      "packaged_bytes": 3781,
+      "image_sha256": "c44b364299897dd94a3aa2b01fafc505e14b72a399f0c9941ddb6cc6762c2389",
+      "seconds": 1.702582459,
+      "work": {
+        "core_callee_contract_checks": 1,
+        "core_callee_read_declines": 1,
+        "core_callee_scope_fallbacks": 1,
+        "core_callee_summary_builds": 2,
+        "emission_invocations": 11,
+        "inner_emission_probes": 44,
+        "late_cleanup_preservation_replays": 1,
+        "materializations": 1,
+        "pipeline_attempts": 27,
+        "rewrite_analysis_builds": 1083,
+        "source_storage_inventory_builds": 9
+      }
+    },
+    "portable-no-inline": {
+      "source": "fixtures/runtime/tacle/huff_dec/huff_dec.act",
+      "origin": 8192,
+      "runtime": "ActionCart",
+      "optimization": "optimized",
+      "small_leaf_inlining": false,
+      "packaged_bytes": 3851,
+      "image_sha256": "ab5a5aeb7bf3fd4c65b10ebcbe54c5f288f7e497345e718a9c5b83829f49ee01",
+      "seconds": 1.7869611669999999,
+      "work": {
+        "core_callee_contract_checks": 1,
+        "core_callee_read_declines": 1,
+        "core_callee_scope_fallbacks": 1,
+        "core_callee_summary_builds": 2,
+        "emission_invocations": 17,
+        "inner_emission_probes": 68,
+        "late_cleanup_preservation_replays": 2,
+        "materializations": 1,
+        "pipeline_attempts": 25,
+        "rewrite_analysis_builds": 1200,
+        "source_storage_inventory_builds": 10
+      }
+    }
+  },
+  "private_trace_scope": "The probe executes the actual preparation/finalization/home-selection path and saves the selected executable. Its internal trace bypasses the public artifact-completion event, so manifest status is incomplete; no detail was omitted. Selected-output inventory and images, not that status, establish completion.",
+  "checks": {
+    "audit_test_passed": true,
+    "fact_consistency_assertions": "Current entry witnesses, expected leaf inputs/results, directional read/write uncertainty, pointer result ABI, absent wide direct ABI, no named ZP homes, unchanged home-selection size, and identical portable images with inlining disabled.",
+    "vm_tests": [
+      "huff_dec_mir6502_cart_matches_complete_c_state",
+      "huff_dec_mir6502_standalone_matches_complete_c_state",
+      "huff_dec_vectors_accept_lf_and_crlf_and_preserve_upstream_results"
+    ],
+    "vm_result": "3 passed, 2 classic-backend tests filtered out",
+    "reference_cases_per_runtime": 185,
+    "vm_executions": 370,
+    "vm_scope": "Existing C vectors: 24-byte control state, all decoded output, code tables, tree pool, unchanged input and guard bytes across $0600-$7FFF. Cartridge uses LF, standalone CRLF through actual source/include loading. Standalone loads no ROMs.",
+    "portable_execution": "Only the fixed-address 6502 driver was executed against the C vectors; portable storage was compiled and inspected.",
+    "full_suite_run": false,
+    "source_or_vector_changes": false
+  },
+  "logs": {
+    "audit": "build/huffman-facts/audit.log",
+    "vm": "build/huffman-facts/vm.log"
+  },
+  "retained_artifacts": {
+    "facts.json": "055a4872198b8e4b63e51ab3c14c07c2107c87b7949ffccf7e773699edd8cb5b"
+  },
+  "limitations": "No allocation experiment or measured ZP-placement saving. Unknown footprints are conservative results, not evidence of a correctness bug. The passed cases do not exhaust all source inputs or validate every possible compiler proof.",
+  "production_source_sha256": {
+    "src/mir6502/lower.rs": "ba79d327c3aebf0ed5b6b851bd70a40a53c32dfc740ae632984c54c81ca96c96",
+    "src/mir6502/analysis/known_callees.rs": "7a63c70d5a450b597053e10a303a9d7ee498360d8deff24c0b273cd72442d19c",
+    "src/mir6502/analysis/known_callees/entry_inputs.rs": "2d0384341bd6cb3dcc68b3400babd0d77c6e4cc92ea51ae8b8e85ac8f51372c7",
+    "src/mir6502/analysis/known_callees/entry_inputs/acyclic.rs": "44513eeb2d0cb7d5d87653fd758b94acd7737b6ebfd38657944d21ca4ae9307e",
+    "src/mir6502/analysis/known_callees/observations.rs": "99809b97a19c6e6f148db966c4c01c68f4ca76cbacd10623db2039d5cfecb650",
+    "src/mir6502/parameter_homes.rs": "db536df92bd71488c0adae2a828b69cc50dab00105e785617dcfa383de506ef5",
+    "src/mir6502/parameter_homes/calls.rs": "0259057bc59273ffb797bf4150459981b20c19ef7e7e631d737d4ec9a8ebdbe9",
+    "src/mir6502/parameter_homes/zero_page.rs": "20efd5871694109c41df934aced3c2927ec1ca2e6e19f02416143ae810e331ab"
+  }
+}

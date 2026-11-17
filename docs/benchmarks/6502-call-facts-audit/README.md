@@ -53,6 +53,11 @@ certified entry from its Unknown writes and retain the unsupported
 `CalcAdr`/`Internal`/`Ascii` entries. See the
 [assembly-leaf qualification](assembly-leaf-composition-qualification.json).
 
+The subsequent [Huffman audit](../6502-huffman-facts/README.md) checks the repaired
+facts against a native record/tree and bitstream workload. It records helper
+and wide-result coverage limits, ordinary-global preservation precision, and
+source-home placement separately from temporary ZP allocation.
+
 Direct call `op` indices are local to their block. The compact census preserves
 order but is not a unique-site patching format. Calls embedded inside machine
 payloads do not appear in the direct MIR call list.

@@ -30,6 +30,11 @@ The declaration owns the callable's source name, stable semantic identity,
 types, ABI, and source-visible effects. Its implementation address is not a
 constant in the importing program.
 
+The proposed [MIR6502 runtime and standard library contracts](../MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md#standard-library-coverage)
+retain this interface identity through binding and add implementation-specific
+entry, result and physical-effect guarantees. Signature compatibility alone
+does not establish those optimization facts.
+
 ## Compiler-owned binding sources
 
 Runtime bindings are compiler-owned Action source embedded in the compiler's

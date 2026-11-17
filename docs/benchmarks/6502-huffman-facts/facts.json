@@ -1,0 +1,4099 @@
+{
+  "portable": {
+    "packaged_bytes": 3851,
+    "routines": [
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+        "acyclic_entry": {
+          "current": true,
+          "defined_results": [
+            160
+          ],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "acyclic_failure": "None",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Scalar(Byte))",
+        "id": 0,
+        "leaf_entry": {
+          "current": true,
+          "defined_results": [
+            160
+          ],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "legacy_ignores_flags": true,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+        "name": "EndOfData",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+        "preserves_a0": false,
+        "preserves_e4": true,
+        "preserves_e8": true,
+        "preserves_e9": true,
+        "preserves_ea": true,
+        "reads": "Exact([Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(4), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, Global { id: SymbolId(4), offset: 1 }])",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+        "storage": [],
+        "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160))])",
+        "zn": "None",
+        "virtual_zp_allocations": [],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 24,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+        "acyclic_entry": {
+          "current": true,
+          "defined_results": [
+            160
+          ],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "acyclic_failure": "None",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Scalar(Byte))",
+        "id": 1,
+        "leaf_entry": {
+          "current": true,
+          "defined_results": [
+            160
+          ],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "legacy_ignores_flags": true,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+        "name": "ReadByte",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+        "storage": [
+          {
+            "address": 8255,
+            "kind": "Local",
+            "name": "value",
+            "size": 1
+          }
+        ],
+        "writes": "Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))])",
+        "zn": "None",
+        "virtual_zp_allocations": [],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 37,
+        "named_home_bytes": 1,
+        "absolute_named_home_accesses": 2
+      },
+      {
+        "abi": "Action",
+        "accumulator": "None",
+        "acyclic_entry": {
+          "current": true,
+          "defined_results": [],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }"
+        },
+        "acyclic_failure": "None",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([Scalar(Byte)])",
+        "direct_result_abi": "Some(Void)",
+        "id": 2,
+        "leaf_entry": {
+          "current": true,
+          "defined_results": [],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }"
+        },
+        "legacy_ignores_flags": true,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+        "name": "WriteByte",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, FixedZeroPage(MirFixedZpSlot(224)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))])",
+        "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [] })",
+        "storage": [],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 33,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(3), Some(Op { block: MirBlockId(1), op_index: 20 }), \"unsupported native call closure operation\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))]))",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))]))",
+            "op": 0,
+            "target": "Routine(RoutineId(1))",
+            "target_name": "ReadByte",
+            "block": 2
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Scalar(Byte))",
+        "id": 3,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+        "name": "ReadBit",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+        "storage": [
+          {
+            "address": 8256,
+            "kind": "Local",
+            "name": "spill62",
+            "size": 1
+          },
+          {
+            "address": 8257,
+            "kind": "Local",
+            "name": "spill63",
+            "size": 1
+          },
+          {
+            "address": 8258,
+            "kind": "Local",
+            "name": "spill46",
+            "size": 1
+          }
+        ],
+        "writes": "Exact([Global { id: SymbolId(7), offset: 0 }, FixedZeroPage(MirFixedZpSlot(224)), FixedZeroPage(MirFixedZpSlot(225)), FixedZeroPage(MirFixedZpSlot(130)), FixedZeroPage(MirFixedZpSlot(131)), FixedZeroPage(MirFixedZpSlot(132)), FixedZeroPage(MirFixedZpSlot(133)), FixedZeroPage(MirFixedZpSlot(192)), FixedZeroPage(MirFixedZpSlot(193)), FixedZeroPage(MirFixedZpSlot(194)), FixedZeroPage(MirFixedZpSlot(195)), FixedZeroPage(MirFixedZpSlot(134)), FixedZeroPage(MirFixedZpSlot(135)), FixedZeroPage(MirFixedZpSlot(196)), FixedZeroPage(MirFixedZpSlot(197)), FixedZeroPage(MirFixedZpSlot(198)), FixedZeroPage(MirFixedZpSlot(199)), FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, Spill { id: MirSpillId(62), offset: 0 }, Spill { id: MirSpillId(63), offset: 0 }, Spill { id: MirSpillId(46), offset: 0 }, Global { id: SymbolId(8), offset: 0 }, Global { id: SymbolId(8), offset: 1 }, Global { id: SymbolId(8), offset: 2 }, Global { id: SymbolId(8), offset: 3 }])",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [
+          {
+            "block": 1,
+            "op": 20,
+            "helper": "Rsh32"
+          },
+          {
+            "block": 2,
+            "op": 18,
+            "helper": "Rsh"
+          }
+        ],
+        "instruction_bytes": 148,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(163))))",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(4), Some(Op { block: MirBlockId(7), op_index: 19 }), \"unsupported native call closure operation\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(160))]))",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(160))]))",
+            "op": 0,
+            "target": "Routine(RoutineId(0))",
+            "target_name": "EndOfData",
+            "block": 4
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))]))",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))]))",
+            "op": 8,
+            "target": "Routine(RoutineId(1))",
+            "target_name": "ReadByte",
+            "block": 5
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "None",
+        "direct_result_abi": "None",
+        "id": 4,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: true } })",
+        "name": "ReadBits",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: true } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [[Word]], result: [Word, Word] })",
+        "storage": [
+          {
+            "address": 8259,
+            "kind": "Parameter",
+            "name": "n",
+            "size": 2
+          },
+          {
+            "address": 8261,
+            "kind": "Local",
+            "name": "value",
+            "size": 4
+          },
+          {
+            "address": 8265,
+            "kind": "Local",
+            "name": "i",
+            "size": 2
+          },
+          {
+            "address": 8267,
+            "kind": "Local",
+            "name": "spill22",
+            "size": 1
+          },
+          {
+            "address": 8268,
+            "kind": "Local",
+            "name": "spill23",
+            "size": 1
+          },
+          {
+            "address": 8269,
+            "kind": "Local",
+            "name": "spill110",
+            "size": 1
+          },
+          {
+            "address": 8270,
+            "kind": "Local",
+            "name": "spill111",
+            "size": 1
+          },
+          {
+            "address": 8271,
+            "kind": "Local",
+            "name": "spill156",
+            "size": 1
+          },
+          {
+            "address": 8272,
+            "kind": "Local",
+            "name": "spill157",
+            "size": 1
+          },
+          {
+            "address": 8273,
+            "kind": "Local",
+            "name": "spill66",
+            "size": 1
+          },
+          {
+            "address": 8274,
+            "kind": "Local",
+            "name": "spill67",
+            "size": 1
+          },
+          {
+            "address": 8275,
+            "kind": "Local",
+            "name": "spill130",
+            "size": 1
+          },
+          {
+            "address": 8276,
+            "kind": "Local",
+            "name": "spill131",
+            "size": 1
+          },
+          {
+            "address": 8277,
+            "kind": "Local",
+            "name": "spill74",
+            "size": 1
+          },
+          {
+            "address": 8278,
+            "kind": "Local",
+            "name": "spill75",
+            "size": 1
+          },
+          {
+            "address": 8279,
+            "kind": "Local",
+            "name": "spill136",
+            "size": 1
+          },
+          {
+            "address": 8280,
+            "kind": "Local",
+            "name": "spill137",
+            "size": 1
+          }
+        ],
+        "writes": "Exact([Param { id: ParamId(0), offset: 1 }, Param { id: ParamId(0), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Local { id: LocalId(0), offset: 2 }, Local { id: LocalId(0), offset: 3 }, Local { id: LocalId(1), offset: 0 }, Local { id: LocalId(1), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), FixedZeroPage(MirFixedZpSlot(162)), FixedZeroPage(MirFixedZpSlot(163)), Spill { id: MirSpillId(156), offset: 0 }, Spill { id: MirSpillId(157), offset: 0 }, FixedZeroPage(MirFixedZpSlot(130)), FixedZeroPage(MirFixedZpSlot(131)), FixedZeroPage(MirFixedZpSlot(132)), FixedZeroPage(MirFixedZpSlot(133)), FixedZeroPage(MirFixedZpSlot(192)), FixedZeroPage(MirFixedZpSlot(193)), FixedZeroPage(MirFixedZpSlot(194)), FixedZeroPage(MirFixedZpSlot(195)), FixedZeroPage(MirFixedZpSlot(134)), FixedZeroPage(MirFixedZpSlot(135)), FixedZeroPage(MirFixedZpSlot(196)), FixedZeroPage(MirFixedZpSlot(197)), FixedZeroPage(MirFixedZpSlot(198)), FixedZeroPage(MirFixedZpSlot(199)), FixedZeroPage(MirFixedZpSlot(225)), FixedZeroPage(MirFixedZpSlot(226)), Global { id: SymbolId(7), offset: 0 }, Spill { id: MirSpillId(66), offset: 0 }, Spill { id: MirSpillId(67), offset: 0 }, Spill { id: MirSpillId(130), offset: 0 }, Spill { id: MirSpillId(131), offset: 0 }, Spill { id: MirSpillId(74), offset: 0 }, Spill { id: MirSpillId(75), offset: 0 }, Spill { id: MirSpillId(136), offset: 0 }, Spill { id: MirSpillId(137), offset: 0 }, FixedZeroPage(MirFixedZpSlot(227)), FixedZeroPage(MirFixedZpSlot(228)), FixedZeroPage(MirFixedZpSlot(229)), FixedZeroPage(MirFixedZpSlot(230)), Spill { id: MirSpillId(22), offset: 0 }, Spill { id: MirSpillId(23), offset: 0 }, Spill { id: MirSpillId(110), offset: 0 }, Spill { id: MirSpillId(111), offset: 0 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(224)), Global { id: SymbolId(8), offset: 0 }, Global { id: SymbolId(8), offset: 1 }, Global { id: SymbolId(8), offset: 2 }, Global { id: SymbolId(8), offset: 3 }])",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          },
+          {
+            "address": 226,
+            "bytes": 1
+          },
+          {
+            "address": 227,
+            "bytes": 1
+          },
+          {
+            "address": 228,
+            "bytes": 1
+          },
+          {
+            "address": 229,
+            "bytes": 1
+          },
+          {
+            "address": 230,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [
+          {
+            "block": 7,
+            "op": 19,
+            "helper": "Lsh32"
+          },
+          {
+            "block": 8,
+            "op": 15,
+            "helper": "Lsh32"
+          },
+          {
+            "block": 8,
+            "op": 45,
+            "helper": "Rsh32"
+          },
+          {
+            "block": 8,
+            "op": 67,
+            "helper": "Lsh32"
+          }
+        ],
+        "instruction_bytes": 665,
+        "named_home_bytes": 8,
+        "absolute_named_home_accesses": 45
+      },
+      {
+        "abi": "Action",
+        "accumulator": "None",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(5), Some(Op { block: MirBlockId(11), op_index: 2 }), \"unknown residence ABI\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 6
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 11
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 13
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 9
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 18
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 20
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 19
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 26,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 22
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 21,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 25
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([Pointer])",
+        "direct_result_abi": "Some(Void)",
+        "id": 5,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+        "name": "ReadHeader",
+        "precise_entry_flags": "Unknown",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "None",
+        "storage": [
+          {
+            "address": 8281,
+            "kind": "Parameter",
+            "name": "table",
+            "size": 2
+          },
+          {
+            "address": 8283,
+            "kind": "Local",
+            "name": "i",
+            "size": 2
+          },
+          {
+            "address": 8285,
+            "kind": "Local",
+            "name": "j",
+            "size": 2
+          },
+          {
+            "address": 8287,
+            "kind": "Local",
+            "name": "byteIndex",
+            "size": 2
+          },
+          {
+            "address": 8289,
+            "kind": "Local",
+            "name": "spill22",
+            "size": 1
+          },
+          {
+            "address": 8290,
+            "kind": "Local",
+            "name": "spill23",
+            "size": 1
+          },
+          {
+            "address": 8291,
+            "kind": "Local",
+            "name": "spill227",
+            "size": 1
+          },
+          {
+            "address": 8292,
+            "kind": "Local",
+            "name": "spill209",
+            "size": 1
+          },
+          {
+            "address": 8293,
+            "kind": "Local",
+            "name": "spill215",
+            "size": 1
+          },
+          {
+            "address": 8294,
+            "kind": "Local",
+            "name": "spill219",
+            "size": 1
+          },
+          {
+            "address": 8295,
+            "kind": "Local",
+            "name": "spill148",
+            "size": 1
+          },
+          {
+            "address": 8296,
+            "kind": "Local",
+            "name": "spill149",
+            "size": 1
+          },
+          {
+            "address": 8297,
+            "kind": "Local",
+            "name": "spill242",
+            "size": 1
+          },
+          {
+            "address": 8298,
+            "kind": "Local",
+            "name": "spill243",
+            "size": 1
+          },
+          {
+            "address": 8299,
+            "kind": "Local",
+            "name": "spill182",
+            "size": 1
+          },
+          {
+            "address": 8300,
+            "kind": "Local",
+            "name": "spill183",
+            "size": 1
+          },
+          {
+            "address": 8301,
+            "kind": "Local",
+            "name": "spill247",
+            "size": 1
+          }
+        ],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          },
+          {
+            "address": 226,
+            "bytes": 1
+          },
+          {
+            "address": 227,
+            "bytes": 1
+          },
+          {
+            "address": 228,
+            "bytes": 1
+          },
+          {
+            "address": 229,
+            "bytes": 1
+          },
+          {
+            "address": 230,
+            "bytes": 1
+          },
+          {
+            "address": 231,
+            "bytes": 1
+          },
+          {
+            "address": 232,
+            "bytes": 1
+          },
+          {
+            "address": 233,
+            "bytes": 1
+          },
+          {
+            "address": 234,
+            "bytes": 1
+          },
+          {
+            "address": 235,
+            "bytes": 1
+          },
+          {
+            "address": 236,
+            "bytes": 1
+          },
+          {
+            "address": 237,
+            "bytes": 1
+          },
+          {
+            "address": 238,
+            "bytes": 1
+          },
+          {
+            "address": 239,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [
+          {
+            "block": 22,
+            "op": 10,
+            "helper": "Mul"
+          },
+          {
+            "block": 25,
+            "op": 10,
+            "helper": "Mul"
+          },
+          {
+            "block": 4,
+            "op": 10,
+            "helper": "Mul"
+          }
+        ],
+        "instruction_bytes": 1304,
+        "named_home_bytes": 8,
+        "absolute_named_home_accesses": 102
+      },
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161))))",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(6), Some(Op { block: MirBlockId(0), op_index: 12 }), \"unsupported native call closure operation\"))",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([Pointer, Pointer])",
+        "direct_result_abi": "Some(Pointer)",
+        "id": 6,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+        "name": "BuildTree",
+        "precise_entry_flags": "Unknown",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "None",
+        "storage": [
+          {
+            "address": 8302,
+            "kind": "Parameter",
+            "name": "table",
+            "size": 2
+          },
+          {
+            "address": 8304,
+            "kind": "Parameter",
+            "name": "pool",
+            "size": 2
+          },
+          {
+            "address": 8306,
+            "kind": "Local",
+            "name": "j",
+            "size": 2
+          },
+          {
+            "address": 8308,
+            "kind": "Local",
+            "name": "top",
+            "size": 2
+          },
+          {
+            "address": 8310,
+            "kind": "Local",
+            "name": "root",
+            "size": 2
+          },
+          {
+            "address": 8312,
+            "kind": "Local",
+            "name": "current",
+            "size": 2
+          },
+          {
+            "address": 8314,
+            "kind": "Local",
+            "name": "spill2",
+            "size": 1
+          },
+          {
+            "address": 8315,
+            "kind": "Local",
+            "name": "spill3",
+            "size": 1
+          },
+          {
+            "address": 8316,
+            "kind": "Local",
+            "name": "spill122",
+            "size": 1
+          },
+          {
+            "address": 8317,
+            "kind": "Local",
+            "name": "spill123",
+            "size": 1
+          },
+          {
+            "address": 8318,
+            "kind": "Local",
+            "name": "spill36",
+            "size": 1
+          },
+          {
+            "address": 8319,
+            "kind": "Local",
+            "name": "spill37",
+            "size": 1
+          },
+          {
+            "address": 8320,
+            "kind": "Local",
+            "name": "spill128",
+            "size": 1
+          },
+          {
+            "address": 8321,
+            "kind": "Local",
+            "name": "spill68",
+            "size": 1
+          },
+          {
+            "address": 8322,
+            "kind": "Local",
+            "name": "spill69",
+            "size": 1
+          },
+          {
+            "address": 8323,
+            "kind": "Local",
+            "name": "spill86",
+            "size": 1
+          },
+          {
+            "address": 8324,
+            "kind": "Local",
+            "name": "spill87",
+            "size": 1
+          }
+        ],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          },
+          {
+            "address": 226,
+            "bytes": 1
+          },
+          {
+            "address": 227,
+            "bytes": 1
+          },
+          {
+            "address": 228,
+            "bytes": 1
+          },
+          {
+            "address": 229,
+            "bytes": 1
+          },
+          {
+            "address": 230,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [
+          {
+            "block": 0,
+            "op": 12,
+            "helper": "Mul"
+          },
+          {
+            "block": 4,
+            "op": 10,
+            "helper": "Mul"
+          },
+          {
+            "block": 4,
+            "op": 44,
+            "helper": "Lsh"
+          },
+          {
+            "block": 10,
+            "op": 10,
+            "helper": "Mul"
+          },
+          {
+            "block": 6,
+            "op": 10,
+            "helper": "Mul"
+          }
+        ],
+        "instruction_bytes": 906,
+        "named_home_bytes": 12,
+        "absolute_named_home_accesses": 83
+      },
+      {
+        "abi": "Action",
+        "accumulator": "None",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(3), Some(Op { block: MirBlockId(1), op_index: 20 }), \"unsupported native call closure operation\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(160))]))",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(160))]))",
+            "op": 0,
+            "target": "Routine(RoutineId(0))",
+            "target_name": "EndOfData",
+            "block": 0
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(5))",
+            "target_name": "ReadHeader",
+            "block": 1
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 8,
+            "target": "Routine(RoutineId(6))",
+            "target_name": "BuildTree",
+            "block": 1
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 4
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unknown residence callee writes\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unknown residence callee writes\")",
+            "op": 4,
+            "target": "Routine(RoutineId(2))",
+            "target_name": "WriteByte",
+            "block": 9
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Void)",
+        "id": 7,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+        "name": "Decode",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+        "storage": [
+          {
+            "address": 8325,
+            "kind": "Local",
+            "name": "root",
+            "size": 2
+          },
+          {
+            "address": 8327,
+            "kind": "Local",
+            "name": "current",
+            "size": 2
+          },
+          {
+            "address": 8329,
+            "kind": "Local",
+            "name": "spill30",
+            "size": 1
+          },
+          {
+            "address": 8330,
+            "kind": "Local",
+            "name": "spill31",
+            "size": 1
+          }
+        ],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 221,
+        "named_home_bytes": 4,
+        "absolute_named_home_accesses": 20
+      },
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(Global { id: SymbolId(34), offset: 3 }))",
+        "acyclic_entry": {
+          "current": true,
+          "defined_results": [],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "acyclic_failure": "None",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Void)",
+        "id": 8,
+        "leaf_entry": {
+          "current": true,
+          "defined_results": [],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "legacy_ignores_flags": true,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+        "name": "QueryLayout",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Exact([])",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+        "storage": [],
+        "writes": "Exact([Global { id: SymbolId(25), offset: 0 }, Global { id: SymbolId(25), offset: 1 }, Global { id: SymbolId(25), offset: 2 }, Global { id: SymbolId(25), offset: 3 }, Global { id: SymbolId(26), offset: 0 }, Global { id: SymbolId(26), offset: 1 }, Global { id: SymbolId(26), offset: 2 }, Global { id: SymbolId(26), offset: 3 }, Global { id: SymbolId(27), offset: 0 }, Global { id: SymbolId(27), offset: 1 }, Global { id: SymbolId(27), offset: 2 }, Global { id: SymbolId(27), offset: 3 }, Global { id: SymbolId(28), offset: 0 }, Global { id: SymbolId(28), offset: 1 }, Global { id: SymbolId(28), offset: 2 }, Global { id: SymbolId(28), offset: 3 }, Global { id: SymbolId(29), offset: 0 }, Global { id: SymbolId(29), offset: 1 }, Global { id: SymbolId(29), offset: 2 }, Global { id: SymbolId(29), offset: 3 }, Global { id: SymbolId(30), offset: 0 }, Global { id: SymbolId(30), offset: 1 }, Global { id: SymbolId(30), offset: 2 }, Global { id: SymbolId(30), offset: 3 }, Global { id: SymbolId(31), offset: 0 }, Global { id: SymbolId(31), offset: 1 }, Global { id: SymbolId(31), offset: 2 }, Global { id: SymbolId(31), offset: 3 }, Global { id: SymbolId(32), offset: 0 }, Global { id: SymbolId(32), offset: 1 }, Global { id: SymbolId(32), offset: 2 }, Global { id: SymbolId(32), offset: 3 }, Global { id: SymbolId(33), offset: 0 }, Global { id: SymbolId(33), offset: 1 }, Global { id: SymbolId(33), offset: 2 }, Global { id: SymbolId(33), offset: 3 }, Global { id: SymbolId(34), offset: 0 }, Global { id: SymbolId(34), offset: 1 }, Global { id: SymbolId(34), offset: 2 }, Global { id: SymbolId(34), offset: 3 }])",
+        "zn": "None",
+        "virtual_zp_allocations": [],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 153,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "ProgramEntry",
+        "accumulator": "None",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(9), None, \"uncertified native entry\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Ok(Exact([Global { id: SymbolId(25), offset: 0 }, Global { id: SymbolId(25), offset: 1 }, Global { id: SymbolId(25), offset: 2 }, Global { id: SymbolId(25), offset: 3 }, Global { id: SymbolId(26), offset: 0 }, Global { id: SymbolId(26), offset: 1 }, Global { id: SymbolId(26), offset: 2 }, Global { id: SymbolId(26), offset: 3 }, Global { id: SymbolId(27), offset: 0 }, Global { id: SymbolId(27), offset: 1 }, Global { id: SymbolId(27), offset: 2 }, Global { id: SymbolId(27), offset: 3 }, Global { id: SymbolId(28), offset: 0 }, Global { id: SymbolId(28), offset: 1 }, Global { id: SymbolId(28), offset: 2 }, Global { id: SymbolId(28), offset: 3 }, Global { id: SymbolId(29), offset: 0 }, Global { id: SymbolId(29), offset: 1 }, Global { id: SymbolId(29), offset: 2 }, Global { id: SymbolId(29), offset: 3 }, Global { id: SymbolId(30), offset: 0 }, Global { id: SymbolId(30), offset: 1 }, Global { id: SymbolId(30), offset: 2 }, Global { id: SymbolId(30), offset: 3 }, Global { id: SymbolId(31), offset: 0 }, Global { id: SymbolId(31), offset: 1 }, Global { id: SymbolId(31), offset: 2 }, Global { id: SymbolId(31), offset: 3 }, Global { id: SymbolId(32), offset: 0 }, Global { id: SymbolId(32), offset: 1 }, Global { id: SymbolId(32), offset: 2 }, Global { id: SymbolId(32), offset: 3 }, Global { id: SymbolId(33), offset: 0 }, Global { id: SymbolId(33), offset: 1 }, Global { id: SymbolId(33), offset: 2 }, Global { id: SymbolId(33), offset: 3 }, Global { id: SymbolId(34), offset: 0 }, Global { id: SymbolId(34), offset: 1 }, Global { id: SymbolId(34), offset: 2 }, Global { id: SymbolId(34), offset: 3 }]))",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Ok(Exact([Global { id: SymbolId(25), offset: 0 }, Global { id: SymbolId(25), offset: 1 }, Global { id: SymbolId(25), offset: 2 }, Global { id: SymbolId(25), offset: 3 }, Global { id: SymbolId(26), offset: 0 }, Global { id: SymbolId(26), offset: 1 }, Global { id: SymbolId(26), offset: 2 }, Global { id: SymbolId(26), offset: 3 }, Global { id: SymbolId(27), offset: 0 }, Global { id: SymbolId(27), offset: 1 }, Global { id: SymbolId(27), offset: 2 }, Global { id: SymbolId(27), offset: 3 }, Global { id: SymbolId(28), offset: 0 }, Global { id: SymbolId(28), offset: 1 }, Global { id: SymbolId(28), offset: 2 }, Global { id: SymbolId(28), offset: 3 }, Global { id: SymbolId(29), offset: 0 }, Global { id: SymbolId(29), offset: 1 }, Global { id: SymbolId(29), offset: 2 }, Global { id: SymbolId(29), offset: 3 }, Global { id: SymbolId(30), offset: 0 }, Global { id: SymbolId(30), offset: 1 }, Global { id: SymbolId(30), offset: 2 }, Global { id: SymbolId(30), offset: 3 }, Global { id: SymbolId(31), offset: 0 }, Global { id: SymbolId(31), offset: 1 }, Global { id: SymbolId(31), offset: 2 }, Global { id: SymbolId(31), offset: 3 }, Global { id: SymbolId(32), offset: 0 }, Global { id: SymbolId(32), offset: 1 }, Global { id: SymbolId(32), offset: 2 }, Global { id: SymbolId(32), offset: 3 }, Global { id: SymbolId(33), offset: 0 }, Global { id: SymbolId(33), offset: 1 }, Global { id: SymbolId(33), offset: 2 }, Global { id: SymbolId(33), offset: 3 }, Global { id: SymbolId(34), offset: 0 }, Global { id: SymbolId(34), offset: 1 }, Global { id: SymbolId(34), offset: 2 }, Global { id: SymbolId(34), offset: 3 }]))",
+            "op": 0,
+            "target": "Routine(RoutineId(8))",
+            "target_name": "QueryLayout",
+            "block": 1
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unknown residence callee entry\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(7))",
+            "target_name": "Decode",
+            "block": 3
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 5
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 6
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Void)",
+        "id": 9,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: true } })",
+        "name": "Main",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: true } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+        "storage": [],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 91,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "ActionObservable",
+        "accumulator": "None",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(10), Some(Op { block: MirBlockId(0), op_index: 0 }), \"uncertified machine leaf entry\"))",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: Regions([MirMemoryRegion { kind: ZeroPage, offset: 130, size: 4 }, MirMemoryRegion { kind: ZeroPage, offset: 192, size: 4 }]), memory_writes: Regions([MirMemoryRegion { kind: ZeroPage, offset: 130, size: 6 }, MirMemoryRegion { kind: ZeroPage, offset: 192, size: 8 }]), reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: true, x: true, y: true, flags: true, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: Some(0), may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "None",
+        "direct_result_abi": "None",
+        "id": 10,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+        "name": "ACTION.RUNTIME.ACTIONC::LShift32",
+        "precise_entry_flags": "Unknown",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "None",
+        "storage": [],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 59,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "ActionObservable",
+        "accumulator": "None",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(11), Some(Op { block: MirBlockId(0), op_index: 0 }), \"uncertified machine leaf entry\"))",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: Regions([MirMemoryRegion { kind: ZeroPage, offset: 130, size: 4 }, MirMemoryRegion { kind: ZeroPage, offset: 192, size: 4 }]), memory_writes: Regions([MirMemoryRegion { kind: ZeroPage, offset: 130, size: 6 }, MirMemoryRegion { kind: ZeroPage, offset: 192, size: 8 }]), reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: true, x: true, y: true, flags: true, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: Some(0), may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "None",
+        "direct_result_abi": "None",
+        "id": 11,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+        "name": "ACTION.RUNTIME.ACTIONC::RShift32",
+        "precise_entry_flags": "Unknown",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "None",
+        "storage": [],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 59,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      }
+    ],
+    "origin": 8192,
+    "before_home_selection_bytes": 3851,
+    "seconds": 1.848195542,
+    "work": {
+      "core_callee_contract_checks": 1,
+      "core_callee_read_declines": 1,
+      "core_callee_scope_fallbacks": 1,
+      "core_callee_summary_builds": 2,
+      "emission_invocations": 17,
+      "inner_emission_probes": 68,
+      "late_cleanup_preservation_replays": 2,
+      "materializations": 1,
+      "pipeline_attempts": 27,
+      "rewrite_analysis_builds": 1200,
+      "source_storage_inventory_builds": 10
+    },
+    "placement_and_contract_events": [
+      {
+        "attempt": 489,
+        "data": {
+          "after": "MirKnownCalleeExitSummary { accumulator: None, zn: None, preserves: MirRegisterSet { a: false, x: true, y: false, flags: false, sp: false }, reads: Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, FixedZeroPage(MirFixedZpSlot(224)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]), writes: Unknown }",
+          "before": "MirKnownCalleeExitSummary { accumulator: None, zn: None, preserves: MirRegisterSet { a: false, x: true, y: false, flags: false, sp: false }, reads: Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, Spill { id: MirSpillId(4), offset: 0 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]), writes: Unknown }",
+          "routine": "WriteByte"
+        },
+        "id": 2189,
+        "kind": "core-callee-contract-context"
+      },
+      {
+        "attempt": 489,
+        "data": {
+          "boundary": "post-zp-remapping",
+          "fact": "expanded-reads",
+          "routine": 2
+        },
+        "id": 2190,
+        "kind": "core-callee-contract-declined"
+      },
+      {
+        "attempt": 489,
+        "data": {
+          "diagnostics": null
+        },
+        "id": 2191,
+        "kind": "core-callee-scope-rejected"
+      },
+      {
+        "attempt": 755,
+        "data": {
+          "mode": "conservative"
+        },
+        "id": 3078,
+        "kind": "core-callee-scope-selected"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadBit"
+        },
+        "id": 3677,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadBits"
+        },
+        "id": 3678,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": true,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadHeader"
+        },
+        "id": 3679,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "Decode"
+        },
+        "id": 3680,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "Main"
+        },
+        "id": 3681,
+        "kind": "cross-call-ineligible"
+      }
+    ]
+  },
+  "driver": {
+    "packaged_bytes": 3781,
+    "routines": [
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+        "acyclic_entry": {
+          "current": true,
+          "defined_results": [
+            160
+          ],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "acyclic_failure": "None",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Scalar(Byte))",
+        "id": 0,
+        "leaf_entry": {
+          "current": true,
+          "defined_results": [
+            160
+          ],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "legacy_ignores_flags": true,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+        "name": "EndOfData",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+        "preserves_a0": false,
+        "preserves_e4": true,
+        "preserves_e8": true,
+        "preserves_e9": true,
+        "preserves_ea": true,
+        "reads": "Exact([Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(4), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, Global { id: SymbolId(4), offset: 1 }])",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+        "storage": [],
+        "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160))])",
+        "zn": "None",
+        "virtual_zp_allocations": [],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 24,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+        "acyclic_entry": {
+          "current": true,
+          "defined_results": [
+            160
+          ],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "acyclic_failure": "None",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Scalar(Byte))",
+        "id": 1,
+        "leaf_entry": {
+          "current": true,
+          "defined_results": [
+            160
+          ],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "legacy_ignores_flags": true,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+        "name": "ReadByte",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+        "preserves_a0": false,
+        "preserves_e4": true,
+        "preserves_e8": true,
+        "preserves_e9": true,
+        "preserves_ea": true,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+        "storage": [
+          {
+            "address": 32784,
+            "kind": "Local",
+            "name": "value",
+            "size": 1
+          }
+        ],
+        "writes": "Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))])",
+        "zn": "None",
+        "virtual_zp_allocations": [],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 37,
+        "named_home_bytes": 1,
+        "absolute_named_home_accesses": 2
+      },
+      {
+        "abi": "Action",
+        "accumulator": "None",
+        "acyclic_entry": {
+          "current": true,
+          "defined_results": [],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }"
+        },
+        "acyclic_failure": "None",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([Scalar(Byte)])",
+        "direct_result_abi": "Some(Void)",
+        "id": 2,
+        "leaf_entry": {
+          "current": true,
+          "defined_results": [],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }"
+        },
+        "legacy_ignores_flags": true,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+        "name": "WriteByte",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, Param { id: ParamId(0), offset: 0 }, FixedZeroPage(MirFixedZpSlot(224)), FixedZeroPage(MirFixedZpSlot(225)), FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))])",
+        "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [] })",
+        "storage": [
+          {
+            "address": 32785,
+            "kind": "Parameter",
+            "name": "value",
+            "size": 1
+          }
+        ],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          },
+          {
+            "address": 226,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 47,
+        "named_home_bytes": 1,
+        "absolute_named_home_accesses": 2
+      },
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(3), Some(Op { block: MirBlockId(1), op_index: 28 }), \"unsupported native call closure operation\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))]))",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))]))",
+            "op": 0,
+            "target": "Routine(RoutineId(1))",
+            "target_name": "ReadByte",
+            "block": 2
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Scalar(Byte))",
+        "id": 3,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+        "name": "ReadBit",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": true,
+        "preserves_e9": true,
+        "preserves_ea": true,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+        "storage": [
+          {
+            "address": 32786,
+            "kind": "Local",
+            "name": "spill64",
+            "size": 1
+          },
+          {
+            "address": 32787,
+            "kind": "Local",
+            "name": "spill65",
+            "size": 1
+          },
+          {
+            "address": 32788,
+            "kind": "Local",
+            "name": "spill48",
+            "size": 1
+          }
+        ],
+        "writes": "Exact([Global { id: SymbolId(7), offset: 0 }, FixedZeroPage(MirFixedZpSlot(224)), FixedZeroPage(MirFixedZpSlot(225)), FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(227)), FixedZeroPage(MirFixedZpSlot(228)), FixedZeroPage(MirFixedZpSlot(229)), FixedZeroPage(MirFixedZpSlot(130)), FixedZeroPage(MirFixedZpSlot(131)), FixedZeroPage(MirFixedZpSlot(132)), FixedZeroPage(MirFixedZpSlot(133)), FixedZeroPage(MirFixedZpSlot(192)), FixedZeroPage(MirFixedZpSlot(193)), FixedZeroPage(MirFixedZpSlot(194)), FixedZeroPage(MirFixedZpSlot(195)), FixedZeroPage(MirFixedZpSlot(134)), FixedZeroPage(MirFixedZpSlot(135)), FixedZeroPage(MirFixedZpSlot(196)), FixedZeroPage(MirFixedZpSlot(197)), FixedZeroPage(MirFixedZpSlot(198)), FixedZeroPage(MirFixedZpSlot(199)), FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, Spill { id: MirSpillId(64), offset: 0 }, Spill { id: MirSpillId(65), offset: 0 }, Global { id: SymbolId(8), offset: 0 }, Global { id: SymbolId(8), offset: 1 }, Global { id: SymbolId(8), offset: 2 }, Global { id: SymbolId(8), offset: 3 }, Spill { id: MirSpillId(48), offset: 0 }])",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          },
+          {
+            "address": 226,
+            "bytes": 1
+          },
+          {
+            "address": 227,
+            "bytes": 1
+          },
+          {
+            "address": 228,
+            "bytes": 1
+          },
+          {
+            "address": 229,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [
+          {
+            "block": 1,
+            "op": 28,
+            "helper": "Rsh32"
+          },
+          {
+            "block": 2,
+            "op": 25,
+            "helper": "Rsh"
+          }
+        ],
+        "instruction_bytes": 184,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(163))))",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(4), Some(Op { block: MirBlockId(7), op_index: 19 }), \"unsupported native call closure operation\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(160))]))",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(160))]))",
+            "op": 0,
+            "target": "Routine(RoutineId(0))",
+            "target_name": "EndOfData",
+            "block": 4
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))]))",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))]))",
+            "op": 9,
+            "target": "Routine(RoutineId(1))",
+            "target_name": "ReadByte",
+            "block": 5
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "None",
+        "direct_result_abi": "None",
+        "id": 4,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: true } })",
+        "name": "ReadBits",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: true } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": true,
+        "preserves_ea": true,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [[Word]], result: [Word, Word] })",
+        "storage": [
+          {
+            "address": 32789,
+            "kind": "Parameter",
+            "name": "n",
+            "size": 2
+          },
+          {
+            "address": 32791,
+            "kind": "Local",
+            "name": "value",
+            "size": 4
+          },
+          {
+            "address": 32795,
+            "kind": "Local",
+            "name": "i",
+            "size": 2
+          },
+          {
+            "address": 32797,
+            "kind": "Local",
+            "name": "spill18",
+            "size": 1
+          },
+          {
+            "address": 32798,
+            "kind": "Local",
+            "name": "spill19",
+            "size": 1
+          },
+          {
+            "address": 32799,
+            "kind": "Local",
+            "name": "spill108",
+            "size": 1
+          },
+          {
+            "address": 32800,
+            "kind": "Local",
+            "name": "spill22",
+            "size": 1
+          },
+          {
+            "address": 32801,
+            "kind": "Local",
+            "name": "spill34",
+            "size": 1
+          },
+          {
+            "address": 32802,
+            "kind": "Local",
+            "name": "spill35",
+            "size": 1
+          },
+          {
+            "address": 32803,
+            "kind": "Local",
+            "name": "spill38",
+            "size": 1
+          },
+          {
+            "address": 32804,
+            "kind": "Local",
+            "name": "spill156",
+            "size": 1
+          },
+          {
+            "address": 32805,
+            "kind": "Local",
+            "name": "spill157",
+            "size": 1
+          },
+          {
+            "address": 32806,
+            "kind": "Local",
+            "name": "spill66",
+            "size": 1
+          },
+          {
+            "address": 32807,
+            "kind": "Local",
+            "name": "spill67",
+            "size": 1
+          },
+          {
+            "address": 32808,
+            "kind": "Local",
+            "name": "spill130",
+            "size": 1
+          },
+          {
+            "address": 32809,
+            "kind": "Local",
+            "name": "spill131",
+            "size": 1
+          },
+          {
+            "address": 32810,
+            "kind": "Local",
+            "name": "spill68",
+            "size": 1
+          },
+          {
+            "address": 32811,
+            "kind": "Local",
+            "name": "spill69",
+            "size": 1
+          },
+          {
+            "address": 32812,
+            "kind": "Local",
+            "name": "spill132",
+            "size": 1
+          },
+          {
+            "address": 32813,
+            "kind": "Local",
+            "name": "spill133",
+            "size": 1
+          },
+          {
+            "address": 32814,
+            "kind": "Local",
+            "name": "spill74",
+            "size": 1
+          },
+          {
+            "address": 32815,
+            "kind": "Local",
+            "name": "spill75",
+            "size": 1
+          }
+        ],
+        "writes": "Exact([Param { id: ParamId(0), offset: 1 }, Param { id: ParamId(0), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Local { id: LocalId(0), offset: 2 }, Local { id: LocalId(0), offset: 3 }, Local { id: LocalId(1), offset: 0 }, Local { id: LocalId(1), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), FixedZeroPage(MirFixedZpSlot(162)), FixedZeroPage(MirFixedZpSlot(163)), Spill { id: MirSpillId(34), offset: 0 }, Spill { id: MirSpillId(35), offset: 0 }, Spill { id: MirSpillId(38), offset: 0 }, Spill { id: MirSpillId(156), offset: 0 }, Spill { id: MirSpillId(157), offset: 0 }, FixedZeroPage(MirFixedZpSlot(130)), FixedZeroPage(MirFixedZpSlot(131)), FixedZeroPage(MirFixedZpSlot(132)), FixedZeroPage(MirFixedZpSlot(133)), FixedZeroPage(MirFixedZpSlot(192)), FixedZeroPage(MirFixedZpSlot(193)), FixedZeroPage(MirFixedZpSlot(194)), FixedZeroPage(MirFixedZpSlot(195)), FixedZeroPage(MirFixedZpSlot(134)), FixedZeroPage(MirFixedZpSlot(135)), FixedZeroPage(MirFixedZpSlot(196)), FixedZeroPage(MirFixedZpSlot(197)), FixedZeroPage(MirFixedZpSlot(198)), FixedZeroPage(MirFixedZpSlot(199)), FixedZeroPage(MirFixedZpSlot(227)), FixedZeroPage(MirFixedZpSlot(229)), FixedZeroPage(MirFixedZpSlot(225)), FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(228)), FixedZeroPage(MirFixedZpSlot(230)), Global { id: SymbolId(7), offset: 0 }, Spill { id: MirSpillId(66), offset: 0 }, Spill { id: MirSpillId(67), offset: 0 }, Spill { id: MirSpillId(130), offset: 0 }, Spill { id: MirSpillId(131), offset: 0 }, Spill { id: MirSpillId(68), offset: 0 }, Spill { id: MirSpillId(69), offset: 0 }, Spill { id: MirSpillId(132), offset: 0 }, Spill { id: MirSpillId(133), offset: 0 }, Spill { id: MirSpillId(74), offset: 0 }, Spill { id: MirSpillId(75), offset: 0 }, FixedZeroPage(MirFixedZpSlot(231)), FixedZeroPage(MirFixedZpSlot(232)), Spill { id: MirSpillId(18), offset: 0 }, Spill { id: MirSpillId(19), offset: 0 }, Spill { id: MirSpillId(108), offset: 0 }, Spill { id: MirSpillId(22), offset: 0 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(224)), Global { id: SymbolId(8), offset: 0 }, Global { id: SymbolId(8), offset: 1 }, Global { id: SymbolId(8), offset: 2 }, Global { id: SymbolId(8), offset: 3 }])",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          },
+          {
+            "address": 226,
+            "bytes": 1
+          },
+          {
+            "address": 227,
+            "bytes": 1
+          },
+          {
+            "address": 228,
+            "bytes": 1
+          },
+          {
+            "address": 229,
+            "bytes": 1
+          },
+          {
+            "address": 230,
+            "bytes": 1
+          },
+          {
+            "address": 231,
+            "bytes": 1
+          },
+          {
+            "address": 232,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [
+          {
+            "block": 7,
+            "op": 19,
+            "helper": "Lsh32"
+          },
+          {
+            "block": 8,
+            "op": 15,
+            "helper": "Lsh32"
+          },
+          {
+            "block": 8,
+            "op": 53,
+            "helper": "Rsh32"
+          },
+          {
+            "block": 8,
+            "op": 75,
+            "helper": "Lsh32"
+          }
+        ],
+        "instruction_bytes": 734,
+        "named_home_bytes": 8,
+        "absolute_named_home_accesses": 45
+      },
+      {
+        "abi": "Action",
+        "accumulator": "None",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(5), Some(Op { block: MirBlockId(11), op_index: 2 }), \"unknown residence ABI\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 6
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 11
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 13
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 9
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 18
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 20
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 19
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 27,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 22
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 21,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 25
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([Pointer])",
+        "direct_result_abi": "Some(Void)",
+        "id": 5,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+        "name": "ReadHeader",
+        "precise_entry_flags": "Unknown",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "None",
+        "storage": [
+          {
+            "address": 32816,
+            "kind": "Parameter",
+            "name": "table",
+            "size": 2
+          },
+          {
+            "address": 32818,
+            "kind": "Local",
+            "name": "i",
+            "size": 2
+          },
+          {
+            "address": 32820,
+            "kind": "Local",
+            "name": "j",
+            "size": 2
+          },
+          {
+            "address": 32822,
+            "kind": "Local",
+            "name": "byteIndex",
+            "size": 2
+          },
+          {
+            "address": 32824,
+            "kind": "Local",
+            "name": "spill22",
+            "size": 1
+          },
+          {
+            "address": 32825,
+            "kind": "Local",
+            "name": "spill23",
+            "size": 1
+          },
+          {
+            "address": 32826,
+            "kind": "Local",
+            "name": "spill227",
+            "size": 1
+          },
+          {
+            "address": 32827,
+            "kind": "Local",
+            "name": "spill209",
+            "size": 1
+          },
+          {
+            "address": 32828,
+            "kind": "Local",
+            "name": "spill215",
+            "size": 1
+          },
+          {
+            "address": 32829,
+            "kind": "Local",
+            "name": "spill219",
+            "size": 1
+          },
+          {
+            "address": 32830,
+            "kind": "Local",
+            "name": "spill148",
+            "size": 1
+          },
+          {
+            "address": 32831,
+            "kind": "Local",
+            "name": "spill149",
+            "size": 1
+          },
+          {
+            "address": 32832,
+            "kind": "Local",
+            "name": "spill242",
+            "size": 1
+          },
+          {
+            "address": 32833,
+            "kind": "Local",
+            "name": "spill243",
+            "size": 1
+          },
+          {
+            "address": 32834,
+            "kind": "Local",
+            "name": "spill182",
+            "size": 1
+          },
+          {
+            "address": 32835,
+            "kind": "Local",
+            "name": "spill183",
+            "size": 1
+          },
+          {
+            "address": 32836,
+            "kind": "Local",
+            "name": "spill247",
+            "size": 1
+          }
+        ],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          },
+          {
+            "address": 226,
+            "bytes": 1
+          },
+          {
+            "address": 227,
+            "bytes": 1
+          },
+          {
+            "address": 228,
+            "bytes": 1
+          },
+          {
+            "address": 229,
+            "bytes": 1
+          },
+          {
+            "address": 230,
+            "bytes": 1
+          },
+          {
+            "address": 231,
+            "bytes": 1
+          },
+          {
+            "address": 232,
+            "bytes": 1
+          },
+          {
+            "address": 233,
+            "bytes": 1
+          },
+          {
+            "address": 234,
+            "bytes": 1
+          },
+          {
+            "address": 235,
+            "bytes": 1
+          },
+          {
+            "address": 236,
+            "bytes": 1
+          },
+          {
+            "address": 237,
+            "bytes": 1
+          },
+          {
+            "address": 238,
+            "bytes": 1
+          },
+          {
+            "address": 239,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [
+          {
+            "block": 22,
+            "op": 10,
+            "helper": "Mul"
+          },
+          {
+            "block": 25,
+            "op": 10,
+            "helper": "Mul"
+          },
+          {
+            "block": 4,
+            "op": 10,
+            "helper": "Mul"
+          }
+        ],
+        "instruction_bytes": 1315,
+        "named_home_bytes": 8,
+        "absolute_named_home_accesses": 104
+      },
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161))))",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(6), Some(Op { block: MirBlockId(0), op_index: 13 }), \"unsupported native call closure operation\"))",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([Pointer, Pointer])",
+        "direct_result_abi": "Some(Pointer)",
+        "id": 6,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+        "name": "BuildTree",
+        "precise_entry_flags": "Unknown",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "None",
+        "storage": [
+          {
+            "address": 32837,
+            "kind": "Parameter",
+            "name": "table",
+            "size": 2
+          },
+          {
+            "address": 32839,
+            "kind": "Parameter",
+            "name": "pool",
+            "size": 2
+          },
+          {
+            "address": 32841,
+            "kind": "Local",
+            "name": "j",
+            "size": 2
+          },
+          {
+            "address": 32843,
+            "kind": "Local",
+            "name": "top",
+            "size": 2
+          },
+          {
+            "address": 32845,
+            "kind": "Local",
+            "name": "root",
+            "size": 2
+          },
+          {
+            "address": 32847,
+            "kind": "Local",
+            "name": "current",
+            "size": 2
+          },
+          {
+            "address": 32849,
+            "kind": "Local",
+            "name": "spill2",
+            "size": 1
+          },
+          {
+            "address": 32850,
+            "kind": "Local",
+            "name": "spill3",
+            "size": 1
+          },
+          {
+            "address": 32851,
+            "kind": "Local",
+            "name": "spill122",
+            "size": 1
+          },
+          {
+            "address": 32852,
+            "kind": "Local",
+            "name": "spill123",
+            "size": 1
+          },
+          {
+            "address": 32853,
+            "kind": "Local",
+            "name": "spill36",
+            "size": 1
+          },
+          {
+            "address": 32854,
+            "kind": "Local",
+            "name": "spill37",
+            "size": 1
+          },
+          {
+            "address": 32855,
+            "kind": "Local",
+            "name": "spill128",
+            "size": 1
+          },
+          {
+            "address": 32856,
+            "kind": "Local",
+            "name": "spill68",
+            "size": 1
+          },
+          {
+            "address": 32857,
+            "kind": "Local",
+            "name": "spill69",
+            "size": 1
+          },
+          {
+            "address": 32858,
+            "kind": "Local",
+            "name": "spill86",
+            "size": 1
+          },
+          {
+            "address": 32859,
+            "kind": "Local",
+            "name": "spill87",
+            "size": 1
+          }
+        ],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          },
+          {
+            "address": 226,
+            "bytes": 1
+          },
+          {
+            "address": 227,
+            "bytes": 1
+          },
+          {
+            "address": 228,
+            "bytes": 1
+          },
+          {
+            "address": 229,
+            "bytes": 1
+          },
+          {
+            "address": 230,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [
+          {
+            "block": 0,
+            "op": 13,
+            "helper": "Mul"
+          },
+          {
+            "block": 4,
+            "op": 10,
+            "helper": "Mul"
+          },
+          {
+            "block": 4,
+            "op": 44,
+            "helper": "Lsh"
+          },
+          {
+            "block": 10,
+            "op": 10,
+            "helper": "Mul"
+          },
+          {
+            "block": 6,
+            "op": 10,
+            "helper": "Mul"
+          }
+        ],
+        "instruction_bytes": 906,
+        "named_home_bytes": 12,
+        "absolute_named_home_accesses": 83
+      },
+      {
+        "abi": "Action",
+        "accumulator": "None",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(3), Some(Op { block: MirBlockId(1), op_index: 28 }), \"unsupported native call closure operation\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(160))]))",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(160))]))",
+            "op": 0,
+            "target": "Routine(RoutineId(0))",
+            "target_name": "EndOfData",
+            "block": 0
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(5))",
+            "target_name": "ReadHeader",
+            "block": 1
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 8,
+            "target": "Routine(RoutineId(6))",
+            "target_name": "BuildTree",
+            "block": 1
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 4
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unknown residence callee writes\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unknown residence callee writes\")",
+            "op": 4,
+            "target": "Routine(RoutineId(2))",
+            "target_name": "WriteByte",
+            "block": 9
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Void)",
+        "id": 7,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+        "name": "Decode",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+        "storage": [
+          {
+            "address": 32860,
+            "kind": "Local",
+            "name": "root",
+            "size": 2
+          },
+          {
+            "address": 32862,
+            "kind": "Local",
+            "name": "current",
+            "size": 2
+          },
+          {
+            "address": 32864,
+            "kind": "Local",
+            "name": "spill24",
+            "size": 1
+          },
+          {
+            "address": 32865,
+            "kind": "Local",
+            "name": "spill25",
+            "size": 1
+          }
+        ],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 221,
+        "named_home_bytes": 4,
+        "absolute_named_home_accesses": 20
+      },
+      {
+        "abi": "ProgramEntry",
+        "accumulator": "Some(DirectMem(Global { id: SymbolId(3), offset: 0 }))",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(8), None, \"uncertified native entry\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unknown residence callee entry\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(7))",
+            "target_name": "Decode",
+            "block": 1
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 3
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 4
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Void)",
+        "id": 8,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+        "name": "Main",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+        "storage": [],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 85,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "ActionObservable",
+        "accumulator": "None",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"uncertified machine leaf entry\"))",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: Regions([MirMemoryRegion { kind: ZeroPage, offset: 130, size: 4 }, MirMemoryRegion { kind: ZeroPage, offset: 192, size: 4 }]), memory_writes: Regions([MirMemoryRegion { kind: ZeroPage, offset: 130, size: 6 }, MirMemoryRegion { kind: ZeroPage, offset: 192, size: 8 }]), reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: true, x: true, y: true, flags: true, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: Some(0), may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "None",
+        "direct_result_abi": "None",
+        "id": 9,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+        "name": "ACTION.RUNTIME.ACTIONC::LShift32",
+        "precise_entry_flags": "Unknown",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "None",
+        "storage": [],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 59,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "ActionObservable",
+        "accumulator": "None",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(10), Some(Op { block: MirBlockId(0), op_index: 0 }), \"uncertified machine leaf entry\"))",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: Regions([MirMemoryRegion { kind: ZeroPage, offset: 130, size: 4 }, MirMemoryRegion { kind: ZeroPage, offset: 192, size: 4 }]), memory_writes: Regions([MirMemoryRegion { kind: ZeroPage, offset: 130, size: 6 }, MirMemoryRegion { kind: ZeroPage, offset: 192, size: 8 }]), reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: true, x: true, y: true, flags: true, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: Some(0), may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "None",
+        "direct_result_abi": "None",
+        "id": 10,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+        "name": "ACTION.RUNTIME.ACTIONC::RShift32",
+        "precise_entry_flags": "Unknown",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "None",
+        "storage": [],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 59,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      }
+    ],
+    "origin": 32768,
+    "before_home_selection_bytes": 3781,
+    "seconds": 1.702582459,
+    "work": {
+      "core_callee_contract_checks": 1,
+      "core_callee_read_declines": 1,
+      "core_callee_scope_fallbacks": 1,
+      "core_callee_summary_builds": 2,
+      "emission_invocations": 11,
+      "inner_emission_probes": 44,
+      "late_cleanup_preservation_replays": 1,
+      "materializations": 1,
+      "pipeline_attempts": 27,
+      "rewrite_analysis_builds": 1083,
+      "source_storage_inventory_builds": 9
+    },
+    "placement_and_contract_events": [
+      {
+        "attempt": 442,
+        "data": {
+          "after": "MirKnownCalleeExitSummary { accumulator: None, zn: None, preserves: MirRegisterSet { a: false, x: true, y: false, flags: false, sp: false }, reads: Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, Param { id: ParamId(0), offset: 0 }, FixedZeroPage(MirFixedZpSlot(224)), FixedZeroPage(MirFixedZpSlot(225)), FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]), writes: Unknown }",
+          "before": "MirKnownCalleeExitSummary { accumulator: None, zn: None, preserves: MirRegisterSet { a: false, x: true, y: false, flags: false, sp: false }, reads: Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, Param { id: ParamId(0), offset: 0 }, Spill { id: MirSpillId(0), offset: 0 }, Spill { id: MirSpillId(1), offset: 0 }, Spill { id: MirSpillId(2), offset: 0 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]), writes: Unknown }",
+          "routine": "WriteByte"
+        },
+        "id": 2115,
+        "kind": "core-callee-contract-context"
+      },
+      {
+        "attempt": 442,
+        "data": {
+          "boundary": "post-zp-remapping",
+          "fact": "expanded-reads",
+          "routine": 2
+        },
+        "id": 2116,
+        "kind": "core-callee-contract-declined"
+      },
+      {
+        "attempt": 442,
+        "data": {
+          "diagnostics": null
+        },
+        "id": 2117,
+        "kind": "core-callee-scope-rejected"
+      },
+      {
+        "attempt": 682,
+        "data": {
+          "mode": "conservative"
+        },
+        "id": 2992,
+        "kind": "core-callee-scope-selected"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadBit"
+        },
+        "id": 3654,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadBits"
+        },
+        "id": 3655,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": true,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadHeader"
+        },
+        "id": 3656,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "Main"
+        },
+        "id": 3657,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "entry": "Some(\"ReadHeader\") (RoutineId(5)) at Some(Op { block: MirBlockId(11), op_index: 2 }): unknown residence ABI",
+          "reason": "unsupported residence callee",
+          "routine": "Decode",
+          "site": "Op { block: MirBlockId(1), op_index: 0 }"
+        },
+        "id": 3658,
+        "kind": "cross-call-dependency"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "entry": "Some(\"BuildTree\") (RoutineId(6)) at Some(Op { block: MirBlockId(0), op_index: 13 }): unsupported native call closure operation",
+          "reason": "unsupported residence callee",
+          "routine": "Decode",
+          "site": "Op { block: MirBlockId(1), op_index: 1 }"
+        },
+        "id": 3659,
+        "kind": "cross-call-dependency"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "entry": "Some(\"ReadBit\") (RoutineId(3)) at Some(Op { block: MirBlockId(1), op_index: 28 }): unsupported native call closure operation",
+          "reason": "unsupported residence callee",
+          "routine": "Decode",
+          "site": "Op { block: MirBlockId(4), op_index: 0 }"
+        },
+        "id": 3660,
+        "kind": "cross-call-dependency"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "entry": "WriteByte: MirEntryRequirements { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false }, fixed: {} }",
+          "reason": "unknown residence callee writes",
+          "routine": "Decode",
+          "site": "Op { block: MirBlockId(9), op_index: 2 }"
+        },
+        "id": 3661,
+        "kind": "cross-call-dependency"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "home": "Local { id: LocalId(0), offset: 0 }",
+          "reason": "unsupported residence callee",
+          "routine": "Decode",
+          "site": "Op { block: MirBlockId(4), op_index: 0 }"
+        },
+        "id": 3662,
+        "kind": "cross-call-home-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "home": "Local { id: LocalId(1), offset: 0 }",
+          "reason": "unsupported residence callee",
+          "routine": "Decode",
+          "site": "Op { block: MirBlockId(4), op_index: 0 }"
+        },
+        "id": 3663,
+        "kind": "cross-call-home-ineligible"
+      }
+    ]
+  },
+  "portable-no-inline": {
+    "packaged_bytes": 3851,
+    "routines": [
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+        "acyclic_entry": {
+          "current": true,
+          "defined_results": [
+            160
+          ],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "acyclic_failure": "None",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Scalar(Byte))",
+        "id": 0,
+        "leaf_entry": {
+          "current": true,
+          "defined_results": [
+            160
+          ],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "legacy_ignores_flags": true,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+        "name": "EndOfData",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+        "preserves_a0": false,
+        "preserves_e4": true,
+        "preserves_e8": true,
+        "preserves_e9": true,
+        "preserves_ea": true,
+        "reads": "Exact([Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(4), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, Global { id: SymbolId(4), offset: 1 }])",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+        "storage": [],
+        "writes": "Exact([FixedZeroPage(MirFixedZpSlot(160))])",
+        "zn": "None",
+        "virtual_zp_allocations": [],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 24,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+        "acyclic_entry": {
+          "current": true,
+          "defined_results": [
+            160
+          ],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "acyclic_failure": "None",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Scalar(Byte))",
+        "id": 1,
+        "leaf_entry": {
+          "current": true,
+          "defined_results": [
+            160
+          ],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "legacy_ignores_flags": true,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+        "name": "ReadByte",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+        "storage": [
+          {
+            "address": 8255,
+            "kind": "Local",
+            "name": "value",
+            "size": 1
+          }
+        ],
+        "writes": "Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))])",
+        "zn": "None",
+        "virtual_zp_allocations": [],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 37,
+        "named_home_bytes": 1,
+        "absolute_named_home_accesses": 2
+      },
+      {
+        "abi": "Action",
+        "accumulator": "None",
+        "acyclic_entry": {
+          "current": true,
+          "defined_results": [],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }"
+        },
+        "acyclic_failure": "None",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([Scalar(Byte)])",
+        "direct_result_abi": "Some(Void)",
+        "id": 2,
+        "leaf_entry": {
+          "current": true,
+          "defined_results": [],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }"
+        },
+        "legacy_ignores_flags": true,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+        "name": "WriteByte",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, FixedZeroPage(MirFixedZpSlot(224)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))])",
+        "scalar_signature": "Some(MirScalarSignature { params: [[Byte]], result: [] })",
+        "storage": [],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 33,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(160))))",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(3), Some(Op { block: MirBlockId(1), op_index: 20 }), \"unsupported native call closure operation\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))]))",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))]))",
+            "op": 0,
+            "target": "Routine(RoutineId(1))",
+            "target_name": "ReadByte",
+            "block": 2
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Scalar(Byte))",
+        "id": 3,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+        "name": "ReadBit",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: false, n: false, v: true } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [Byte] })",
+        "storage": [
+          {
+            "address": 8256,
+            "kind": "Local",
+            "name": "spill62",
+            "size": 1
+          },
+          {
+            "address": 8257,
+            "kind": "Local",
+            "name": "spill63",
+            "size": 1
+          },
+          {
+            "address": 8258,
+            "kind": "Local",
+            "name": "spill46",
+            "size": 1
+          }
+        ],
+        "writes": "Exact([Global { id: SymbolId(7), offset: 0 }, FixedZeroPage(MirFixedZpSlot(224)), FixedZeroPage(MirFixedZpSlot(225)), FixedZeroPage(MirFixedZpSlot(130)), FixedZeroPage(MirFixedZpSlot(131)), FixedZeroPage(MirFixedZpSlot(132)), FixedZeroPage(MirFixedZpSlot(133)), FixedZeroPage(MirFixedZpSlot(192)), FixedZeroPage(MirFixedZpSlot(193)), FixedZeroPage(MirFixedZpSlot(194)), FixedZeroPage(MirFixedZpSlot(195)), FixedZeroPage(MirFixedZpSlot(134)), FixedZeroPage(MirFixedZpSlot(135)), FixedZeroPage(MirFixedZpSlot(196)), FixedZeroPage(MirFixedZpSlot(197)), FixedZeroPage(MirFixedZpSlot(198)), FixedZeroPage(MirFixedZpSlot(199)), FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, Spill { id: MirSpillId(62), offset: 0 }, Spill { id: MirSpillId(63), offset: 0 }, Spill { id: MirSpillId(46), offset: 0 }, Global { id: SymbolId(8), offset: 0 }, Global { id: SymbolId(8), offset: 1 }, Global { id: SymbolId(8), offset: 2 }, Global { id: SymbolId(8), offset: 3 }])",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [
+          {
+            "block": 1,
+            "op": 20,
+            "helper": "Rsh32"
+          },
+          {
+            "block": 2,
+            "op": 18,
+            "helper": "Rsh"
+          }
+        ],
+        "instruction_bytes": 148,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(163))))",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(4), Some(Op { block: MirBlockId(7), op_index: 19 }), \"unsupported native call closure operation\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(160))]))",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(160))]))",
+            "op": 0,
+            "target": "Routine(RoutineId(0))",
+            "target_name": "EndOfData",
+            "block": 4
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))]))",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Local { id: LocalId(0), offset: 0 }, Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))]))",
+            "op": 8,
+            "target": "Routine(RoutineId(1))",
+            "target_name": "ReadByte",
+            "block": 5
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "None",
+        "direct_result_abi": "None",
+        "id": 4,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: true } })",
+        "name": "ReadBits",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: true } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [[Word]], result: [Word, Word] })",
+        "storage": [
+          {
+            "address": 8259,
+            "kind": "Parameter",
+            "name": "n",
+            "size": 2
+          },
+          {
+            "address": 8261,
+            "kind": "Local",
+            "name": "value",
+            "size": 4
+          },
+          {
+            "address": 8265,
+            "kind": "Local",
+            "name": "i",
+            "size": 2
+          },
+          {
+            "address": 8267,
+            "kind": "Local",
+            "name": "spill22",
+            "size": 1
+          },
+          {
+            "address": 8268,
+            "kind": "Local",
+            "name": "spill23",
+            "size": 1
+          },
+          {
+            "address": 8269,
+            "kind": "Local",
+            "name": "spill110",
+            "size": 1
+          },
+          {
+            "address": 8270,
+            "kind": "Local",
+            "name": "spill111",
+            "size": 1
+          },
+          {
+            "address": 8271,
+            "kind": "Local",
+            "name": "spill156",
+            "size": 1
+          },
+          {
+            "address": 8272,
+            "kind": "Local",
+            "name": "spill157",
+            "size": 1
+          },
+          {
+            "address": 8273,
+            "kind": "Local",
+            "name": "spill66",
+            "size": 1
+          },
+          {
+            "address": 8274,
+            "kind": "Local",
+            "name": "spill67",
+            "size": 1
+          },
+          {
+            "address": 8275,
+            "kind": "Local",
+            "name": "spill130",
+            "size": 1
+          },
+          {
+            "address": 8276,
+            "kind": "Local",
+            "name": "spill131",
+            "size": 1
+          },
+          {
+            "address": 8277,
+            "kind": "Local",
+            "name": "spill74",
+            "size": 1
+          },
+          {
+            "address": 8278,
+            "kind": "Local",
+            "name": "spill75",
+            "size": 1
+          },
+          {
+            "address": 8279,
+            "kind": "Local",
+            "name": "spill136",
+            "size": 1
+          },
+          {
+            "address": 8280,
+            "kind": "Local",
+            "name": "spill137",
+            "size": 1
+          }
+        ],
+        "writes": "Exact([Param { id: ParamId(0), offset: 1 }, Param { id: ParamId(0), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Local { id: LocalId(0), offset: 2 }, Local { id: LocalId(0), offset: 3 }, Local { id: LocalId(1), offset: 0 }, Local { id: LocalId(1), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), FixedZeroPage(MirFixedZpSlot(162)), FixedZeroPage(MirFixedZpSlot(163)), Spill { id: MirSpillId(156), offset: 0 }, Spill { id: MirSpillId(157), offset: 0 }, FixedZeroPage(MirFixedZpSlot(130)), FixedZeroPage(MirFixedZpSlot(131)), FixedZeroPage(MirFixedZpSlot(132)), FixedZeroPage(MirFixedZpSlot(133)), FixedZeroPage(MirFixedZpSlot(192)), FixedZeroPage(MirFixedZpSlot(193)), FixedZeroPage(MirFixedZpSlot(194)), FixedZeroPage(MirFixedZpSlot(195)), FixedZeroPage(MirFixedZpSlot(134)), FixedZeroPage(MirFixedZpSlot(135)), FixedZeroPage(MirFixedZpSlot(196)), FixedZeroPage(MirFixedZpSlot(197)), FixedZeroPage(MirFixedZpSlot(198)), FixedZeroPage(MirFixedZpSlot(199)), FixedZeroPage(MirFixedZpSlot(225)), FixedZeroPage(MirFixedZpSlot(226)), Global { id: SymbolId(7), offset: 0 }, Spill { id: MirSpillId(66), offset: 0 }, Spill { id: MirSpillId(67), offset: 0 }, Spill { id: MirSpillId(130), offset: 0 }, Spill { id: MirSpillId(131), offset: 0 }, Spill { id: MirSpillId(74), offset: 0 }, Spill { id: MirSpillId(75), offset: 0 }, Spill { id: MirSpillId(136), offset: 0 }, Spill { id: MirSpillId(137), offset: 0 }, FixedZeroPage(MirFixedZpSlot(227)), FixedZeroPage(MirFixedZpSlot(228)), FixedZeroPage(MirFixedZpSlot(229)), FixedZeroPage(MirFixedZpSlot(230)), Spill { id: MirSpillId(22), offset: 0 }, Spill { id: MirSpillId(23), offset: 0 }, Spill { id: MirSpillId(110), offset: 0 }, Spill { id: MirSpillId(111), offset: 0 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173)), Global { id: SymbolId(5), offset: 0 }, Global { id: SymbolId(5), offset: 1 }, FixedZeroPage(MirFixedZpSlot(224)), Global { id: SymbolId(8), offset: 0 }, Global { id: SymbolId(8), offset: 1 }, Global { id: SymbolId(8), offset: 2 }, Global { id: SymbolId(8), offset: 3 }])",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          },
+          {
+            "address": 226,
+            "bytes": 1
+          },
+          {
+            "address": 227,
+            "bytes": 1
+          },
+          {
+            "address": 228,
+            "bytes": 1
+          },
+          {
+            "address": 229,
+            "bytes": 1
+          },
+          {
+            "address": 230,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [
+          {
+            "block": 7,
+            "op": 19,
+            "helper": "Lsh32"
+          },
+          {
+            "block": 8,
+            "op": 15,
+            "helper": "Lsh32"
+          },
+          {
+            "block": 8,
+            "op": 45,
+            "helper": "Rsh32"
+          },
+          {
+            "block": 8,
+            "op": 67,
+            "helper": "Lsh32"
+          }
+        ],
+        "instruction_bytes": 665,
+        "named_home_bytes": 8,
+        "absolute_named_home_accesses": 45
+      },
+      {
+        "abi": "Action",
+        "accumulator": "None",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(5), Some(Op { block: MirBlockId(11), op_index: 2 }), \"unknown residence ABI\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 6
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 11
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 13
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 9
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 18
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 20
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 19
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 26,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 22
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 21,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 25
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([Pointer])",
+        "direct_result_abi": "Some(Void)",
+        "id": 5,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+        "name": "ReadHeader",
+        "precise_entry_flags": "Unknown",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "None",
+        "storage": [
+          {
+            "address": 8281,
+            "kind": "Parameter",
+            "name": "table",
+            "size": 2
+          },
+          {
+            "address": 8283,
+            "kind": "Local",
+            "name": "i",
+            "size": 2
+          },
+          {
+            "address": 8285,
+            "kind": "Local",
+            "name": "j",
+            "size": 2
+          },
+          {
+            "address": 8287,
+            "kind": "Local",
+            "name": "byteIndex",
+            "size": 2
+          },
+          {
+            "address": 8289,
+            "kind": "Local",
+            "name": "spill22",
+            "size": 1
+          },
+          {
+            "address": 8290,
+            "kind": "Local",
+            "name": "spill23",
+            "size": 1
+          },
+          {
+            "address": 8291,
+            "kind": "Local",
+            "name": "spill227",
+            "size": 1
+          },
+          {
+            "address": 8292,
+            "kind": "Local",
+            "name": "spill209",
+            "size": 1
+          },
+          {
+            "address": 8293,
+            "kind": "Local",
+            "name": "spill215",
+            "size": 1
+          },
+          {
+            "address": 8294,
+            "kind": "Local",
+            "name": "spill219",
+            "size": 1
+          },
+          {
+            "address": 8295,
+            "kind": "Local",
+            "name": "spill148",
+            "size": 1
+          },
+          {
+            "address": 8296,
+            "kind": "Local",
+            "name": "spill149",
+            "size": 1
+          },
+          {
+            "address": 8297,
+            "kind": "Local",
+            "name": "spill242",
+            "size": 1
+          },
+          {
+            "address": 8298,
+            "kind": "Local",
+            "name": "spill243",
+            "size": 1
+          },
+          {
+            "address": 8299,
+            "kind": "Local",
+            "name": "spill182",
+            "size": 1
+          },
+          {
+            "address": 8300,
+            "kind": "Local",
+            "name": "spill183",
+            "size": 1
+          },
+          {
+            "address": 8301,
+            "kind": "Local",
+            "name": "spill247",
+            "size": 1
+          }
+        ],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          },
+          {
+            "address": 226,
+            "bytes": 1
+          },
+          {
+            "address": 227,
+            "bytes": 1
+          },
+          {
+            "address": 228,
+            "bytes": 1
+          },
+          {
+            "address": 229,
+            "bytes": 1
+          },
+          {
+            "address": 230,
+            "bytes": 1
+          },
+          {
+            "address": 231,
+            "bytes": 1
+          },
+          {
+            "address": 232,
+            "bytes": 1
+          },
+          {
+            "address": 233,
+            "bytes": 1
+          },
+          {
+            "address": 234,
+            "bytes": 1
+          },
+          {
+            "address": 235,
+            "bytes": 1
+          },
+          {
+            "address": 236,
+            "bytes": 1
+          },
+          {
+            "address": 237,
+            "bytes": 1
+          },
+          {
+            "address": 238,
+            "bytes": 1
+          },
+          {
+            "address": 239,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [
+          {
+            "block": 22,
+            "op": 10,
+            "helper": "Mul"
+          },
+          {
+            "block": 25,
+            "op": 10,
+            "helper": "Mul"
+          },
+          {
+            "block": 4,
+            "op": 10,
+            "helper": "Mul"
+          }
+        ],
+        "instruction_bytes": 1304,
+        "named_home_bytes": 8,
+        "absolute_named_home_accesses": 102
+      },
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161))))",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(6), Some(Op { block: MirBlockId(0), op_index: 12 }), \"unsupported native call closure operation\"))",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([Pointer, Pointer])",
+        "direct_result_abi": "Some(Pointer)",
+        "id": 6,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: true }, flags: MirFlagSet { c: true, z: false, n: false, v: true } })",
+        "name": "BuildTree",
+        "precise_entry_flags": "Unknown",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "None",
+        "storage": [
+          {
+            "address": 8302,
+            "kind": "Parameter",
+            "name": "table",
+            "size": 2
+          },
+          {
+            "address": 8304,
+            "kind": "Parameter",
+            "name": "pool",
+            "size": 2
+          },
+          {
+            "address": 8306,
+            "kind": "Local",
+            "name": "j",
+            "size": 2
+          },
+          {
+            "address": 8308,
+            "kind": "Local",
+            "name": "top",
+            "size": 2
+          },
+          {
+            "address": 8310,
+            "kind": "Local",
+            "name": "root",
+            "size": 2
+          },
+          {
+            "address": 8312,
+            "kind": "Local",
+            "name": "current",
+            "size": 2
+          },
+          {
+            "address": 8314,
+            "kind": "Local",
+            "name": "spill2",
+            "size": 1
+          },
+          {
+            "address": 8315,
+            "kind": "Local",
+            "name": "spill3",
+            "size": 1
+          },
+          {
+            "address": 8316,
+            "kind": "Local",
+            "name": "spill122",
+            "size": 1
+          },
+          {
+            "address": 8317,
+            "kind": "Local",
+            "name": "spill123",
+            "size": 1
+          },
+          {
+            "address": 8318,
+            "kind": "Local",
+            "name": "spill36",
+            "size": 1
+          },
+          {
+            "address": 8319,
+            "kind": "Local",
+            "name": "spill37",
+            "size": 1
+          },
+          {
+            "address": 8320,
+            "kind": "Local",
+            "name": "spill128",
+            "size": 1
+          },
+          {
+            "address": 8321,
+            "kind": "Local",
+            "name": "spill68",
+            "size": 1
+          },
+          {
+            "address": 8322,
+            "kind": "Local",
+            "name": "spill69",
+            "size": 1
+          },
+          {
+            "address": 8323,
+            "kind": "Local",
+            "name": "spill86",
+            "size": 1
+          },
+          {
+            "address": 8324,
+            "kind": "Local",
+            "name": "spill87",
+            "size": 1
+          }
+        ],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          },
+          {
+            "address": 226,
+            "bytes": 1
+          },
+          {
+            "address": 227,
+            "bytes": 1
+          },
+          {
+            "address": 228,
+            "bytes": 1
+          },
+          {
+            "address": 229,
+            "bytes": 1
+          },
+          {
+            "address": 230,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [
+          {
+            "block": 0,
+            "op": 12,
+            "helper": "Mul"
+          },
+          {
+            "block": 4,
+            "op": 10,
+            "helper": "Mul"
+          },
+          {
+            "block": 4,
+            "op": 44,
+            "helper": "Lsh"
+          },
+          {
+            "block": 10,
+            "op": 10,
+            "helper": "Mul"
+          },
+          {
+            "block": 6,
+            "op": 10,
+            "helper": "Mul"
+          }
+        ],
+        "instruction_bytes": 906,
+        "named_home_bytes": 12,
+        "absolute_named_home_accesses": 83
+      },
+      {
+        "abi": "Action",
+        "accumulator": "None",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(3), Some(Op { block: MirBlockId(1), op_index: 20 }), \"unsupported native call closure operation\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(160))]))",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Ok(Exact([FixedZeroPage(MirFixedZpSlot(160))]))",
+            "op": 0,
+            "target": "Routine(RoutineId(0))",
+            "target_name": "EndOfData",
+            "block": 0
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(5))",
+            "target_name": "ReadHeader",
+            "block": 1
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 8,
+            "target": "Routine(RoutineId(6))",
+            "target_name": "BuildTree",
+            "block": 1
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 4
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unknown residence callee writes\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unknown residence callee writes\")",
+            "op": 4,
+            "target": "Routine(RoutineId(2))",
+            "target_name": "WriteByte",
+            "block": 9
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Void)",
+        "id": 7,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+        "name": "Decode",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: true, z: true, n: true, v: true } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+        "storage": [
+          {
+            "address": 8325,
+            "kind": "Local",
+            "name": "root",
+            "size": 2
+          },
+          {
+            "address": 8327,
+            "kind": "Local",
+            "name": "current",
+            "size": 2
+          },
+          {
+            "address": 8329,
+            "kind": "Local",
+            "name": "spill30",
+            "size": 1
+          },
+          {
+            "address": 8330,
+            "kind": "Local",
+            "name": "spill31",
+            "size": 1
+          }
+        ],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 221,
+        "named_home_bytes": 4,
+        "absolute_named_home_accesses": 20
+      },
+      {
+        "abi": "Action",
+        "accumulator": "Some(DirectMem(Global { id: SymbolId(34), offset: 3 }))",
+        "acyclic_entry": {
+          "current": true,
+          "defined_results": [],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "acyclic_failure": "None",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Void)",
+        "id": 8,
+        "leaf_entry": {
+          "current": true,
+          "defined_results": [],
+          "fixed": [],
+          "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+          "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+        },
+        "legacy_ignores_flags": true,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false } })",
+        "name": "QueryLayout",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: false } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Exact([])",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+        "storage": [],
+        "writes": "Exact([Global { id: SymbolId(25), offset: 0 }, Global { id: SymbolId(25), offset: 1 }, Global { id: SymbolId(25), offset: 2 }, Global { id: SymbolId(25), offset: 3 }, Global { id: SymbolId(26), offset: 0 }, Global { id: SymbolId(26), offset: 1 }, Global { id: SymbolId(26), offset: 2 }, Global { id: SymbolId(26), offset: 3 }, Global { id: SymbolId(27), offset: 0 }, Global { id: SymbolId(27), offset: 1 }, Global { id: SymbolId(27), offset: 2 }, Global { id: SymbolId(27), offset: 3 }, Global { id: SymbolId(28), offset: 0 }, Global { id: SymbolId(28), offset: 1 }, Global { id: SymbolId(28), offset: 2 }, Global { id: SymbolId(28), offset: 3 }, Global { id: SymbolId(29), offset: 0 }, Global { id: SymbolId(29), offset: 1 }, Global { id: SymbolId(29), offset: 2 }, Global { id: SymbolId(29), offset: 3 }, Global { id: SymbolId(30), offset: 0 }, Global { id: SymbolId(30), offset: 1 }, Global { id: SymbolId(30), offset: 2 }, Global { id: SymbolId(30), offset: 3 }, Global { id: SymbolId(31), offset: 0 }, Global { id: SymbolId(31), offset: 1 }, Global { id: SymbolId(31), offset: 2 }, Global { id: SymbolId(31), offset: 3 }, Global { id: SymbolId(32), offset: 0 }, Global { id: SymbolId(32), offset: 1 }, Global { id: SymbolId(32), offset: 2 }, Global { id: SymbolId(32), offset: 3 }, Global { id: SymbolId(33), offset: 0 }, Global { id: SymbolId(33), offset: 1 }, Global { id: SymbolId(33), offset: 2 }, Global { id: SymbolId(33), offset: 3 }, Global { id: SymbolId(34), offset: 0 }, Global { id: SymbolId(34), offset: 1 }, Global { id: SymbolId(34), offset: 2 }, Global { id: SymbolId(34), offset: 3 }])",
+        "zn": "None",
+        "virtual_zp_allocations": [],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 153,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "ProgramEntry",
+        "accumulator": "None",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(9), None, \"uncertified native entry\"))",
+        "calls": [
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Ok(Exact([Global { id: SymbolId(25), offset: 0 }, Global { id: SymbolId(25), offset: 1 }, Global { id: SymbolId(25), offset: 2 }, Global { id: SymbolId(25), offset: 3 }, Global { id: SymbolId(26), offset: 0 }, Global { id: SymbolId(26), offset: 1 }, Global { id: SymbolId(26), offset: 2 }, Global { id: SymbolId(26), offset: 3 }, Global { id: SymbolId(27), offset: 0 }, Global { id: SymbolId(27), offset: 1 }, Global { id: SymbolId(27), offset: 2 }, Global { id: SymbolId(27), offset: 3 }, Global { id: SymbolId(28), offset: 0 }, Global { id: SymbolId(28), offset: 1 }, Global { id: SymbolId(28), offset: 2 }, Global { id: SymbolId(28), offset: 3 }, Global { id: SymbolId(29), offset: 0 }, Global { id: SymbolId(29), offset: 1 }, Global { id: SymbolId(29), offset: 2 }, Global { id: SymbolId(29), offset: 3 }, Global { id: SymbolId(30), offset: 0 }, Global { id: SymbolId(30), offset: 1 }, Global { id: SymbolId(30), offset: 2 }, Global { id: SymbolId(30), offset: 3 }, Global { id: SymbolId(31), offset: 0 }, Global { id: SymbolId(31), offset: 1 }, Global { id: SymbolId(31), offset: 2 }, Global { id: SymbolId(31), offset: 3 }, Global { id: SymbolId(32), offset: 0 }, Global { id: SymbolId(32), offset: 1 }, Global { id: SymbolId(32), offset: 2 }, Global { id: SymbolId(32), offset: 3 }, Global { id: SymbolId(33), offset: 0 }, Global { id: SymbolId(33), offset: 1 }, Global { id: SymbolId(33), offset: 2 }, Global { id: SymbolId(33), offset: 3 }, Global { id: SymbolId(34), offset: 0 }, Global { id: SymbolId(34), offset: 1 }, Global { id: SymbolId(34), offset: 2 }, Global { id: SymbolId(34), offset: 3 }]))",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Ok(Exact([Global { id: SymbolId(25), offset: 0 }, Global { id: SymbolId(25), offset: 1 }, Global { id: SymbolId(25), offset: 2 }, Global { id: SymbolId(25), offset: 3 }, Global { id: SymbolId(26), offset: 0 }, Global { id: SymbolId(26), offset: 1 }, Global { id: SymbolId(26), offset: 2 }, Global { id: SymbolId(26), offset: 3 }, Global { id: SymbolId(27), offset: 0 }, Global { id: SymbolId(27), offset: 1 }, Global { id: SymbolId(27), offset: 2 }, Global { id: SymbolId(27), offset: 3 }, Global { id: SymbolId(28), offset: 0 }, Global { id: SymbolId(28), offset: 1 }, Global { id: SymbolId(28), offset: 2 }, Global { id: SymbolId(28), offset: 3 }, Global { id: SymbolId(29), offset: 0 }, Global { id: SymbolId(29), offset: 1 }, Global { id: SymbolId(29), offset: 2 }, Global { id: SymbolId(29), offset: 3 }, Global { id: SymbolId(30), offset: 0 }, Global { id: SymbolId(30), offset: 1 }, Global { id: SymbolId(30), offset: 2 }, Global { id: SymbolId(30), offset: 3 }, Global { id: SymbolId(31), offset: 0 }, Global { id: SymbolId(31), offset: 1 }, Global { id: SymbolId(31), offset: 2 }, Global { id: SymbolId(31), offset: 3 }, Global { id: SymbolId(32), offset: 0 }, Global { id: SymbolId(32), offset: 1 }, Global { id: SymbolId(32), offset: 2 }, Global { id: SymbolId(32), offset: 3 }, Global { id: SymbolId(33), offset: 0 }, Global { id: SymbolId(33), offset: 1 }, Global { id: SymbolId(33), offset: 2 }, Global { id: SymbolId(33), offset: 3 }, Global { id: SymbolId(34), offset: 0 }, Global { id: SymbolId(34), offset: 1 }, Global { id: SymbolId(34), offset: 2 }, Global { id: SymbolId(34), offset: 3 }]))",
+            "op": 0,
+            "target": "Routine(RoutineId(8))",
+            "target_name": "QueryLayout",
+            "block": 1
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unknown residence callee entry\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(7))",
+            "target_name": "Decode",
+            "block": 3
+          },
+          {
+            "acyclic_inputs": "Err(\"unknown residence ABI\")",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Err(\"unknown residence ABI\")",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 2,
+            "target": "Routine(RoutineId(4))",
+            "target_name": "ReadBits",
+            "block": 5
+          },
+          {
+            "acyclic_inputs": "Ok(())",
+            "acyclic_writes": "Err(\"unsupported residence callee\")",
+            "leaf_inputs": "Ok(())",
+            "leaf_writes": "Err(\"unsupported residence callee\")",
+            "op": 0,
+            "target": "Routine(RoutineId(3))",
+            "target_name": "ReadBit",
+            "block": 6
+          }
+        ],
+        "declared_effects": "MirEffects { memory_reads: None, memory_writes: None, reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: None, may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "Some([])",
+        "direct_result_abi": "Some(Void)",
+        "id": 9,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: true }, flags: MirFlagSet { c: false, z: false, n: false, v: true } })",
+        "name": "Main",
+        "precise_entry_flags": "Known { may_observe: MirFlagSet { c: false, z: false, n: false, v: true } }",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "Some(MirScalarSignature { params: [], result: [] })",
+        "storage": [],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [
+          {
+            "address": 224,
+            "bytes": 1
+          },
+          {
+            "address": 225,
+            "bytes": 1
+          }
+        ],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 91,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "ActionObservable",
+        "accumulator": "None",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(10), Some(Op { block: MirBlockId(0), op_index: 0 }), \"uncertified machine leaf entry\"))",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: Regions([MirMemoryRegion { kind: ZeroPage, offset: 130, size: 4 }, MirMemoryRegion { kind: ZeroPage, offset: 192, size: 4 }]), memory_writes: Regions([MirMemoryRegion { kind: ZeroPage, offset: 130, size: 6 }, MirMemoryRegion { kind: ZeroPage, offset: 192, size: 8 }]), reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: true, x: true, y: true, flags: true, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: Some(0), may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "None",
+        "direct_result_abi": "None",
+        "id": 10,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+        "name": "ACTION.RUNTIME.ACTIONC::LShift32",
+        "precise_entry_flags": "Unknown",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "None",
+        "storage": [],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 59,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      },
+      {
+        "abi": "ActionObservable",
+        "accumulator": "None",
+        "acyclic_entry": null,
+        "acyclic_failure": "Some((RoutineId(11), Some(Op { block: MirBlockId(0), op_index: 0 }), \"uncertified machine leaf entry\"))",
+        "calls": [],
+        "declared_effects": "MirEffects { memory_reads: Regions([MirMemoryRegion { kind: ZeroPage, offset: 130, size: 4 }, MirMemoryRegion { kind: ZeroPage, offset: 192, size: 4 }]), memory_writes: Regions([MirMemoryRegion { kind: ZeroPage, offset: 130, size: 6 }, MirMemoryRegion { kind: ZeroPage, offset: 192, size: 8 }]), reads: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, clobbers: MirRegisterSet { a: true, x: true, y: true, flags: true, sp: false }, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, stack_depth_delta: Some(0), may_call_os: false, opaque: false }",
+        "direct_parameter_abi": "None",
+        "direct_result_abi": "None",
+        "id": 11,
+        "leaf_entry": null,
+        "legacy_ignores_flags": false,
+        "machine_entry": "Some(MirMachineLiveSet { registers: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: true, z: true, n: true, v: true } })",
+        "name": "ACTION.RUNTIME.ACTIONC::RShift32",
+        "precise_entry_flags": "Unknown",
+        "preserves_a0": false,
+        "preserves_e4": false,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": false,
+        "reads": "Unknown",
+        "scalar_signature": "None",
+        "storage": [],
+        "writes": "Unknown",
+        "zn": "None",
+        "virtual_zp_allocations": [],
+        "runtime_helper_sites": [],
+        "instruction_bytes": 59,
+        "named_home_bytes": 0,
+        "absolute_named_home_accesses": 0
+      }
+    ],
+    "origin": 8192,
+    "before_home_selection_bytes": 3851,
+    "seconds": 1.7869611669999999,
+    "work": {
+      "core_callee_contract_checks": 1,
+      "core_callee_read_declines": 1,
+      "core_callee_scope_fallbacks": 1,
+      "core_callee_summary_builds": 2,
+      "emission_invocations": 17,
+      "inner_emission_probes": 68,
+      "late_cleanup_preservation_replays": 2,
+      "materializations": 1,
+      "pipeline_attempts": 25,
+      "rewrite_analysis_builds": 1200,
+      "source_storage_inventory_builds": 10
+    },
+    "placement_and_contract_events": [
+      {
+        "attempt": 487,
+        "data": {
+          "after": "MirKnownCalleeExitSummary { accumulator: None, zn: None, preserves: MirRegisterSet { a: false, x: true, y: false, flags: false, sp: false }, reads: Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, FixedZeroPage(MirFixedZpSlot(224)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]), writes: Unknown }",
+          "before": "MirKnownCalleeExitSummary { accumulator: None, zn: None, preserves: MirRegisterSet { a: false, x: true, y: false, flags: false, sp: false }, reads: Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, Spill { id: MirSpillId(4), offset: 0 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]), writes: Unknown }",
+          "routine": "WriteByte"
+        },
+        "id": 2186,
+        "kind": "core-callee-contract-context"
+      },
+      {
+        "attempt": 487,
+        "data": {
+          "boundary": "post-zp-remapping",
+          "fact": "expanded-reads",
+          "routine": 2
+        },
+        "id": 2187,
+        "kind": "core-callee-contract-declined"
+      },
+      {
+        "attempt": 487,
+        "data": {
+          "diagnostics": null
+        },
+        "id": 2188,
+        "kind": "core-callee-scope-rejected"
+      },
+      {
+        "attempt": 753,
+        "data": {
+          "mode": "conservative"
+        },
+        "id": 3075,
+        "kind": "core-callee-scope-selected"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadBit"
+        },
+        "id": 3670,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadBits"
+        },
+        "id": 3671,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": true,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadHeader"
+        },
+        "id": 3672,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "Decode"
+        },
+        "id": 3673,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "Main"
+        },
+        "id": 3674,
+        "kind": "cross-call-ineligible"
+      }
+    ]
+  }
+}

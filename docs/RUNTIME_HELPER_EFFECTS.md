@@ -5,6 +5,12 @@ This is the source-facing map for routines whose side effects matter to
 `src/codegen/runtime.rs` for internal runtime helpers and `src/codegen/model.rs`
 for Action! routines and OS entry points.
 
+The proposed [MIR6502 runtime and standard library contracts](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md)
+complete that backend's existing signatures and effects with validated entry
+requirements and guaranteed results. Helper and library implementations share
+the fact model while keeping their own ABIs and binding evidence. Those facts
+remain separate from the classic-codegen write map below.
+
 `RoutineEffects` currently tracks:
 
 - whether effects are known at all

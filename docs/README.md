@@ -353,6 +353,12 @@ crowding the active reference set.
   inclusion.
 - [RUNTIME_HELPER_EFFECTS.md](RUNTIME_HELPER_EFFECTS.md) - known runtime helper
   effects.
+- [MIR6502 runtime and standard library contracts](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md)
+  - shared entry, result and effect guarantees for helper/library composition
+    and ZP residence, with implementation bindings and caller-buffer effects.
+- [Runtime and standard library contract implementation plan](MIR6502_RUNTIME_HELPER_CONTRACT_IMPLEMENTATION_PLAN.md)
+  - SArgs capture first, then arithmetic and selected library contracts, with
+    focused checks and a commit after each slice.
 - [SYNTAX_EXTENSIONS.md](SYNTAX_EXTENSIONS.md) - supported syntax extensions.
 - [ENUM and CASE design](Action_2027/ENUM_AND_CASE_DESIGN.md) - implemented modern
   BYTE enum types and non-fallthrough dispatch with ordered guards.

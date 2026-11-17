@@ -17,6 +17,11 @@ descriptions and machine operands provide the evidence; consumers must not look
 back into SemIR or infer a role from a source name. The later sections cover
 register/flag definitions, physical overlap, and the lifetime of derived facts.
 
+The proposed [runtime and standard library contracts](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md)
+apply these distinctions to compiler-selected helpers and library calls,
+including private/public result layouts, implementation binding, buffer effects
+and composition through native routines.
+
 ## The defect
 
 TN's `ArenaCursor()` reads the global pointer `allocp` at `$E8/$E9` without

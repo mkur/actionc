@@ -150,6 +150,11 @@ Descriptor bytes are not executable assembly; the helper retains its conservativ
 memory/register/stack effects and the complete captured frame retains protection.
 This representation does not authorize a new SArgs home-placement strategy.
 
+The proposed [SArgs capture contract](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md#sargs-as-parameter-capture)
+uses this typed operation to report argument reads, parameter definitions and
+normal-return scratch writes. It enables analysis of SArgs-using callees while
+retaining the contiguous frame and its placement restrictions.
+
 Explicit machine observations retain typed storage identity, signed addends,
 operand encoding and addressing behavior. An indexed encoded base can precede
 its named object; this does not prove an out-of-bounds runtime access or supply

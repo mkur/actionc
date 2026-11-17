@@ -136,6 +136,13 @@ inspect prior fixed or escaped storage. NIR preserves/synchronizes those writes;
 MIR models arbitrary handler memory/OS effects rather than just successful
 arithmetic scratch. A proven nonzero divisor needs no NIR fault barrier.
 
+The proposed [runtime and library contracts](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md#program-stop-and-normal-return)
+keep those full observation effects while allowing normal-return effects for
+caller-home preservation. A program-stop path has no caller continuation, so
+its handler clobbers need not block ZP residence across a successful operation.
+This does not remove fault checks or weaken the preceding observable-store
+requirements above.
+
 TN's checked arena retains `ArenaStop`'s local sink. The range analysis excludes
 opaque external calls from non-return certificates, even before a source loop.
 Using `Panic` there requires structured non-return/effect facts; the runtime
