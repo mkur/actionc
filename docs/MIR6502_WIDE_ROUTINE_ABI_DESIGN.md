@@ -39,12 +39,13 @@ The limitation is general:
 | `SYS.StrLC`/`StrLI` and long-integer print families | Four-byte parameters; void result remains known |
 | `MATH.Q4_12.SqrWide(INT)` | Four-byte result also suppresses the narrow parameter |
 | `MATH.INTEGER.AsrLI(LONGINT, BYTE)` | Four-byte parameter and result |
-| `CSTRING.u32toa(LONGCARD, BYTE POINTER, SIZE)` | Parameter ABI unavailable; narrow SIZE result remains known |
 
 The math routines may be inlined; the call-boundary limitation matters when
 their calls survive. Pointer-based REAL APIs do not have this wide-integer
 signature problem. Their floating-point services and memory effects remain
-separate coverage questions.
+separate coverage questions. `CSTRING.u32toa`, previously included in this
+inventory, belongs to the native 65816 library and is outside this backend's
+scope. A 6502 control covers the analogous LONG/pointer/SIZE signature.
 
 The emitted ABI already handles wide calls. [Call lowering](../src/mir6502/lower.rs)
 and [call planning](../src/mir6502/call_plan.rs) split a wide argument into two
@@ -130,7 +131,7 @@ not be treated as a word. Retain existing data-pointer/address-space checks.
 REAL by-value, aggregates and other unsupported forms remain unsupported.
 
 For `ReadBits`, the result is `Scalar(Long)` and parameters are
-`[Scalar(Word)]`. For `u32toa`, parameters include a single `Scalar(Long)`, a
+`[Scalar(Word)]`. For a LONG/pointer/SIZE routine, parameters include a single `Scalar(Long)`, a
 `Pointer` and the target's SIZE integer representation. Neither requires a
 library-name special case.
 
@@ -255,7 +256,8 @@ Use focused MIR6502 checks, grouped around distinct boundaries:
   groups, wrong homes and extent overflow; preserve emitted ABI bytes.
 - Results: all four bytes defined, missing/conditional high bytes, nested
   forwarding, partial/unused capture, and stale result/binding metadata.
-- Public controls: `ReadBits`, `SqrWide`, `AsrLI`, `ValLC`/`ValLI` and `u32toa`,
+- Public controls: `ReadBits`, `SqrWide`, `AsrLI`, `ValLC`/`ValLI`, plus a
+  LONG/pointer/SIZE signature control,
   using existing sources and disabling inlining where a call boundary matters.
   Keep conversion/I/O effect failures distinct from ABI failures.
 - Execution: reuse the existing wide nested direct/typed-indirect call control

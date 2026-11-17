@@ -22,10 +22,10 @@ mod verify;
 
 pub use diagnostics::MirDiagnostic;
 pub use ir::{
-    MirAddr, MirAddressConsumer, MirArgHome, MirAtariFppService, MirBinaryOp, MirBlock, MirBlockId,
+    MirAbiIntegerWidth, MirAddr, MirAddressConsumer, MirArgHome, MirAtariFppService, MirBinaryOp, MirBlock, MirBlockId,
     MirBlockParam, MirCallAbi, MirCallArg, MirCallResult, MirCallTarget, MirCarryIn, MirCarryOut,
     MirCompareOp, MirCond, MirCondDest, MirDataImage, MirDataRelocation, MirDataRelocationKind,
-    MirDataRelocationTarget, MirDef, MirDirectResultAbi, MirEdge, MirEdgeArg, MirEffects, MirFixedZpSlot, MirFlag,
+    MirDataRelocationTarget, MirDef, MirDirectParamAbi, MirDirectResultAbi, MirEdge, MirEdgeArg, MirEffects, MirFixedZpSlot, MirFlag,
     MirFlagTest, MirFrame, MirGlobal, MirGlobalBacking, MirLabel, MirMachineBlockId, MirMem,
     MirMemoryEffect, MirMemoryRegion, MirMemoryRegionKind, MirOp, MirOpRef, MirPhase,
     MirParamBinding, MirParamHome, MirParamLane, MirParamHandoff, MirLocalBinding, MirLocalHome,

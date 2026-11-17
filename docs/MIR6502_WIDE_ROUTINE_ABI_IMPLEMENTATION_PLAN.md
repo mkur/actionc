@@ -1,6 +1,6 @@
 # MIR6502 wide routine ABI implementation plan
 
-Status: in progress, 2026-11-17. Slices 1–2 complete.
+Status: in progress, 2026-11-17. Slices 1–3 complete.
 
 Implement the [design](MIR6502_WIDE_ROUTINE_ABI_DESIGN.md) in four vertical
 slices, committing each after its focused checks. Commit the design and this
@@ -63,7 +63,9 @@ Run focused ABI, entry/result, verifier and observation tests plus existing
 ## Slice 3 — Exercise public APIs and caller preservation
 
 - Inspect real module/provider declarations for `SqrWide`, `AsrLI`, `ValLC`/
-  `ValLI`, long input/print/conversion entries and `u32toa`. Assert complete
+  `ValLI` and long input/print/conversion entries. Inspect `u32toa`'s target
+  applicability; use a LONG/pointer/SIZE control for MIR6502 because CSTRING is
+  a native 65816 library. Assert complete
   logical metadata independently of whether remaining effects permit entry
   composition. Disable inlining where calls need to survive.
 - Reuse wide nested direct/typed-indirect execution and long parser function-
@@ -113,3 +115,12 @@ host LF/CRLF text where required by the existing test paths.
   recorded above; no new failures. `mir6502_call_abi` passed all 11 integration
   tests. Wide result declarations now survive materialization, and both high
   result bytes participate in return liveness and caller-home observations.
+- Slice 3: `wide_abi_homes` passed two tests: twelve real SYS/math API signatures
+  plus a LONG/pointer/SIZE control, and live caller-home execution across first
+  and shifted LONG/SArgs calls in both runtimes. Re-exported the ABI width and
+  parameter kind alongside the existing public result kind. The native 65816
+  CSTRING module is outside MIR6502 scope; corrected that inventory entry.
+  Existing nested-wide-call and parser-function-pointer filters each passed;
+  `cross_call_homes` passed 14 tests and `runtime_library_contracts` passed three.
+  Huffman passed its two MIR6502 provider tests and LF/CRLF vector control
+  (370 executions), covering the final qualification's execution obligation.
