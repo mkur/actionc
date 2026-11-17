@@ -1,9 +1,9 @@
 # MIR6502 call and machine fact contracts
 
-Status, 2026-11-17: the input/state contract for issue **3** and the
-[typed result contract](#typed-direct-result-contract) for issue **4** are
-implemented. The [guaranteed register/flag contract](#guaranteed-register-and-flag-definitions)
-for issue **5** is proposed. Covers the corresponding entries in the
+Status, 2026-11-17: the contracts for issues **3–5** are implemented and qualified.
+Issue **6** has a qualified fixed-global slice; wider private overlap remains
+separate. [Summary validity across transformations](#summary-validity-across-transformations)
+is the proposed design for issue **8**. Covers the corresponding entries in the
 [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md), based on the
 [fact-contract audit](MIR6502_FACT_CONTRACT_AUDIT_2026-11-16.md).
 
@@ -14,8 +14,8 @@ placement, deletion and reordering.
 
 This distinction belongs in MIR6502. Existing typed storage identities, ABI
 descriptions and machine operands provide the evidence; consumers must not look
-back into SemIR or infer a role from a source name. The final section covers
-register/flag definitions; physical-overlap precision remains issue 6.
+back into SemIR or infer a role from a source name. The later sections cover
+register/flag definitions, physical overlap, and the lifetime of derived facts.
 
 ## The defect
 
@@ -690,3 +690,189 @@ that is a separate owner-aware migration. The generic fixed-backing query itself
 leaves private identities unresolved. An unresolved **Global**, including ordinary
 backing, never receives a private-name exclusion. No wider layout precision or
 new proof of private-object disjointness is claimed by this implementation.
+
+## Summary validity across transformations
+
+Proposed for issue **8**. Make the ownership and lifetime of existing facts
+explicit, then harden the boundaries that reuse them during mutation. The audit
+demonstrated distributed validity assumptions, not a separate stale-summary
+miscompile. This design adds no persistent cache, dependency service or new
+optimization eligibility.
+
+Two questions must remain separate:
+
+- **Is the fact current?** Its source representation, analysis policy and all
+  consumed dependencies still match the program being queried.
+- **Does a rewrite preserve the fact's guarantees?** Fresh analysis of a changed
+  candidate proves the obligations used by earlier optimizations.
+
+A changed body can preserve an old guarantee without making its old snapshot
+current. Conversely, rebuilding a summary cannot repair an already-applied
+rewrite. If a caller kept a value in X because its callee preserved X, a later
+callee rewrite that clobbers X must preserve that obligation or cause the caller
+decision to be replayed or rolled back. Merely updating the callee summary leaves
+the caller wrong. This is the motivating contract example, not an observed TN bug.
+
+### Existing ownership boundaries
+
+| Fact or artifact | Current protection | Obligation of its owner |
+| --- | --- | --- |
+| Routine CFG, liveness and machine-value snapshots | [Rewrite driver](../src/mir6502/rewrite/driver.rs) rebuilds generation-scoped snapshots after accepted batches | Supply current callee facts and memory maps; advancing the routine generation does not refresh these external inputs |
+| Native/bounded entry and result facts | [Entry facts](../src/mir6502/analysis/known_callees/entry_inputs.rs) retain the routine, stage, machine payloads, global backing and descendant facts; `is_current` checks them | Check the correct entry stage and transitive dependencies before reuse |
+| Acyclic and residence call queries | [Acyclic analysis](../src/mir6502/analysis/known_callees/entry_inputs/acyclic.rs) and [ResidenceCalls](../src/mir6502/parameter_homes/calls.rs) borrow one immutable program | Construct a new context for another candidate; validate arguments and results at every call site |
+| General exit/effect summaries | [MirKnownCalleeSummaries](../src/mir6502/analysis/known_callees.rs) owns results, call census, entry-flag answers and fixed-backing evidence, without a general source-revision check | Scope the whole bundle to its input program and publication policy; explicitly guard reuse across mutation |
+| Physical layout and emitted result | [Executable](../src/mir6502/preparation.rs) keeps selected MIR, memory map, output and costs together | Use the matching artifact and origin/runtime; speculative branches cannot exchange maps or proof state |
+
+`MirCalleeEntryFlagFact` also owns its source body. Keep that check distinct from
+comparing the resulting flag masks. Equal masks alone cannot validate a stale
+site or a fact from another entry representation.
+
+### What makes a fact current
+
+The analysis owner must retain or borrow the evidence it consumes: routine body
+and CFG, ABI/result metadata, structured effects, home bindings and ZP allocation,
+referenced machine/helper definitions, relevant storage backing/aliases, call
+dependencies, and the analysis policy. Include static data or relocation evidence
+where the particular producer uses it. IDs identify entities, not revisions;
+matching RoutineId, ParamId or SpillId values across candidates prove nothing
+about freshness or ownership.
+
+The initial implementation may rebuild the whole callee bundle at a boundary.
+It need not maintain a reverse dependency graph or update individual entries.
+Successful, Unknown and unavailable cached answers have the same lifetime.
+Mutating a descendant invalidates affected ancestor facts even when their own
+instructions are unchanged.
+
+The publication policy is part of validity. Keep `analyze_for_rewriting`'s
+exclusion of mutable native Z/N exit provenance. `analyze` on an immutable body
+does not grant permission to consume that incidental provenance while rewriting
+the body. Likewise, `PlannedCapture` and `ActualEntry` are different contracts;
+neither a matching home address nor a verifier phase name converts one into the
+other. Issue 7's conservative treatment of unexpanded store reads remains in
+force until fresh analysis can account for their expanded operands.
+
+| Mutation | Required refresh or proof |
+| --- | --- |
+| Operation, operand, recipe or CFG change | Rebuild affected local snapshots and callee facts, or prove the published guarantees survive an atomic rewrite batch |
+| Call target, ABI/result contract, helper or machine payload change | End the current reuse scope; rebuild call census and transitive facts and revalidate call sites |
+| Capture/word expansion or address-consumer resolution | Rebuild for the resulting representation; do not relabel an earlier entry or effect fact |
+| Home binding, spill coloring or virtual-ZP allocation change | Rebuild home/machine facts and physical read/write projections; recheck prior decisions that used the old placement |
+| Global backing, alias offset or storage extent change | Rebuild fixed-storage evidence and dependent overlap/entry facts, even with identical instructions |
+| Code/data size, layout order, origin or runtime selection change | Obtain the applicable candidate layout/output and replay address-dependent proofs; source-fixed evidence may survive only when its own dependencies are unchanged |
+
+Frames remaining fixed does not freeze inline addresses: deleting instructions
+can move later storage. A `MaterializeLayout` is valid only for the decisions and
+placement assumptions it represents; it is not an emitted-address certificate.
+An emitted map is authoritative for its matching candidate. Cross-candidate
+comparison must retain both owners and maps, as in issue 6. Never resolve a
+transitive callee-private identity through the caller's frame.
+
+### Frozen summaries during a rewrite batch
+
+Use the existing pass groups and transaction boundaries. A batch may use one
+frozen baseline summary while modifying a private candidate under this protocol:
+
+1. Keep the baseline program and its complete summary context together. Freeze
+   the interfaces, call dependencies and placement evidence needed by the batch.
+2. Discover and apply local rewrites with the existing generation-scoped driver.
+   Its local facts follow the current candidate routine; its external callee
+   assumptions remain the explicitly frozen contract. Do not expose a partially
+   modified program as a new authoritative summary context.
+3. Before publishing the batch, analyze the complete candidate afresh with the
+   same policy. Do not seed this validation with the baseline's answers. Verify
+   that the published guarantees survive, and run any required placement replay.
+4. On success, use the candidate and its fresh facts together. On failure,
+   restore the complete baseline of the affected batch, including dependent
+   caller rewrites. Returning Unknown at the next query is not recovery.
+
+The first guard should conservatively check all guarantees exposed by the
+existing bundle, using the existing direct-call observability policy. Avoid a
+new per-query dependency ledger. Reuse the owning transaction's checkpoint;
+where a core group has none, retain one input checkpoint for that group. A
+failed optimization falls back to that input, not a source-program diagnostic.
+Debug assertions may explain an invariant failure but cannot be the only guard.
+
+Dropping an analysis object does not retire obligations already used to rewrite
+callers. Later batches must continue preserving those guarantees. A placement or
+interface change that cannot preserve them needs replay from the existing
+checkpoint preceding the dependent decisions. If that replay is unavailable,
+decline the change. Do not treat the terminal transaction as retroactive coverage
+for unrecorded core decisions: its [Preservation](../src/mir6502/late_cleanup/preservation.rs)
+inventory begins after core materialization and has an explicit family list.
+
+### Compatibility between old and new guarantees
+
+Reuse the principles in `late_cleanup::callee_contracts_preserved`; a shared
+comparison helper should express them without weakening stricter callers. Check
+only fact kinds already published by the enclosing consumer. The general bundle
+does not need to acquire full native entry/result proofs just to run this guard;
+their obligations remain with the contexts that already establish and use them.
+
+| Published guarantee | Candidate requirement |
+| --- | --- |
+| Finite may-read or may-write footprint | New footprint is contained in the old one in the same identity/address domain; a newly Unknown footprint cannot justify old exclusions |
+| Register or fixed-byte/pair preservation | Every previously promised preservation still holds, using the respective backing/map evidence |
+| Observable accumulator or published Z/N provenance | Preserve the same value relation; a newly unknown or different provenance fails |
+| Entry requirements or unobserved flags | Introduce no stronger requirement for the existing interface; retain every relied-on unobserved flag |
+| Guaranteed result definitions | Keep every previously certified result byte under the same declared result contract |
+
+Unknown-to-finite effects can strengthen a contract; finite-to-Unknown effects
+cannot preserve its earlier exclusion proofs. May-effects and guaranteed
+definitions remain separate. Compare logical footprint sets directly only when
+their ownership and bindings still match. Otherwise require supported physical
+correspondence/replay or decline; equal logical IDs alone are insufficient.
+
+Compatibility validates assumptions used by an otherwise justified rewrite.
+It does not prove the rewrite's semantics, permit deleting observable reads, or
+replace per-call canonical argument/result checks. Preserve the existing
+verifier, local proof, preservation replay, whole-image cost acceptance and
+rollback requirements. No new per-routine size veto is introduced.
+
+### Initial hardening boundary
+
+Start with the three summary lifetimes in [core materialization](../src/mir6502/materialize.rs):
+the `known_callees` structural/cleanup group, `zero_page_known_callees` during
+call-result ZP reuse, and the `final_known_callees` group spanning later CFG,
+operand and dead-definition cleanup. Classify each mutation as preserving the
+frozen contract or ending that scope. Rebuilding after remapping is already
+present; make the preservation/replay obligation for earlier consumers explicit.
+
+Keep immutable residence/acyclic contexts and their current freshness checks.
+Keep late transactions' independent baseline/candidate analyses and their
+placement replay. Share compatibility rules where useful, rather than wrapping
+every analysis in a new manager. `MirChangeSet` continues to describe local fact
+invalidation; it is not a declaration that external callee summaries or final
+layout survive a rewrite.
+
+Recompute at meaningful changed-batch boundaries, not at each instruction or
+query. Reuse an already-required candidate analysis; unchanged batches need no
+second analysis. Measure analysis-build counts and TN compile time when this is
+implemented. Cross-candidate caching, incremental invalidation, new assembly
+composition and wider private alias proofs remain outside issue 8.
+
+### Focused acceptance for validity
+
+- Mutate only a callee or descendant: add a read/write, clobber a preserved
+  register, change exit provenance or add an entry requirement. Old facts cannot
+  authorize a new rewrite; an already-modified caller is restored or replayed.
+- Change only backing/alias metadata, a home binding, virtual-ZP allocation,
+  result ABI or machine payload. Check the real consumer, not just a revision
+  counter. Retain a positive case where fresh analysis proves the same guarantee.
+- Reject planned/actual and immutable/rewrite-policy mismatches. A body edit with
+  equal reported masks still invalidates the owned source witness; fresh proof
+  may establish compatibility separately.
+- Allow a narrower footprint while retaining entry, result and preservation
+  obligations. A finite-to-Unknown change must fail the frozen-contract guard.
+- Exercise a batch where one routine consumes another's facts before that
+  callee changes. Check complete rollback and that reversing routine visitation
+  cannot admit the unsafe candidate.
+- Shorten code with unchanged frames so inline storage moves. Reuse of the old
+  physical proof must fail unless replay against the new map establishes it.
+  Rejected candidates must not leave facts/maps attached to the selected output.
+
+Use focused unit and transaction tests for those boundaries, plus one existing
+or small VM control keeping caller state live across the relevant call. Cover
+the affected runtimes and LF/CRLF when source loading is exercised. Re-run the
+retained 13-control/95-routine TN audit once at qualification, reporting facts,
+placement, actual image size and analysis cost. No full suite or TN size saving
+is a default acceptance requirement for this MIR6502-only hardening.

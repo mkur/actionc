@@ -100,7 +100,7 @@ No full suite was run.
 | **5** | **Unify guaranteed register/flag definitions** | Entry analyses disagree about ordinary comparisons, producing false carry requirements. | [**Implemented.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#guaranteed-register-and-flag-definitions) |
 | **6** | **Use backing and placement when checking physical overlap** | A write to a global at `$0600` should not exclude every ZP byte. Unknown placement must remain conservative. | [**Fixed-global slice implemented and qualified.**](MIR6502_FIXED_BACKING_OVERLAP_IMPLEMENTATION_PLAN.md) Checked backing/aliases feed preservation, invalidation and caller-byte checks; wider owner-aware private overlap remains separate. |
 | **7** | **Finish separating read and write uncertainty** | Unknown pointee writes no longer erase bounded operand/carrier reads; actual pointee reads remain Unknown. | [**Implemented.**](MIR6502_DIRECTIONAL_READ_FACTS_IMPLEMENTATION_PLAN.md) Existing directional-effects contract restored. |
-| **8** | **Make summary validity across transformations explicit** | Some consumers rely on undocumented assumptions about cached summaries surviving rewrites. No stale-summary failure was demonstrated. | **Yes, as documentation and hardening.** Avoid introducing a general cache framework without evidence it is needed. |
+| **8** | **Make summary validity across transformations explicit** | Some consumers rely on undocumented assumptions about cached summaries surviving rewrites. No stale-summary failure was demonstrated. | [**Design prepared.**](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#summary-validity-across-transformations) Scoped reuse, compatibility checks and replay; implementation pending. |
 | **9** | **Compose already-certified assembly leaf contracts** | Useful leaf knowledge is discarded by acyclic composition and residence admission. | **Extend the existing acyclic design after the repairs.** This is additional coverage, not a correctness fix. |
 
 ## Design work
@@ -110,7 +110,8 @@ covers the implemented contracts for **issues 3–5**.
 It also specifies the backing/placement contract for **issue 6**. Its fixed-global
 implementation is qualified; the initial slice retains the existing private-storage
 exclusions rather than claiming new owner-aware layout precision.
-Extend it for **issue 8**, retaining the shared distinctions:
+Its proposed **issue 8** section specifies fact lifetime and rewrite
+compatibility, retaining the shared distinctions:
 
 - Caller-supplied inputs versus existing state.
 - Possible effects versus guaranteed definitions and results.
@@ -127,5 +128,6 @@ after the shared contracts are repaired.
 ## Next implementation work
 
 Issues **1–5 and 7 are repaired**. Issue **6** is qualified for fixed globals and
-aliases; wider owner-aware private overlap remains separate. The next design
-work is **issue 8**, making fact validity and required recomputation explicit.
+aliases; wider owner-aware private overlap remains separate. Issue **8** now has
+a [design](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#summary-validity-across-transformations)
+and is ready for a focused implementation plan.
