@@ -59,7 +59,8 @@ impl<'a> InvocationHomes<'a> {
                 || !verify_bindings(r).is_empty()
                 || !verify_storage_with_address_control(source, r, MirCalleeEntryStage::ActualEntry, &addresses).is_empty()
                 || r.blocks.iter().flat_map(|b| &b.ops).any(|op| match op {
-                    MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. } => true,
+                    MirOp::RuntimeHelper { .. } => super::super::runtime_contracts::helper_invocation(source,op).is_none(),
+                    MirOp::SArgsCapture { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. } => true,
                     _ => false,
                 })
                 || !verify_residence(r, Some(&mut calls), Some(&addresses)).is_empty()

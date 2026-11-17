@@ -142,7 +142,7 @@ fn install_bindings(routine: &mut MirRoutine, bindings: Vec<MirParamBinding>) {
 }
 
 fn eligible_with_calls(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, calls: bool, mixed: bool) -> bool {
-    admission::check(addresses, routine, calls, mixed).is_ok()
+    admission::check(addresses, routine, calls, mixed, None).is_ok()
 }
 
 fn eligible_parameter(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, p: &MirStorageSlot) -> bool {

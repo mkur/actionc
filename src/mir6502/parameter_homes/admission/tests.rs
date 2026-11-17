@@ -1,7 +1,7 @@
 use super::*;
 use crate::mir6502::{self as mir, trace::{Mir6502Trace, Trace}};
 
-fn nir(source: &str) -> crate::nir::NirProgram {
+pub(super) fn nir(source: &str) -> crate::nir::NirProgram {
     let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
     let model = crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern()).unwrap();
     crate::nir::optimize_program(&crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model))).unwrap()
@@ -22,13 +22,13 @@ PROC Main() RETURN";
     for (name, reason) in [("Empty",Reason::NoObjects),("Wide",Reason::CaptureExtent),
         ("Shift",Reason::Operation),("Indexed",Reason::PointerArithmetic)] {
         let r = p.routines.iter().find(|r| r.name == name).unwrap();
-        let rejection = check(&addresses,r,true,true).unwrap_err();
+        let rejection = check(&addresses,r,true,true,None).unwrap_err();
         assert_eq!(rejection.reason,reason,"{name}");
         assert_eq!(rejection.site.is_some(),matches!(reason,Reason::Operation|Reason::PointerArithmetic));
     }
     let r = p.routines.iter().find(|r| r.name == "Hold").unwrap();
-    assert!(check(&addresses,r,true,true).is_ok());
-    assert_eq!(check(&addresses,r,false,true).unwrap_err().reason,Reason::CallsDisabled);
+    assert!(check(&addresses,r,true,true,None).is_ok());
+    assert_eq!(check(&addresses,r,false,true,None).unwrap_err().reason,Reason::CallsDisabled);
     let selected = mir::materialize_program(p.clone(),&Default::default()).unwrap();
     let session = Mir6502Trace::default();
     let on = cross_call::propose_with_scope(&p,&selected,true,true,true,&session.context());

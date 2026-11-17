@@ -5,7 +5,7 @@ use crate::mir6502::analysis::{effects::{classify_op, writes_ordinary_pointee}, 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Reason {
     Abi, BoundFrame, NoObjects, CaptureExtent, ParameterStorage,
-    PointerArithmetic, CallsDisabled, Effects, Operation,
+    PointerArithmetic, CallsDisabled, Effects, Operation, HelperContract,
 }
 
 impl Reason {
@@ -20,6 +20,7 @@ impl Reason {
             Self::CallsDisabled => "invocation requires cross-call discovery",
             Self::Effects => "unsupported operation effects",
             Self::Operation => "unqualified operation expansion",
+            Self::HelperContract => "unsupported or stale helper invocation",
         }
     }
 }
@@ -36,7 +37,7 @@ impl From<Reason> for Rejection {
 
 /// Preserve the closed expansion set and report one deterministic blocker.
 pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
-    calls: bool, mixed: bool) -> Result<(), Rejection> {
+    calls: bool, mixed: bool, selected: Option<&MirProgram>) -> Result<(), Rejection> {
     if routine.abi != MirRoutineAbi::Action { return Err(Reason::Abi.into()); }
     if routine.frame.parameter_homes.is_some() { return Err(Reason::BoundFrame.into()); }
     if routine.frame.params.is_empty() && (!calls || routine.frame.locals.is_empty()) {
@@ -66,6 +67,13 @@ pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
             if !calls { return Err(reject(Reason::CallsDisabled)); }
             continue;
         }
+        if matches!(op, MirOp::RuntimeHelper { .. }) {
+            if !calls { return Err(reject(Reason::CallsDisabled)); }
+            if selected.and_then(|p| crate::mir6502::runtime_contracts::helper_invocation(p,op)).is_none() {
+                return Err(reject(Reason::HelperContract));
+            }
+            continue;
+        }
         let effects = classify_op(op);
         if effects.memory.opaque || (effects.memory.indirect_writes && !writes_ordinary_pointee(op)) {
             return Err(reject(Reason::Effects));
@@ -87,3 +95,5 @@ pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod helper_tests;

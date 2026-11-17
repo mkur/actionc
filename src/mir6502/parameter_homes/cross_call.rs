@@ -36,9 +36,9 @@ pub(super) fn propose_with_scope(
         .iter()
         .enumerate()
         .filter_map(|(index, routine)| {
-            if let Err(rejection) = admission::check(&addresses, routine, true, lifetimes) {
+            if let Err(rejection) = admission::check(&addresses, routine, true, lifetimes, lifetimes.then_some(selected)) {
                 if trace.enabled() && routine.blocks.iter().flat_map(|b| &b.ops)
-                    .any(|op| matches!(op, MirOp::Call { .. }))
+                    .any(|op| matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. }))
                 {
                     trace.event("cross-call-ineligible", || serde_json::json!({
                         "routine": routine.name,
@@ -68,7 +68,7 @@ pub(super) fn propose_with_scope(
                 .blocks
                 .iter()
                 .flat_map(|b| b.ops.iter().enumerate().filter_map(|(op_index, op)| {
-                    matches!(op, MirOp::Call { .. }).then_some((MirSite::Op { block: b.id, op_index }, op))
+                    matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. }).then_some((MirSite::Op { block: b.id, op_index }, op))
                 }))
                 .collect();
             (!calls.is_empty() && (multiple || calls.len() == 1))
@@ -111,6 +111,7 @@ pub(super) fn propose_with_scope(
                 .filter(|slot| !writes.preserves_private_fixed_byte(MirFixedZpSlot(*slot), &fixed))
                 .collect::<BTreeSet<_>>()).and_then(|mut writes| {
                     if let Some(chains) = &chains
+                        && matches!(call, MirOp::Call { .. })
                         && super::super::runtime_contracts::library_invocation(selected, call).is_none() {
                         let MirOp::Call { target: MirCallTarget::Routine(target), .. } = call else {
                             return Err("unknown planning dependency");
@@ -133,14 +134,27 @@ pub(super) fn propose_with_scope(
                 }));
                 continue 'caller;
             }
-            call_writes.push((*site, writes));
+            let results: BTreeSet<_> = if matches!(call, MirOp::RuntimeHelper { .. }) {
+                // Admission checked this retained operation against the selected
+                // implementation. Candidate evidence is rebuilt after expansion.
+                super::super::runtime_contracts::helper_invocation(selected,call)
+                    .expect("admitted helper contract").definitions.into_iter().filter_map(|m| match m {
+                        MirMem::FixedZeroPage(s) => Some(s.0), _ => None,
+                    }).collect()
+            } else {
+                super::super::analysis::home_liveness::call_return_home_uses(input,call)
+                    .iter().filter_map(|h| match h {
+                        super::super::analysis::effects::MirHomeByte::FixedZeroPage(s) => Some(s.0), _ => None,
+                    }).collect()
+            };
+            call_writes.push((*site, writes, results));
         }
         let forbidden = |mem: &MirMem, width: u16| {
             if !addresses.compiler_controls_address(routine.id, mem) { return None; }
             let mut forbidden = if physical::has_pointee_writes(input, routine) {
                 observed_zp.clone()
             } else { BTreeSet::new() };
-            for (site, writes) in &call_writes {
+            for (site, writes, results) in &call_writes {
                 let crosses = (0..width).any(|offset| {
                     let lane = match *mem {
                         MirMem::Param { id, .. } => MirMem::Param { id, offset },
@@ -153,12 +167,7 @@ pub(super) fn propose_with_scope(
                     // Reusing a return slot needs an explicit value handoff:
                     // later physical result reads are not reads of this object.
                     // Keep that separate from ordinary lifetime-based sharing.
-                    let call = calls.iter().find(|(s, _)| s == site).expect("recorded call site").1;
-                    forbidden.extend(super::super::analysis::home_liveness::call_return_home_uses(input, call)
-                        .iter().filter_map(|h| match h {
-                            super::super::analysis::effects::MirHomeByte::FixedZeroPage(s) => Some(s.0),
-                            _ => None,
-                        }));
+                    forbidden.extend(results);
                     continue;
                 }
                 match writes {

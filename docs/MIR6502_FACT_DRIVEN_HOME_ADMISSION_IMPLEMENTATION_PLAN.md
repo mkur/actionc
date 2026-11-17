@@ -1,6 +1,6 @@
 # MIR6502 home admission using existing facts: implementation plan
 
-Prepared 2026-11-17. Status: in progress; slice 1 complete.
+Prepared 2026-11-17. Status: in progress; slices 1–2 complete.
 
 Implement in five slices, committing each after its focused checks. This is the
 next qualified widening of the [home-selection design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#further-widening-follows-measured-blockers),
@@ -210,3 +210,12 @@ and follow the repository's mandatory shared-contract checks.
   admission/trace test passed after correcting a reserved name in its sample.
   Trace-off/on proposals and emitted output agree. Production admission is
   unchanged; rejection events now retain a reason and the blocking site/op.
+- Slice 2: 71 parameter-home tests and ten runtime-contract tests passed, with
+  the known expanded-entry failure still explicitly skipped. The helper-only
+  VM control executes 50 cases across both runtimes, keeps `keep` in working
+  ZP outside the reserved ABI window and saves eight payload bytes (163 → 155)
+  in each runtime. Stale/malformed helpers, repeated-site gating and both-lane
+  result conflicts are covered; conflicting trials restore the complete
+  selected artifact. Invocation certificates now consume qualified helper
+  facts while helper operations retain their physical observation boundary.
+  The existing wide divide-by-zero VM control also passed.

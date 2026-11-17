@@ -1550,6 +1550,11 @@ The proposed [fact-driven admission implementation plan](MIR6502_FACT_DRIVEN_HOM
 qualifies precise rejection reasons, existing helper contracts, global/static
 address formation and bounded constant word shifts in separate slices. Current
 operation exclusions remain until their corresponding slice is qualified.
+Explicit runtime helpers are now admitted through their selected invocation
+contracts in the cross-call/lifetime path, including helper-only routines.
+Planning accounts for helper scratch and actual result homes; the resumed
+candidate rebuilds its own contracts and residence proofs. No helper fact
+grants purity or narrows full observations to successful-return effects.
 
 Retain the mixed bindings and per-object exposure/lifetime filtering that are
 already implemented. Exposed or entry-dependent siblings can stay inline;
