@@ -1,6 +1,6 @@
 # MIR6502 fixed backing overlap implementation plan
 
-Status: ready to implement, 2026-11-17.
+Status: slice 1 complete; consumer migration next, 2026-11-17.
 
 Implements issue **6** from the [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md)
 and the [physical overlap design](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#physical-overlap-from-backing-and-placement).
@@ -16,6 +16,9 @@ cost/rollback contracts intact. Commit each slice separately.
 - Test RAM versus ZP, overlapping names, nested aliases, offsets, unresolved
   backing, cycles, overflow and rebuilding evidence after rebinding.
 - Run focused query unit tests and commit.
+
+Slice 1 validation: three new overlap controls and the existing fixed-storage
+relocation control passed (four filtered unit tests).
 
 ## Slice 2 — Migrate preservation consumers
 
