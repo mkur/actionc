@@ -341,7 +341,7 @@ fn object_storage_admission_keeps_shift_and_helper_boundaries() {
     }
     for text in [
         "BYTE FUNC Shift(BYTE x,keep) x=x LSH keep RETURN(x)",
-        "CARD FUNC Shift(CARD x BYTE keep) x=x RSH 1 RETURN(x)",
+        "CARD FUNC Shift(CARD x BYTE keep) x=x RSH 5 RETURN(x)",
         "CARD FUNC Mul(CARD x,y) RETURN(x*y)",
         "CARD FUNC Exposed(CARD x) CARD p p=@x RETURN(p)",
     ] {

@@ -2279,6 +2279,23 @@ fn lower_constant_word_shift_projections(
     peephole_stats.record_many(routine.id, "constant-word-shift-projection", lowered);
 }
 
+/// Existing native word-shift recipes admitted for source-home placement.
+/// Zero remains a whole-word move; nonzero shifts require splittable lanes and
+/// must not duplicate pointer-cell reads. No entry/exit carry contract is added.
+pub(super) fn bounded_native_word_shift(op: &MirOp) -> Option<u16> {
+    let MirOp::Binary {
+        op: MirBinaryOp::Lsh | MirBinaryOp::Rsh,
+        dst, left, right, width: MirWidth::Word, carry_in, carry_out,
+    } = op else { return None; };
+    let count = constant_value_u16(right)?;
+    if count > MAX_INLINE_WORD_CONSTANT_SHIFT || carry_in.is_some()
+        || *carry_out != MirCarryOut::Ignore
+        || (count != 0 && (value_contains_pointer_cell(left) || split_def(dst.clone()).is_none())) {
+        return None;
+    }
+    Some(count)
+}
+
 fn lower_small_constant_word_shifts(
     routine: &mut super::ir::MirRoutine,
     layout: &MaterializeLayout,
@@ -2293,48 +2310,14 @@ fn lower_small_constant_word_shifts(
     for block in blocks {
         let mut out = Vec::with_capacity(block.ops.len());
         for op in std::mem::take(&mut block.ops) {
-            let MirOp::Binary {
-                op: shift_op @ (MirBinaryOp::Lsh | MirBinaryOp::Rsh),
-                dst,
-                left,
-                right,
-                width: MirWidth::Word,
-                carry_in,
-                carry_out,
-            } = op
-            else {
+            // The preceding projection pass handles zero with a word move.
+            let Some(count) = bounded_native_word_shift(&op).filter(|count| *count != 0) else {
                 out.push(op);
                 continue;
             };
-            let Some(count) = constant_value_u16(&right) else {
-                out.push(MirOp::Binary {
-                    op: shift_op,
-                    dst,
-                    left,
-                    right,
-                    width: MirWidth::Word,
-                    carry_in,
-                    carry_out,
-                });
-                continue;
+            let MirOp::Binary { op: shift_op, dst, left, .. } = op else {
+                unreachable!("validated native word shift");
             };
-            if !(1..=MAX_INLINE_WORD_CONSTANT_SHIFT).contains(&count)
-                || carry_in.is_some()
-                || carry_out != MirCarryOut::Ignore
-                || value_contains_pointer_cell(&left)
-                || split_def(dst.clone()).is_none()
-            {
-                out.push(MirOp::Binary {
-                    op: shift_op,
-                    dst,
-                    left,
-                    right,
-                    width: MirWidth::Word,
-                    carry_in,
-                    carry_out,
-                });
-                continue;
-            }
 
             let (mut source_lo, mut source_hi) =
                 split_value_with_storage_widths(left, routine_id, layout, &temp_widths);

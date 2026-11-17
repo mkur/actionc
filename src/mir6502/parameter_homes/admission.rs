@@ -85,6 +85,7 @@ pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
                     | MirBinaryOp::Or | MirBinaryOp::Xor, .. })
             || (mixed && matches!(op, MirOp::LeaAddr { target: MirMem::Param { .. } | MirMem::Local { .. }, .. }))
             || matches!(op, MirOp::LeaAddr { target: MirMem::Global { .. } | MirMem::Static { .. }, width: MirWidth::Word, .. })
+            || crate::mir6502::materialize::bounded_native_word_shift(op).is_some()
             || matches!(op, MirOp::Binary { op: MirBinaryOp::Lsh | MirBinaryOp::Rsh, width: MirWidth::Byte,
                 right: MirValue::ConstU8(0..=8) | MirValue::ConstU16(0..=8), .. })
             || matches!(op, MirOp::Load { src, width: MirWidth::Byte | MirWidth::Word, .. }
@@ -100,3 +101,6 @@ mod tests;
 mod helper_tests;
 #[cfg(test)]
 mod address_tests;
+
+#[cfg(test)]
+mod shift_tests;

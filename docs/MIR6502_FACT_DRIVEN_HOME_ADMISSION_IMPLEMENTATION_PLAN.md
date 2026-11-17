@@ -1,6 +1,6 @@
 # MIR6502 home admission using existing facts: implementation plan
 
-Prepared 2026-11-17. Status: in progress; slices 1–3 complete.
+Prepared 2026-11-17. Status: in progress; slices 1–4 complete.
 
 Implement in five slices, committing each after its focused checks. This is the
 next qualified widening of the [home-selection design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#further-widening-follows-measured-blockers),
@@ -226,3 +226,14 @@ and follow the repository's mandatory shared-contract checks.
   both runtimes and two origins, preserving the numeric guard and relocated
   addresses. Both table variants save 18 payload bytes (95 → 77 with inline
   table data; 89 → 71 with a fixed table address).
+- Slice 4: 73 parameter-home tests and the two existing word-shift expansion
+  tests passed; the known expanded-entry failure was explicitly skipped in the
+  focused home filter. Admission and small-shift materialization share the
+  existing native-recipe predicate. Count-five/variable shifts, carry contracts
+  and nonzero pointer-cell operands remain excluded. The former count-one
+  exclusion fixtures now use count five, reflecting the intentional admission
+  change rather than relaxing an expanded-proof failure.
+  The resident-home VM control passed 120 invocations across both runtimes,
+  both directions and counts zero/one/four. Nonzero cases save 15–20 payload
+  bytes against home selection disabled; zero is an existing boundary control
+  and saves 18 bytes against that gate, not a new optimization claim.

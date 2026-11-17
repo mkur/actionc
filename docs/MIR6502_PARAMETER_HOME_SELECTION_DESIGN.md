@@ -1559,6 +1559,10 @@ Word `LeaAddr` of a `Global` or `Static` is also qualified through its existing
 structured address materialization. This does not expose unrelated source
 objects or establish pointee bounds. Numeric observations, exposed-object
 exclusions and final physical alias checks still apply.
+Bounded constant word shifts (counts 0–4) share the materializer's native-recipe
+predicate, with the exact scope described in the
+[object-storage design](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md#placement-and-verification).
+Variable shifts and larger counts remain excluded from this admission route.
 
 Retain the mixed bindings and per-object exposure/lifetime filtering that are
 already implemented. Exposed or entry-dependent siblings can stay inline;
