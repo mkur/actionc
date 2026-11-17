@@ -1,6 +1,6 @@
 # MIR6502 home admission using existing facts: implementation plan
 
-Prepared 2026-11-17. Status: in progress; slices 1–2 complete.
+Prepared 2026-11-17. Status: in progress; slices 1–3 complete.
 
 Implement in five slices, committing each after its focused checks. This is the
 next qualified widening of the [home-selection design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#further-widening-follows-measured-blockers),
@@ -219,3 +219,10 @@ and follow the repository's mandatory shared-contract checks.
   selected artifact. Invocation certificates now consume qualified helper
   facts while helper operations retain their physical observation boundary.
   The existing wide divide-by-zero VM control also passed.
+- Slice 3: the grouped global/fixed/static-address unit control covers private
+  siblings, an exposed parameter and a reserved numeric ZP byte. Static
+  `LeaAddr` uses a real static ID; source string arguments ordinarily use
+  `StaticAddr` directly. The VM address control passed 64 invocations across
+  both runtimes and two origins, preserving the numeric guard and relocated
+  addresses. Both table variants save 18 payload bytes (95 → 77 with inline
+  table data; 89 → 71 with a fixed table address).

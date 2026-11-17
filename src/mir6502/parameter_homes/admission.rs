@@ -84,6 +84,7 @@ pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
                 | MirOp::Binary { op: MirBinaryOp::Add | MirBinaryOp::Sub | MirBinaryOp::And
                     | MirBinaryOp::Or | MirBinaryOp::Xor, .. })
             || (mixed && matches!(op, MirOp::LeaAddr { target: MirMem::Param { .. } | MirMem::Local { .. }, .. }))
+            || matches!(op, MirOp::LeaAddr { target: MirMem::Global { .. } | MirMem::Static { .. }, width: MirWidth::Word, .. })
             || matches!(op, MirOp::Binary { op: MirBinaryOp::Lsh | MirBinaryOp::Rsh, width: MirWidth::Byte,
                 right: MirValue::ConstU8(0..=8) | MirValue::ConstU16(0..=8), .. })
             || matches!(op, MirOp::Load { src, width: MirWidth::Byte | MirWidth::Word, .. }
@@ -97,3 +98,5 @@ pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
 mod tests;
 #[cfg(test)]
 mod helper_tests;
+#[cfg(test)]
+mod address_tests;

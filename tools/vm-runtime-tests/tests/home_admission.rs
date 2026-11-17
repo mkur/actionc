@@ -54,3 +54,36 @@ PROC Main() RETURN");
         eprintln!("{runtime:?} helper control: {} -> {} bytes",off.bytes.len(),output.bytes.len());
     }
 }
+
+#[test]
+fn global_and_static_addresses_preserve_live_homes_and_relocate_in_both_runtimes() {
+    for table in ["BYTE ARRAY table=[5 9 17 33]", "BYTE ARRAY table=$800"] {
+        let n=nir(&format!("CARD reserve=$A0,reserve2=$A2 BYTE guard=$E0 {table}
+BYTE FUNC Fetch(BYTE POINTER p) RETURN(p(1))
+CARD FUNC Hold(CARD keep) BYTE b b=Fetch(table) RETURN(keep+b)
+CARD FUNC Literal(CARD keep) BYTE b b=Fetch(\"Hi\") RETURN(keep+b)
+PROC Main() RETURN"));
+        for runtime in [Runtime::ActionCart,Runtime::Standalone] {
+            for origin in [0x3000,0x5000] {
+                let output=mir6502::generate_output_with_config_and_runtime(&n,origin,&config(),runtime).unwrap();
+                let off=mir6502::generate_output_with_config_and_runtime(&n,origin,
+                    &Mir6502Config{enable_cross_call_home_selection:false,..config()},runtime).unwrap();
+                assert_zp(&output,"Hold","keep"); assert_zp(&output,"Literal","keep");
+                assert!(output.bytes.len()<off.bytes.len());
+                let (mut vm,profile)=support::vm_for(runtime);
+                vm.load_atari_object_for_execution(profile,&actionc::codegen::format_load_file(&output)).unwrap();
+                vm.bus_mut().ram_mut().map(0x800,&[5,9,17,33]).unwrap();
+                vm.bus_mut().ram_mut().map(0xe0,&[0x5a]).unwrap();
+                for (name,delta) in [("Hold",9u16),("Literal",u16::from(b'H'))] {
+                    let entry=output.routine_addresses.iter().find(|r|r.name==name).unwrap().address;
+                    for keep in [0u16,255,0x7fff,0xffff] {
+                        vm=machine::call(vm,&mut Observe,entry,&keep.to_le_bytes());
+                        assert_eq!(machine::bytes(&vm,0xa0,2),keep.wrapping_add(delta).to_le_bytes());
+                        assert_eq!(machine::bytes(&vm,0xe0,1),[0x5a]);
+                    }
+                }
+                eprintln!("{runtime:?} address control at {origin:04x} ({table}): {} -> {} bytes",off.bytes.len(),output.bytes.len());
+            }
+        }
+    }
+}

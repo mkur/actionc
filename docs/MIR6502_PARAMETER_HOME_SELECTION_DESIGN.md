@@ -1555,6 +1555,10 @@ contracts in the cross-call/lifetime path, including helper-only routines.
 Planning accounts for helper scratch and actual result homes; the resumed
 candidate rebuilds its own contracts and residence proofs. No helper fact
 grants purity or narrows full observations to successful-return effects.
+Word `LeaAddr` of a `Global` or `Static` is also qualified through its existing
+structured address materialization. This does not expose unrelated source
+objects or establish pointee bounds. Numeric observations, exposed-object
+exclusions and final physical alias checks still apply.
 
 Retain the mixed bindings and per-object exposure/lifetime filtering that are
 already implemented. Exposed or entry-dependent siblings can stay inline;
