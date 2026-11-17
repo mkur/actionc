@@ -1,6 +1,6 @@
 # MIR6502 fixed backing overlap implementation plan
 
-Status: slice 1 complete; consumer migration next, 2026-11-17.
+Status: slices 1 and 2 complete; runtime qualification in progress, 2026-11-17.
 
 Implements issue **6** from the [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md)
 and the [physical overlap design](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#physical-overlap-from-backing-and-placement).
@@ -12,7 +12,7 @@ cost/rollback contracts intact. Commit each slice separately.
 - Build a short-lived address projection from the current program using
   `fixed_storage_address`. Keep it separate from logical footprints.
 - Compare bytes by checked fixed addresses. Missing backing, invalid aliases,
-  overflow and ownerless private references remain possible overlaps.
+  overflow and ownerless private references remain unresolved by this query.
 - Test RAM versus ZP, overlapping names, nested aliases, offsets, unresolved
   backing, cycles, overflow and rebuilding evidence after rebinding.
 - Run focused query unit tests and commit.
@@ -29,11 +29,20 @@ relocation control passed (four filtered unit tests).
   selection and contract replay together. Compare old and proposed summaries
   using their respective backing evidence.
 - A caller memory map may resolve the queried caller byte, never ownerless
-  callee-private identities. Keep unresolved private placement conservative.
+  callee-private identities. Preserve existing normalized-private-storage
+  contracts; do not broaden this fixed-global slice into private alias repair.
 - Add consumer controls for BYTE/CARD writes, named backing collisions,
   Unknown footprints, candidate freshness and cached-value retention/deletion.
 - Run focused MIR6502 consumer tests; investigate regressions in that scope and
   commit the coherent migration.
+
+Slice 2 validation: 241 focused MIR6502 unit tests passed. Two existing failures
+(pointer-retention indexed-read acceptance and the expanded-entry carry
+expectation) reproduce unchanged on a clean `239942f5` checkout; their assertions
+remain unchanged. The audit passed for 95 TN routines and 11 independent controls.
+TN remains byte-identical at 9,811 bytes. The final unit run reused the audit's
+compiled test binary; four diagnostic tests and the separately executed audit
+were ignored, and the two confirmed baseline failures were excluded.
 
 ## Slice 3 — Qualify and record results
 
@@ -47,3 +56,13 @@ relocation control passed (four filtered unit tests).
 
 No frontend/NIR contract changes or general layout/alias framework are planned.
 Private-layout precision without retained ownership remains follow-up work.
+
+## Scope refinement during slice 2
+
+Applying the generic unresolved-address fallback to all existing private-home
+queries disabled acyclic placement and pointer retention controls. The fixed-global
+repair therefore retains the existing private-storage exclusions at the consumer
+boundary. New fixed-address decisions use the shared query; globals with unknown
+backing never inherit those exclusions. Ownerless private references are not
+resolved through caller maps. Replacing the legacy private exclusions requires
+owner-aware footprints and applicable placement evidence as a separate slice.

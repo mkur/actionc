@@ -458,8 +458,8 @@ fn callee_contracts_preserved(before: &MirProgram, after: &MirProgram) -> bool {
                     .into_iter()
                     .all(|reg| !a.preserves_register(reg) || b.preserves_register(reg))
                 && (0..255).all(|slot| {
-                    !a.preserves_fixed_pair(MirFixedZpSlot(slot))
-                        || b.preserves_fixed_pair(MirFixedZpSlot(slot))
+                    !a.preserves_fixed_pair(MirFixedZpSlot(slot), old.fixed_storage())
+                        || b.preserves_fixed_pair(MirFixedZpSlot(slot), new.fixed_storage())
                 })
         })
 }

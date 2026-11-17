@@ -86,6 +86,10 @@ impl<'a> ResidenceCalls<'a> {
         Ok(())
     }
 
+    pub fn fixed_storage(&self) -> Arc<crate::mir6502::analysis::known_callees::MirFixedStorage> {
+        self.known.fixed_storage().clone()
+    }
+
     pub fn writes(&mut self, call: &MirOp) -> Result<&MirKnownMemoryWrites, &'static str> {
         if self.stage != MirCalleeEntryStage::ActualEntry {
             return Err("residence writes require expanded callee facts");
@@ -240,6 +244,30 @@ mod tests {
             width: MirWidth::Byte,
         }
     }
+    #[test]
+    fn caller_lifetime_rechecks_fixed_global_alias_backing_after_rebinding() {
+        use crate::mir6502::ir::{MirGlobal, MirGlobalBacking};
+        use crate::nir::SymbolId;
+        let mut p = program();
+        p.globals = vec![MirGlobal { id: SymbolId(90), name: "state".into(), kind: "word".into(),
+            width: Some(MirWidth::Word), storage_size: 2, backing: MirGlobalBacking::Absolute(0x600), init: None },
+            MirGlobal { id: SymbolId(91), name: "alias".into(), kind: "byte".into(),
+            width: Some(MirWidth::Byte), storage_size: 1,
+            backing: MirGlobalBacking::Alias { target: SymbolId(90), offset: 1 }, init: None }];
+        p.routines[0].blocks[0].ops.insert(0, MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Global { id: SymbolId(91), offset: 0 }),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte });
+        assert!(verify(&p).is_empty());
+        let routines = p.routines.clone();
+        for address in [0xe3, 0xe4] {
+            p.globals[0].backing = MirGlobalBacking::Absolute(address);
+            assert!(!verify(&p).is_empty(), "alias reaches {:02x}", address + 1);
+            assert_eq!(p.routines, routines);
+        }
+        p.globals[0].backing = MirGlobalBacking::Absolute(0x700);
+        assert!(verify(&p).is_empty());
+    }
+
     #[test]
     fn caller_lifetime_uses_current_callee_writes_and_absolute_aliases() {
         for abi in [MirRoutineAbi::Action, MirRoutineAbi::ActionObservable] {

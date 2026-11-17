@@ -56,7 +56,14 @@ fn inventory(p: &MirProgram, output: Option<&crate::codegen::CodegenOutput>) -> 
             "precise_entry_flags":format!("{:?}",mir::analysis::entry_flags::MirKnownCalleeEntryFlags::analyze(r)),
             "machine_entry":format!("{:?}",mir::analysis::machine_liveness::MirMachineLiveness::entry_inputs(r,&cfg)),
             "reads":format!("{:?}",k.reads()),"writes":format!("{:?}",k.writes()),
-            "preserves_e4":k.writes().preserves_fixed_byte(MirFixedZpSlot(0xe4)),
+            "preserves_e4":k.writes().preserves_fixed_byte(MirFixedZpSlot(0xe4), known.fixed_storage()),
+            "preserves_a0":k.writes().preserves_fixed_byte(MirFixedZpSlot(0xa0), known.fixed_storage()),
+            "preserves_e8":k.writes().preserves_fixed_byte(MirFixedZpSlot(0xe8), known.fixed_storage()),
+            "preserves_e9":k.writes().preserves_fixed_byte(MirFixedZpSlot(0xe9), known.fixed_storage()),
+            "preserves_ea":k.writes().preserves_fixed_byte(MirFixedZpSlot(0xea), known.fixed_storage()),
+            "storage":output.map(|o|o.map.storage_symbols.iter().filter(|s|
+                s.scope==crate::codegen::CodegenSymbolScope::Routine(r.name.clone()))
+                .map(|s|json!({"name":s.name,"kind":format!("{:?}",s.kind),"address":s.address,"size":s.size})).collect::<Vec<_>>()),
             "accumulator":format!("{:?}",k.accumulator()),"zn":format!("{:?}",k.zn()),
             "calls":calls,"comparisons":comparisons,"assembly":assembly,
             "mir":mir::printer::format_program_filtered(p,|id|id==r.id)})
@@ -89,7 +96,7 @@ fn synthetic() -> Value {
             MirMemoryRegionKind::ZeroPage=>MirMem::FixedZeroPage(MirFixedZpSlot(3)),_=>unreachable!()};
         result.push(json!({"kind":format!("{kind:?}"),"offset":3,"size":2,
             "reads":format!("{reads:?}"),"writes":format!("{writes:?}"),"expected_byte":format!("{expected:?}"),
-            "may_write_expected_byte":writes.may_write_mem(&expected)}));
+            "may_write_expected_byte":writes.may_write_mem(&expected, &MirFixedStorage::default())}));
     }
     // A write through a pointer does not read the pointee, but broad unknown effects
     // currently erase the otherwise separate read direction.
@@ -155,6 +162,8 @@ fn audit_call_facts() {
         ("integer_result","BYTE FUNC Fetch(CARD p) BYTE POINTER q q=BYTE POINTER(p) RETURN(q^) BYTE FUNC Middle(CARD p) RETURN(Fetch(p))"),
         ("pointer_result","BYTE FUNC Fetch(BYTE POINTER p) RETURN(p^) BYTE FUNC Middle(CARD p) RETURN(Fetch(BYTE POINTER(p)))"),
         ("global_write_ram","BYTE state=$600 BYTE FUNC Touch() state=1 RETURN(0) BYTE FUNC Hold(BYTE keep) Touch() RETURN(keep+1)"),
+        ("global_write_zp","BYTE state=$E8 BYTE FUNC Touch() state=1 RETURN(0) BYTE FUNC Hold(BYTE keep) Touch() RETURN(keep+1)"),
+        ("global_write_alias_zp","CARD state=$E8 CARD alias=state BYTE FUNC Touch() alias=$1234 RETURN(0) BYTE FUNC Hold(BYTE keep) Touch() RETURN(keep+1)"),
         ("asm_leaf",";@actionc clobbers $AC/$AD $A0\nBYTE FUNC Fetch=*(CARD p)\nASM\n sta $AC\n stx $AD\n ldy #0\n lda ($AC),y\n sta $A0\n rts\nENDASM\nBYTE FUNC Middle(CARD p) RETURN(Fetch(p))"),
     ] {
         let n=nir(source);
@@ -165,6 +174,14 @@ fn audit_call_facts() {
             let check=facts["routines"].as_array().unwrap().iter().find(|r|r["name"]=="Check").unwrap();
             assert_eq!(check["acyclic_entry"]["flags"], json!(format!("{:?}",mir::analysis::effects::MirFlagSet::default())));
             assert_eq!(check["legacy_ignores_flags"],json!(true));
+        }
+        if name.starts_with("global_write_") {
+            let touch=facts["routines"].as_array().unwrap().iter().find(|r|r["name"]=="Touch").unwrap();
+            assert_eq!(touch["preserves_e4"],json!(true));
+            assert_eq!(touch["preserves_a0"],json!(false));
+            assert_eq!(touch["preserves_e8"],json!(name=="global_write_ram"));
+            assert_eq!(touch["preserves_e9"],json!(name!="global_write_alias_zp"));
+            assert_eq!(touch["preserves_ea"],json!(true));
         }
         std::fs::write(root.join(format!("{name}.act")),source).unwrap();
         std::fs::write(root.join(format!("{name}.xex")),crate::codegen::format_load_file(&e.output)).unwrap();

@@ -1523,7 +1523,7 @@ fn live_range_preserves_fixed_pair(
             match op {
                 MirOp::Call { target, .. } => {
                     if let Some(summary) = known_callees.for_target(target) {
-                        if !summary.preserves_fixed_pair(fixed_lo) {
+                        if !summary.preserves_fixed_pair(fixed_lo, known_callees.fixed_storage()) {
                             return false;
                         }
                     } else if matches!(target, MirCallTarget::AtariFpp(_)) {

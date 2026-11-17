@@ -31,6 +31,7 @@ pub(in crate::mir6502) fn discover(program: &MirProgram, multiple: bool) -> Vec<
     }
     let ownership = StorageOwnership::new(program);
     let mut calls = ResidenceCalls::new(program, MirCalleeEntryStage::ActualEntry);
+    let fixed = calls.fixed_storage();
     let mut result = Vec::new();
     for r in &program.routines {
         if r.abi != MirRoutineAbi::Action || r.frame.spills.is_empty() {
@@ -57,7 +58,7 @@ pub(in crate::mir6502) fn discover(program: &MirProgram, multiple: bool) -> Vec<
                     return false;
                 };
                 used.extend(
-                    (0..=255u8).filter(|s| !writes.preserves_fixed_byte(MirFixedZpSlot(*s))),
+                    (0..=255u8).filter(|s| !writes.preserves_fixed_byte(MirFixedZpSlot(*s), &fixed)),
                 );
                 return true;
             }
@@ -186,6 +187,7 @@ pub(in crate::mir6502) fn verify(
         (&new.program, &new.memory),
     ])?;
     let mut calls = ResidenceCalls::new(&new.program, MirCalleeEntryStage::ActualEntry);
+    let fixed = calls.fixed_storage();
     for p in homes {
         let bad = |reason| {
             vec![MirDiagnostic {
@@ -260,7 +262,7 @@ pub(in crate::mir6502) fn verify(
             if matches!(op, MirOp::Call { .. }) {
                 if !calls
                     .writes(op)
-                    .is_ok_and(|w| w.preserves_fixed_byte(p.fixed))
+                    .is_ok_and(|w| w.preserves_fixed_byte(p.fixed, &fixed))
                 {
                     return Err(bad("callee no longer preserves home"));
                 }

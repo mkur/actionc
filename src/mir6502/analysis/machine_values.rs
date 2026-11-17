@@ -410,7 +410,7 @@ fn apply_op(
     }
 
     let before = state.clone();
-    update_fixed_zero_page_values(state, op, &before, known_callees);
+    update_fixed_zero_page_values(state, op, &before, known_callees, memory_map);
 
     let effects = classify_op(op);
     for reg in [MirReg::A, MirReg::X, MirReg::Y] {
@@ -434,7 +434,7 @@ fn apply_op(
             };
             let invalidated = known_callees.for_target(target).map_or_else(
                 || !matches!(value, MirMachineValue::ConstU8(_)),
-                |summary| known_call_may_invalidate_value(summary, value),
+                |summary| known_call_may_invalidate_value(summary, value, known_callees.fixed_storage(), memory_map),
             );
             if invalidated {
                 state.set_register(reg, None);
@@ -443,7 +443,7 @@ fn apply_op(
         if let Some(value) = &state.zn
             && known_callees
                 .for_target(target)
-                .is_none_or(|summary| known_call_may_invalidate_value(summary, value))
+                .is_none_or(|summary| known_call_may_invalidate_value(summary, value, known_callees.fixed_storage(), memory_map))
         {
             state.zn = None;
         }
@@ -586,10 +586,16 @@ fn memory_ranges_may_overlap(
 fn known_call_may_invalidate_value(
     summary: &crate::mir6502::analysis::known_callees::MirKnownCalleeExitSummary,
     value: &MirMachineValue,
+    fixed: &crate::mir6502::analysis::known_callees::MirFixedStorage,
+    memory_map: &MirMachineMemoryMap,
 ) -> bool {
     match value {
         MirMachineValue::ConstU8(_) => false,
-        MirMachineValue::DirectMem(mem) => summary.writes().may_write_mem(mem),
+        MirMachineValue::DirectMem(mem) => {
+            let address = fixed.address(mem).or_else(|| memory_map.address(mem));
+            let query = address.map(MirMem::Absolute).unwrap_or_else(|| mem.clone());
+            summary.writes().may_write_mem(&query, fixed)
+        },
         // Callee summaries currently describe named bytes, not indexed
         // regions. Preserve correctness until their write ranges are exposed.
         MirMachineValue::IndexedMem { .. } => true,
@@ -683,6 +689,7 @@ fn update_fixed_zero_page_values(
     op: &MirOp,
     before: &MirMachineValueState,
     known_callees: &MirKnownCalleeSummaries,
+    memory_map: &MirMachineMemoryMap,
 ) {
     if matches!(op, MirOp::MaterializeIndexedAddress { scale: 3, .. }) {
         let scratch = MirMem::FixedZeroPage(MirFixedZpSlot(0xAE));
@@ -750,11 +757,11 @@ fn update_fixed_zero_page_values(
             };
             state.fixed_zero_page.retain(|slot, value| {
                 let destination = MirMem::FixedZeroPage(*slot);
-                !summary.writes().may_write_mem(&destination)
+                !summary.writes().may_write_mem(&destination, known_callees.fixed_storage())
                     && match value {
                         MirMachineValue::ConstU8(_) => true,
                         MirMachineValue::DirectMem(source) => {
-                            !summary.writes().may_write_mem(source)
+                            !known_call_may_invalidate_value(summary, &MirMachineValue::DirectMem(source.clone()), known_callees.fixed_storage(), memory_map)
                         }
                         MirMachineValue::IndexedMem { .. } => false,
                     }
@@ -2038,6 +2045,46 @@ mod tests {
             ),
             Ok(None)
         );
+    }
+
+    #[test]
+    fn fixed_backing_calls_invalidate_cached_sources_and_destinations_by_address() {
+        use crate::mir6502::ir::{MirGlobal, MirGlobalBacking};
+        use crate::nir::{LocalId, SymbolId};
+        let global = MirMem::Global { id: SymbolId(0), offset: 0 };
+        let local = MirMem::Local { id: LocalId(0), offset: 0 };
+        let slot = MirFixedZpSlot(0xe4);
+        for source in [MirMem::Absolute(0x700), local.clone()] {
+            for address in [0x600, 0x700, 0xe4] {
+                for placed in [false, true] {
+                    let caller = routine(vec![block(0, vec![
+                        load_a(source.clone()), store_a(MirMem::FixedZeroPage(slot)),
+                        load_reg(MirReg::X, source.clone()), call(1),
+                    ], MirTerminator::Return)]);
+                    let mut callee = routine(vec![block(1, vec![store_a(global.clone())], MirTerminator::Return)]);
+                    callee.id = RoutineId(1);
+                    let p = MirProgram { routines: vec![caller, callee], statics: vec![], machine_blocks: vec![],
+                        runtime_helpers: vec![], globals: vec![MirGlobal {
+                            id: SymbolId(0), name: "state".into(), kind: "byte".into(), width: Some(MirWidth::Byte),
+                            storage_size: 1, backing: MirGlobalBacking::Absolute(address), init: None,
+                        }] };
+                    let known = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+                    let caller = &p.routines[0];
+                    let map = MirMachineMemoryMap::from_routine(caller, |mem|
+                        (placed && mem == &local).then_some(0x700));
+                    let cfg = MirCfg::from_routine(caller).unwrap();
+                    let values = MirMachineValueAvailability::analyze_with_known_callees_and_memory_map(caller, &cfg, &known, &map);
+                    let after = MirSite::Terminator { block: MirBlockId(0) };
+                    let source_known = source != local || placed;
+                    let expected = (source_known && address != 0x700).then_some(MirMachineValue::DirectMem(source.clone()));
+                    assert_eq!(values.register_at(after, MirReg::X), Ok(expected.clone()),
+                        "source={source:?} write={address:04x} placed={placed}");
+                    let expected = if address == 0xe4 { None } else { expected };
+                    assert_eq!(values.fixed_zero_page_value_at(after, slot), Ok(expected),
+                        "source={source:?} write={address:04x} placed={placed}");
+                }
+            }
+        }
     }
 
     #[test]

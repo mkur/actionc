@@ -33,13 +33,14 @@ fn loop_carried_byte_spills_use_preserved_free_lanes() {
     let r = p.routines.iter().find(|r| r.id == h.owner).unwrap();
     assert_eq!(r.name, "Hold");
     let mut calls = ResidenceCalls::new(&p, MirCalleeEntryStage::ActualEntry);
+    let fixed = calls.fixed_storage();
     for call in r
         .blocks
         .iter()
         .flat_map(|b| &b.ops)
         .filter(|op| matches!(op, MirOp::Call { .. }))
     {
-        assert!(calls.writes(call).unwrap().preserves_fixed_byte(h.fixed));
+        assert!(calls.writes(call).unwrap().preserves_fixed_byte(h.fixed, &fixed));
     }
     place(&mut p, true, &crate::mir6502::trace::Trace::disabled());
     crate::mir6502::verify_program(&p, MirPhase::PostMaterialization).unwrap();

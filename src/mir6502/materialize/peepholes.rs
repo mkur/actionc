@@ -4450,10 +4450,10 @@ fn known_callee_preserved_index_param_carrier_shape_at(
     let summary = known_callees.for_target(target)?;
     let param_address = layout.mem_address(routine_id, &param)?;
     if !summary.preserves_register(carrier)
-        || summary.reads().may_read_caller_private_byte(param_address)
+        || summary.reads().may_read_caller_private_byte(param_address, known_callees.fixed_storage())
         || summary
             .writes()
-            .may_write_caller_private_byte(param_address)
+            .may_write_caller_private_byte(param_address, known_callees.fixed_storage())
     {
         return None;
     }

@@ -79,6 +79,7 @@ pub(super) fn propose_with_scope(
     let mut planned = BTreeMap::new();
     let mut facts = if acyclic { ResidenceCalls::with_acyclic(selected, MirCalleeEntryStage::ActualEntry) }
         else { ResidenceCalls::new(selected, MirCalleeEntryStage::ActualEntry) };
+    let fixed = facts.fixed_storage();
     let mut proposal = None;
     'caller: for id in order {
         // Propagate through inline/otherwise ineligible middle routines too.
@@ -99,7 +100,7 @@ pub(super) fn propose_with_scope(
                 continue 'caller;
             }
             let writes = facts.writes(call).map(|writes| (0..=255u8)
-                .filter(|slot| !writes.preserves_fixed_byte(MirFixedZpSlot(*slot)))
+                .filter(|slot| !writes.preserves_fixed_byte(MirFixedZpSlot(*slot), &fixed))
                 .collect::<BTreeSet<_>>()).and_then(|mut writes| {
                     if let Some(chains) = &chains {
                         let MirOp::Call { target: MirCallTarget::Routine(target), .. } = call else {

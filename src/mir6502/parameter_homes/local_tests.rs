@@ -98,9 +98,9 @@ fn explicit_local_binding_controls_layout_cost_maps_and_physical_effects() {
     let known = MirKnownCalleeSummaries::analyze_for_rewriting(&new);
     let writes = known.get(new.routines[0].id).unwrap().writes();
     for slot in [0xe4, 0xe5] {
-        assert!(!writes.preserves_fixed_byte(MirFixedZpSlot(slot)));
+        assert!(!writes.preserves_fixed_byte(MirFixedZpSlot(slot), known.fixed_storage()));
     }
-    assert!(writes.preserves_fixed_byte(MirFixedZpSlot(0xe6)));
+    assert!(writes.preserves_fixed_byte(MirFixedZpSlot(0xe6), known.fixed_storage()));
     let crate::mir6502::analysis::known_callees::MirKnownMemoryReads::Exact(reads) =
         known.get(new.routines[0].id).unwrap().reads()
     else {

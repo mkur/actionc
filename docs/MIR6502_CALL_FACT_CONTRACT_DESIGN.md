@@ -527,7 +527,7 @@ Two old size-delta integration assertions fail identically on pre-repair
 
 ## Physical overlap from backing and placement
 
-Proposed for issue **6**, 2026-11-17. An exact memory footprint identifies the
+Design for issue **6**, 2026-11-17. An exact memory footprint identifies the
 bytes accessed. Whether those bytes overlap another object is a separate query,
 using the address evidence available at that phase. Reuse the existing backing
 resolver and physical maps; this repair does not require a new alias-analysis
@@ -673,3 +673,20 @@ Required controls:
 No TN size reduction is an acceptance condition. The acceptance condition is a
 correct physical-overlap answer backed by current evidence, followed by the
 existing placement proof and final-cost guard.
+
+### Initial implementation boundary
+
+The fixed-global slice uses one short-lived projection of checked Absolute/Alias
+backing, bound to the current known-callee analysis. It preserves logical
+footprints and supplies the same evidence to ZP preservation, cached-value
+invalidation and caller-private-byte queries. Caller maps may resolve the queried
+caller byte; they never resolve a callee-private footprint. Pair queries reject
+a starting byte of `$FF`. Replay compares old and candidate backing independently.
+
+This slice retains the existing normalized-private-storage exclusions in the
+callee query adapters. Applying the generic unknown-address fallback to those
+identities also changes the older acyclic placement and private-carrier contracts;
+that is a separate owner-aware migration. The generic fixed-backing query itself
+leaves private identities unresolved. An unresolved **Global**, including ordinary
+backing, never receives a private-name exclusion. No wider layout precision or
+new proof of private-object disjointness is claimed by this implementation.

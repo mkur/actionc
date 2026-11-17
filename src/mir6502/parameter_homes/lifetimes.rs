@@ -17,6 +17,7 @@ pub(in crate::mir6502) fn verify(routine: &MirRoutine, calls: Option<&mut Reside
 pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
     mut calls: Option<&mut ResidenceCalls<'_>>, addresses: Option<&ObjectAddressControl<'_>>,
 ) -> Vec<MirDiagnostic> {
+    let fixed = calls.as_ref().map(|facts| facts.fixed_storage());
     let resident = routine.frame.resident_bytes();
     let owned: BTreeSet<_> = resident.iter().map(|(_, slot)| MirHomeByte::FixedZeroPage(*slot)).collect();
     if owned.is_empty() { return vec![]; }
@@ -96,7 +97,7 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
             }
             if let Some(invocation) = invocation {
                 writes.extend(owned.iter().filter(|home| match home {
-                    MirHomeByte::FixedZeroPage(slot) => !invocation.preserves_fixed_byte(*slot),
+                    MirHomeByte::FixedZeroPage(slot) => !invocation.preserves_fixed_byte(*slot, fixed.as_deref().expect("invocation has call facts")),
                     _ => true,
                 }));
             }

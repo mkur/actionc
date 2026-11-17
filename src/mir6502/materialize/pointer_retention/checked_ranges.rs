@@ -143,8 +143,8 @@ pub(in crate::mir6502) fn select_costed_traced(
                     .into_iter()
                     .all(|v| !a.preserves_register(v) || b.preserves_register(v))
                 && [0xAA, 0xAC, 0xAE].into_iter().all(|v| {
-                    !a.preserves_fixed_pair(MirFixedZpSlot(v))
-                        || b.preserves_fixed_pair(MirFixedZpSlot(v))
+                    !a.preserves_fixed_pair(MirFixedZpSlot(v), old.fixed_storage())
+                        || b.preserves_fixed_pair(MirFixedZpSlot(v), new.fixed_storage())
                 })
         });
         let replay = memory_traced(&proposed, &baseline, origin, trace)

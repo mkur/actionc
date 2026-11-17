@@ -2,6 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod bounded_memory;
 mod fixed_storage;
+pub(in crate::mir6502) use fixed_storage::MirFixedStorage;
+use std::sync::Arc;
 mod observations;
 pub(in crate::mir6502) use observations::{fixed_storage_address, machine_storage_observations};
 mod entry_inputs;
@@ -43,37 +45,35 @@ pub(in crate::mir6502) enum MirKnownMemoryWrites {
 }
 
 impl MirKnownMemoryWrites {
-    pub(in crate::mir6502) fn preserves_fixed_byte(&self, slot: MirFixedZpSlot) -> bool {
-        match self {
-            Self::Exact(writes) => writes.iter().all(|write| !mem_may_alias_fixed_slot(write, slot)),
-            Self::Unknown => false,
-        }
-    }
-    #[allow(dead_code)] // Retained as the pair-level query for future address consumers.
-    pub(in crate::mir6502) fn preserves_fixed_pair(&self, lo: MirFixedZpSlot) -> bool {
-        let hi = MirFixedZpSlot(lo.0.saturating_add(1));
+    pub(in crate::mir6502) fn preserves_fixed_byte(&self, slot: MirFixedZpSlot, fixed: &MirFixedStorage) -> bool {
         match self {
             Self::Exact(writes) => writes.iter().all(|write| {
-                !mem_may_alias_fixed_slot(write, lo) && !mem_may_alias_fixed_slot(write, hi)
+                // Resident callee homes are normalized to FixedZeroPage in
+                // their owner's frame before composition. Retain the existing
+                // inline-home exclusion; this slice repairs fixed globals.
+                matches!(write, MirMem::Local { .. } | MirMem::Param { .. }
+                    | MirMem::Spill { .. } | MirMem::Static { .. })
+                    || !fixed.may_overlap(write, &MirMem::FixedZeroPage(slot))
             }),
             Self::Unknown => false,
         }
     }
 
-    pub(in crate::mir6502) fn may_write_mem(&self, mem: &MirMem) -> bool {
+    pub(in crate::mir6502) fn preserves_fixed_pair(&self, lo: MirFixedZpSlot, fixed: &MirFixedStorage) -> bool {
+        let Some(hi) = lo.0.checked_add(1) else { return false; };
+        self.preserves_fixed_byte(lo, fixed) && self.preserves_fixed_byte(MirFixedZpSlot(hi), fixed)
+    }
+
+    pub(in crate::mir6502) fn may_write_mem(&self, mem: &MirMem, fixed: &MirFixedStorage) -> bool {
         match self {
-            Self::Exact(writes) => writes.iter().any(|write| mems_may_alias(write, mem)),
+            Self::Exact(writes) => writes.iter().any(|write| footprint_may_alias(write, mem, fixed)),
             Self::Unknown => true,
         }
     }
 
-    pub(in crate::mir6502) fn may_write_caller_private_byte(&self, address: u16) -> bool {
+    pub(in crate::mir6502) fn may_write_caller_private_byte(&self, address: u16, fixed: &MirFixedStorage) -> bool {
         match self {
-            // Named callee storage cannot name a caller-private byte. Only a
-            // raw absolute access can overlap the caller's resolved frame.
-            Self::Exact(writes) => writes
-                .iter()
-                .any(|write| matches!(write, MirMem::Absolute(candidate) if *candidate == address)),
+            Self::Exact(writes) => writes.iter().any(|write| footprint_may_access_caller_byte(write, address, fixed)),
             Self::Unknown => true,
         }
     }
@@ -106,6 +106,28 @@ impl MirKnownMemoryWrites {
     }
 }
 
+// Keep the existing logical private-storage contracts separate from the fixed
+// backing repair. A global always requires address evidence; unresolved backing
+// cannot inherit a private-name exclusion. Wider owner/layout precision is deferred.
+fn footprint_may_alias(left: &MirMem, right: &MirMem, fixed: &MirFixedStorage) -> bool {
+    if matches!(left, MirMem::Global { .. }) || matches!(right, MirMem::Global { .. })
+        || (fixed.address(left).is_some() && fixed.address(right).is_some())
+    {
+        return fixed.may_overlap(left, right);
+    }
+    left == right
+}
+
+fn footprint_may_access_caller_byte(mem: &MirMem, address: u16, fixed: &MirFixedStorage) -> bool {
+    match mem {
+        MirMem::Absolute(_) | MirMem::FixedZeroPage(_) | MirMem::Global { .. } | MirMem::ZeroPage(_) =>
+            fixed.may_overlap(mem, &MirMem::Absolute(address)),
+        // Existing named callee-private/ordinary storage exclusion. Never
+        // resolve these ownerless identities through the caller's frame.
+        MirMem::Local { .. } | MirMem::Param { .. } | MirMem::Spill { .. } | MirMem::Static { .. } => false,
+    }
+}
+
 /// Conservative memory-read summary for a known direct callee.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) enum MirKnownMemoryReads {
@@ -115,24 +137,9 @@ pub(in crate::mir6502) enum MirKnownMemoryReads {
 }
 
 impl MirKnownMemoryReads {
-    #[allow(dead_code)] // Retained for fixed-memory carrier selection.
-    pub(in crate::mir6502) fn may_read_caller_private_ram(&self) -> bool {
+    pub(in crate::mir6502) fn may_read_caller_private_byte(&self, address: u16, fixed: &MirFixedStorage) -> bool {
         match self {
-            // Callee-local identities, globals, statics, and fixed zero page
-            // cannot name another routine's private RAM. A raw absolute read
-            // can alias it after layout, so it remains conservative.
-            Self::Exact(reads) => reads.iter().any(|read| matches!(read, MirMem::Absolute(_))),
-            Self::Unknown => true,
-        }
-    }
-
-    pub(in crate::mir6502) fn may_read_caller_private_byte(&self, address: u16) -> bool {
-        match self {
-            // Named callee storage cannot name a caller-private byte. Only a
-            // raw absolute access can overlap the caller's resolved frame.
-            Self::Exact(reads) => reads
-                .iter()
-                .any(|read| matches!(read, MirMem::Absolute(candidate) if *candidate == address)),
+            Self::Exact(reads) => reads.iter().any(|read| footprint_may_access_caller_byte(read, address, fixed)),
             Self::Unknown => true,
         }
     }
@@ -206,15 +213,15 @@ impl MirKnownCalleeExitSummary {
         }
     }
 
-    #[allow(dead_code)] // Retained as the pair-level query for future address consumers.
-    pub(in crate::mir6502) fn preserves_fixed_pair(&self, lo: MirFixedZpSlot) -> bool {
-        self.writes.preserves_fixed_pair(lo)
+    pub(in crate::mir6502) fn preserves_fixed_pair(&self, lo: MirFixedZpSlot, fixed: &MirFixedStorage) -> bool {
+        self.writes.preserves_fixed_pair(lo, fixed)
     }
 }
 
 /// Program-wide summaries for direct MIR routine calls.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirKnownCalleeSummaries {
+    fixed_storage: Arc<MirFixedStorage>,
     routines: BTreeMap<RoutineId, MirKnownCalleeExitSummary>,
     direct_call_targets: BTreeSet<RoutineId>,
     scalar_entries_ignoring_flags: BTreeSet<RoutineId>,
@@ -222,6 +229,10 @@ pub(in crate::mir6502) struct MirKnownCalleeSummaries {
 }
 
 impl MirKnownCalleeSummaries {
+    pub(in crate::mir6502) fn fixed_storage(&self) -> &Arc<MirFixedStorage> {
+        &self.fixed_storage
+    }
+
     pub(in crate::mir6502) fn analyze(program: &MirProgram) -> Self {
         Self::analyze_exit_facts(program, true)
     }
@@ -255,6 +266,7 @@ impl MirKnownCalleeSummaries {
             })
             .collect::<BTreeMap<_, _>>();
         let mut summaries = Self {
+            fixed_storage: Arc::new(MirFixedStorage::new(program)),
             entry_flags: BTreeMap::new(),
             scalar_entries_ignoring_flags: program
                 .routines
@@ -1808,42 +1820,12 @@ fn offset_mem(mem: &MirMem, offset: u16) -> MirMem {
     }
 }
 
-fn mem_may_alias_fixed_slot(mem: &MirMem, slot: MirFixedZpSlot) -> bool {
-    match mem {
-        MirMem::FixedZeroPage(candidate) => *candidate == slot,
-        MirMem::Absolute(address) => *address == u16::from(slot.0),
-        // Globals can have absolute or aliased backing. Without final layout,
-        // do not claim that a global write preserves private zero page.
-        MirMem::Global { .. } => true,
-        MirMem::Static { .. }
-        | MirMem::Local { .. }
-        | MirMem::Param { .. }
-        | MirMem::Spill { .. } => false,
-        // An unallocated virtual slot has no caller-visible address yet. Once
-        // fixed-pair preservation becomes a placement proof, treating it as
-        // non-aliasing would be unsound: a later allocation may choose any
-        // byte in the private scratch range.
-        MirMem::ZeroPage(_) => true,
-    }
-}
-
-fn mems_may_alias(left: &MirMem, right: &MirMem) -> bool {
-    left == right
-        || matches!(
-            (left, right),
-            (MirMem::FixedZeroPage(slot), MirMem::Absolute(address))
-                | (MirMem::Absolute(address), MirMem::FixedZeroPage(slot))
-                if u16::from(slot.0) == *address
-        )
-        || matches!(
-            (left, right),
-            (MirMem::Global { .. }, _) | (_, MirMem::Global { .. })
-        )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    mod fixed_overlap {
+        include!("known_callees/fixed_overlap_tests.rs");
+    }
     mod fixed_observations {
         include!("known_callees/fixed_observations_tests.rs");
     }
@@ -1886,7 +1868,7 @@ mod tests {
             let facts = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
             let exit = facts.get(RoutineId(0)).unwrap();
             for slot in 0xe0..=0xe5 {
-                assert_eq!(exit.writes().preserves_fixed_byte(MirFixedZpSlot(slot)), !matches!(slot, 0xe2 | 0xe3));
+                assert_eq!(exit.writes().preserves_fixed_byte(MirFixedZpSlot(slot), facts.fixed_storage()), !matches!(slot, 0xe2 | 0xe3));
             }
             assert!(matches!(exit.reads(), MirKnownMemoryReads::Unknown));
         }
@@ -1934,7 +1916,7 @@ mod tests {
             assert_eq!(reads, MirKnownMemoryReads::Exact(expected.clone()), "{effect:?}");
             assert_eq!(writes, MirKnownMemoryWrites::Exact(expected.clone()), "{effect:?}");
             for byte in expected {
-                assert!(writes.may_write_mem(&byte), "{effect:?}: {byte:?}");
+                assert!(writes.may_write_mem(&byte, &MirFixedStorage::default()), "{effect:?}: {byte:?}");
             }
         }
     }
@@ -2112,7 +2094,7 @@ mod tests {
                 let s = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
                 let s = s.get(RoutineId(0)).unwrap();
                 assert_eq!(s.reads(), &MirKnownMemoryReads::Unknown);
-                assert!(s.reads().may_read_caller_private_byte(0x7001));
+                assert!(s.reads().may_read_caller_private_byte(0x7001, &MirFixedStorage::default()));
                 assert_eq!(s.writes(), &MirKnownMemoryWrites::Exact(vec![MirMem::FixedZeroPage(MirFixedZpSlot(0xa0))]));
                 for addend in [1, 3, 4, -1] {
                     p.machine_blocks[0].items[0] = MirMachineItem::Byte(0xad);
@@ -2129,7 +2111,7 @@ mod tests {
                 relocation(Kind::Absolute16, Target::Absolute(base), addend, false), MirMachineItem::Byte(0x60)]);
             let s = MirKnownCalleeSummaries::analyze(&p);
             assert_eq!(s.get(RoutineId(0)).unwrap().reads(), &MirKnownMemoryReads::Exact(vec![absolute_mem(expected)]));
-            assert!(s.get(RoutineId(0)).unwrap().reads().may_read_caller_private_byte(expected));
+            assert!(s.get(RoutineId(0)).unwrap().reads().may_read_caller_private_byte(expected, s.fixed_storage()));
         }
         let p = callee_facts_machine(vec![]);
         for (kind, expected) in [(Kind::Low8, 0), (Kind::High8, 0x71)] {
@@ -2354,9 +2336,9 @@ mod tests {
         let summary = summaries.get(RoutineId(0)).expect("machine summary");
         assert!(!summary.preserves_register(MirReg::X));
         assert!(summary.preserves_register(MirReg::Y));
-        assert!(summary.preserves_fixed_pair(MirFixedZpSlot(0xAC)));
-        assert!(!summary.preserves_fixed_pair(MirFixedZpSlot(0xE6)));
-        assert!(!summary.reads().may_read_caller_private_ram());
+        assert!(summary.preserves_fixed_pair(MirFixedZpSlot(0xAC), summaries.fixed_storage()));
+        assert!(!summary.preserves_fixed_pair(MirFixedZpSlot(0xE6), summaries.fixed_storage()));
+        assert!(!summary.reads().may_read_caller_private_byte(0x7000, summaries.fixed_storage()));
     }
 
     #[test]
@@ -2381,8 +2363,8 @@ mod tests {
         let summaries = MirKnownCalleeSummaries::analyze(&program(vec![callee], Vec::new()));
         let summary = summaries.get(RoutineId(0)).expect("routine summary");
 
-        assert!(!summary.preserves_fixed_pair(MirFixedZpSlot(0xE0)));
-        assert!(summary.preserves_fixed_pair(MirFixedZpSlot(0xE2)));
+        assert!(!summary.preserves_fixed_pair(MirFixedZpSlot(0xE0), summaries.fixed_storage()));
+        assert!(summary.preserves_fixed_pair(MirFixedZpSlot(0xE2), summaries.fixed_storage()));
     }
 
     #[test]
@@ -2422,12 +2404,12 @@ mod tests {
         assert!(
             summary
                 .writes()
-                .may_write_mem(&MirMem::FixedZeroPage(MirFixedZpSlot(0xE6)))
+                .may_write_mem(&MirMem::FixedZeroPage(MirFixedZpSlot(0xE6)), summaries.fixed_storage())
         );
         assert!(
             summary
                 .writes()
-                .may_write_mem(&MirMem::FixedZeroPage(MirFixedZpSlot(0xE7)))
+                .may_write_mem(&MirMem::FixedZeroPage(MirFixedZpSlot(0xE7)), summaries.fixed_storage())
         );
         assert_eq!(summary.accumulator(), None);
         assert_eq!(summary.zn(), None);
@@ -2557,7 +2539,7 @@ mod tests {
                 MirFixedZpSlot(0xA0)
             )))
         );
-        assert!(summary.preserves_fixed_pair(MirFixedZpSlot(0xAC)));
+        assert!(summary.preserves_fixed_pair(MirFixedZpSlot(0xAC), summaries.fixed_storage()));
     }
 
     #[test]
@@ -2627,7 +2609,7 @@ mod tests {
                 MirFixedZpSlot(0xA0)
             )))
         );
-        assert!(!summary.preserves_fixed_pair(MirFixedZpSlot(0xAC)));
+        assert!(!summary.preserves_fixed_pair(MirFixedZpSlot(0xAC), summaries.fixed_storage()));
     }
 
     #[test]

@@ -9,7 +9,6 @@ pub(in crate::mir6502) struct MirFixedStorage {
     globals: BTreeMap<SymbolId, u16>,
 }
 
-#[allow(dead_code)] // Consumers migrate in the next implementation slice.
 impl MirFixedStorage {
     pub(in crate::mir6502) fn new(program: &MirProgram) -> Self {
         Self {
