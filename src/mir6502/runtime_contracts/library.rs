@@ -33,19 +33,19 @@ pub(in crate::mir6502) fn library_invocation(program: &MirProgram, op: &MirOp) -
     let (parameters, result, writes) = match binding.kind? {
         MirLibraryRoutine::SCompare => (
             vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Pointer],
-            MirDirectResultAbi::Scalar(MirWidth::Word),
+            MirDirectResultAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Word),
             vec![0xa0,0xa1,0xa2,0xa4,0xa5,0xa6]),
         MirLibraryRoutine::SCopy => (
             vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Pointer],
             MirDirectResultAbi::Void, vec![0xa0,0xa1,0xa2]),
         MirLibraryRoutine::Zero => (
-            vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Scalar(MirWidth::Word)],
+            vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Word)],
             MirDirectResultAbi::Void, vec![0xa0,0xa1,0xa2,0xa3,0xa4]),
         MirLibraryRoutine::SetBlock => (
-            vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Scalar(MirWidth::Word), MirDirectParamAbi::Scalar(MirWidth::Byte)],
+            vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Word), MirDirectParamAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Byte)],
             MirDirectResultAbi::Void, vec![0xa0,0xa1,0xa2,0xa3]),
         MirLibraryRoutine::MoveBlock => (
-            vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Pointer, MirDirectParamAbi::Scalar(MirWidth::Word)],
+            vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Pointer, MirDirectParamAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Word)],
             MirDirectResultAbi::Void, vec![0xa0,0xa1,0xa2,0xa3,0xa5]),
     };
     if interface.frame.direct_parameter_abi.as_ref() != Some(&parameters)

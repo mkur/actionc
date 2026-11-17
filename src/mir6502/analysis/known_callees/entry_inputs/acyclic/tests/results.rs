@@ -9,9 +9,9 @@ fn result_contract_limits_outputs_and_leaf_queries_agree() {
     for (contract, expected) in [
         (None, vec![]),
         (Some(MirDirectResultAbi::Void), vec![]),
-        (Some(MirDirectResultAbi::Scalar(MirWidth::Byte)), vec![0xa0]),
+        (Some(MirDirectResultAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Byte)), vec![0xa0]),
         (
-            Some(MirDirectResultAbi::Scalar(MirWidth::Word)),
+            Some(MirDirectResultAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Word)),
             vec![0xa0, 0xa1],
         ),
         (Some(MirDirectResultAbi::Pointer), vec![0xa0, 0xa1]),
@@ -41,7 +41,7 @@ fn result_contract_limits_outputs_and_leaf_queries_agree() {
 #[test]
 fn result_bytes_require_definitions_on_all_reachable_return_paths() {
     let mut p = program();
-    p.routines[0].direct_result_abi = Some(MirDirectResultAbi::Scalar(MirWidth::Word));
+    p.routines[0].direct_result_abi = Some(MirDirectResultAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Word));
     p.routines[0].blocks = vec![
         block(0, vec![load(7), store(0xa0)], branch(1, 2)),
         block(1, vec![store(0xa1)], MirTerminator::Return),
@@ -82,7 +82,7 @@ fn possible_call_writes_do_not_supply_a_missing_result_byte() {
         }]),
     ] {
         let mut p = program();
-        p.routines[0].direct_result_abi = Some(MirDirectResultAbi::Scalar(MirWidth::Word));
+        p.routines[0].direct_result_abi = Some(MirDirectResultAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Word));
         p.routines[1].direct_result_abi = Some(MirDirectResultAbi::Void);
         p.routines[1].blocks[0].ops = vec![];
         let mut writer = call(1);

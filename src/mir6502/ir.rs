@@ -276,19 +276,41 @@ pub struct MirScalarSignature {
     pub result: Vec<MirWidth>,
 }
 
+/// Logical integer ABI extent, independent of a byte/word machine transfer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MirAbiIntegerWidth { Byte, Word, Long }
+
+impl MirAbiIntegerWidth {
+    pub const fn bytes(self) -> u16 {
+        match self { Self::Byte => 1, Self::Word => 2, Self::Long => 4 }
+    }
+
+    pub const fn transfers(self) -> &'static [MirWidth] {
+        match self {
+            Self::Byte => &[MirWidth::Byte],
+            Self::Word => &[MirWidth::Word],
+            Self::Long => &[MirWidth::Word, MirWidth::Word],
+        }
+    }
+
+    pub const fn machine_width(self) -> Option<MirWidth> {
+        match self { Self::Byte => Some(MirWidth::Byte), Self::Word => Some(MirWidth::Word), Self::Long => None }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MirDirectResultAbi {
     Void,
-    Scalar(MirWidth),
+    Scalar(MirAbiIntegerWidth),
     Pointer,
 }
 
 impl MirDirectResultAbi {
-    pub const fn width(self) -> Option<MirWidth> {
+    pub const fn width(self) -> Option<MirAbiIntegerWidth> {
         match self {
             Self::Void => None,
             Self::Scalar(width) => Some(width),
-            Self::Pointer => Some(MirWidth::Word),
+            Self::Pointer => Some(MirAbiIntegerWidth::Word),
         }
     }
 }
@@ -314,23 +336,23 @@ pub enum MirRoutineAbi {
 /// or a by-value aggregate. This describes ABI lanes, not source storage class.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MirDirectParamAbi {
-    Scalar(MirWidth),
+    Scalar(MirAbiIntegerWidth),
     Pointer,
 }
 
 impl MirDirectParamAbi {
-    pub const fn width(self) -> MirWidth {
+    pub const fn width(self) -> MirAbiIntegerWidth {
         match self {
             Self::Scalar(width) => width,
-            Self::Pointer => MirWidth::Word,
+            Self::Pointer => MirAbiIntegerWidth::Word,
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MirFrame {
-    /// Complete non-variadic byte/word integer or pointer parameter ABI from
-    /// verified NIR, with a scalar/void result. None is an unknown contract.
+    /// Complete non-variadic integer or pointer parameter ABI from
+    /// verified NIR, independent of result support. None is an unknown contract.
     /// This is distinct from the integer-only logical scalar_signature.
     pub direct_parameter_abi: Option<Vec<MirDirectParamAbi>>,
     pub params: Vec<MirStorageSlot>,

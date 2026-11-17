@@ -35,13 +35,14 @@ impl<'a> InvocationHomes<'a> {
             if let Some(widths) = &r.frame.direct_parameter_abi {
                 let mut offset = 0;
                 for parameter in widths {
-                    let width = parameter.width();
-                    for lane in crate::mir6502::abi::physical_lanes(
-                        &crate::mir6502::abi::action_arg_home(offset, width), width,
-                    ).unwrap_or_default() {
-                        if let MirParamLane::ZeroPage(s) = lane { abi.insert(s); }
+                    for &width in parameter.width().transfers() {
+                        for lane in crate::mir6502::abi::physical_lanes(
+                            &crate::mir6502::abi::action_arg_home(offset, width), width,
+                        ).unwrap_or_default() {
+                            if let MirParamLane::ZeroPage(s) = lane { abi.insert(s); }
+                        }
+                        offset += crate::mir6502::abi::action_arg_width_bytes(width);
                     }
-                    offset += crate::mir6502::abi::action_arg_width_bytes(width);
                 }
             }
             for op in r.blocks.iter().flat_map(|b| &b.ops) {

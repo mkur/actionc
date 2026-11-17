@@ -801,7 +801,7 @@ fn incomplete_aggregate_helper_and_uncertified_capture_contracts_stay_unknown() 
         match variant {
             0 => r.frame.direct_parameter_abi = None,
             1 => r.frame.params[0].storage = MirStorageClass::Record,
-            2 => r.frame.direct_parameter_abi = Some(vec![MirDirectParamAbi::Scalar(MirWidth::Byte)]),
+            2 => r.frame.direct_parameter_abi = Some(vec![MirDirectParamAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Byte)]),
             3 => r.abi = MirRoutineAbi::ActionObservable,
             _ => r.blocks[0].ops.push(MirOp::Barrier {
                 effects: MirEffects::default(),
@@ -942,7 +942,7 @@ fn callee_facts_array_pointer_entry_keeps_storage_and_validates_both_stages() {
         let r = routine(p, "Locate");
         assert_eq!(r.frame.params[0].storage, MirStorageClass::Array);
         assert_eq!(r.frame.direct_parameter_abi, Some(vec![MirDirectParamAbi::Pointer,
-            MirDirectParamAbi::Scalar(MirWidth::Byte)]));
+            MirDirectParamAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Byte)]));
         let fact = MirCalleeEntryFact::analyze(p, r.id, stage).unwrap();
         assert!(fact.inputs.registers.a && fact.inputs.registers.x && fact.inputs.registers.y);
         assert!(!fact.inputs.registers.sp);
@@ -953,7 +953,7 @@ fn callee_facts_array_pointer_entry_keeps_storage_and_validates_both_stages() {
             let mut changed = p.clone();
             let r = changed.routines.iter_mut().find(|q| q.id == r.id).unwrap();
             match invalid {
-                0 => r.frame.direct_parameter_abi.as_mut().unwrap()[0] = MirDirectParamAbi::Scalar(MirWidth::Word),
+                0 => r.frame.direct_parameter_abi.as_mut().unwrap()[0] = MirDirectParamAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Word),
                 1 => r.frame.params[0].storage = MirStorageClass::Record,
                 2 => r.frame.params[0].storage_size = 1,
                 3 => r.frame.params[0].scalar_width = Some(MirWidth::Byte),

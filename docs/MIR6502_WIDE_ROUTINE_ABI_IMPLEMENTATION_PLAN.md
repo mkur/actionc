@@ -1,6 +1,6 @@
 # MIR6502 wide routine ABI implementation plan
 
-Status: ready, 2026-11-17.
+Status: in progress, 2026-11-17. Slice 1 complete.
 
 Implement the [design](MIR6502_WIDE_ROUTINE_ABI_DESIGN.md) in four vertical
 slices, committing each after its focused checks. Commit the design and this
@@ -101,4 +101,9 @@ host LF/CRLF text where required by the existing test paths.
 
 ## Implementation receipts
 
-Record each slice's exact checks and outcomes here as it completes.
+- Slice 1: `cargo test --lib mir6502::lower::direct --no-run` built the test
+  runner with the documented profile. That runner passed the combined
+  `mir6502::lower::direct` and `mir6502::runtime_contracts` filters: 13 tests.
+  Existing narrow/pointer behavior, the new LONG metadata and independent
+  result discovery pass. Wider call admission remains conservative until slice 2;
+  the expanded metadata/layout matrix is covered with its proof consumers.

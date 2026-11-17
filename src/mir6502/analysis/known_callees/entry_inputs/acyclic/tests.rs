@@ -31,7 +31,7 @@ fn program() -> MirProgram {
     MirProgram { statics: vec![], globals: vec![], machine_blocks: vec![], runtime_helpers: vec![],
         routines: bodies.into_iter().enumerate().map(|(id, ops)| MirRoutine {
             id: RoutineId(id as u32), name: format!("R{id}"), abi: MirRoutineAbi::Action,
-            inline: Default::default(), direct_result_abi: Some(MirDirectResultAbi::Scalar(MirWidth::Byte)),
+            inline: Default::default(), direct_result_abi: Some(MirDirectResultAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Byte)),
             scalar_signature: Some(MirScalarSignature {
                 params: vec![], result: vec![MirWidth::Byte] }),
             frame: MirFrame { direct_parameter_abi: Some(vec![]), ..Default::default() },

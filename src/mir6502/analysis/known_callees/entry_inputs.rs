@@ -385,7 +385,7 @@ fn direct_parameter_abi_is_complete(program: &MirProgram, routine: &MirRoutine, 
         && (parameters
             .iter()
             .copied()
-            .map(|parameter| crate::mir6502::abi::action_arg_width_bytes(parameter.width()))
+            .map(|parameter| parameter.width().bytes())
             .sum::<u16>()
             <= crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES
             || (stage == MirCalleeEntryStage::ActualEntry && routine.blocks.first()
@@ -400,8 +400,9 @@ fn direct_parameter_abi_is_complete(program: &MirProgram, routine: &MirRoutine, 
                     MirDirectParamAbi::Pointer => matches!(slot.storage, MirStorageClass::Scalar | MirStorageClass::Array),
                 };
                 storage_matches
-                    && slot.scalar_width == Some(parameter.width())
-                    && slot.storage_size == crate::mir6502::abi::action_arg_width_bytes(parameter.width())
+                    && parameter.width().machine_width().is_some()
+                    && slot.scalar_width == parameter.width().machine_width()
+                    && slot.storage_size == parameter.width().bytes()
                     && slot.offset == 0
                     && slot.init.is_none()
                     && matches!(

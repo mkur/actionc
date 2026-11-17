@@ -24,19 +24,19 @@ fn direct_results_survive_pointer_parameters_materialization_and_printing() {
     for (name, contract, printed, slots) in [
         (
             "ByteInt",
-            MirDirectResultAbi::Scalar(MirWidth::Byte),
+            MirDirectResultAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Byte),
             "byte @ $A0",
             &[0xa0][..],
         ),
         (
             "BytePtr",
-            MirDirectResultAbi::Scalar(MirWidth::Byte),
+            MirDirectResultAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Byte),
             "byte @ $A0",
             &[0xa0][..],
         ),
         (
             "WordPtr",
-            MirDirectResultAbi::Scalar(MirWidth::Word),
+            MirDirectResultAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Word),
             "word @ $A0/$A1",
             &[0xa0, 0xa1][..],
         ),
@@ -73,9 +73,9 @@ fn direct_results_are_independent_of_unsupported_parameters_and_variadic_status(
     let mut signature = n.routines[0].signature.clone();
     signature.params[0].kind = NirTypeKind::Integer(nir::NirIntegerType::U32);
     signature.params[0].width = Some(ByteSize::new(4));
-    let expected = Some(MirDirectResultAbi::Scalar(MirWidth::Byte));
+    let expected = Some(MirDirectResultAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Byte));
     assert_eq!(direct_result_abi(&signature), expected);
-    assert!(direct_parameter_abi(&signature).is_none());
+    assert_eq!(direct_parameter_abi(&signature), Some(vec![crate::mir6502::ir::MirDirectParamAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Long)]));
     signature.variadic = Some(signature.params[0].clone());
     assert_eq!(direct_result_abi(&signature), expected);
     assert!(direct_parameter_abi(&signature).is_none());
@@ -102,7 +102,7 @@ fn direct_results_are_independent_of_unsupported_parameters_and_variadic_status(
 
     signature.variadic = None;
     signature.result = Some(signature.params[0].clone()); // LONG
-    assert_eq!(direct_result_abi(&signature), None);
+    assert_eq!(direct_result_abi(&signature), Some(MirDirectResultAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Long)));
     // Even an inconsistent narrow width cannot reinterpret LONG as a word.
     signature.result.as_mut().unwrap().width = Some(ByteSize::new(2));
     assert_eq!(direct_result_abi(&signature), None);

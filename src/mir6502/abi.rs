@@ -8,6 +8,20 @@ use super::ir::{
     MirRegisterSet, MirWidth,
 };
 
+/// Project a verified source value into the direct Action ABI. Extent alone
+/// never turns an aggregate into an integer or an unsupported pointer into a word.
+pub(super) fn direct_value_abi(ty: &crate::nir::NirType) -> Option<super::ir::MirDirectParamAbi> {
+    use super::ir::{MirAbiIntegerWidth as Width, MirDirectParamAbi};
+    let bytes = ty.width?.get();
+    if let Some(integer) = ty.kind.integer() {
+        let width = match integer.bits { 8 => Width::Byte, 16 => Width::Word, 32 => Width::Long, _ => return None };
+        (bytes == u32::from(width.bytes())).then_some(MirDirectParamAbi::Scalar(width))
+    } else if matches!(ty.kind, crate::nir::NirTypeKind::Pointer { address_space, .. }
+        if address_space == crate::target::TargetLayout::DATA_ADDRESS_SPACE) && bytes == 2 {
+        Some(MirDirectParamAbi::Pointer)
+    } else { None }
+}
+
 /// Returns the one canonical Action ABI home for an argument at `offset`.
 ///
 /// Argument bytes zero through two live only in A, X, and Y. The fixed
@@ -56,7 +70,8 @@ pub(super) fn canonical_call_lanes(
     callee: &super::ir::MirRoutine, args: &[super::ir::MirCallArg],
 ) -> Result<Vec<super::ir::MirParamLane>, &'static str> {
     let signature = callee.frame.direct_parameter_abi.as_ref().ok_or("unknown residence ABI")?;
-    let expected_bytes: u16 = signature.iter().map(|p| action_arg_width_bytes(p.width())).sum();
+    if signature.iter().any(|p| p.width().machine_width().is_none()) { return Err("unsupported residence ABI"); }
+    let expected_bytes: u16 = signature.iter().map(|p| p.width().bytes()).sum();
     let supplied_bytes: u16 = args.iter().map(|a| action_arg_width_bytes(a.width)).sum();
     if expected_bytes != supplied_bytes { return Err("mismatched residence arguments"); }
     let mut outgoing = Vec::new();
@@ -82,8 +97,9 @@ pub(super) const fn action_arg_width_bytes(width: MirWidth) -> u16 {
 pub(super) fn direct_result_slots(result: super::ir::MirDirectResultAbi) -> &'static [u8] {
     match result.width() {
         None => &[],
-        Some(MirWidth::Byte) => &[0xa0],
-        Some(MirWidth::Word) => &[0xa0, 0xa1],
+        Some(super::ir::MirAbiIntegerWidth::Byte) => &[0xa0],
+        Some(super::ir::MirAbiIntegerWidth::Word) => &[0xa0, 0xa1],
+        Some(super::ir::MirAbiIntegerWidth::Long) => &[0xa0, 0xa1, 0xa2, 0xa3],
     }
 }
 
@@ -97,6 +113,7 @@ pub(super) fn validate_direct_call_result(
         return Err("not a direct call result");
     };
     let Some(contract) = callee.direct_result_abi else { return Ok(()); };
+    if contract.width().is_some_and(|w| w.machine_width().is_none()) { return Err("unsupported direct result ABI"); }
     let slots = direct_result_slots(contract);
     let canonical = |home: &MirResultHome| {
         let address = match home {
@@ -110,7 +127,7 @@ pub(super) fn validate_direct_call_result(
     if !additional_results.is_empty() || !abi.additional_results.is_empty()
         || abi.result.as_ref().is_some_and(|home| !canonical(home))
         || result.as_ref().is_some_and(|result| {
-            abi.result.is_none() || Some(result.width) != contract.width()
+            abi.result.is_none() || Some(result.width) != contract.width().and_then(|w| w.machine_width())
                 || !canonical(&result.home)
         })
     {

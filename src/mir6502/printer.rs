@@ -89,8 +89,9 @@ fn write_routine(out: &mut String, routine: &super::ir::MirRoutine) {
     let result = match routine.direct_result_abi {
         None => "unknown",
         Some(super::ir::MirDirectResultAbi::Void) => "void",
-        Some(super::ir::MirDirectResultAbi::Scalar(MirWidth::Byte)) => "byte",
-        Some(super::ir::MirDirectResultAbi::Scalar(MirWidth::Word)) => "word",
+        Some(super::ir::MirDirectResultAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Byte)) => "byte",
+        Some(super::ir::MirDirectResultAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Word)) => "word",
+        Some(super::ir::MirDirectResultAbi::Scalar(crate::mir6502::ir::MirAbiIntegerWidth::Long)) => "long",
         Some(super::ir::MirDirectResultAbi::Pointer) => "pointer",
     };
     let _ = write!(out, "  result-abi {result}");

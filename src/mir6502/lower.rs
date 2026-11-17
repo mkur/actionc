@@ -1002,50 +1002,24 @@ fn routine_is_program_entry(routine: &nir::NirRoutine) -> bool {
 }
 
 fn direct_parameter_abi(signature: &nir::NirCallableSignature) -> Option<Vec<super::ir::MirDirectParamAbi>> {
-    use super::ir::MirDirectParamAbi;
     if signature.variadic.is_some() { return None; }
-    let lane = |ty: &nir::NirType| {
-        let width = mir_width(ty)?;
-        if ty.kind.integer().is_some() {
-            Some(MirDirectParamAbi::Scalar(width))
-        } else if matches!(ty.kind, NirTypeKind::Pointer { address_space, .. }
-            if address_space == crate::target::TargetLayout::DATA_ADDRESS_SPACE)
-            && width == MirWidth::Word
-        {
-            Some(MirDirectParamAbi::Pointer)
-        } else {
-            None
-        }
-    };
-    if let Some(result) = &signature.result { lane(result)?; }
-    signature.params.iter().map(lane).collect()
+    signature.params.iter().map(super::abi::direct_value_abi).collect()
 }
 
 fn direct_result_abi(signature: &nir::NirCallableSignature) -> Option<super::ir::MirDirectResultAbi> {
-    use super::ir::MirDirectResultAbi;
+    use super::ir::{MirDirectParamAbi, MirDirectResultAbi};
     let Some(ty) = &signature.result else { return Some(MirDirectResultAbi::Void); };
-    let width = mir_width(ty)?;
-    if ty.kind.integer().is_some_and(|integer|
-        u16::from(integer.bits) == 8 * super::abi::action_arg_width_bytes(width))
-    {
-        Some(MirDirectResultAbi::Scalar(width))
-    } else if matches!(ty.kind, NirTypeKind::Pointer { address_space, .. }
-        if address_space == crate::target::TargetLayout::DATA_ADDRESS_SPACE)
-        && width == MirWidth::Word
-    {
-        Some(MirDirectResultAbi::Pointer)
-    } else {
-        None
-    }
+    Some(match super::abi::direct_value_abi(ty)? {
+        MirDirectParamAbi::Scalar(width) => MirDirectResultAbi::Scalar(width),
+        MirDirectParamAbi::Pointer => MirDirectResultAbi::Pointer,
+    })
 }
 
 fn scalar_signature(signature: &nir::NirCallableSignature) -> Option<super::ir::MirScalarSignature> {
     if signature.variadic.is_some() { return None; }
-    let lanes = |ty: &nir::NirType| match ty.kind.integer()?.bits {
-        8 => Some(vec![MirWidth::Byte]),
-        16 => Some(vec![MirWidth::Word]),
-        32 => Some(vec![MirWidth::Word, MirWidth::Word]),
-        _ => None,
+    let lanes = |ty: &nir::NirType| match super::abi::direct_value_abi(ty)? {
+        super::ir::MirDirectParamAbi::Scalar(width) => Some(width.transfers().to_vec()),
+        super::ir::MirDirectParamAbi::Pointer => None,
     };
     Some(super::ir::MirScalarSignature {
         params: signature.params.iter().map(lanes).collect::<Option<_>>()?,
