@@ -237,17 +237,23 @@ impl MirKnownCalleeSummaries {
     }
 
     pub(in crate::mir6502) fn analyze(program: &MirProgram) -> Self {
-        Self::analyze_exit_facts(program, true)
+        Self::analyze_exit_facts(program, true, None)
     }
 
     /// Local rewrites do not yet preserve an interprocedural N/Z exit contract.
     /// Keep exact flags from immutable machine routines, but do not publish a
     /// mutable MIR routine's incidental return flags to another routine.
     pub(in crate::mir6502) fn analyze_for_rewriting(program: &MirProgram) -> Self {
-        Self::analyze_exit_facts(program, false)
+        Self::analyze_exit_facts(program, false, None)
     }
 
-    fn analyze_exit_facts(program: &MirProgram, mutable_return_flags: bool) -> Self {
+    /// Successful-return footprints are scoped to residence validation. Generic
+    /// rewriting retains all invocation observations, including terminal paths.
+    pub(in crate::mir6502) fn analyze_for_residence(program: &MirProgram) -> Self {
+        Self::analyze_exit_facts(program, false, Some(program))
+    }
+
+    fn analyze_exit_facts(program: &MirProgram, mutable_return_flags: bool, normal: Option<&MirProgram>) -> Self {
         let direct_call_targets = program
             .routines
             .iter()
@@ -303,7 +309,7 @@ impl MirKnownCalleeSummaries {
                 if machine_summaries.contains_key(&routine.id) {
                     continue;
                 }
-                let mut summary = summarize_mir_routine(routine, &previous);
+                let mut summary = summarize_mir_routine(routine, &previous, normal);
                 if !mutable_return_flags {
                     summary.zn = None;
                 }
@@ -373,6 +379,7 @@ impl MirKnownCalleeSummaries {
 fn summarize_mir_routine(
     routine: &MirRoutine,
     callees: &MirKnownCalleeSummaries,
+    normal: Option<&MirProgram>,
 ) -> MirKnownCalleeExitSummary {
     let Ok(cfg) = MirCfg::from_routine(routine) else {
         return MirKnownCalleeExitSummary::default();
@@ -435,7 +442,7 @@ fn summarize_mir_routine(
             MirRegisterSet::default()
         },
         reads: summarize_routine_reads(routine, callees),
-        writes: summarize_routine_writes(routine, callees),
+        writes: summarize_routine_writes(routine, callees, normal),
     }
 }
 
@@ -739,11 +746,16 @@ fn structured_region_bytes(region: &MirMemoryRegion) -> Option<impl Iterator<Ite
 fn summarize_routine_writes(
     routine: &MirRoutine,
     callees: &MirKnownCalleeSummaries,
+    normal: Option<&MirProgram>,
 ) -> MirKnownMemoryWrites {
     let mut writes = MirKnownMemoryWrites::exact();
     for block in &routine.blocks {
         for op in &block.ops {
-            summarize_op_writes(op, routine, callees, &mut writes);
+            if let Some(capture) = normal.and_then(|p| crate::mir6502::runtime_contracts::sargs_capture(p, routine, op)) {
+                for byte in capture.definitions.into_iter().chain(capture.scratch) { writes.record(byte); }
+            } else {
+                summarize_op_writes(op, routine, callees, &mut writes);
+            }
             if matches!(writes, MirKnownMemoryWrites::Unknown) {
                 return writes;
             }

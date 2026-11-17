@@ -1,6 +1,6 @@
 # MIR6502 runtime and standard library contract implementation plan
 
-Status: in progress, 2026-11-17. Slice 1 complete.
+Status: in progress, 2026-11-17. Slices 1–2 complete.
 
 Implement the [contract design](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md) in
 the slices below, committing each slice after its focused checks pass. Deliver
@@ -284,3 +284,15 @@ optimization level 1, debug info disabled and two build jobs.
   existing pre-materialization temp-cleanup loop; the metadata control now
   constructs the callee without an unnecessary caller. Runtime calls remain
   covered by the existing emission and upcoming VM controls.
+
+- Slice 2: `cargo test --lib mir6502::runtime_contracts` (2),
+  `cargo test --lib mir6502::analysis::known_callees` (73),
+  `cargo test --lib mir6502::parameter_homes::calls` (9),
+  `cargo test --test mir6502_call_abi sargs` (1), and the VM target
+  `cross_call_homes sargs_capture_executes_all_lanes_and_returns_past_descriptor`
+  (1, both runtimes) passed. The VM control confirms an actual caller ZP home
+  survives capture. Nested entry composition, every later argument lane,
+  scratch collisions and stale frame/binding rejection are covered. Full
+  invocation effects remain unknown; only the explicit residence summary uses
+  returning writes. Core structural checks precede resolution; mandatory full
+  residence validation runs immediately after resolution, including replay.

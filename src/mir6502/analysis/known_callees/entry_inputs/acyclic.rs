@@ -76,6 +76,7 @@ impl<'a> MirAcyclicEntryAnalysis<'a> {
                     }
                     targets.insert(*id);
                 }
+                MirOp::SArgsCapture { .. } if crate::mir6502::runtime_contracts::sargs_capture(self.program, routine, op).is_some() => {},
                 MirOp::Call { .. } | MirOp::RuntimeHelper { .. } | MirOp::MachineBlock { .. }
                     | MirOp::SArgsCapture { .. } | MirOp::Barrier { .. } => {
                         self.failures.insert(target, (target, Some(site), "unsupported native call closure operation"));

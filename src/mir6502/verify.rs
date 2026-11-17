@@ -19,9 +19,20 @@ pub(super) fn verify_program(
     program: &MirProgram,
     phase: MirPhase,
 ) -> Result<(), Vec<MirDiagnostic>> {
+    verify_with_binding_phase(program, phase, true)
+}
+
+/// Internal core boundary only: structural/storage checks still run here.
+/// Call-dependent residence is mandatory again immediately after resolution.
+pub(super) fn verify_before_helper_resolution(program: &MirProgram, phase: MirPhase) -> Result<(), Vec<MirDiagnostic>> {
+    verify_with_binding_phase(program, phase, false)
+}
+
+fn verify_with_binding_phase(program: &MirProgram, phase: MirPhase, bindings_ready: bool) -> Result<(), Vec<MirDiagnostic>> {
     let mut verifier = MirVerifier {
         diagnostics: Vec::new(),
         phase,
+        bindings_ready,
         global_ids: BTreeSet::new(),
         static_ids: BTreeSet::new(),
         routine_ids: BTreeSet::new(),
@@ -40,6 +51,7 @@ pub(super) fn verify_program(
 struct MirVerifier {
     diagnostics: Vec<MirDiagnostic>,
     phase: MirPhase,
+    bindings_ready: bool,
     global_ids: BTreeSet<SymbolId>,
     static_ids: BTreeSet<SymbolId>,
     routine_ids: BTreeSet<RoutineId>,
@@ -231,7 +243,8 @@ impl MirVerifier {
             let addresses = super::analysis::storage_ownership::ObjectAddressControl::new(program);
             for routine in &program.routines {
                 self.diagnostics.extend(super::parameter_homes::verify_storage_with_address_control(program, routine, stage, &addresses));
-                if self.phase != MirPhase::PreMaterialization {
+                if self.phase != MirPhase::PreMaterialization && (self.bindings_ready
+                    || !program.runtime_helpers.iter().any(|d| matches!(d.target, MirRuntimeHelperTarget::Deferred))) {
                     self.diagnostics.extend(super::parameter_homes::verify_residence(routine, calls.as_mut(), Some(&addresses)));
                 }
             }

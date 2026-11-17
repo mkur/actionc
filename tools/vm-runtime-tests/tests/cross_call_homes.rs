@@ -387,6 +387,7 @@ fn sargs_capture_executes_all_lanes_and_returns_past_descriptor() {
     let source = "BYTE out0=$900 CARD out1=$901 BYTE out2=$903,out3=$904
 PROC Capture(BYTE a CARD word BYTE c,d)
  out0=a out1=word out2=c out3=d RETURN
+CARD FUNC Hold(CARD keep) Capture(1,$2345,6,7) RETURN(keep)
 PROC Main() Capture(1,$2345,6,7) RETURN";
     let file = support::Source::new(source);
     let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
@@ -395,6 +396,10 @@ PROC Main() Capture(1,$2345,6,7) RETURN";
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         let output = mir6502::generate_output_with_config_and_runtime(&nir, 0x3000,
             &Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() }, runtime).unwrap();
+        let hold = output.routine_addresses.iter().find(|r| r.name == "Hold").unwrap().address;
+        assert!(output.map.storage_symbols.iter().any(|s|
+            s.scope == actionc::codegen::CodegenSymbolScope::Routine("Hold".into())
+                && s.address < 256), "caller home should survive SArgs: {runtime:?}");
         let capture = output.routine_addresses.iter().find(|r| r.name == "Capture").unwrap().address;
         let (mut vm, profile) = support::vm_for(runtime);
         vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
@@ -406,6 +411,11 @@ PROC Main() Capture(1,$2345,6,7) RETURN";
             assert_eq!(machine::bytes(&vm, 0x900, 5), arguments, "{runtime:?}");
             assert_eq!(machine::bytes(&vm, 0x8ff, 1), [0x5a]);
             assert_eq!(machine::bytes(&vm, 0x905, 1), [0xa5]);
+        }
+        for keep in [0x1234u16, 0x80ff] {
+            vm = machine::call(vm, &mut hooks, hold, &keep.to_le_bytes());
+            assert_eq!(machine::bytes(&vm, 0xa0, 2), keep.to_le_bytes());
+            assert_eq!(machine::bytes(&vm, 0x900, 5), [1, 0x45, 0x23, 6, 7]);
         }
     }
 }

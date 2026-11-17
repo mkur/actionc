@@ -507,10 +507,12 @@ fn materialize_resolved_program_without_captured_compare_costing_traced(
             program, config, origin, report, trace,
         )
         .map_err(|diagnostics| phase_diagnostics("materialization", diagnostics))?;
-        verify::verify_program(&materialized, MirPhase::PostMaterialization)
+        verify::verify_before_helper_resolution(&materialized, MirPhase::PostMaterialization)
             .map_err(|diagnostics| phase_diagnostics("post-materialization", diagnostics))?;
         runtime::resolve_helpers(&mut materialized, runtime)
             .map_err(|diagnostics| phase_diagnostics("runtime resolution", diagnostics))?;
+        verify::verify_program(&materialized, MirPhase::PostMaterialization)
+            .map_err(|diagnostics| phase_diagnostics("resolved residence", diagnostics))?;
         trace.snapshot("helper-resolution", &materialized);
         Ok(preparation::PreparedProgram::new(materialized, input))
     })

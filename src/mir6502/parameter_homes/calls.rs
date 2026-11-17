@@ -18,7 +18,7 @@ impl<'a> ResidenceCalls<'a> {
     pub fn new(program: &'a MirProgram, stage: MirCalleeEntryStage) -> Self {
         Self {
             program,
-            known: MirKnownCalleeSummaries::analyze_for_rewriting(program),
+            known: MirKnownCalleeSummaries::analyze_for_residence(program),
             entries: BTreeMap::new(),
             acyclic: None,
             stage,
@@ -68,7 +68,7 @@ impl<'a> ResidenceCalls<'a> {
         if !matches!(callee.abi, MirRoutineAbi::Action | MirRoutineAbi::ActionObservable)
             || (machine && self.acyclic.is_none())
             || callee.blocks.iter().flat_map(|b| &b.ops)
-            .any(|op| matches!(op, MirOp::SArgsCapture { .. } | MirOp::Barrier { .. })) {
+            .any(|op| matches!(op, MirOp::Barrier { .. }) || (matches!(op, MirOp::SArgsCapture { .. }) && crate::mir6502::runtime_contracts::sargs_capture(self.program, callee, op).is_none())) {
             return Err("unsupported residence callee");
         }
         if self.acyclic.is_none() && callee.abi == MirRoutineAbi::ActionObservable
@@ -116,9 +116,8 @@ impl<'a> ResidenceCalls<'a> {
                 matches!(
                     op,
                     MirOp::RuntimeHelper { .. }
-                        | MirOp::SArgsCapture { .. }
                         | MirOp::Barrier { .. }
-                ) || (self.acyclic.is_none() && matches!(op, MirOp::Call { .. } | MirOp::MachineBlock { .. }))
+                ) || (matches!(op, MirOp::SArgsCapture { .. }) && crate::mir6502::runtime_contracts::sargs_capture(self.program, callee, op).is_none()) || (self.acyclic.is_none() && matches!(op, MirOp::Call { .. } | MirOp::MachineBlock { .. }))
             })
         {
             return Err("unsupported residence callee");

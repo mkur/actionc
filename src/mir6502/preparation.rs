@@ -127,8 +127,9 @@ pub(super) fn resume_output(
     };
     let spill_source = spill_fallback.map(|_| input.program.clone());
     let mut program = super::materialize::resume_core(input, origin, trace)?;
-    super::verify_program(&program, MirPhase::PostMaterialization)?;
+    super::verify::verify_before_helper_resolution(&program, MirPhase::PostMaterialization)?;
     super::runtime::resolve_helpers(&mut program, runtime)?;
+    super::verify_program(&program, MirPhase::PostMaterialization)?;
     // Discover against this materialization: spill IDs are not stable across
     // core replay or coloring. Retain its unmodified layout for observation checks.
     let spill_baseline = spill_fallback.map(|_| program.clone());

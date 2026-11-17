@@ -150,7 +150,7 @@ pub(super) fn sargs_capture(
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn program(source: &str, runtime: crate::runtime::Runtime) -> MirProgram {
+    pub(super) fn program(source: &str, runtime: crate::runtime::Runtime) -> MirProgram {
         let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
         let model = crate::semantic::analyze(&ast).unwrap();
         let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
@@ -251,3 +251,6 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod entry_tests;

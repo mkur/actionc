@@ -2808,7 +2808,7 @@ fn verify_materialization_stage(
     phase: MirPhase,
     stage: &str,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    super::verify::verify_program(program, phase).map_err(|diagnostics| {
+    super::verify::verify_before_helper_resolution(program, phase).map_err(|diagnostics| {
         diagnostics
             .into_iter()
             .map(|mut diagnostic| {

@@ -174,7 +174,7 @@ impl MirMachineLiveness {
     /// of rewrite clobbers. Balanced call/return stack traffic is not an input.
     pub(in crate::mir6502) fn entry_inputs_with_calls(
         routine: &MirRoutine, cfg: &MirCfg,
-        calls: &dyn Fn(&MirOp) -> MirMachineLiveSet,
+        calls: &dyn Fn(&MirOp) -> Option<(MirMachineLiveSet, MirMachineLiveSet)>,
     ) -> Option<MirMachineLiveSet> {
         Self::analyze_with_policy(routine, cfg, MirRegisterSet::default(),
             &MirKnownCalleeSummaries::default(), true, Some(calls)).live_in(cfg.entry()?)
@@ -183,7 +183,7 @@ impl MirMachineLiveness {
     fn analyze_with_policy(
         routine: &MirRoutine, cfg: &MirCfg, return_registers: MirRegisterSet,
         known_callees: &MirKnownCalleeSummaries, entry_flags: bool,
-        calls: Option<&dyn Fn(&MirOp) -> MirMachineLiveSet>,
+        calls: Option<&dyn Fn(&MirOp) -> Option<(MirMachineLiveSet, MirMachineLiveSet)>>,
     ) -> Self {
         let transfers = routine
             .blocks
@@ -193,9 +193,9 @@ impl MirMachineLiveness {
                     .ops
                     .iter()
                     .map(|op| {
-                        if matches!(op, MirOp::Call { .. }) && let Some(calls) = calls {
-                            // Possible call writes never certify a definition.
-                            MirMachineTransfer { reads: calls(op), writes: MirMachineLiveSet::default() }
+                        if let Some((reads, writes)) = calls.and_then(|query| query(op)) {
+                            // Only guaranteed definitions belong here, never clobbers.
+                            MirMachineTransfer { reads, writes }
                         } else if entry_flags { entry_flag_transfer(op) }
                         else { op_transfer(op, known_callees) }
                     })
