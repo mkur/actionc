@@ -116,7 +116,7 @@ rebuilding a summary alone cannot do it.
 | **6** | **Use backing and placement when checking physical overlap** | A write to a global at `$0600` should not exclude every ZP byte. Unknown placement must remain conservative. | [**Fixed-global slice implemented and qualified.**](MIR6502_FIXED_BACKING_OVERLAP_IMPLEMENTATION_PLAN.md) Checked backing/aliases feed preservation, invalidation and caller-byte checks; wider owner-aware private overlap remains separate. |
 | **7** | **Finish separating read and write uncertainty** | Unknown pointee writes no longer erase bounded operand/carrier reads; actual pointee reads remain Unknown. | [**Implemented.**](MIR6502_DIRECTIONAL_READ_FACTS_IMPLEMENTATION_PLAN.md) Existing directional-effects contract restored. |
 | **8** | **Make summary validity across transformations explicit** | Some consumers rely on undocumented assumptions about cached summaries surviving rewrites. No stale-summary failure was demonstrated. | [**Core slice implemented.**](MIR6502_FACT_VALIDITY_IMPLEMENTATION_PLAN.md) Scoped reuse, shared compatibility checks and complete core fallback; existing entry and terminal owners retained. |
-| **9** | **Compose already-certified assembly leaf contracts** | Useful leaf knowledge is discarded by acyclic composition and residence admission. | **Extend the existing acyclic design after the repairs.** This is additional coverage, not a correctness fix. |
+| **9** | **Compose already-certified assembly leaf contracts** | Useful leaf knowledge is discarded by acyclic composition and residence admission. | [**Design extended.**](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-certified-assembly-leaves-in-acyclic-call-chains) Reuse existing ActualEntry certificates and separate write proofs; implementation pending. |
 
 ## Design work
 
@@ -136,14 +136,16 @@ compatibility, retaining the shared distinctions:
 Define contracts and ownership, then map existing producers and consumers onto
 them. Separate notes for every symptom would add unnecessary fragmentation.
 
-Issue 9 should extend the acyclic-call-chain section of the
-[parameter home selection design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md)
-after the shared contracts are repaired.
+Issue 9 extends the [acyclic-call-chain design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-certified-assembly-leaves-in-acyclic-call-chains)
+with certified assembly leaves. The first scope connects existing entry and
+write facts without expanding decoder coverage or inventing guaranteed result
+definitions. Machine callees' own home policy and explicit observations remain
+unchanged.
 
 ## Next implementation work
 
 Issues **1–5, 7 and the core slice of 8 are repaired**. Issue **6** is qualified
 for fixed globals and aliases; wider owner-aware private overlap remains
-separate. Follow-up work can address the measured conservative fallback before
-adding issue **9**'s assembly-composition coverage. Retain the existing
-compatibility and rollback guards when recovering size.
+separate. Issue **9** has a design and is ready for a focused implementation
+plan. Recovering issue 8's measured conservative fallback cost remains separate;
+retain the existing compatibility and rollback guards when recovering size.

@@ -24,6 +24,10 @@ through acyclic native call chains, retaining per-object call-site lifetimes and
 native `=*` actual-entry analysis. Entry-contract composition and coordinated
 placement use the existing single ordinary-call batch.
 
+The [certified assembly-leaf extension](#proposed-extension-certified-assembly-leaves-in-acyclic-call-chains)
+is proposed for fact-repair issue 9. It reuses existing leaf certificates at
+native call boundaries; implementation and qualification are pending.
+
 The completed [leaf implementation plan](MIR6502_PARAMETER_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
 covers the leaf scope. The [handoff implementation plan](MIR6502_PARAMETER_ARGUMENT_HANDOFF_IMPLEMENTATION_PLAN.md)
 records the completed slices and qualification gates for the extension.
@@ -1615,3 +1619,188 @@ eligible TN caller remains inline, record the actual limiting contract instead
 of widening effects or weakening the transaction to force placement. Broaden
 checks only for an affected contract or observed failure; this documentation
 change itself requires content/link checks, not compiler test runs.
+
+## Proposed extension: certified assembly leaves in acyclic call chains
+
+Proposed 2026-11-17 for [issue 9](MIR6502_FACT_REPAIR_PRIORITIES.md).
+Extend the acyclic-call contract above to accept assembly leaves already
+certified by the shared analysis. This widens coverage within MIR6502; it adds
+no source syntax, annotation language, NIR form or assembly instruction support.
+The initial extension supersedes the blanket machine-callee exclusion only at
+the certified boundary described here. Machine routines' own homes remain under
+their current ABI and storage rules.
+
+### Existing evidence and the missing connection
+
+[Acyclic entry composition](../src/mir6502/analysis/known_callees/entry_inputs/acyclic.rs)
+currently rejects every `MachineBlock` before consulting the existing leaf
+entry producer. [ResidenceCalls](../src/mir6502/parameter_homes/calls.rs) separately
+rejects machine callees in both input and write queries. Removing just one
+rejection would leave the other consumer unable to use the certificate.
+
+The [audit](MIR6502_FACT_CONTRACT_AUDIT_2026-11-16.md#assembly-leaf-knowledge-does-not-compose)
+and the issue-8 selected TN inventory distinguish three cases:
+
+| Callee | Existing evidence | Consequence for this extension |
+| --- | --- | --- |
+| Independent `asm_leaf` / `Fetch` control | Certified A/X entry, finite writes, Unknown pointee reads | Its leaf entry can participate in composition; result-definition limits below still apply to a wrapper returning its value. |
+| TN `MovePage` | Certified entry: A/X/Y and `$A3/$A4`; Unknown writes | Compose entry requirements and admit a correctly supplied dead boundary; do not preserve a live caller home across Unknown writes. |
+| TN `CalcAdr`, `Internal`, `Ascii` | Useful finite writes, no complete leaf entry certificate | Remain outside this new admission rule. Finite clobbers cannot replace the missing entry proof. |
+
+An input certificate, a complete may-write footprint and a guaranteed result
+definition answer different questions. Keep partial knowledge available without
+turning any one of these answers into the other two.
+
+### Reuse the leaf producer as a terminal call-graph node
+
+When the acyclic walker encounters a machine routine, request its existing
+`MirCalleeEntryFact::analyze(..., ActualEntry)` certificate. On success, cache
+that fact as a terminal dependency and compose it into native ancestors through
+the existing call transfers. Do not feed a machine body through the native
+`analyze_with_dependencies` path, even with an empty dependency map: that path
+currently rejects machine bodies deliberately. Do not duplicate the decoder in
+the walker or selector.
+
+The certificate must cover the complete actual routine. The current
+[bounded producer](../src/mir6502/analysis/known_callees/bounded_memory.rs) admits
+one closed machine block with supported typed operands; its
+[entry walk](../src/mir6502/analysis/known_callees/bounded_memory/entry_inputs.rs)
+checks reachable control flow and requires a supported return. Keep those shape,
+instruction, relocation and work-budget limits. A routine is not a certified
+leaf merely because it has no `MirOp::Call`: raw JSRs, unresolved transfers,
+unsupported instructions, mixed native/machine bodies, opaque or OS effects and
+failed decoding remain unsupported. Native recursion and missing dependencies
+retain their existing rejection.
+
+The same ordinary Action and `ActionObservable` call ABI checks apply. An `=*`
+declaration does not waive certification or make an entry compiler-owned. Keep
+`PlannedCapture`, terminal handoff, spill discovery, inlining and movement of an
+assembly routine's own parameters/locals outside this extension. The existing
+acyclic discovery scope enables this admission; leaf-only residence contexts
+retain their current behavior. No additional trial per assembly leaf is needed.
+
+### Entry admission and live-value preservation
+
+Replace the unconditional machine-callee rejection in the acyclic residence
+context with the shared certificate requirement. Both queries use the same
+actual-entry evidence, but retain different obligations:
+
+| Query | Required evidence |
+| --- | --- |
+| Entry composition | Current certified leaf inputs, propagated through native setup and CFG paths. |
+| `ResidenceCalls::inputs` | Valid target ABI, canonical arguments and matching declared result at this particular site; certified inputs satisfy the existing supply check. |
+| `ResidenceCalls::writes` | Successful input admission plus the current complete may-write summary; every byte crossed by a live value must be preserved. |
+
+An uncertified machine body must not enter through the ordinary native
+missing-entry fallback, including at dead boundaries. Conversely, a certified
+entry with Unknown writes need not reject objects dead at the call or first
+defined afterwards. Preserve the existing per-object, per-site lifetime and
+setup/result-conflict checks. A missing write proof still excludes every object
+whose value crosses that invocation.
+
+Revalidate canonical arguments and declared results at every call site even
+when its target certificate is cached. At a residence boundary, retain the
+current supply predicate: extra flags, stack requirements or fixed/register
+inputs outside the outgoing canonical lanes fail. This extension does not add
+a setup-value solver. Within native entry composition, the existing backward
+transfer may discharge a child's requirement established on every relevant
+path. A typed global remains program-state observation; a literal scratch read
+retains its implicit-input role, even at a coincident global address.
+
+Use the existing known-callee write producer and backing-aware preservation
+query. Include transient writes and restored bytes, both pointer lanes, and all
+descendant writes. Retain the existing manual-clobber contract where that
+producer already accepts it; a declaration does not prove entry reads, result
+definitions or closed control flow. Do not promote call-context pointer bounds
+from a terminal cleanup proof into a program-wide assembly summary. Unknown
+reads remain Unknown and retain their ordering/observation constraints; they
+do not erase independently complete writes.
+
+### Result definitions remain an explicit limit
+
+The bounded assembly entry path currently publishes an empty `defined_results`
+set. Preserve that answer in the first extension. A declared BYTE/CARD/pointer
+result, a finite write to `$A0/$A1`, or a known exit-A relation is not an
+all-returning-path definition certificate.
+
+Consequently, a native wrapper that reads an assembly result may still acquire
+an extra fixed-byte input and fail residence admission. The existing `Fetch`
+control must expose that limitation rather than have it hidden by a fabricated
+result definition. Use a void assembly PROC and native wrappers with no
+dependency on an assembly result as the first positive placement control.
+
+A separate narrow follow-up could export typed result-byte definitions from the
+bounded walk's existing definite-definition state at every reachable return.
+It would need the [typed result contract](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract)
+and conditional/no-return negative controls. It is not required to connect the
+already-certified entry and write facts in this first scope.
+
+### Preserve observations, ownership and transaction boundaries
+
+The existing leaf fact retains the routine, machine payloads, backing and entry
+stage. Native ancestors retain it as a dependency. Changes to that payload,
+effects, ABI, binding or relevant backing invalidate ancestors even when their
+own instructions are unchanged. Cache successful and unavailable answers only
+within the immutable owning program; reconstruct contexts for expanded
+candidates. Keep issue 8's
+[compatibility and replay obligations](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#summary-validity-across-transformations).
+Certification must not bypass the core fallback or validate earlier rewrites
+retroactively.
+
+Certified assembly leaves contribute their selected physical writes to the
+existing callee-before-caller proposal. They receive no proposed home moves of
+their own. Retain descendant exclusions, source-owned ZP, ABI reservations and
+sibling reuse. The MIR-only planning graph is scheduling information, not proof
+that a machine payload contains no hidden call; the leaf certificate supplies
+that boundary proof.
+
+Keep explicit machine reads/writes and storage references in the existing
+[physical observation checks](../src/mir6502/parameter_homes/physical.rs).
+An entry certificate does not make an absolute read unobservable or a referenced
+source home movable. Unknown observations and final-layout conflicts retain
+their current handling. Check expanded residence for all affected callers and
+preservation against the candidate's own map.
+
+Use the same single combined ordinary-call proposal and continuation. Acceptance
+still requires complete proofs and a strictly smaller packaged image, with no
+per-routine size veto. Failure restores the whole selected artifact. Do not
+add per-leaf retries, another allocator or a private-alias exception. Recovering
+issue 8's 115-byte TN fallback cost is independent work; assembly admission does
+not repair `Pull`'s expanded write contract.
+
+### Focused acceptance and reporting
+
+Keep testing focused on the connection and its consumers:
+
+- Shared analysis: direct and nested native calls to a certified assembly leaf,
+  including a diamond/repeated target. Leaf and acyclic entry answers agree;
+  result definitions remain empty. An unsupported opcode, raw call, open branch,
+  opaque/OS effect or changed machine payload must not acquire a certificate.
+  Check stage/backing/descendant invalidation and canonical arguments at a second
+  call site. Reuse existing decoder tests for unchanged instruction coverage.
+- Residence: a finite scratch-write leaf preserves a disjoint live word and
+  rejects either overlapping lane. An entry-only leaf with Unknown writes
+  allows a dead lifetime but rejects a live one. Retain Unknown-read barriers,
+  explicit observation conflicts and rejection of uncertified machine entries
+  even when writes are finite. Exercise exact rollback after a candidate conflict.
+- One small VM group: a void assembly leaf under native wrappers, with live
+  caller byte/word values, observable sentinels and stack balance. Cover both
+  runtimes, default/optimized controls and actual LF/CRLF source loading. Require
+  a positive independent placement example to execute correctly and save bytes;
+  do not depend on an incidental TN saving.
+- One final TN/independent-control comparison: record entry and write admission
+  separately, selected homes, complete image size, changed routines and hashes.
+  The issue-8 reference is **9,926 bytes**, not the historical 9,811-byte image;
+  compare the pre-extension artifact under identical configuration and report
+  any later baseline drift. Retain the existing acyclic gate-off output as a
+  scope control; that gate also controls native chains, so its full size delta
+  must not be attributed solely to assembly admission.
+  Expect `MovePage` to retain its live-write blocker and the uncertified TN
+  entries to remain unsupported unless separately repaired. Record trial counts
+  and one compile-time sample; no full suites by default.
+
+Diagnostics should distinguish missing leaf certification, unsupplied inputs,
+unknown writes, overlap/observation, missing result definitions and cost rejection.
+Include the target and failing site/dependency using existing trace facilities;
+do not add a second fact registry. This note changes no executable behavior and
+requires documentation/content/link checks only.
