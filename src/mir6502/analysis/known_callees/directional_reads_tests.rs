@@ -112,6 +112,8 @@ fn directional_read_projection_keeps_real_unknowns_and_unexpanded_inputs() {
             effects: MirEffects { opaque: true, ..Default::default() } },
         store(source, MirValue::Def(MirDef::VTemp(MirTempId(0)))),
         store(source, MirValue::PointerCell(MirMem::ZeroPage(MirZpSlot(99)))),
+        MirOp::Store { dst: MirAddr::PointerCell { ptr: MirMem::Absolute(0x700), offset: 0 },
+            src: MirValue::PointerCell(MirMem::Absolute(0x600)), width: MirWidth::Word },
         store(pointer(0xff), MirValue::ConstU8(1)),
     ] {
         assert_eq!(read_facts(op.clone()).0, MirKnownMemoryReads::Unknown, "{op:?}");

@@ -619,7 +619,11 @@ fn summarize_op_reads(
     if effects.memory.indirect_reads
         || effects.memory.opaque
         || effects.homes.unknown_reads
-        || (effects.memory.indirect_writes && !effects.logical.temp_uses.is_empty())
+        || (effects.memory.indirect_writes
+            && (!effects.logical.temp_uses.is_empty()
+                // A raw word store can imply a second PointerCell source lane
+                // that the byte-value effect query does not yet expose.
+                || matches!(op, MirOp::Store { width: crate::mir6502::ir::MirWidth::Word, .. })))
     {
         reads.make_unknown();
         return;

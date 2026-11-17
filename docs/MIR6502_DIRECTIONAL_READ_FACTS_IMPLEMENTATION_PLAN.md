@@ -15,9 +15,10 @@ contracts, emission, call eligibility and private-storage alias rules unchanged.
 - Remove write-only uncertainty from the native read-summary guard. Preserve
   genuine indirect reads, opaque effects and incomplete physical read evidence.
 - Before publishing newly finite store reads, retain both pointer-carrier bytes, direct
-  operand extents and current home bindings. Unexpanded store operands, missing virtual
-  allocations, invalid pair extents and overflowing ranges must not produce an
-  incomplete Exact footprint. Reuse existing effect and allocation information.
+  operand extents and current home bindings. Unexpanded store operands (including
+  implicit word lanes), missing virtual allocations, invalid pair extents and
+  overflowing ranges must not produce an incomplete Exact footprint. Reuse
+  existing effect and allocation information.
 - Cover plain indirect stores, direct-word copies and subtraction stores;
   contrast loads, indirect copies and read-modify-write operations. Check
   calls/composition, structured effects, barriers and unknown declarations.
@@ -55,6 +56,10 @@ carrier ranges, including checked virtual placement. Seven new regressions cover
 native/structured effects, composition, incomplete projection, emitted reads and
 continued invalidation by unknown writes.
 
+Qualification also guards raw indirect word stores: before expansion, the
+byte-value query does not expose an implicit source high lane. Such stores stay
+Unknown until expansion; the selected word recipes retain complete finite reads.
+
 The focused analysis, late-cleanup and scalar/word-materialization selection
 passed **229 tests**, with four diagnostic tests ignored. Three scalar-call-elision
 assertions fail identically on a clean isolated checkout of pre-repair `9a9a1661`:
@@ -63,3 +68,8 @@ assertions fail identically on a clean isolated checkout of pre-repair `9a9a1661
 `scalar_call_elision_is_path_sensitive_and_costed_after_forwarding`.
 Their expectations remain unchanged; the final passing selection excludes those
 confirmed baseline failures. No full suite was run.
+
+The home-invalidation integration target also stops at an existing size
+expectation: `CheckRoom` is 83 bytes, versus the expected 89. A second clean
+`9a9a1661` checkout reproduces that exact failure. Its expectation remains
+unchanged and the rest of that test's runtime/origin matrix is not claimed.

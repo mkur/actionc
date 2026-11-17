@@ -60,9 +60,9 @@ Native-callee read summaries likewise project only read uncertainty. A pure
 indirect store reads its value and pointer carrier without reading the pointee;
 unknown destination writes do not erase those finite reads. Direct-word copy and
 subtraction stores retain every operand lane. Genuine indirect reads, opaque
-operations, unexpanded indirect-store operands, memory-valued branches and
-incomplete carrier/range projection remain Unknown. Virtual carrier offsets use
-the current owning allocation;
+operations, unexpanded indirect-store operands (including implicit word lanes),
+memory-valued branches and incomplete carrier/range projection remain Unknown.
+Virtual carrier offsets use the current owning allocation;
 wrapping fixed pairs remain conservative in this contiguous-home projection.
 The aggregate unknown-effects flag remains available to ordering barriers and
 must not substitute for the directional footprint fields.
