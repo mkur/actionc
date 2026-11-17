@@ -2088,6 +2088,25 @@ mod tests {
     }
 
     #[test]
+    fn finite_store_only_reads_do_not_preserve_cached_values_across_unknown_writes() {
+        use crate::mir6502::ir::{MirAddressConsumer, MirPointerPair};
+        let slot = MirFixedZpSlot(0xe4);
+        let caller = routine(vec![block(0, vec![
+            MirOp::LoadImm { dst: MirDef::Reg(MirReg::A), value: 7, width: MirWidth::Byte },
+            store_a(MirMem::FixedZeroPage(slot)), call(1),
+        ], MirTerminator::Return)]);
+        let mut callee = routine(vec![block(1, vec![MirOp::StoreIndirect {
+            consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: MirFixedZpSlot(0xac) }),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)), offset: 0,
+        }], MirTerminator::Return)]);
+        callee.id = RoutineId(1);
+        let values = analyze_caller_with_known_callee(caller, callee);
+        assert_eq!(values.fixed_zero_page_value_at(MirSite::Op { block: MirBlockId(0), op_index: 2 }, slot),
+            Ok(Some(MirMachineValue::ConstU8(7))));
+        assert_eq!(values.fixed_zero_page_value_at(MirSite::Terminator { block: MirBlockId(0) }, slot), Ok(None));
+    }
+
+    #[test]
     fn known_callee_preserves_unwritten_fixed_pointer_values_and_sources() {
         let low_source = spill(1);
         let high_source = spill(2);

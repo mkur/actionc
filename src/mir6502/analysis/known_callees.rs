@@ -574,6 +574,12 @@ fn summarize_routine_reads(
                 return reads;
             }
         }
+        // Memory-valued branches/edges still need expansion before their
+        // reads can be included in this operation-based footprint.
+        let exit = super::effects::classify_terminator(&block.terminator);
+        if !exit.memory.reads.is_empty() {
+            return MirKnownMemoryReads::Unknown;
+        }
     }
     reads
 }
@@ -607,10 +613,13 @@ fn summarize_op_reads(
     }
 
     let effects = classify_op(op);
+    // This projection describes reads only. Unknown writes still invalidate
+    // values, but do not erase complete operand/carrier reads. Newly precise
+    // indirect stores require expanded value/address operands.
     if effects.memory.indirect_reads
         || effects.memory.opaque
-        || effects.memory.has_unknown_effects
         || effects.homes.unknown_reads
+        || (effects.memory.indirect_writes && !effects.logical.temp_uses.is_empty())
     {
         reads.make_unknown();
         return;
@@ -621,22 +630,52 @@ fn summarize_op_reads(
     }
     for range in effects.memory.direct_reads {
         for offset in 0..range.bytes {
-            let byte = offset_mem(&range.base, offset);
-            if routine.frame.has_object_binding(&byte) {
-                if let Some(byte) = resolve_routine_private_zero_page(routine, byte) {
-                    reads.record(byte);
-                } else {
-                    reads.make_unknown();
-                }
-            } else {
-                reads.record(byte);
-            }
+            let Some(byte) = read_byte(routine, &range.base, offset) else {
+                reads.make_unknown();
+                return;
+            };
+            reads.record(byte);
         }
     }
+    // Virtual pair operands share one MirMem identity; the pair effects retain
+    // the two distinct allocation offsets. Never silently omit the high byte.
     for home in effects.addresses.pair_reads {
-        if let MirHomeByte::FixedZeroPage(slot) = home {
-            reads.record(MirMem::FixedZeroPage(slot));
-        }
+        let byte = match home {
+            MirHomeByte::FixedZeroPage(slot) => Some(MirMem::FixedZeroPage(slot)),
+            MirHomeByte::VirtualZeroPage { slot, offset } =>
+                read_byte(routine, &MirMem::ZeroPage(slot), offset),
+            MirHomeByte::Spill { id, offset } => Some(MirMem::Spill { id, offset }),
+        };
+        let Some(byte) = byte else {
+            reads.make_unknown();
+            return;
+        };
+        reads.record(byte);
+    }
+}
+
+/// Expand one read lane without saturating an extent or losing a virtual offset.
+fn read_byte(routine: &MirRoutine, base: &MirMem, delta: u16) -> Option<MirMem> {
+    if let MirMem::ZeroPage(slot) = base {
+        let allocation = routine.frame.zero_page_allocations.iter().find(|a| a.slot == *slot)?;
+        if delta >= u16::from(allocation.size) { return None; }
+        return Some(MirMem::FixedZeroPage(MirFixedZpSlot(
+            allocation.start.0.checked_add(u8::try_from(delta).ok()?)?)));
+    }
+    let (offset, limit) = match base {
+        MirMem::FixedZeroPage(slot) => (u16::from(slot.0), u16::from(u8::MAX)),
+        MirMem::Absolute(address) => (*address, u16::MAX),
+        MirMem::Global { offset, .. } | MirMem::Static { offset, .. }
+        | MirMem::Param { offset, .. } | MirMem::Local { offset, .. }
+        | MirMem::Spill { offset, .. } => (*offset, u16::MAX),
+        MirMem::ZeroPage(_) => unreachable!(),
+    };
+    if offset.checked_add(delta)? > limit { return None; }
+    let byte = offset_mem(base, delta);
+    if routine.frame.has_object_binding(&byte) {
+        resolve_routine_private_zero_page(routine, byte)
+    } else {
+        Some(byte)
     }
 }
 
@@ -1823,6 +1862,9 @@ fn offset_mem(mem: &MirMem, offset: u16) -> MirMem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    mod directional_reads {
+        include!("known_callees/directional_reads_tests.rs");
+    }
     mod fixed_overlap {
         include!("known_callees/fixed_overlap_tests.rs");
     }

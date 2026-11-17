@@ -56,6 +56,17 @@ indirect-to-fixed-ZP copy's balanced PHA/PLA staging, remains covered by the
 existing stack/ABI contract. Explicit writes to stack addresses still count as
 memory writes. A precise data footprint grants no new stack-manipulation permission.
 
+Native-callee read summaries likewise project only read uncertainty. A pure
+indirect store reads its value and pointer carrier without reading the pointee;
+unknown destination writes do not erase those finite reads. Direct-word copy and
+subtraction stores retain every operand lane. Genuine indirect reads, opaque
+operations, unexpanded indirect-store operands, memory-valued branches and
+incomplete carrier/range projection remain Unknown. Virtual carrier offsets use
+the current owning allocation;
+wrapping fixed pairs remain conservative in this contiguous-home projection.
+The aggregate unknown-effects flag remains available to ordering barriers and
+must not substitute for the directional footprint fields.
+
 Home effects distinguish possible writes from guaranteed definitions. The possible
 write set includes finite clobber annotations and remains authoritative for
 invalidation, interference and preservation checks. Guaranteed definitions form

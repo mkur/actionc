@@ -1,6 +1,6 @@
 # MIR6502 directional read facts implementation plan
 
-Status: ready to implement, 2026-11-17.
+Status: slice 1 implemented; slice 2 qualification in progress, 2026-11-17.
 
 Repairs issue **7** from the [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md),
 using the existing [directional-effects contract](MIR6502_PSEUDO_MACHINE_CONTRACT.md#callee-exit-value-and-flag-provenance).
@@ -14,8 +14,8 @@ contracts, emission, call eligibility and private-storage alias rules unchanged.
   where consumers intentionally constrain ordering or both effect directions.
 - Remove write-only uncertainty from the native read-summary guard. Preserve
   genuine indirect reads, opaque effects and incomplete physical read evidence.
-- Before publishing finite reads, retain both pointer-carrier bytes, direct
-  operand extents and current home bindings. Logical temps, missing virtual
+- Before publishing newly finite store reads, retain both pointer-carrier bytes, direct
+  operand extents and current home bindings. Unexpanded store operands, missing virtual
   allocations, invalid pair extents and overflowing ranges must not produce an
   incomplete Exact footprint. Reuse existing effect and allocation information.
 - Cover plain indirect stores, direct-word copies and subtraction stores;
@@ -47,3 +47,19 @@ A store through an unknown pointer may have a complete finite read footprint
 without gaining a finite write footprint. Reading the pointee still produces
 Unknown reads. Neither refinement establishes definitions, permits ignoring
 pointer inputs, nor grants permission to delete observable accesses.
+
+## Progress and validation
+
+Slice 1 restores directional read projection and preserves complete operand and
+carrier ranges, including checked virtual placement. Seven new regressions cover
+native/structured effects, composition, incomplete projection, emitted reads and
+continued invalidation by unknown writes.
+
+The focused analysis, late-cleanup and scalar/word-materialization selection
+passed **229 tests**, with four diagnostic tests ignored. Three scalar-call-elision
+assertions fail identically on a clean isolated checkout of pre-repair `9a9a1661`:
+`scalar_call_elision_audits_effects_and_bounds_in_each_callee_frame`,
+`scalar_call_elision_checks_successors_and_frame_exposure`, and
+`scalar_call_elision_is_path_sensitive_and_costed_after_forwarding`.
+Their expectations remain unchanged; the final passing selection excludes those
+confirmed baseline failures. No full suite was run.

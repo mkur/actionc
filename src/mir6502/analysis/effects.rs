@@ -173,6 +173,8 @@ pub(in crate::mir6502) struct MirMemoryEffects {
     pub reads: Vec<MirMem>,
     pub definite_writes: Vec<MirMem>,
     pub may_write_any: bool,
+    /// Aggregate uncertainty for ordering/both-direction barriers. A directional
+    /// footprint must consult its own read/write fields instead.
     pub has_unknown_effects: bool,
     /// Compatibility view for the existing materialization helpers. Calls did
     /// not historically treat `opaque` alone as a memory effect, while
@@ -662,8 +664,8 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             destination,
             ..
         } => {
-            record_memory_read(source, &mut summary);
-            record_memory_read(&offset_mem(source, 1), &mut summary);
+            record_memory_range_read(source, MirWidth::Word, &mut summary);
+            push_unique_mem(&mut summary.memory.reads, &offset_mem(source, 1));
             record_consumer_read(*destination, &mut summary);
             summary.memory.indirect_writes = true;
             summary.memory.may_write_any = true;
@@ -701,10 +703,10 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             destination,
             ..
         } => {
-            record_memory_read(source, &mut summary);
-            record_memory_read(&offset_mem(source, 1), &mut summary);
-            record_memory_read(rhs, &mut summary);
-            record_memory_read(&offset_mem(rhs, 1), &mut summary);
+            record_memory_range_read(source, MirWidth::Word, &mut summary);
+            push_unique_mem(&mut summary.memory.reads, &offset_mem(source, 1));
+            record_memory_range_read(rhs, MirWidth::Word, &mut summary);
+            push_unique_mem(&mut summary.memory.reads, &offset_mem(rhs, 1));
             record_consumer_read(*destination, &mut summary);
             summary.memory.indirect_writes = true;
             summary.memory.may_write_any = true;
@@ -1552,7 +1554,7 @@ fn record_memory_range_read(mem: &MirMem, width: MirWidth, summary: &mut MirOpEf
     let bytes = width_bytes(width);
     push_unique_range(&mut summary.memory.direct_reads, mem, bytes);
     // Preserve the old point query while the routine-wide range query is being
-    // introduced. Explicit two-byte pseudos record each lane separately.
+    // introduced. Recipes needing both point identities add the high lane explicitly.
     push_unique_mem(&mut summary.memory.reads, mem);
     for offset in 0..bytes {
         record_home_reference(&offset_mem(mem, offset), summary);
@@ -1619,6 +1621,11 @@ fn record_definite_memory_range_write(
 }
 
 fn record_consumer_read(consumer: MirAddressConsumer, summary: &mut MirOpEffectSummary) {
+    // The pair-home projection is contiguous and cannot represent the NMOS
+    // $FF/$00 fetch. Preserve uncertainty instead of publishing only $FF.
+    if matches!(consumer.pointer_pair(), MirPointerPair::Fixed { lo: MirFixedZpSlot(0xff) }) {
+        summary.homes.unknown_reads = true;
+    }
     for (offset, mem) in consumer_mems(consumer).into_iter().enumerate() {
         push_unique_range(&mut summary.memory.direct_reads, &mem, 1);
         push_unique_mem(&mut summary.memory.reads, &mem);
