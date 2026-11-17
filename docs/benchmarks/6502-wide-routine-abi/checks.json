@@ -1,0 +1,104 @@
+{
+  "mir6502_units": {
+    "status": "FAILED",
+    "passed": 1531,
+    "failed": 6,
+    "ignored": 15,
+    "filtered_out": 2026,
+    "failures": [
+      "mir6502::materialize::constructor_storage::tests::constructor_storage_protects_incoming_pointer_across_known_calls",
+      "mir6502::materialize::pointer_retention::tests::pointer_retention_calls_keep_hardware_mapping_and_unowned_access_barriers",
+      "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_audits_effects_and_bounds_in_each_callee_frame",
+      "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_checks_successors_and_frame_exposure",
+      "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_is_path_sensitive_and_costed_after_forwarding",
+      "mir6502::parameter_homes::handoff_tests::an_extra_expanded_entry_requirement_restores_the_complete_selected_artifact"
+    ],
+    "log": "build/wide-abi-units.log",
+    "log_sha256": "31601ba19db21761e8520d67b60892ba5a93960b1a3be23e0d77eb78d5622be4"
+  },
+  "call_abi_integration": {
+    "status": "ok",
+    "passed": 11,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0,
+    "failures": [],
+    "log": "build/wide-abi-call-abi.log",
+    "log_sha256": "90b4b427404f89bcfbdac33fa23fee569fe876441fa7f19e041cfdff0a31649e"
+  },
+  "wide_abi_public_vm": {
+    "status": "ok",
+    "passed": 2,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0,
+    "failures": [],
+    "log": "build/wide-abi-public-vm.log",
+    "log_sha256": "0ff8bbb0123d8812960dda2226668f6b4e4c6b4099d97f0d3e8790fb37ec479e"
+  },
+  "wide_nested_vm": {
+    "status": "ok",
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 24,
+    "failures": [],
+    "log": "build/wide-abi-nested-vm.log",
+    "log_sha256": "6b1972f838bb5447221cfba6abb1eb84c70af2406fa7332c513e7139a6788cc8"
+  },
+  "parser_function_pointer_vm": {
+    "status": "ok",
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 2,
+    "failures": [],
+    "log": "build/wide-abi-parser-vm.log",
+    "log_sha256": "937d7f340bac65710fcf849784bfe2b8ac3f401e53dfb210e1bf390be0d6a91a"
+  },
+  "cross_call_vm": {
+    "status": "ok",
+    "passed": 14,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0,
+    "failures": [],
+    "log": "build/wide-abi-cross-vm.log",
+    "log_sha256": "e5df7cb3665638d35a32cd843d539529984560a3c65b1aef33cbbf19f355a992"
+  },
+  "library_vm": {
+    "status": "ok",
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0,
+    "failures": [],
+    "log": "build/wide-abi-library-vm.log",
+    "log_sha256": "f36b9a0564318c8acc92f62ac3da9adde5ebd5df2c8a0f2514b6895ca2762de7"
+  },
+  "huffman_vm": {
+    "status": "ok",
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 2,
+    "failures": [],
+    "log": "build/wide-abi-huffman-vm.log",
+    "log_sha256": "88431770fc305101100bb74e96c6d6c66721de3ee78c8d805da755cea8b16c9f"
+  },
+  "baseline_failure_receipt": "../6502-runtime-contracts/checks.json",
+  "scope": "MIR6502 library filter and affected integration/VM targets; no other backend or repository-wide suite. Existing controls retain their original mode/runtime coverage.",
+  "huffman_coverage": "185 vectors per provider; 370 executions; cartridge LF and standalone CRLF through the compiler/VM loader; vector normalization control.",
+  "known_failures": "Six unchanged unit failures, independently reproduced by the previous qualification. No expectations relaxed.",
+  "combined_fact_audit": {
+    "status": "ok",
+    "passed": 2,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 3578,
+    "log": "build/wide-abi-qualification-audit.log",
+    "log_sha256": "6b1685f9e9d9148efbd0676d4c63ffd664611a4497d7a0fe91b8c2bc1a3726f7"
+  },
+  "tn_execution": "Not repeated: all 95 selected routines and the full packaged image are byte-identical to the qualified baseline. Existing TN runtime receipt remains applicable.",
+  "temporary_audit_hook_removed": true
+}

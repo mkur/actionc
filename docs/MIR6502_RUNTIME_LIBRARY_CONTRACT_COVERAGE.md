@@ -11,7 +11,7 @@ Contracts do not grant purity, instruction motion or flag provenance.
 | --- | --- | --- |
 | SArgs | AX Y and later ABI lanes, contiguous frame definitions, successful scratch writes, selected body/dependencies | Own-frame ZP scattering remains unsupported. Capture facts cover representable incoming ZP lanes, currently 5–96 bytes. |
 | MulByte, Mul, Lsh, Rsh | Canonical inputs/results and successful writes | Source caller eligibility remains separate. |
-| Mul32, Lsh32, Rsh32 | All input/result bytes, including `$C4–$C7` | Public LONGCARD result metadata is a separate issue. |
+| Mul32, Lsh32, Rsh32 | All input/result bytes, including `$C4–$C7` | Public LONG metadata is separately supported by the [wide ABI contract](MIR6502_WIDE_ROUTINE_ABI_DESIGN.md); private helper homes remain distinct. |
 | Division/remainder, signed/unsigned, narrow/wide, shared divmod | Successful results and writes | Full effects retain Error observations and the zero-divisor stop. |
 | Fault | Existing terminal full effects | No returning result or preservation certificate. |
 | Unsupported/custom replacements | Existing conservative effects | No default-body certificate is borrowed. |
@@ -42,7 +42,7 @@ consumer without a combined representation retains an unknown footprint.
 | --- | --- |
 | SCopyS, SAssign | Subrange arithmetic, bounded string effects, jumps into SCopy interiors. |
 | StrB/StrC/StrI, ValB/ValC/ValI | Conversion scratch, string effects and internal returning dependencies. |
-| StrLC/StrLI, ValLC/ValLI and LONGCARD/LONGINT I/O | Ordinary bodies can use available helper facts, but public wide ABI metadata and I/O dependencies still restrict entry certificates. |
+| StrLC/StrLI, ValLC/ValLI and LONGCARD/LONGINT I/O | Public wide ABI metadata is available. String effects, conversion scratch and I/O dependencies still restrict entry certificates; ordinary bodies can use available helper facts. |
 | StrR, ValR and REAL I/O | Atari floating-point service effects and pointer buffers. |
 | Peek/PeekC, Poke/PokeC | Explicit numeric memory access semantics and complete selected implementation effects; identity is retained now. |
 | Rand, Sound, SndRst, Paddle/PTrig/Stick/STrig | Device/state observations and hardware writes. |

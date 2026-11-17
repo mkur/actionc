@@ -1,0 +1,2835 @@
+{
+  "production_revision": "3e26c489521c927cfae1271ce0eb3b86278522ad",
+  "baseline_revision": "7c8110aa",
+  "baseline_facts_sha256": "44007b277d31743d4a2180492d4b5dc8e2fc563d5ae49d47cbf6086065e9f561",
+  "run": {
+    "revision": "3e26c489521c927cfae1271ce0eb3b86278522ad",
+    "module_sha256": "a31072f1cdf41cc69bcd4a2ebf2ca2964e51081d68743eb396b67bafac5af9eb",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "mir6502::analysis::known_callees::runtime_contract_audit::audit_",
+      "--",
+      "--ignored",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "return_code": 0,
+    "hook_removed": true
+  },
+  "programs": {
+    "TN": {
+      "before": {
+        "packaged_bytes": 9913,
+        "image_sha256": "ef85d90cdd5a75f8db9762b390b33329f75b8d2b356f120a820aed3c72f3e3ab",
+        "named_zp_homes": {
+          "Ord": [
+            {
+              "address": 226,
+              "kind": "Parameter",
+              "name": "menu",
+              "size": 2
+            },
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "item",
+              "size": 2
+            },
+            {
+              "address": 228,
+              "kind": "Local",
+              "name": "c",
+              "size": 1
+            }
+          ],
+          "Items": [
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "menu",
+              "size": 2
+            },
+            {
+              "address": 226,
+              "kind": "Local",
+              "name": "c",
+              "size": 1
+            }
+          ],
+          "FindItem": [
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "menu",
+              "size": 2
+            },
+            {
+              "address": 226,
+              "kind": "Parameter",
+              "name": "ch",
+              "size": 1
+            }
+          ],
+          "PopUp": [
+            {
+              "address": 226,
+              "kind": "Local",
+              "name": "PopUp::block0::block1::item",
+              "size": 2
+            }
+          ],
+          "Strcpy": [
+            {
+              "address": 160,
+              "kind": "Parameter",
+              "name": "s+0",
+              "size": 1
+            },
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "t+0",
+              "size": 1
+            },
+            {
+              "address": 163,
+              "kind": "Parameter",
+              "name": "t+1",
+              "size": 1
+            }
+          ],
+          "Instr": [
+            {
+              "address": 160,
+              "kind": "Parameter",
+              "name": "s",
+              "size": 2
+            },
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "ch",
+              "size": 1
+            }
+          ],
+          "Fnamecmp": [
+            {
+              "address": 160,
+              "kind": "Parameter",
+              "name": "s",
+              "size": 2
+            },
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "t",
+              "size": 2
+            }
+          ],
+          "Sort": [
+            {
+              "address": 226,
+              "kind": "Local",
+              "name": "h",
+              "size": 2
+            }
+          ],
+          "Tag": [
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "i",
+              "size": 1
+            },
+            {
+              "address": 163,
+              "kind": "Local",
+              "name": "a",
+              "size": 1
+            }
+          ],
+          "PrintNonzeroDigit": [
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "divisor",
+              "size": 1
+            }
+          ]
+        },
+        "named_zp_routine_count": 10,
+        "temporary_zp": {
+          "Pull": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 3
+            }
+          ],
+          "RestorePos": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 3
+            }
+          ],
+          "MoveMenuBar": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 1
+            }
+          ],
+          "Init": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "Sort": [
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 234,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 235,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 236,
+              "size": 1,
+              "slot": 4
+            }
+          ],
+          "Path": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "Draw": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 1
+            }
+          ],
+          "DrawWinFrame": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "Tag": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 2
+            }
+          ],
+          "TagAll": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 1
+            }
+          ],
+          "FormatDirectoryRow": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "Copy": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 234,
+              "size": 1,
+              "slot": 4
+            }
+          ],
+          "Handle": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            }
+          ]
+        },
+        "temporary_zp_routine_count": 13,
+        "entry_certificate_count": 30
+      },
+      "after": {
+        "packaged_bytes": 9913,
+        "image_sha256": "ef85d90cdd5a75f8db9762b390b33329f75b8d2b356f120a820aed3c72f3e3ab",
+        "named_zp_homes": {
+          "Ord": [
+            {
+              "address": 226,
+              "kind": "Parameter",
+              "name": "menu",
+              "size": 2
+            },
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "item",
+              "size": 2
+            },
+            {
+              "address": 228,
+              "kind": "Local",
+              "name": "c",
+              "size": 1
+            }
+          ],
+          "Items": [
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "menu",
+              "size": 2
+            },
+            {
+              "address": 226,
+              "kind": "Local",
+              "name": "c",
+              "size": 1
+            }
+          ],
+          "FindItem": [
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "menu",
+              "size": 2
+            },
+            {
+              "address": 226,
+              "kind": "Parameter",
+              "name": "ch",
+              "size": 1
+            }
+          ],
+          "PopUp": [
+            {
+              "address": 226,
+              "kind": "Local",
+              "name": "PopUp::block0::block1::item",
+              "size": 2
+            }
+          ],
+          "Strcpy": [
+            {
+              "address": 160,
+              "kind": "Parameter",
+              "name": "s+0",
+              "size": 1
+            },
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "t+0",
+              "size": 1
+            },
+            {
+              "address": 163,
+              "kind": "Parameter",
+              "name": "t+1",
+              "size": 1
+            }
+          ],
+          "Instr": [
+            {
+              "address": 160,
+              "kind": "Parameter",
+              "name": "s",
+              "size": 2
+            },
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "ch",
+              "size": 1
+            }
+          ],
+          "Fnamecmp": [
+            {
+              "address": 160,
+              "kind": "Parameter",
+              "name": "s",
+              "size": 2
+            },
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "t",
+              "size": 2
+            }
+          ],
+          "Sort": [
+            {
+              "address": 226,
+              "kind": "Local",
+              "name": "h",
+              "size": 2
+            }
+          ],
+          "Tag": [
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "i",
+              "size": 1
+            },
+            {
+              "address": 163,
+              "kind": "Local",
+              "name": "a",
+              "size": 1
+            }
+          ],
+          "PrintNonzeroDigit": [
+            {
+              "address": 162,
+              "kind": "Parameter",
+              "name": "divisor",
+              "size": 1
+            }
+          ]
+        },
+        "named_zp_routine_count": 10,
+        "temporary_zp": {
+          "Pull": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 3
+            }
+          ],
+          "RestorePos": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 3
+            }
+          ],
+          "MoveMenuBar": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 1
+            }
+          ],
+          "Init": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "Sort": [
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 234,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 235,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 236,
+              "size": 1,
+              "slot": 4
+            }
+          ],
+          "Path": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "Draw": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 1
+            }
+          ],
+          "DrawWinFrame": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "Tag": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 2
+            }
+          ],
+          "TagAll": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 1
+            }
+          ],
+          "FormatDirectoryRow": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "Copy": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 234,
+              "size": 1,
+              "slot": 4
+            }
+          ],
+          "Handle": [
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 0
+            }
+          ]
+        },
+        "temporary_zp_routine_count": 13,
+        "entry_certificate_count": 30
+      },
+      "byte_delta": 0,
+      "image_unchanged": true,
+      "named_homes_unchanged": true,
+      "temporary_homes_unchanged": true,
+      "new_entry_certificates": [],
+      "lost_entry_certificates": [],
+      "changed_routine_code_sizes": [],
+      "helper_sites": 4,
+      "available_helper_sites": 4
+    },
+    "portable": {
+      "before": {
+        "packaged_bytes": 3851,
+        "image_sha256": "ab5a5aeb7bf3fd4c65b10ebcbe54c5f288f7e497345e718a9c5b83829f49ee01",
+        "named_zp_homes": {},
+        "named_zp_routine_count": 0,
+        "temporary_zp": {
+          "WriteByte": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "ReadBit": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            }
+          ],
+          "ReadBits": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            }
+          ],
+          "ReadHeader": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            },
+            {
+              "address": 231,
+              "size": 1,
+              "slot": 7
+            },
+            {
+              "address": 232,
+              "size": 1,
+              "slot": 8
+            },
+            {
+              "address": 233,
+              "size": 1,
+              "slot": 9
+            },
+            {
+              "address": 234,
+              "size": 1,
+              "slot": 10
+            },
+            {
+              "address": 235,
+              "size": 1,
+              "slot": 11
+            },
+            {
+              "address": 236,
+              "size": 1,
+              "slot": 12
+            },
+            {
+              "address": 237,
+              "size": 1,
+              "slot": 13
+            },
+            {
+              "address": 238,
+              "size": 1,
+              "slot": 14
+            },
+            {
+              "address": 239,
+              "size": 1,
+              "slot": 15
+            }
+          ],
+          "BuildTree": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            }
+          ],
+          "Decode": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "Main": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            }
+          ]
+        },
+        "temporary_zp_routine_count": 7,
+        "entry_certificate_count": 6
+      },
+      "after": {
+        "packaged_bytes": 3851,
+        "image_sha256": "ab5a5aeb7bf3fd4c65b10ebcbe54c5f288f7e497345e718a9c5b83829f49ee01",
+        "named_zp_homes": {},
+        "named_zp_routine_count": 0,
+        "temporary_zp": {
+          "WriteByte": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "ReadBit": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            }
+          ],
+          "ReadBits": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            }
+          ],
+          "ReadHeader": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            },
+            {
+              "address": 231,
+              "size": 1,
+              "slot": 7
+            },
+            {
+              "address": 232,
+              "size": 1,
+              "slot": 8
+            },
+            {
+              "address": 233,
+              "size": 1,
+              "slot": 9
+            },
+            {
+              "address": 234,
+              "size": 1,
+              "slot": 10
+            },
+            {
+              "address": 235,
+              "size": 1,
+              "slot": 11
+            },
+            {
+              "address": 236,
+              "size": 1,
+              "slot": 12
+            },
+            {
+              "address": 237,
+              "size": 1,
+              "slot": 13
+            },
+            {
+              "address": 238,
+              "size": 1,
+              "slot": 14
+            },
+            {
+              "address": 239,
+              "size": 1,
+              "slot": 15
+            }
+          ],
+          "BuildTree": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            }
+          ],
+          "Decode": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "Main": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            }
+          ]
+        },
+        "temporary_zp_routine_count": 7,
+        "entry_certificate_count": 9
+      },
+      "byte_delta": 0,
+      "image_unchanged": true,
+      "named_homes_unchanged": true,
+      "temporary_homes_unchanged": true,
+      "new_entry_certificates": [
+        "ReadBits",
+        "ReadHeader",
+        "Decode"
+      ],
+      "lost_entry_certificates": [],
+      "changed_routine_code_sizes": [],
+      "helper_sites": 14,
+      "available_helper_sites": 14
+    },
+    "driver": {
+      "before": {
+        "packaged_bytes": 3781,
+        "image_sha256": "c44b364299897dd94a3aa2b01fafc505e14b72a399f0c9941ddb6cc6762c2389",
+        "named_zp_homes": {},
+        "named_zp_routine_count": 0,
+        "temporary_zp": {
+          "WriteByte": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            }
+          ],
+          "ReadBit": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            }
+          ],
+          "ReadBits": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            },
+            {
+              "address": 231,
+              "size": 1,
+              "slot": 7
+            },
+            {
+              "address": 232,
+              "size": 1,
+              "slot": 8
+            }
+          ],
+          "ReadHeader": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            },
+            {
+              "address": 231,
+              "size": 1,
+              "slot": 7
+            },
+            {
+              "address": 232,
+              "size": 1,
+              "slot": 8
+            },
+            {
+              "address": 233,
+              "size": 1,
+              "slot": 9
+            },
+            {
+              "address": 234,
+              "size": 1,
+              "slot": 10
+            },
+            {
+              "address": 235,
+              "size": 1,
+              "slot": 11
+            },
+            {
+              "address": 236,
+              "size": 1,
+              "slot": 12
+            },
+            {
+              "address": 237,
+              "size": 1,
+              "slot": 13
+            },
+            {
+              "address": 238,
+              "size": 1,
+              "slot": 14
+            },
+            {
+              "address": 239,
+              "size": 1,
+              "slot": 15
+            }
+          ],
+          "BuildTree": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            }
+          ],
+          "Decode": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "Main": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            }
+          ]
+        },
+        "temporary_zp_routine_count": 7,
+        "entry_certificate_count": 5
+      },
+      "after": {
+        "packaged_bytes": 3781,
+        "image_sha256": "c44b364299897dd94a3aa2b01fafc505e14b72a399f0c9941ddb6cc6762c2389",
+        "named_zp_homes": {},
+        "named_zp_routine_count": 0,
+        "temporary_zp": {
+          "WriteByte": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            }
+          ],
+          "ReadBit": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            }
+          ],
+          "ReadBits": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            },
+            {
+              "address": 231,
+              "size": 1,
+              "slot": 7
+            },
+            {
+              "address": 232,
+              "size": 1,
+              "slot": 8
+            }
+          ],
+          "ReadHeader": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            },
+            {
+              "address": 231,
+              "size": 1,
+              "slot": 7
+            },
+            {
+              "address": 232,
+              "size": 1,
+              "slot": 8
+            },
+            {
+              "address": 233,
+              "size": 1,
+              "slot": 9
+            },
+            {
+              "address": 234,
+              "size": 1,
+              "slot": 10
+            },
+            {
+              "address": 235,
+              "size": 1,
+              "slot": 11
+            },
+            {
+              "address": 236,
+              "size": 1,
+              "slot": 12
+            },
+            {
+              "address": 237,
+              "size": 1,
+              "slot": 13
+            },
+            {
+              "address": 238,
+              "size": 1,
+              "slot": 14
+            },
+            {
+              "address": 239,
+              "size": 1,
+              "slot": 15
+            }
+          ],
+          "BuildTree": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            }
+          ],
+          "Decode": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "Main": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            }
+          ]
+        },
+        "temporary_zp_routine_count": 7,
+        "entry_certificate_count": 8
+      },
+      "byte_delta": 0,
+      "image_unchanged": true,
+      "named_homes_unchanged": true,
+      "temporary_homes_unchanged": true,
+      "new_entry_certificates": [
+        "ReadBits",
+        "ReadHeader",
+        "Decode"
+      ],
+      "lost_entry_certificates": [],
+      "changed_routine_code_sizes": [],
+      "helper_sites": 14,
+      "available_helper_sites": 14
+    },
+    "portable-no-inline": {
+      "before": {
+        "packaged_bytes": 3851,
+        "image_sha256": "ab5a5aeb7bf3fd4c65b10ebcbe54c5f288f7e497345e718a9c5b83829f49ee01",
+        "named_zp_homes": {},
+        "named_zp_routine_count": 0,
+        "temporary_zp": {
+          "WriteByte": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "ReadBit": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            }
+          ],
+          "ReadBits": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            }
+          ],
+          "ReadHeader": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            },
+            {
+              "address": 231,
+              "size": 1,
+              "slot": 7
+            },
+            {
+              "address": 232,
+              "size": 1,
+              "slot": 8
+            },
+            {
+              "address": 233,
+              "size": 1,
+              "slot": 9
+            },
+            {
+              "address": 234,
+              "size": 1,
+              "slot": 10
+            },
+            {
+              "address": 235,
+              "size": 1,
+              "slot": 11
+            },
+            {
+              "address": 236,
+              "size": 1,
+              "slot": 12
+            },
+            {
+              "address": 237,
+              "size": 1,
+              "slot": 13
+            },
+            {
+              "address": 238,
+              "size": 1,
+              "slot": 14
+            },
+            {
+              "address": 239,
+              "size": 1,
+              "slot": 15
+            }
+          ],
+          "BuildTree": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            }
+          ],
+          "Decode": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "Main": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            }
+          ]
+        },
+        "temporary_zp_routine_count": 7,
+        "entry_certificate_count": 6
+      },
+      "after": {
+        "packaged_bytes": 3851,
+        "image_sha256": "ab5a5aeb7bf3fd4c65b10ebcbe54c5f288f7e497345e718a9c5b83829f49ee01",
+        "named_zp_homes": {},
+        "named_zp_routine_count": 0,
+        "temporary_zp": {
+          "WriteByte": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "ReadBit": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            }
+          ],
+          "ReadBits": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            }
+          ],
+          "ReadHeader": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            },
+            {
+              "address": 231,
+              "size": 1,
+              "slot": 7
+            },
+            {
+              "address": 232,
+              "size": 1,
+              "slot": 8
+            },
+            {
+              "address": 233,
+              "size": 1,
+              "slot": 9
+            },
+            {
+              "address": 234,
+              "size": 1,
+              "slot": 10
+            },
+            {
+              "address": 235,
+              "size": 1,
+              "slot": 11
+            },
+            {
+              "address": 236,
+              "size": 1,
+              "slot": 12
+            },
+            {
+              "address": 237,
+              "size": 1,
+              "slot": 13
+            },
+            {
+              "address": 238,
+              "size": 1,
+              "slot": 14
+            },
+            {
+              "address": 239,
+              "size": 1,
+              "slot": 15
+            }
+          ],
+          "BuildTree": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            },
+            {
+              "address": 226,
+              "size": 1,
+              "slot": 2
+            },
+            {
+              "address": 227,
+              "size": 1,
+              "slot": 3
+            },
+            {
+              "address": 228,
+              "size": 1,
+              "slot": 4
+            },
+            {
+              "address": 229,
+              "size": 1,
+              "slot": 5
+            },
+            {
+              "address": 230,
+              "size": 1,
+              "slot": 6
+            }
+          ],
+          "Decode": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            }
+          ],
+          "Main": [
+            {
+              "address": 224,
+              "size": 1,
+              "slot": 0
+            },
+            {
+              "address": 225,
+              "size": 1,
+              "slot": 1
+            }
+          ]
+        },
+        "temporary_zp_routine_count": 7,
+        "entry_certificate_count": 9
+      },
+      "byte_delta": 0,
+      "image_unchanged": true,
+      "named_homes_unchanged": true,
+      "temporary_homes_unchanged": true,
+      "new_entry_certificates": [
+        "ReadBits",
+        "ReadHeader",
+        "Decode"
+      ],
+      "lost_entry_certificates": [],
+      "changed_routine_code_sizes": [],
+      "helper_sites": 14,
+      "available_helper_sites": 14
+    }
+  },
+  "TN_profile": {
+    "compile_seconds": 23.926724125,
+    "counted_compile_seconds": 24.03984,
+    "counting_preserves_image": true,
+    "scope": "MIR preparation, parameter-home selection and output; frontend excluded; debug opt-level=1",
+    "work": {
+      "core_callee_contract_checks": 6,
+      "core_callee_scope_fallbacks": 6,
+      "core_callee_summary_builds": 12,
+      "core_callee_write_declines": 6,
+      "cross_call_home_trials": 1,
+      "emission_invocations": 146,
+      "inner_emission_probes": 1460,
+      "late_cleanup_preservation_replays": 17,
+      "materializations": 6,
+      "parameter_argument_handoff_trials": 1,
+      "parameter_home_trials": 3,
+      "pipeline_attempts": 67,
+      "rewrite_analysis_builds": 62695,
+      "source_storage_inventory_builds": 61,
+      "storage_observation_snapshot_builds": 3
+    }
+  },
+  "TN_configuration": {
+    "source": "samples/tn/modern/TN.ACT",
+    "origin": 12288,
+    "runtime": "ActionCart",
+    "config": "Mir6502Config::optimized()"
+  },
+  "TN_trace": {
+    "events": [
+      {
+        "attempt": 4494,
+        "data": {
+          "after": "MirKnownCalleeExitSummary { accumulator: Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161)))), zn: None, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, reads: Unknown, writes: Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), FixedZeroPage(MirFixedZpSlot(228)), FixedZeroPage(MirFixedZpSlot(229)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(227)), Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]) }",
+          "before": "MirKnownCalleeExitSummary { accumulator: Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161)))), zn: None, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, reads: Unknown, writes: Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, Spill { id: MirSpillId(10), offset: 0 }, Spill { id: MirSpillId(11), offset: 0 }, Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]) }",
+          "routine": "Pull"
+        },
+        "id": 13939,
+        "kind": "core-callee-contract-context"
+      },
+      {
+        "attempt": 4494,
+        "data": {
+          "boundary": "post-zp-remapping",
+          "fact": "expanded-writes",
+          "routine": 6
+        },
+        "id": 13940,
+        "kind": "core-callee-contract-declined"
+      },
+      {
+        "attempt": 4494,
+        "data": {
+          "diagnostics": null
+        },
+        "id": 13941,
+        "kind": "core-callee-scope-rejected"
+      },
+      {
+        "attempt": 6973,
+        "data": {
+          "mode": "conservative"
+        },
+        "id": 19669,
+        "kind": "core-callee-scope-selected"
+      },
+      {
+        "attempt": 14205,
+        "data": {
+          "after": "MirKnownCalleeExitSummary { accumulator: Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161)))), zn: None, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, reads: Unknown, writes: Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), FixedZeroPage(MirFixedZpSlot(228)), FixedZeroPage(MirFixedZpSlot(229)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(227)), Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]) }",
+          "before": "MirKnownCalleeExitSummary { accumulator: Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161)))), zn: None, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, reads: Unknown, writes: Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, Spill { id: MirSpillId(10), offset: 0 }, Spill { id: MirSpillId(11), offset: 0 }, Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]) }",
+          "routine": "Pull"
+        },
+        "id": 33381,
+        "kind": "core-callee-contract-context"
+      },
+      {
+        "attempt": 14205,
+        "data": {
+          "boundary": "post-zp-remapping",
+          "fact": "expanded-writes",
+          "routine": 6
+        },
+        "id": 33382,
+        "kind": "core-callee-contract-declined"
+      },
+      {
+        "attempt": 14205,
+        "data": {
+          "diagnostics": null
+        },
+        "id": 33383,
+        "kind": "core-callee-scope-rejected"
+      },
+      {
+        "attempt": 16684,
+        "data": {
+          "mode": "conservative"
+        },
+        "id": 39111,
+        "kind": "core-callee-scope-selected"
+      },
+      {
+        "attempt": 23920,
+        "data": {
+          "after": "MirKnownCalleeExitSummary { accumulator: Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161)))), zn: None, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, reads: Unknown, writes: Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), FixedZeroPage(MirFixedZpSlot(228)), FixedZeroPage(MirFixedZpSlot(229)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(227)), Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]) }",
+          "before": "MirKnownCalleeExitSummary { accumulator: Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161)))), zn: None, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, reads: Unknown, writes: Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, Spill { id: MirSpillId(10), offset: 0 }, Spill { id: MirSpillId(11), offset: 0 }, Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]) }",
+          "routine": "Pull"
+        },
+        "id": 52829,
+        "kind": "core-callee-contract-context"
+      },
+      {
+        "attempt": 23920,
+        "data": {
+          "boundary": "post-zp-remapping",
+          "fact": "expanded-writes",
+          "routine": 6
+        },
+        "id": 52830,
+        "kind": "core-callee-contract-declined"
+      },
+      {
+        "attempt": 23920,
+        "data": {
+          "diagnostics": null
+        },
+        "id": 52831,
+        "kind": "core-callee-scope-rejected"
+      },
+      {
+        "attempt": 26399,
+        "data": {
+          "mode": "conservative"
+        },
+        "id": 58559,
+        "kind": "core-callee-scope-selected"
+      },
+      {
+        "attempt": 34086,
+        "data": {
+          "after": "MirKnownCalleeExitSummary { accumulator: Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161)))), zn: None, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, reads: Unknown, writes: Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), FixedZeroPage(MirFixedZpSlot(228)), FixedZeroPage(MirFixedZpSlot(229)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(227)), Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]) }",
+          "before": "MirKnownCalleeExitSummary { accumulator: Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161)))), zn: None, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, reads: Unknown, writes: Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, Spill { id: MirSpillId(10), offset: 0 }, Spill { id: MirSpillId(11), offset: 0 }, Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]) }",
+          "routine": "Pull"
+        },
+        "id": 73214,
+        "kind": "core-callee-contract-context"
+      },
+      {
+        "attempt": 34086,
+        "data": {
+          "boundary": "post-zp-remapping",
+          "fact": "expanded-writes",
+          "routine": 6
+        },
+        "id": 73215,
+        "kind": "core-callee-contract-declined"
+      },
+      {
+        "attempt": 34086,
+        "data": {
+          "diagnostics": null
+        },
+        "id": 73216,
+        "kind": "core-callee-scope-rejected"
+      },
+      {
+        "attempt": 36565,
+        "data": {
+          "mode": "conservative"
+        },
+        "id": 78944,
+        "kind": "core-callee-scope-selected"
+      },
+      {
+        "attempt": 44246,
+        "data": {
+          "after": "MirKnownCalleeExitSummary { accumulator: Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161)))), zn: None, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, reads: Unknown, writes: Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), FixedZeroPage(MirFixedZpSlot(228)), FixedZeroPage(MirFixedZpSlot(229)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(227)), Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]) }",
+          "before": "MirKnownCalleeExitSummary { accumulator: Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161)))), zn: None, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, reads: Unknown, writes: Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, Spill { id: MirSpillId(10), offset: 0 }, Spill { id: MirSpillId(11), offset: 0 }, Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]) }",
+          "routine": "Pull"
+        },
+        "id": 93553,
+        "kind": "core-callee-contract-context"
+      },
+      {
+        "attempt": 44246,
+        "data": {
+          "boundary": "post-zp-remapping",
+          "fact": "expanded-writes",
+          "routine": 6
+        },
+        "id": 93554,
+        "kind": "core-callee-contract-declined"
+      },
+      {
+        "attempt": 44246,
+        "data": {
+          "diagnostics": null
+        },
+        "id": 93555,
+        "kind": "core-callee-scope-rejected"
+      },
+      {
+        "attempt": 46725,
+        "data": {
+          "mode": "conservative"
+        },
+        "id": 99283,
+        "kind": "core-callee-scope-selected"
+      },
+      {
+        "attempt": 54400,
+        "data": {
+          "after": "MirKnownCalleeExitSummary { accumulator: Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161)))), zn: None, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, reads: Unknown, writes: Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), FixedZeroPage(MirFixedZpSlot(228)), FixedZeroPage(MirFixedZpSlot(229)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(227)), Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]) }",
+          "before": "MirKnownCalleeExitSummary { accumulator: Some(DirectMem(FixedZeroPage(MirFixedZpSlot(161)))), zn: None, preserves: MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }, reads: Unknown, writes: Exact([Spill { id: MirSpillId(2), offset: 0 }, Spill { id: MirSpillId(3), offset: 0 }, Local { id: LocalId(0), offset: 0 }, Local { id: LocalId(0), offset: 1 }, Global { id: SymbolId(14), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160)), FixedZeroPage(MirFixedZpSlot(161)), Global { id: SymbolId(15), offset: 0 }, Global { id: SymbolId(15), offset: 1 }, Spill { id: MirSpillId(6), offset: 0 }, Spill { id: MirSpillId(10), offset: 0 }, Spill { id: MirSpillId(11), offset: 0 }, Global { id: SymbolId(12), offset: 0 }, Global { id: SymbolId(12), offset: 1 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]) }",
+          "routine": "Pull"
+        },
+        "id": 113966,
+        "kind": "core-callee-contract-context"
+      },
+      {
+        "attempt": 54400,
+        "data": {
+          "boundary": "post-zp-remapping",
+          "fact": "expanded-writes",
+          "routine": 6
+        },
+        "id": 113967,
+        "kind": "core-callee-contract-declined"
+      },
+      {
+        "attempt": 54400,
+        "data": {
+          "diagnostics": null
+        },
+        "id": 113968,
+        "kind": "core-callee-scope-rejected"
+      },
+      {
+        "attempt": 56879,
+        "data": {
+          "mode": "conservative"
+        },
+        "id": 119696,
+        "kind": "core-callee-scope-selected"
+      }
+    ],
+    "manifest": {
+      "analysis_counter_scope": "shared rewrite drivers only",
+      "compilation_event": null,
+      "core_layout_census": {
+        "association": "discovery-round envelope; includes rejected-candidate and analysis queries",
+        "coverage": "traced core MaterializeLayout instances; outside-driver queries are unattributed",
+        "enabled": false,
+        "observed_rounds": 0,
+        "omitted_observations_or_sites": 0,
+        "rounds_with_applied_rewrites": 0,
+        "status": "disabled"
+      },
+      "detail_bytes": 25919720,
+      "filter_errors": [
+        "routine filter \"__facts_only__\" matched 0 routines"
+      ],
+      "final_layout": null,
+      "final_snapshot": 120677,
+      "first_omitted_stage": null,
+      "identity_algorithm": "fnv1a64",
+      "max_bytes": 67108864,
+      "output_identity": null,
+      "output_sizes": null,
+      "schema_version": 1,
+      "selected_routines": [],
+      "status": "incomplete",
+      "work": {
+        "core_callee_contract_checks": 6,
+        "core_callee_scope_fallbacks": 6,
+        "core_callee_summary_builds": 12,
+        "core_callee_write_declines": 6,
+        "cross_call_home_trials": 1,
+        "emission_invocations": 146,
+        "inner_emission_probes": 1460,
+        "late_cleanup_preservation_replays": 17,
+        "materializations": 6,
+        "parameter_argument_handoff_trials": 1,
+        "parameter_home_trials": 3,
+        "pipeline_attempts": 67,
+        "rewrite_analysis_builds": 62695,
+        "source_storage_inventory_builds": 61,
+        "storage_observation_snapshot_builds": 3
+      }
+    },
+    "tracing_preserves_image": true
+  },
+  "huffman_runs": {
+    "portable": {
+      "before_home_selection_bytes": 3851,
+      "config": "Mir6502Config { enable_parameter_home_selection: true, enable_parameter_argument_handoff: true, enable_cross_call_home_selection: true, enable_multiple_leaf_call_homes: true, enable_zp_home_lifetimes: true, enable_acyclic_call_homes: true, enable_record_base_reuse: true, enable_record_base_writes: true, enable_record_base_parameter_origins: true, select_runtime_helpers: true, select_widening_byte_multiply: false, enable_peepholes: true, enable_captured_byte_comparisons: true, enable_argument_staging_reduction: true, enable_argument_x_forwarding: true, enable_argument_x_bitwise_forwarding: true, enable_precise_callee_entry_flags: true, enable_pointer_byte_plus_one_fusion: true, enable_pointer_load_sharing: true, enable_word_load_sharing: true, enable_late_private_store_cleanup: true, enable_scoped_storage_observation: true, enable_late_dead_register_cleanup: true, enable_late_register_reuse: true, enable_late_spill_pruning: false, enable_tiny_constant_fills: true, enable_copy_value_forwarding: true, enable_register_copy_forwarding: true, enable_pointer_call_retention: true, enable_bounded_call_pointer_retention: true, enable_checked_range_pointer_retention: true, enable_pointer_loop_retention: true, enable_pointer_promotion: true, enable_constructor_store_elision: true, enable_constructor_home_elision: true, enable_constructor_payload_forwarding: true, enable_argument_capture_forwarding: true, enable_pattern_binding_forwarding: true, enable_scalar_capture_call_elision: true, enable_scalar_capture_pointer_elision: true, enable_word_inc_update: true, enable_direct_byte_word_update: true, enable_small_loop_unrolling: true, enable_small_leaf_inlining: true, enable_address_values: true, enable_indexed_address_values: true, enable_call_predicate_arguments: true, enable_call_predicate_abi: true, enable_comparison_loop_pointers: true, enable_comparison_loop_fusion: true, enable_comparison_loop_y: true, enable_private_memory_shifts: true, enable_dead_register_arithmetic: true, enable_captured_bound_motion: true, peephole_report: Off }",
+      "origin": 8192,
+      "packaged_bytes": 3851,
+      "seconds": 1.80665725,
+      "source": "fixtures/runtime/tacle/huff_dec/huff_dec.act",
+      "trace": {
+        "analysis_counter_scope": "shared rewrite drivers only",
+        "compilation_event": null,
+        "core_layout_census": {
+          "association": "discovery-round envelope; includes rejected-candidate and analysis queries",
+          "coverage": "traced core MaterializeLayout instances; outside-driver queries are unattributed",
+          "enabled": false,
+          "observed_rounds": 0,
+          "omitted_observations_or_sites": 0,
+          "rounds_with_applied_rewrites": 0,
+          "status": "disabled"
+        },
+        "detail_bytes": 2936525,
+        "filter_errors": [],
+        "final_layout": null,
+        "final_snapshot": 3470,
+        "first_omitted_stage": null,
+        "identity_algorithm": "fnv1a64",
+        "max_bytes": 67108864,
+        "output_identity": null,
+        "output_sizes": null,
+        "schema_version": 1,
+        "selected_routines": [
+          1,
+          3,
+          7
+        ],
+        "status": "incomplete",
+        "work": {
+          "core_callee_contract_checks": 1,
+          "core_callee_read_declines": 1,
+          "core_callee_scope_fallbacks": 1,
+          "core_callee_summary_builds": 2,
+          "emission_invocations": 17,
+          "inner_emission_probes": 68,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 1200,
+          "source_storage_inventory_builds": 10
+        }
+      },
+      "tracing_preserves_image": true
+    },
+    "driver": {
+      "before_home_selection_bytes": 3781,
+      "config": "Mir6502Config { enable_parameter_home_selection: true, enable_parameter_argument_handoff: true, enable_cross_call_home_selection: true, enable_multiple_leaf_call_homes: true, enable_zp_home_lifetimes: true, enable_acyclic_call_homes: true, enable_record_base_reuse: true, enable_record_base_writes: true, enable_record_base_parameter_origins: true, select_runtime_helpers: true, select_widening_byte_multiply: false, enable_peepholes: true, enable_captured_byte_comparisons: true, enable_argument_staging_reduction: true, enable_argument_x_forwarding: true, enable_argument_x_bitwise_forwarding: true, enable_precise_callee_entry_flags: true, enable_pointer_byte_plus_one_fusion: true, enable_pointer_load_sharing: true, enable_word_load_sharing: true, enable_late_private_store_cleanup: true, enable_scoped_storage_observation: true, enable_late_dead_register_cleanup: true, enable_late_register_reuse: true, enable_late_spill_pruning: false, enable_tiny_constant_fills: true, enable_copy_value_forwarding: true, enable_register_copy_forwarding: true, enable_pointer_call_retention: true, enable_bounded_call_pointer_retention: true, enable_checked_range_pointer_retention: true, enable_pointer_loop_retention: true, enable_pointer_promotion: true, enable_constructor_store_elision: true, enable_constructor_home_elision: true, enable_constructor_payload_forwarding: true, enable_argument_capture_forwarding: true, enable_pattern_binding_forwarding: true, enable_scalar_capture_call_elision: true, enable_scalar_capture_pointer_elision: true, enable_word_inc_update: true, enable_direct_byte_word_update: true, enable_small_loop_unrolling: true, enable_small_leaf_inlining: true, enable_address_values: true, enable_indexed_address_values: true, enable_call_predicate_arguments: true, enable_call_predicate_abi: true, enable_comparison_loop_pointers: true, enable_comparison_loop_fusion: true, enable_comparison_loop_y: true, enable_private_memory_shifts: true, enable_dead_register_arithmetic: true, enable_captured_bound_motion: true, peephole_report: Off }",
+      "origin": 32768,
+      "packaged_bytes": 3781,
+      "seconds": 1.691259542,
+      "source": "build/huffman-facts/driver/huff_dec.act",
+      "trace": {
+        "analysis_counter_scope": "shared rewrite drivers only",
+        "compilation_event": null,
+        "core_layout_census": {
+          "association": "discovery-round envelope; includes rejected-candidate and analysis queries",
+          "coverage": "traced core MaterializeLayout instances; outside-driver queries are unattributed",
+          "enabled": false,
+          "observed_rounds": 0,
+          "omitted_observations_or_sites": 0,
+          "rounds_with_applied_rewrites": 0,
+          "status": "disabled"
+        },
+        "detail_bytes": 3030075,
+        "filter_errors": [],
+        "final_layout": null,
+        "final_snapshot": 3430,
+        "first_omitted_stage": null,
+        "identity_algorithm": "fnv1a64",
+        "max_bytes": 67108864,
+        "output_identity": null,
+        "output_sizes": null,
+        "schema_version": 1,
+        "selected_routines": [
+          1,
+          3,
+          7
+        ],
+        "status": "incomplete",
+        "work": {
+          "core_callee_contract_checks": 1,
+          "core_callee_read_declines": 1,
+          "core_callee_scope_fallbacks": 1,
+          "core_callee_summary_builds": 2,
+          "emission_invocations": 11,
+          "inner_emission_probes": 44,
+          "late_cleanup_preservation_replays": 1,
+          "materializations": 1,
+          "pipeline_attempts": 27,
+          "rewrite_analysis_builds": 1083,
+          "source_storage_inventory_builds": 9
+        }
+      },
+      "tracing_preserves_image": true
+    },
+    "portable-no-inline": {
+      "before_home_selection_bytes": 3851,
+      "config": "Mir6502Config { enable_parameter_home_selection: true, enable_parameter_argument_handoff: true, enable_cross_call_home_selection: true, enable_multiple_leaf_call_homes: true, enable_zp_home_lifetimes: true, enable_acyclic_call_homes: true, enable_record_base_reuse: true, enable_record_base_writes: true, enable_record_base_parameter_origins: true, select_runtime_helpers: true, select_widening_byte_multiply: false, enable_peepholes: true, enable_captured_byte_comparisons: true, enable_argument_staging_reduction: true, enable_argument_x_forwarding: true, enable_argument_x_bitwise_forwarding: true, enable_precise_callee_entry_flags: true, enable_pointer_byte_plus_one_fusion: true, enable_pointer_load_sharing: true, enable_word_load_sharing: true, enable_late_private_store_cleanup: true, enable_scoped_storage_observation: true, enable_late_dead_register_cleanup: true, enable_late_register_reuse: true, enable_late_spill_pruning: false, enable_tiny_constant_fills: true, enable_copy_value_forwarding: true, enable_register_copy_forwarding: true, enable_pointer_call_retention: true, enable_bounded_call_pointer_retention: true, enable_checked_range_pointer_retention: true, enable_pointer_loop_retention: true, enable_pointer_promotion: true, enable_constructor_store_elision: true, enable_constructor_home_elision: true, enable_constructor_payload_forwarding: true, enable_argument_capture_forwarding: true, enable_pattern_binding_forwarding: true, enable_scalar_capture_call_elision: true, enable_scalar_capture_pointer_elision: true, enable_word_inc_update: true, enable_direct_byte_word_update: true, enable_small_loop_unrolling: true, enable_small_leaf_inlining: false, enable_address_values: true, enable_indexed_address_values: true, enable_call_predicate_arguments: true, enable_call_predicate_abi: true, enable_comparison_loop_pointers: true, enable_comparison_loop_fusion: true, enable_comparison_loop_y: true, enable_private_memory_shifts: true, enable_dead_register_arithmetic: true, enable_captured_bound_motion: true, peephole_report: Off }",
+      "origin": 8192,
+      "packaged_bytes": 3851,
+      "seconds": 1.799943416,
+      "source": "fixtures/runtime/tacle/huff_dec/huff_dec.act",
+      "trace": {
+        "analysis_counter_scope": "shared rewrite drivers only",
+        "compilation_event": null,
+        "core_layout_census": {
+          "association": "discovery-round envelope; includes rejected-candidate and analysis queries",
+          "coverage": "traced core MaterializeLayout instances; outside-driver queries are unattributed",
+          "enabled": false,
+          "observed_rounds": 0,
+          "omitted_observations_or_sites": 0,
+          "rounds_with_applied_rewrites": 0,
+          "status": "disabled"
+        },
+        "detail_bytes": 2867101,
+        "filter_errors": [],
+        "final_layout": null,
+        "final_snapshot": 3463,
+        "first_omitted_stage": null,
+        "identity_algorithm": "fnv1a64",
+        "max_bytes": 67108864,
+        "output_identity": null,
+        "output_sizes": null,
+        "schema_version": 1,
+        "selected_routines": [
+          1,
+          3,
+          7
+        ],
+        "status": "incomplete",
+        "work": {
+          "core_callee_contract_checks": 1,
+          "core_callee_read_declines": 1,
+          "core_callee_scope_fallbacks": 1,
+          "core_callee_summary_builds": 2,
+          "emission_invocations": 17,
+          "inner_emission_probes": 68,
+          "late_cleanup_preservation_replays": 2,
+          "materializations": 1,
+          "pipeline_attempts": 25,
+          "rewrite_analysis_builds": 1200,
+          "source_storage_inventory_builds": 10
+        }
+      },
+      "tracing_preserves_image": true
+    }
+  },
+  "huffman_events": {
+    "portable": [
+      {
+        "attempt": 489,
+        "data": {
+          "after": "MirKnownCalleeExitSummary { accumulator: None, zn: None, preserves: MirRegisterSet { a: false, x: true, y: false, flags: false, sp: false }, reads: Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, FixedZeroPage(MirFixedZpSlot(224)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]), writes: Unknown }",
+          "before": "MirKnownCalleeExitSummary { accumulator: None, zn: None, preserves: MirRegisterSet { a: false, x: true, y: false, flags: false, sp: false }, reads: Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, Spill { id: MirSpillId(4), offset: 0 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]), writes: Unknown }",
+          "routine": "WriteByte"
+        },
+        "id": 2189,
+        "kind": "core-callee-contract-context"
+      },
+      {
+        "attempt": 489,
+        "data": {
+          "boundary": "post-zp-remapping",
+          "fact": "expanded-reads",
+          "routine": 2
+        },
+        "id": 2190,
+        "kind": "core-callee-contract-declined"
+      },
+      {
+        "attempt": 489,
+        "data": {
+          "diagnostics": null
+        },
+        "id": 2191,
+        "kind": "core-callee-scope-rejected"
+      },
+      {
+        "attempt": 755,
+        "data": {
+          "mode": "conservative"
+        },
+        "id": 3078,
+        "kind": "core-callee-scope-selected"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadBit"
+        },
+        "id": 3677,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadBits"
+        },
+        "id": 3678,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": true,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadHeader"
+        },
+        "id": 3679,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "Decode"
+        },
+        "id": 3680,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "Main"
+        },
+        "id": 3681,
+        "kind": "cross-call-ineligible"
+      }
+    ],
+    "driver": [
+      {
+        "attempt": 442,
+        "data": {
+          "after": "MirKnownCalleeExitSummary { accumulator: None, zn: None, preserves: MirRegisterSet { a: false, x: true, y: false, flags: false, sp: false }, reads: Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, Param { id: ParamId(0), offset: 0 }, FixedZeroPage(MirFixedZpSlot(224)), FixedZeroPage(MirFixedZpSlot(225)), FixedZeroPage(MirFixedZpSlot(226)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]), writes: Unknown }",
+          "before": "MirKnownCalleeExitSummary { accumulator: None, zn: None, preserves: MirRegisterSet { a: false, x: true, y: false, flags: false, sp: false }, reads: Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, Param { id: ParamId(0), offset: 0 }, Spill { id: MirSpillId(0), offset: 0 }, Spill { id: MirSpillId(1), offset: 0 }, Spill { id: MirSpillId(2), offset: 0 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]), writes: Unknown }",
+          "routine": "WriteByte"
+        },
+        "id": 2115,
+        "kind": "core-callee-contract-context"
+      },
+      {
+        "attempt": 442,
+        "data": {
+          "boundary": "post-zp-remapping",
+          "fact": "expanded-reads",
+          "routine": 2
+        },
+        "id": 2116,
+        "kind": "core-callee-contract-declined"
+      },
+      {
+        "attempt": 442,
+        "data": {
+          "diagnostics": null
+        },
+        "id": 2117,
+        "kind": "core-callee-scope-rejected"
+      },
+      {
+        "attempt": 682,
+        "data": {
+          "mode": "conservative"
+        },
+        "id": 2992,
+        "kind": "core-callee-scope-selected"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadBit"
+        },
+        "id": 3654,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadBits"
+        },
+        "id": 3655,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": true,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadHeader"
+        },
+        "id": 3656,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "Main"
+        },
+        "id": 3657,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "entry": "ReadHeader: MirEntryRequirements { registers: MirRegisterSet { a: true, x: true, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false }, fixed: {} }",
+          "reason": "unknown residence callee writes",
+          "routine": "Decode",
+          "site": "Op { block: MirBlockId(1), op_index: 0 }"
+        },
+        "id": 3658,
+        "kind": "cross-call-dependency"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "entry": "BuildTree: MirEntryRequirements { registers: MirRegisterSet { a: true, x: true, y: true, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false }, fixed: {163} }",
+          "reason": "unknown residence callee writes",
+          "routine": "Decode",
+          "site": "Op { block: MirBlockId(1), op_index: 1 }"
+        },
+        "id": 3659,
+        "kind": "cross-call-dependency"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "entry": "WriteByte: MirEntryRequirements { registers: MirRegisterSet { a: true, x: false, y: false, flags: false, sp: false }, flags: MirFlagSet { c: false, z: false, n: false, v: false }, fixed: {} }",
+          "reason": "unknown residence callee writes",
+          "routine": "Decode",
+          "site": "Op { block: MirBlockId(9), op_index: 2 }"
+        },
+        "id": 3660,
+        "kind": "cross-call-dependency"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "home": "Local { id: LocalId(0), offset: 0 }",
+          "reason": "unknown residence callee writes",
+          "routine": "Decode",
+          "site": "Op { block: MirBlockId(9), op_index: 2 }"
+        },
+        "id": 3661,
+        "kind": "cross-call-home-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "home": "Local { id: LocalId(1), offset: 0 }",
+          "reason": "unknown residence callee writes",
+          "routine": "Decode",
+          "site": "Op { block: MirBlockId(9), op_index: 2 }"
+        },
+        "id": 3662,
+        "kind": "cross-call-home-ineligible"
+      }
+    ],
+    "portable-no-inline": [
+      {
+        "attempt": 487,
+        "data": {
+          "after": "MirKnownCalleeExitSummary { accumulator: None, zn: None, preserves: MirRegisterSet { a: false, x: true, y: false, flags: false, sp: false }, reads: Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, FixedZeroPage(MirFixedZpSlot(224)), FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]), writes: Unknown }",
+          "before": "MirKnownCalleeExitSummary { accumulator: None, zn: None, preserves: MirRegisterSet { a: false, x: true, y: false, flags: false, sp: false }, reads: Exact([Global { id: SymbolId(6), offset: 0 }, Global { id: SymbolId(6), offset: 1 }, Spill { id: MirSpillId(4), offset: 0 }, FixedZeroPage(MirFixedZpSlot(172)), FixedZeroPage(MirFixedZpSlot(173))]), writes: Unknown }",
+          "routine": "WriteByte"
+        },
+        "id": 2186,
+        "kind": "core-callee-contract-context"
+      },
+      {
+        "attempt": 487,
+        "data": {
+          "boundary": "post-zp-remapping",
+          "fact": "expanded-reads",
+          "routine": 2
+        },
+        "id": 2187,
+        "kind": "core-callee-contract-declined"
+      },
+      {
+        "attempt": 487,
+        "data": {
+          "diagnostics": null
+        },
+        "id": 2188,
+        "kind": "core-callee-scope-rejected"
+      },
+      {
+        "attempt": 753,
+        "data": {
+          "mode": "conservative"
+        },
+        "id": 3075,
+        "kind": "core-callee-scope-selected"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadBit"
+        },
+        "id": 3670,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadBits"
+        },
+        "id": 3671,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": true,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "ReadHeader"
+        },
+        "id": 3672,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "Decode"
+        },
+        "id": 3673,
+        "kind": "cross-call-ineligible"
+      },
+      {
+        "attempt": 0,
+        "data": {
+          "indirect_writes": false,
+          "machine_blocks": false,
+          "reason": "unsupported caller body or signature",
+          "routine": "Main"
+        },
+        "id": 3674,
+        "kind": "cross-call-ineligible"
+      }
+    ]
+  },
+  "source_sha256": {
+    "samples/tn/modern/TN.ACT": "e6f03f6bb6a6260547197785d9ac85c9a1ee544f66cc889ed417c5adb56073bd",
+    "samples/tn/modern/LIB.ACT": "76a9a197f1bbd2a5adda457bdedb297ae84ce18013623f89f46ca2a18ca3d64d",
+    "fixtures/runtime/tacle/huff_dec/huff_dec.act": "e995f977918056143de9369d9de01974f0c6f4e72087880460805da0b2b8b955",
+    "fixtures/runtime/tacle/huff_dec/types.inc": "935fcd00d150c407a885f3d7c8719e46e367f5310fc602ecc4e35c0ea37c3edf",
+    "fixtures/runtime/tacle/huff_dec/kernel.inc": "92e2944f5a765f72b59b9d1ebdf24c2aca1f70e44deda3f3628c2446a6234c3f",
+    "fixtures/runtime/tacle/huff_dec/vectors.txt": "720178b33345424ba0988e020fecc101f98d5d29a7c2b4687164ff3edde933b3",
+    "tools/vm-runtime-tests/fixtures/huff_dec_driver.act": "27a7b4859e807d12af244232a3c41599e1fe263aa8430a32c7412447828d4245"
+  },
+  "probe_sha256": {
+    "docs/benchmarks/6502-call-facts-audit/probe.rs": "b56748f041a29883607d7b80a2070a9fb78f49ee2e9315edf3024d60a7da59c7",
+    "docs/benchmarks/6502-huffman-facts/probe.rs": "e9d67e40ce7f348ee3241561720a0996bad0e604e8bc72114c86ce89f40912d8",
+    "docs/benchmarks/6502-runtime-contracts/run.py": "71e0a264966875c46472655191038a0565ee70a5d98f39e2eaf647cf1b6cd9a1",
+    "docs/benchmarks/6502-runtime-contracts/summarize.py": "5c79a424bbee40951d3ee99fa7cfd2bd9b4f29fe9eb4dec9a7bfbf40d994fab7",
+    "docs/benchmarks/6502-wide-routine-abi/summarize.py": "b5d80253a95bddfa3be7b5a279b134daf4dd6cbfeba503495f4137e283bdaaf9"
+  }
+}

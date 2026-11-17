@@ -1,6 +1,6 @@
 # MIR6502 wide routine ABI implementation plan
 
-Status: in progress, 2026-11-17. Slices 1–3 complete.
+Status: complete, 2026-11-17. All four slices implemented and qualified.
 
 Implement the [design](MIR6502_WIDE_ROUTINE_ABI_DESIGN.md) in four vertical
 slices, committing each after its focused checks. Commit the design and this
@@ -124,3 +124,13 @@ host LF/CRLF text where required by the existing test paths.
   `cross_call_homes` passed 14 tests and `runtime_library_contracts` passed three.
   Huffman passed its two MIR6502 provider tests and LF/CRLF vector control
   (370 executions), covering the final qualification's execution obligation.
+- Slice 4: the combined fact audit passed both tests and retained matching
+  source/image hashes. `ReadBits`, `ReadHeader` and `Decode` gain composed entry
+  certificates in all three Huffman configurations; no certificates are lost.
+  TN remains 9,913 bytes and Huffman remains 3,851/3,781/3,851 bytes. All images,
+  named homes and temporary homes are byte-for-byte unchanged. The existing
+  Pull/WriteByte remapping fallbacks remain. The slice 2 backend-unit run and
+  slice 3 execution controls complete validation; no duplicate suites were
+  needed. Temporary hooks were removed and documentation links checked.
+  See the [qualification and remaining blockers](benchmarks/6502-wide-routine-abi/README.md)
+  for reproducible facts, hashes and exact check results.

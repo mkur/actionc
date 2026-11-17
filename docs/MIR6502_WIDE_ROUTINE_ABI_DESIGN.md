@@ -1,10 +1,12 @@
 # MIR6502 complete integer routine ABI metadata
 
-Status: proposed, 2026-11-17.
+Status: implemented and qualified, 2026-11-17.
 
 The [implementation plan](MIR6502_WIDE_ROUTINE_ABI_IMPLEMENTATION_PLAN.md)
 delivers the metadata, proof consumers, runtime controls and measured qualification
 in separate commits.
+The [qualification](benchmarks/6502-wide-routine-abi/README.md) records the
+three new Huffman entry certificates and unchanged TN/Huffman images and homes.
 
 ## Decision
 
@@ -25,14 +27,14 @@ type declaration.
 
 ## Problem and affected routines
 
-The [Huffman qualification](benchmarks/6502-runtime-contracts/README.md) now
-certifies every arithmetic-helper site, but `ReadBits(CARD n)` still loses its
-direct parameter and result metadata because it returns LONGCARD. Its callers
-cannot obtain complete composed entry facts.
+At the [Huffman baseline](benchmarks/6502-runtime-contracts/README.md), every
+arithmetic-helper site was certified, but `ReadBits(CARD n)` lost its direct
+parameter and result metadata because it returns LONGCARD. Its callers could
+not obtain complete composed entry facts.
 
 The limitation is general:
 
-| Signature or public API | Current missing facts |
+| Signature or public API | Missing facts at the baseline |
 | --- | --- |
 | `LONGCARD FUNC ReadBits(CARD n)` | Wide result, plus the otherwise supported word parameter |
 | `SYS.ValLC`, `InputLC`, `InputLCD` and signed `LI` equivalents | Four-byte result; parameter discovery also fails |
@@ -52,15 +54,15 @@ and [call planning](../src/mir6502/call_plan.rs) split a wide argument into two
 word operands and describe a wide result with a primary word and an additional
 word. The gap is between this executable representation and its retained facts:
 
-- `MirDirectParamAbi::Scalar` and `MirDirectResultAbi::Scalar` currently use
+- `MirDirectParamAbi::Scalar` and `MirDirectResultAbi::Scalar` used
   `MirWidth`, which contains only Byte and Word.
-- `direct_parameter_abi` additionally requires the result to fit that same
+- `direct_parameter_abi` additionally required the result to fit that same
   narrow model before retaining any parameters.
-- Entry completeness checks require `slot.scalar_width == Some(width)`;
+- Entry completeness checks required `slot.scalar_width == Some(width)`;
   a valid four-byte scalar slot has `storage_size == 4` and no single
   `MirWidth`.
-- `validate_direct_call_result` currently rejects additional result words.
-- Materialization currently drops both primary and additional result declarations
+- `validate_direct_call_result` rejected additional result words.
+- Materialization dropped both primary and additional result declarations
   after emitting the captures. Wide calls must retain their complete declaration
   while the capture operations become explicit loads/stores.
 - `MirScalarSignature` already records integer LONGs as two words, but excludes
@@ -271,8 +273,7 @@ Use focused MIR6502 checks, grouped around distinct boundaries:
 
 Readable MIR output must distinguish a single 32-bit ABI value from its
 lowered word transfers. Record unavailable entry proofs separately from
-supported signatures. No compiler checks are needed for this design-only
-change; implementation validation follows the repository's backend scope.
+supported signatures. Implementation validation follows the repository's backend scope.
 If shared NIR contracts change, the mandatory shared-contract checks apply.
 
 Acceptance requires accurate independent ABI descriptions, consistent physical

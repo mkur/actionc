@@ -514,9 +514,10 @@ and emitted capture remain unchanged.
 
 Keep the following Huffman findings separate:
 
-- `ReadBits` has unsupported direct result metadata for `LONGCARD`, which also
-  suppresses its otherwise supported parameter ABI. Private wide-helper
-  results do not repair the public Action call ABI.
+- At the helper qualification baseline, `ReadBits` lacked direct result
+  metadata for `LONGCARD`, also suppressing its supported parameter ABI.
+  The [wide routine ABI extension](MIR6502_WIDE_ROUTINE_ABI_DESIGN.md) repairs
+  that separate public-call boundary; private helper results keep their own ABI.
 - Caller admission still restricts multiply, shifts, some pointer arithmetic
   and global address formation. A helper contract does not prove those
   independent transformations safe.

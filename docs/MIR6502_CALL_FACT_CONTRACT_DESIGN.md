@@ -246,13 +246,16 @@ callable result type, without consulting SemIR or emitted map metadata.
 | `Some(Void)` | Known procedure with no result homes |
 | `Some(Scalar(Byte))` | Declared byte result at `$A0` |
 | `Some(Scalar(Word))` | Declared word result at `$A0/$A1` |
+| `Some(Scalar(Long))` | Declared four-byte result at `$A0–$A3` |
 | `Some(Pointer)` | Declared 16-bit data-pointer result at `$A0/$A1` |
 
-`MirDirectResultAbi` has the `Void`, `Scalar(MirWidth)` and `Pointer` variants.
-Keep Void distinct from Unknown. Accept the supported byte/word integer types
-and 16-bit pointers in the data address space. LONG, REAL, aggregates, other
-address spaces and untyped generated entries remain unsupported by this narrow
-contract. Their existing lowering and execution behavior is unaffected.
+`MirDirectResultAbi` has the `Void`, `Scalar(MirAbiIntegerWidth)` and `Pointer`
+variants. The original issue 4 used `MirWidth` and supported byte/word results;
+the wide ABI extension adds Long without widening machine instructions.
+Keep Void distinct from Unknown. Accept byte/word/long integer types and
+16-bit pointers in the data address space. REAL, aggregates, other address
+spaces and untyped generated entries remain outside this contract. Their
+existing lowering and execution behavior is unaffected.
 
 Determine result metadata independently even when the parameter ABI is
 unsupported or variadic. That does not admit such a routine to a proof: current
