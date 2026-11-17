@@ -1,4 +1,4 @@
-//! Actual native entry composition, scoped to one immutable program.
+//! Actual native entry composition with certified machine leaves, scoped to one program.
 use super::*;
 
 pub(in crate::mir6502) struct MirAcyclicEntryAnalysis<'a> {
@@ -47,6 +47,21 @@ impl<'a> MirAcyclicEntryAnalysis<'a> {
         let routine = *self.routines.get(&target)?;
         if !matches!(routine.abi, MirRoutineAbi::Action | MirRoutineAbi::ActionObservable) {
             return None;
+        }
+        if let Some(site) = routine.blocks.iter().find_map(|b| b.ops.iter().position(|op|
+            matches!(op, MirOp::MachineBlock { .. })).map(|op_index|
+                MirSite::Op { block: b.id, op_index }))
+        {
+            // The existing leaf producer certifies the complete machine body,
+            // including its closed control flow. No MIR call edges alone is not
+            // evidence that a payload has no hidden call. Keep result definitions
+            // and source witnesses exactly as published by that producer.
+            let fact = MirCalleeEntryFact::analyze(self.program, target,
+                MirCalleeEntryStage::ActualEntry).map(Arc::new);
+            if fact.is_none() {
+                self.failures.insert(target, (target, Some(site), "uncertified machine leaf entry"));
+            }
+            return fact;
         }
         let mut targets = BTreeSet::new();
         for (site, op) in routine.blocks.iter().flat_map(|b| b.ops.iter().enumerate()

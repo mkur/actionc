@@ -84,6 +84,7 @@ fn acyclic_entries_compose_diamonds_results_and_transitive_freshness() {
 }
 
 mod results;
+mod assembly;
 
 #[test]
 fn acyclic_entry_requirements_follow_setup_on_every_path() {

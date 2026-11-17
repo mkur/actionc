@@ -1,6 +1,6 @@
 # MIR6502 certified assembly-leaf composition implementation plan
 
-Status: prepared, 2026-11-17.
+Status: slice 1 implemented; residence admission in progress, 2026-11-17.
 
 Implements [issue 9](MIR6502_FACT_REPAIR_PRIORITIES.md) under the
 [certified assembly-leaf design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#proposed-extension-certified-assembly-leaves-in-acyclic-call-chains).
@@ -64,3 +64,12 @@ TN savings are measured, not required. `MovePage` may gain composed entry
 admission while retaining Unknown writes; `CalcAdr`, `Internal` and `Ascii`
 remain unsupported without a separate entry repair. Recovering issue 8's core
 fallback cost is outside this plan.
+
+## Progress
+
+Slice 1 composes complete ActualEntry machine-leaf certificates without changing
+result definitions or decoder coverage. Two grouped regressions cover a native
+diamond, repeated queries/sites, opposite routine order, unproved results,
+transitive freshness and unsupported/mixed bodies. All **17 focused entry-analysis
+tests pass**. The independent pre-extension control is 88 bytes; the retained TN
+baseline is 9,926 bytes.
