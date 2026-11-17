@@ -1050,3 +1050,33 @@ fn multiple_leaf_calls_preserve_arguments_state_and_source_memory() {
         }
     }
 }
+
+#[test]
+fn returning_division_preserves_a_live_caller_home() {
+    let file = support::Source::new("CARD result=$906
+CARD FUNC Quotient(CARD left,right) RETURN(left/right)
+BYTE FUNC Hold(BYTE keep) result=Quotient(99,7) RETURN(keep)
+PROC Main() RETURN");
+    let loaded = actionc::includes::load_program_with_expanded_source(&file.0).unwrap();
+    let model = actionc::semantic::analyze_with_options(&loaded.program,
+        actionc::semantic::SemanticOptions::modern()).unwrap();
+    let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
+        &actionc::semantic::ir::lower_program(&loaded.program, &model))).unwrap();
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let mut trace = mir6502::trace::Mir6502Trace::new(mir6502::trace::TraceOptions::default());
+        let output = mir6502::generate_output_with_trace(&nir, 0x3000,
+            &Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() }, runtime, &mut trace).unwrap();
+        let hold = output.routine_addresses.iter().find(|r| r.name == "Hold").unwrap().address;
+        assert!(output.map.storage_symbols.iter().any(|s|
+            s.scope == actionc::codegen::CodegenSymbolScope::Routine("Hold".into()) && s.address < 256), "{runtime:?}: {:?}", trace.events().into_iter()
+                .filter(|e| e.kind.starts_with("cross-call")).collect::<Vec<_>>());
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        let mut hooks = Observe { advance: 0, arguments: vec![] };
+        for keep in [0x34u8, 0x80] {
+            vm = machine::call(vm, &mut hooks, hold, &[keep]);
+            assert_eq!(machine::bytes(&vm, 0xa0, 1), [keep]);
+            assert_eq!(machine::bytes(&vm, 0x906, 2), [14, 0]);
+        }
+    }
+}

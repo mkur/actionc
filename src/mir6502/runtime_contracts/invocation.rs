@@ -58,7 +58,11 @@ pub(in crate::mir6502) fn invocation(program: &MirProgram, routine: &MirRoutine,
 pub(in crate::mir6502) fn helper_invocation(program: &MirProgram, op: &MirOp) -> Option<InvocationSummary> {
     let MirOp::RuntimeHelper { helper, args, result, additional_results, effects } = op else { return None; };
     if !matches!(helper, MirRuntimeHelper::MulByte | MirRuntimeHelper::Mul | MirRuntimeHelper::Lsh | MirRuntimeHelper::Rsh
-        | MirRuntimeHelper::Mul32 | MirRuntimeHelper::Lsh32 | MirRuntimeHelper::Rsh32) { return None; }
+        | MirRuntimeHelper::Mul32 | MirRuntimeHelper::Lsh32 | MirRuntimeHelper::Rsh32
+        | MirRuntimeHelper::Div | MirRuntimeHelper::Mod | MirRuntimeHelper::UDiv | MirRuntimeHelper::UMod
+        | MirRuntimeHelper::DivMod | MirRuntimeHelper::UDivMod
+        | MirRuntimeHelper::DivU8 | MirRuntimeHelper::ModU8 | MirRuntimeHelper::DivU16U8 | MirRuntimeHelper::ModU16U8
+        | MirRuntimeHelper::Div32 | MirRuntimeHelper::Mod32 | MirRuntimeHelper::UDiv32 | MirRuntimeHelper::UMod32) { return None; }
     selected_helper(program, *helper)?;
     if *args != signatures::helper_args(helper) || *effects != signatures::helper_effects(helper)
         || *additional_results != signatures::helper_additional_results(*helper)

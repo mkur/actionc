@@ -74,3 +74,47 @@ PROC Main() RETURN", crate::runtime::Runtime::Standalone);
     let fixed = calls.fixed_storage();
     assert!(calls.writes(call).unwrap().preserves_fixed_byte(MirFixedZpSlot(0xe4), &fixed));
 }
+
+#[test]
+fn division_contracts_preserve_full_fault_effects_and_publish_only_returning_results() {
+    use crate::mir6502::analysis::known_callees::{MirKnownCalleeSummaries, MirKnownMemoryWrites};
+    let helpers = [MirRuntimeHelper::Div, MirRuntimeHelper::Mod, MirRuntimeHelper::UDiv, MirRuntimeHelper::UMod,
+        MirRuntimeHelper::DivMod, MirRuntimeHelper::UDivMod, MirRuntimeHelper::DivU8, MirRuntimeHelper::ModU8,
+        MirRuntimeHelper::DivU16U8, MirRuntimeHelper::ModU16U8, MirRuntimeHelper::Div32, MirRuntimeHelper::Mod32,
+        MirRuntimeHelper::UDiv32, MirRuntimeHelper::UMod32];
+    let fault = MirRuntimeHelper::Fault(crate::runtime_fault::RuntimeFault::ALL[0]);
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        let mut p = super::tests::program("PROC Main() RETURN", runtime);
+        p.runtime_helpers = helpers.iter().copied().chain([fault]).map(crate::mir6502::materialize::deferred_helper_decl).collect();
+        crate::mir6502::runtime::resolve_helpers(&mut p, runtime).unwrap();
+        for helper in helpers.into_iter().chain([fault]) {
+            let op = MirOp::RuntimeHelper { helper, args: signatures::helper_args(&helper), result: None,
+                additional_results: signatures::helper_additional_results(helper), effects: signatures::helper_effects(&helper) };
+            let MirOp::RuntimeHelper { effects, .. } = &op else { unreachable!() };
+            assert!(effects.may_call_os);
+            assert_eq!(effects.memory_reads, MirMemoryEffect::Unknown);
+            assert_eq!(effects.memory_writes, MirMemoryEffect::Unknown);
+            p.routines[0].effects.may_call_os = true;
+            p.routines[0].blocks[0].ops = vec![op.clone()];
+            let full = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+            assert_eq!(full.get(p.routines[0].id).unwrap().writes(), &MirKnownMemoryWrites::Unknown);
+            let normal = MirKnownCalleeSummaries::analyze_for_residence(&p);
+            if helper == fault {
+                assert!(helper_invocation(&p, &op).is_none());
+                assert!(MirCalleeEntryFact::analyze(&p, p.routines[0].id, MirCalleeEntryStage::ActualEntry).is_none());
+                assert_eq!(normal.get(p.routines[0].id).unwrap().writes(), &MirKnownMemoryWrites::Unknown);
+                continue;
+            }
+            let contract = helper_invocation(&p, &op).unwrap();
+            let entry = MirCalleeEntryFact::analyze(&p, p.routines[0].id, MirCalleeEntryStage::ActualEntry).unwrap();
+            assert!(!entry.inputs.flags.any());
+            assert_eq!(contract.definitions.len(), if helper.is_wide() { 4 }
+                else if matches!(helper, MirRuntimeHelper::DivMod | MirRuntimeHelper::UDivMod) { 2 } else { 0 });
+            assert!(normal.get(p.routines[0].id).unwrap().writes().preserves_fixed_byte(MirFixedZpSlot(0xe4), normal.fixed_storage()));
+            assert!(!normal.get(p.routines[0].id).unwrap().writes().preserves_fixed_byte(MirFixedZpSlot(0x82), normal.fixed_storage()));
+        }
+        // A routine-level OS marker without a supported boundary is not proof.
+        p.routines[0].blocks[0].ops.clear();
+        assert!(MirCalleeEntryFact::analyze(&p, p.routines[0].id, MirCalleeEntryStage::ActualEntry).is_none());
+    }
+}

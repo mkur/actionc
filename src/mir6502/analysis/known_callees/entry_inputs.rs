@@ -54,8 +54,26 @@ impl MirCalleeEntryFact {
         dependencies: Option<BTreeMap<RoutineId, Arc<Self>>>,
     ) -> Option<Self> {
         let routine = program.routines.iter().find(|r| r.id == target)?;
-        if routine.effects.opaque || routine.effects.may_call_os {
-            return None;
+        if routine.effects.opaque { return None; }
+        if routine.effects.may_call_os {
+            // Explain the aggregate flag through current returning boundary
+            // contracts. An unexplained OS effect remains an entry barrier.
+            let mut covered = false;
+            for op in routine.blocks.iter().flat_map(|b| &b.ops) {
+                let effects = match op {
+                    MirOp::Call { effects, .. } | MirOp::RuntimeHelper { effects, .. }
+                        | MirOp::SArgsCapture { effects, .. } | MirOp::MachineBlock { effects, .. }
+                        | MirOp::Barrier { effects } => effects,
+                    _ => continue,
+                };
+                if !effects.may_call_os { continue; }
+                let returning = crate::mir6502::runtime_contracts::invocation(program, routine, op).is_some()
+                    || matches!(op, MirOp::Call { target: MirCallTarget::Routine(id), .. }
+                        if dependencies.as_ref().is_some_and(|d| d.contains_key(id)));
+                if !returning { return None; }
+                covered = true;
+            }
+            if !covered { return None; }
         }
         let machines: Vec<_> = routine
             .blocks
@@ -130,7 +148,8 @@ fn scalar_inputs(
                 MirOp::Barrier { .. }
                     | MirOp::MachineBlock { .. }
             ) || (matches!(o, MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. })
-                && crate::mir6502::runtime_contracts::invocation(program, routine, o).is_none())
+                && (stage != MirCalleeEntryStage::ActualEntry
+                    || crate::mir6502::runtime_contracts::invocation(program, routine, o).is_none()))
                 || (matches!(o, MirOp::Call { .. })
                 && (stage != MirCalleeEntryStage::ActualEntry || dependencies.is_none()))
         })

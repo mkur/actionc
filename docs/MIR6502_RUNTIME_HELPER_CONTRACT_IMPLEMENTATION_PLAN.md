@@ -1,6 +1,6 @@
 # MIR6502 runtime and standard library contract implementation plan
 
-Status: in progress, 2026-11-17. Slices 1–4 complete.
+Status: in progress, 2026-11-17. Slices 1–5 complete.
 
 Implement the [contract design](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md) in
 the slices below, committing each slice after its focused checks pass. Deliver
@@ -319,3 +319,17 @@ optimization level 1, debug info disabled and two build jobs.
   helper sites and normal-return writes separately from full effects.
   Test preparation now uses optimized NIR and the public MIR preparation path,
   avoiding the raw-core temporary-cleanup issue noted in slice 1.
+
+- Slice 5: helper contract tests (6) and the built library runner's existing
+  known-callee tests (73) passed. VM filters passed in their existing modes
+  and runtimes: `cross_call_homes returning_division_preserves_a_live_caller_home`,
+  `modern_arithmetic error_handler_observes_state_before_the_failed_operation`,
+  `modern_arithmetic modern_fault_survives_dead_result_elimination_but_not_unexecuted_branch`,
+  and `wide_integers wide_zero_divisors_fault_before_stores_and_do_not_resume`.
+  These retain unused-result faults, prior observable stores and the defensive
+  guard when Error returns. Fault itself has no returning contract. Aggregate
+  OS effects are accepted only when explained by current returning boundaries.
+  A word-sized caller control exposed an independent planning limit: a proposed
+  `$A2/$A3` home collides with fourth-argument setup at `$A3`; final validation
+  correctly rejects the trial. The byte control verifies actual ZP preservation
+  across division. Allocation and rollback policy are unchanged.
