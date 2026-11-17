@@ -1,6 +1,6 @@
 # MIR6502 runtime and standard library contract implementation plan
 
-Status: in progress, 2026-11-17. Slices 1–5 complete.
+Status: in progress, 2026-11-17. Slices 1–6 complete.
 
 Implement the [contract design](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md) in
 the slices below, committing each slice after its focused checks pass. Deliver
@@ -333,3 +333,12 @@ optimization level 1, debug info disabled and two build jobs.
   `$A2/$A3` home collides with fourth-argument setup at `$A3`; final validation
   correctly rejects the trial. The byte control verifies actual ZP preservation
   across division. Allocation and rollback policy are unchanged.
+
+- Slice 6: `cargo test --lib mir6502::runtime_contracts::library_tests` (1),
+  the built library runner's `mir6502::interfaces` filter (3),
+  `cargo test --test embedded_modules implicit_sys_compatibility_aliases_compile_in_all_backend_runtime_pairs`
+  (1), and VM `runtime_library_contracts` (1, both providers) passed.
+  The control checks signed string comparisons, page crossing, untouched strings
+  and a live caller ZP home. Binding tests retain Peek/PeekC identity at their
+  shared cartridge address, reject missing/stale evidence and preserve local
+  name shadowing. Assembly bytes and public declarations are unchanged.

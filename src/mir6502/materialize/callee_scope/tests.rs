@@ -37,6 +37,7 @@ fn program() -> MirProgram {
         additional_results: vec![],
         effects: Default::default(),
         abi: MirCallAbi {
+            library: None,
             params: vec![],
             result: None,
             additional_results: vec![],

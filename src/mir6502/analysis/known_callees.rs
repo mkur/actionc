@@ -309,7 +309,7 @@ impl MirKnownCalleeSummaries {
                 if machine_summaries.contains_key(&routine.id) {
                     continue;
                 }
-                let mut summary = summarize_mir_routine(routine, &previous, normal);
+                let mut summary = summarize_mir_routine(routine, &previous, normal, program);
                 if !mutable_return_flags {
                     summary.zn = None;
                 }
@@ -380,6 +380,7 @@ fn summarize_mir_routine(
     routine: &MirRoutine,
     callees: &MirKnownCalleeSummaries,
     normal: Option<&MirProgram>,
+    program: &MirProgram,
 ) -> MirKnownCalleeExitSummary {
     let Ok(cfg) = MirCfg::from_routine(routine) else {
         return MirKnownCalleeExitSummary::default();
@@ -442,7 +443,7 @@ fn summarize_mir_routine(
             MirRegisterSet::default()
         },
         reads: summarize_routine_reads(routine, callees),
-        writes: summarize_routine_writes(routine, callees, normal),
+        writes: summarize_routine_writes(routine, callees, normal, program),
     }
 }
 
@@ -747,11 +748,13 @@ fn summarize_routine_writes(
     routine: &MirRoutine,
     callees: &MirKnownCalleeSummaries,
     normal: Option<&MirProgram>,
+    program: &MirProgram,
 ) -> MirKnownMemoryWrites {
     let mut writes = MirKnownMemoryWrites::exact();
     for block in &routine.blocks {
         for op in &block.ops {
-            if let Some(invocation) = normal.and_then(|p| crate::mir6502::runtime_contracts::invocation(p, routine, op)) {
+            if let Some(invocation) = normal.and_then(|p| crate::mir6502::runtime_contracts::invocation(p, routine, op))
+                .or_else(|| crate::mir6502::runtime_contracts::library_invocation(program, op)) {
                 for byte in invocation.writes { writes.record(byte); }
             } else {
                 summarize_op_writes(op, routine, callees, &mut writes);
@@ -2298,6 +2301,7 @@ mod tests {
                 additional_results: Vec::new(),
                 target: MirCallTarget::Routine(callee.id),
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: Vec::new(),
                     result: None,
@@ -2744,6 +2748,7 @@ mod tests {
                 additional_results: Vec::new(),
                 target: MirCallTarget::Routine(callee.id),
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: Vec::new(),
                     result: None,

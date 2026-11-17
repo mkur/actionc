@@ -58,6 +58,7 @@ impl<'a> ResidenceCalls<'a> {
         if self.stage != MirCalleeEntryStage::ActualEntry {
             return Err("residence inputs require expanded callee facts");
         }
+        if crate::mir6502::runtime_contracts::library_invocation(self.program, call).is_some() { return Ok(()); }
         if matches!(call, MirOp::RuntimeHelper { .. }) {
             return crate::mir6502::runtime_contracts::helper_invocation(self.program, call)
                 .map(|_| ()).ok_or("unsupported residence helper contract");
@@ -101,6 +102,9 @@ impl<'a> ResidenceCalls<'a> {
     pub fn writes(&mut self, call: &MirOp) -> Result<MirKnownMemoryWrites, &'static str> {
         if self.stage != MirCalleeEntryStage::ActualEntry {
             return Err("residence writes require expanded callee facts");
+        }
+        if let Some(s) = crate::mir6502::runtime_contracts::library_invocation(self.program, call) {
+            return Ok(MirKnownMemoryWrites::Exact(s.writes));
         }
         if matches!(call, MirOp::RuntimeHelper { .. }) {
             return crate::mir6502::runtime_contracts::helper_invocation(self.program, call)

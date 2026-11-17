@@ -408,6 +408,7 @@ fn known_call_result_reuse_program(
         additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: Vec::new(),
             result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -4517,6 +4518,7 @@ fn signed_return_word_zero_ops(op: MirCompareOp, zero_on_left: bool) -> Vec<MirO
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: Vec::new(),
                 result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -5831,6 +5833,7 @@ fn binary_temp_consumer_observability_counts_call_arg_and_later_use() {
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
@@ -11285,6 +11288,7 @@ fn ssa_lite_scanner_kills_facts_on_calls_regardless_of_abi_clobbers() {
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
@@ -11313,6 +11317,7 @@ fn calls_are_conservative_register_and_flag_barriers_for_peepholes() {
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
@@ -11349,6 +11354,7 @@ fn call_producer_fold_rewrites_indirect_targets() {
                 width: MirWidth::Word,
             },
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
@@ -11393,6 +11399,7 @@ fn stored_word_call_result_alias_ops(intervening: Vec<MirOp>) -> Vec<MirOp> {
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: Vec::new(),
                 result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -11552,6 +11559,7 @@ fn call_result_store_prepares_computed_target_address_before_call() {
                     address: Some(0x4000),
                 },
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: vec![MirArgHome::Reg(MirReg::A)],
                     result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -11638,6 +11646,7 @@ fn call_result_store_does_not_preserve_target_across_routine_call() {
                 additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: Vec::new(),
                     result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -11757,6 +11766,7 @@ fn call_result_store_prepares_target_before_loaded_call_arg() {
                     address: Some(0x4000),
                 },
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: vec![MirArgHome::Reg(MirReg::A)],
                     result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -11927,6 +11937,7 @@ fn call_result_store_rematerializes_delayed_byte_index_producers() {
                     address: Some(0x4000),
                 },
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: vec![MirArgHome::Reg(MirReg::A)],
                     result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -12044,6 +12055,7 @@ fn loaded_arg_call_result_store_rematerializes_simple_delayed_dest_index() {
                     address: Some(0x4000),
                 },
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: vec![MirArgHome::Reg(MirReg::A)],
                     result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -13072,6 +13084,7 @@ fn call_result_store_keeps_existing_path_when_call_may_clobber_prepared_address(
                 additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: Vec::new(),
                     result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -13185,6 +13198,7 @@ fn param_forwarding_rewrites_indirect_call_targets() {
                 width: MirWidth::Word,
             },
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
@@ -15027,6 +15041,7 @@ fn exact_known_callee_zn_provenance_folds_a_zero_compare() {
                     additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(1)),
                     abi: MirCallAbi {
+                        library: None,
                         additional_results: Vec::new(),
                         params: Vec::new(),
                         result: None,
@@ -15470,6 +15485,7 @@ fn ssa_lite_keeps_x_reload_for_call_argument_staging() {
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
@@ -15587,6 +15603,7 @@ fn ssa_lite_keeps_accumulator_reload_after_calls() {
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
@@ -15712,6 +15729,7 @@ fn ssa_lite_reports_reload_retained_at_call_boundary() {
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
@@ -16808,6 +16826,7 @@ fn analyzed_call_result_placement_moves_accumulator_to_y_before_ax_arguments() {
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
@@ -16822,6 +16841,7 @@ fn analyzed_call_result_placement_moves_accumulator_to_y_before_ax_arguments() {
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(2)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: vec![
                 MirArgHome::Reg(MirReg::A),
@@ -19064,6 +19084,7 @@ fn mir_copy_prop_keeps_captured_register_move_across_call_barrier() {
                 additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: Vec::new(),
                     result: None,
@@ -20636,6 +20657,7 @@ fn mir_copy_prop_forwards_const_temp_into_byte_call_arg() {
                 additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: vec![MirArgHome::Reg(MirReg::A)],
                     result: None,
@@ -20698,6 +20720,7 @@ fn mir_copy_prop_forwards_direct_mem_temp_into_byte_call_arg_and_removes_home() 
                 additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: vec![MirArgHome::Reg(MirReg::A)],
                     result: None,
@@ -20774,6 +20797,7 @@ fn mir_copy_prop_keeps_captured_call_arg_after_source_memory_changes() {
                 additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: vec![MirArgHome::Reg(MirReg::A)],
                     result: None,
@@ -21049,6 +21073,7 @@ fn pre_materialization_rematerializes_private_load_after_safe_known_call() {
                 additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: Vec::new(),
                     result: None,
@@ -21111,6 +21136,7 @@ fn pre_materialization_rematerializes_private_load_after_audited_fpp_call() {
         additional_results: Vec::new(),
         target: MirCallTarget::AtariFpp(MirAtariFppService::Multiply),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
@@ -21195,6 +21221,7 @@ fn pre_materialization_keeps_private_load_before_unknown_call_write() {
                 additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: Vec::new(),
                     result: None,
@@ -21241,6 +21268,7 @@ fn return_slot_word_result_forwards_to_repeated_next_call_args() {
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: Vec::new(),
             result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -21259,6 +21287,7 @@ fn return_slot_word_result_forwards_to_repeated_next_call_args() {
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(2)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: vec![
                 MirArgHome::BytePair {
@@ -21319,6 +21348,7 @@ fn return_slot_result_forward_blocks_overlapping_different_arg_home() {
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: Vec::new(),
             result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -21337,6 +21367,7 @@ fn return_slot_result_forward_blocks_overlapping_different_arg_home() {
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(2)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: vec![
                 MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA0)),
@@ -21547,6 +21578,7 @@ fn unique_word_load_address_forward_stops_at_call_barrier() {
                 additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: Vec::new(),
                     result: None,
@@ -21980,6 +22012,7 @@ fn known_callee_exit_accumulator_elides_return_slot_reload() {
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
@@ -22108,6 +22141,7 @@ fn known_callee_word_result_placement_stores_proven_high_lane_first() {
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
@@ -22286,6 +22320,7 @@ fn known_callee_index_param_carrier_program(callee_ops: Vec<MirOp>) -> MirProgra
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
@@ -22493,6 +22528,7 @@ fn leaf_word_param_coalescing_rejects_calls_and_address_taken_params() {
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
@@ -22682,6 +22718,7 @@ fn known_callee_word_result_placement_keeps_absolute_store_order() {
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
@@ -22779,6 +22816,7 @@ fn known_callee_preserves_staged_pointer_bytes_it_cannot_write() {
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
@@ -23050,6 +23088,7 @@ fn two_word_action_binary_call_ops(
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: vec![
                 MirArgHome::RegisterPair {
@@ -23265,6 +23304,7 @@ fn indexed_byte_fixed_action_call_ops(indexed_args: usize) -> Vec<MirOp> {
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: args.iter().map(|arg| arg.home.clone()).collect(),
             result: None,
@@ -23491,6 +23531,7 @@ fn call_arg_expr_materializes_low_byte_word_add_args() {
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(7)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: vec![MirArgHome::Reg(MirReg::A), MirArgHome::Reg(MirReg::X)],
                 result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -23540,6 +23581,7 @@ fn call_arg_expr_materializes_low_byte_word_add_args() {
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(6)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: vec![
                     MirArgHome::Reg(MirReg::A),
@@ -23664,6 +23706,7 @@ fn call_arg_expr_schedules_pure_linear_x_before_a_without_homes() {
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: vec![MirArgHome::Reg(MirReg::A), MirArgHome::Reg(MirReg::X)],
                 result: None,
@@ -23747,6 +23790,7 @@ fn byte_binary_call_arg_ops(right: MirMem) -> Vec<MirOp> {
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: vec![MirArgHome::Reg(MirReg::A)],
                 result: None,
@@ -23971,6 +24015,7 @@ fn pointer_byte_offset_mixed_call_ops(interleave_second_arg: bool) -> Vec<MirOp>
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(7)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: vec![
                     MirArgHome::RegisterPair {
@@ -24155,6 +24200,7 @@ fn call_arg_expr_preserves_byte_mul_high_byte_for_word_arg() {
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(0)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: vec![MirArgHome::RegisterPair {
                     lo: MirReg::A,
@@ -24647,6 +24693,7 @@ fn indexed_word_ax_call_ops(include_y_arg: bool) -> Vec<MirOp> {
         additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(7)),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params,
             result: None,
@@ -24824,6 +24871,7 @@ fn paired_word_shift_call_ops(second_source: MirMem) -> Vec<MirOp> {
                 address: Some(0xA000),
             },
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: vec![
                     MirArgHome::RegisterPair {

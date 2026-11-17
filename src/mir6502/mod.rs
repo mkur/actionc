@@ -3341,6 +3341,7 @@ mod tests {
                                     additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        library: None,
                                         additional_results: Vec::new(),
                                         params: Vec::new(),
                                         result: None,
@@ -4277,6 +4278,7 @@ mod tests {
                                     additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        library: None,
                                         additional_results: Vec::new(),
                                         params: Vec::new(),
                                         result: None,
@@ -4892,6 +4894,7 @@ mod tests {
                                     additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(1)),
                                     abi: MirCallAbi {
+                                        library: None,
                                         additional_results: Vec::new(),
                                         params: Vec::new(),
                                         result: None,
@@ -5099,6 +5102,7 @@ mod tests {
                                     additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(1)),
                                     abi: MirCallAbi {
+                                        library: None,
                                         additional_results: Vec::new(),
                                         params: vec![
                                             MirArgHome::Reg(MirReg::A),
@@ -5231,6 +5235,7 @@ mod tests {
                                     additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        library: None,
                                         additional_results: Vec::new(),
                                         params: Vec::new(),
                                         result: None,
@@ -5480,6 +5485,7 @@ mod tests {
                                     additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        library: None,
                                         additional_results: Vec::new(),
                                         params: Vec::new(),
                                         result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -5578,6 +5584,7 @@ mod tests {
                                     additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        library: None,
                                         additional_results: Vec::new(),
                                         params: Vec::new(),
                                         result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -5719,6 +5726,7 @@ mod tests {
                                     additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        library: None,
                                         additional_results: Vec::new(),
                                         params: vec![
                                             MirArgHome::RegisterPair {
@@ -5908,6 +5916,7 @@ mod tests {
                                     additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        library: None,
                                         additional_results: Vec::new(),
                                         params: vec![
                                             MirArgHome::RegisterPair {
@@ -6038,6 +6047,7 @@ mod tests {
                                     additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        library: None,
                                         additional_results: Vec::new(),
                                         params: Vec::new(),
                                         result: None,
@@ -6052,6 +6062,7 @@ mod tests {
                                     additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(1)),
                                     abi: MirCallAbi {
+                                        library: None,
                                         additional_results: Vec::new(),
                                         params: vec![MirArgHome::RegisterPair {
                                             lo: MirReg::A,
@@ -6175,6 +6186,7 @@ mod tests {
                                     additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        library: None,
                                         additional_results: Vec::new(),
                                         params: vec![MirArgHome::Reg(MirReg::A)],
                                         result: None,
@@ -6269,6 +6281,7 @@ mod tests {
                                 additional_results: Vec::new(),
                                 target: MirCallTarget::Routine(RoutineId(0)),
                                 abi: MirCallAbi {
+                                    library: None,
                                     additional_results: Vec::new(),
                                     params: vec![MirArgHome::RegisterPair {
                                         lo: MirReg::A,
@@ -6744,6 +6757,7 @@ mod tests {
                 helper: MirRuntimeHelper::Mul,
                 target: MirRuntimeHelperTarget::Deferred,
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: Vec::new(),
                     result: None,
@@ -8009,6 +8023,7 @@ mod tests {
                             additional_results: Vec::new(),
                             target: MirCallTarget::Routine(RoutineId(0)),
                             abi: MirCallAbi {
+                                library: None,
                                 additional_results: Vec::new(),
                                 params: Vec::new(),
                                 result: None,
@@ -8122,6 +8137,7 @@ mod tests {
                                 additional_results: Vec::new(),
                                 target: MirCallTarget::Routine(RoutineId(0)),
                                 abi: MirCallAbi {
+                                    library: None,
                                     additional_results: Vec::new(),
                                     params: Vec::new(),
                                     result: None,
@@ -8195,6 +8211,7 @@ mod tests {
                                 additional_results: Vec::new(),
                                 target: MirCallTarget::Routine(RoutineId(0)),
                                 abi: MirCallAbi {
+                                    library: None,
                                     additional_results: Vec::new(),
                                     params: Vec::new(),
                                     result: None,
@@ -8388,6 +8405,7 @@ mod tests {
                             address: Some(0xE456),
                         },
                         abi: MirCallAbi {
+                            library: None,
                             additional_results: Vec::new(),
                             params: Vec::new(),
                             result: None,
@@ -8450,6 +8468,7 @@ mod tests {
                             address: None,
                         },
                         abi: MirCallAbi {
+                            library: None,
                             additional_results: Vec::new(),
                             params: Vec::new(),
                             result: None,
@@ -10744,6 +10763,7 @@ mod tests {
                                 additional_results: Vec::new(),
                                 target: MirCallTarget::Routine(RoutineId(1)),
                                 abi: MirCallAbi {
+                                    library: None,
                                     additional_results: Vec::new(),
                                     params: Vec::new(),
                                     result: None,

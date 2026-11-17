@@ -127,6 +127,22 @@ pub(super) fn resolve_interfaces(
         }
     }
 
+    // Preserve declaration identity before references become physical targets.
+    // The shared-address Peek/PeekC entries must keep distinct public results.
+    let certificates: BTreeMap<_, _> = resolved.iter().map(|(id, target)| {
+        let interface = program.routines.iter().find(|r| r.id == *id).unwrap();
+        let target = match target {
+            ResolvedTarget::Absolute(a) => super::ir::MirRuntimeHelperTarget::KnownAbsolute(*a),
+            ResolvedTarget::Routine(id) => super::ir::MirRuntimeHelperTarget::Routine(*id),
+        };
+        (*id, super::runtime_contracts::library::bind(program, interface, target))
+    }).collect();
+    for op in program.routines.iter_mut().flat_map(|r| &mut r.blocks).flat_map(|b| &mut b.ops) {
+        if let MirOp::Call { target: MirCallTarget::Routine(id), abi, .. } = op
+            && let Some(binding) = certificates.get(id) {
+            abi.library = Some(binding.clone());
+        }
+    }
     rewrite_external_references(program, &resolved, &external)?;
     program
         .routines

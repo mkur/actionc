@@ -11,7 +11,7 @@ fn store(address: u16) -> MirOp {
 }
 fn call(target: u32) -> MirOp {
     MirOp::Call { target: MirCallTarget::Routine(RoutineId(target)), args: vec![], result: None, additional_results: vec![],
-        abi: MirCallAbi { params: vec![], result: None, additional_results: vec![], clobbers: Default::default(), preserves: Default::default() }, effects: Default::default() }
+        abi: MirCallAbi { library: None, params: vec![], result: None, additional_results: vec![], clobbers: Default::default(), preserves: Default::default() }, effects: Default::default() }
 }
 fn compatibility(before: &MirProgram, after: &MirProgram) -> Result<(), MirCalleeContractChange> {
     MirKnownCalleeSummaries::analyze_for_rewriting(before)

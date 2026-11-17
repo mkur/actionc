@@ -1927,6 +1927,7 @@ mod tests {
                     address: Some(0x04CB),
                 },
                 abi: MirCallAbi {
+                    library: None,
                     additional_results: Vec::new(),
                     params: homes,
                     result: None,

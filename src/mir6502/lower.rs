@@ -3410,6 +3410,7 @@ fn atari_fpp_call(service: MirAtariFppService) -> MirOp {
         additional_results: Vec::new(),
         target: MirCallTarget::AtariFpp(service),
         abi: MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: Vec::new(),
             result: None,

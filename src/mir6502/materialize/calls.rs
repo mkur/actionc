@@ -1379,6 +1379,7 @@ fn materialize_call_arg_expr_plan(
         additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            library: plan.abi.library.clone(),
             additional_results: Vec::new(),
             params: plan
                 .args
@@ -1534,6 +1535,7 @@ fn materialize_paired_word_shift_call(
         additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            library: plan.abi.library.clone(),
             additional_results: Vec::new(),
             params: args.iter().map(|arg| arg.home.clone()).collect(),
             result: None,
@@ -1623,6 +1625,7 @@ fn materialize_direct_indexed_byte_fixed_action_call(
         additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            library: plan.abi.library.clone(),
             additional_results: Vec::new(),
             params: byte_homes,
             result: None,
@@ -2034,6 +2037,7 @@ fn materialize_direct_indexed_word_action_call(
         additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            library: plan.abi.library.clone(),
             additional_results: Vec::new(),
             params: plan
                 .args
@@ -2166,6 +2170,7 @@ fn materialize_direct_two_word_arithmetic_action_call(
         additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            library: plan.abi.library.clone(),
             additional_results: Vec::new(),
             params: args.iter().map(|arg| arg.home.clone()).collect(),
             result: None,
@@ -2401,6 +2406,7 @@ fn materialize_staged_action_call_arg_expr_plan(
         additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            library: plan.abi.library.clone(),
             additional_results: Vec::new(),
             params: byte_homes,
             result: None,
@@ -4098,6 +4104,7 @@ pub(super) fn materialize_call(
         additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            library: abi.library.clone(),
             additional_results: Vec::new(),
             params: byte_homes,
             result: None,

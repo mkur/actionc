@@ -15,7 +15,7 @@ fn store(slot: u8) -> MirOp {
 fn call(target: u32) -> MirOp {
     MirOp::Call { target: MirCallTarget::Routine(RoutineId(target)), args: vec![], result: None,
         additional_results: vec![], effects: MirEffects::default(),
-        abi: MirCallAbi { params: vec![], result: None, additional_results: vec![],
+        abi: MirCallAbi { library: None, params: vec![], result: None, additional_results: vec![],
             clobbers: crate::mir6502::abi::action_call_clobbers(), preserves: MirRegisterSet::default() } }
 }
 fn block(id: u32, ops: Vec<MirOp>, terminator: MirTerminator) -> MirBlock {

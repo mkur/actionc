@@ -1335,8 +1335,20 @@ impl MirAtariFppService {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MirLibraryRoutine { SCompare, SCopy, Zero, SetBlock, MoveBlock }
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct MirLibraryBinding {
+    pub(crate) interface: std::sync::Arc<MirRoutine>,
+    pub(crate) kind: Option<MirLibraryRoutine>,
+    pub(crate) implementation: Option<std::sync::Arc<MirRuntimeImplementation>>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MirCallAbi {
+    /// Resolver-owned SYS binding, retained through physical argument setup.
+    pub library: Option<std::sync::Arc<MirLibraryBinding>>,
     pub params: Vec<MirArgHome>,
     pub result: Option<MirResultHome>,
     /// Declared additional ABI lanes, even when their logical values are unused.

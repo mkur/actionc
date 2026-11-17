@@ -52,7 +52,7 @@ pub(in crate::mir6502) fn invocation(program: &MirProgram, routine: &MirRoutine,
             register_definitions: MirRegisterSet::default(),
         });
     }
-    helper_invocation(program, op)
+    helper_invocation(program, op).or_else(|| super::library_invocation(program, op))
 }
 
 pub(in crate::mir6502) fn helper_invocation(program: &MirProgram, op: &MirOp) -> Option<InvocationSummary> {

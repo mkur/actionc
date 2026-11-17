@@ -4399,6 +4399,7 @@ mod tests {
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: vec![shadow.clone(), primary.clone()],
                 result: None,

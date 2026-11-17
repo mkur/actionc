@@ -524,6 +524,7 @@ fn explicit_numeric_alias_and_called_pointer_pair_keep_definitions() {
     p.routines[0].blocks[0].ops[4] = MirOp::Call {
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            library: None,
             params: vec![],
             result: None,
             additional_results: vec![],

@@ -102,7 +102,8 @@ pub(super) fn propose_with_scope(
             let writes = facts.writes(call).map(|writes| (0..=255u8)
                 .filter(|slot| !writes.preserves_fixed_byte(MirFixedZpSlot(*slot), &fixed))
                 .collect::<BTreeSet<_>>()).and_then(|mut writes| {
-                    if let Some(chains) = &chains {
+                    if let Some(chains) = &chains
+                        && super::super::runtime_contracts::library_invocation(selected, call).is_none() {
                         let MirOp::Call { target: MirCallTarget::Routine(target), .. } = call else {
                             return Err("unknown planning dependency");
                         };

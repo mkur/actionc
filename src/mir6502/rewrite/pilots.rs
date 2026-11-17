@@ -3362,6 +3362,7 @@ mod tests {
                     additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(1)),
                     abi: MirCallAbi {
+                        library: None,
                         additional_results: Vec::new(),
                         params: vec![MirArgHome::Reg(crate::mir6502::ir::MirReg::A)],
                         result: None,
@@ -3452,6 +3453,7 @@ mod tests {
     fn return_slot_call_arg_forward_uses_routine_deadness() {
         fn call_abi(result: Option<MirResultHome>, params: Vec<MirArgHome>) -> MirCallAbi {
             MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params,
                 result,
@@ -3547,6 +3549,7 @@ mod tests {
                     additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(1)),
                     abi: MirCallAbi {
+                        library: None,
                         additional_results: Vec::new(),
                         params: Vec::new(),
                         result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -3658,6 +3661,7 @@ mod tests {
                     additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(1)),
                     abi: MirCallAbi {
+                        library: None,
                         additional_results: Vec::new(),
                         params: vec![MirArgHome::Reg(crate::mir6502::ir::MirReg::A)],
                         result: Some(MirResultHome::ReturnSlot { offset: 0 }),
@@ -3785,6 +3789,7 @@ mod tests {
                     additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(1)),
                     abi: MirCallAbi {
+                        library: None,
                         additional_results: Vec::new(),
                         params: vec![MirArgHome::Reg(crate::mir6502::ir::MirReg::A)],
                         result: None,

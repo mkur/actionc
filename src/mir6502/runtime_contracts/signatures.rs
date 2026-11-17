@@ -3,6 +3,7 @@ use super::super::ir::*;
 
 pub(in crate::mir6502) fn helper_abi() -> MirCallAbi {
     MirCallAbi {
+        library: None,
         additional_results: Vec::new(),
         params: vec![
             MirArgHome::StackFrame { base: 0, offset: 0 },

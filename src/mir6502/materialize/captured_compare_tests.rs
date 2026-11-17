@@ -214,6 +214,7 @@ fn captured_compare_rejects_live_machine_outputs_and_effect_gaps() {
         MirOp::Call {
             target: crate::mir6502::ir::MirCallTarget::Routine(RoutineId(1)),
             abi: crate::mir6502::ir::MirCallAbi {
+                library: None,
                 params: Vec::new(),
                 result: None,
                 additional_results: Vec::new(),

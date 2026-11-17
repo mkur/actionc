@@ -3,6 +3,8 @@
 use super::ir::*;
 pub(super) mod signatures;
 mod invocation;
+pub(super) mod library;
+pub(super) use library::library_invocation;
 pub(super) use invocation::{invocation, helper_invocation};
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -297,3 +299,6 @@ impl std::fmt::Debug for MirRuntimeImplementation {
 
 #[cfg(test)]
 mod helper_tests;
+
+#[cfg(test)]
+mod library_tests;

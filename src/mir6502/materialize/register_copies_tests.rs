@@ -414,6 +414,7 @@ fn register_copy_final_transaction_preserves_published_callee_accumulator() {
     caller.blocks[0].ops.push(MirOp::Call {
         target: MirCallTarget::Routine(RoutineId(0)),
         abi: MirCallAbi {
+            library: None,
             params: vec![],
             result: None,
             additional_results: vec![],

@@ -35,6 +35,7 @@ pub(in crate::mir6502) struct MirCalleeEntryFact {
     stage: MirCalleeEntryStage,
     machines: Vec<MirMachineBlock>,
     helper_bindings: Vec<crate::mir6502::ir::MirRuntimeHelperDecl>,
+    library_bindings: Vec<Arc<crate::mir6502::ir::MirLibraryBinding>>,
     global_backings: Vec<(crate::nir::SymbolId, MirGlobalBacking, u16)>,
     pub inputs: MirEntryRequirements,
     dependencies: BTreeMap<RoutineId, Arc<MirCalleeEntryFact>>,
@@ -99,6 +100,9 @@ impl MirCalleeEntryFact {
             stage,
             machines,
             helper_bindings: program.runtime_helpers.clone(),
+            library_bindings: routine.blocks.iter().flat_map(|b| &b.ops).filter_map(|o| match o {
+                MirOp::Call { abi, .. } => abi.library.clone(), _ => None,
+            }).collect(),
             global_backings: program
                 .globals
                 .iter()
@@ -111,6 +115,8 @@ impl MirCalleeEntryFact {
     }
     pub fn is_current(&self, program: &MirProgram, stage: MirCalleeEntryStage) -> bool {
         self.stage == stage
+            && self.library_bindings.iter().all(|b| b.implementation.as_ref()
+                .is_none_or(|i| i.is_current(program, &i.target)))
             && self.helper_bindings == program.runtime_helpers
             && self.helper_bindings.iter().all(|d| d.binding.as_ref()
                 .is_none_or(|b| b.is_current(program, &d.target)))
@@ -151,6 +157,7 @@ fn scalar_inputs(
                 && (stage != MirCalleeEntryStage::ActualEntry
                     || crate::mir6502::runtime_contracts::invocation(program, routine, o).is_none()))
                 || (matches!(o, MirOp::Call { .. })
+                && crate::mir6502::runtime_contracts::library_invocation(program, o).is_none()
                 && (stage != MirCalleeEntryStage::ActualEntry || dependencies.is_none()))
         })
     {

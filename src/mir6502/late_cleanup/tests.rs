@@ -250,6 +250,7 @@ fn published_callee_accumulator_cannot_change() {
     caller.blocks[0].ops = vec![MirOp::Call {
         target: MirCallTarget::Routine(RoutineId(0)),
         abi: MirCallAbi {
+            library: None,
             params: vec![],
             result: None,
             additional_results: vec![],
@@ -417,6 +418,7 @@ fn producer_cleanup_rolls_back_when_a_callee_exit_fact_would_change() {
         MirOp::Call {
             target: MirCallTarget::Routine(RoutineId(0)),
             abi: MirCallAbi {
+                library: None,
                 params: vec![],
                 result: None,
                 additional_results: vec![],

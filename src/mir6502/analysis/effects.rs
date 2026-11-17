@@ -2111,6 +2111,7 @@ mod tests {
 
     fn call_abi() -> MirCallAbi {
         MirCallAbi {
+            library: None,
             additional_results: Vec::new(),
             params: Vec::new(),
             result: None,

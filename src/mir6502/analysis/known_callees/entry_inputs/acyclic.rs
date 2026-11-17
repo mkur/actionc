@@ -67,6 +67,7 @@ impl<'a> MirAcyclicEntryAnalysis<'a> {
         for (site, op) in routine.blocks.iter().flat_map(|b| b.ops.iter().enumerate()
             .map(|(op_index, op)| (MirSite::Op { block: b.id, op_index }, op))) {
             match op {
+                _ if crate::mir6502::runtime_contracts::invocation(self.program, routine, op).is_some() => {},
                 MirOp::Call { target: MirCallTarget::Routine(id), args, .. } => {
                     let callee = self.routines.get(id)?;
                     if let Err(reason) = crate::mir6502::abi::canonical_call_lanes(callee, args)
@@ -76,8 +77,6 @@ impl<'a> MirAcyclicEntryAnalysis<'a> {
                     }
                     targets.insert(*id);
                 }
-                MirOp::SArgsCapture { .. } | MirOp::RuntimeHelper { .. }
-                    if crate::mir6502::runtime_contracts::invocation(self.program, routine, op).is_some() => {},
                 MirOp::Call { .. } | MirOp::RuntimeHelper { .. } | MirOp::MachineBlock { .. }
                     | MirOp::SArgsCapture { .. } | MirOp::Barrier { .. } => {
                         self.failures.insert(target, (target, Some(site), "unsupported native call closure operation"));

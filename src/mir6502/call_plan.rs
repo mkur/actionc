@@ -100,6 +100,7 @@ pub(super) fn plan_call(
         mir_call_effects(effects)
     };
     let abi = MirCallAbi {
+        library: None,
         additional_results: if wide_result {
             vec![super::ir::MirHelperResult {
                 home: MirResultHome::ReturnSlot { offset: 2 },

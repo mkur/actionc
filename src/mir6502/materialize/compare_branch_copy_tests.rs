@@ -234,6 +234,7 @@ fn compare_branch_copy_requires_a_contiguous_private_byte_suffix() {
         MirOp::Call {
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                library: None,
                 params: vec![],
                 result: None,
                 additional_results: vec![],

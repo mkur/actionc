@@ -473,6 +473,7 @@ mod tests {
                 "call" => Some(MirOp::Call {
                     target: MirCallTarget::Routine(c.routine),
                     abi: MirCallAbi {
+                        library: None,
                         params: vec![],
                         result: None,
                         additional_results: vec![],

@@ -146,7 +146,7 @@ fn directional_read_projection_resolves_every_current_virtual_carrier_lane() {
 
 fn call(target: u32, effects: MirEffects) -> MirOp {
     MirOp::Call { target: MirCallTarget::Routine(RoutineId(target)), args: vec![], result: None, additional_results: vec![],
-        abi: MirCallAbi { params: vec![], result: None, additional_results: vec![], clobbers: Default::default(), preserves: Default::default() }, effects }
+        abi: MirCallAbi { library: None, params: vec![], result: None, additional_results: vec![], clobbers: Default::default(), preserves: Default::default() }, effects }
 }
 
 #[test]

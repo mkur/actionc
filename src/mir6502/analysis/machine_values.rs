@@ -1238,6 +1238,7 @@ mod tests {
             additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(routine)),
             abi: MirCallAbi {
+                library: None,
                 additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
@@ -1570,6 +1571,7 @@ mod tests {
                     additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(1)),
                     abi: MirCallAbi {
+                        library: None,
                         additional_results: Vec::new(),
                         params: Vec::new(),
                         result: None,
@@ -2013,6 +2015,7 @@ mod tests {
                         additional_results: Vec::new(),
                         target: MirCallTarget::Routine(RoutineId(1)),
                         abi: MirCallAbi {
+                            library: None,
                             additional_results: Vec::new(),
                             params: Vec::new(),
                             result: None,

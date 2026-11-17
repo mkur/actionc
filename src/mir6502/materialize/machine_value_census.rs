@@ -337,6 +337,7 @@ mod tests {
                 additional_results: vec![],
                 effects: Default::default(),
                 abi: crate::mir6502::ir::MirCallAbi {
+                    library: None,
                     params: vec![],
                     result: None,
                     additional_results: vec![],

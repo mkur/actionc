@@ -2421,6 +2421,7 @@ mod tests {
                             address: Some(0x5000),
                         },
                         abi: crate::mir6502::ir::MirCallAbi {
+                            library: None,
                             additional_results: Vec::new(),
                             params: vec![MirArgHome::Reg(MirReg::A)],
                             result: None,
@@ -2782,6 +2783,7 @@ mod tests {
                             address: Some(0x4000),
                         },
                         abi: crate::mir6502::ir::MirCallAbi {
+                            library: None,
                             additional_results: Vec::new(),
                             params: Vec::new(),
                             result: None,

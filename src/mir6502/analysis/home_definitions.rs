@@ -712,6 +712,7 @@ mod tests {
         let call = MirOp::Call {
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                library: None,
                 params: vec![],
                 result: None,
                 additional_results: vec![],
@@ -887,7 +888,7 @@ mod tests {
         ] {
             let call = MirOp::Call {
                 target: MirCallTarget::Routine(RoutineId(1)),
-                abi: MirCallAbi { params: homes.iter().map(|(h, _)| h.clone()).collect(),
+                abi: MirCallAbi { library: None, params: homes.iter().map(|(h, _)| h.clone()).collect(),
                     result: None, additional_results: vec![], clobbers: Default::default(), preserves: Default::default() },
                 args: homes.into_iter().map(|(home, width)| MirCallArg {
                     home, width, value: if width == MirWidth::Byte { MirValue::ConstU8(0) } else { MirValue::ConstU16(0) },
