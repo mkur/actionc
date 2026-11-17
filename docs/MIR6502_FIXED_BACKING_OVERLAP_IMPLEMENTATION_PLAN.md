@@ -1,6 +1,6 @@
 # MIR6502 fixed backing overlap implementation plan
 
-Status: slices 1 and 2 complete; runtime qualification in progress, 2026-11-17.
+Status: all three fixed-global implementation slices complete and qualified, 2026-11-17.
 
 Implements issue **6** from the [fact repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md)
 and the [physical overlap design](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#physical-overlap-from-backing-and-placement).
@@ -54,7 +54,20 @@ were ignored, and the two confirmed baseline failures were excluded.
 - Save a qualification receipt, update the design and priority status, verify
   links/diffs and commit. Run no full suites unless a failure requires them.
 
-No frontend/NIR contract changes or general layout/alias framework are planned.
+Qualification: all three selected callee-fact VM controls passed, including the
+new fixed-global alias-write matrix, both runtimes, default/optimized compilation,
+LF/CRLF loading, live caller values and source reservations. Six TN routines now
+correctly preserve `$E4`: `CalcAdr`, `Position`, `Relpos`, `_ImageAdvance`, `Instr`
+and `FindNext`. Selected MIR and the 9,811-byte image are unchanged, including
+16 ZP source homes across eight routines. `Copy` and `PopUp` retain their existing
+unsupported-native-closure blockers. The independent RAM-write control remains
+33 bytes; no image-size saving is claimed.
+
+See the [qualification receipt](benchmarks/6502-call-facts-audit/fixed-backing-qualification.json).
+The temporary audit include and isolated baseline checkout were removed. No full
+suite was run, and the two confirmed baseline assertions were not changed.
+
+No frontend/NIR contract changes or general layout/alias framework were introduced.
 Private-layout precision without retained ownership remains follow-up work.
 
 ## Scope refinement during slice 2

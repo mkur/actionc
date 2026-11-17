@@ -1,0 +1,278 @@
+{
+  "qualified_on": "2026-11-17",
+  "production_revision": "6f9bc80c34582ed65ec4487f2a752442c8348210",
+  "audit": {
+    "revision": "239942f523f5b7bc1f7c9f0e68dda0a470ae6e5e",
+    "original_module_sha256": "a4dadfa500a2c94deee8a1713270e3272878cd5fcdac69c676ed07eab7efa379",
+    "probe_sha256": "c05e6ed48ecfa9d622faeb4825c9b8d6b4bbcb3859b977ec45dc9ae283271329",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "mir6502::analysis::known_callees::call_facts_audit::audit_call_facts",
+      "--",
+      "--exact",
+      "--ignored",
+      "--nocapture"
+    ],
+    "return_code": 0,
+    "hook_removed": true,
+    "tn_bytes": 9811,
+    "tn_sha256": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+    "matches_audited_tn_image": true
+  },
+  "scope": "Fixed globals and aliases; existing private-storage exclusions retained. Wider owner-aware private overlap remains separate.",
+  "checks": {
+    "slice_1_unit_tests": 4,
+    "slice_2_unit_tests_passed": 241,
+    "baseline_failures_unchanged": 2,
+    "diagnostic_tests_ignored": 4,
+    "vm_controls": 3,
+    "vm_coverage": "Cart and standalone; default and optimized without small-leaf inlining; LF and CRLF actual source loading; global alias CARD writes, preserved live values and source reservations; existing global reads and pointer returns.",
+    "audit_controls": 11,
+    "audit_tn_routines": 95,
+    "full_suite_run": false,
+    "separately_executed_audit_ignored_in_unit_run": 1,
+    "vm_controls_passed": [
+      "callee_facts_fixed_backing_writes_preserve_live_values_and_source_reservations",
+      "callee_facts_global_state_reads_preserve_state_and_live_caller_values",
+      "callee_facts_pointer_parameters_return_bytes_and_words_without_losing_caller_state"
+    ]
+  },
+  "baseline_failures": {
+    "revision": "239942f523f5b7bc1f7c9f0e68dda0a470ae6e5e",
+    "isolated_checkout_clean": true,
+    "tests": [
+      "pointer_retention_calls_keep_hardware_mapping_and_unowned_access_barriers",
+      "an_extra_expanded_entry_requirement_restores_the_complete_selected_artifact"
+    ],
+    "expectations_changed": false
+  },
+  "tn": {
+    "bytes_before": 9811,
+    "bytes_after": 9811,
+    "byte_identical": true,
+    "sha256": "e27ee7cc259d1cdb49ce2b9b067e052e2aa04ffac959edcd7e37c707327aa291",
+    "changed_mir_routines": [],
+    "changed_e4_preservation": [
+      {
+        "routine": "CalcAdr",
+        "before": false,
+        "after": true
+      },
+      {
+        "routine": "Position",
+        "before": false,
+        "after": true
+      },
+      {
+        "routine": "Relpos",
+        "before": false,
+        "after": true
+      },
+      {
+        "routine": "_ImageAdvance",
+        "before": false,
+        "after": true
+      },
+      {
+        "routine": "Instr",
+        "before": false,
+        "after": true
+      },
+      {
+        "routine": "FindNext",
+        "before": false,
+        "after": true
+      }
+    ],
+    "source_homes_in_zp": {
+      "Ord": [
+        {
+          "address": 226,
+          "kind": "Parameter",
+          "name": "menu",
+          "size": 2
+        },
+        {
+          "address": 162,
+          "kind": "Parameter",
+          "name": "item",
+          "size": 2
+        },
+        {
+          "address": 228,
+          "kind": "Local",
+          "name": "c",
+          "size": 1
+        }
+      ],
+      "Items": [
+        {
+          "address": 162,
+          "kind": "Parameter",
+          "name": "menu",
+          "size": 2
+        },
+        {
+          "address": 226,
+          "kind": "Local",
+          "name": "c",
+          "size": 1
+        }
+      ],
+      "FindItem": [
+        {
+          "address": 162,
+          "kind": "Parameter",
+          "name": "menu",
+          "size": 2
+        },
+        {
+          "address": 226,
+          "kind": "Parameter",
+          "name": "ch",
+          "size": 1
+        }
+      ],
+      "Strcpy": [
+        {
+          "address": 160,
+          "kind": "Parameter",
+          "name": "s+0",
+          "size": 1
+        },
+        {
+          "address": 162,
+          "kind": "Parameter",
+          "name": "t+0",
+          "size": 1
+        },
+        {
+          "address": 163,
+          "kind": "Parameter",
+          "name": "t+1",
+          "size": 1
+        }
+      ],
+      "Instr": [
+        {
+          "address": 160,
+          "kind": "Parameter",
+          "name": "s",
+          "size": 2
+        },
+        {
+          "address": 162,
+          "kind": "Parameter",
+          "name": "ch",
+          "size": 1
+        }
+      ],
+      "Fnamecmp": [
+        {
+          "address": 160,
+          "kind": "Parameter",
+          "name": "s",
+          "size": 2
+        },
+        {
+          "address": 162,
+          "kind": "Parameter",
+          "name": "t",
+          "size": 2
+        }
+      ],
+      "Sort": [
+        {
+          "address": 226,
+          "kind": "Local",
+          "name": "h",
+          "size": 2
+        }
+      ],
+      "PrintNonzeroDigit": [
+        {
+          "address": 162,
+          "kind": "Parameter",
+          "name": "divisor",
+          "size": 1
+        }
+      ]
+    },
+    "remaining_blockers": {
+      "Copy": "Some((RoutineId(9), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))",
+      "PopUp": "Some((RoutineId(0), Some(Op { block: MirBlockId(0), op_index: 0 }), \"unsupported native call closure operation\"))"
+    }
+  },
+  "fixed_global_controls": [
+    {
+      "case": "global_write_ram",
+      "bytes_before": 33,
+      "bytes_after": 33,
+      "writes": "Exact([Global { id: SymbolId(0), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160))])",
+      "preserved": {
+        "preserves_a0": false,
+        "preserves_e4": true,
+        "preserves_e8": true,
+        "preserves_e9": true,
+        "preserves_ea": true
+      },
+      "entry": {
+        "current": true,
+        "defined_results": [
+          160
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+      }
+    },
+    {
+      "case": "global_write_zp",
+      "bytes_before": null,
+      "bytes_after": 32,
+      "writes": "Exact([Global { id: SymbolId(0), offset: 0 }, FixedZeroPage(MirFixedZpSlot(160))])",
+      "preserved": {
+        "preserves_a0": false,
+        "preserves_e4": true,
+        "preserves_e8": false,
+        "preserves_e9": true,
+        "preserves_ea": true
+      },
+      "entry": {
+        "current": true,
+        "defined_results": [
+          160
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+      }
+    },
+    {
+      "case": "global_write_alias_zp",
+      "bytes_before": null,
+      "bytes_after": 36,
+      "writes": "Exact([Global { id: SymbolId(1), offset: 0 }, Global { id: SymbolId(1), offset: 1 }, FixedZeroPage(MirFixedZpSlot(160))])",
+      "preserved": {
+        "preserves_a0": false,
+        "preserves_e4": true,
+        "preserves_e8": false,
+        "preserves_e9": false,
+        "preserves_ea": true
+      },
+      "entry": {
+        "current": true,
+        "defined_results": [
+          160
+        ],
+        "fixed": [],
+        "flags": "MirFlagSet { c: false, z: false, n: false, v: false }",
+        "registers": "MirRegisterSet { a: false, x: false, y: false, flags: false, sp: false }"
+      }
+    }
+  ],
+  "audit_ran_before_production_commit": true,
+  "production_module_sha256": "a4dadfa500a2c94deee8a1713270e3272878cd5fcdac69c676ed07eab7efa379"
+}

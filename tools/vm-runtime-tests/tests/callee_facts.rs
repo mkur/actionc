@@ -324,3 +324,53 @@ fn callee_facts_guaranteed_compare_definitions_match_emitted_carry_behavior() {
         }
     }
 }
+
+#[test]
+fn callee_facts_fixed_backing_writes_preserve_live_values_and_source_reservations() {
+    let optimized = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+    // $0600 holds the VM trampoline; use $0700 for the RAM control.
+    for address in [0x700u16, 0xe8] {
+        let source = format!("CARD state=${address:04X}
+            CARD alias=state
+            PROC Touch(CARD value) alias=value RETURN
+            CARD FUNC Hold(CARD keep,newValue)
+              CARD before
+              before=state
+              Touch(newValue)
+            RETURN(keep+before+state)
+            PROC Main() RETURN").replace("\r\n", "\n");
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let mut lf_image = None;
+            for (config, crlf) in [(Mir6502Config::default(), false),
+                (optimized.clone(), false), (optimized.clone(), true)] {
+                let text = if crlf { source.replace('\n', "\r\n") } else { source.clone() };
+                let out = compile(&text, &config, runtime);
+                if config == optimized {
+                    let image = actionc::codegen::format_load_file(&out);
+                    if crlf { assert_eq!(lf_image.as_ref(), Some(&image)); }
+                    else { lf_image = Some(image); }
+                }
+                for symbol in out.map.storage_symbols.iter().filter(|s| matches!(s.scope, actionc::codegen::CodegenSymbolScope::Routine(_))) {
+                    assert!((0..symbol.size).all(|i| ![address, address + 1].contains(&(symbol.address + i))),
+                        "source reservation overlapped by {symbol:?}");
+                }
+                let mut vm = load(&out, runtime);
+                for before in [0u16, 0x80ff, 0xffff] {
+                    for value in [0u16, 0x1234, 0xffff] {
+                        for keep in [0u16, 0x55aa, 0xffff] {
+                            for (i, byte) in before.to_le_bytes().into_iter().enumerate() {
+                                vm.bus_mut().ram_mut().write(address + i as u16, byte);
+                            }
+                            let mut args = keep.to_le_bytes().to_vec();
+                            args.extend(value.to_le_bytes());
+                            vm = machine::call(vm, &mut Observe, entry(&out, "Hold"), &args);
+                            assert_eq!(machine::bytes(&vm, 0xa0, 2), keep.wrapping_add(before).wrapping_add(value).to_le_bytes(),
+                                "{runtime:?} state@{address:04x} before={before:04x} value={value:04x} keep={keep:04x} CRLF={crlf}");
+                            assert_eq!(machine::bytes(&vm, address, 2), value.to_le_bytes());
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
