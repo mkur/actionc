@@ -169,6 +169,14 @@ pub(crate) struct Trace {
 }
 
 impl Trace {
+    /// Test/audit work accounting without serializing diagnostic snapshots.
+    #[cfg(test)]
+    pub(crate) fn with_counts(
+        observer: Rc<RefCell<std::collections::BTreeMap<&'static str, usize>>>,
+    ) -> Self {
+        Self { observer: Some(observer), ..Self::disabled() }
+    }
+
     pub(crate) const fn disabled() -> Self {
         Self {
             session: None,
@@ -295,31 +303,37 @@ impl Trace {
         let child = self.child(stage, "pipeline-attempt");
         child.count("pipeline_attempts", 1);
         let result = f(&child);
-        let snapshot = result
-            .as_ref()
-            .ok()
-            .and_then(|p| child.snapshot("attempt-return", p.borrow()));
-        child.event("attempt-end", || {
+        child.finish_attempt(
+            stage, result.as_ref().ok().map(|p| p.borrow()),
+            if result.is_ok() { "returned" } else { "failed" },
+        );
+        result
+    }
+
+    pub(crate) fn finish_attempt(
+        &self, stage: &'static str, program: Option<&MirProgram>, status: &'static str,
+    ) {
+        let snapshot = program.and_then(|p| self.snapshot("attempt-return", p));
+        self.event("attempt-end", || {
             let mut sources = Vec::new();
             let mut selection = None;
             let mut unchanged = None;
-            if let (Some(session), Some(snapshot)) = (&child.session, snapshot) {
+            if let (Some(session), Some(snapshot)) = (&self.session, snapshot) {
                 let state = session.state.borrow();
-                selection = state.events.iter().rev().find(|e| e.attempt == child.attempt && matches!(e.kind,"selection"|"inline-selection")).map(|e|e.id);
+                selection = state.events.iter().rev().find(|e| e.attempt == self.attempt && matches!(e.kind,"selection"|"inline-selection")).map(|e|e.id);
                 let output = &state.events.iter().find(|e| e.id == snapshot).unwrap().data["program_identity"];
-                unchanged = state.events.iter().find(|e|e.attempt == child.attempt && e.kind == "snapshot" && e.data["stage"] == "attempt-input").map(|e|&e.data["program_identity"] == output);
-                let start = state.events.iter().find(|e| e.kind == "attempt-start" && e.attempt == child.attempt).unwrap().id;
-                for e in state.events.iter().filter(|e| e.id > start && e.id < snapshot && e.attempt != child.attempt && e.kind == "snapshot" && e.data["stage"] == "attempt-return" && &e.data["program_identity"] == output) {
+                unchanged = state.events.iter().find(|e|e.attempt == self.attempt && e.kind == "snapshot" && e.data["stage"] == "attempt-input").map(|e|&e.data["program_identity"] == output);
+                let start = state.events.iter().find(|e| e.kind == "attempt-start" && e.attempt == self.attempt).unwrap().id;
+                for e in state.events.iter().filter(|e| e.id > start && e.id < snapshot && e.attempt != self.attempt && e.kind == "snapshot" && e.data["stage"] == "attempt-return" && &e.data["program_identity"] == output) {
                     sources.push(e.id);
                 }
             }
             json!({ "stage": stage,
-                "status": if result.is_ok() { "returned" } else { "failed" },
+                "status": status,
                 "returned_snapshot": snapshot, "equivalent_source_snapshots": sources,
                 "selection_event":selection,"unchanged_from_input":unchanged,
                 "selection_scope": "local; speculative until selected by every parent" })
         });
-        result
     }
 
     pub(crate) fn decision(

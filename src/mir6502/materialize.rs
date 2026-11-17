@@ -75,6 +75,7 @@ mod small_loops;
 pub(super) mod spills;
 mod ssa_lite;
 mod stats;
+mod callee_scope;
 mod store_consumers;
 mod temp_liveness;
 mod temp_rewrite;
@@ -1680,245 +1681,9 @@ fn materialize_core(
         for helper in helpers {
             ensure_helper_decl(&mut program, helper);
         }
-        // Home selection may introduce virtual zero-page lanes after the initial
-        // reservation pass. Assign those lanes before building known-callee
-        // memory summaries so a callee's private scratch writes have exact
-        // physical identities for cross-call preservation proofs.
-        allocate_zero_page_slots(&mut program);
-        let known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
-        let layout = MaterializeLayout::new(&program, object_origin).with_census(trace, "post-home-core");
-        for routine in &mut program.routines {
-            for block in &mut routine.blocks {
-                block.ops =
-                    lower_lea_addrs_with_final_layout(routine.id, block.ops.clone(), &layout);
-                block.ops = normalize_synthetic_byte_storage_high_ops(
-                    std::mem::take(&mut block.ops),
-                    routine.id,
-                    &layout,
-                );
-            }
-            run_posthome_structural_group(
-                routine,
-                &layout,
-                config,
-                Some(&known_callees),
-                &mut peephole_stats,
-            )?;
-            run_posthome_cleanup_group(
-                routine,
-                &layout,
-                Some(config),
-                Some(&known_callees),
-                home_fates.get_mut(&routine.id),
-                &mut peephole_stats,
-            )?;
-        }
-        // Known-callee carrier selection can replace the last parameter reload
-        // with a preserved machine register. Re-run the narrow ABI-home elider so
-        // the now write-only entry capture is removed in the same pipeline.
-        for routine in &mut program.routines {
-            elide_write_only_param_homes(routine, &mut peephole_stats);
-        }
-        if config.enable_peepholes && config.enable_dead_register_arithmetic {
-            for routine in &mut program.routines {
-                dead_arithmetic::run(routine, &layout, &mut peephole_stats)?;
-            }
-        }
-        if config.enable_peepholes && config.enable_private_memory_shifts {
-            for routine in &mut program.routines {
-                memory_shifts::run(routine, &mut peephole_stats)?;
-            }
-        }
-        let zp_before = trace.snapshot("before-zp-remapping", &program);
-        let zero_page_remaps = spills::lower_block_local_byte_spills_to_zero_page_traced(&mut program, trace);
-        let zp_after = trace.snapshot("after-zp-remapping", &program);
-        for (routine, remap) in zero_page_remaps {
-            trace.remap("block-local-zp", routine, zp_before, zp_after, ||serde_json::json!(remap.iter().map(|(a,b)|serde_json::json!({"from":trace::homes::memory(routine,&MirMem::Spill{id:*a,offset:0}),"to":trace::homes::memory(routine,&MirMem::ZeroPage(*b))})).collect::<Vec<_>>()));
-            if let Some(tracker) = home_fates.get_mut(&routine) {
-                tracker.apply_zero_page_remap(&remap);
-            }
-        }
-        allocate_zero_page_slots(&mut program);
-        let zero_page_known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
-        let reuse_before = trace.snapshot("before-call-result-zp-reuse", &program);
-        let reused_zero_page_remaps = spills::lower_known_call_result_spills_to_reused_zero_page_traced(
-            &mut program,
-            &zero_page_known_callees,
-         trace,);
-        let reuse_after = trace.snapshot("after-call-result-zp-reuse", &program);
-        for (routine, remap) in reused_zero_page_remaps {
-            trace.remap("call-result-zp-reuse", routine, reuse_before, reuse_after, ||serde_json::json!(remap.iter().map(|(a,b)|serde_json::json!({"from":trace::homes::memory(routine,&MirMem::Spill{id:*a,offset:0}),"to":trace::homes::memory(routine,&MirMem::ZeroPage(*b))})).collect::<Vec<_>>()));
-            peephole_stats.record_many(
-                routine,
-                "known-call-result-preserved-in-reused-zp",
-                remap.len() / 2,
-            );
-            if let Some(tracker) = home_fates.get_mut(&routine) {
-                tracker.apply_zero_page_remap(&remap);
-            }
-        }
-        // Zero-page coloring can make two previously distinct logical homes the
-        // same physical byte at a CFG edge. Rebuild machine-value and exact Z/N
-        // provenance facts after that remap so final physical reloads can be
-        // removed safely.
-        let final_known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
-        let final_layout = MaterializeLayout::new(&program, object_origin).with_census(trace, "post-zp-core");
-        for routine in &mut program.routines {
-            run_analyzed_ssa_lite_byte_rewrites(
-                routine,
-                &final_layout,
-                true,
-                Some(&final_known_callees),
-                &mut peephole_stats,
-            )?;
-            let exact_zn_compares =
-                ssa_lite::fold_exact_zn_zero_compares(routine, &final_known_callees);
-            peephole_stats.record_many(routine.id, "exact-zn-zero-compare-fold", exact_zn_compares);
-            if config.enable_peepholes {
-                let selected =
-                    small_loops::select_high_bit_shift_xor_diamonds(routine, &final_layout);
-                peephole_stats.record_many(
-                    routine.id,
-                    "high-bit-shift-xor-carry-branch-selected",
-                    selected,
-                );
-                verify_cfg_after_transform(routine, "late high-bit shift/XOR carry selection")?;
-            }
-            // Exact Z/N folding can expose a load/add-or-sub/store update whose
-            // only remaining consumer is the branch on the update result. Re-run
-            // the analyzed selector here so countdown latches become DEC/BNE (or
-            // INC/BNE) without changing live A/carry/overflow state.
-            run_analyzed_direct_inc_dec_updates(routine, &final_layout, &mut peephole_stats)?;
-            let carried = cfg::select_counted_loop_register_carriers(routine, &final_layout);
-            peephole_stats.record_many(routine.id, "register-carried-induction-selected", carried);
-            if carried > 0 && layout_blocks_in_reverse_postorder(routine) {
-                peephole_stats.record(routine.id, "register-carried-induction-layout");
-            }
-            if layout_blocks_in_reverse_postorder(routine) {
-                peephole_stats.record(routine.id, "cfg-cost-aware-layout");
-            }
-            let latch_report = cfg::select_counted_loop_latches_with_report(routine, &final_layout);
-            peephole_stats.record_many(
-                routine.id,
-                "counted-loop-latch-candidate",
-                latch_report.candidates,
-            );
-            peephole_stats.record_many(
-                routine.id,
-                "counted-loop-latch-blocked-initial-guard",
-                latch_report.blocked_initial_guard,
-            );
-            peephole_stats.record_many(
-                routine.id,
-                "counted-loop-latch-first-entry-a-required",
-                latch_report.first_entry_accumulator_required,
-            );
-            peephole_stats.record_many(
-                routine.id,
-                "counted-loop-latch-first-entry-flags-required",
-                latch_report.first_entry_flags_required,
-            );
-            peephole_stats.record_many(
-                routine.id,
-                "counted-loop-latch-blocked-unsupported-or-unsafe",
-                latch_report.blocked_unsupported_or_unsafe,
-            );
-            peephole_stats.record_many(
-                routine.id,
-                "counted-loop-latch-blocked-profitability",
-                latch_report.blocked_profitability,
-            );
-            peephole_stats.record_many(
-                routine.id,
-                "counted-loop-latch-selected-exact-rotation",
-                latch_report.selected_exact_rotation,
-            );
-            peephole_stats.record_many(
-                routine.id,
-                "counted-loop-latch-selected-first-entry-repair",
-                latch_report.selected_first_entry_repaired,
-            );
-            peephole_stats.record_many(
-                routine.id,
-                "counted-loop-latch-selected-exact-trip-count",
-                latch_report.selected_exact_trip_count,
-            );
-            peephole_stats.record_many(
-                routine.id,
-                "counted-loop-latch-selected-estimated-cycles-saved",
-                latch_report.selected_estimated_cycles_saved,
-            );
-            peephole_stats.record_many(
-                routine.id,
-                "counted-loop-latch-selected-static-bytes-added",
-                latch_report.selected_static_bytes_added,
-            );
-            peephole_stats.record_many(
-                routine.id,
-                "counted-loop-latch-selected-static-bytes-saved",
-                latch_report.selected_static_bytes_saved,
-            );
-            peephole_stats.record_many(
-                routine.id,
-                "counted-loop-latch-selected",
-                latch_report.selected,
-            );
-            if latch_report.selected > 0 && layout_blocks_in_reverse_postorder(routine) {
-                peephole_stats.record(routine.id, "counted-loop-post-selection-layout");
-            }
-        }
-        materialize_remaining_pointer_cell_values(&mut program);
-        if stats::reporting_enabled(config) {
-            register_copies::record_candidates(&program, &final_layout, &mut peephole_stats);
-        }
-        fold_redundant_register_reloads(&mut program, &final_layout, &mut peephole_stats);
-        for routine in &mut program.routines {
-            if config.enable_peepholes {
-                let selected =
-                    small_loops::coalesce_chained_shift_xor_stores(routine, &final_layout);
-                peephole_stats.record_many(
-                    routine.id,
-                    "chained-shift-xor-store-coalesced",
-                    selected,
-                );
-                let entry_stores =
-                    small_loops::coalesce_selected_shift_entry_stores(routine, &final_layout);
-                peephole_stats.record_many(
-                    routine.id,
-                    "selected-shift-entry-store-coalesced",
-                    entry_stores,
-                );
-                let hoisted = small_loops::hoist_common_shift_xor_stores(routine, &final_layout);
-                peephole_stats.record_many(routine.id, "common-shift-xor-store-hoisted", hoisted);
-                if selected > 0 || entry_stores > 0 || hoisted > 0 {
-                    collapse_empty_jump_blocks(routine);
-                    if layout_blocks_in_reverse_postorder(routine) {
-                        peephole_stats.record(routine.id, "chained-shift-xor-layout");
-                    }
-                }
-                verify_cfg_after_transform(routine, "chained shift/XOR store coalescing")?;
-            }
-        }
-        // Late exact-Z/N and register-value folding can leave an earlier pure
-        // register write dead across a CFG edge. Rebuild machine liveness before
-        // the final home-definition cleanup so both exposed register writes and
-        // newly dead private stores are removed from the final program.
-        for routine in &mut program.routines {
-            run_analyzed_dead_register_writes(
-                routine,
-                &final_layout,
-                Some(&final_known_callees),
-                &mut peephole_stats,
-            )?;
-            run_analyzed_dead_private_scratch_stores(routine, &mut peephole_stats)?;
-            spills::prune_unused_spills_traced(routine, trace);
-        }
-        verify_materialization_stage(&program, MirPhase::PostHome, "post-home boundary")?;
-        trace.snapshot("core-post-home", &program);
-        // Check private pointer-byte definitions before replacing their virtual
-        // identities with fixed physical pairs for emission.
-        resolve_virtual_address_consumers(&mut program);
-        trace.snapshot("address-consumers-resolved", &program);
+        callee_scope::run(
+            &mut program, config, object_origin, &mut peephole_stats, &mut home_fates, trace,
+        )?;
         record_final_home_allocations(&program, &mut peephole_stats);
         for routine in &program.routines {
             if let Some(tracker) = home_fates.get(&routine.id) {
@@ -1931,6 +1696,278 @@ fn materialize_core(
         }
         Ok(program)
     })
+}
+
+/// One optional interprocedural tail, with mandatory lowering on both attempts.
+fn finish_core_callee_tail(
+    program: &mut MirProgram,
+    config: &Mir6502Config,
+    object_origin: u16,
+    peephole_stats: &mut MirPeepholeStats,
+    home_fates: &mut BTreeMap<RoutineId, HomeFateTracker>,
+    mut scope: Option<&mut callee_scope::Scope>,
+    trace: &crate::mir6502::trace::Trace,
+) -> Result<bool, Vec<MirDiagnostic>> {
+    // Home selection may introduce virtual zero-page lanes after the initial
+    // reservation pass. Assign those lanes before building known-callee
+    // memory summaries so a callee's private scratch writes have exact
+    // physical identities for cross-call preservation proofs.
+    allocate_zero_page_slots(program);
+    let known_callees = match scope.as_deref_mut() {
+        Some(facts) => match facts.refresh(program, trace, "post-home") {
+            Some(f) => f,
+            None => return Ok(false),
+        },
+        None => MirKnownCalleeSummaries::default(),
+    };
+    let layout =
+        MaterializeLayout::new(program, object_origin).with_census(trace, "post-home-core");
+    for routine in &mut program.routines {
+        for block in &mut routine.blocks {
+            block.ops = lower_lea_addrs_with_final_layout(routine.id, block.ops.clone(), &layout);
+            block.ops = normalize_synthetic_byte_storage_high_ops(
+                std::mem::take(&mut block.ops),
+                routine.id,
+                &layout,
+            );
+        }
+        run_posthome_structural_group(
+            routine,
+            &layout,
+            config,
+            Some(&known_callees),
+            peephole_stats,
+        )?;
+        run_posthome_cleanup_group(
+            routine,
+            &layout,
+            Some(config),
+            Some(&known_callees),
+            home_fates.get_mut(&routine.id),
+            peephole_stats,
+        )?;
+    }
+    // Known-callee carrier selection can replace the last parameter reload
+    // with a preserved machine register. Re-run the narrow ABI-home elider so
+    // the now write-only entry capture is removed in the same pipeline.
+    for routine in &mut program.routines {
+        elide_write_only_param_homes(routine, peephole_stats);
+    }
+    if config.enable_peepholes && config.enable_dead_register_arithmetic {
+        for routine in &mut program.routines {
+            dead_arithmetic::run(routine, &layout, peephole_stats)?;
+        }
+    }
+    if config.enable_peepholes && config.enable_private_memory_shifts {
+        for routine in &mut program.routines {
+            memory_shifts::run(routine, peephole_stats)?;
+        }
+    }
+    let zp_before = trace.snapshot("before-zp-remapping", program);
+    let zero_page_remaps =
+        spills::lower_block_local_byte_spills_to_zero_page_traced(program, trace);
+    let zp_after = trace.snapshot("after-zp-remapping", program);
+    for (routine, remap) in zero_page_remaps {
+        trace.remap("block-local-zp", routine, zp_before, zp_after, ||serde_json::json!(remap.iter().map(|(a,b)|serde_json::json!({"from":trace::homes::memory(routine,&MirMem::Spill{id:*a,offset:0}),"to":trace::homes::memory(routine,&MirMem::ZeroPage(*b))})).collect::<Vec<_>>()));
+        if let Some(tracker) = home_fates.get_mut(&routine) {
+            tracker.apply_zero_page_remap(&remap);
+        }
+    }
+    allocate_zero_page_slots(program);
+    let zero_page_known_callees = match scope.as_deref_mut() {
+        Some(facts) => match facts.refresh(program, trace, "post-zp-remapping") {
+            Some(f) => f,
+            None => return Ok(false),
+        },
+        None => MirKnownCalleeSummaries::default(),
+    };
+    let reuse_before = trace.snapshot("before-call-result-zp-reuse", program);
+    let reused_zero_page_remaps = spills::lower_known_call_result_spills_to_reused_zero_page_traced(
+        program,
+        &zero_page_known_callees,
+        trace,
+    );
+    let reuse_after = trace.snapshot("after-call-result-zp-reuse", program);
+    for (routine, remap) in reused_zero_page_remaps {
+        trace.remap("call-result-zp-reuse", routine, reuse_before, reuse_after, ||serde_json::json!(remap.iter().map(|(a,b)|serde_json::json!({"from":trace::homes::memory(routine,&MirMem::Spill{id:*a,offset:0}),"to":trace::homes::memory(routine,&MirMem::ZeroPage(*b))})).collect::<Vec<_>>()));
+        peephole_stats.record_many(
+            routine,
+            "known-call-result-preserved-in-reused-zp",
+            remap.len() / 2,
+        );
+        if let Some(tracker) = home_fates.get_mut(&routine) {
+            tracker.apply_zero_page_remap(&remap);
+        }
+    }
+    // Zero-page coloring can make two previously distinct logical homes the
+    // same physical byte at a CFG edge. Rebuild machine-value and exact Z/N
+    // provenance facts after that remap so final physical reloads can be
+    // removed safely.
+    let final_known_callees = match scope.as_deref_mut() {
+        Some(facts) => match facts.refresh(program, trace, "post-call-result-zp-reuse") {
+            Some(f) => f,
+            None => return Ok(false),
+        },
+        None => MirKnownCalleeSummaries::default(),
+    };
+    let final_layout =
+        MaterializeLayout::new(program, object_origin).with_census(trace, "post-zp-core");
+    for routine in &mut program.routines {
+        run_analyzed_ssa_lite_byte_rewrites(
+            routine,
+            &final_layout,
+            true,
+            Some(&final_known_callees),
+            peephole_stats,
+        )?;
+        let exact_zn_compares =
+            ssa_lite::fold_exact_zn_zero_compares(routine, &final_known_callees);
+        peephole_stats.record_many(routine.id, "exact-zn-zero-compare-fold", exact_zn_compares);
+        if config.enable_peepholes {
+            let selected = small_loops::select_high_bit_shift_xor_diamonds(routine, &final_layout);
+            peephole_stats.record_many(
+                routine.id,
+                "high-bit-shift-xor-carry-branch-selected",
+                selected,
+            );
+            verify_cfg_after_transform(routine, "late high-bit shift/XOR carry selection")?;
+        }
+        // Exact Z/N folding can expose a load/add-or-sub/store update whose
+        // only remaining consumer is the branch on the update result. Re-run
+        // the analyzed selector here so countdown latches become DEC/BNE (or
+        // INC/BNE) without changing live A/carry/overflow state.
+        run_analyzed_direct_inc_dec_updates(routine, &final_layout, peephole_stats)?;
+        let carried = cfg::select_counted_loop_register_carriers(routine, &final_layout);
+        peephole_stats.record_many(routine.id, "register-carried-induction-selected", carried);
+        if carried > 0 && layout_blocks_in_reverse_postorder(routine) {
+            peephole_stats.record(routine.id, "register-carried-induction-layout");
+        }
+        if layout_blocks_in_reverse_postorder(routine) {
+            peephole_stats.record(routine.id, "cfg-cost-aware-layout");
+        }
+        let latch_report = cfg::select_counted_loop_latches_with_report(routine, &final_layout);
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-candidate",
+            latch_report.candidates,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-blocked-initial-guard",
+            latch_report.blocked_initial_guard,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-first-entry-a-required",
+            latch_report.first_entry_accumulator_required,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-first-entry-flags-required",
+            latch_report.first_entry_flags_required,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-blocked-unsupported-or-unsafe",
+            latch_report.blocked_unsupported_or_unsafe,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-blocked-profitability",
+            latch_report.blocked_profitability,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-selected-exact-rotation",
+            latch_report.selected_exact_rotation,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-selected-first-entry-repair",
+            latch_report.selected_first_entry_repaired,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-selected-exact-trip-count",
+            latch_report.selected_exact_trip_count,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-selected-estimated-cycles-saved",
+            latch_report.selected_estimated_cycles_saved,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-selected-static-bytes-added",
+            latch_report.selected_static_bytes_added,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-selected-static-bytes-saved",
+            latch_report.selected_static_bytes_saved,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-selected",
+            latch_report.selected,
+        );
+        if latch_report.selected > 0 && layout_blocks_in_reverse_postorder(routine) {
+            peephole_stats.record(routine.id, "counted-loop-post-selection-layout");
+        }
+    }
+    materialize_remaining_pointer_cell_values(program);
+    if stats::reporting_enabled(config) {
+        register_copies::record_candidates(program, &final_layout, peephole_stats);
+    }
+    fold_redundant_register_reloads(program, &final_layout, &final_known_callees, peephole_stats);
+    for routine in &mut program.routines {
+        if config.enable_peepholes {
+            let selected = small_loops::coalesce_chained_shift_xor_stores(routine, &final_layout);
+            peephole_stats.record_many(routine.id, "chained-shift-xor-store-coalesced", selected);
+            let entry_stores =
+                small_loops::coalesce_selected_shift_entry_stores(routine, &final_layout);
+            peephole_stats.record_many(
+                routine.id,
+                "selected-shift-entry-store-coalesced",
+                entry_stores,
+            );
+            let hoisted = small_loops::hoist_common_shift_xor_stores(routine, &final_layout);
+            peephole_stats.record_many(routine.id, "common-shift-xor-store-hoisted", hoisted);
+            if selected > 0 || entry_stores > 0 || hoisted > 0 {
+                collapse_empty_jump_blocks(routine);
+                if layout_blocks_in_reverse_postorder(routine) {
+                    peephole_stats.record(routine.id, "chained-shift-xor-layout");
+                }
+            }
+            verify_cfg_after_transform(routine, "chained shift/XOR store coalescing")?;
+        }
+    }
+    // Late exact-Z/N and register-value folding can leave an earlier pure
+    // register write dead across a CFG edge. Rebuild machine liveness before
+    // the final home-definition cleanup so both exposed register writes and
+    // newly dead private stores are removed from the final program.
+    for routine in &mut program.routines {
+        run_analyzed_dead_register_writes(
+            routine,
+            &final_layout,
+            Some(&final_known_callees),
+            peephole_stats,
+        )?;
+        run_analyzed_dead_private_scratch_stores(routine, peephole_stats)?;
+        spills::prune_unused_spills_traced(routine, trace);
+    }
+    verify_materialization_stage(program, MirPhase::PostHome, "post-home boundary")?;
+    trace.snapshot("core-post-home", program);
+    // Check private pointer-byte definitions before replacing their virtual
+    // identities with fixed physical pairs for emission.
+    resolve_virtual_address_consumers(program);
+    trace.snapshot("address-consumers-resolved", program);
+    if let Some(facts) = scope {
+        if facts.refresh(program, trace, "core-output").is_none() {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 fn strength_reduce_constant_multiplications(

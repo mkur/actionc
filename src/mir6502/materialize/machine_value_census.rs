@@ -56,9 +56,9 @@ fn record_register_reload_candidates(program: &MirProgram, stats: &mut MirPeepho
 pub(super) fn fold_redundant_register_reloads(
     program: &mut MirProgram,
     layout: &MaterializeLayout,
+    known_callees: &MirKnownCalleeSummaries,
     stats: &mut MirPeepholeStats,
 ) {
-    let known_callees = MirKnownCalleeSummaries::analyze(program);
     for routine in &mut program.routines {
         let removals =
             {
@@ -78,7 +78,7 @@ pub(super) fn fold_redundant_register_reloads(
                 let snapshot = PostHomeAnalysisSnapshot::new_with_known_callees_and_memory_map(
                     routine,
                     MirRoutineGeneration::initial(),
-                    &known_callees,
+                    known_callees,
                     &memory_map,
                 )
                 .expect("post-home program was verified before register reload folding");
@@ -317,6 +317,58 @@ mod tests {
     }
 
     #[test]
+    fn fold_uses_the_owners_conservative_callee_policy() {
+        let mut baseline = store_reload_program(MirTerminator::Return, Vec::new());
+        let mut callee = baseline.routines[0].clone();
+        callee.id = RoutineId(1);
+        callee.name = "KeepX".into();
+        callee.blocks[0].ops.clear();
+        let load = MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::X),
+            value: 7,
+            width: MirWidth::Byte,
+        };
+        baseline.routines[0].blocks[0].ops = vec![
+            load.clone(),
+            MirOp::Call {
+                target: crate::mir6502::ir::MirCallTarget::Routine(callee.id),
+                args: vec![],
+                result: None,
+                additional_results: vec![],
+                effects: Default::default(),
+                abi: crate::mir6502::ir::MirCallAbi {
+                    params: vec![],
+                    result: None,
+                    additional_results: vec![],
+                    clobbers: crate::mir6502::abi::action_call_clobbers(),
+                    preserves: Default::default(),
+                },
+            },
+            load,
+        ];
+        baseline.routines.push(callee);
+        for precise in [false, true] {
+            let mut program = baseline.clone();
+            let known = if precise {
+                MirKnownCalleeSummaries::analyze_for_rewriting(&program)
+            } else {
+                MirKnownCalleeSummaries::default()
+            };
+            let layout = MaterializeLayout::new(&program, 0x3000);
+            fold_redundant_register_reloads(
+                &mut program,
+                &layout,
+                &known,
+                &mut MirPeepholeStats::default(),
+            );
+            assert_eq!(
+                program.routines[0].blocks[0].ops.len(),
+                if precise { 2 } else { 3 }
+            );
+        }
+    }
+
+    #[test]
     fn census_reports_store_then_reload_of_same_x_value() {
         let program = store_reload_program(MirTerminator::Return, Vec::new());
         let mut stats = MirPeepholeStats::default();
@@ -339,7 +391,8 @@ mod tests {
         let mut stats = MirPeepholeStats::default();
         let layout = MaterializeLayout::new(&program, 0x3000);
 
-        fold_redundant_register_reloads(&mut program, &layout, &mut stats);
+        let known = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
+        fold_redundant_register_reloads(&mut program, &layout, &known, &mut stats);
 
         assert_eq!(program.routines[0].blocks[0].ops.len(), 2);
         assert_eq!(
@@ -366,7 +419,8 @@ mod tests {
         let mut stats = MirPeepholeStats::default();
         let layout = MaterializeLayout::new(&program, 0x3000);
 
-        fold_redundant_register_reloads(&mut program, &layout, &mut stats);
+        let known = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
+        fold_redundant_register_reloads(&mut program, &layout, &known, &mut stats);
 
         assert_eq!(program.routines[0].blocks[0].ops.len(), 3);
         assert_eq!(
@@ -381,7 +435,8 @@ mod tests {
         let mut stats = MirPeepholeStats::default();
         let layout = MaterializeLayout::new(&program, 0x3000);
 
-        fold_redundant_register_reloads(&mut program, &layout, &mut stats);
+        let known = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
+        fold_redundant_register_reloads(&mut program, &layout, &known, &mut stats);
         super::super::run_analyzed_dead_private_scratch_stores(
             &mut program.routines[0],
             &mut stats,
@@ -578,7 +633,8 @@ mod tests {
         let mut stats = MirPeepholeStats::default();
         let layout = MaterializeLayout::new(&program, 0x3000);
 
-        fold_redundant_register_reloads(&mut program, &layout, &mut stats);
+        let known = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
+        fold_redundant_register_reloads(&mut program, &layout, &known, &mut stats);
 
         assert!(program.routines[0].blocks[1].ops.is_empty());
         assert_eq!(
@@ -612,7 +668,8 @@ mod tests {
         let mut stats = MirPeepholeStats::default();
         let layout = MaterializeLayout::new(&program, 0x3000);
 
-        fold_redundant_register_reloads(&mut program, &layout, &mut stats);
+        let known = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
+        fold_redundant_register_reloads(&mut program, &layout, &known, &mut stats);
 
         assert_eq!(program.routines[0].blocks[1].ops.len(), 2);
         assert_eq!(
@@ -649,7 +706,8 @@ mod tests {
         let mut stats = MirPeepholeStats::default();
         let layout = MaterializeLayout::new(&program, 0x3000);
 
-        fold_redundant_register_reloads(&mut program, &layout, &mut stats);
+        let known = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
+        fold_redundant_register_reloads(&mut program, &layout, &known, &mut stats);
 
         let ops = &program.routines[0].blocks[0].ops;
         assert_eq!(ops.len(), 3);
@@ -688,7 +746,8 @@ mod tests {
         let mut stats = MirPeepholeStats::default();
         let layout = MaterializeLayout::new(&program, 0x3000);
 
-        fold_redundant_register_reloads(&mut program, &layout, &mut stats);
+        let known = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
+        fold_redundant_register_reloads(&mut program, &layout, &known, &mut stats);
 
         assert!(program.routines[0].blocks[1].ops.is_empty());
         assert_eq!(
@@ -710,7 +769,8 @@ mod tests {
         let mut stats = MirPeepholeStats::default();
         let layout = MaterializeLayout::new(&program, 0x3000);
 
-        fold_redundant_register_reloads(&mut program, &layout, &mut stats);
+        let known = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
+        fold_redundant_register_reloads(&mut program, &layout, &known, &mut stats);
 
         assert_eq!(program.routines[0].blocks[0].ops.len(), 3);
         assert_eq!(
@@ -740,7 +800,8 @@ mod tests {
         let mut stats = MirPeepholeStats::default();
         let layout = MaterializeLayout::new(&program, 0x3000);
 
-        fold_redundant_register_reloads(&mut program, &layout, &mut stats);
+        let known = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
+        fold_redundant_register_reloads(&mut program, &layout, &known, &mut stats);
 
         assert_eq!(program.routines[0].blocks[0].ops.len(), 3);
         assert_eq!(
@@ -766,7 +827,8 @@ mod tests {
         let mut stats = MirPeepholeStats::default();
         let layout = MaterializeLayout::new(&program, 0x3000);
 
-        fold_redundant_register_reloads(&mut program, &layout, &mut stats);
+        let known = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
+        fold_redundant_register_reloads(&mut program, &layout, &known, &mut stats);
 
         assert_eq!(program.routines[0].blocks[0].ops.len(), 3);
         assert_eq!(

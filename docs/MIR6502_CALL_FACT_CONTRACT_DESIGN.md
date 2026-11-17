@@ -693,8 +693,8 @@ new proof of private-object disjointness is claimed by this implementation.
 
 ## Summary validity across transformations
 
-Proposed for issue **8**. Make the ownership and lifetime of existing facts
-explicit, then harden the boundaries that reuse them during mutation. The audit
+Issue **8** makes the ownership and lifetime of existing facts explicit and
+hardens the core boundaries that reuse them during mutation. The audit
 demonstrated distributed validity assumptions, not a separate stale-summary
 miscompile. This design adds no persistent cache, dependency service or new
 optimization eligibility.
@@ -830,12 +830,38 @@ rollback requirements. No new per-routine size veto is introduced.
 
 ### Initial hardening boundary
 
-Start with the three summary lifetimes in [core materialization](../src/mir6502/materialize.rs):
+The initial implementation covers the three summary lifetimes in [core materialization](../src/mir6502/materialize.rs):
 the `known_callees` structural/cleanup group, `zero_page_known_callees` during
 call-result ZP reuse, and the `final_known_callees` group spanning later CFG,
 operand and dead-definition cleanup. Classify each mutation as preserving the
 frozen contract or ending that scope. Rebuilding after remapping is already
 present; make the preservation/replay obligation for earlier consumers explicit.
+
+[The core scope](../src/mir6502/materialize/callee_scope.rs) retains one checkpoint
+before the first of these consumers. At each changed boundary it independently
+analyzes the candidate with the rewrite publication policy and checks the
+previously published guarantees. It also freezes routine interfaces, call
+dependencies, source storage and machine/helper definitions. Unchanged programs
+reuse their bundle. The final check follows address-consumer resolution.
+
+On a failed check, restore the entire tail input, home-fate records and selected
+optimization statistics, then run that tail once with conservative native-callee
+facts. Mandatory lowering still executes. Restoring only the most recent group
+would leave earlier caller decisions exposed. Each trial has its own trace
+attempt; rejected work remains diagnostic history, not selected optimization
+statistics. General trace work counters count both attempts.
+
+Register-reload folding receives this same bundle. It must not construct an
+immutable-policy summary internally, particularly during conservative fallback.
+The compatibility query is shared with terminal cleanup; terminal verification,
+physical replay, final-cost acceptance and rollback remain separate guards.
+
+The check is deliberately conservative: new physical ZP writes introduced by
+coloring cannot be waved through as private just because their logical values
+are temporary. Existing private-spill coloring proofs remain unchanged; this
+slice introduces no new private alias or physical correspondence proof. The
+existing retirement of an unused parameter capture to `ParamAbiOnly` is allowed
+when its formal ABI and other slot metadata are unchanged.
 
 Keep immutable residence/acyclic contexts and their current freshness checks.
 Keep late transactions' independent baseline/candidate analyses and their

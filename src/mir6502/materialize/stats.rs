@@ -2,13 +2,14 @@ use crate::mir6502::ir::{MirProgram, RoutineId};
 use crate::mir6502::passes::{Mir6502Config, MirPeepholeReportMode};
 use std::collections::BTreeMap;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(super) struct MirPeepholeStats {
     pub(in crate::mir6502) trace: crate::mir6502::trace::Trace,
     counts: BTreeMap<(RoutineId, String), usize>,
     sites: Vec<MirPeepholeSite>,
 }
 
+#[derive(Clone)]
 struct MirPeepholeSite {
     routine: RoutineId,
     rule: &'static str,

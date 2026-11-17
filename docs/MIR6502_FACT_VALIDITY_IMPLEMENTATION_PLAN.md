@@ -1,6 +1,6 @@
 # MIR6502 fact validity implementation plan
 
-Status: slice 1 implemented; core scope hardening in progress, 2026-11-17.
+Status: slices 1–2 implemented; final qualification in progress, 2026-11-17.
 
 Implements issue **8** from the [repair priorities](MIR6502_FACT_REPAIR_PRIORITIES.md),
 following [summary validity across transformations](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#summary-validity-across-transformations).
@@ -41,6 +41,8 @@ instruction recipes, ABI eligibility and private-alias policy unchanged.
   reuse their current facts; do not analyze per instruction or query. Keep maps
   local to their attempt; final emitted-address checks remain in their existing
   transactions.
+- Pass the same scoped bundle to register-reload folding, removing its internal
+  immutable-policy analysis so conservative fallback cannot bypass the owner.
 - Add focused scope/consumer tests: callee/descendant mutation, metadata and home
   changes, a compatible change, complete rollback, opposite routine order and
   an unchanged-boundary analysis count. Retain existing entry-stage and physical
@@ -75,3 +77,11 @@ publication policy and fixed backing, and retains individual entry flags and
 single-byte preservation. Five new regressions plus the affected analysis and
 terminal controls pass: **143 passed, three diagnostic tests ignored**. No full
 suite was run.
+
+Slice 2 owns the complete core tail checkpoint and refreshes summaries at the
+existing group boundaries and core output. Incompatible metadata or guarantees
+cause one conservative retry, restoring code, home records and statistics. The
+reload-folding pass now borrows this same policy. Four new regressions cover
+scope reuse, metadata/placement invalidation, a real caller carrier rewrite in
+both routine orders, and conservative reload folding. **165 focused tests pass**
+(four ignored diagnostics, including the separately executed audit).
