@@ -147,7 +147,8 @@ pub(super) fn propose_with_scope(
                     // Reusing a return slot needs an explicit value handoff:
                     // later physical result reads are not reads of this object.
                     // Keep that separate from ordinary lifetime-based sharing.
-                    forbidden.extend(super::super::analysis::home_liveness::action_return_home_uses()
+                    let call = calls.iter().find(|(s, _)| s == site).expect("recorded call site").1;
+                    forbidden.extend(super::super::analysis::home_liveness::call_return_home_uses(input, call)
                         .iter().filter_map(|h| match h {
                             super::super::analysis::effects::MirHomeByte::FixedZeroPage(s) => Some(s.0),
                             _ => None,

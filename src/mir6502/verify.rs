@@ -77,7 +77,48 @@ impl MirVerifier {
         }
     }
 
+    fn verify_direct_abi_contracts(&mut self, program: &MirProgram) {
+        use super::ir::{MirDirectParamAbi, MirDirectResultAbi};
+        let routines: BTreeMap<_, _> = program.routines.iter().map(|r| (r.id, r)).collect();
+        for r in &program.routines {
+            if r.frame.direct_parameter_abi.is_some() && !super::abi::direct_parameter_frame_matches(r) {
+                self.diagnostics.push(MirDiagnostic::routine(&r.name, "direct parameter ABI does not match its logical frame"));
+            }
+            if let Some(scalar) = &r.scalar_signature {
+                let params_match = r.frame.direct_parameter_abi.as_ref().is_none_or(|ps|
+                    ps.len() == scalar.params.len() && ps.iter().zip(&scalar.params).all(|(p, lanes)|
+                        matches!(p, MirDirectParamAbi::Scalar(w) if w.transfers() == lanes)));
+                let result_match = r.direct_result_abi.is_none_or(|result| match result {
+                    MirDirectResultAbi::Void => scalar.result.is_empty(),
+                    MirDirectResultAbi::Scalar(w) => w.transfers() == scalar.result,
+                    MirDirectResultAbi::Pointer => false,
+                });
+                if !params_match || !result_match {
+                    self.diagnostics.push(MirDiagnostic::routine(&r.name, "scalar and direct ABI descriptions disagree"));
+                }
+            }
+            for b in &r.blocks {
+                for op in &b.ops {
+                    let MirOp::Call { target: super::ir::MirCallTarget::Routine(id), args, .. } = op else { continue; };
+                    let Some(callee) = routines.get(id) else { continue; };
+                    if self.phase == MirPhase::PreMaterialization {
+                        if let Some(parameters) = &callee.frame.direct_parameter_abi {
+                            let widths: Vec<_> = args.iter().map(|a| a.width).collect();
+                            if !super::abi::complete_parameter_prefix(parameters, &widths) {
+                                self.diagnostics.push(MirDiagnostic::block(&r.name, &b.label, "call arguments must supply complete logical direct parameter groups"));
+                            }
+                        }
+                    }
+                    if let Err(reason) = super::abi::validate_direct_call_result(callee, op) {
+                        self.diagnostics.push(MirDiagnostic::block(&r.name, &b.label, reason));
+                    }
+                }
+            }
+        }
+    }
+
     fn verify_program(&mut self, program: &MirProgram) {
+        self.verify_direct_abi_contracts(program);
         let static_ids = program
             .statics
             .iter()
@@ -1990,6 +2031,10 @@ impl MirVerifier {
                         ));
                     }
                     arg_offset = arg_offset.saturating_add(action_arg_width_bytes(arg.width));
+                    if arg_offset > 96 {
+                        self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                            "call argument extent exceeds the Action ZP ABI area"));
+                    }
                     self.verify_value(
                         routine,
                         block,
@@ -2053,10 +2098,10 @@ impl MirVerifier {
                     homes.push(&lane.home);
                 }
                 if !matches!(self.phase, MirPhase::PreMaterialization)
-                    && (!abi.additional_results.is_empty() || !additional_results.is_empty())
+                    && !additional_results.is_empty()
                 {
                     self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
-                        "materialized calls must have placed all additional result lanes"));
+                        "materialized calls must have placed all additional result captures"));
                 }
             }
             MirOp::MaterializeAddress { consumer, value } => {

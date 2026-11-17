@@ -1,6 +1,6 @@
 # MIR6502 wide routine ABI implementation plan
 
-Status: in progress, 2026-11-17. Slice 1 complete.
+Status: in progress, 2026-11-17. Slices 1–2 complete.
 
 Implement the [design](MIR6502_WIDE_ROUTINE_ABI_DESIGN.md) in four vertical
 slices, committing each after its focused checks. Commit the design and this
@@ -107,3 +107,9 @@ host LF/CRLF text where required by the existing test paths.
   Existing narrow/pointer behavior, the new LONG metadata and independent
   result discovery pass. Wider call admission remains conservative until slice 2;
   the expanded metadata/layout matrix is covered with its proof consumers.
+- Slice 2: the focused ABI/entry/verifier/runtime-contract/observation run passed
+  132 tests. After adding high-word return liveness, the broader MIR6502 library
+  run passed 1,531 tests, with 15 ignored and the same six baseline failures
+  recorded above; no new failures. `mir6502_call_abi` passed all 11 integration
+  tests. Wide result declarations now survive materialization, and both high
+  result bytes participate in return liveness and caller-home observations.

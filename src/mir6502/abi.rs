@@ -64,25 +64,59 @@ pub(super) fn physical_lanes(home: &MirArgHome, width: MirWidth) -> Option<Vec<s
     super::ir::MirParamHome::Lanes(lanes).lanes(action_arg_width_bytes(width))
 }
 
+/// The ABI's incoming byte stream must fit in the existing ZP argument area.
+pub(super) fn argument_lanes(bytes: u16) -> Option<Vec<super::ir::MirParamLane>> {
+    if bytes > 96 { return None; }
+    (0..bytes).map(|offset| physical_lanes(&action_arg_home(offset, MirWidth::Byte), MirWidth::Byte)
+        .and_then(|v| v.first().copied())).collect()
+}
+
+pub(super) fn parameter_bytes(parameters: &[super::ir::MirDirectParamAbi]) -> Option<u16> {
+    parameters.iter().try_fold(0u16, |n, p| n.checked_add(p.width().bytes()))
+}
+
+/// Pre-expansion operands may omit whole trailing arguments under existing
+/// source rules. A prefix cannot end halfway through a logical LONG.
+pub(super) fn complete_parameter_prefix(parameters: &[super::ir::MirDirectParamAbi], widths: &[MirWidth]) -> bool {
+    let mut end = 0;
+    if widths.is_empty() { return true; }
+    for parameter in parameters {
+        let transfers = parameter.width().transfers();
+        if widths.get(end..end + transfers.len()) != Some(transfers) { return false; }
+        end += transfers.len();
+        if end == widths.len() { return true; }
+    }
+    false
+}
+
+pub(super) fn direct_parameter_frame_matches(routine: &super::ir::MirRoutine) -> bool {
+    use super::ir::{MirDirectParamAbi, MirStorageBase, MirStorageClass};
+    let Some(parameters) = &routine.frame.direct_parameter_abi else { return false; };
+    parameters.len() == routine.frame.params.len() && parameters.iter().zip(&routine.frame.params).all(|(parameter, slot)| {
+        let storage = match parameter {
+            MirDirectParamAbi::Scalar(_) => slot.storage == MirStorageClass::Scalar,
+            MirDirectParamAbi::Pointer => matches!(slot.storage, MirStorageClass::Scalar | MirStorageClass::Array),
+        };
+        storage && slot.scalar_width == parameter.width().machine_width()
+            && slot.storage_size == parameter.width().bytes() && slot.offset == 0 && slot.init.is_none()
+            && matches!(slot.base, MirStorageBase::Param(_) | MirStorageBase::ParamAbiOnly(_))
+    })
+}
+
 /// Validate each physical call boundary, including repeated sites to a cached
-/// callee. This checks supplied lanes, not whether extra entry inputs are met.
+/// callee. Word operands before expansion and byte operands after expansion
+/// must project to the same complete byte stream.
 pub(super) fn canonical_call_lanes(
     callee: &super::ir::MirRoutine, args: &[super::ir::MirCallArg],
 ) -> Result<Vec<super::ir::MirParamLane>, &'static str> {
     let signature = callee.frame.direct_parameter_abi.as_ref().ok_or("unknown residence ABI")?;
-    if signature.iter().any(|p| p.width().machine_width().is_none()) { return Err("unsupported residence ABI"); }
-    let expected_bytes: u16 = signature.iter().map(|p| p.width().bytes()).sum();
-    let supplied_bytes: u16 = args.iter().map(|a| action_arg_width_bytes(a.width)).sum();
-    if expected_bytes != supplied_bytes { return Err("mismatched residence arguments"); }
-    let mut outgoing = Vec::new();
-    for arg in args {
-        let lanes = physical_lanes(&arg.home, arg.width).ok_or("unsupported residence argument")?;
-        let expected = physical_lanes(&action_arg_home(outgoing.len() as u16, arg.width), arg.width)
-            .ok_or("unsupported residence ABI")?;
-        if lanes != expected { return Err("noncanonical residence arguments"); }
-        outgoing.extend(lanes);
-    }
-    Ok(outgoing)
+    let expected = argument_lanes(parameter_bytes(signature).ok_or("unsupported residence ABI")?)
+        .ok_or("unsupported residence ABI")?;
+    let supplied: Option<Vec<_>> = args.iter().map(|arg| physical_lanes(&arg.home, arg.width)).collect();
+    let supplied: Vec<_> = supplied.ok_or("unsupported residence argument")?.into_iter().flatten().collect();
+    if supplied.len() != expected.len() { return Err("mismatched residence arguments"); }
+    if supplied != expected { return Err("noncanonical residence arguments"); }
+    Ok(supplied)
 }
 
 pub(super) const fn action_arg_width_bytes(width: MirWidth) -> u16 {
@@ -113,23 +147,25 @@ pub(super) fn validate_direct_call_result(
         return Err("not a direct call result");
     };
     let Some(contract) = callee.direct_result_abi else { return Ok(()); };
-    if contract.width().is_some_and(|w| w.machine_width().is_none()) { return Err("unsupported direct result ABI"); }
     let slots = direct_result_slots(contract);
-    let canonical = |home: &MirResultHome| {
-        let address = match home {
-            MirResultHome::ReturnSlot { offset } => 0xa0u16.checked_add(*offset),
-            MirResultHome::FixedZeroPage(slot) => Some(u16::from(slot.0)),
-            MirResultHome::Absolute(address) => Some(*address),
-            _ => None,
-        };
-        address.is_some() && address == slots.first().map(|s| u16::from(*s))
+    let transfers = contract.width().map(|w| w.transfers()).unwrap_or(&[]);
+    let address = |home: &MirResultHome| match home {
+        MirResultHome::ReturnSlot { offset } => 0xa0u16.checked_add(*offset),
+        MirResultHome::FixedZeroPage(slot) => Some(u16::from(slot.0)),
+        MirResultHome::Absolute(address) => Some(*address),
+        _ => None,
     };
-    if !additional_results.is_empty() || !abi.additional_results.is_empty()
-        || abi.result.as_ref().is_some_and(|home| !canonical(home))
-        || result.as_ref().is_some_and(|result| {
-            abi.result.is_none() || Some(result.width) != contract.width().and_then(|w| w.machine_width())
-                || !canonical(&result.home)
-        })
+    let wide = transfers.len() == 2;
+    if abi.additional_results.len() != usize::from(wide)
+        || (wide && (abi.result.as_ref().and_then(address) != Some(0xa0)
+            || address(&abi.additional_results[0].home) != Some(0xa2)
+            || abi.additional_results[0].width != MirWidth::Word))
+        || abi.result.as_ref().is_some_and(|home| address(home).is_none()
+            || address(home) != slots.first().map(|s| u16::from(*s)))
+        || result.as_ref().is_some_and(|r| abi.result.is_none()
+            || transfers.first() != Some(&r.width) || address(&r.home) != Some(0xa0))
+        || additional_results.len() > usize::from(wide)
+        || additional_results.iter().any(|r| !wide || r.width != MirWidth::Word || address(&r.home) != Some(0xa2))
     {
         return Err("mismatched direct result ABI");
     }
@@ -320,3 +356,6 @@ mod tests {
         assert_eq!(regions[1].kind, MirMemoryRegionKind::AbsoluteRange);
     }
 }
+
+#[cfg(test)]
+mod wide_tests;

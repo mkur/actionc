@@ -116,7 +116,7 @@ impl MirHomeLiveness {
                     MirTerminator::Return | MirTerminator::Exit
                 )
             })
-            .map(|block| (block.id, action_return_home_uses()))
+            .map(|block| (block.id, routine_return_home_uses(routine)))
             .collect::<BTreeMap<_, _>>();
         Self::solve(routine, cfg, universe, transfers, boundaries)
     }
@@ -325,9 +325,39 @@ pub(in crate::mir6502) fn collect_home_universe(routine: &MirRoutine) -> MirHome
             MirTerminator::Return | MirTerminator::Exit
         )
     }) {
-        universe.union_with(&action_return_home_uses());
+        universe.union_with(&routine_return_home_uses(routine));
     }
     universe
+}
+
+/// Keep the existing conservative two-byte boundary for narrow/unknown entries,
+/// and include every declared wide result byte. This is observation, not a proof
+/// that any of those bytes has actually been defined.
+pub(in crate::mir6502) fn routine_return_home_uses(routine: &MirRoutine) -> MirHomeLiveSet {
+    let mut uses = action_return_home_uses();
+    if let Some(result) = routine.direct_result_abi {
+        uses.extend(crate::mir6502::abi::direct_result_slots(result).iter()
+            .map(|s| MirHomeByte::FixedZeroPage(MirFixedZpSlot(*s))));
+    }
+    uses
+}
+
+pub(in crate::mir6502) fn call_return_home_uses(program: &crate::mir6502::ir::MirProgram,
+    call: &crate::mir6502::ir::MirOp) -> MirHomeLiveSet {
+    use crate::mir6502::ir::{MirOp, MirCallTarget};
+    let mut uses = action_return_home_uses();
+    if let MirOp::Call { target, abi, .. } = call {
+        let callee = match target {
+            MirCallTarget::Routine(id) => program.routines.iter().find(|r| r.id == *id),
+            _ => None,
+        }.or_else(|| abi.library.as_ref().map(|b| b.interface.as_ref()));
+        if let Some(callee) = callee { uses.union_with(&routine_return_home_uses(callee)); }
+        if !abi.additional_results.is_empty() {
+            // The structural verifier validates the public high-word layout.
+            uses.extend([0xa2,0xa3].map(|s| MirHomeByte::FixedZeroPage(MirFixedZpSlot(s))));
+        }
+    }
+    uses
 }
 
 pub(in crate::mir6502) fn action_return_home_uses() -> MirHomeLiveSet {

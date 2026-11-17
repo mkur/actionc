@@ -224,3 +224,23 @@ fn integer_and_pointer_parameter_results_compose_identically() {
         }
     }
 }
+
+#[test]
+fn wide_results_require_each_high_byte_on_every_return_and_keep_old_reads() {
+    let mut p = program();
+    p.routines[0].direct_result_abi = Some(MirDirectResultAbi::Scalar(MirAbiIntegerWidth::Long));
+    p.routines[0].blocks = vec![
+        block(0, vec![read(0xa3),load(7),store(0xa0),store(0xa1)], branch(1,2)),
+        block(1, vec![store(0xa2),store(0xa3)], MirTerminator::Return),
+        block(2, vec![store(0xa2)], MirTerminator::Return),
+    ];
+    let entry = leaf(&p);
+    assert_eq!(entry.defined_results, BTreeSet::from([0xa0,0xa1,0xa2]));
+    assert!(entry.inputs.fixed.contains(&0xa3));
+    p.routines[0].blocks[2].ops.push(store(0xa3));
+    let entry = leaf(&p);
+    assert_eq!(entry.defined_results, BTreeSet::from([0xa0,0xa1,0xa2,0xa3]));
+    assert!(entry.inputs.fixed.contains(&0xa3));
+    p.routines[0].blocks = vec![block(0,vec![load(1),store(0xa0),store(0xa1),store(0xa2),store(0xa3)],MirTerminator::Unreachable)];
+    assert!(leaf(&p).defined_results.is_empty());
+}

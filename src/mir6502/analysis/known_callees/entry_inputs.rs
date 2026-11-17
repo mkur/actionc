@@ -7,7 +7,7 @@ use crate::mir6502::analysis::{
     machine_liveness::{MirMachineLiveness, MirMachineLiveSet},
 };
 use crate::mir6502::ir::{
-    MirDef, MirDirectParamAbi, MirFlag, MirParamLane, MirRoutineAbi, MirStorageClass, MirValue, MirWidth,
+    MirDef, MirFlag, MirParamLane, MirRoutineAbi, MirValue, MirWidth,
 };
 use std::sync::Arc;
 
@@ -381,35 +381,14 @@ fn direct_parameter_abi_is_complete(program: &MirProgram, routine: &MirRoutine, 
     let Some(parameters) = &routine.frame.direct_parameter_abi else {
         return false;
     };
-    parameters.len() == routine.frame.params.len()
-        && (parameters
-            .iter()
-            .copied()
-            .map(|parameter| parameter.width().bytes())
-            .sum::<u16>()
-            <= crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES
+    crate::mir6502::abi::direct_parameter_frame_matches(routine)
+        && crate::mir6502::abi::parameter_bytes(parameters)
+            .and_then(crate::mir6502::abi::argument_lanes).is_some()
+        && (crate::mir6502::abi::parameter_bytes(parameters).is_some_and(|bytes|
+                bytes <= crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES)
             || (stage == MirCalleeEntryStage::ActualEntry && routine.blocks.first()
                 .and_then(|b| b.ops.first())
                 .and_then(|op| crate::mir6502::runtime_contracts::sargs_capture(program, routine, op)).is_some()))
-        && parameters
-            .iter()
-            .zip(&routine.frame.params)
-            .all(|(parameter, slot)| {
-                let storage_matches = match parameter {
-                    MirDirectParamAbi::Scalar(_) => slot.storage == MirStorageClass::Scalar,
-                    MirDirectParamAbi::Pointer => matches!(slot.storage, MirStorageClass::Scalar | MirStorageClass::Array),
-                };
-                storage_matches
-                    && parameter.width().machine_width().is_some()
-                    && slot.scalar_width == parameter.width().machine_width()
-                    && slot.storage_size == parameter.width().bytes()
-                    && slot.offset == 0
-                    && slot.init.is_none()
-                    && matches!(
-                        slot.base,
-                        MirStorageBase::Param(_) | MirStorageBase::ParamAbiOnly(_)
-                    )
-            })
 }
 
 #[cfg(test)]

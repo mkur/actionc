@@ -32,17 +32,17 @@ impl<'a> InvocationHomes<'a> {
             if let MirHomeByte::FixedZeroPage(s) = h { Some(s) } else { None }
         }).collect();
         for r in &source.routines {
+            abi.extend(super::super::analysis::home_liveness::routine_return_home_uses(r).iter().filter_map(|h|
+                if let MirHomeByte::FixedZeroPage(s) = h { Some(s) } else { None }));
             if let Some(widths) = &r.frame.direct_parameter_abi {
-                let mut offset = 0;
-                for parameter in widths {
-                    for &width in parameter.width().transfers() {
-                        for lane in crate::mir6502::abi::physical_lanes(
-                            &crate::mir6502::abi::action_arg_home(offset, width), width,
-                        ).unwrap_or_default() {
-                            if let MirParamLane::ZeroPage(s) = lane { abi.insert(s); }
-                        }
-                        offset += crate::mir6502::abi::action_arg_width_bytes(width);
-                    }
+                if let Some(lanes) = crate::mir6502::abi::parameter_bytes(widths)
+                    .and_then(crate::mir6502::abi::argument_lanes) {
+                    abi.extend(lanes.into_iter().filter_map(|lane| match lane {
+                        MirParamLane::ZeroPage(slot) => Some(slot), _ => None,
+                    }));
+                } else {
+                    // Unsupported extent cannot authorize a private ABI home.
+                    abi.extend((0..=255).map(MirFixedZpSlot));
                 }
             }
             for op in r.blocks.iter().flat_map(|b| &b.ops) {

@@ -59,6 +59,9 @@ word. The gap is between this executable representation and its retained facts:
   a valid four-byte scalar slot has `storage_size == 4` and no single
   `MirWidth`.
 - `validate_direct_call_result` currently rejects additional result words.
+- Materialization currently drops both primary and additional result declarations
+  after emitting the captures. Wide calls must retain their complete declaration
+  while the capture operations become explicit loads/stores.
 - `MirScalarSignature` already records integer LONGs as two words, but excludes
   pointer signatures. It is not a substitute for the direct ABI contract.
 

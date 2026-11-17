@@ -12,7 +12,7 @@ use crate::analysis::dataflow::{
 use crate::mir6502::analysis::cfg::MirCfg;
 use crate::mir6502::analysis::effects::MirHomeByte;
 use crate::mir6502::analysis::home_liveness::{
-    MirHomeBlockTransfers, action_return_home_uses, collect_home_transfers, collect_home_universe,
+    MirHomeBlockTransfers, routine_return_home_uses, collect_home_transfers, collect_home_universe,
 };
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{MirAddr, MirBlockId, MirFixedZpSlot, MirMem, MirOp, MirRoutine, MirTerminator, MirWidth};
@@ -427,7 +427,7 @@ fn collect_definition_uses(
         ) {
             record_reads(
                 &state,
-                action_return_home_uses().iter(),
+                routine_return_home_uses(routine).iter(),
                 terminator_site,
                 &mut uses,
             );

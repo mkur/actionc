@@ -1380,13 +1380,13 @@ fn materialize_call_arg_expr_plan(
         target,
         abi: MirCallAbi {
             library: plan.abi.library.clone(),
-            additional_results: Vec::new(),
+            additional_results: plan.abi.additional_results.clone(),
             params: plan
                 .args
                 .iter()
                 .flat_map(materialized_planned_call_homes)
                 .collect(),
-            result: None,
+            result: (!plan.abi.additional_results.is_empty()).then(|| plan.abi.result.clone()).flatten(),
             clobbers: plan.abi.clobbers,
             preserves: plan.abi.preserves,
         },
@@ -1536,9 +1536,9 @@ fn materialize_paired_word_shift_call(
         target,
         abi: MirCallAbi {
             library: plan.abi.library.clone(),
-            additional_results: Vec::new(),
+            additional_results: plan.abi.additional_results.clone(),
             params: args.iter().map(|arg| arg.home.clone()).collect(),
-            result: None,
+            result: (!plan.abi.additional_results.is_empty()).then(|| plan.abi.result.clone()).flatten(),
             clobbers: plan.abi.clobbers,
             preserves: plan.abi.preserves,
         },
@@ -1626,9 +1626,9 @@ fn materialize_direct_indexed_byte_fixed_action_call(
         target,
         abi: MirCallAbi {
             library: plan.abi.library.clone(),
-            additional_results: Vec::new(),
+            additional_results: plan.abi.additional_results.clone(),
             params: byte_homes,
-            result: None,
+            result: (!plan.abi.additional_results.is_empty()).then(|| plan.abi.result.clone()).flatten(),
             clobbers: plan.abi.clobbers,
             preserves: plan.abi.preserves,
         },
@@ -2038,14 +2038,14 @@ fn materialize_direct_indexed_word_action_call(
         target,
         abi: MirCallAbi {
             library: plan.abi.library.clone(),
-            additional_results: Vec::new(),
+            additional_results: plan.abi.additional_results.clone(),
             params: plan
                 .args
                 .iter()
                 .flat_map(materialized_direct_indexed_word_action_args)
                 .map(|arg| arg.home)
                 .collect(),
-            result: None,
+            result: (!plan.abi.additional_results.is_empty()).then(|| plan.abi.result.clone()).flatten(),
             clobbers: plan.abi.clobbers,
             preserves: plan.abi.preserves,
         },
@@ -2171,9 +2171,9 @@ fn materialize_direct_two_word_arithmetic_action_call(
         target,
         abi: MirCallAbi {
             library: plan.abi.library.clone(),
-            additional_results: Vec::new(),
+            additional_results: plan.abi.additional_results.clone(),
             params: args.iter().map(|arg| arg.home.clone()).collect(),
-            result: None,
+            result: (!plan.abi.additional_results.is_empty()).then(|| plan.abi.result.clone()).flatten(),
             clobbers: plan.abi.clobbers,
             preserves: plan.abi.preserves,
         },
@@ -2407,9 +2407,9 @@ fn materialize_staged_action_call_arg_expr_plan(
         target,
         abi: MirCallAbi {
             library: plan.abi.library.clone(),
-            additional_results: Vec::new(),
+            additional_results: plan.abi.additional_results.clone(),
             params: byte_homes,
-            result: None,
+            result: (!plan.abi.additional_results.is_empty()).then(|| plan.abi.result.clone()).flatten(),
             clobbers: plan.abi.clobbers,
             preserves: plan.abi.preserves,
         },
@@ -4105,9 +4105,9 @@ pub(super) fn materialize_call(
         target,
         abi: MirCallAbi {
             library: abi.library.clone(),
-            additional_results: Vec::new(),
+            additional_results: abi.additional_results.clone(),
             params: byte_homes,
-            result: None,
+            result: (!abi.additional_results.is_empty()).then(|| abi.result.clone()).flatten(),
             clobbers: abi.clobbers,
             preserves: abi.preserves,
         },

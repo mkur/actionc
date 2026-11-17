@@ -49,7 +49,7 @@ pub(super) fn plan_call(
     // Source arity has already been verified. A wide source argument has two
     // word lanes here, but retains one logical parameter in the NIR signature.
     let fixed_lanes: usize = signature.params.iter().map(|ty|
-        if ty.kind.integer().is_some_and(|integer| integer.bits == 32) { 2 } else { 1 }).sum();
+        super::abi::direct_value_abi(ty).map_or(1, |p| p.width().transfers().len())).sum();
     if signature.variadic.is_none() && args.len() > fixed_lanes {
         diagnostics.push(MirDiagnostic::block(
             routine,
@@ -86,7 +86,7 @@ pub(super) fn plan_call(
         .map(|arg| arg.home.clone())
         .collect::<Vec<_>>();
     let wide_result = signature.result.as_ref().is_some_and(|ty|
-        ty.kind.integer().is_some_and(|integer| integer.bits == 32));
+        super::abi::direct_value_abi(ty).is_some_and(|p| p.width() == super::ir::MirAbiIntegerWidth::Long));
     let result_home = (result.is_some() || wide_result)
         .then_some(MirResultHome::ReturnSlot { offset: 0 });
     let result = result.map(|(dst, width)| MirCallResult {
