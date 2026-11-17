@@ -38,9 +38,9 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
         for (op_index, op) in block.ops.iter().enumerate() {
             let site = MirSite::Op { block: block.id, op_index };
             let consumes = terminal == Some(site);
-            let call_dead = matches!(op, MirOp::Call { .. }) && owned.iter()
+            let call_dead = matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. }) && owned.iter()
                 .all(|home| matches!(liveness.live_after(*home, site), Ok(false)));
-            let invocation = if matches!(op, MirOp::Call { .. }) && !consumes {
+            let invocation = if matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. }) && !consumes {
                 let Some(facts) = calls.as_mut() else {
                     return vec![MirDiagnostic::routine(&routine.name, "missing residence call facts")];
                 };

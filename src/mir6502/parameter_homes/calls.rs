@@ -58,6 +58,10 @@ impl<'a> ResidenceCalls<'a> {
         if self.stage != MirCalleeEntryStage::ActualEntry {
             return Err("residence inputs require expanded callee facts");
         }
+        if matches!(call, MirOp::RuntimeHelper { .. }) {
+            return crate::mir6502::runtime_contracts::helper_invocation(self.program, call)
+                .map(|_| ()).ok_or("unsupported residence helper contract");
+        }
         let MirOp::Call { target: MirCallTarget::Routine(target), args, .. } = call else {
             return Err("unknown or indirect residence call");
         };
@@ -94,9 +98,13 @@ impl<'a> ResidenceCalls<'a> {
         self.known.fixed_storage().clone()
     }
 
-    pub fn writes(&mut self, call: &MirOp) -> Result<&MirKnownMemoryWrites, &'static str> {
+    pub fn writes(&mut self, call: &MirOp) -> Result<MirKnownMemoryWrites, &'static str> {
         if self.stage != MirCalleeEntryStage::ActualEntry {
             return Err("residence writes require expanded callee facts");
+        }
+        if matches!(call, MirOp::RuntimeHelper { .. }) {
+            return crate::mir6502::runtime_contracts::helper_invocation(self.program, call)
+                .map(|s| MirKnownMemoryWrites::Exact(s.writes)).ok_or("unsupported residence helper contract");
         }
         let MirOp::Call {
             target: MirCallTarget::Routine(target),
@@ -115,9 +123,8 @@ impl<'a> ResidenceCalls<'a> {
             || callee.blocks.iter().flat_map(|b| &b.ops).any(|op| {
                 matches!(
                     op,
-                    MirOp::RuntimeHelper { .. }
-                        | MirOp::Barrier { .. }
-                ) || (matches!(op, MirOp::SArgsCapture { .. }) && crate::mir6502::runtime_contracts::sargs_capture(self.program, callee, op).is_none()) || (self.acyclic.is_none() && matches!(op, MirOp::Call { .. } | MirOp::MachineBlock { .. }))
+                    MirOp::Barrier { .. }
+                ) || (matches!(op, MirOp::RuntimeHelper { .. }) && crate::mir6502::runtime_contracts::helper_invocation(self.program, op).is_none()) || (matches!(op, MirOp::SArgsCapture { .. }) && crate::mir6502::runtime_contracts::sargs_capture(self.program, callee, op).is_none()) || (self.acyclic.is_none() && matches!(op, MirOp::Call { .. } | MirOp::MachineBlock { .. }))
             })
         {
             return Err("unsupported residence callee");
@@ -133,7 +140,7 @@ impl<'a> ResidenceCalls<'a> {
         if matches!(writes, MirKnownMemoryWrites::Unknown) {
             return Err("unknown residence callee writes");
         }
-        Ok(writes)
+        Ok(writes.clone())
     }
 }
 

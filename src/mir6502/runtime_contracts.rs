@@ -2,6 +2,8 @@
 //! of the helper's return-address/descriptor implementation.
 use super::ir::*;
 pub(super) mod signatures;
+mod invocation;
+pub(super) use invocation::{invocation, helper_invocation};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
@@ -19,6 +21,7 @@ impl MirRuntimeImplementation {
             MirRuntimeHelperTarget::KnownAbsolute(_) => {}
             MirRuntimeHelperTarget::Deferred => return None,
         }
+        let mut fallthroughs = Vec::new();
         let mut visited = BTreeSet::new();
         let mut routines = Vec::new();
         let mut machines = Vec::new();
@@ -51,10 +54,29 @@ impl MirRuntimeImplementation {
                     }
                 }
             }
+            // The reviewed assembly catalog includes adjacent entry aliases
+            // and fallthroughs (SetSign/SS1, Zero/SetBlock). Preserve adjacency
+            // as well as the dependency body when checking evidence freshness.
+            if let [block] = routine.blocks.as_slice()
+                && matches!(block.terminator, MirTerminator::Unreachable) {
+                let falls_through = if block.ops.is_empty() { true }
+                    else if let Some(MirOp::MachineBlock { id, .. }) = block.ops.last() {
+                        let machine = program.machine_blocks.iter().find(|m| m.id == *id)?;
+                        !matches!(crate::mir6502::analysis::known_callees::machine_block_fallthrough(machine),
+                            crate::mir6502::analysis::known_callees::MachineBlockFallthrough::Stops)
+                    } else { false };
+                if falls_through {
+                    let index = program.routines.iter().position(|r| r.id == routine.id)?;
+                    let next = program.routines.get(index + 1)?;
+                    fallthroughs.push((routine.id, next.id));
+                    pending.insert(next.id);
+                }
+            }
             routines.push(routine.clone());
         }
         Some(Arc::new(Self {
             helper,
+            fallthroughs,
             target: target.clone(),
             routines,
             machines,
@@ -63,6 +85,8 @@ impl MirRuntimeImplementation {
 
     pub(super) fn is_current(&self, program: &MirProgram, target: &MirRuntimeHelperTarget) -> bool {
         self.target == *target
+            && self.fallthroughs.iter().all(|(from, to)| program.routines.windows(2)
+                .any(|pair| pair[0].id == *from && pair[1].id == *to))
             && self
                 .routines
                 .iter()
@@ -162,16 +186,14 @@ mod tests {
     pub(super) fn program(source: &str, runtime: crate::runtime::Runtime) -> MirProgram {
         let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
         let model = crate::semantic::analyze(&ast).unwrap();
-        let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
-        let mut p = crate::mir6502::materialize::materialize_program_with_reporting(
+        let nir = crate::nir::optimize_program(&crate::nir::lower_program(
+            &crate::semantic::ir::lower_program(&ast, &model))).unwrap();
+        crate::mir6502::materialize_program_with_origin_and_runtime(
             crate::mir6502::lower_program(&nir).unwrap(),
-            &super::super::Mir6502Config::default(),
-            0x3000,
-            false,
-        )
-        .unwrap();
-        super::super::runtime::resolve_helpers(&mut p, runtime).unwrap();
-        p
+            &super::super::Mir6502Config { enable_small_leaf_inlining: false,
+                ..super::super::Mir6502Config::optimized() },
+            0x3000, runtime).unwrap()
+
     }
 
     #[test]
@@ -263,3 +285,15 @@ mod tests {
 
 #[cfg(test)]
 mod entry_tests;
+
+impl std::fmt::Debug for MirRuntimeImplementation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MirRuntimeImplementation").field("helper", &self.helper)
+            .field("target", &self.target).field("fallthroughs", &self.fallthroughs)
+            .field("routines", &self.routines.iter().map(|r| r.id).collect::<Vec<_>>())
+            .field("machines", &self.machines.iter().map(|m| m.id).collect::<Vec<_>>()).finish()
+    }
+}
+
+#[cfg(test)]
+mod helper_tests;

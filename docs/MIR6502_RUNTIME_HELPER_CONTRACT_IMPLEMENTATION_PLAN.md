@@ -1,6 +1,6 @@
 # MIR6502 runtime and standard library contract implementation plan
 
-Status: in progress, 2026-11-17. Slices 1–3 complete.
+Status: in progress, 2026-11-17. Slices 1–4 complete.
 
 Implement the [contract design](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md) in
 the slices below, committing each slice after its focused checks pass. Deliver
@@ -306,3 +306,16 @@ optimization level 1, debug info disabled and two build jobs.
   and explicit result capture. The wide result projection intentionally adds
   the formerly omitted primary high byte. No helper body or executable fixture
   was changed.
+
+- Slice 4: `cargo test --lib mir6502::runtime_contracts` (5) passed;
+  the same freshly built library test runner passed `mir6502::analysis::known_callees`
+  (73) and `mir6502::parameter_homes::calls` (9). VM filters
+  `integer_shifts integer_shifts_dynamic_counts_and_argument_calls_match_floor_division`
+  and `wide_integers wide_multiply_divide_remainder_and_shifts_match_host_oracles`
+  passed across their existing modes/runtimes. Native arithmetic wrappers now
+  compose canonical entry and result facts, including pass-through shifts;
+  scratch reads stay out of entry requirements. Binding evidence includes
+  private fallthrough dependencies and adjacency. The audit probe reports
+  helper sites and normal-return writes separately from full effects.
+  Test preparation now uses optimized NIR and the public MIR preparation path,
+  avoiding the raw-core temporary-cleanup issue noted in slice 1.

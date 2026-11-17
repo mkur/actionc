@@ -751,8 +751,8 @@ fn summarize_routine_writes(
     let mut writes = MirKnownMemoryWrites::exact();
     for block in &routine.blocks {
         for op in &block.ops {
-            if let Some(capture) = normal.and_then(|p| crate::mir6502::runtime_contracts::sargs_capture(p, routine, op)) {
-                for byte in capture.definitions.into_iter().chain(capture.scratch) { writes.record(byte); }
+            if let Some(invocation) = normal.and_then(|p| crate::mir6502::runtime_contracts::invocation(p, routine, op)) {
+                for byte in invocation.writes { writes.record(byte); }
             } else {
                 summarize_op_writes(op, routine, callees, &mut writes);
             }

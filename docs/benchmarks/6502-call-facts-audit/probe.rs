@@ -29,6 +29,7 @@ fn nir(source: &str) -> crate::nir::NirProgram {
 fn inventory(p: &MirProgram, output: Option<&crate::codegen::CodegenOutput>) -> Value {
     CURRENT.with(|s|*s.borrow_mut()=Some(p.clone()));
     let known=MirKnownCalleeSummaries::analyze_for_rewriting(p);
+    let normal=MirKnownCalleeSummaries::analyze_for_residence(p);
     let mut acyclic=MirAcyclicEntryAnalysis::new(p);
     let mut residence=mir::parameter_homes::ResidenceCalls::with_acyclic(p,MirCalleeEntryStage::ActualEntry);
     let mut leaf_residence=mir::parameter_homes::ResidenceCalls::new(p,MirCalleeEntryStage::ActualEntry);
@@ -48,6 +49,18 @@ fn inventory(p: &MirProgram, output: Option<&crate::codegen::CodegenOutput>) -> 
                 "leaf_inputs":format!("{:?}",leaf_residence.inputs(o)),
                 "leaf_writes":format!("{:?}",leaf_residence.writes(o))}))
         }).collect();
+        let helpers:Vec<_>=r.blocks.iter().flat_map(|b|b.ops.iter().enumerate().map(move |(i,o)|(b.id,i,o)))
+            .filter(|(_,_,o)|matches!(o,MirOp::RuntimeHelper {..}|MirOp::SArgsCapture {..}))
+            .map(|(block,index,o)| {
+                let contract=mir::runtime_contracts::invocation(p,r,o);
+                json!({"block":block.0,"op":index,"operation":format!("{o:?}"),
+                    "available":contract.is_some(),
+                    "reason":if contract.is_some(){None}else{Some("unsupported, unresolved or stale selected implementation")},
+                    "inputs":contract.as_ref().map(|c|format!("{:?}",c.inputs)),
+                    "definitions":contract.as_ref().map(|c|format!("{:?}",c.definitions)),
+                    "register_definitions":contract.as_ref().map(|c|format!("{:?}",c.register_definitions)),
+                    "normal_writes":contract.as_ref().map(|c|format!("{:?}",c.writes))})
+            }).collect();
         let comparisons:Vec<_>=r.blocks.iter().flat_map(|b|b.ops.iter()).filter(|o|matches!(o,MirOp::Compare {..}))
             .map(|o|json!({"op":format!("{o:?}"),"effects":format!("{:?}",classify_op(o).machine)})).collect();
         json!({"id":r.id.0,"name":r.name,"abi":format!("{:?}",r.abi),
@@ -59,6 +72,8 @@ fn inventory(p: &MirProgram, output: Option<&crate::codegen::CodegenOutput>) -> 
             "precise_entry_flags":format!("{:?}",mir::analysis::entry_flags::MirKnownCalleeEntryFlags::analyze(r)),
             "machine_entry":format!("{:?}",mir::analysis::machine_liveness::MirMachineLiveness::entry_inputs(r,&cfg)),
             "reads":format!("{:?}",k.reads()),"writes":format!("{:?}",k.writes()),
+            "normal_return_writes":format!("{:?}",normal.get(r.id).unwrap().writes()),
+            "ordinary_call_count":calls.len(),"helper_site_count":helpers.len(),"helper_sites":helpers,
             "preserves_e4":k.writes().preserves_fixed_byte(MirFixedZpSlot(0xe4), known.fixed_storage()),
             "preserves_a0":k.writes().preserves_fixed_byte(MirFixedZpSlot(0xa0), known.fixed_storage()),
             "preserves_e8":k.writes().preserves_fixed_byte(MirFixedZpSlot(0xe8), known.fixed_storage()),

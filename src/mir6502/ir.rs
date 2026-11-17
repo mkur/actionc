@@ -173,9 +173,10 @@ pub struct MirRuntimeHelperDecl {
     pub(crate) binding: Option<std::sync::Arc<MirRuntimeImplementation>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct MirRuntimeImplementation {
     pub helper: Option<MirRuntimeHelper>,
+    pub fallthroughs: Vec<(RoutineId, RoutineId)>,
     pub target: MirRuntimeHelperTarget,
     pub routines: Vec<MirRoutine>,
     pub machines: Vec<MirMachineBlock>,

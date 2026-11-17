@@ -127,10 +127,11 @@ fn scalar_inputs(
         || routine.blocks.iter().flat_map(|b| &b.ops).any(|o| {
             matches!(
                 o,
-                MirOp::RuntimeHelper { .. }
-                    | MirOp::Barrier { .. }
+                MirOp::Barrier { .. }
                     | MirOp::MachineBlock { .. }
-            ) || (matches!(o, MirOp::Call { .. })
+            ) || (matches!(o, MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. })
+                && crate::mir6502::runtime_contracts::invocation(program, routine, o).is_none())
+                || (matches!(o, MirOp::Call { .. })
                 && (stage != MirCalleeEntryStage::ActualEntry || dependencies.is_none()))
         })
     {
@@ -211,16 +212,8 @@ fn scalar_inputs(
     for block in &routine.blocks {
         let mut ops = Vec::new();
         for op in &block.ops {
-            if matches!(op, MirOp::SArgsCapture { .. }) {
-                let capture = crate::mir6502::runtime_contracts::sargs_capture(program, routine, op)?;
-                ops.push(MirHomeTransfer {
-                    reads: capture.inputs.iter().filter_map(|h| match h {
-                        crate::mir6502::ir::MirArgHome::FixedZeroPage(s) => Some(MirHomeByte::FixedZeroPage(*s)),
-                        _ => None,
-                    }).collect(),
-                    // Inline parameter definitions cannot define caller ZP.
-                    writes: BTreeSet::new(),
-                });
+            if let Some(invocation) = crate::mir6502::runtime_contracts::invocation(program, routine, op) {
+                ops.push(invocation.home_transfer());
                 continue;
             }
             if let MirOp::Call { target: MirCallTarget::Routine(target), args, .. } = op {
@@ -275,11 +268,8 @@ fn scalar_inputs(
     } else { BTreeSet::new() };
     let homes = MirHomeLiveness::analyze_transfers(routine, &cfg, transfers);
     let live = MirMachineLiveness::entry_inputs_with_calls(routine, &cfg, &|op| {
-        if matches!(op, MirOp::SArgsCapture { .. }) {
-            return Some((MirMachineLiveSet {
-                registers: MirRegisterSet { a: true, x: true, y: true, ..Default::default() },
-                flags: MirFlagSet::default(),
-            }, MirMachineLiveSet::default()));
+        if let Some(invocation) = crate::mir6502::runtime_contracts::invocation(program, routine, op) {
+            return Some(invocation.machine_transfer());
         }
         let MirOp::Call { target: MirCallTarget::Routine(target), args, .. } = op else { return None; };
         let inputs = &dependencies.unwrap()[target].inputs;

@@ -243,7 +243,7 @@ impl MirVerifier {
             } else { MirCalleeEntryStage::ActualEntry };
             let needs_calls = self.phase != MirPhase::PreMaterialization && program.routines.iter().any(|r|
                 (r.frame.parameter_homes.is_some() || r.frame.local_homes.is_some()) && r.frame.parameter_handoff.is_none()
-                && r.blocks.iter().flat_map(|b| &b.ops).any(|op| matches!(op, MirOp::Call { .. })));
+                && r.blocks.iter().flat_map(|b| &b.ops).any(|op| matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. })));
             let mut calls = needs_calls.then(|| super::parameter_homes::ResidenceCalls::with_acyclic(program, stage));
             let addresses = super::analysis::storage_ownership::ObjectAddressControl::new(program);
             for routine in &program.routines {
