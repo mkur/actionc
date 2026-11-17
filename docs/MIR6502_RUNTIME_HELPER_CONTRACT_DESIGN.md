@@ -1,10 +1,13 @@
 # MIR6502 runtime and standard library contracts
 
-Status: proposed, 2026-11-17.
+Status: implemented and qualified, 2026-11-17.
 
 The [implementation plan](MIR6502_RUNTIME_HELPER_CONTRACT_IMPLEMENTATION_PLAN.md)
 delivers SArgs capture support first, followed by arithmetic helpers and selected
 standard-library contracts, with focused qualification after each slice.
+See the [coverage inventory](MIR6502_RUNTIME_LIBRARY_CONTRACT_COVERAGE.md) for
+supported boundaries and the [qualification report](benchmarks/6502-runtime-contracts/README.md)
+for measured outcomes and remaining restrictions.
 
 Complete the MIR6502 contracts for runtime helpers and standard-library calls
 so native call composition and ZP residence can use their supported
@@ -21,7 +24,7 @@ already have useful effects, but cannot supply the entry proofs needed by
 their callers. Completing these contracts removes that particular barrier;
 it does not by itself establish profitable ZP placement.
 
-## Existing descriptions and missing guarantees
+## Starting descriptions and missing guarantees
 
 [Materialization](../src/mir6502/materialize/runtime.rs) already provides
 `helper_abi_for`, `helper_args`, `helper_additional_results`, `helper_effects`
@@ -30,7 +33,7 @@ ABI, additional results and effects. `MirOp::RuntimeHelper` carries its physical
 arguments and results. This design completes those descriptions rather than
 introducing a parallel callee database.
 
-There are several missing connections:
+Before this implementation, the following connections were missing:
 
 - [Native entry composition](../src/mir6502/analysis/known_callees/entry_inputs/acyclic.rs)
   and the underlying [entry producer](../src/mir6502/analysis/known_callees/entry_inputs.rs)

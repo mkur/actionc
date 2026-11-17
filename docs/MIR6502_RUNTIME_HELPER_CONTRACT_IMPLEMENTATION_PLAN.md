@@ -1,6 +1,6 @@
 # MIR6502 runtime and standard library contract implementation plan
 
-Status: in progress, 2026-11-17. Slices 1–8 complete.
+Status: complete, 2026-11-17. All nine slices implemented and qualified.
 
 Implement the [contract design](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md) in
 the slices below, committing each slice after its focused checks pass. Deliver
@@ -368,3 +368,25 @@ optimization level 1, debug info disabled and two build jobs.
   The [coverage inventory](MIR6502_RUNTIME_LIBRARY_CONTRACT_COVERAGE.md) records
   supported contracts and remaining returning dependencies. Broader test failures
   are investigated against the starting revision during slice 9 qualification.
+
+- Slice 9: the combined TN/Huffman fact probe passed both diagnostic tests,
+  including independent controls and traced/untraced image equality. TN is
+  9,913 bytes, down eight from 9,921; `PopUp.item` gains `$E2/$E3`, bringing
+  named-home routines from nine to ten. All three Huffman images are unchanged
+  (3,851/3,781/3,851 bytes); all 14 helper sites are supported and `ReadBit`/
+  `BuildTree` gain entry certificates. Temporary ZP allocations are unchanged.
+  The existing layout fallback still triggers; it is recorded explicitly.
+  Final `cargo test --lib mir6502::` produced 1,525 passes, six failures and
+  15 ignored cases. All six failures reproduce at `0a291ceb`. The full
+  `callee_facts` VM target produced ten passes and one placement-assertion
+  failure, also reproduced at that revision. No expectations were relaxed.
+  The full `mir6502_call_abi` integration target (11), `cross_call_homes` VM
+  target (14), and `runtime_library_contracts` VM target (3) passed. The
+  `huff_dec_mir6502 huff_dec_vectors_accept` filter passed three cases with
+  370 executions and LF/CRLF loading. The `tn_dispatch` and `tn_checked_arena`
+  VM targets each passed two tests; one frozen unchecked-arena control remains
+  intentionally ignored. These execute the changed PopUp path, panels,
+  allocator/window behavior and both-runtime LF/CRLF controls. Temporary
+  compiler hooks and the baseline worktree were removed. Source hashes,
+  exact failures, scope and measurements are in the
+  [qualification report](benchmarks/6502-runtime-contracts/README.md).

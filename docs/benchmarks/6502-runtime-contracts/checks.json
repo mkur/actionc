@@ -1,0 +1,133 @@
+{
+  "mir6502_units": {
+    "status": "FAILED",
+    "passed": 1525,
+    "failed": 6,
+    "ignored": 15,
+    "filtered_out": 2026,
+    "failures": [
+      "mir6502::materialize::constructor_storage::tests::constructor_storage_protects_incoming_pointer_across_known_calls",
+      "mir6502::materialize::pointer_retention::tests::pointer_retention_calls_keep_hardware_mapping_and_unowned_access_barriers",
+      "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_audits_effects_and_bounds_in_each_callee_frame",
+      "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_checks_successors_and_frame_exposure",
+      "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_is_path_sensitive_and_costed_after_forwarding",
+      "mir6502::parameter_homes::handoff_tests::an_extra_expanded_entry_requirement_restores_the_complete_selected_artifact"
+    ],
+    "log": "build/runtime-contracts-final-units.log",
+    "log_sha256": "4fbfe02da6b22e75ad0d8ad9f2fe5ec9cf59dfcf61ff7b0090b16373083fd5c8"
+  },
+  "baseline_unit_controls": {
+    "status": "FAILED",
+    "passed": 1,
+    "failed": 6,
+    "ignored": 0,
+    "filtered_out": 3555,
+    "failures": [
+      "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_checks_successors_and_frame_exposure",
+      "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_is_path_sensitive_and_costed_after_forwarding",
+      "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_audits_effects_and_bounds_in_each_callee_frame",
+      "mir6502::materialize::constructor_storage::tests::constructor_storage_protects_incoming_pointer_across_known_calls",
+      "mir6502::materialize::pointer_retention::tests::pointer_retention_calls_keep_hardware_mapping_and_unowned_access_barriers",
+      "mir6502::parameter_homes::handoff_tests::an_extra_expanded_entry_requirement_restores_the_complete_selected_artifact"
+    ],
+    "log": "build/runtime-contracts-baseline-tests.log",
+    "log_sha256": "ba804a81c129c82f2acff4a7333093076dcac84e411f2ac9a8baaa194a781e69"
+  },
+  "library_vm": {
+    "status": "ok",
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0,
+    "failures": [],
+    "log": "build/runtime-contracts-final-library-vm.log",
+    "log_sha256": "5d314a4caf2e938c5a5a5a8a7a70e7b8f488a90029372de9b94bfeb7baf5f45e"
+  },
+  "cross_call_vm": {
+    "status": "ok",
+    "passed": 14,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0,
+    "failures": [],
+    "log": "build/runtime-contracts-final-cross-vm.log",
+    "log_sha256": "950645a9a02aa16dd4a20e414321d51f6c96fb570097a22a79681276ff72407a"
+  },
+  "callee_facts_vm": {
+    "status": "FAILED",
+    "passed": 10,
+    "failed": 1,
+    "ignored": 0,
+    "filtered_out": 0,
+    "failures": [
+      "callee_facts_directional_reader_preserves_caller_and_pointee"
+    ],
+    "log": "build/runtime-contracts-final-vm.log",
+    "log_sha256": "d667515dd45ce49a68b6630f2751854a8f51428c96da528b4991912c04ab29ab"
+  },
+  "baseline_callee_vm": {
+    "status": "FAILED",
+    "passed": 0,
+    "failed": 1,
+    "ignored": 0,
+    "filtered_out": 10,
+    "failures": [
+      "callee_facts_directional_reader_preserves_caller_and_pointee"
+    ],
+    "log": "build/runtime-contracts-baseline-vm.log",
+    "log_sha256": "eec2291ed0c515782f053a3e5a1121c0dbebe8207bfe8d727e86ed4e98f180b4"
+  },
+  "huffman_vm": {
+    "status": "ok",
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 2,
+    "failures": [],
+    "log": "build/runtime-contracts-huffman-vm.log",
+    "log_sha256": "2152b929de3425e2e278bfcd7b56af70eac6725f7a4aef0c24a20c97fc7d28af"
+  },
+  "call_abi_integration": {
+    "status": "ok",
+    "passed": 11,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0,
+    "failures": [],
+    "log": "build/runtime-contracts-final-call-abi.log",
+    "log_sha256": "d9b79a1bd32d2ade83fd2a861603b649eb896f8a4298e419616ac096caa75319"
+  },
+  "baseline_revision": "0a291ceb6178e19a7e60a6ed783cd6288bba2cb5",
+  "scope": "Full MIR6502 library unit filter, affected integration/VM targets. Other backends and the full repository suite were not run.",
+  "huffman_coverage": "185 vectors per provider; 370 executions; cartridge LF and standalone CRLF through the compiler/VM loader; vector normalization control.",
+  "known_failures": "Six unit failures and one VM placement assertion reproduce at the starting revision. No failing expectations were relaxed.",
+  "baseline_worktree_removed": true,
+  "combined_fact_audit": {
+    "status": "ok",
+    "passed": 2,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 3572,
+    "log": "build/runtime-contracts-qualification-audit.log",
+    "log_sha256": "4eb3067d8aee78bfc7b2ae7e437144bc15bd4f5af285521a121cde3b4913853a"
+  },
+  "tn_checked_arena_vm": {
+    "status": "ok",
+    "passed": 2,
+    "failed": 0,
+    "ignored": 1,
+    "filtered_out": 0,
+    "log": "build/runtime-contracts-final-tn-vm.log",
+    "log_sha256": "548d206c65d131c85ef9810d385729d19734a95466cf79669b36d15c4edd7dd2"
+  },
+  "tn_dispatch_vm": {
+    "status": "ok",
+    "passed": 2,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0,
+    "log": "build/runtime-contracts-final-tn-vm.log",
+    "log_sha256": "548d206c65d131c85ef9810d385729d19734a95466cf79669b36d15c4edd7dd2"
+  },
+  "tn_coverage": "Real PopUp lookup/bar/save/restore, dispatch/panel/copy controls; allocator/window success/fault/alias controls in both runtimes and LF/CRLF. Existing targets include their classic optimized controls."
+}

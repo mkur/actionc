@@ -47,6 +47,9 @@ fn audit_huffman() {
         let e = mir::parameter_homes::select_output(&n, base, resume, &config, origin,
             crate::runtime::Runtime::ActionCart, &t);
         let seconds = started.elapsed().as_secs_f64();
+        let plain = mir::generate_output_with_config_and_runtime(&n, origin, &config,
+            crate::runtime::Runtime::ActionCart).unwrap();
+        assert_eq!(crate::codegen::format_load_file(&e.output), crate::codegen::format_load_file(&plain));
         let facts = inventory(&e.program, Some(&e.output));
         std::fs::write(root.join(format!("{label}.json")), serde_json::to_string_pretty(&facts).unwrap()).unwrap();
         std::fs::write(root.join(format!("{label}-selected.json")),
@@ -64,7 +67,7 @@ fn audit_huffman() {
         std::fs::write(root.join(format!("{label}-run.json")), serde_json::to_string_pretty(&json!({
             "source":path,"origin":origin,"config":format!("{config:?}"),"seconds":seconds,
             "before_home_selection_bytes":before_bytes,"packaged_bytes":facts["packaged_bytes"],
-            "trace":session.manifest(),
+            "trace":session.manifest(), "tracing_preserves_image":true,
         })).unwrap()).unwrap();
         println!("{label}: {} bytes, {seconds:.3}s", facts["packaged_bytes"]);
     }

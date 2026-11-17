@@ -41,9 +41,16 @@ fn inventory(p: &MirProgram, output: Option<&crate::codegen::CodegenOutput>) -> 
         let range=output.and_then(|o|o.map.routine_ranges.iter().find(|rr|rr.name==r.name));
         let assembly=output.zip(range).map(|(o,rr)|crate::codegen::format_listing_with_origin(
             &o.bytes[usize::from(rr.start-o.origin)..usize::from(rr.end-o.origin)],rr.start));
-        let calls:Vec<_>=r.blocks.iter().flat_map(|b|b.ops.iter().enumerate()).filter_map(|(index,o)| {
-            let MirOp::Call {target,..}=o else{return None};
-            Some(json!({"op":index,"target":format!("{target:?}"),
+        let calls:Vec<_>=r.blocks.iter().flat_map(|b|b.ops.iter().enumerate().map(move |(i,o)|(b.id,i,o))).filter_map(|(block,index,o)| {
+            let MirOp::Call {target,abi,..}=o else{return None};
+            let contract=mir::runtime_contracts::library_invocation(p,o);
+            Some(json!({"block":block.0,"op":index,"target":format!("{target:?}"),
+                "library_binding":abi.library.as_ref().map(|b|format!("{b:?}")),
+                "library_contract_available":contract.is_some(),
+                "library_inputs":contract.as_ref().map(|c|format!("{:?}",c.inputs)),
+                "library_definitions":contract.as_ref().map(|c|format!("{:?}",c.definitions)),
+                "library_buffers":contract.as_ref().map(|c|format!("{:?}",c.buffers)),
+                "site_returning_writes":format!("{:?}",residence.writes_at(o,Some((r,MirSite::Op {block,op_index:index})))) ,
                 "acyclic_inputs":format!("{:?}",residence.inputs(o)),
                 "acyclic_writes":format!("{:?}",residence.writes(o)),
                 "leaf_inputs":format!("{:?}",leaf_residence.inputs(o)),
@@ -79,6 +86,7 @@ fn inventory(p: &MirProgram, output: Option<&crate::codegen::CodegenOutput>) -> 
             "preserves_e8":k.writes().preserves_fixed_byte(MirFixedZpSlot(0xe8), known.fixed_storage()),
             "preserves_e9":k.writes().preserves_fixed_byte(MirFixedZpSlot(0xe9), known.fixed_storage()),
             "preserves_ea":k.writes().preserves_fixed_byte(MirFixedZpSlot(0xea), known.fixed_storage()),
+            "temporary_zp":r.frame.zero_page_allocations.iter().map(|a|json!({"slot":a.slot.0,"address":a.start.0,"size":a.size})).collect::<Vec<_>>(),
             "storage":output.map(|o|o.map.storage_symbols.iter().filter(|s|
                 s.scope==crate::codegen::CodegenSymbolScope::Routine(r.name.clone()))
                 .map(|s|json!({"name":s.name,"kind":format!("{:?}",s.kind),"address":s.address,"size":s.size})).collect::<Vec<_>>()),
@@ -133,7 +141,7 @@ fn synthetic() -> Value {
     for effect in [MirMemoryEffect::Unknown,MirMemoryEffect::Regions(vec![MirMemoryRegion {
         kind:MirMemoryRegionKind::ZeroPage,offset:0xe4,size:1}])] {
         let call=MirOp::Call {target:MirCallTarget::Routine(RoutineId(1)),
-            abi:MirCallAbi {params:vec![],result:None,additional_results:vec![],clobbers:Default::default(),preserves:Default::default()},
+            abi:MirCallAbi {library:None,params:vec![],result:None,additional_results:vec![],clobbers:Default::default(),preserves:Default::default()},
             args:vec![],result:None,additional_results:vec![],effects:MirEffects {memory_writes:effect.clone(),..Default::default()}};
         let routine=simple_routine(0,vec![
             MirOp::Store {dst:MirAddr::Direct(zp.clone()),src:MirValue::Def(MirDef::Reg(MirReg::A)),width:MirWidth::Byte},call,
