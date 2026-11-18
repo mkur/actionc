@@ -90,7 +90,7 @@ before indexing `asciiMap`. Its only data write is the byte result at `$A0`.
 This lets `Convert` keep its pointer in a disjoint ZP pair across both calls.
 
 TN's `CalcAdr` sets its own carry and loads the screen base and coordinates
-from program data. It writes only the screen pointer at `$E6/$E7`.
+from program data. It writes only the screen pointer at `$E6/$E7` and defines both bytes on every normal return.
 Its review omits `reads-only` because an unchecked row byte can index beyond
 the 48-byte table. The compiler retains the indexed addresses in its storage
 inventory while callers see an unknown read footprint.
@@ -122,6 +122,13 @@ inside the routine and requires a single terminal RTS. The compiler checks
 the identity of the body and instantiates its declared spans from the actual
 ABI values or proven pointer ranges. Unresolved addresses, wraparound and
 unsafe memory keep the calling optimization conservative.
+
+A reviewed `defines-on-return $E6-$E7` guarantees a physical write to
+each named byte on every normal return. It accepts numeric zero-page bytes
+and inclusive ranges. If the review gives a `writes-only` footprint, list
+these bytes among its fixed writes. A callee can still read a byte before
+writing it. Entry obligations and read footprints describe those reads.
+Native wrappers inherit the definition only along paths that establish it.
 
 The optional `entry-reads abi` certifies that the implementation physically
 observes only incoming argument lanes as entry requirements. A review can

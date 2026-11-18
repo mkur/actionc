@@ -160,6 +160,8 @@ pub struct DataRange<Id> {
 pub struct CallFacts<Id> {
     pub abi_inputs_only: bool,
     pub physical_abi_inputs: bool,
+    /// Fixed ZP bytes physically written on every normal return.
+    pub defines_on_return: std::collections::BTreeSet<u8>,
     pub indirect_writes: Option<crate::ast::AnnotationAddressRange>,
     pub buffers: Vec<ArgumentBuffer>,
     pub reads: Option<Vec<DataRange<Id>>>,
@@ -169,11 +171,20 @@ pub struct CallFacts<Id> {
     pub returns_a_equals_a0: bool,
 }
 
+impl<Id> CallFacts<Id> {
+    pub(crate) fn valid_return_definitions(&self) -> bool {
+        self.writes.as_ref().is_none_or(|writes| self.defines_on_return.iter().all(|byte| {
+            writes.iter().any(|r| r.global.is_none() && (r.start..=r.end).contains(&u16::from(*byte)))
+        }))
+    }
+}
+
 impl<Id> Default for CallFacts<Id> {
     fn default() -> Self {
         Self {
             abi_inputs_only: false,
             physical_abi_inputs: false,
+            defines_on_return: Default::default(),
             indirect_writes: None,
             buffers: Vec::new(),
             reads: None,
@@ -239,6 +250,11 @@ impl<Id> Review<Id> {
         };
         add(&[f.abi_inputs_only as u8, f.physical_abi_inputs as u8, f.returns_a_equals_a0 as u8,
             f.preserves_regs.a as u8, f.preserves_regs.x as u8, f.preserves_regs.y as u8]);
+        if !f.defines_on_return.is_empty() {
+            add(b"defines-on-return");
+            add(&(f.defines_on_return.len() as u16).to_le_bytes());
+            for byte in f.defines_on_return { add(&[byte]); }
+        }
         if let Some(r) = f.indirect_writes {
             add(b"indirect-writes"); add(&r.start.to_le_bytes()); add(&r.end.to_le_bytes());
         }
@@ -263,7 +279,7 @@ impl<Id> Review<Id> {
     }
 
     pub(crate) fn dependencies_match(&self, mut extent: impl FnMut(&Id) -> Option<u16>) -> bool {
-        self.facts
+        self.facts.valid_return_definitions() && self.facts
             .reads
             .iter()
             .chain(&self.facts.writes)
@@ -301,6 +317,7 @@ impl<Id> Review<Id> {
             fingerprint: self.fingerprint,
             facts: CallFacts {
                 physical_abi_inputs: f.physical_abi_inputs,
+                defines_on_return: f.defines_on_return.clone(),
                 indirect_writes: f.indirect_writes,
                 buffers: f.buffers.clone(),
                 abi_inputs_only: f.abi_inputs_only,
@@ -341,6 +358,7 @@ pub(crate) fn declaration(
             IndirectWriteRange(r) => {
                 if facts.indirect_writes.replace(*r).is_some() { return Err("duplicate indirect write precondition"); }
             }
+            DefinesOnReturn(bytes) => facts.defines_on_return.extend(bytes),
             PhysicalAbiInputs => facts.physical_abi_inputs = true,
             OrdinaryAbiInputs => facts.abi_inputs_only = true,
             ReadsOnly(items) if facts.reads.is_none() => facts.reads = Some(items.clone()),
@@ -360,6 +378,9 @@ pub(crate) fn declaration(
             }
             _ => {}
         }
+    }
+    if !facts.valid_return_definitions() {
+        return Err("defines-on-return contains a byte outside the fixed writes-only footprint");
     }
     if let Some(fingerprint) = expected {
         if annotations
@@ -388,6 +409,7 @@ pub(crate) fn declaration(
         }
         return Ok(Some(Review { fingerprint, facts }));
     }
+    if !facts.defines_on_return.is_empty() { return Err("defines-on-return requires reviewed-6502"); }
     if facts.indirect_writes.is_some() || facts.physical_abi_inputs
         || !facts.buffers.is_empty()
         || facts.abi_inputs_only

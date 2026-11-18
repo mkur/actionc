@@ -3584,6 +3584,14 @@ fn parse_actionc_annotation(text: &str) -> Option<ActioncAnnotation> {
         _ if normalized.starts_with("REQUIRES INDIRECT-WRITES ") => {
             parse_annotation_address_range(normalized.strip_prefix("REQUIRES INDIRECT-WRITES ")?).map(ActioncAnnotation::IndirectWriteRange)
         }
+        _ if normalized.starts_with("DEFINES-ON-RETURN ") => {
+            let mut bytes = std::collections::BTreeSet::new();
+            for item in normalized.strip_prefix("DEFINES-ON-RETURN ")?.split_whitespace() {
+                let range = parse_annotation_zero_page_range(item)?;
+                bytes.extend(range.start..=range.end);
+            }
+            Some(ActioncAnnotation::DefinesOnReturn(bytes))
+        }
         "ENTRY-READS ABI" => Some(ActioncAnnotation::PhysicalAbiInputs),
         "ABI-INPUTS-ONLY" => Some(ActioncAnnotation::OrdinaryAbiInputs),
         _ if normalized.starts_with("REVIEWED-6502 ") => {

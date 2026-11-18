@@ -30,17 +30,19 @@ pub(in crate::mir6502) struct MirEntryRequirements {
     pub flags: MirFlagSet,
     pub fixed: BTreeSet<u8>,
 }
-/// ABI values available on normal return to the home-placement caller.
+/// ABI values and reviewed fixed-byte definitions available on normal return.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct HomeResults {
     slots: BTreeSet<u8>,
+    /// Physical writes declared by a review or established on all wrapper returns.
+    defined_zp: BTreeSet<u8>,
     // A checked A=$A0 relation also supplies A. Track a possible observation
     // of the old slot separately from the ABI arguments needed at entry.
-    accumulator: Option<ReviewedAccumulator>,
+    accumulator: Option<ReviewedSlotInput>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ReviewedAccumulator { Independent, MayReadOldSlot }
+enum ReviewedSlotInput { Independent, MayReadOldSlot }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirCalleeEntryFact {
@@ -110,12 +112,19 @@ impl MirCalleeEntryFact {
             // Only the acyclic home analysis supplies a dependency map.
             let home_placement = dependencies.is_some();
             let mut results = HomeResults::default();
+            let mut old_values = BTreeSet::new();
             let inputs = if routine.frame.contains_source_asm || routine.frame.callee_review.is_some() {
                 let certified = if let Some(review) = super::reviewed_contract(program, routine) {
+                    if stage == MirCalleeEntryStage::ActualEntry {
+                        results.defined_zp.clone_from(&review.defines_on_return);
+                        old_values.extend(review.defines_on_return.iter().copied().filter(|slot|
+                            reviewed_slot_input(program, review, *slot, ordinary_globals_above_zp)
+                                == ReviewedSlotInput::MayReadOldSlot));
+                    }
                     if home_placement && review.returns_a_equals_a0
                         && crate::mir6502::abi::direct_result_slots(routine.direct_result_abi?).contains(&0xa0) {
                         results.slots.insert(0xa0);
-                        results.accumulator = Some(reviewed_accumulator(program, review, ordinary_globals_above_zp));
+                        results.accumulator = Some(reviewed_slot_input(program, review, 0xa0, ordinary_globals_above_zp));
                     }
                     if home_placement { review.abi_inputs_only || review.physical_abi_inputs }
                     else { review.physical_abi_inputs }
@@ -127,7 +136,7 @@ impl MirCalleeEntryFact {
                 if !certified { return None; }
                 let abi = routine.frame.direct_parameter_abi.as_ref()?;
                 let bytes = crate::mir6502::abi::parameter_bytes(abi)?;
-                let mut inputs = MirEntryRequirements::default();
+                let mut inputs = MirEntryRequirements { fixed: old_values, ..Default::default() };
                 for lane in crate::mir6502::abi::argument_lanes(bytes)? {
                     match lane {
                         MirParamLane::Reg(MirReg::A) => inputs.registers.a = true,
@@ -138,7 +147,12 @@ impl MirCalleeEntryFact {
                 }
                 inputs
             } else { BoundedMachine::analyze(routine, program)?.entry_inputs(program)? };
-            (inputs, BTreeSet::new(), results)
+            let result_bytes = routine.direct_result_abi.map(crate::mir6502::abi::direct_result_slots)
+                .unwrap_or_default();
+            let defined_results: BTreeSet<_> = results.defined_zp.iter().copied()
+                .filter(|s| result_bytes.contains(s)).collect();
+            results.slots.extend(&defined_results);
+            (inputs, defined_results, results)
         } else {
             scalar_inputs(program, routine, stage, dependencies.as_ref())?
         };
@@ -189,25 +203,26 @@ impl MirCalleeEntryFact {
     }
 }
 
-fn reviewed_accumulator(
+fn reviewed_slot_input(
     program: &MirProgram,
     facts: &crate::callee6502::CallFacts<crate::nir::SymbolId>,
+    slot: u8,
     ordinary_globals_above_zp: bool,
-) -> ReviewedAccumulator {
+) -> ReviewedSlotInput {
     // A physical entry certificate bounds observations of incoming machine
-    // bytes. $A0 is a return slot, never an incoming direct argument lane.
+    // bytes. The caller handles incoming ABI argument lanes separately.
     // The invocation may still read it after definition or read through a
     // pointer. Its complete program-data read footprint stays independent.
-    if facts.physical_abi_inputs { return ReviewedAccumulator::Independent; }
+    if facts.physical_abi_inputs { return ReviewedSlotInput::Independent; }
     let disjoint = facts.reads.as_ref().is_some_and(|ranges| ranges.iter().all(|r| {
-        let Some(id) = r.global else { return !(r.start..=r.end).contains(&0xa0); };
+        let Some(id) = r.global else { return !(r.start..=r.end).contains(&u16::from(slot)); };
         // The review matcher binds the full range to an in-bounds, inline
         // array. Successful layouts place its entire payload at/above origin.
         ordinary_globals_above_zp && program.globals.iter().any(|g| g.id == id
             && matches!(g.backing, MirGlobalBacking::Ordinary { .. }) && r.end < g.storage_size)
     }));
-    if disjoint && !facts.buffers.iter().any(|b| !b.write) { ReviewedAccumulator::Independent }
-    else { ReviewedAccumulator::MayReadOldSlot }
+    if disjoint && !facts.buffers.iter().any(|b| !b.write) { ReviewedSlotInput::Independent }
+    else { ReviewedSlotInput::MayReadOldSlot }
 }
 
 fn scalar_inputs(
@@ -311,6 +326,7 @@ fn scalar_inputs(
     };
     let mut transfers = BTreeMap::new();
     let mut returned_calls = Vec::new();
+    let mut reviewed_definitions = BTreeSet::new();
     for block in &routine.blocks {
         let mut ops = Vec::new();
         for op in &block.ops {
@@ -328,15 +344,16 @@ fn scalar_inputs(
                 reads.extend(lanes.iter().filter_map(|lane| match lane {
                     MirParamLane::ZeroPage(s) => Some(MirHomeByte::FixedZeroPage(*s)), _ => None,
                 }));
-                if fact.home_results.accumulator == Some(ReviewedAccumulator::MayReadOldSlot) {
+                if fact.home_results.accumulator == Some(ReviewedSlotInput::MayReadOldSlot) {
                     reads.insert(MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xa0)));
                 }
                 if fact.home_results.slots != fact.defined_results {
                     returned_calls.push((block.id, ops.len(), &fact.home_results.slots));
                 }
+                reviewed_definitions.extend(fact.home_results.defined_zp.iter().copied());
                 ops.push(MirHomeTransfer {
                     reads,
-                    writes: fact.defined_results.iter().map(|s|
+                    writes: fact.defined_results.union(&fact.home_results.defined_zp).map(|s|
                         MirHomeByte::FixedZeroPage(MirFixedZpSlot(*s))).collect(),
                 });
                 continue;
@@ -371,9 +388,13 @@ fn scalar_inputs(
     }
     // A typed ABI result is a definite definition only when every returning
     // path really defines it. Never infer this from a possible write footprint.
-    let defined_results = if stage == MirCalleeEntryStage::ActualEntry {
-        acyclic::result_slots_on_all_returns(routine, &cfg, &transfers)
-    } else { BTreeSet::new() };
+    let result_bytes = routine.direct_result_abi.map(crate::mir6502::abi::direct_result_slots)
+        .unwrap_or_default();
+    let mut candidates = reviewed_definitions.clone();
+    if stage == MirCalleeEntryStage::ActualEntry { candidates.extend(result_bytes); }
+    let physical = acyclic::slots_defined_on_all_returns(routine, &cfg, &transfers, &candidates);
+    let defined_results: BTreeSet<_> = physical.iter().copied().filter(|s| result_bytes.contains(s)).collect();
+    reviewed_definitions.retain(|s| physical.contains(s));
     // Physical must-writes are established above. Apply the additional ABI
     // values only in the caller view, then compose them over the same CFG.
     let slots = if returned_calls.is_empty() {
@@ -383,7 +404,7 @@ fn scalar_inputs(
             transfers.get_mut(&block)?.ops[index].writes.extend(slots.iter()
                 .map(|s| MirHomeByte::FixedZeroPage(MirFixedZpSlot(*s))));
         }
-        acyclic::result_slots_on_all_returns(routine, &cfg, &transfers)
+        acyclic::slots_defined_on_all_returns(routine, &cfg, &transfers, &result_bytes.iter().copied().collect())
     };
     let homes = MirHomeLiveness::analyze_transfers(routine, &cfg, transfers);
     let live = MirMachineLiveness::entry_inputs_with_calls(routine, &cfg, &|op| {
@@ -449,7 +470,7 @@ fn scalar_inputs(
                 }
             })
             .collect(),
-    }, defined_results, HomeResults { slots, accumulator: None }))
+    }, defined_results, HomeResults { slots, defined_zp: reviewed_definitions, accumulator: None }))
 }
 
 /// Only typed global accesses establish a program-state role. Literal machine

@@ -343,6 +343,7 @@ rts", 1), false),
         };
         let facts = project(&sem).expect("CalcAdr review matches the maintained TN library");
         assert!(facts.abi_inputs_only && facts.physical_abi_inputs && facts.preserves_regs.y);
+        assert_eq!(facts.defines_on_return, BTreeSet::from([0xe6, 0xe7]));
         assert_eq!(facts.reads, None);
         assert_eq!(
             facts.writes.as_deref(),
@@ -375,6 +376,30 @@ rts", 1), false),
             .unwrap()
             .addend = 23;
         assert!(project(&sem).is_none());
+    }
+
+    #[test]
+    fn reviewed_return_definitions_require_consistent_fixed_writes() {
+        let source = ";@actionc reviewed-6502 0000000000000000
+;@actionc writes-only $E6-$E7
+;@actionc defines-on-return $E6 $E7
+PROC Leaf=*()
+ASM
+sta $E6
+sta $E7
+rts
+ENDASM
+PROC Main() RETURN";
+        let mut nir = lower(source).unwrap();
+        crate::nir::verify_program(&nir).unwrap();
+        let review = nir.routines[0].entry.callee_review.as_mut().unwrap();
+        assert_eq!(review.facts.defines_on_return, BTreeSet::from([0xe6, 0xe7]));
+        review.facts.defines_on_return.insert(0xe8);
+        assert!(crate::nir::verify_program(&nir).is_err());
+        assert!(lower(&source.replace("writes-only $E6-$E7", "writes-only $E6")).is_err());
+        let unreviewed = source.replace(";@actionc reviewed-6502 0000000000000000", "")
+            .replace(";@actionc writes-only $E6-$E7", "");
+        assert!(lower(&unreviewed).unwrap_err().contains("defines-on-return requires reviewed-6502"));
     }
 
     #[test]

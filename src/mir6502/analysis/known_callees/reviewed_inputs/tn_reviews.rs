@@ -109,7 +109,20 @@ fn internal_review_composes_through_native_print_callers() {
     // origin the checked inline array lies entirely above the zero page.
     assert!(home.analyze(id("Putchar")).unwrap().inputs.fixed.contains(&0xa0));
     let mut placed = MirAcyclicEntryAnalysis::at_origin(&p, 0x2c00);
-    assert!(!placed.analyze(id("Putchar")).unwrap().inputs.fixed.contains(&0xa0));
+    for name in ["Putchar", "Print"] {
+        let inputs = &placed.analyze(id(name)).unwrap().inputs;
+        assert!(inputs.fixed.is_empty(), "{name}: {inputs:?}");
+    }
+    // Removing only the guaranteed writes leaves the original may-write contract.
+    let mut weaker = p.clone();
+    weaker.routines.iter_mut().find(|r| r.name == "CalcAdr").unwrap()
+        .frame.callee_review.as_mut().unwrap().facts.defines_on_return.clear();
+    for name in ["Block", "GetImage", "PutImage"] {
+        let caller = weaker.routines.iter().find(|r| r.name == name).unwrap();
+        assert!(reviewed_contract(&weaker, caller).is_none(), "{name}");
+    }
+    let mut old = MirAcyclicEntryAnalysis::at_origin(&weaker, 0x2c00);
+    assert_eq!(old.analyze(id("Putchar")).unwrap().inputs.fixed, BTreeSet::from([0xe6, 0xe7]));
     for name in ["Putchar", "Print"] {
         let wrapper = home.analyze(id(name)).unwrap();
         assert!(!wrapper.inputs.flags.c);

@@ -392,6 +392,9 @@ impl NirVerifier {
         if let Some(review) = &routine.entry.callee_review {
             let widths: Vec<_> = routine.signature.params.iter().map(|ty| ty.width
                 .and_then(|n| u16::try_from(n.get()).ok()).unwrap_or(0)).collect();
+            if !review.facts.valid_return_definitions() {
+                self.diagnostics.push(NirDiagnostic::routine(&routine.name, "reviewed return definition outside fixed write footprint"));
+            }
             if !review.valid_buffer_signature(&widths) {
                 self.diagnostics.push(NirDiagnostic::routine(&routine.name, "invalid reviewed pointer or count parameter"));
             }

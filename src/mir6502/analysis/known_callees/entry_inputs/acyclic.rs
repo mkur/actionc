@@ -102,14 +102,13 @@ impl<'a> MirAcyclicEntryAnalysis<'a> {
     }
 }
 
-/// Return ABI slots supplied on every reachable normal return, using the
+/// Find candidate slots supplied on every reachable normal return, using the
 /// caller's transfer domain (physical definitions or available ABI values).
-pub(super) fn result_slots_on_all_returns(
+pub(super) fn slots_defined_on_all_returns(
     routine: &MirRoutine, cfg: &MirCfg,
     transfers: &BTreeMap<crate::mir6502::ir::MirBlockId, MirHomeBlockTransfers>,
+    slots: &BTreeSet<u8>,
 ) -> BTreeSet<u8> {
-    let Some(result) = routine.direct_result_abi else { return BTreeSet::new(); };
-    let slots = crate::mir6502::abi::direct_result_slots(result);
     if slots.is_empty() || !routine.blocks.iter().any(|b|
         cfg.reachable().contains(&b.id) && matches!(b.terminator, MirTerminator::Return))
     {

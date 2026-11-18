@@ -173,6 +173,7 @@ BYTE ARRAY quickmul(SCREEN_ROWS*2)
 ;@actionc abi-inputs-only
 ;@actionc entry-reads abi
 ;@actionc writes-only $E6-$E7
+;@actionc defines-on-return $E6-$E7
 ;@actionc preserves Y $AC/$AD $AE/$AF
 ;@actionc clobbers $E6/$E7
 PROC CalcAdr=*()
@@ -306,7 +307,7 @@ RETURN
 
 
 ; The selected screen rectangle must stay outside ZP. FILL takes its byte from r0.
-;@actionc reviewed-6502 43892f6cb3176414
+;@actionc reviewed-6502 114874afaebf874e
 ;@actionc abi-inputs-only
 ;@actionc entry-reads abi
 ;@actionc requires indirect-writes $0100-$FFFF
@@ -390,7 +391,7 @@ buffer_ready:
 ENDASM
 
 ; The entire destination buffer, including every indexed row, must stay outside ZP.
-;@actionc reviewed-6502 05cbfaa7cea07083
+;@actionc reviewed-6502 f92a0c0556d0ec51
 ;@actionc abi-inputs-only
 ;@actionc entry-reads abi
 ;@actionc requires indirect-writes $0100-$FFFF
@@ -420,7 +421,7 @@ ENDASM
 
 
 ; The selected screen rectangle must stay outside ZP. adr supplies the source.
-;@actionc reviewed-6502 8e660a41415a18c3
+;@actionc reviewed-6502 310721a72eafd0d1
 ;@actionc abi-inputs-only
 ;@actionc entry-reads abi
 ;@actionc requires indirect-writes $0100-$FFFF

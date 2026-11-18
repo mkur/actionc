@@ -71,8 +71,9 @@ cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test tn_dispatch 
 
 ## Qualification
 
-Compiled modern TN with MIR6502 at origin `$3000` and compared the complete XEX
-and named parameter/local homes against `22e3c38b`.
+The three implementation slices through `d64f82d5` were qualified on modern TN
+at origin `$3000`. Sizes and named parameter/local homes below are relative to
+`22e3c38b`.
 
 | Runtime | Baseline XEX | Qualified XEX | Named ZP homes |
 | --- | ---: | ---: | ---: |
@@ -83,7 +84,7 @@ Both runtimes gained `Attrib.cmd` at `$A2` and retained all prior homes.
 The original `Internal` review and assembly qualify for both incoming carry
 values. Its caller gets the returned byte in A and `$A0`.
 
-| Routine | Placement and remaining dependency |
+| Routine | Placement and dependency at `d64f82d5` |
 | --- | --- |
 | `Putchar` | `ch` keeps its home at `$E2`. The indirect screen store reads `$E6/$E7` after `CalcAdr()`. Its review permits writes to both bytes but does not establish that it defines them on every return. |
 | `Print`, `PrintFname` | The string and loop index stay inline. Both are live across `Putchar`, whose entry summary requires A and `$E6/$E7`. It requires no incoming flags. |
@@ -101,3 +102,14 @@ The physical-flag regression measures its two-byte saving in `Forward` with
 cross-call placement disabled. With placement enabled, the routine already
 has the shorter form. Toggling the flag optimization then produces identical
 XEX files on both runtimes. [Integration test](../tests/mir6502_callee_entry_flags.rs)
+
+### CalcAdr return definitions
+
+With `defines-on-return $E6-$E7` on `CalcAdr`, the same builds give
+`Putchar` a single incoming register (A), no incoming flags and no fixed
+byte inputs. At the call to `Putchar`, the rejection for both `Print.s`
+and `Print.i` changes to `unknown residence callee writes`. The indirect
+store through the computed screen pointer still has an unknown destination
+range. Both builds retain 47 named homes and their previous XEX fingerprints
+(cartridge 9,687 bytes, standalone 9,826 bytes).
+[TN contract and screen store](../samples/tn/modern/LIB.ACT)

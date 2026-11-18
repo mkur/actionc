@@ -66,9 +66,12 @@ candidate image layout to check overlap with machine bytes. If disjointness
 is unproved, the caller retains a possible read of the incoming byte unless
 the review independently excludes that entry read. [Entry analysis](../src/mir6502/analysis/known_callees/entry_inputs.rs)
 
-In TN, `Print` inherits a separate requirement for the screen pointer at
-`$E6/$E7`. `Putchar` reads it after `CalcAdr`, whose review bounds writes
-but does not guarantee a definition of the pointer on every normal return.
+TN's `CalcAdr` review declares `defines-on-return $E6-$E7`. NIR carries
+these fixed-byte definitions as routine metadata. MIR6502 applies the
+definitions after incoming reads and propagates them through returning paths
+of native wrappers. The screen pointer used by `Putchar` is therefore defined
+inside the call. Determining where the indirect screen store can write is a
+separate memory-footprint query.
 [TN qualification](MIR6502_REVIEWED_CALL_COMPOSITION_IMPLEMENTATION_PLAN.md#qualification)
 
 ## The contract for Ascii

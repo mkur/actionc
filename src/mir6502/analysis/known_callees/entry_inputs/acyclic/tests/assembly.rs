@@ -179,3 +179,31 @@ fn reviewed_result_preserves_possible_reads_and_only_supplies_certified_lanes() 
     let p = reviewed_leaf(&[0xa9, 7, 0x85, 0xa0, 0x60], Some(vec![]), MirDirectResultAbi::Void, false);
     assert!(fact(&p).inputs.fixed.contains(&0xa0));
 }
+
+#[test]
+fn reviewed_zp_definition_composes_only_on_returning_paths_that_supply_it() {
+    let mut p = reviewed_leaf(&[0xa9, 7, 0x85, 0xa0, 0x60], Some(vec![]), MirDirectResultAbi::Void, false);
+    p.routines[0].frame.callee_review.as_mut().unwrap().facts.defines_on_return.insert(0xa0);
+    p.routines[1].direct_result_abi = Some(MirDirectResultAbi::Void);
+    p.routines[1].blocks[0].ops = vec![call(0)];
+    p.routines[3].blocks[0].ops = vec![call(1), read(0xa0)];
+    assert!(!fact(&p).inputs.fixed.contains(&0xa0));
+    let wrap = MirAcyclicEntryAnalysis::new(&p).analyze(RoutineId(1)).unwrap();
+    assert!(wrap.defined_results.is_empty());
+    assert_eq!(wrap.home_results.defined_zp, BTreeSet::from([0xa0]));
+
+    p.routines[1].blocks = vec![
+        block(0, vec![], branch(1, 2)),
+        block(1, vec![call(0)], MirTerminator::Return),
+        block(2, vec![], MirTerminator::Return),
+    ];
+    assert!(fact(&p).inputs.fixed.contains(&0xa0));
+
+    // An increment guarantees a store and also consumes the incoming byte.
+    let mut inc = reviewed_leaf(&[0xe6, 0xa0, 0x60], None, MirDirectResultAbi::Void, false);
+    inc.routines[0].frame.callee_review.as_mut().unwrap().facts.defines_on_return.insert(0xa0);
+    inc.routines[1].blocks[0].ops = vec![call(0)];
+    let wrap = MirAcyclicEntryAnalysis::new(&inc).analyze(RoutineId(1)).unwrap();
+    assert!(wrap.inputs.fixed.contains(&0xa0));
+    assert!(wrap.home_results.defined_zp.contains(&0xa0));
+}
