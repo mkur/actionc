@@ -68,6 +68,9 @@ Qualification should exercise the original `Internal` body with both incoming
 carry values, a native wrapper that reads the returned slot, and a stale
 review that loses its guarantees. [Current entry analysis](../src/mir6502/analysis/known_callees/entry_inputs.rs)
 
+The [MIR6502 implementation plan](MIR6502_REVIEWED_CALL_COMPOSITION_IMPLEMENTATION_PLAN.md)
+covers entry obligations, returned values and TN qualification in three commits.
+
 ## The contract for Ascii
 
 | Caller question | Reviewed answer |
