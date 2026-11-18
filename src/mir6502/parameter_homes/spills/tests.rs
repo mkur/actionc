@@ -29,8 +29,8 @@ fn program() -> MirProgram {
 }
 
 #[test]
-fn spill_selection_protects_a_live_source_home_through_an_intermediate_caller() {
-    let n = nir_with_caller("\nBYTE FUNC Outer(BYTE keep) Main() RETURN(keep)");
+fn spill_selection_respects_a_source_home_even_in_an_unrelated_routine() {
+    let n = nir_with_caller("\nBYTE FUNC Outer(BYTE keep) TouchByte(keep) RETURN(keep)");
     let input = crate::mir6502::lower_program(&n).unwrap();
     let mut p = crate::mir6502::materialize_program(input, &crate::mir6502::Mir6502Config {
         enable_small_leaf_inlining: false, ..crate::mir6502::Mir6502Config::optimized()
@@ -40,11 +40,6 @@ fn spill_selection_protects_a_live_source_home_through_an_intermediate_caller() 
     let outer = p.routines.iter_mut().find(|r| r.name == "Outer").unwrap();
     let MirStorageBase::Param(param) = outer.frame.params[0].base else { panic!() };
     install_bindings(outer, vec![MirParamBinding { param, home: MirParamHome::ZeroPage(first.fixed) }]);
-    let protected = live_caller_bytes(&p);
-    for name in ["Main", "Hold"] {
-        let r = p.routines.iter().find(|r| r.name == name).unwrap();
-        assert!(protected[&r.id].contains(&first.fixed.0), "{name}");
-    }
     let next = discover(&p, true).into_iter().find(|h| h.owner == first.owner && h.spill == first.spill).unwrap();
     assert_ne!(next.fixed, first.fixed);
 }

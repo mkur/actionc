@@ -1576,6 +1576,10 @@ including when the source dies at the call. The successful-return footprint
 constrains homes live across the call. The trial replays the original routine
 with its proposed bindings and checks its expanded code and complete image.
 
+Spill discovery excludes resident source bytes across all routines and numeric
+observations available before layout. Final verification resolves the old and
+new spill locations against the complete source-storage inventory.
+
 Retain the mixed bindings and per-object exposure/lifetime filtering that are
 already implemented. Exposed or entry-dependent siblings can stay inline;
 their presence does not itself reject an eligible scalar. Preserve current

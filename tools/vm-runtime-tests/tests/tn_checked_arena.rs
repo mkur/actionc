@@ -249,6 +249,15 @@ fn real_arena_success_and_window_checkpoints_with_lf_and_crlf() {
                     let sources = Sources::new(crlf);
                     eprintln!("{name}/{mode:?}/{runtime:?}/crlf={crlf}");
                     let (bytes, listing) = compile(&sources, name, mode, runtime);
+                    if mode == CompileMode::Mir6502 && name == "TN.ACT" {
+                        for label in ["param_Window_x", "param_Window_y", "param_Window_dx",
+                            "param_Window_dy", "local_Window_buf", "local_Window_h"] {
+                            let prefix = format!("{label} = $");
+                            let home = listing.lines().find_map(|line| line.strip_prefix(&prefix))
+                                .and_then(|hex| u16::from_str_radix(hex, 16).ok());
+                            assert!(home.is_some_and(|address| address < 256), "{runtime:?} {label}: {home:?}");
+                        }
+                    }
                     if let Some(image) = &image {
                         assert_eq!(image, &bytes);
                     } else {
