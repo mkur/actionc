@@ -3,6 +3,20 @@
 This file tracks deferred compiler work, including cross-cutting issues and
 backend follow-ups linked to their design and measurement documents.
 
+## MIR6502 redundant parameter stores at routine entry
+
+Investigate why optimized MIR6502 emits `STX $A1` and `STA $A0` at entry to
+`Position` and `Relpos` in the full [TN sample](../samples/tn/modern/LIB.ACT).
+Both routines consume `x` in A and `y` in X directly. Neither reads its saved
+parameter bytes. The two stores add four bytes per routine and six cycles per call.
+
+Trace parameter-home selection, prologue emission, and dead-store cleanup to
+identify where the stores survive. Verify that register-only parameters can
+omit both stores while address-taken parameters and observable ABI writes
+remain correct. In the TN listing, `Position` should reduce to
+`STA $FF`, `STX $FE`, `RTS`, and `Relpos` should retain independent coordinate
+wrapping.
+
 ## 68k Integer Arithmetic Review
 
 Status: backlogged at user request; review and implementation have not started.
