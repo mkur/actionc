@@ -630,6 +630,12 @@ impl Analyzer {
             }
         }
         for (owner, review) in &self.callee_reviews {
+            if let Some(signature) = self.routines_by_symbol.get(owner) {
+                let widths: Vec<_> = signature.params.iter().map(|p| p.value_width_bytes_for_layout(target_layout).unwrap_or(0)).collect();
+                if !review.valid_buffer_signature(&widths) {
+                    self.diagnostics.push(Diagnostic::new(self.symbols.symbols[owner.0].span, "invalid reviewed pointer or count parameter"));
+                }
+            }
             for range in review.facts.reads.iter().chain(&review.facts.writes).flatten() {
                 if let Some(id) = range.global && !layout.array_for_symbol(id)
                     .and_then(|array| array.storage_size).is_some_and(|size| u32::from(range.end) < size) {

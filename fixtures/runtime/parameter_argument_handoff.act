@@ -1,6 +1,11 @@
 ; Ordinary wrappers around explicit observers and an independent reverse copy.
 CARD input=$0690,after=$0688
 
+;@actionc reviewed-6502 439e34c0a90705e2
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+;@actionc reads-only $A3-$A4
+;@actionc writes-only $0680-$0684
 PROC Observe=*(CARD first,second BYTE tag)
 ASM
   sta $0680
@@ -27,6 +32,13 @@ ASM
   rts
 ENDASM
 
+;@actionc reviewed-6502 f06f7fefd8b58f29
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+;@actionc reads-only $A0-$A4
+;@actionc reads-buffer 2 3 zero=256
+;@actionc writes-only $A0-$A2
+;@actionc writes-buffer 1 3 zero=256
 PROC ReverseCopy=*(CARD destination,source BYTE count)
 ASM
   sta $A0

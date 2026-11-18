@@ -113,6 +113,8 @@ pub(in crate::mir6502) fn machine_storage_observations(
     use crate::mir6502::ir::MirInlineAsmTarget as Target;
     if routine.frame.callee_review.is_some() {
         let facts = reviewed_contract(program, routine)?;
+        // This inventory covers explicit operands. Numeric pointees are
+        // projected separately at the call that supplies the address.
         return Some(MachineStorageObservations {
             reads: reviewed_observations(facts.reads.as_deref())?,
             writes: reviewed_observations(facts.writes.as_deref())?,

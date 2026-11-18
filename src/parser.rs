@@ -3571,6 +3571,17 @@ fn parse_actionc_annotation(text: &str) -> Option<ActioncAnnotation> {
         .to_ascii_uppercase();
     match normalized.as_str() {
         "RETURNS A=$A0" => Some(ActioncAnnotation::ReturnsAEqualsA0),
+        _ if normalized.starts_with("READS-BUFFER ") || normalized.starts_with("WRITES-BUFFER ") => {
+            let parts: Vec<_> = normalized.split_whitespace().collect();
+            let [direction, pointer, count, zero] = parts.as_slice() else { return None };
+            let pointer = pointer.parse::<u16>().ok()?;
+            let count = count.parse::<u16>().ok()?;
+            let zero_means_256 = match *zero { "ZERO=256" => true, "ZERO=0" => false, _ => return None };
+            Some(ActioncAnnotation::Buffer(crate::callee6502::ArgumentBuffer {
+                pointer, count, zero_means_256, write: *direction == "WRITES-BUFFER",
+            }))
+        }
+        "ENTRY-READS ABI" => Some(ActioncAnnotation::PhysicalAbiInputs),
         "ABI-INPUTS-ONLY" => Some(ActioncAnnotation::OrdinaryAbiInputs),
         _ if normalized.starts_with("REVIEWED-6502 ") => {
             let hex = normalized.strip_prefix("REVIEWED-6502 ")?;

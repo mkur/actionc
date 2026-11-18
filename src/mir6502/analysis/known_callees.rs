@@ -10,7 +10,9 @@ mod observations;
 pub(in crate::mir6502) use observations::{fixed_storage_address, machine_storage_observations};
 mod entry_inputs;
 mod reviewed_inputs;
-pub(in crate::mir6502) use reviewed_inputs::{abi_inputs_review_fingerprint, reviewed_contract};
+mod reviewed_buffers;
+pub(in crate::mir6502) use reviewed_buffers::{ReviewedBuffers, numeric_buffer_observations};
+pub(in crate::mir6502) use reviewed_inputs::{abi_inputs_review_fingerprint, body_fingerprint, reviewed_contract};
 pub(in crate::mir6502) use entry_inputs::{MirAcyclicEntryAnalysis, MirCalleeEntryFact, MirCalleeEntryStage};
 pub(in crate::mir6502) use bounded_memory::BoundedMachine;
 
@@ -990,8 +992,10 @@ fn reviewed_exit(program: &MirProgram, routine: &MirRoutine) -> MirKnownCalleeEx
         accumulator: f.returns_a_equals_a0.then_some(MirMachineValue::DirectMem(MirMem::FixedZeroPage(MirFixedZpSlot(0xa0)))),
         zn: None,
         preserves: MirRegisterSet { a: f.preserves_regs.a, x: f.preserves_regs.x, y: f.preserves_regs.y, ..Default::default() },
-        reads: reviewed_bytes(f.reads.as_deref()).map(MirKnownMemoryReads::Exact).unwrap_or_default(),
-        writes: reviewed_bytes(f.writes.as_deref()).map(MirKnownMemoryWrites::Exact).unwrap_or_default(),
+        reads: if f.buffers.iter().any(|b| !b.write) { MirKnownMemoryReads::Unknown }
+            else { reviewed_bytes(f.reads.as_deref()).map(MirKnownMemoryReads::Exact).unwrap_or_default() },
+        writes: if f.buffers.iter().any(|b| b.write) { MirKnownMemoryWrites::Unknown }
+            else { reviewed_bytes(f.writes.as_deref()).map(MirKnownMemoryWrites::Exact).unwrap_or_default() },
         reviewed: Some(f.clone()),
     }
 }

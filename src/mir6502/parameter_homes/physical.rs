@@ -217,7 +217,8 @@ fn check(
 /// source exposure. Unknown pointee footprints are deliberately not numeric
 /// observations; undecodable explicit machine operands still prevent a proof.
 pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMemory>) -> Result<Vec<(u16, u16)>, UnresolvedObservation> {
-    let mut out = Vec::new();
+    let mut out: Vec<_> = crate::mir6502::analysis::known_callees::numeric_buffer_observations(p)
+        .into_iter().map(|(_, address, size, _)| (address, size)).collect();
     for r in &p.routines {
         let values = r.blocks.iter().flat_map(|b| &b.ops)
             .any(|op| super::super::runtime_contracts::library_invocation(p, op).is_some())

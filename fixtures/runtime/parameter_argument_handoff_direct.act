@@ -1,5 +1,10 @@
 ; Changed positions, repeated arguments and a native computed fifth byte.
 CARD input=$0690
+;@actionc reviewed-6502 439e34c0a90705e2
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+;@actionc reads-only $A3-$A4
+;@actionc writes-only $0680-$0684
 PROC CaptureLanes=*(CARD first,second BYTE tag)
 ASM
   sta $0680

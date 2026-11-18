@@ -17,6 +17,7 @@ mod retired_private_tests;
 pub(in crate::mir6502) struct CallWrites {
     routines: BTreeMap<RoutineId, Option<BTreeSet<u16>>>,
     known: MirKnownCalleeSummaries,
+    reviewed_buffers: BTreeMap<RoutineId, crate::mir6502::analysis::known_callees::ReviewedBuffers>,
     bounded: BTreeMap<RoutineId, BoundedMachine>,
     frozen: BTreeMap<RoutineId, std::sync::Arc<MirRoutine>>,
     homes: BTreeMap<
@@ -52,6 +53,9 @@ impl CallWrites {
             .is_none_or(|r| r.as_ref() == routine)
     }
     pub fn with_bounded_machine_calls(mut self, program: &MirProgram) -> Self {
+        use crate::mir6502::analysis::known_callees::{reviewed_contract, ReviewedBuffers};
+        self.reviewed_buffers = program.routines.iter().filter_map(|r|
+            Some((r.id, ReviewedBuffers::from_facts(r, reviewed_contract(program, r)?)?))).collect();
         self.bounded = program
             .routines
             .iter()
@@ -238,11 +242,13 @@ impl CallWrites {
                 constant(Some(value)).map(|n| (address, n))
             })
             .collect();
-        let machine = self.bounded.get(id)?;
-        let mut writes = if let Some(ranges) = self.ranged.get(&(owner, *id)) {
-            machine.writes_with_ranges(registers, cells, memory, ranges)?
+        let mut writes = if let Some(buffers) = self.reviewed_buffers.get(id) {
+            let ranges = self.ranged.get(&(owner, *id)).map(Vec::as_slice).unwrap_or_default();
+            buffers.writes(registers, &cells, memory, ranges)?
+        } else if let Some(ranges) = self.ranged.get(&(owner, *id)) {
+            self.bounded.get(id)?.writes_with_ranges(registers, cells, memory, ranges)?
         } else {
-            machine.writes(registers, cells, memory)?
+            self.bounded.get(id)?.writes(registers, cells, memory)?
         };
         writes.extend(argument_writes(op, owner, memory)?);
         Some(writes)

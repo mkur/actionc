@@ -206,7 +206,10 @@ fn machine_observations(
     memory: &MirPhysicalMemory,
     writes: bool,
 ) -> Vec<ReadObservation> {
-    let mut observations = Vec::new();
+    let mut observations: Vec<_> = crate::mir6502::analysis::known_callees::numeric_buffer_observations(program)
+        .into_iter().filter(|(_, _, _, write)| *write == writes)
+        .map(|(owner, address, bytes, _)| ReadObservation { owner, site: None,
+            mem: None, address: Some(address), bytes }).collect();
     for routine in &program.routines {
         for op in routine.blocks.iter().flat_map(|b| &b.ops) {
             let MirOp::MachineBlock { id, .. } = op else { continue };

@@ -1,6 +1,6 @@
 # Shared 6502 callee facts for classic codegen and MIR6502
 
-**Proposed design.** Classic codegen and MIR6502 should consume the same typed
+Classic codegen and MIR6502 consume the same typed
 call contract. For handwritten assembly, an LLM-assisted review establishes
 the facts once and records them beside the routine. The build checks that the
 review applies to the selected implementation. Each backend then proves its
@@ -72,15 +72,21 @@ which implementation was reviewed. An independent VM test checks the claim
 itself. Deterministic checks run on each build and edits that invalidate a
 review require a fresh review before its facts can be used again.
 
-Start with direct calls to the straight-line leaves `Ascii` and `Internal`.
-Classic codegen already consumes `preserves`. The current MIR6502
-`abi-inputs-only` review serves ZP home selection, while pointer retention
-still asks its own machine analysis for exact reads and writes. Migrate these
-consumers to the shared contract. Keep existing annotation spellings and give
-complete footprints explicit syntax before using them for store deletion.
-Calls with unresolved targets, nested assembly calls or unknown effects retain
-conservative barriers wherever the required fact is unavailable.
-[Current annotations](ACTIONC_ANNOTATIONS.md) · [MIR6502 call contracts](MIR6502_CALL_FACT_CONTRACT_DESIGN.md)
+Direct calls to straight-line leaves such as `Ascii` and `Internal` can use
+complete table and scratch ranges. A separate review version admits bounded
+buffer declarations and local conditional branches. Each declaration names a
+pointer formal, a byte-count formal, its zero convention and the direction of
+access. The review establishes the bound. MIR instantiates it with the current
+physical arguments or a coherent pointer interval and checks the resulting RAM
+range. A numeric caller-supplied pointer also contributes its possible span to
+the physical storage inventory. Unresolved indirect effects remain conservative
+at the call. Classic can use the fixed facts independently and treats an
+unresolved buffer write as a possible memory clobber.
+
+Legacy entry-only fingerprints establish ordinary argument sufficiency. A full
+review can also explicitly certify physical entry reads through `entry-reads
+abi`. An unmatched review on source assembly supplies neither guarantee.
+[Annotation syntax](ACTIONC_ANNOTATIONS.md) · [MIR6502 call contracts](MIR6502_CALL_FACT_CONTRACT_DESIGN.md)
 
 Qualify the first slice in both backends. Compare the published facts for the
 same assembly, run all 256 input bytes with both carry values, and trace data

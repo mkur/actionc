@@ -144,7 +144,8 @@ impl<'a> MirAddressRanges<'a> {
                         .iter()
                         .find(|r| r.id == callee)
                         .is_some_and(|r| {
-                            super::known_callees::BoundedMachine::analyze(r, materialized).is_some()
+                            super::known_callees::reviewed_contract(materialized, r).is_some_and(|f| !f.buffers.is_empty())
+                                || super::known_callees::BoundedMachine::analyze(r, materialized).is_some()
                         })
                     {
                         continue;

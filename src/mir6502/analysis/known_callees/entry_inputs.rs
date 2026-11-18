@@ -91,7 +91,22 @@ impl MirCalleeEntryFact {
             .collect::<Option<_>>()?;
         let (inputs, defined_results) = if !machines.is_empty() {
             if dependencies.is_some() { return None; }
-            (BoundedMachine::analyze(routine, program)?.entry_inputs(program)?, BTreeSet::new())
+            let inputs = if routine.frame.contains_source_asm || routine.frame.callee_review.is_some() {
+                if !super::reviewed_contract(program, routine)?.physical_abi_inputs { return None; }
+                let abi = routine.frame.direct_parameter_abi.as_ref()?;
+                let bytes = crate::mir6502::abi::parameter_bytes(abi)?;
+                let mut inputs = MirEntryRequirements::default();
+                for lane in crate::mir6502::abi::argument_lanes(bytes)? {
+                    match lane {
+                        MirParamLane::Reg(MirReg::A) => inputs.registers.a = true,
+                        MirParamLane::Reg(MirReg::X) => inputs.registers.x = true,
+                        MirParamLane::Reg(MirReg::Y) => inputs.registers.y = true,
+                        MirParamLane::ZeroPage(slot) => { inputs.fixed.insert(slot.0); }
+                    }
+                }
+                inputs
+            } else { BoundedMachine::analyze(routine, program)?.entry_inputs(program)? };
+            (inputs, BTreeSet::new())
         } else {
             scalar_inputs(program, routine, stage, dependencies.as_ref())?
         };
@@ -115,6 +130,7 @@ impl MirCalleeEntryFact {
     }
     pub fn is_current(&self, program: &MirProgram, stage: MirCalleeEntryStage) -> bool {
         self.stage == stage
+            && (self.source.frame.callee_review.is_none() || super::reviewed_contract(program, &self.source).is_some())
             && self.library_bindings.iter().all(|b| b.implementation.as_ref()
                 .is_none_or(|i| i.is_current(program, &i.target)))
             && self.helper_bindings == program.runtime_helpers

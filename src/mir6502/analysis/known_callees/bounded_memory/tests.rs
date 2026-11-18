@@ -15,7 +15,7 @@ fn lower(text: &str) -> MirProgram {
     crate::mir6502::lower_program(&raw).unwrap()
 }
 fn machine(program: &MirProgram) -> BoundedMachine {
-    BoundedMachine::analyze(
+    BoundedMachine::decode(
         program
             .routines
             .iter()
@@ -60,7 +60,7 @@ fn bounded_machine_copy_records_all_destinations_and_scratch_without_name_assump
         .unwrap()
         .name = "AnyLeaf".into();
     assert_eq!(
-        BoundedMachine::analyze(
+        BoundedMachine::decode(
             renamed
                 .routines
                 .iter()
@@ -153,7 +153,7 @@ fn bounded_machine_copy_declines_unsupported_and_malformed_control_flow() {
         .unwrap()
         .clone();
     r.effects.opaque = true;
-    assert!(BoundedMachine::analyze(&r, &p).is_none());
+    assert!(BoundedMachine::decode(&r, &p).is_none());
 }
 
 #[test]
@@ -193,7 +193,7 @@ fn bounded_machine_copy_rejects_unresolved_relocation_addends_and_byte_selectors
             *addend = 1;
         }
         let r = p.routines.iter().find(|r| r.name == "CopyBytes").unwrap();
-        assert!(BoundedMachine::analyze(r, &p).is_none());
+        assert!(BoundedMachine::decode(r, &p).is_none());
     }
     let mut code = machine(&original);
     code.bytes[1].memory = Some(MirMem::Absolute(0x70AC));
@@ -304,4 +304,31 @@ fn interval_copy_rejects_unsafe_ranges_mixed_lanes_and_excessive_work() {
         code.writes_with_ranges([Some(0), Some(0x10), None], BTreeMap::new(), &map, &words)
             .is_none()
     );
+}
+
+#[test]
+fn reviewed_copy_instantiates_the_declared_count_and_declines_unsafe_addresses() {
+    let p = program();
+    let routine = &p.routines[0];
+    assert!(BoundedMachine::analyze(routine, &p).is_none());
+    let facts = super::super::reviewed_contract(&p, routine).unwrap();
+    let buffers = super::super::ReviewedBuffers::from_facts(routine, facts).unwrap();
+    let registers = [Some(0), Some(0x70), Some(0)];
+    for (count, size) in [(None, 256), (Some(0), 256), (Some(1), 1), (Some(2), 2), (Some(255), 255)] {
+        let writes = buffers.writes(registers, &cells(count), &memory(), &[]).unwrap();
+        assert_eq!(writes, (0x7000..0x7000 + size).chain(0xa0..=0xa2).collect());
+    }
+    assert!(buffers.writes([None, Some(0x70), Some(0)], &cells(None), &memory(), &[]).is_none());
+    for dst in [0x00a0u16, 0x100, 0x300, 0x5000, 0xd000, 0xfff0] {
+        let [lo, hi] = dst.to_le_bytes();
+        assert!(buffers.writes([Some(lo), Some(hi), Some(0)], &cells(None), &memory(), &[]).is_none());
+    }
+    let mut collision = facts.clone();
+    collision.reads.as_mut().unwrap().push(crate::callee6502::DataRange { global: None, start: 0x7005, end: 0x7005 });
+    assert!(super::super::ReviewedBuffers::from_facts(routine, &collision).unwrap()
+        .writes(registers, &cells(Some(6)), &memory(), &[]).is_none());
+    let mut zero = facts.clone();
+    for b in &mut zero.buffers { b.zero_means_256 = false; }
+    assert_eq!(super::super::ReviewedBuffers::from_facts(routine, &zero).unwrap()
+        .writes([None; 3], &cells(Some(0)), &memory(), &[]).unwrap(), (0xa0..=0xa2).collect());
 }

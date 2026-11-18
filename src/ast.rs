@@ -377,6 +377,8 @@ pub enum ActioncAnnotation {
     AbiInputsOnly { fingerprint: u64 },
     Reviewed6502 { fingerprint: u64 },
     OrdinaryAbiInputs,
+    PhysicalAbiInputs,
+    Buffer(crate::callee6502::ArgumentBuffer),
     ReadsOnly(Vec<crate::callee6502::DataRange<String>>),
     WritesOnly(Vec<crate::callee6502::DataRange<String>>),
     DebugProfileCompat,

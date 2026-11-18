@@ -2,6 +2,13 @@
 ; these names, declarations, addresses, or the two-byte pointer width.
 BYTE ARRAY observed(3)
 
+;@actionc reviewed-6502 f06f7fefd8b58f29
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+;@actionc reads-only $A0-$A4
+;@actionc reads-buffer 2 3 zero=256
+;@actionc writes-only $A0-$A2
+;@actionc writes-buffer 1 3 zero=256
 PROC Transfer=*(CARD destination, source BYTE length)
 ASM
   sta.z $A0

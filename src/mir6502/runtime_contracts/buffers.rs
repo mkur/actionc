@@ -28,6 +28,7 @@ pub(in crate::mir6502) enum BufferExtent {
     /// Includes the length byte. The length is read through this argument.
     String { length_pointer_byte: u16 },
     Count { argument_byte: u16 },
+    ByteCount { argument_byte: u16, zero_means_256: bool },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -45,6 +46,8 @@ impl BufferAccess {
     ) -> (Option<u16>, u16) {
         let bytes = match self.extent {
             BufferExtent::String { .. } => 256,
+            BufferExtent::ByteCount { argument_byte, zero_means_256 } =>
+                crate::callee6502::buffer_length(argument_byte_value(program, call, argument_byte, values), zero_means_256),
             BufferExtent::Count { argument_byte } =>
                 argument_word(program, call, argument_byte, values).unwrap_or(u16::MAX),
         };
@@ -83,11 +86,11 @@ impl super::invocation::InvocationSummary {
 fn argument_word(program: &MirProgram, call: &MirOp, offset: u16,
     values: Option<(&MirMachineValueAvailability, MirSite)>,
 ) -> Option<u16> {
-    Some(u16::from(argument_byte(program, call, offset, values)?)
-        | (u16::from(argument_byte(program, call, offset.checked_add(1)?, values)?) << 8))
+    Some(u16::from(argument_byte_value(program, call, offset, values)?)
+        | (u16::from(argument_byte_value(program, call, offset.checked_add(1)?, values)?) << 8))
 }
 
-fn argument_byte(program: &MirProgram, call: &MirOp, offset: u16,
+fn argument_byte_value(program: &MirProgram, call: &MirOp, offset: u16,
     values: Option<(&MirMachineValueAvailability, MirSite)>,
 ) -> Option<u8> {
     let MirOp::Call { args, .. } = call else { return None; };

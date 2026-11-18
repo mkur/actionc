@@ -87,3 +87,25 @@ optimization.
 
 The proposed shared contract covers how classic codegen and MIR6502 can
 consume the same reviewed assembly facts. [Shared 6502 callee facts](6502_SHARED_CALLEE_FACTS_DESIGN.md)
+
+### Reviewing an argument-relative buffer
+
+A review may add `reads-buffer P N zero=256` or `writes-buffer P N zero=0`.
+Both clauses accept either zero convention. The one-based formal parameter
+`P` supplies a 16-bit address and `N` supplies an 8-bit byte count. The span
+begins at that address and includes exactly the specified number of bytes,
+including the stated interpretation of zero. List all additional fixed
+accesses in the matching `reads-only` or `writes-only` clause.
+
+For example, a reverse copy with arguments `(CARD dst, src BYTE count)`
+declares `reads-buffer 2 3 zero=256` and `writes-buffer 1 3 zero=256`.
+The buffer review accepts conditional branches to instruction boundaries
+inside the routine and requires a single terminal RTS. The compiler checks
+the identity of the body and instantiates its declared spans from the actual
+ABI values or proven pointer ranges. Unresolved addresses, wraparound and
+unsafe memory keep the calling optimization conservative.
+
+The optional `entry-reads abi` certifies that the implementation physically
+observes only incoming argument lanes as entry requirements. A review can
+certify ordinary argument sufficiency with `abi-inputs-only` even if an
+instruction observes an incoming flag whose value cannot affect the outcome.

@@ -47,7 +47,7 @@ impl<'a> ResidenceCalls<'a> {
         let MirOp::Call { target: MirCallTarget::Routine(target), .. } = call else { return None; };
         if let Some(current) = self.reviewed_fingerprints.get(target) {
             return Some(match current {
-                Some(hash) => format!("abi-inputs-only current fingerprint {hash:016x}"),
+                Some(hash) => format!("{} current fingerprint {hash:016x}", if self.program.routines.iter().any(|r| r.id == *target && r.frame.callee_review.is_some()) { "reviewed-6502" } else { "abi-inputs-only" }),
                 None => "body outside abi-inputs-only review scope".into(),
             });
         }
@@ -95,10 +95,12 @@ impl<'a> ResidenceCalls<'a> {
         }
         let outgoing = super::super::abi::canonical_call_lanes(callee, args)?;
         super::super::abi::validate_direct_call_result(callee, call)?;
-        if callee.frame.callee_review.is_some() {
+        if let Some(review) = &callee.frame.callee_review {
             if machine && self.acyclic.is_some() && self.known.get(*target).is_some_and(|s| s.call_facts().abi_inputs_only) {
                 return Ok(());
             }
+            self.reviewed_fingerprints.entry(*target).or_insert_with(||
+                crate::mir6502::analysis::known_callees::body_fingerprint(self.program, callee, review.version()));
             return Err("missing reviewed assembly entry guarantee");
         }
         if machine && self.acyclic.is_some() && let Some(expected) = callee.frame.abi_inputs_only_review {

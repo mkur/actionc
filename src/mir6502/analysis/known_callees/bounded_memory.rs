@@ -58,9 +58,16 @@ impl State {
     }
 }
 
+pub(super) fn validate_word_lanes(ranges: &[CoherentWordRange], registers: &[Option<u8>; 3],
+    cells: &BTreeMap<u16, u8>) -> Option<()> { WordLanes::seed(ranges, registers, cells).map(|_| ()) }
+
 impl BoundedMachine {
     pub fn analyze(routine: &MirRoutine, program: &MirProgram) -> Option<Self> {
         if routine.frame.contains_source_asm || routine.frame.callee_review.is_some() { return None; }
+        Self::decode(routine, program)
+    }
+
+    pub(super) fn decode(routine: &MirRoutine, program: &MirProgram) -> Option<Self> {
         let [block] = routine.blocks.as_slice() else {
             return None;
         };
