@@ -70,11 +70,11 @@ TN's `CalcAdr` review declares `defines-on-return $E6-$E7`. NIR carries
 these fixed-byte definitions as routine metadata. MIR6502 applies the
 definitions after incoming reads and propagates them through returning paths
 of native wrappers. The screen pointer used by `Putchar` is therefore defined
-inside the call. The proposed home-selection rule uses the native screen
+inside the call. Home selection uses the native screen
 store's ordinary pointer effect when checking a private caller object. The
 reviewed writes to `$A0` and `$E6/$E7` still exclude overlapping homes.
-[Caller-home design](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md#proposed-extension-for-ordinary-pointer-writes-across-calls) ·
-[TN qualification](MIR6502_REVIEWED_CALL_COMPOSITION_IMPLEMENTATION_PLAN.md#calcadr-return-definitions)
+[Caller-home design](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md#ordinary-pointer-writes-across-calls) ·
+[TN qualification](MIR6502_CROSS_CALL_POINTER_WRITES_IMPLEMENTATION_PLAN.md#tn-qualification)
 
 ## The contract for Ascii
 

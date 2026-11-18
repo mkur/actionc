@@ -5,7 +5,7 @@ write when the candidate bytes survive the call. TN's `Print.i` and the
 two-byte cell holding `Print.s` are the acceptance case. `Putchar` receives
 one character and writes it through `Screen`. Eligibility for those homes
 depends on who controls their addresses and which physical bytes the call
-touches. [Design](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md#proposed-extension-for-ordinary-pointer-writes-across-calls)
+touches. [Design](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md#ordinary-pointer-writes-across-calls)
 
 Land each slice with its tests in a separate commit. Use MIR6502's typed
 operations, matched assembly and runtime contracts, and existing placement
@@ -98,3 +98,40 @@ cargo test --lib mir6502::parameter_homes::
 cargo test --test mir6502_cross_call_homes --test mir6502_parameter_pointers
 cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test cross_call_homes --test tn_dispatch
 ```
+
+## TN qualification
+
+Both modern MIR6502 builds at origin `$3000` select `$E3/$E4` for the pointer
+cell `Print.s` and `$E5` for the loop index `Print.i`. The expanded lifetime
+verifier rejects a supplied `Print.i` binding at `$A0` at the call to `Putchar`,
+where `Internal` writes its result.
+
+| Runtime | Previous XEX | Selected XEX | Change | Named ZP homes |
+| --- | ---: | ---: | ---: | ---: |
+| Cartridge | 9,687 bytes | 9,638 bytes | −49 bytes | 47 → 53 |
+| Standalone | 9,826 bytes | 9,777 bytes | −49 bytes | 47 → 53 |
+
+The other new homes are `PrintFname.s`, `PrintFname.i`, `PrintNonzeroDigit.b`
+and `DrawMenu.menu`. The digit routine keeps `b` at `$E3` and its divisor at
+`$E2`. The VM overwrites the dead divisor at `Putchar` and checks the emitted
+digit and remainder. On both runtimes the real `Print` loop writes the four
+expected bytes, preserves the two screen sentinels and advances from column
+2 to column 6 on row 1. A separate native wrapper test checks its destination
+and the live caller word, including a carry and a 16-bit wrap.
+[VM tests](../tools/vm-runtime-tests/tests/cross_call_homes.rs)
+
+The numeric-destination tests cover separate calls to the same wrapper, an
+overlap on either word lane, wrapping at `$FFFF`, and whole-image rollback
+when the destination aliases the original inline cell. Taking one local’s
+address leaves an independent private object eligible. [Placement and rollback tests](../tests/mir6502_cross_call_homes.rs)
+
+For a pointer captured from `$A3/$A4`, the analysis follows the existing
+`SArgs` contract back to the staged bytes. The regression changes the
+diagnostic operands while preserving those staged bytes, then invalidates the
+capture contract and checks that the caller loses its write guarantee.
+[Call-site tests](../src/mir6502/analysis/known_callees/native_writes/tests.rs)
+
+The callee-summary suite passed 91 tests. The parameter-home suite passed 85,
+with the same pre-existing carry assertion documented above. Both VM targets
+passed all 22 tests. The cross-call integration target also passed its
+separately invoked MADS reconstruction and relocation check with LF and CRLF.

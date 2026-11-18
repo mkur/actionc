@@ -128,6 +128,7 @@ enum TracePurpose {
 /// any other definition the incoming identity is unavailable.
 fn origin(
     purpose: TracePurpose,
+    program: &MirProgram,
     routine: &MirRoutine,
     known: &MirKnownCalleeSummaries,
     site: MirSite,
@@ -186,6 +187,22 @@ fn origin(
                     }
                     _ => return None,
                 }
+                continue;
+            }
+            // SArgs copies the input stream to the inline parameter cells.
+            // Follow only the matched contract's ordered input/definition pair.
+            if let (Lane::Cell(cell), MirOp::SArgsCapture { .. }) = (&lane, op) {
+                let capture =
+                    crate::mir6502::runtime_contracts::sargs_capture(program, routine, op)?;
+                let index = capture.definitions.iter().position(|m| m == cell)?;
+                let lanes = crate::mir6502::abi::physical_lanes(
+                    capture.inputs.get(index)?,
+                    MirWidth::Byte,
+                )?;
+                let [input] = lanes.as_slice() else {
+                    return None;
+                };
+                lane = (*input).into();
                 continue;
             }
             match &lane {
@@ -250,8 +267,8 @@ fn paired_origin(
 ) -> Option<Base> {
     let [l, h] = lanes;
     match (
-        origin(purpose, routine, known, site, l)?,
-        origin(purpose, routine, known, site, h)?,
+        origin(purpose, program, routine, known, site, l)?,
+        origin(purpose, program, routine, known, site, h)?,
     ) {
         (Origin::Input(l), Origin::Input(h)) if h == l + 1 => {
             let mut start = 0;

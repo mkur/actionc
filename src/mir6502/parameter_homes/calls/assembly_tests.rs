@@ -402,3 +402,58 @@ fn supplied_home_checks_each_lane_of_native_wrapper_destinations() {
         }
     }
 }
+
+#[test]
+fn tn_print_live_index_rejects_internal_result_at_putchar() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/tn/modern/TN.ACT");
+    let ast = crate::includes::load_program_with_includes(path).unwrap();
+    let model =
+        crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
+            .unwrap();
+    let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+    let mut p = crate::mir6502::materialize_program(
+        crate::mir6502::lower_program(&nir).unwrap(),
+        &Default::default(),
+    )
+    .unwrap();
+    let putchar = p.routines.iter().find(|r| r.name == "Putchar").unwrap().id;
+    let print = p.routines.iter_mut().find(|r| r.name == "Print").unwrap();
+    let MirStorageBase::Local(index) = print
+        .frame
+        .locals
+        .iter()
+        .find(|l| l.name.as_deref() == Some("i"))
+        .unwrap()
+        .base
+    else {
+        panic!()
+    };
+    print.frame.local_homes = Some(vec![MirLocalBinding {
+        local: index,
+        home: MirLocalHome::ZeroPage(MirFixedZpSlot(0xa0)),
+    }]);
+    let site = print
+        .blocks
+        .iter()
+        .find_map(|b| {
+            let op_index = b.ops.iter().position(|op| {
+                matches!(op, MirOp::Call { target: MirCallTarget::Routine(id), .. } if *id == putchar)
+            })?;
+            Some(crate::mir6502::analysis::sites::MirSite::Op { block: b.id, op_index })
+        })
+        .unwrap();
+    let print = p.routines.iter().find(|r| r.name == "Print").unwrap();
+    let mut calls = ResidenceCalls::at_origin(&p, MirCalleeEntryStage::ActualEntry, 0x3000);
+    let addresses = ObjectAddressControl::new(&p);
+    let errors = super::super::lifetimes::verify_with_address_control(
+        print,
+        Some(&mut calls),
+        Some(&addresses),
+    );
+    assert!(
+        errors.iter().any(
+            |d| d.message.contains("clobbers live") && d.message.contains(&format!("{site:?}"))
+        ),
+        "{errors:?}"
+    );
+}

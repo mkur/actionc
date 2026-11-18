@@ -1441,9 +1441,9 @@ programs is insufficient. Extend freshness tests alongside this contract.
 Use the known-callee summary to check every byte of a caller value that
 survives the invocation. For a general fixed byte, use
 `MirKnownMemoryWrites::preserves_fixed_byte`. For an object whose address the
-compiler controls, the proposed rule also admits a callee's classified ordinary
-pointer writes through the private-byte query. [Known-callee summaries](../src/mir6502/analysis/known_callees.rs) ·
-[Ordinary pointer writes across calls](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md#proposed-extension-for-ordinary-pointer-writes-across-calls)
+compiler controls, the private-byte query admits a callee's classified ordinary
+pointer writes. [Known-callee summaries](../src/mir6502/analysis/known_callees.rs) ·
+[Ordinary pointer writes across calls](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md#ordinary-pointer-writes-across-calls)
 
 In both cases, check the complete physical write footprint, including entry
 capture, working homes, argument/result delivery for nested calls, allocated

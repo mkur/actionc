@@ -189,7 +189,7 @@ address construction, carry/flags, register effects, stack traffic and implicit
 scratch remain part of the expanded operation's proof. A partial word write or
 one overlapping pointer lane is a real conflict.
 
-### Proposed extension for ordinary pointer writes across calls
+### Ordinary pointer writes across calls
 
 Apply the same address-control rule on either side of a known direct call. For
 a value live across the call, ask whether the invocation can overwrite **this
@@ -198,11 +198,13 @@ object's address before choosing inline or ZP storage. An ordinary pointer
 write alone allows a ZP candidate to proceed. The pointed-to data and the
 order of its reads and writes remain observable.
 
-Today MIR6502 recognizes ordinary pointer stores within a routine. Its native
-callee summary can reduce the same store to `Unknown`, which rejects all live
-caller homes. The proposed change carries the classification through acyclic
-native wrappers using the existing callee write summary and private-byte
-preservation query. [Native write summary](../src/mir6502/analysis/known_callees.rs) ·
+The residence analysis follows selected indirect byte and word stores through
+acyclic native wrappers. It tracks explicit addresses, bounded references to
+named objects, and pointer arguments with their byte offset and write extent.
+For a source-owned pointer cell such as TN’s `Screen`, a matched review can
+establish both pointer bytes. Intervening operations must preserve the pair.
+The analysis checks the actual argument at each call. An unresolved destination
+or an incompatible addressing sequence leaves the write footprint unknown. [Native write summary](../src/mir6502/analysis/known_callees.rs) ·
 [Residence checks](../src/mir6502/parameter_homes/calls.rs)
 
 | Evidence at the call site | Consequence for a live caller object |
@@ -227,9 +229,8 @@ query can use the caller object's address-control proof.
 Neither the address of the loop index nor the address of the cell holding
 the string pointer is passed. `CalcAdr` defines the screen pointer at
 `$E6/$E7`, `Internal` writes its result at `$A0`, and `Putchar` writes
-through the screen pointer. The screen store should allow a disjoint private
-home for `Print.i` or `Print.s` to reach the usual cost and layout checks.
-A candidate overlapping `$A0` must fail at that same call. This uses the
+through the screen pointer. Both `Print.i` and `Print.s` pass the cost and layout checks.
+A live candidate overlapping `$A0` fails at that same call. This uses the
 existing assembly reviews and requires no screen-address bound.
 [TN source](../samples/tn/modern/LIB.ACT) ·
 [Implementation plan](MIR6502_CROSS_CALL_POINTER_WRITES_IMPLEMENTATION_PLAN.md)

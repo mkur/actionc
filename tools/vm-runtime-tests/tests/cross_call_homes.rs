@@ -30,8 +30,7 @@ impl VmRunHooks for PrintObserve {
         let r = vm.cpu().registers();
         if r.pc == self.entry {
             self.output.push(r.a);
-            // Putchar has no preservation contract for this home. Its value
-            // must already be dead; b, which survives the call, stays inline.
+            // The divisor dies at this call. Overwriting it must preserve b.
             vm.bus_mut().ram_mut().write(self.divisor, 0xee);
         }
         Ok(())
@@ -221,11 +220,17 @@ fn tn_print_digit_preserves_result_when_dead_divisor_is_clobbered() {
         let entry = |name| output.routine_addresses.iter().find(|r| r.name == name).unwrap().address;
         let home = |name| output.map.storage_symbols.iter().find(|s|
             s.scope == actionc::codegen::CodegenSymbolScope::Routine("PrintNonzeroDigit".into()) && s.name == name).unwrap().address;
-        assert!(home("b") >= 256);
-        if runtime == Runtime::ActionCart { assert!(home("divisor") < 256); }
-        println!("{runtime:?} divisor home ${:04X}", home("divisor"));
+        assert!(home("b") < 256 && home("divisor") < 256);
+        assert_ne!(home("b"), home("divisor"));
+        for (name, width) in [("s", 2), ("i", 1)] {
+            let symbol = output.map.storage_symbols.iter().find(|s|
+                s.scope == actionc::codegen::CodegenSymbolScope::Routine("Print".into()) && s.name == name).unwrap();
+            assert!(symbol.address + width <= 0x100, "{runtime:?} {symbol:?}");
+        }
         let (mut vm, profile) = support::vm_for(runtime);
         vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        vm = machine::call(vm, &mut NoHooks, entry("Init"), &[]);
+        vm = machine::check_print(vm, &mut NoHooks, entry("Print"));
         // Isolate the compiled digit routine from screen/hardware setup. The
         // hook observes its real output argument and clobbers the dead home.
         vm.bus_mut().ram_mut().write(entry("Putchar"), 0x60);
@@ -1235,6 +1240,53 @@ fn reviewed_conversion_through_a_native_wrapper_preserves_a_live_home() {
             assert_eq!(
                 machine::bytes(&vm, 0xa0, 2),
                 keep.wrapping_add(1).to_le_bytes()
+            );
+        }
+    }
+}
+
+#[test]
+fn native_pointer_wrapper_writes_the_destination_and_preserves_a_caller_word() {
+    let source = "BYTE result=$680
+        PROC Draw(BYTE POINTER p BYTE n) p^=n RETURN
+        PROC Forward(BYTE POINTER p BYTE n) Draw(p,n) RETURN
+        PROC Paint(BYTE a,b,c BYTE POINTER dst) dst^=c RETURN
+        CARD FUNC Hold(CARD keep)
+          Forward($7100,BYTE(keep)) Paint(1,2,BYTE(keep RSH 8),$7101)
+        RETURN(keep+1)
+        PROC Main() result=Hold(result) RETURN";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = arithmetic_output(source, runtime);
+        let keep = output
+            .map
+            .storage_symbols
+            .iter()
+            .find(|s| {
+                s.scope == actionc::codegen::CodegenSymbolScope::Routine("Hold".into())
+                    && s.name == "keep"
+            })
+            .unwrap();
+        assert!(keep.address < 255, "{runtime:?} {keep:?}");
+        let entry = output
+            .routine_addresses
+            .iter()
+            .find(|r| r.name == "Hold")
+            .unwrap()
+            .address;
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output))
+            .unwrap();
+        for word in [0x12ffu16, 0x8000, 0xffff] {
+            let [lo, hi] = word.to_le_bytes();
+            vm.bus_mut()
+                .ram_mut()
+                .map(0x70ff, &[0xa5, !lo, !hi, 0x5a])
+                .unwrap();
+            vm = machine::call(vm, &mut NoHooks, entry, &[lo, hi]);
+            assert_eq!(machine::bytes(&vm, 0x70ff, 4), [0xa5, lo, hi, 0x5a]);
+            assert_eq!(
+                machine::bytes(&vm, 0xa0, 2),
+                word.wrapping_add(1).to_le_bytes()
             );
         }
     }

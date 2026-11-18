@@ -1,4 +1,3 @@
-
 use super::*;
 use crate::mir6502::ir::{MirDef, MirValue};
 
@@ -153,6 +152,49 @@ fn tn_screen_store_uses_program_pointer_and_keeps_reviewed_scratch() {
     let stale = MirKnownCalleeSummaries::analyze_exit_facts(&p, false, Some(&p), true);
     assert_eq!(
         stale.get(id).unwrap().writes(),
+        &MirKnownMemoryWrites::Unknown
+    );
+}
+
+#[test]
+fn a_captured_pointer_uses_the_staged_zp_arguments() {
+    let mut p = materialized(
+        "PROC Paint(BYTE a,b,c BYTE POINTER dst) dst^=c RETURN
+        PROC Apply() Paint(1,2,3,$7100) RETURN PROC Main() Apply() RETURN",
+    );
+    let call = p.routines[1].blocks[0]
+        .ops
+        .iter_mut()
+        .find(|op| matches!(op, MirOp::Call { .. }))
+        .unwrap();
+    let MirOp::Call { args, .. } = call else {
+        unreachable!()
+    };
+    // A materialized call retains diagnostic values beside the physical lanes.
+    // Deliberately disagree with the bytes actually staged at $A3/$A4.
+    args[3].value = MirValue::ConstU8(0xa8);
+    args[4].value = MirValue::ConstU8(0);
+    let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p);
+    let writes = known.get(p.routines[1].id).unwrap().writes();
+    assert!(
+        matches!(writes,MirKnownMemoryWrites::Pointee{numeric,formals,..}
+        if numeric == &[(0x7100,1)] && formals.is_empty()),
+        "{writes:?}"
+    );
+    assert!(writes.preserves_private_fixed_byte(MirFixedZpSlot(0xa8), &known.fixed_storage));
+    assert!(native_numeric_observations(&p).contains(&(0x7100, 1)));
+    let capture = p.routines[0].blocks[0]
+        .ops
+        .iter_mut()
+        .find(|op| matches!(op, MirOp::SArgsCapture { .. }))
+        .unwrap();
+    let MirOp::SArgsCapture { byte_count, .. } = capture else {
+        unreachable!()
+    };
+    *byte_count -= 1;
+    let stale = MirKnownCalleeSummaries::analyze_for_source_homes(&p);
+    assert_eq!(
+        stale.get(p.routines[1].id).unwrap().writes(),
         &MirKnownMemoryWrites::Unknown
     );
 }

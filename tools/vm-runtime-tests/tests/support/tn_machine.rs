@@ -99,3 +99,24 @@ pub fn bytes(vm: &CompilerVm, address: u16, count: usize) -> Vec<u8> {
 pub fn counted(vm: &CompilerVm, address: u16) -> Vec<u8> {
     bytes(vm, address + 1, vm.bus().ram().read(address) as usize)
 }
+
+/// Exercise the real Print loop after Init has populated the row table.
+pub fn check_print<H: VmRunHooks<Error = String>>(
+    mut vm: CompilerVm,
+    hooks: &mut H,
+    entry: u16,
+) -> CompilerVm {
+    let screen = 0x7100;
+    let start = screen + 40 + 2;
+    let ram = vm.bus_mut().ram_mut();
+    ram.write_word(0x58, screen);
+    ram.write(0xfe, 1);
+    ram.write(0xff, 2);
+    ram.map(0x680, &[4, 0, 0x20, 0x40, 0x60]).unwrap();
+    ram.map(start - 1, &[0xa5; 6]).unwrap();
+    vm = call(vm, hooks, entry, &0x680u16.to_le_bytes());
+    assert_eq!(bytes(&vm, start - 1, 6), [0xa5, 0x40, 0, 0x20, 0x60, 0xa5]);
+    assert_eq!(vm.bus().ram().read(0xff), 6);
+    assert_eq!(vm.bus().ram().read(0xfe), 1);
+    vm
+}
