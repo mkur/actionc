@@ -23,6 +23,35 @@ fn programs(source: &str) -> (MirProgram, MirProgram) {
 }
 
 #[test]
+fn live_caller_byte_avoids_the_outgoing_fourth_argument_lane() {
+    let source = "BYTE a0=$A0,a1=$A1,a2=$A2
+;@actionc reviewed-6502 1111111111111111
+;@actionc abi-inputs-only
+;@actionc writes-only none
+PROC Four=*(CARD ptr BYTE c,d)
+ASM
+  lda $A3
+  rts
+ENDASM
+BYTE FUNC Hold(BYTE keep) BYTE n n=keep+1 Four(0,0,7) RETURN(n)
+PROC Main() Hold(1) RETURN";
+    let mir = mir::lower_program(&nir(source)).unwrap();
+    let hash = mir::analysis::known_callees::body_fingerprint(
+        &mir, &mir.routines[0], crate::callee6502::CONTRACT_VERSION,
+    ).unwrap();
+    let n = nir(&source.replace("1111111111111111", &format!("{hash:016x}")));
+    let session = Mir6502Trace::default();
+    let (selected, resume) = mir::prepare_program_for_emission(&n, 0x3000,
+        &mir::Mir6502Config::optimized(), crate::runtime::Runtime::ActionCart, &Trace::disabled()).unwrap();
+    let resume = resume.unwrap();
+    let proposed = propose_with_scope(&resume.core.checkpoint.input.program, &selected, true, true, true, &session.context())
+        .unwrap_or_else(|| panic!("{:?}", session.events()));
+    let bytes = hold(&proposed).frame.resident_bytes();
+    let live = bytes.iter().find(|(mem, _)| matches!(mem, MirMem::Local { .. })).unwrap();
+    assert_ne!(live.1, MirFixedZpSlot(0xa3));
+}
+
+#[test]
 fn certified_assembly_leaf_planning_and_expanded_conflict_keep_artifacts_paired() {
     let source = include_str!("../../../../fixtures/runtime/certified_assembly_leaf_homes.act")
         .replace("\r\n", "\n");
