@@ -189,13 +189,54 @@ address construction, carry/flags, register effects, stack traffic and implicit
 scratch remain part of the expanded operation's proof. A partial word write or
 one overlapping pointer lane is a real conflict.
 
-Do not globally weaken `Unknown` or clear `indirect_writes`. The complete public
-write footprint of a pointer-writing routine remains Unknown. No Exact callee
-summary is invented by excluding one caller object. Current call admission
-rules, including rejection of unknown writes, remain unchanged in this scope.
-An opaque call's possible ABI/scratch clobbers do not become ordinary pointee
-effects. Conservative value-fact invalidation may remain where no consumer uses
-the new object-specific proof.
+### Proposed extension for ordinary pointer writes across calls
+
+Apply the same address-control rule on either side of a known direct call. For
+a value live across the call, ask whether the invocation can overwrite **this
+object at its proposed home**. Establish that the compiler controls the
+object's address before choosing inline or ZP storage. An ordinary pointer
+write alone allows a ZP candidate to proceed. The pointed-to data and the
+order of its reads and writes remain observable.
+
+Today MIR6502 recognizes ordinary pointer stores within a routine. Its native
+callee summary can reduce the same store to `Unknown`, which rejects all live
+caller homes. The proposed change carries the classification through acyclic
+native wrappers using the existing callee write summary and private-byte
+preservation query. [Native write summary](../src/mir6502/analysis/known_callees.rs) ·
+[Residence checks](../src/mir6502/parameter_homes/calls.rs)
+
+| Evidence at the call site | Consequence for a live caller object |
+| --- | --- |
+| A typed native store through an ordinary pointer | A proven unexposed object can survive the pointee write. The complete set of memory addresses the routine may modify can still be unknown. |
+| The source takes the object's address, fixes its location or exposes an alias | Use the exposed object's ordinary alias and physical-overlap rules. Passing the address of a local to the writer is a real path to that local. |
+| A physical write from argument setup, ABI results, scratch, pointer-cell updates or a descendant's allocated home | Exclude each overlapping candidate byte, including a single lane of a word. Count transient writes even if the callee restores the byte before return. |
+| An explicit numeric destination or range | Apply the actual argument at each call site. For example, a one-byte store through a pointer passed as `$A2` excludes `$A2` through a wrapper as well. Include width, indexing and wrapping in the overlap check. If an explicit range might overlap a candidate, decline that candidate. |
+| An opaque operation, unknown callee, stale review or unaccounted physical write | Keep the existing conservative fallback for a value crossing that call. |
+
+MIR6502 derives ordinary pointer effects from typed native operations. It takes
+assembly and helper effects from their matched contracts. Compose the possible
+writes from every path and descendant, resolving each routine's physical
+homes in its own frame. Discovery and expanded lifetime verification must
+apply the same object-specific test, including for a manually supplied home.
+Replay explicit physical observations against the baseline and candidate
+layouts even when the pointer store occurs in a descendant. The general memory
+query still reports a possible write through the pointer. Only the private-home
+query can use the caller object's address-control proof.
+
+**TN acceptance case.** `Print` passes the value of `s(i)` to `Putchar`.
+Neither the address of the loop index nor the address of the cell holding
+the string pointer is passed. `CalcAdr` defines the screen pointer at
+`$E6/$E7`, `Internal` writes its result at `$A0`, and `Putchar` writes
+through the screen pointer. The screen store should allow a disjoint private
+home for `Print.i` or `Print.s` to reach the usual cost and layout checks.
+A candidate overlapping `$A0` must fail at that same call. This uses the
+existing assembly reviews and requires no screen-address bound.
+[TN source](../samples/tn/modern/LIB.ACT)
+
+Qualify the rule with a native writer called directly and through a wrapper.
+Check the stored byte and the surviving caller value on cartridge and
+standalone. Include an address-taken local, an explicit numeric destination
+passed through the wrapper, and an opaque descendant as rejection controls.
 
 ## Placement and verification
 

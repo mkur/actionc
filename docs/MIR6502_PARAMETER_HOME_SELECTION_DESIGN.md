@@ -1438,12 +1438,18 @@ programs is insufficient. Extend freshness tests alongside this contract.
 
 ### Complete transitive write coverage
 
-Reuse [known-callee summaries](../src/mir6502/analysis/known_callees.rs) and
-`MirKnownMemoryWrites::preserves_fixed_byte`. A caller value that survives an
-invocation must avoid its entire write footprint: entry capture, working homes,
-argument/result delivery for nested calls, allocated temporaries, implicit data
-scratch and all descendant writes. A byte restored before return still belongs
-to the possible write set. Both lanes of a word or pointer require coverage.
+Use the known-callee summary to check every byte of a caller value that
+survives the invocation. For a general fixed byte, use
+`MirKnownMemoryWrites::preserves_fixed_byte`. For an object whose address the
+compiler controls, the proposed rule also admits a callee's classified ordinary
+pointer writes through the private-byte query. [Known-callee summaries](../src/mir6502/analysis/known_callees.rs) ·
+[Ordinary pointer writes across calls](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md#proposed-extension-for-ordinary-pointer-writes-across-calls)
+
+In both cases, check the complete physical write footprint, including entry
+capture, working homes, argument/result delivery for nested calls, allocated
+temporaries, implicit data scratch and all descendant writes. A byte restored
+before return still belongs to the possible write set. Both lanes of a word
+or pointer require coverage.
 Liveness decides where the footprint constrains a home; it does not narrow the
 published footprint itself.
 
