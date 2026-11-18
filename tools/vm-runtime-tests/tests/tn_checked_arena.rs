@@ -308,6 +308,20 @@ fn real_arena_success_and_window_checkpoints_with_lf_and_crlf() {
                         .unwrap();
                     assert_eq!(machine::bytes(&vm, 0x2000, 4), [3, b'D', b':', b'X']);
                     // Exercise real drawing and image restoration without CIO.
+                    vm.bus_mut().ram_mut().map(0x5A, &[20, 3]).unwrap();
+                    let cursor = |vm: &CompilerVm| {
+                        (vm.bus().ram().read(0xFF), vm.bus().ram().read(0xFE))
+                    };
+                    vm = machine::call(vm, &mut hooks, routine("Position"), &[39, 23]);
+                    assert_eq!(cursor(&vm), (39, 23));
+                    for (offset, expected) in [
+                        ([2, 4], (22, 7)),
+                        ([0xFF, 0], (19, 3)),
+                        ([0, 0xFF], (20, 2)),
+                    ] {
+                        vm = machine::call(vm, &mut hooks, routine("Relpos"), &offset);
+                        assert_eq!(cursor(&vm), expected, "Relpos{offset:?}");
+                    }
                     vm.bus_mut().ram_mut().write_word(0x58, 0x7000);
                     let screen = (0..960)
                         .map(|i| (i as u8).wrapping_mul(17))

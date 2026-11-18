@@ -195,28 +195,16 @@ done:
 ENDASM
 
 
-;@actionc preserves A X Y $AC/$AD $AE/$AF
-;@actionc clobbers kx/ky
-PROC Position=*(BYTE x, y)
-ASM
-  sta.z kx
-  stx.z ky
-  rts
-ENDASM
+PROC Position(BYTE x, y)
+  kx=x
+  ky=y
+RETURN
 
 
-;@actionc preserves X Y $AC/$AD $AE/$AF
-;@actionc clobbers kx/ky
-PROC Relpos=*(BYTE x, y)
-ASM
-  clc
-  adc.z zx
-  sta.z kx
-  txa
-  adc.z zy
-  sta.z ky
-  rts
-ENDASM
+PROC Relpos(BYTE x, y)
+  kx=x+zx
+  ky=y+zy
+RETURN
 
 BYTE ARRAY internalMap(4)=[$40 $00 $20 $60],
            asciiMap(4)=[$20 $40 $00 $60]
