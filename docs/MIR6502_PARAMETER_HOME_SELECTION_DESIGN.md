@@ -1567,6 +1567,10 @@ applies only to small shifts. See the
 [object-storage design](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md#placement-and-verification)
 for operand and carry requirements.
 
+The [helper-backed home admission plan](MIR6502_HELPER_BACKED_HOME_ADMISSION_IMPLEMENTATION_PLAN.md)
+describes how to use existing invocation contracts for word shifts that become
+helper calls during materialization.
+
 Retain the mixed bindings and per-object exposure/lifetime filtering that are
 already implemented. Exposed or entry-dependent siblings can stay inline;
 their presence does not itself reject an eligible scalar. Preserve current
