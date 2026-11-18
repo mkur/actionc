@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod bounded_memory;
 mod fixed_storage;
+mod native_writes;
 mod contracts;
 pub(in crate::mir6502) use contracts::MirCalleeContractChange;
 pub(in crate::mir6502) use fixed_storage::MirFixedStorage;
@@ -49,7 +50,7 @@ pub(in crate::mir6502) enum MirKnownMemoryWrites {
     /// Indirect destinations plus direct/scratch writes. Caller-dependent
     /// pointees require a separate private-object proof. A reviewed complete
     /// numeric bound alone can prove disjointness for any fixed ZP byte.
-    Pointee { fixed: Vec<MirMem>, numeric: Vec<(u16, u16)>, caller_dependent: bool },
+    Pointee { fixed: Vec<MirMem>, numeric: Vec<(u16, u16)>, ordinary: bool, caller_dependent: bool },
     #[default]
     Unknown,
 }
@@ -57,7 +58,7 @@ pub(in crate::mir6502) enum MirKnownMemoryWrites {
 impl MirKnownMemoryWrites {
     pub(in crate::mir6502) fn preserves_fixed_byte(&self, slot: MirFixedZpSlot, fixed: &MirFixedStorage) -> bool {
         match self {
-            Self::Unknown | Self::Pointee { caller_dependent: true, .. } => false,
+            Self::Unknown | Self::Pointee { ordinary: true, .. } | Self::Pointee { caller_dependent: true, .. } => false,
             _ => self.preserves_private_fixed_byte(slot, fixed),
         }
     }
@@ -116,11 +117,12 @@ impl MirKnownMemoryWrites {
     fn merge(&mut self, other: &Self) {
         let other = match other {
             Self::Exact(other) => other,
-            Self::Pointee { fixed, numeric, caller_dependent } => {
+            Self::Pointee { fixed, numeric, caller_dependent, ordinary } => {
                 if let Self::Exact(bytes) = self {
-                    *self = Self::Pointee { fixed: std::mem::take(bytes), numeric: Vec::new(), caller_dependent: false };
+                    *self = Self::Pointee { fixed: std::mem::take(bytes), numeric: Vec::new(), ordinary: false, caller_dependent: false };
                 }
-                if let Self::Pointee { numeric: ranges, caller_dependent: dep, .. } = self {
+                if let Self::Pointee { numeric: ranges, caller_dependent: dep, ordinary: native, .. } = self {
+                    *native |= ordinary;
                     *dep |= caller_dependent;
                     for range in numeric { if !ranges.contains(range) { ranges.push(*range); } }
                 }
@@ -286,6 +288,7 @@ impl MirKnownCalleeExitSummary {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirKnownCalleeSummaries {
     mutable_return_flags: bool,
+    native_pointer_writes: bool,
     fixed_storage: Arc<MirFixedStorage>,
     routines: BTreeMap<RoutineId, MirKnownCalleeExitSummary>,
     direct_call_targets: BTreeSet<RoutineId>,
@@ -299,23 +302,23 @@ impl MirKnownCalleeSummaries {
     }
 
     pub(in crate::mir6502) fn analyze(program: &MirProgram) -> Self {
-        Self::analyze_exit_facts(program, true, None)
+        Self::analyze_exit_facts(program, true, None, false)
     }
 
     /// Local rewrites do not yet preserve an interprocedural N/Z exit contract.
     /// Keep exact flags from immutable machine routines, but do not publish a
     /// mutable MIR routine's incidental return flags to another routine.
     pub(in crate::mir6502) fn analyze_for_rewriting(program: &MirProgram) -> Self {
-        Self::analyze_exit_facts(program, false, None)
+        Self::analyze_exit_facts(program, false, None, false)
     }
 
     /// Successful-return footprints are scoped to residence validation. Generic
     /// rewriting retains all invocation observations, including terminal paths.
     pub(in crate::mir6502) fn analyze_for_residence(program: &MirProgram) -> Self {
-        Self::analyze_exit_facts(program, false, Some(program))
+        Self::analyze_exit_facts(program, false, Some(program), false)
     }
 
-    fn analyze_exit_facts(program: &MirProgram, mutable_return_flags: bool, normal: Option<&MirProgram>) -> Self {
+    fn analyze_exit_facts(program: &MirProgram, mutable_return_flags: bool, normal: Option<&MirProgram>, native_pointer_writes: bool) -> Self {
         let direct_call_targets = program
             .routines
             .iter()
@@ -338,6 +341,7 @@ impl MirKnownCalleeSummaries {
             .collect::<BTreeMap<_, _>>();
         let mut summaries = Self {
             mutable_return_flags,
+            native_pointer_writes,
             fixed_storage: Arc::new(MirFixedStorage::new(program)),
             entry_flags: BTreeMap::new(),
             scalar_entries_ignoring_flags: program
@@ -845,6 +849,12 @@ fn summarize_routine_writes(
                 } else {
                     writes.merge(&invocation.normal_writes(program, op, Some((buffer_values.as_ref().unwrap_or(values), MirSite::Op { block: block.id, op_index }))));
                 }
+            } else if callees.native_pointer_writes && super::effects::writes_ordinary_pointee(op) {
+                let site = MirSite::Op { block: block.id, op_index };
+                let Some(store) = native_writes::store(program, routine, callees, values, site, op) else {
+                    return MirKnownMemoryWrites::Unknown;
+                };
+                writes.merge(&store);
             } else {
                 summarize_op_writes(op, routine, callees, &mut writes);
             }
@@ -912,6 +922,14 @@ fn summarize_op_writes(
         writes.make_unknown();
         return;
     }
+    record_physical_writes(routine, effects, writes);
+}
+
+fn record_physical_writes(
+    routine: &MirRoutine,
+    effects: super::effects::MirOpEffectSummary,
+    writes: &mut MirKnownMemoryWrites,
+) {
     for range in effects.memory.direct_writes {
         for offset in 0..range.bytes {
             if let Some(byte) = resolve_routine_private_zero_page(
@@ -1017,7 +1035,7 @@ fn reviewed_exit(program: &MirProgram, routine: &MirRoutine) -> MirKnownCalleeEx
             else { reviewed_bytes(f.reads.as_deref()).map(MirKnownMemoryReads::Exact).unwrap_or_default() },
         writes: if f.buffers.iter().any(|b| b.write) { MirKnownMemoryWrites::Unknown }
             else { reviewed_bytes(f.writes.as_deref()).and_then(|fixed| match f.indirect_writes {
-                Some(r) => Some(MirKnownMemoryWrites::Pointee { fixed, numeric: vec![(r.start, r.end.checked_sub(r.start)?.checked_add(1)?)], caller_dependent: false }),
+                Some(r) => Some(MirKnownMemoryWrites::Pointee { fixed, numeric: vec![(r.start, r.end.checked_sub(r.start)?.checked_add(1)?)], ordinary: false, caller_dependent: false }),
                 None => Some(MirKnownMemoryWrites::Exact(fixed)),
             }).unwrap_or_default() },
         reviewed: Some(f.clone()),
