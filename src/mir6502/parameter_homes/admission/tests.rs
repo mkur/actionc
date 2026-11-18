@@ -12,7 +12,7 @@ fn admission_reports_structural_and_operation_reasons_without_changing_proposals
     let source = "PROC Touch() RETURN
 PROC Empty() Touch() RETURN
 CARD FUNC Wide(CARD a,b,c) Touch() RETURN(a)
-CARD FUNC Shift(CARD a) Touch() RETURN(a RSH 5)
+CARD FUNC Shift(CARD a) Touch() RETURN(a RSH a)
 CARD FUNC Indexed(CARD POINTER p CARD n) Touch() RETURN(p(n)+n)
 CARD FUNC Hold(CARD keep) Touch() RETURN(keep+1)
 PROC Main() RETURN";

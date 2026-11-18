@@ -16,11 +16,27 @@ pub(super) fn propose(
     propose_with_scope(input, selected, multiple, lifetimes, false, trace)
 }
 
+#[cfg(test)]
 pub(super) fn propose_with_scope(
     input: &MirProgram, selected: &MirProgram, multiple: bool, lifetimes: bool,
     acyclic: bool, trace: &super::super::trace::Trace,
 ) -> Option<MirProgram> {
-    let acyclic = acyclic && lifetimes;
+    let config = crate::mir6502::Mir6502Config {
+        enable_multiple_leaf_call_homes: multiple,
+        enable_zp_home_lifetimes: lifetimes,
+        enable_acyclic_call_homes: acyclic,
+        ..crate::mir6502::Mir6502Config::optimized()
+    };
+    propose_configured(input, selected, &config, 0x3000, trace)
+}
+
+pub(super) fn propose_configured(
+    input: &MirProgram, selected: &MirProgram, config: &crate::mir6502::Mir6502Config,
+    origin: u16, trace: &super::super::trace::Trace,
+) -> Option<MirProgram> {
+    let multiple = config.enable_multiple_leaf_call_homes;
+    let lifetimes = config.enable_zp_home_lifetimes;
+    let acyclic = config.acyclic_call_homes_enabled();
     let addresses = ObjectAddressControl::new(input);
     let unresolved_observation = physical::unresolved_observation(input);
     // Layout-independent numeric observations are already authoritative. Avoid
@@ -31,11 +47,30 @@ pub(super) fn propose_with_scope(
         (0..=255u16).filter(|byte| observations.iter().any(|(start, bytes)|
             byte.wrapping_sub(*start) < *bytes)).map(|b| b as u8).collect()
     } else { BTreeSet::new() };
+    // Bindings and source exposure belong to the retained input. Only call
+    // enumeration and site-based analyses use the expanded planning routine.
+    let mut views = BTreeMap::new();
+    if lifetimes && config.select_runtime_helpers {
+        let layout = std::cell::LazyCell::new(|| super::super::materialize::MaterializeLayout::new(input, origin));
+        for actual in &selected.routines {
+            let mut shifts = actual.blocks.iter().flat_map(|b| &b.ops).filter(|op| matches!(op,
+                MirOp::RuntimeHelper { helper: MirRuntimeHelper::Lsh | MirRuntimeHelper::Rsh, .. })).peekable();
+            if shifts.peek().is_none() || !shifts.all(|op| super::super::runtime_contracts::helper_invocation(selected, op).is_some()) {
+                continue;
+            }
+            let Some(retained) = input.routines.iter().find(|r| r.id == actual.id) else { continue };
+            if let Some(plan) = super::super::materialize::shift_helpers::planned_word_shifts(retained, config, &layout)
+                && plan.agrees_with(actual) {
+                views.insert(retained.id, plan);
+            }
+        }
+    }
     let candidates: Vec<_> = input
         .routines
         .iter()
         .enumerate()
-        .filter_map(|(index, routine)| {
+        .filter_map(|(index, retained)| {
+            let routine = views.get(&retained.id).map_or(retained, |plan| &plan.routine);
             if let Err(rejection) = admission::check(&addresses, routine, true, lifetimes, lifetimes.then_some(selected)) {
                 if trace.enabled() && routine.blocks.iter().flat_map(|b| &b.ops)
                     .any(|op| matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. }))
@@ -57,7 +92,7 @@ pub(super) fn propose_with_scope(
                 }
                 return None;
             }
-            if unresolved_observation.is_some() && physical::has_pointee_writes(input, routine) {
+            if unresolved_observation.is_some() && physical::has_pointee_writes(input, retained) {
                 trace.event("cross-call-ineligible", || serde_json::json!({
                     "routine": routine.name, "reason": "unresolved explicit observation",
                     "observation": unresolved_observation,
@@ -149,11 +184,15 @@ pub(super) fn propose_with_scope(
             };
             call_writes.push((*site, writes, results));
         }
+        let retained = &input.routines[index];
         let forbidden = |mem: &MirMem, width: u16| {
             if !addresses.compiler_controls_address(routine.id, mem) { return None; }
-            let mut forbidden = if physical::has_pointee_writes(input, routine) {
+            let mut forbidden = if physical::has_pointee_writes(input, retained) {
                 observed_zp.clone()
             } else { BTreeSet::new() };
+            if let Some(plan) = views.get(&id) {
+                forbidden.extend(&plan.setup_writes);
+            }
             for (site, writes, results) in &call_writes {
                 let crosses = (0..width).any(|offset| {
                     let lane = match *mem {
@@ -183,7 +222,7 @@ pub(super) fn propose_with_scope(
             }
             Some(forbidden)
         };
-        let mut candidate = routine.clone();
+        let mut candidate = retained.clone();
         // Do not recreate parameter memory already eliminated by the selected
         // path. Such a routine may still have an eligible source local.
         let ordinary_params = selected.routines.iter().find(|r| r.id == routine.id).is_some_and(|r|

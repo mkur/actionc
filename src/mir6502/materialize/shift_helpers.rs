@@ -5,11 +5,41 @@ use super::*;
 use crate::mir6502::analysis::use_def::MirTempUseDefIndex;
 use crate::mir6502::ir::MirRoutine;
 
+pub(in crate::mir6502) struct PlannedShifts {
+    pub routine: MirRoutine,
+    pub setup_writes: std::collections::BTreeSet<u8>,
+}
+
+impl PlannedShifts {
+    /// A declaration may have been selected for a different caller. Check the
+    /// actual routine as well; rewrites can remove or introduce helper sites.
+    pub fn agrees_with(&self, selected: &MirRoutine) -> bool {
+        fn shift_calls(r: &MirRoutine) -> [usize; 2] {
+            let mut counts = [0; 2];
+            for op in r.blocks.iter().flat_map(|b| &b.ops) {
+                match op {
+                    MirOp::RuntimeHelper {
+                        helper: MirRuntimeHelper::Lsh,
+                        ..
+                    } => counts[0] += 1,
+                    MirOp::RuntimeHelper {
+                        helper: MirRuntimeHelper::Rsh,
+                        ..
+                    } => counts[1] += 1,
+                    _ => {}
+                }
+            }
+            counts
+        }
+        shift_calls(&self.routine) == shift_calls(selected)
+    }
+}
+
 pub(in crate::mir6502) fn planned_word_shifts(
     routine: &MirRoutine,
     config: &Mir6502Config,
     layout: &MaterializeLayout,
-) -> Option<MirRoutine> {
+) -> Option<PlannedShifts> {
     if !config.select_runtime_helpers {
         return None;
     }
@@ -108,7 +138,30 @@ pub(in crate::mir6502) fn planned_word_shifts(
                     .expect("constant word shift has a helper");
                 1
             };
-            result.get_or_insert_with(|| routine.clone()).blocks[block_index]
+            let plan = result.get_or_insert_with(|| PlannedShifts {
+                routine: routine.clone(),
+                setup_writes: Default::default(),
+            });
+            // Loads of the source can fold into A/X setup after the count store.
+            // Reserve its destination even when the source dies at the call.
+            for op in ops
+                .iter()
+                .take_while(|op| !matches!(op, MirOp::RuntimeHelper { .. }))
+            {
+                for write in crate::mir6502::analysis::effects::classify_op(op)
+                    .memory
+                    .direct_writes
+                {
+                    let MirMem::FixedZeroPage(slot) = write.base else {
+                        return None;
+                    };
+                    for offset in 0..write.bytes {
+                        plan.setup_writes
+                            .insert(slot.0.checked_add(u8::try_from(offset).ok()?)?);
+                    }
+                }
+            }
+            plan.routine.blocks[block_index]
                 .ops
                 .splice(index..index + consumed, ops);
         }
@@ -150,7 +203,9 @@ mod tests {
                     assert!(planned.is_none());
                     continue;
                 }
-                let view = planned.unwrap();
+                let plan = planned.unwrap();
+                assert_eq!(plan.setup_writes, [0x84].into());
+                let view = plan.routine;
                 let selected = crate::mir6502::materialize_program(p.clone(), &config).unwrap();
                 let calls = |r: &MirRoutine| {
                     r.blocks.iter().flat_map(|b| &b.ops)
