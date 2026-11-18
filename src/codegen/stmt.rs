@@ -167,16 +167,12 @@ impl Generator {
             Stmt::Call { expr, span } => self.generate_call_stmt(expr, *span),
             Stmt::MachineBlock { items, span, .. } => {
                 self.record_machine_block_analysis(items, *span, start);
-                if !self.current_routine_has_effect_contract {
-                    self.record_current_unknown_effects();
-                }
+                self.record_current_unknown_effects();
                 self.emit_machine_block(items, *span);
             }
             Stmt::InlineAsm { program, span } => {
                 self.record_machine_block_analysis(&program.items, *span, start);
-                if !self.current_routine_has_effect_contract {
-                    self.record_current_unknown_effects();
-                }
+                self.record_current_unknown_effects();
                 if let Err(message) = self.validate_inline_asm_constraints(program) {
                     self.diagnostics.push(Diagnostic::new(*span, message));
                 } else {

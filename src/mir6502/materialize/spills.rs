@@ -1523,7 +1523,17 @@ fn live_range_preserves_fixed_pair(
             match op {
                 MirOp::Call { target, .. } => {
                     if let Some(summary) = known_callees.for_target(target) {
-                        if !summary.preserves_fixed_pair(fixed_lo, known_callees.fixed_storage()) {
+                        // Moving the live spill changes which bytes an observer sees, even
+                        // when the callee restores the original pair on return.
+                        if let Some(facts) = summary.reviewed_facts() {
+                            let Some(reads) = &facts.reads else { return false };
+                            if !facts.buffers.is_empty() || reads.iter().any(|r|
+                                r.global.is_none() && (r.end >= 256 ||
+                                    (r.start <= u16::from(fixed_lo.0) + 1 && u16::from(fixed_lo.0) <= r.end))) {
+                                return false;
+                            }
+                        }
+                        if !summary.writes().preserves_fixed_pair(fixed_lo, known_callees.fixed_storage()) {
                             return false;
                         }
                     } else if matches!(target, MirCallTarget::AtariFpp(_)) {

@@ -1343,8 +1343,24 @@ pub use opts::{CodegenOptimization, CodegenOptimizationKind};
 
 mod expr;
 
+#[cfg(test)]
+pub(crate) fn projected_review_for_test(
+    program: &crate::semantic::ir::SemProgram, name: &str,
+) -> Option<crate::callee6502::CallFacts<crate::semantic::SymbolId>> {
+    semir::semir_to_projection(program).unwrap().callee_reviews.contracts.remove(&normalize_name(name))
+}
+
 fn source_assembly_routine(routine: &Routine) -> bool {
-    routine.body.iter().any(|s| matches!(s, Stmt::InlineAsm { .. }))
+    fn contains_asm(body: &[Stmt]) -> bool {
+        body.iter().any(|stmt| match stmt {
+            Stmt::InlineAsm { .. } => true,
+            Stmt::If { branches, else_body, .. } => branches.iter().any(|b| contains_asm(&b.body)) || contains_asm(else_body),
+            Stmt::Case { arms, .. } => arms.iter().any(|a| contains_asm(&a.body)),
+            Stmt::LexicalBlock { body, .. } | Stmt::While { body, .. } | Stmt::DoUntil { body, .. } | Stmt::For { body, .. } => contains_asm(body),
+            _ => false,
+        })
+    }
+    contains_asm(&routine.body)
         || routine.annotations.iter().any(|a| matches!(a, ActioncAnnotation::Reviewed6502 { .. }))
 }
 

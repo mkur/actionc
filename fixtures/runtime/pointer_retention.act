@@ -4,6 +4,12 @@ CARD finalPointer
 BYTE observed
 BYTE position
 
+;@actionc reviewed-6502 06c1d7653a4a6d59
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+;@actionc returns A=$A0
+;@actionc reads-only none
+;@actionc writes-only $A0
 BYTE FUNC Transform=*(BYTE value)
 ASM
   eor #$5A

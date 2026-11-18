@@ -17,7 +17,8 @@ pub(in crate::mir6502) fn reviewed_contract<'a>(
 ) -> Option<&'a crate::callee6502::CallFacts<crate::nir::SymbolId>> {
     let review = routine.frame.callee_review.as_ref()?;
     let params = routine.frame.direct_parameter_abi.as_ref()?;
-    if !review.valid_buffer_signature(&params.iter().map(|p| p.width().bytes()).collect::<Vec<_>>()) {
+    if !review.valid_buffer_signature(&params.iter().map(|p| p.width().bytes()).collect::<Vec<_>>())
+    {
         return None;
     }
     let [block] = routine.blocks.as_slice() else {
@@ -47,7 +48,9 @@ pub(in crate::mir6502) fn body_fingerprint(
     let [MirOp::MachineBlock { id, effects }] = block.ops.as_slice() else {
         return None;
     };
-    if block.terminator != MirTerminator::Unreachable
+    if !routine.frame.locals.is_empty()
+        || !routine.frame.contains_source_asm
+        || block.terminator != MirTerminator::Unreachable
         || effects.opaque
         || effects.may_call_os
         || routine.effects.opaque
@@ -103,6 +106,11 @@ pub(in crate::mir6502) fn body_fingerprint(
                 ..
             } => {
                 let global = program.globals.iter().find(|g| g.id == *id)?;
+                if program.globals.iter().any(|other| {
+                    other.id != global.id && other.name.eq_ignore_ascii_case(&global.name)
+                }) {
+                    return None;
+                }
                 use crate::mir6502::ir::MirGlobalInit;
                 let array = match global.init.as_ref()? {
                     MirGlobalInit::Bytes { array: Some(a), .. }
@@ -140,6 +148,88 @@ mod tests {
             &crate::semantic::ir::lower_program(&ast, &model),
         ))
     }
+    #[test]
+    fn native_direct_call_producers_publish_their_own_generated_facts() {
+        let source = "BYTE g=$0600 BYTE FUNC Read() RETURN(g) PROC Main() g=Read()+1 RETURN";
+        let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
+        let model = crate::semantic::analyze(&ast).unwrap();
+        let sem = crate::semantic::ir::lower_program(&ast, &model);
+        assert!(crate::codegen::projected_review_for_test(&sem, "Read").is_none());
+        let classic = crate::codegen::generate_semir_profile_with_origin(
+            &sem,
+            0x3000,
+            crate::codegen::CodegenProfile::Modern,
+        )
+        .unwrap();
+        assert!(
+            classic.map.optimizations.iter().any(|o| o.kind
+                == crate::codegen::CodegenOptimizationKind::CallResultMaterializationRemoved)
+        );
+        let nir = crate::nir::lower_program(&sem);
+        let mir = crate::mir6502::materialize_program(
+            crate::mir6502::lower_program(&nir).unwrap(),
+            &Default::default(),
+        )
+        .unwrap();
+        let summary = MirKnownCalleeSummaries::analyze(&mir);
+        let leaf = summary.get(mir.routines[0].id).unwrap();
+        assert!(leaf.reviewed_facts().is_none());
+        let facts = leaf.call_facts();
+        assert!(facts.reads.unwrap().iter().any(
+            |r| r.global == Some(mir.globals[0].id) || (r.global.is_none() && r.start == 0x600)
+        ));
+        assert!(
+            facts
+                .writes
+                .unwrap()
+                .iter()
+                .any(|r| r.global.is_none() && r.start == 0xa0)
+        );
+    }
+
+    #[test]
+    fn classic_and_mir_publish_the_same_reviewed_fields() {
+        let source = "BYTE ARRAY tab(4)=[1 2 3 4]\nBYTE ARRAY s\n;@actionc reviewed-6502 314ad810833478c4\n;@actionc abi-inputs-only\n;@actionc reads-only tab[0..3]\n;@actionc writes-only $A0\n;@actionc preserves $AC/$AD $AE/$AF\n;@actionc returns A=$A0\nBYTE FUNC Leaf=*(BYTE ch)\nASM\n and #3\n tax\n lda tab,x\n sta $A0\n rts\nENDASM\nPROC Paint()\n s(1)=Leaf(s(1))\nRETURN\nPROC Main() Paint() RETURN\n";
+        for (src, valid) in [
+            (source.to_owned(), true),
+            (source.replace("and #3", "and #1"), false),
+            (source.replace("tab(4)", "tab(5)"), false),
+            (source.replace("BYTE ch", "CARD ch"), false),
+            (source.replace("Leaf=*", "Leaf"), false),
+        ] {
+            let ast = crate::parser::parse(&crate::lexer::tokenize(&src).unwrap()).unwrap();
+            let model = crate::semantic::analyze_with_options(
+                &ast,
+                crate::semantic::SemanticOptions::modern(),
+            )
+            .unwrap();
+            let sem = crate::semantic::ir::lower_program(&ast, &model);
+            let classic = crate::codegen::projected_review_for_test(&sem, "Leaf");
+            let nir = crate::nir::lower_program(&sem);
+            let p = crate::mir6502::lower_program(&nir).unwrap();
+            let f = reviewed_contract(&p, &p.routines[0]);
+            assert_eq!(classic.is_some(), valid);
+            assert_eq!(f.is_some(), valid);
+            if let Some(classic) = classic {
+                // Normalize the sole referenced table across the two ID spaces.
+                let view = crate::callee6502::Review {
+                    fingerprint: 0,
+                    facts: classic.clone(),
+                };
+                let table = classic.reads.as_ref().unwrap()[0].global.unwrap();
+                let common = view
+                    .map_ids(|id| (*id == table).then_some(p.globals[0].id))
+                    .unwrap();
+                assert_eq!(Some(&common.facts), f);
+                let known = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+                assert_eq!(
+                    known.get(p.routines[0].id).unwrap().call_facts(),
+                    common.facts
+                );
+            }
+        }
+    }
+
     #[test]
     fn reviewed_contract_tracks_objects_and_independent_directions() {
         let nir = lower(SOURCE).unwrap();

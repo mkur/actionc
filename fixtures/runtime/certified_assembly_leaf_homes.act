@@ -3,10 +3,14 @@ BYTE seen=$0680, seenTag=$0681
 CARD input=$0690, output=$0693
 BYTE inputTag=$0692
 
-;@actionc clobbers $AC/$AD
+;@actionc reviewed-6502 1708f582d66de737
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+;@actionc reads-only none
+;@actionc writes-only $0680 $AC/$AD
 PROC Touch=*(BYTE value)
 ASM
-  sta seen
+  sta $0680
   sta $AC
   ldx #$5A
   stx $AD

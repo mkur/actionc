@@ -15699,7 +15699,7 @@ fn modern_profile_forwards_final_word_arg_directly_into_x_y() {
 #[test]
 fn compatible_machine_block_effects_avoid_preserving_untouched_zero_page_pointer() {
     let source = "SET $491=$E6 SET $492=$00 SET $E=$E6 SET $F=$00 BYTE POINTER screen \
-            SET $491=$3000 SET $E=$3000 \n;@actionc preserves $AE/$AF\n;@actionc clobbers $A0\n;@actionc returns A=$A0\nBYTE FUNC Internal=*(BYTE ch) [$85 $A0 $60] \
+            SET $491=$3000 SET $E=$3000 \n;@actionc preserves $AE/$AF $E6/$E7\n;@actionc clobbers $A0\n;@actionc returns A=$A0\nBYTE FUNC Internal=*(BYTE ch) [$85 $A0 $60] \
             PROC Main() screen^=Internal(1) RETURN";
     let output = generate_compatible_source_with_origin(source, 0x3000).unwrap();
 

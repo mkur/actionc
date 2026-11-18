@@ -116,8 +116,16 @@ fn fixture(text: &str) -> MirProgram {
     .unwrap()
 }
 fn probe(body: &str) -> MirProgram {
+    let review = match body {
+        "rts" => ";@actionc reviewed-6502 2840c18b58c6ee9d\n;@actionc abi-inputs-only\n;@actionc reads-only none\n;@actionc writes-only none\n",
+        "lda.z $E0\nrts" => ";@actionc reviewed-6502 8991f62d76b57f7e\n;@actionc abi-inputs-only\n;@actionc reads-only $E0\n;@actionc writes-only none\n",
+        "lda #3\nsta.z $A0\nrts" => ";@actionc reviewed-6502 f23da6b06b6471c8\n;@actionc abi-inputs-only\n;@actionc reads-only none\n;@actionc writes-only $A0\n",
+        "lda #3\nsta.z $AC\nrts" => ";@actionc reviewed-6502 cf97fab057c4e3dc\n;@actionc abi-inputs-only\n;@actionc reads-only none\n;@actionc writes-only $AC\n",
+        "lda #3\nsta.z $AD\nrts" => ";@actionc reviewed-6502 d84135b05cac75c7\n;@actionc abi-inputs-only\n;@actionc reads-only none\n;@actionc writes-only $AD\n",
+        _ => "",
+    };
     fixture(&format!(
-        "BYTE observed\nPROC Touch=*()\nASM\n{body}\nENDASM\nPROC Probe(BYTE POINTER p)\nobserved=p(1)\nTouch()\nobserved=p(2)\nRETURN\nPROC Main()\nProbe(BYTE POINTER($6000))\nRETURN\n"
+        "BYTE observed\n{review}PROC Touch=*()\nASM\n{body}\nENDASM\nPROC Probe(BYTE POINTER p)\nobserved=p(1)\nTouch()\nobserved=p(2)\nRETURN\nPROC Main()\nProbe(BYTE POINTER($6000))\nRETURN\n"
     ))
 }
 fn changed(p: &MirProgram) -> bool {
@@ -148,7 +156,7 @@ fn pointer_retention_calls_keep_hardware_mapping_and_unowned_access_barriers() {
     }
     assert!(changed(&probe("lda.z $E0\nrts")));
     let p = fixture(
-        "BYTE ARRAY table(4)\nBYTE observed\nPROC Touch=*()\nASM\nldx #1\nlda.a table,x\nsta.z $A0\nrts\nENDASM\nPROC Probe(BYTE POINTER p)\nobserved=p(1)\nTouch()\nobserved=p(2)\nRETURN\nPROC Main()\nProbe(BYTE POINTER($6000))\nRETURN\n",
+        "BYTE ARRAY table(4)\nBYTE observed\n;@actionc reviewed-6502 b9ee897d619450d2\n;@actionc abi-inputs-only\n;@actionc reads-only table[0..3]\n;@actionc writes-only $A0\nPROC Touch=*()\nASM\nldx #1\nlda.a table,x\nsta.z $A0\nrts\nENDASM\nPROC Probe(BYTE POINTER p)\nobserved=p(1)\nTouch()\nobserved=p(2)\nRETURN\nPROC Main()\nProbe(BYTE POINTER($6000))\nRETURN\n",
     );
     assert!(
         changed(&p),
@@ -232,7 +240,7 @@ fn pointer_retention_calls_replay_cost_and_keep_frames() {
 
 fn loop_fixture() -> MirProgram {
     fixture(
-        "BYTE ARRAY data(512)\nBYTE observed\nPROC Touch=*()\nASM\nldx #$55\nrts\nENDASM\nPROC Probe(BYTE POINTER p)\nBYTE i\nobserved=p(0)\ni=0\nWHILE i<3 DO\nTouch()\nobserved=p(i)\ni==+1\nOD\nRETURN\nPROC Main()\nProbe(data)\nRETURN\n",
+        "BYTE ARRAY data(512)\nBYTE observed\n;@actionc reviewed-6502 ba2968aab09c5a80\n;@actionc abi-inputs-only\n;@actionc reads-only none\n;@actionc writes-only none\nPROC Touch=*()\nASM\nldx #$55\nrts\nENDASM\nPROC Probe(BYTE POINTER p)\nBYTE i\nobserved=p(0)\ni=0\nWHILE i<3 DO\nTouch()\nobserved=p(i)\ni==+1\nOD\nRETURN\nPROC Main()\nProbe(data)\nRETURN\n",
     )
 }
 fn cfg_proofs(p: &MirProgram) -> usize {

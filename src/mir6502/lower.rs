@@ -758,7 +758,10 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                 frame: MirFrame {
                     contains_source_asm: routine.blocks.iter().flat_map(|b| &b.ops).any(|op|
                         matches!(op, NirOpKind::ForeignCode { code, .. } if code.kind == nir::NirForeignCodeKind::InlineAssembly)),
-                    callee_review: routine.entry.callee_review.clone(),
+                    callee_review: match routine.entry.placement {
+                        nir::NirRoutinePlacement::CurrentLocation => routine.entry.callee_review.clone(),
+                        _ => None,
+                    },
                     abi_inputs_only_review: routine.entry.abi_inputs_only_review,
                     direct_parameter_abi: direct_parameter_abi(&routine.signature),
                     parameter_homes: None,

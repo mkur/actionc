@@ -117,10 +117,9 @@ fn shared_machine_entry_facts_distinguish_overwrites_flags_and_extra_reads() {
         &program,
         routine(&program, "ObserveExtra").id,
         MirCalleeEntryStage::PlannedCapture,
-    )
-    .unwrap();
-    assert_eq!(extra.inputs.fixed, BTreeSet::from([0xa3, 0xa4, 0xac]));
-    for (prefix, incoming_carry) in [("", true), ("clc\n", false)] {
+    );
+    assert!(extra.is_none());
+    for prefix in ["", "clc\n"] {
         let p = source(&format!(
             "PROC Sink=*()\nASM\n{prefix}lda #0\nbcs done\ndone:\nrts\nENDASM\nPROC Main() Sink() RETURN"
         ));
@@ -128,10 +127,8 @@ fn shared_machine_entry_facts_distinguish_overwrites_flags_and_extra_reads() {
             &p,
             routine(&p, "Sink").id,
             MirCalleeEntryStage::PlannedCapture,
-        )
-        .unwrap();
-        assert_eq!(fact.inputs.flags.c, incoming_carry);
-        assert!(!fact.inputs.flags.n && !fact.inputs.flags.z);
+        );
+        assert!(fact.is_none(), "unreviewed assembly {prefix:?}");
     }
     // The callee's indirect writes are intentionally unbounded. Entry inputs
     // qualify without claiming an exact destination footprint.

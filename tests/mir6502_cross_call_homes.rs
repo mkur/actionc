@@ -479,7 +479,7 @@ fn unsupported_calls_exposed_objects_and_exhaustion_retain_the_fallback() {
         assert_eq!(old, new, "{source}");
         assert_eq!(
             trace.manifest()["work"]["materializations"],
-            old_trace.manifest()["work"]["materializations"]
+            old_trace.manifest()["work"]["materializations"], "{source}"
         );
     }
 }
@@ -909,5 +909,56 @@ fn multiple_leaf_calls_respect_all_parent_gates() {
             &config, Runtime::ActionCart).unwrap();
         assert_eq!(enabled, disabled);
         assert_eq!(trace.manifest()["work"]["cross_call_home_trials"].as_u64().unwrap_or(0), 0);
+    }
+}
+
+
+#[test]
+fn reviewed_leaf_keeps_the_pointer_and_only_removes_unobservable_spill_stores() {
+    let source = r#"BYTE ARRAY tab(4)=[1 2 3 4]
+BYTE ARRAY s
+;@actionc reviewed-6502 314ad810833478c4
+;@actionc abi-inputs-only
+;@actionc reads-only tab[0..3]
+;@actionc writes-only $A0
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc returns A=$A0
+BYTE FUNC Leaf=*(BYTE ch)
+ASM
+ and #3
+ tax
+ lda tab,x
+ sta $A0
+ rts
+ENDASM
+PROC Paint()
+ s(1)=Leaf(s(1))
+RETURN
+PROC Main() Paint() RETURN
+"#;
+    let read_clause = ";@actionc reads-only tab[0..3]";
+    let compile = |src: &str| {
+        mir6502::generate_output_with_config(&nir(src), 0x3000, &Mir6502Config::optimized()).unwrap()
+    };
+    let code = |out: &actionc::codegen::CodegenOutput| {
+        let paint = out.map.routine_ranges.iter().find(|r| r.name == "Paint").unwrap();
+        out.bytes[usize::from(paint.start - out.origin)..usize::from(paint.end - out.origin)].to_vec()
+    };
+    let full = compile(source);
+    let spill = full.map.storage_symbols.iter().find(|s| s.name == "spill0").unwrap().address;
+    let [lo, hi] = spill.to_le_bytes();
+    let stores_spill = |bytes: &[u8]| bytes.windows(3).any(|w| w == [0x8d, lo, hi]);
+    let bytes = code(&full);
+    assert!(!stores_spill(&bytes));
+    let call = bytes.iter().position(|b| *b == 0x20).unwrap();
+    assert_eq!(&bytes[call + 3..], &[0xa0, 1, 0x91, 0xac, 0x60]);
+    for src in [
+        source.replace(read_clause, ""),
+        source.replace(read_clause, &format!("{read_clause} ${spill:04X}")),
+        source.replace("and #3", "and #2"),
+    ] {
+        let out = compile(&src);
+        assert_eq!(out.map.storage_symbols.iter().find(|s| s.name == "spill0").unwrap().address, spill);
+        assert!(stores_spill(&code(&out)), "{src}");
     }
 }

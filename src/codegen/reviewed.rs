@@ -13,12 +13,18 @@ pub(super) struct ClassicCalleeReviews {
 }
 
 impl ClassicCalleeReviews {
-    pub(super) fn collect(program: &SemProgram) -> Self {
+    pub(super) fn collect(
+        program: &SemProgram,
+        names: &std::collections::BTreeMap<crate::semantic::SymbolId, String>,
+    ) -> Self {
         let mut facts = Self::default();
         for item in program.modules.iter().flat_map(|module| &module.items) {
             let SemItem::Routine(routine) = item else {
                 continue;
             };
+            let name = names
+                .get(&routine.symbol.id)
+                .unwrap_or(&routine.symbol.name);
             if let Some(review) = &routine.callee_review {
                 if classic_fingerprint(program, routine, review.version()) == Some(review.fingerprint)
                     && review.dependencies_match(|id| {
@@ -26,7 +32,7 @@ impl ClassicCalleeReviews {
                         if !asm.relocations.iter().any(|rel| matches!(&rel.target, SemInlineAsmTarget::Symbol(s) if s.id == *id)) { return None; }
                         u16::try_from(program.layout.array_for_symbol(*id)?.storage_size?).ok()
                     }) {
-                    facts.contracts.insert(normalize_name(&routine.symbol.name), review.facts.clone());
+                    facts.contracts.insert(normalize_name(name), review.facts.clone());
                 }
                 continue;
             }
@@ -42,9 +48,7 @@ impl ClassicCalleeReviews {
                 continue;
             };
             if classic_fingerprint(program, routine, ENTRY_VERSION) == Some(expected) {
-                facts
-                    .entries
-                    .insert(normalize_name(&routine.symbol.name), expected);
+                facts.entries.insert(normalize_name(name), expected);
             }
         }
         facts
@@ -86,10 +90,12 @@ fn classic_fingerprint(program: &SemProgram, routine: &SemRoutine, version: &[u8
     let [SemStmt::InlineAsm { program: asm, .. }] = routine.body.as_slice() else {
         return None;
     };
-    if !matches!(
-        routine.system_address.as_ref()?.kind,
-        SemExprKind::CurrentLocation
-    ) || !routine.locals.is_empty()
+    if routine.callable_type.variadic.is_some()
+        || !matches!(
+            routine.system_address.as_ref()?.kind,
+            SemExprKind::CurrentLocation
+        )
+        || !routine.locals.is_empty()
         || asm.mode != ForeignCodeMode::Analyzed
     {
         return None;
@@ -175,6 +181,12 @@ fn classic_fingerprint(program: &SemProgram, routine: &SemRoutine, version: &[u8
                 {
                     return None;
                 }
+                if program.modules.iter().flat_map(|m| &m.items).any(|i| {
+                    matches!(i, SemItem::Declaration(d) if d.symbol.id != symbol.id &&
+                        d.symbol.name.eq_ignore_ascii_case(&symbol.name))
+                }) {
+                    return None;
+                }
                 let extent =
                     u16::try_from(program.layout.array_for_symbol(symbol.id)?.storage_size?)
                         .ok()?;
@@ -192,7 +204,6 @@ fn classic_fingerprint(program: &SemProgram, routine: &SemRoutine, version: &[u8
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn reviewed_abi_inputs_match_classic_and_mir() {
@@ -211,7 +222,9 @@ mod tests {
             .unwrap();
             let sem = crate::semantic::ir::lower_program(&ast, &model);
             assert_eq!(
-                ClassicCalleeReviews::collect(&sem)
+                super::super::semir::semir_to_projection(&sem)
+                    .unwrap()
+                    .callee_reviews
                     .entries
                     .contains_key("ASCII"),
                 valid

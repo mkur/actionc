@@ -25,12 +25,10 @@ fn lower_with_home(source: &str) -> MirProgram {
     p
 }
 
-fn program(body: &str, dead: bool) -> MirProgram {
-    let source = format!(
-        ";@actionc clobbers $AC/$AD\nPROC Touch=*(BYTE value)\nASM\n{body}\nENDASM\nCARD FUNC Hold(CARD keep) Touch(7) RETURN(keep)\nPROC Main() RETURN"
-    );
+fn program(dead: bool) -> MirProgram {
+    let source = ";@actionc reviewed-6502 97b7e58d569863fa\n;@actionc abi-inputs-only\n;@actionc reads-only none\n;@actionc writes-only $AC/$AD\nPROC Touch=*(BYTE value)\nASM\nsta $AC\nldx #$5A\nstx $AD\nrts\nENDASM\nCARD FUNC Hold(CARD keep) Touch(7) RETURN(keep)\nPROC Main() RETURN";
     let mut p =
-        crate::mir6502::materialize_program(lower_with_home(&source), &Default::default()).unwrap();
+        crate::mir6502::materialize_program(lower_with_home(source), &Default::default()).unwrap();
     if dead {
         // Keep a real resident object, then start a new logical value lifetime
         // after the call. Applying this after materialization avoids optimizing
@@ -98,10 +96,12 @@ fn reviewed_abi_inputs_apply_only_to_the_current_direct_call_and_body() {
         &format!(";@actionc abi-inputs-only {hash:016x}\nPROC Touch"),
     );
     for source in [annotated.clone(), annotated.replace('\n', "\r\n")] {
-        let p = crate::mir6502::materialize_program(lower_with_home(&source), &Default::default())
-            .unwrap();
+        let p = lower_with_home(&source);
+        // The entry review certifies only the supplied lanes. The live home
+        // still needs a separate guarantee about writes.
+        assert!(crate::mir6502::materialize_program(p.clone(), &Default::default()).is_err());
+        assert!(ResidenceCalls::with_acyclic(&p, MirCalleeEntryStage::ActualEntry).inputs(call(&p)).is_ok());
         assert_eq!(p.routines[0].frame.abi_inputs_only_review, Some(hash));
-        assert!(verify(&p).is_empty());
         assert!(
             MirCalleeEntryFact::analyze(&p, callee.id, MirCalleeEntryStage::ActualEntry).is_none()
         );
@@ -154,7 +154,7 @@ fn reviewed_abi_inputs_apply_only_to_the_current_direct_call_and_body() {
 
 #[test]
 fn certified_machine_residence_uses_current_writes_and_retains_scoped_admission() {
-    let p = program("sta $AC\nldx #$5A\nstx $AD\nrts", false);
+    let p = program(false);
     assert!(verify(&p).is_empty());
     assert_eq!(self::caller(&p).frame.resident_bytes().len(), 2);
     let mut facts = ResidenceCalls::with_acyclic(&p, MirCalleeEntryStage::ActualEntry);
@@ -190,14 +190,8 @@ fn certified_machine_residence_uses_current_writes_and_retains_scoped_admission(
             replace_machine(&mut changed, &bytes);
             let mut facts =
                 ResidenceCalls::with_acyclic(&changed, MirCalleeEntryStage::ActualEntry);
-            assert!(facts.inputs(call(&changed)).is_ok());
-            let fixed = facts.fixed_storage();
-            assert!(
-                !facts
-                    .writes(call(&changed))
-                    .unwrap()
-                    .preserves_fixed_byte(MirFixedZpSlot(byte), &fixed)
-            );
+            assert!(facts.inputs(call(&changed)).is_err());
+            assert!(facts.writes(call(&changed)).is_err());
             assert!(!verify(&changed).is_empty(), "{byte:x} {absolute}");
         }
     }
@@ -206,11 +200,8 @@ fn certified_machine_residence_uses_current_writes_and_retains_scoped_admission(
 #[test]
 fn certified_inputs_do_not_turn_unknown_reads_or_writes_into_preservation() {
     for dead in [false, true] {
-        let mut p = program("sta $AC\nldx #7\nstx $AD\nrts", dead);
-        replace_machine(
-            &mut p,
-            &[0x85, 0xac, 0xa2, 7, 0x86, 0xad, 0xa0, 0, 0x91, 0xac, 0x60],
-        );
+        let mut p = program(dead);
+        p.routines[0].frame.callee_review.as_mut().unwrap().facts.writes = None;
         let mut facts = ResidenceCalls::with_acyclic(&p, MirCalleeEntryStage::ActualEntry);
         assert!(facts.inputs(call(&p)).is_ok());
         assert_eq!(
@@ -219,11 +210,8 @@ fn certified_inputs_do_not_turn_unknown_reads_or_writes_into_preservation() {
         );
         assert_eq!(verify(&p).is_empty(), dead);
     }
-    let mut p = program("sta $AC\nldx #7\nstx $AD\nrts", false);
-    replace_machine(
-        &mut p,
-        &[0x85, 0xac, 0xa2, 7, 0x86, 0xad, 0xa0, 0, 0xb1, 0xac, 0x60],
-    );
+    let mut p = program(false);
+    p.routines[0].frame.callee_review.as_mut().unwrap().facts.reads = None;
     let known = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
     let callee = p.routines.iter().find(|r| r.name == "Touch").unwrap();
     assert_eq!(
@@ -239,9 +227,9 @@ fn certified_inputs_do_not_turn_unknown_reads_or_writes_into_preservation() {
 
 #[test]
 fn uncertified_machine_entries_cannot_use_the_native_dead_call_fallback() {
-    let p = program("sta $AC\nrts", true);
+    let p = program(true);
     for abi in [MirRoutineAbi::Action, MirRoutineAbi::ActionObservable] {
-        // The effect summary supports ADC, but entry certification does not.
+        // A changed byte invalidates the entire reviewed contract.
         let mut changed = p.clone();
         let callee = changed
             .routines
@@ -256,27 +244,27 @@ fn uncertified_machine_entries_cannot_use_the_native_dead_call_fallback() {
                 .get(id)
                 .unwrap()
                 .writes(),
-            MirKnownMemoryWrites::Exact(_)
+            MirKnownMemoryWrites::Unknown
         ));
         let mut facts = ResidenceCalls::with_acyclic(&changed, MirCalleeEntryStage::ActualEntry);
         assert_eq!(
             facts.inputs(call(&changed)),
-            Err("unknown residence callee entry")
+            Err("missing reviewed assembly entry guarantee")
         );
         assert!(facts.writes(call(&changed)).is_err());
         assert!(!verify(&changed).is_empty());
     }
-    for (bytes, reason) in [
-        (vec![0xa5, 0xe8, 0x60], "extra-entry-fixed-byte"),
-        (vec![0xb0, 0, 0x60], "extra-entry-flags-or-stack"),
-        (vec![0x8a, 0x60], "extra-entry-register"),
+    for bytes in [
+        vec![0xa5, 0xe8, 0x60],
+        vec![0xb0, 0, 0x60],
+        vec![0x8a, 0x60],
     ] {
         let mut changed = p.clone();
         replace_machine(&mut changed, &bytes);
         assert_eq!(
             ResidenceCalls::with_acyclic(&changed, MirCalleeEntryStage::ActualEntry)
                 .inputs(call(&changed)),
-            Err(reason)
+            Err("missing reviewed assembly entry guarantee")
         );
     }
 }

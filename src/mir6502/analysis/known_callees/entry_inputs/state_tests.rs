@@ -157,9 +157,18 @@ fn invalid_global_state_evidence_declines_the_entry_certificate() {
 }
 
 fn assembly(declaration: &str, body: &str) -> MirProgram {
-    lower(&format!(
+    // Exercise the isolated decoder on typed operands. The production query
+    // must decline the same unreviewed source body.
+    let assembled = lower(&format!(
         "{declaration}\nBYTE FUNC Observe=*()\nASM\n{body}\nsta $A0\nrts\nENDASM\nPROC Main() RETURN"
-    ))
+    ));
+    assert!(MirCalleeEntryFact::analyze(&assembled, assembled.routines[0].id,
+        MirCalleeEntryStage::ActualEntry).is_none());
+    assembled
+}
+
+fn decoded_inputs(program: &MirProgram) -> Option<MirEntryRequirements> {
+    BoundedMachine::decode(&program.routines[0], program)?.entry_inputs(program)
 }
 
 #[test]
@@ -174,21 +183,11 @@ fn assembly_state_reads_preserve_typed_identity_and_raw_requirements() {
         ("CARD state=$E8", "ldy #0\nlda ($E8),y", vec![0xe8, 0xe9]),
     ] {
         let p = assembly(declaration, body);
-        for stage in [
-            MirCalleeEntryStage::ActualEntry,
-            MirCalleeEntryStage::PlannedCapture,
-        ] {
-            let fact = input(&p, stage);
-            assert_eq!(
-                fact.inputs.fixed,
-                expected.iter().copied().collect(),
-                "{body}"
-            );
-            assert!(!fact.inputs.registers.a && !fact.inputs.registers.y);
-            assert!(!fact.inputs.flags.any());
-        }
-        let known = MirKnownCalleeSummaries::analyze(&p);
-        let reads = known.get(p.routines[0].id).unwrap().reads();
+        let inputs = decoded_inputs(&p).unwrap();
+        assert_eq!(inputs.fixed, expected.iter().copied().collect(), "{body}");
+        assert!(!inputs.registers.a && !inputs.registers.y && !inputs.flags.any());
+        let summary = summarize_bounded_machine_block(&p.machine_blocks[0], &p.routines[0], &p).unwrap();
+        let reads = summary.reads();
         if body.contains("(state)") {
             assert_eq!(reads, &MirKnownMemoryReads::Unknown);
         } else if body.contains("lda state") {
@@ -216,8 +215,7 @@ fn assembly_global_stores_require_fixed_backing_and_all_path_definitions() {
     ] {
         let p = assembly(declaration, body);
         assert_eq!(
-            input(&p, MirCalleeEntryStage::ActualEntry)
-                .inputs
+            decoded_inputs(&p).unwrap()
                 .fixed
                 .contains(&0xe8),
             !defined,
@@ -227,7 +225,7 @@ fn assembly_global_stores_require_fixed_backing_and_all_path_definitions() {
 }
 
 #[test]
-fn assembly_state_aliases_and_operand_evidence_are_snapshot_scoped() {
+fn decoded_entry_requirements_follow_current_aliases_and_operand_evidence() {
     let mut p = assembly("CARD backing=$E7 CARD state=backing", "lda state");
     let backing = p.globals.iter().find(|g| g.name == "backing").unwrap().id;
     let state = p.globals.iter_mut().find(|g| g.name == "state").unwrap();
@@ -236,9 +234,7 @@ fn assembly_state_aliases_and_operand_evidence_are_snapshot_scoped() {
         offset: 1,
     };
     let state_id = state.id;
-    let fact = input(&p, MirCalleeEntryStage::ActualEntry);
-    assert!(fact.inputs.fixed.is_empty());
-    assert!(fact.is_current(&p, MirCalleeEntryStage::ActualEntry));
+    assert!(decoded_inputs(&p).unwrap().fixed.is_empty());
     let mut literal = p.clone();
     for item in &mut literal.machine_blocks[0].items {
         if let MirMachineItem::Relocation { target, .. } = item
@@ -251,10 +247,8 @@ fn assembly_state_aliases_and_operand_evidence_are_snapshot_scoped() {
             *target = MirInlineAsmTarget::Absolute(0xe8);
         }
     }
-    assert!(!fact.is_current(&literal, MirCalleeEntryStage::ActualEntry));
     assert_eq!(
-        input(&literal, MirCalleeEntryStage::ActualEntry)
-            .inputs
+        decoded_inputs(&literal).unwrap()
             .fixed,
         BTreeSet::from([0xe8])
     );
@@ -263,7 +257,7 @@ fn assembly_state_aliases_and_operand_evidence_are_snapshot_scoped() {
         target: state_id,
         offset: 0,
     };
-    assert!(!fact.is_current(&p, MirCalleeEntryStage::ActualEntry));
+    assert!(decoded_inputs(&p).is_none());
     assert!(
         MirCalleeEntryFact::analyze(&p, p.routines[0].id, MirCalleeEntryStage::ActualEntry)
             .is_none()

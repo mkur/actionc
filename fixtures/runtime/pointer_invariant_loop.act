@@ -1,6 +1,11 @@
 BYTE ARRAY buffer(512)
 BYTE observed
 
+;@actionc reviewed-6502 ba2968aab09c5a80
+;@actionc abi-inputs-only
+;@actionc preserves A Y
+;@actionc reads-only none
+;@actionc writes-only none
 PROC Touch=*()
 ASM
   ldx #$55

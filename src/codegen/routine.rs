@@ -175,7 +175,7 @@ impl Generator {
             (self.routine_effects_from_annotations(routine_effects, &routine.annotations, &routine.name, routine.span),
                 routine_facts_from_annotations(&routine.annotations))
         };
-        if !debug_compat_profile {
+        if !debug_compat_profile && !source_assembly_routine(routine) {
             if self
                 .current_inferred_routine_facts
                 .is_some_and(|facts| facts.returns_a_equals_a0_candidate && facts.saw_value_return)

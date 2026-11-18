@@ -60,7 +60,7 @@ pub(crate) fn semir_to_projection(
         aggregate_result: None,
     };
     let record_layouts = lowerer.project_record_layouts(program)?;
-    let callee_reviews = super::ClassicCalleeReviews::collect(program);
+    let callee_reviews = super::ClassicCalleeReviews::collect(program, &lowerer.projection_names);
     let program = lowerer.program(program);
     if lowerer.diagnostics.is_empty() {
         Ok(ClassicProjection {
@@ -102,7 +102,7 @@ pub(crate) fn semir_to_cart_projection(
         aggregate_result: None,
     };
     let record_layouts = lowerer.project_record_layouts(program)?;
-    let callee_reviews = super::ClassicCalleeReviews::collect(program);
+    let callee_reviews = super::ClassicCalleeReviews::collect(program, &lowerer.projection_names);
     let program = lowerer.program(program);
     if lowerer.diagnostics.is_empty() {
         Ok(ClassicProjection {
